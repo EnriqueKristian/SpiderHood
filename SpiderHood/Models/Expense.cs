@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using BlazorBootstrap;
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SpiderHood.Models
 {
@@ -30,4 +32,32 @@ namespace SpiderHood.Models
         public Guid? IdMovDetail { get; set; }
     }
 
+    public class BudgetSumCategory
+    {
+        public Guid IdBudgetHeader { get; set; }
+        public Guid IdParent { get; set; }
+        public decimal SumCategory { get; set; }
+    }
+
+    public class Period
+    {
+        public Guid IdPeriod { get; set; }
+        public int IdBuilding { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int PeriodType { get; set; } 
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public DateTime? ClosingDate { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public bool IsCurrentPeriod { get; set; }
+        public string Description { get; set; } = string.Empty;
+
+        // Navigation properties
+        [NotMapped]
+        public Building? Building { get; set; }
+        public ICollection<ServiceReading>? Readings { get; set; }
+        //public ICollection<Fee> Fees { get; set; }
+        //public ICollection<CommonExpense> Expenses { get; set; }
+        public ICollection<BudgetHeader>? Budgets { get; set; }
+    }
 }

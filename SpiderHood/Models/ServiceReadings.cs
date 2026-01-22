@@ -31,7 +31,7 @@ namespace SpiderHood.Models
         public double Consumo { get; set; }
     }
 
-    public class WaterReadingDetail
+    public class ServiceReadingDetail
     {
         public Guid IdWaterReadingDetail { get; set; }
         public Guid IdGroupUnit { get; set; }
@@ -52,14 +52,15 @@ namespace SpiderHood.Models
 
     }
 
-    public class WaterReading {
+    public class ServiceReading
+    {
         public Guid IdWaterReading { get; set; }
         public DateTime? CreatedOn { get; set; }
         public DateTime Period { get; set; } // Ej: "November-25"
         public int Status { get; set; }
         public Guid IdBuilding{ get; set; }
         public string FileName { get; set; } = string.Empty;
-        public List<WaterReadingDetail>? WaterReadingDetail { get; set; }
+        public List<ServiceReadingDetail>? WaterReadingDetail { get; set; }
         [NotMapped]
         public decimal TotalAmount { get; set; }
 
@@ -71,7 +72,7 @@ namespace SpiderHood.Models
     public class ExcelExportService
     {
         public async Task ExportWaterReadingsAsync(
-            List<WaterReadingDetail> lecturas,
+            List<ServiceReadingDetail> lecturas,
             DateTime periodo,
             decimal total)
         {

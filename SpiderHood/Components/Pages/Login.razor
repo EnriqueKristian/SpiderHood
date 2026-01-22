@@ -105,7 +105,7 @@
                                     <span class="input-group-text">
                                         <i class="fas fa-lock"></i>
                                     </span>
-                                    <input type="@(showPassword ? "text" : "password")" 
+                                    <input type="@((showPassword ? "text" : "password"))" 
                                            class="form-control @(validationErrors.ContainsKey("Password") ? "is-invalid" : "")" 
                                            id="password" 
                                            placeholder="Tu contraseña"
@@ -204,14 +204,14 @@
 <!-- Modal de Registro -->
 @if (showRegistrationModal)
 {
-    <RegistrationModal OnClose="CloseRegistrationModal" 
-                       OnRegistrationComplete="HandleRegistrationComplete" />
+    <!--<RegistrationModal OnClose="CloseRegistrationModal" 
+                       OnRegistrationComplete="HandleRegistrationComplete" />-->
 }
 
 <!-- Modal de Recuperación de Contraseña -->
 @if (showForgotPasswordModal)
 {
-    <ForgotPasswordModal OnClose="CloseForgotPasswordModal" />
+    <!--<ForgotPasswordModal OnClose="CloseForgotPasswordModal" />-->
 }
 
 @code {

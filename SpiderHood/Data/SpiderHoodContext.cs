@@ -41,10 +41,11 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.BudgetHeader>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.BudgetDetail>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Presupuesto>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.WaterReading>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.WaterReadingDetail>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.ServiceReading>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.ServiceReadingDetail>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.UnitView>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.OwnerUnitView>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.BudgetSumCategory>().HasNoKey(); // If SP doesn't return a primary key
 
             base.OnModelCreating(modelBuilder);
         }
@@ -81,10 +82,11 @@ namespace SpiderHood.Data
         public DbSet<SpiderHood.Models.PresupuestoDetalle> PresupuestoDetalles { get; set; } = null!;
         public DbSet<SpiderHood.Models.Categoria> Categorias { get; set; } = null!;
         public DbSet<SpiderHood.Models.PresupuestoCategoria> PresupuestoCategorias { get; set; } = null!;
-        public DbSet<SpiderHood.Models.WaterReading> WaterReading { get; set; } = null!;
-        public DbSet<SpiderHood.Models.WaterReadingDetail> WaterReadingDetail { get; set; } = null!;
+        public DbSet<SpiderHood.Models.ServiceReading> ServiceReading { get; set; } = null!;
+        public DbSet<SpiderHood.Models.ServiceReadingDetail> ServiceReadingDetail { get; set; } = null!;
         public DbSet<SpiderHood.Models.UnitView> UnitView { get; set; } = null!;
         public DbSet<SpiderHood.Models.OwnerUnitView> OwnerUnitView { get; set; } = null!;
+        public DbSet<SpiderHood.Models.BudgetSumCategory> BudgetSumCategory { get; set; } = null!;
 
     }
 }

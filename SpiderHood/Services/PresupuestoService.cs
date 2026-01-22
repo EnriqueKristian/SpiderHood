@@ -9,7 +9,11 @@ namespace SpiderHood.Services
     // Services/IPresupuestoService.cs
     public interface IPresupuestoService
     {
+        public List<BudgetHeader> _Budgets { get; set; }
+        public BudgetHeader _SelectedBudget { get; set; }
+
         Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null,  string? mes = null, BudgetStatus? estado = null);
+        Task<List<BudgetSumCategory>> GetPresupuestosSumAsync(Guid IdBuilding);
         Task<BudgetHeader?> GetPresupuestoByIdAsync(Guid id);
         Task<BudgetHeader> CreatePresupuestoAsync(BudgetHeader presupuesto);
         Task UpdatePresupuestoAsync(BudgetHeader presupuesto);
@@ -35,6 +39,10 @@ namespace SpiderHood.Services
 
     public class BudgetService : IPresupuestoService
     {
+
+        public List<BudgetHeader> _Budgets { get; set; } = new List<BudgetHeader>();
+        public BudgetHeader _SelectedBudget { get; set; } = new BudgetHeader();
+
         public SpiderHoodContext _context = default!;
         private readonly ILogger<BudgetService> _logger;
         private BDLayout ec { get; set; }
@@ -96,6 +104,19 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener presupuestos");
+                throw;
+            }
+        }
+
+        public async Task<List<BudgetSumCategory>> GetPresupuestosSumAsync(Guid IdBuilding)
+        {
+            try
+            {
+                return  ec.GetBudgetSum(IdBuilding);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener la suma de presupuestos");
                 throw;
             }
         }

@@ -944,7 +944,7 @@ td {
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted text-uppercase small">Total Presupuestos:</h6>
-                            <h2 class="mb-0">@budgets.Count</h2>
+                            <h2 class="mb-0">@filteredbudgets.Count</h2>
                         </div>
                         <div style="color: #3b82f6;">
                             <i class="bi bi-calculator-fill" style="font-size: 1.2rem;"></i>
@@ -1048,7 +1048,7 @@ td {
                 <p>Cargando presupuestos...</p>
             </div>
         }
-        else if (!budgets.Any())
+                        else if (!filteredbudgets.Any())
         {
             <div class="empty-state">
                 <i class="fas fa-file-invoice-dollar fa-3x"></i>
@@ -1175,7 +1175,7 @@ td {
                             <!-- Información de página -->
                             <div class="text-muted">
                                 Página @currentPage de @totalPages •
-                                @budgets.Count presupuestos encontrados
+                                @presupuestoService._Budgets.Count presupuestos encontrados
                             </div>
 
                             <!-- Controles de paginación -->
@@ -1244,7 +1244,7 @@ td {
                                        @bind:event="oninput" />
                                 <button class="btn btn-sm btn-outline-primary"
                                         @onclick="JumpToPage"
-                                        disabled="@(jumpToPage < 1 || jumpToPage > totalPages)">
+                                        disabled="@((jumpToPage < 1 || jumpToPage > totalPages))">
                                     Ir
                                 </button>
                             </div>
@@ -1269,7 +1269,7 @@ td {
 }
 
 
-<!--    MODAL PARA ELIMINACION DE PROPIETARIOS   -->
+<!--    MODAL PARA ELIMINACION DE PRESUPUESTOS   -->
 <Modal @ref="modal" Title="Eliminar Presupuesto" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true">
     <BodyTemplate>
         ¿Esta seguro que desea eliminar el Presupuesto?.
@@ -1285,21 +1285,20 @@ td {
 
     // Servicios inyectados
     [Inject] private IPresupuestoService presupuestoService { get; set; } = null!;
-    [Inject] private NavigationManager navigation { get; set; } = null!;
+    //[Inject] private NavigationManager navigation { get; set; } = null!;
 
     // Variables de estado
     private bool isLoading = true;
-    private List<BudgetHeader> budgets = new();
     private List<Category> categoriasActivas = new();
     private BudgetHeader? presupuestoSeleccionado = null;
     private BudgetHeader? presupuestoDetalle = null;
     private List<SelectListItem> _availableMonths = new();
     private int _selectedMonth = DateTime.Now.Month; // Mes actual
     private int _selectedYear = DateTime.Now.Year;   // Año actual
+    private List<BudgetHeader> filteredbudgets = new();
 
     // Filtros
     private string searchTerm = "";
-    private string selectedMonth = "";
     private BudgetStatus selectedEstado = BudgetStatus.All;
 
     // Variables de paginación
@@ -1318,10 +1317,12 @@ td {
 
     // Datos calculados
     private List<BudgetHeader> presupuestosPaginados => 
-        budgets.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
+        filteredbudgets.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
 
-    private decimal TotalGeneral => budgets.Sum(p => p.Amount);
-    private int TotalActivos => budgets.Count(p => p.Status == BudgetStatus.Active);
+    private decimal TotalGeneral => filteredbudgets.Sum(p => p.Amount);
+    private int TotalActivos => filteredbudgets.Count(p => p.Status == BudgetStatus.Active);
+
+    private List<BudgetSumCategory> SumCategory = new();
 
     private async Task LoadMonths()
     {
@@ -1351,14 +1352,21 @@ td {
 
         try
         {
+            presupuestoService._SelectedBudget = new();
+
             // Cargar presupuestos
-            //presupuestos = await presupuestoService.GetPresupuestosAsync();
-            budgets = await presupuestoService.GetPresupuestosAsync(ParameterService.IdBuilding);
+            presupuestoService._Budgets = await presupuestoService.GetPresupuestosAsync(ParameterService.IdBuilding);
 
             // Cargar categorías activas
             categoriasActivas = await presupuestoService.GetCategoriasAsync(ParameterService.IdBuilding, true);
 
             // Calcular totales por categoría para cada presupuesto
+            SumCategory = await presupuestoService.GetPresupuestosSumAsync(ParameterService.IdBuilding);
+
+            //Aplicar Filtros
+            await FiltrarPresupuestos();
+
+            //Calcular Totales
             await CalcularTotales();
         }
         catch (Exception ex)
@@ -1375,67 +1383,39 @@ td {
 
     private async Task CalcularTotales()
     {
-        foreach (var presupuesto in budgets)
+        foreach (var presupuesto in filteredbudgets)
         {
             // Cargar detalles del presupuesto
-            var detalles = await presupuestoService.GetDetallesByPresupuestoAsync(presupuesto.IdBudgetHeader);
+            var detalles = SumCategory.Where(c => c.IdBudgetHeader == presupuesto.IdBudgetHeader);
 
             // Calcular total por categoría
-            //var categoriasPresupuesto = await presupuestoService.GetCategoriasByPresupuestoAsync(presupuesto.IdBudgetHeader);
-
-            presupuesto.Amount = detalles.Sum(d => d.MonthlyAmount);
-            presupuesto.Details = detalles;
-            //presupuesto.Categorias = categoriasPresupuesto;
+            presupuesto.Amount = detalles.Sum(d => d.SumCategory);
         }
     }
 
     private decimal GetMontoCategoria(BudgetHeader presupuesto, Guid categoriaId)
     {
-        // Obtener detalles de esta categoría para el presupuesto
-        var detallesCategoria = presupuesto.Details
-            .Where(d => d.IdParent == categoriaId)
-            .ToList();
-
-        return detallesCategoria.Sum(d => d.MonthlyAmount);
+        var detallesCategoria = SumCategory.Where(c => c.IdBudgetHeader == presupuesto.IdBudgetHeader && c.IdParent == categoriaId);
+        return detallesCategoria.Sum(d => d.SumCategory);
     }
 
     private decimal GetTotalCategoria(Guid categoriaId)
     {
         // Calcular total de todos los presupuestos para esta categoría
         decimal total = 0;
-        foreach (var presupuesto in budgets)
+        foreach (var presupuesto in filteredbudgets)
         {
             total += GetMontoCategoria(presupuesto, categoriaId);
         }
         return total;
     }
 
-    // Métodos de filtrado
-    private async Task FiltrarPresupuestos()
-    {
-        try
-        {
-            budgets = await presupuestoService.GetPresupuestosAsync(ParameterService.IdBuilding,
-                search: string.IsNullOrWhiteSpace(searchTerm) ? null : searchTerm,
-                mes: string.IsNullOrWhiteSpace(selectedMonth) ? null : selectedMonth,
-                estado: selectedEstado == 0 ? null : selectedEstado
-            );
-
-            currentPage = 1; // Volver a primera página
-            await CalcularTotales();
-        }
-        catch (Exception ex)
-        {
-            //await toastService.ShowErrorAsync($"Error al filtrar: {ex.Message}");
-            Console.WriteLine($"Error al guardar cálculo: {ex.Message}");
-        }
-    }
-
     /*  SECCION PAGINACION   */
+    #region Paginacion 
 
     private void UpdatePagination()
     {
-        totalRecords = budgets.Count;
+        totalRecords = filteredbudgets.Count;
         totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
         // Ajustar página actual si es necesario
@@ -1453,7 +1433,7 @@ td {
         endRecord = Math.Min(currentPage * pageSize, totalRecords);
 
         // Obtener datos de la página actual
-        currentPageData = budgets
+        currentPageData = filteredbudgets
             .Skip((currentPage - 1) * pageSize)
             .Take(pageSize)
             .ToList();
@@ -1537,10 +1517,12 @@ td {
         return pages;
     }
 
+    #endregion
+
     // Métodos de acciones
     private void NuevoPresupuesto()
     {
-        navigation.NavigateTo($"/budgetgenerator/new/{BudgetStatus.Created}");
+        Navigation.NavigateTo($"/budgetgenerator");
     }
 
     private async void VerDetalle(BudgetHeader presupuesto)
@@ -1565,7 +1547,8 @@ td {
 
     private void EditarPresupuesto(BudgetHeader presupuesto)
     {
-        navigation.NavigateTo($"budgetgenerator/{presupuesto.IdBudgetHeader}/{presupuesto.Status}");
+        presupuestoService._SelectedBudget = presupuesto;
+        Navigation.NavigateTo($"/budgetgenerator");
     }
 
     private async Task DeleteItem()
@@ -1643,6 +1626,7 @@ td {
     }
 
     // Métodos de modales
+    #region Modales
     private void CerrarModalDetalle()
     {
         mostrarModalDetalle = false;
@@ -1686,7 +1670,30 @@ td {
     {
         await modal.HideAsync();
     }
+    #endregion
 
+    // Métodos de filtrado
+    #region Filtros
+    private async Task FiltrarPresupuestos()
+    {
+        try
+        {
+            filteredbudgets = presupuestoService._Budgets
+             .Where(p => string.IsNullOrEmpty(searchTerm) ||
+                        p.BudgetName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        p.Mes.Contains(searchTerm, StringComparison.CurrentCultureIgnoreCase))
+             .Where(p => selectedEstado == BudgetStatus.All || p.Status == selectedEstado)
+             .ToList();
+
+            currentPage = 1; // Volver a primera página
+            await CalcularTotales();
+        }
+        catch (Exception ex)
+        {
+            //await toastService.ShowErrorAsync($"Error al filtrar: {ex.Message}");
+            Console.WriteLine($"Error al guardar cálculo: {ex.Message}");
+        }
+    }
     // Observadores de cambios en filtros
     private async Task OnSearchTermChanged()
     {
@@ -1711,4 +1718,5 @@ td {
             Console.WriteLine($"Valor inválido: {value}");
         }
     }
+    #endregion
 }

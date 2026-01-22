@@ -77,8 +77,8 @@
 </div>
 
 @code {
-    private SpiderHood.Models.WaterReadingDetail nuevaLectura = new();
-    private List<SpiderHood.Models.WaterReadingDetail> lecturasManuales = new();
+    private SpiderHood.Models.ServiceReadingDetail nuevaLectura = new();
+    private List<SpiderHood.Models.ServiceReadingDetail> lecturasManuales = new();
 
     private void AgregarLectura()
     {
@@ -89,13 +89,13 @@
             //nuevaLectura.Period = DateTime.Now.ToString("MMMM-yy",new CultureInfo("es-ES"));
             //nuevaLectura.Periodo = DateTime.Now;
             lecturasManuales.Insert(0, nuevaLectura);
-            nuevaLectura = new SpiderHood.Models.WaterReadingDetail();
+            nuevaLectura = new SpiderHood.Models.ServiceReadingDetail();
 
             StateHasChanged();
         }
     }
 
-    private void RemoverLectura(SpiderHood.Models.WaterReadingDetail lectura)
+    private void RemoverLectura(SpiderHood.Models.ServiceReadingDetail lectura)
     {
         lecturasManuales.Remove(lectura);
         StateHasChanged();

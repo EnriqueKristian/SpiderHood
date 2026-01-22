@@ -96,7 +96,7 @@ namespace SpiderHood.Data
         }
 
 
-        public async Task<SpiderHood.Models.WaterReading> AddNewRecordAsync(SpiderHood.Models.WaterReading? ec)
+        public async Task<SpiderHood.Models.ServiceReading> AddNewRecordAsync(SpiderHood.Models.ServiceReading? ec)
         {
             await using var transaction = await _dbcontext!.Database.BeginTransactionAsync();
             try
@@ -874,6 +874,19 @@ namespace SpiderHood.Data
             }
         }
 
+        public List<Models.BudgetSumCategory> GetBudgetSum(Guid IdBuilding)
+        {
+            try
+            {
+                var result = _dbcontext!.BudgetSumCategory.FromSqlInterpolated($"EXEC GET_BudgetDetails_Sum {IdBuilding}").ToList();
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // Log error here
+                throw new ApplicationException("Error fetching unit", ex);
+            }
+        }
 
         public List<Models.Presupuesto> GetPresupuestos(Guid IdBuilding)
         {
@@ -1205,7 +1218,7 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<WaterReading>> GetWaterReadingList(Guid IdBuilding)
+        public async Task<List<ServiceReading>> GetWaterReadingList(Guid IdBuilding)
         {
             if (_dbcontext == null)
             {
@@ -1213,11 +1226,11 @@ namespace SpiderHood.Data
             }
             try
             {
-                var result = await _dbcontext!.WaterReading
+                var result = await _dbcontext!.ServiceReading
                     .FromSql($"EXEC GET_WaterReadingList {IdBuilding}")
                     .ToListAsync();
 
-                return result ?? new List<WaterReading>();
+                return result ?? new List<ServiceReading>();
             }
             catch (Exception ex)
             {
@@ -1226,7 +1239,7 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<WaterReadingDetail>> GetWaterReadingDetailList(WaterReading ec)
+        public async Task<List<ServiceReadingDetail>> GetWaterReadingDetailList(ServiceReading ec)
         {
             if (_dbcontext == null)
             {
@@ -1234,11 +1247,11 @@ namespace SpiderHood.Data
             }
             try
             {
-                var result = await _dbcontext!.WaterReadingDetail
+                var result = await _dbcontext!.ServiceReadingDetail
                     .FromSql($"EXEC GET_WaterReadingDetailList {ec.IdWaterReading}")
                     .ToListAsync();
 
-                return result ?? new List<WaterReadingDetail>();
+                return result ?? new List<ServiceReadingDetail>();
             }
             catch (Exception ex)
             {
@@ -1248,7 +1261,7 @@ namespace SpiderHood.Data
         }
 
 
-        public async Task<List<WaterReadingDetail>> GetFirstWaterReadingDetailList(Guid IdBuilding)
+        public async Task<List<ServiceReadingDetail>> GetFirstWaterReadingDetailList(Guid IdBuilding)
         {
             if (_dbcontext == null)
             {
@@ -1256,11 +1269,11 @@ namespace SpiderHood.Data
             }
             try
             {
-                var result = await _dbcontext!.WaterReadingDetail
+                var result = await _dbcontext!.ServiceReadingDetail
                     .FromSql($"EXEC GET_FirstWaterReadingDetailList {IdBuilding}")
                     .ToListAsync();
 
-                return result ?? new List<WaterReadingDetail>();
+                return result ?? new List<ServiceReadingDetail>();
             }
             catch (Exception ex)
             {

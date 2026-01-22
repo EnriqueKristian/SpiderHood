@@ -332,15 +332,15 @@
     // Estado del componente
     private DateTime _periodoActual = DateTime.Now;
     private decimal _cargoFijo = CARGO_FIJO_DEFAULT;
-    private List<WaterReadingDetail> _lecturasProcesadas = new();
-    private List<WaterReadingDetail> _lecturasCargadas = new();
-    private WaterReading _lecturaActual = new();
-    private WaterReadingDetail? _lecturaSeleccionada;
+    private List<ServiceReadingDetail> _lecturasProcesadas = new();
+    private List<ServiceReadingDetail> _lecturasCargadas = new();
+    private ServiceReading _lecturaActual = new();
+    private ServiceReadingDetail? _lecturaSeleccionada;
     private string _archivoNombre = string.Empty;
     private IBrowserFile? _archivoExcel;
     private DateTime _ultimoPeriodo;
-    private List<WaterReading> _periodos = new();
-    private List<WaterReadingDetail> _detallesPeriodoAnterior = new();
+    private List<ServiceReading> _periodos = new();
+    private List<ServiceReadingDetail> _detallesPeriodoAnterior = new();
     private bool _esPrimeraCarga = false;
     private string mensaje = "";
     private bool _error = false;
@@ -361,7 +361,7 @@
     private bool HayLecturasProcesadas => _lecturasProcesadas.Any();
     private bool PuedeGuardar => HayLecturasProcesadas && _lecturasProcesadas.All(l => l.Procesed);
 
-    private async Task onKeyPress(WaterReadingDetail lectura, KeyboardEventArgs e)
+    private async Task onKeyPress(ServiceReadingDetail lectura, KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
@@ -372,7 +372,7 @@
         }
     }
 
-    private async Task ApplyMinimun(WaterReadingDetail lectura)
+    private async Task ApplyMinimun(ServiceReadingDetail lectura)
     {
         _ = RecalcularLectura(lectura, ParameterService.MinAgua);
         await CountTotal();
@@ -445,7 +445,7 @@
 
     private async Task CrearNuevoPeriodo()
     {
-        var nuevoPeriodo = new WaterReading
+        var nuevoPeriodo = new ServiceReading
         {
             IdWaterReading = Guid.NewGuid(),
             Status = 1,
@@ -553,7 +553,7 @@
                 _detallesPeriodoAnterior, _archivoNombre, ParameterService.ec 
             );
 
-            _lecturasCargadas = _lecturaActual.WaterReadingDetail ?? new List<WaterReadingDetail>();
+            _lecturasCargadas = _lecturaActual.WaterReadingDetail ?? new List<ServiceReadingDetail>();
 
             if (_lecturaActual.errors.Count > 0)
             {
@@ -611,7 +611,7 @@
         }
     }
 
-    private async Task RecalcularLectura(WaterReadingDetail lectura, double value)
+    private async Task RecalcularLectura(ServiceReadingDetail lectura, double value)
     {
         try
         {
@@ -643,7 +643,7 @@
         }
     }
 
-    private void SeleccionarLectura(WaterReadingDetail lectura)
+    private void SeleccionarLectura(ServiceReadingDetail lectura)
     {
         _lecturaSeleccionada = lectura;
         StateHasChanged();
@@ -731,7 +731,7 @@
 
     // FUNCIONES FALTANTES DESARROLLADAS
 
-    private async Task EliminarLectura(WaterReadingDetail lectura)
+    private async Task EliminarLectura(ServiceReadingDetail lectura)
     {
         try
         {

@@ -35,11 +35,11 @@ namespace SpiderHood.Services
         Task<CalculoResultado> CalcularConsumoAsync(double consumo, decimal cargoFijo);
         Task<List<ConsumoHistorico>> ObtenerHistoricoAsync(int departamentoId);
         Task GuardarLecturaAsync(Departamento departamento);
-        Task<WaterReading> ImportarDesdeExcelAsync(MemoryStream fileStream, Guid IdBuilding, DateTime period, List<WaterReadingDetail> previous,string filename, BDLayout ec);
-        Task<List<Models.WaterReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.WaterReadingDetail> lecturas, decimal cargoFijo);
-        Task<List<Models.WaterReadingDetail>> ObtenerLecturasPorPeriodoAsync(BDLayout ec, WaterReading lectura);
-        Task<List<Models.WaterReadingDetail>> GetFirstWaterReadingDetailList(BDLayout ec, Guid IdBuilding);
-        Task<List<Models.WaterReading>> GetPeriodsAsync(BDLayout ec, Guid IdBuilding);
+        Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, Guid IdBuilding, DateTime period, List<ServiceReadingDetail> previous,string filename, BDLayout ec);
+        Task<List<Models.ServiceReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.ServiceReadingDetail> lecturas, decimal cargoFijo);
+        Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(BDLayout ec, ServiceReading lectura);
+        Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(BDLayout ec, Guid IdBuilding);
+        Task<List<Models.ServiceReading>> GetPeriodsAsync(BDLayout ec, Guid IdBuilding);
     }
 
     public class CalculoResultado
@@ -184,12 +184,12 @@ namespace SpiderHood.Services
             return Task.CompletedTask;
         }
 
-        public Task<WaterReading> ImportarDesdeExcelAsync(MemoryStream fileStream, Guid IdBuilding, DateTime period, List<WaterReadingDetail> previous, string filename,BDLayout ec)
+        public Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, Guid IdBuilding, DateTime period, List<ServiceReadingDetail> previous, string filename,BDLayout ec)
         {
 
-            WaterReading reading = new WaterReading();
+            ServiceReading reading = new ServiceReading();
 
-            var lecturas = new List<Models.WaterReadingDetail>();
+            var lecturas = new List<Models.ServiceReadingDetail>();
             List<string> errores = new();
 
             //Cargar Cabecera de Lectura
@@ -258,7 +258,7 @@ namespace SpiderHood.Services
 
                 if (_procesed)
                 {
-                    var lectura = new Models.WaterReadingDetail
+                    var lectura = new Models.ServiceReadingDetail
                     {
 
                         IdWaterReadingDetail = Guid.NewGuid(),
@@ -283,7 +283,7 @@ namespace SpiderHood.Services
                 int exists = lecturas.Count(c => c.GroupNumber == item.GroupNumber);
 
                 if (exists == 0) {
-                    var lectura = new Models.WaterReadingDetail
+                    var lectura = new Models.ServiceReadingDetail
                     {
                         IdWaterReadingDetail = Guid.NewGuid(),
                         IdWaterReading = reading.IdWaterReading,
@@ -305,7 +305,7 @@ namespace SpiderHood.Services
             return Task.FromResult(reading);
         }
 
-        public Task<List<Models.WaterReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.WaterReadingDetail> lecturas, decimal cargoFijo)
+        public Task<List<Models.ServiceReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.ServiceReadingDetail> lecturas, decimal cargoFijo)
         {
             foreach (var lectura in lecturas.Where(c => c.Procesed))
             {
@@ -326,17 +326,17 @@ namespace SpiderHood.Services
             return Task.FromResult(lecturas);
         }
 
-        public Task<List<Models.WaterReadingDetail>> ObtenerLecturasPorPeriodoAsync(BDLayout ec, WaterReading lectura)
+        public Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(BDLayout ec, ServiceReading lectura)
         {
             return ec.GetWaterReadingDetailList(lectura);
         }
 
-        public Task<List<Models.WaterReadingDetail>> GetFirstWaterReadingDetailList(BDLayout ec, Guid IdBuilding)
+        public Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(BDLayout ec, Guid IdBuilding)
         {
             return ec.GetFirstWaterReadingDetailList(IdBuilding);
         }
 
-        public Task<List<Models.WaterReading>> GetPeriodsAsync(BDLayout ec, Guid IdBuilding)
+        public Task<List<Models.ServiceReading>> GetPeriodsAsync(BDLayout ec, Guid IdBuilding)
         {
             return ec.GetWaterReadingList(IdBuilding);
         }

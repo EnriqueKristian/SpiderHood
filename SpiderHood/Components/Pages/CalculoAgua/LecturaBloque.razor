@@ -45,9 +45,9 @@
                         }
                         else{
                             <select @bind="_ultimoPeriodo" class="form-select" @bind:event="onchange" @bind:after="() => CargarPeriodo(_ultimoPeriodo)">
-                                @foreach (var item in _periodos.OrderByDescending(c => c.Period))
+                                @foreach (var item in _periods.OrderBy(c => c.StartDate))
                                 {
-                                    <option value="@item.Period">@item.Period.ToString("MMM-yy")</option>
+                                    <option value="@item.StartDate">@item.StartDate.ToString("MMM-yy")</option>
                                 }
                             </select>
                         }
@@ -339,7 +339,7 @@
     private string _archivoNombre = string.Empty;
     private IBrowserFile? _archivoExcel;
     private DateTime _ultimoPeriodo;
-    private List<ServiceReading> _periodos = new();
+    //private List<ServiceReading> _periodos = new();
     private List<ServiceReadingDetail> _detallesPeriodoAnterior = new();
     private bool _esPrimeraCarga = false;
     private string mensaje = "";
@@ -347,11 +347,14 @@
     private double _anotherValue = 0;
     private bool _pending = true;
 
+    private List<Period> _periods = new();
+    private Period _currentPeriod = new();
+
     // Selectores de fecha
     private List<SelectListItem> _mesesDisponibles = new();
     private List<SelectListItem> _aniosDisponibles = new();
-    private int _anioInicio;
-    private int _mesInicio;
+    private int _anioInicio = DateTime.Now.Year;
+    private int _mesInicio= DateTime.Now.Month;
 
     // Propiedades calculadas
     private decimal TotalGeneral => _lecturasProcesadas
@@ -393,13 +396,15 @@
             await CargarListasEstaticas();
 
             // Cargar periodos desde BD
-            _periodos = await CalculoService.GetPeriodsAsync(
-                ParameterService.ec,
+            /*_periodos = await CalculoService.GetPeriodsAsync(
+            ParameterService.ec,
                 ParameterService.IdBuilding
-            );
+            );*/
+
+        _periods = await ParameterService.GetPeriodsAsync();
 
             // Determinar si es primera carga
-            _esPrimeraCarga = _periodos.Count == 0;
+            _esPrimeraCarga = _periods.Count == 0;
 
             // Configurar periodo inicial
             await ConfigurarPeriodoInicial();
@@ -422,13 +427,21 @@
 
     private async Task ConfigurarPeriodoInicial()
     {
-        if (_esPrimeraCarga)
+        //_ultimoPeriodo = _periods.Max(p => p.StartDate);
+        _ultimoPeriodo = new DateTime(_anioInicio, _mesInicio, 1);
+
+        if (!_periods.Any(p => p.StartDate == _ultimoPeriodo))
+        {
+            await CrearNuevoPeriodo();
+        }
+
+        /*if (_esPrimeraCarga)
         {
             _anioInicio = DateTime.Now.AddYears(-1).Year;
             _mesInicio = DateTime.Now.AddMonths(-1).Month;
             _ultimoPeriodo = new DateTime(_anioInicio, _mesInicio, 1);
             await CrearNuevoPeriodo();
-        }
+            }
         else
         {
             _ultimoPeriodo = _periodos.Max(p => p.Period);
@@ -437,25 +450,39 @@
             if (!_periodos.Any(p => p.Period == _ultimoPeriodo))
             {
                 await CrearNuevoPeriodo();
-            }
-        }
+                }
+            }*/
 
-        _periodoActual = _ultimoPeriodo;
+                                _periodoActual = _ultimoPeriodo;
     }
 
     private async Task CrearNuevoPeriodo()
     {
         var nuevoPeriodo = new ServiceReading
         {
-            IdWaterReading = Guid.NewGuid(),
+            IdServiceReading = Guid.NewGuid(),
             Status = 1,
             IdBuilding = ParameterService.IdBuilding,
             Period = _ultimoPeriodo,
             CreatedOn = DateTime.Now
         };
 
-        _periodos.Add(nuevoPeriodo);
+        var newPeriod = new Period
+            {
+                IdPeriod = Guid.NewGuid(),
+                IdBuilding = ParameterService.IdBuilding,
+                Name = _ultimoPeriodo.ToString("MMMM yyyy", CultureInfo.InvariantCulture),
+                PeriodType = 1,
+                StartDate = _ultimoPeriodo,
+                EndDate = new DateTime(_ultimoPeriodo.Year, _ultimoPeriodo.Month, DateTime.DaysInMonth(_ultimoPeriodo.Year, _ultimoPeriodo.Month)),
+                ClosingDate = new DateTime(_ultimoPeriodo.Year, _ultimoPeriodo.Month, DateTime.DaysInMonth(_ultimoPeriodo.Year, _ultimoPeriodo.Month)),
+                Status = 1,
+                IsCurrentPeriod = true
+            };
+
+        _periods.Add(newPeriod);
         _lecturaActual = nuevoPeriodo;
+        _currentPeriod = newPeriod;
     }
 
     private async Task CargarLecturasPeriodoAnterior()
@@ -469,13 +496,13 @@
         }
         else
         {
-            var periodoAnterior = _periodos
-                .FirstOrDefault(p => p.Period == _ultimoPeriodo.AddMonths(-1));
+            var periodoAnterior = _periods
+                .FirstOrDefault(p => p.StartDate == _ultimoPeriodo.AddMonths(-1));
 
             if (periodoAnterior != null)
             {
                 _detallesPeriodoAnterior = await CalculoService
-                    .ObtenerLecturasPorPeriodoAsync(ParameterService.ec, periodoAnterior);
+                    .ObtenerLecturasPorPeriodoAsync(ParameterService.ec, periodoAnterior.StartDate);
             }
         }
     }
@@ -488,24 +515,23 @@
             mensaje = string.Empty;
             _periodoActual = periodo;
 
-            _periodos = _periodos.OrderBy(c => c.Period).ToList();
+            _periods = _periods.OrderBy(c => c.StartDate).ToList();
 
-            var periodoExistente = _periodos.FirstOrDefault(p => p.Period == periodo);
+            var periodoExistente = _periods.FirstOrDefault(p => p.StartDate == periodo);
 
             if (periodoExistente != null)
             {
-                _lecturaActual = periodoExistente;
                 _lecturasProcesadas = await CalculoService.ObtenerLecturasPorPeriodoAsync(
                     ParameterService.ec,
-                    _lecturaActual
+                    periodo
                 );
 
-                if (_lecturasProcesadas.Count == 0 && _periodos[0].Period == periodo )
+                /*if (_lecturasProcesadas.Count == 0 && _periodos[0].Period == periodo )
                 {
                     _lecturasProcesadas = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.ec, ParameterService.IdBuilding);
-                }
+                    }*/
 
-                MarcarTodasComoProcesadas();
+                        MarcarTodasComoProcesadas();
                 await RecalcularTodas();
 
                 StateHasChanged();
@@ -665,25 +691,31 @@
                 return;
             }
 
+            //agregar periodo
+            await ParameterService.ec.AddNewRecordAsync(_currentPeriod);
+
             // Asignar detalles procesados a la lectura actual
             _lecturaActual.WaterReadingDetail = _lecturasProcesadas;
             _lecturaActual.TotalAmount = TotalGeneral;
-            //_lecturaActual.ModifiedDate = DateTime.Now;
+            _lecturaActual.IdPeriod = _currentPeriod.IdPeriod;
 
-            // Guardar en base de datos
-            await ParameterService.ec.AddNewRecordAsync(_lecturaActual);
+    // Guardar en base de datos
+    await ParameterService.ec.AddNewRecordAsync(_lecturaActual);
 
-            _esPrimeraCarga = false;
+    _esPrimeraCarga = false;
 
-            // TODO: Mostrar mensaje de éxito
-            await MostrarMensajeExito("Lecturas guardadas exitosamente");
+    // TODO: Mostrar mensaje de éxito
+    await MostrarMensajeExito("Lecturas guardadas exitosamente");
 
-            LimpiarDatos();
+    LimpiarDatos();
 
-            _periodos = await CalculoService.GetPeriodsAsync(
-                ParameterService.ec,
-                ParameterService.IdBuilding
-            );
+    /*_periods = await CalculoService.GetPeriodsAsync(
+    ParameterService.ec,
+                    ParameterService.IdBuilding
+                );*/
+
+            _periods = await ParameterService.GetPeriodsAsync();
+
             await ConfigurarPeriodoInicial();
 
             StateHasChanged();

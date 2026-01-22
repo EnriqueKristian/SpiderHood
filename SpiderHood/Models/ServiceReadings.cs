@@ -1,6 +1,7 @@
-﻿using ClosedXML.Excel;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
+using SpiderHood.Data;
+using SpiderHood.Models;
 using SpiderHood.Services;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -33,7 +34,7 @@ namespace SpiderHood.Models
 
     public class ServiceReadingDetail
     {
-        public Guid IdWaterReadingDetail { get; set; }
+        public Guid IdServiceReadingDetail { get; set; }
         public Guid IdGroupUnit { get; set; }
         public int GroupNumber { get; set; }
         public string Code { get; set; } = string.Empty; // Ej: "101112025"
@@ -43,7 +44,7 @@ namespace SpiderHood.Models
         public DateTime ReadingDate { get; set; }
         public decimal CalculatedAmount { get; set; }
         public bool Minimum { get; set; }
-        public Guid IdWaterReading { get; set; }
+        public Guid IdServiceReading { get; set; }
         public DateTime Period { get; set; }
         [NotMapped]
         public bool Procesed { get; set; } = false;
@@ -54,12 +55,13 @@ namespace SpiderHood.Models
 
     public class ServiceReading
     {
-        public Guid IdWaterReading { get; set; }
+        public Guid IdServiceReading { get; set; }
         public DateTime? CreatedOn { get; set; }
         public DateTime Period { get; set; } // Ej: "November-25"
         public int Status { get; set; }
-        public Guid IdBuilding{ get; set; }
+        public Guid IdBuilding { get; set; }
         public string FileName { get; set; } = string.Empty;
+        public Guid IdPeriod { get; set; }
         public List<ServiceReadingDetail>? WaterReadingDetail { get; set; }
         [NotMapped]
         public decimal TotalAmount { get; set; }

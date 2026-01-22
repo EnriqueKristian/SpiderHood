@@ -217,8 +217,6 @@ namespace SpiderHood.Services
             }
         }
 
-
-
         public async Task<List<Parameter>> GetParametersByParentAsync(int idParent)
         {
             return await context.Parameter
@@ -249,7 +247,6 @@ namespace SpiderHood.Services
             return meses;
         }
 
-
         public async Task<List<SelectListItem>> GetYearList(int start, int end)
         {
             List<SelectListItem> years = new List<SelectListItem>();
@@ -263,6 +260,11 @@ namespace SpiderHood.Services
                 });
             }
             return years;
+        }
+
+        public async Task<List<Period>> GetPeriodsAsync()
+        {
+            return await ec.GetPeriodByBuilding(IdBuilding);
         }
 
         /// <summary>

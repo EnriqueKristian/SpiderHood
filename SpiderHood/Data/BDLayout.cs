@@ -1,4 +1,5 @@
-﻿using DocumentFormat.OpenXml.InkML;
+﻿using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.InkML;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualBasic;
@@ -95,6 +96,25 @@ namespace SpiderHood.Data
             return ec!;
         }
 
+        public async Task<SpiderHood.Models.Period> AddNewRecordAsync(SpiderHood.Models.Period? ec)
+        {
+            // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
+            await _dbcontext!.Database.ExecuteSqlRawAsync(
+                "INS_Periods {0},{1},{2},{3},{4},{5},{6},{7},{8}",
+                ec?.IdPeriod!,
+                ec?.Name!,
+                ec?.PeriodType!,
+                ec?.StartDate!,
+                ec?.EndDate!,
+                ec?.ClosingDate!,
+                ec?.Status!,
+                ec?.IsCurrentPeriod!,
+                ec?.IdBuilding!
+            );
+
+            await _dbcontext.SaveChangesAsync();
+            return ec!;
+        }
 
         public async Task<SpiderHood.Models.ServiceReading> AddNewRecordAsync(SpiderHood.Models.ServiceReading? ec)
         {
@@ -103,28 +123,29 @@ namespace SpiderHood.Data
             {
                 // Ejecuta el procedimiento almacenado INS_WaterReading de forma asincrónica
                 await _dbcontext!.Database.ExecuteSqlRawAsync(
-                        "INS_WaterReading {0},{1},{2},{3},{4}",
-                        ec?.IdWaterReading!,
+                        "INS_ServiceReading {0},{1},{2},{3},{4},{5},{6}",
+                        ec?.IdServiceReading!,
                         ec?.Period!,
                         ec?.Status!,
                         ec!.IdBuilding,
                         ec!.FileName,
-                        ec?.TotalAmount!
+                        ec?.TotalAmount!,
+                        ec?.IdPeriod!
                     );
 
                     foreach (var item in ec!.WaterReadingDetail!)
                     {
                         await _dbcontext!.Database.ExecuteSqlRawAsync(
-                        "INS_WaterReadingDetail {0},{1},{2},{3},{4},{5},{6},{7},{8}",
-                        item?.IdWaterReadingDetail!,
+                        "INS_ServiceReadingDetail {0},{1},{2},{3},{4},{5},{6},{7},{8}",
+                        item?.IdServiceReadingDetail!,
                         item?.IdGroupUnit!,
-                        Math.Round((double)item?.CurrentReading!, 4),
-                        Math.Round((double)item?.Consumption!,4),
+                        Math.Round(Convert.ToDecimal(item?.CurrentReading), 4),
+                        Math.Round(Convert.ToDecimal(item?.Consumption), 4),
                         item?.ReadingDate!,
                         item?.Code!,
                         item!.CalculatedAmount!,
                         item!.Minimum!,
-                        item.IdWaterReading
+                        item.IdServiceReading
                     );
                     }
 
@@ -1026,6 +1047,26 @@ namespace SpiderHood.Data
             }
         }
 
+        public async Task<List<Models.Period>> GetPeriodByBuilding(Guid IdBuilding)
+        {
+            if (_dbcontext == null)
+            {
+                throw new InvalidOperationException("Database context is not initialized.");
+            }
+            try
+            {
+                var result = await _dbcontext!.Period
+                    .FromSql($"EXEC GET_PeriodsByBuilding {IdBuilding}")
+                    .ToListAsync();
+
+                return result ?? new List<Models.Period>();
+            }
+            catch (Exception ex)
+            {
+                // Log error here
+                throw new ApplicationException("Error fetching unit", ex);
+            }
+        }
 
         public async Task<List<DetalleCuotaViewModel>> GetDetallesCuotaByCuotaId(int cuotaId)
         {
@@ -1227,7 +1268,7 @@ namespace SpiderHood.Data
             try
             {
                 var result = await _dbcontext!.ServiceReading
-                    .FromSql($"EXEC GET_WaterReadingList {IdBuilding}")
+                    .FromSql($"EXEC GET_ServiceReadingList {IdBuilding}")
                     .ToListAsync();
 
                 return result ?? new List<ServiceReading>();
@@ -1239,7 +1280,7 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<ServiceReadingDetail>> GetWaterReadingDetailList(ServiceReading ec)
+        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriod(DateTime period)
         {
             if (_dbcontext == null)
             {
@@ -1248,7 +1289,7 @@ namespace SpiderHood.Data
             try
             {
                 var result = await _dbcontext!.ServiceReadingDetail
-                    .FromSql($"EXEC GET_WaterReadingDetailList {ec.IdWaterReading}")
+                    .FromSql($"EXEC GET_ServiceReadingDetailList {period}")
                     .ToListAsync();
 
                 return result ?? new List<ServiceReadingDetail>();

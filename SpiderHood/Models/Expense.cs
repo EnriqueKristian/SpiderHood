@@ -42,14 +42,15 @@ namespace SpiderHood.Models
     public class Period
     {
         public Guid IdPeriod { get; set; }
-        public int IdBuilding { get; set; }
+        public Guid IdBuilding { get; set; }
         public string Name { get; set; } = string.Empty;
         public int PeriodType { get; set; } 
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-        public DateTime? ClosingDate { get; set; }
-        public string Status { get; set; } = string.Empty;
+        public DateTime ClosingDate { get; set; }
+        public int Status { get; set; } 
         public bool IsCurrentPeriod { get; set; }
+        [NotMapped]
         public string Description { get; set; } = string.Empty;
 
         // Navigation properties

@@ -46,6 +46,7 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.UnitView>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.OwnerUnitView>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.BudgetSumCategory>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.Period>().HasNoKey(); // If SP doesn't return a primary key
 
             base.OnModelCreating(modelBuilder);
         }
@@ -87,6 +88,7 @@ namespace SpiderHood.Data
         public DbSet<SpiderHood.Models.UnitView> UnitView { get; set; } = null!;
         public DbSet<SpiderHood.Models.OwnerUnitView> OwnerUnitView { get; set; } = null!;
         public DbSet<SpiderHood.Models.BudgetSumCategory> BudgetSumCategory { get; set; } = null!;
+        public DbSet<SpiderHood.Models.Period> Period { get; set; } = null!;
 
     }
 }

@@ -1,0 +1,462 @@
+﻿@page "/building-invitation/{invitationCode}"
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject AuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>SpiderHood - Unirse a Edificio</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-building me-2"></i>
+                        Unirse a Edificio
+                    </h4>
+                </div>
+
+                <div class="card-body">
+                    @if (isLoading)
+                    {
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-3">Cargando información de la invitación...</p>
+                        </div>
+                    }
+                    else if (invitation == null)
+                    {
+                        <div class="text-center py-5">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                            <h5>Invitación no válida</h5>
+                            <p class="text-muted">El código de invitación no es válido o ha expirado.</p>
+                            <a href="/" class="btn btn-primary mt-3">
+                                <i class="fas fa-home me-2"></i>Volver al inicio
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Información del Edificio -->
+                        <div class="building-info mb-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="building-avatar me-3">
+                                    <i class="fas fa-building"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-1">@invitation.Building.Name</h5>
+                                    <p class="text-muted mb-0">
+                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                        @invitation.Building.Address
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Has sido invitado por <strong>@invitation.InvitedBy</strong> para unirte a este edificio.
+                            </div>
+                        </div>
+
+                        <!-- Información del Usuario -->
+                        <div class="user-info mb-4">
+                            <h6 class="mb-3">Tu Información</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Nombre *</label>
+                                    <input type="text"
+                                           class="form-control @(errors.ContainsKey("FirstName") ? "is-invalid" : "")"
+                                           @bind="userModel.FirstName"
+                                           @bind:event="oninput" />
+                                    @if (errors.ContainsKey("FirstName"))
+                                    {
+                                        <div class="invalid-feedback d-block">
+                                            @errors["FirstName"]
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Apellido *</label>
+                                    <input type="text"
+                                           class="form-control @(errors.ContainsKey("LastName") ? "is-invalid" : "")"
+                                           @bind="userModel.LastName"
+                                           @bind:event="oninput" />
+                                    @if (errors.ContainsKey("LastName"))
+                                    {
+                                        <div class="invalid-feedback d-block">
+                                            @errors["LastName"]
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Correo Electrónico *</label>
+                                    <input type="email"
+                                           class="form-control @(errors.ContainsKey("Email") ? "is-invalid" : "")"
+                                           value="@invitation.Email"
+                                           readonly />
+                                    <small class="form-text text-muted">Este es el correo al que fue enviada la invitación</small>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Teléfono</label>
+                                    <input type="tel"
+                                           class="form-control"
+                                           @bind="userModel.PhoneNumber"
+                                           @bind:event="oninput" />
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Contraseña *</label>
+                                    <div class="input-group">
+                                        <input type="@(showPassword ? "text" : "password")"
+                                               class="form-control @(errors.ContainsKey("Password") ? "is-invalid" : "")"
+                                               @bind="userModel.Password"
+                                               @bind:event="oninput" />
+                                        <button class="btn btn-outline-secondary"
+                                                type="button"
+                                                @onclick="TogglePasswordVisibility">
+                                            <i class="fas @(showPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                                        </button>
+                                    </div>
+                                    @if (errors.ContainsKey("Password"))
+                                    {
+                                        <div class="invalid-feedback d-block">
+                                            @errors["Password"]
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Confirmar Contraseña *</label>
+                                    <input type="password"
+                                           class="form-control @(errors.ContainsKey("ConfirmPassword") ? "is-invalid" : "")"
+                                           @bind="userModel.ConfirmPassword"
+                                           @bind:event="oninput" />
+                                    @if (errors.ContainsKey("ConfirmPassword"))
+                                    {
+                                        <div class="invalid-feedback d-block">
+                                            @errors["ConfirmPassword"]
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input @(errors.ContainsKey("Terms") ? "is-invalid" : "")"
+                                               type="checkbox"
+                                               @bind="userModel.AcceptTerms" />
+                                        <label class="form-check-label">
+                                            Acepto los <a href="#" class="text-primary">Términos y Condiciones</a>
+                                        </label>
+                                        @if (errors.ContainsKey("Terms"))
+                                        {
+                                            <div class="invalid-feedback d-block">
+                                                @errors["Terms"]
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rol Asignado -->
+                        <div class="role-assignment mb-4">
+                            <h6 class="mb-3">Rol Asignado</h6>
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h5 class="mb-1">@invitation.Role</h5>
+                                            <p class="text-muted mb-0">@GetRoleDescription(invitation.Role)</p>
+                                        </div>
+                                        <span class="badge @GetRoleBadgeClass(invitation.Role)">
+                                            @invitation.Role
+                                        </span>
+                                    </div>
+
+                                    <div class="mt-3">
+                                        <h6>Permisos incluidos:</h6>
+                                        <ul class="list-unstyled mb-0">
+                                            @foreach (var permiso in GetRolePermissions(invitation.Role))
+                                            {
+                                                <li class="mb-1">
+                                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                                    @permiso
+                                                </li>
+                                            }
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Departamento Asignado -->
+                        @if (invitation.ApartmentNumber > 0)
+                        {
+                            <div class="apartment-assignment mb-4">
+                                <div class="alert alert-success">
+                                    <i class="fas fa-door-closed me-2"></i>
+                                    <strong>Departamento asignado:</strong> Número @invitation.ApartmentNumber
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Mensaje del Administrador -->
+                        @if (!string.IsNullOrEmpty(invitation.AdminMessage))
+                        {
+                            <div class="admin-message mb-4">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-comment-alt me-2"></i>
+                                            Mensaje del Administrador
+                                        </h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="mb-0">@invitation.AdminMessage</p>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Estado de Aprobación -->
+                        <div class="approval-status mb-4">
+                            @if (invitation.RequiresApproval)
+                            {
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-clock me-2"></i>
+                                    <strong>Aprobación requerida:</strong> Tu solicitud será revisada por el administrador
+                                    del edificio. Recibirás una notificación cuando sea aprobada.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    <strong>Acceso inmediato:</strong> Tendrás acceso al sistema inmediatamente después del registro.
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div class="d-flex justify-content-between">
+                            <a href="/" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i> Cancelar
+                            </a>
+                            <button class="btn btn-primary"
+                                    @onclick="AcceptInvitation"
+                                    disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                }
+                                <i class="fas fa-check-circle me-2"></i>
+                                Aceptar Invitación
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string InvitationCode { get; set; } = "";
+
+    private InvitationModel? invitation;
+    private UserRegistrationModel userModel = new();
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private bool showPassword = false;
+    private Dictionary<string, string> errors = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(InvitationCode))
+        {
+            await LoadInvitation();
+        }
+        else
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task LoadInvitation()
+    {
+        isLoading = true;
+
+        try
+        {
+            // Simular carga de invitación
+            await Task.Delay(1000);
+
+            // Datos de ejemplo
+            invitation = new InvitationModel
+            {
+                Id = 1,
+                Code = InvitationCode,
+                Email = "invitado@ejemplo.com",
+                Building = new BuildingModel
+                {
+                    Id = 1,
+                    Name = "Torres del Sol",
+                    Address = "Av. Principal 123, Ciudad",
+                    City = "Ciudad de México",
+                    TotalApartments = 50,
+                    Floors = 10
+                },
+                InvitedBy = "Juan Pérez",
+                Role = "Residente",
+                ApartmentNumber = 201,
+                RequiresApproval = true,
+                AdminMessage = "Te damos la bienvenida a nuestro edificio. Por favor, completa tu registro para acceder al sistema.",
+                ExpirationDate = DateTime.Now.AddDays(7),
+                Status = "Pending"
+            };
+
+            userModel.Email = invitation.Email;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading invitation: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AcceptInvitation()
+    {
+        errors.Clear();
+        isSubmitting = true;
+
+        // Validación
+        if (string.IsNullOrWhiteSpace(userModel.FirstName))
+            errors["FirstName"] = "El nombre es requerido";
+
+        if (string.IsNullOrWhiteSpace(userModel.LastName))
+            errors["LastName"] = "El apellido es requerido";
+
+        if (string.IsNullOrWhiteSpace(userModel.Password))
+            errors["Password"] = "La contraseña es requerida";
+        else if (userModel.Password.Length < 8)
+            errors["Password"] = "La contraseña debe tener al menos 8 caracteres";
+
+        if (userModel.Password != userModel.ConfirmPassword)
+            errors["ConfirmPassword"] = "Las contraseñas no coinciden";
+
+        if (!userModel.AcceptTerms)
+            errors["Terms"] = "Debes aceptar los términos y condiciones";
+
+        if (errors.Any())
+        {
+            isSubmitting = false;
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            // Registrar usuario y aceptar invitación
+            var result = await AuthService.RegisterWithInvitationAsync(userModel, invitation!);
+
+            if (result.Success)
+            {
+                if (invitation!.RequiresApproval)
+                {
+                    // Mostrar mensaje de aprobación pendiente
+                    await JSRuntime.InvokeVoidAsync("showSuccessMessage",
+                        "Solicitud enviada",
+                        "Tu solicitud ha sido enviada al administrador para aprobación. Recibirás un correo cuando sea procesada.");
+
+                    Navigation.NavigateTo("/");
+                }
+                else
+                {
+                    // Acceso inmediato
+                    Navigation.NavigateTo("/dashboard");
+                }
+            }
+            else
+            {
+                errors["General"] = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            errors["General"] = $"Error al aceptar la invitación: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        showPassword = !showPassword;
+    }
+
+    private string GetRoleDescription(string role)
+    {
+        return role switch
+        {
+            "Administrador" => "Control total del sistema y gestión de usuarios",
+            "Junta Directiva" => "Acceso a reportes y configuración básica",
+            "Residente" => "Acceso a funciones básicas y comunicación",
+            "Conserje" => "Acceso a mantenimiento y servicios",
+            _ => "Acceso limitado según permisos"
+        };
+    }
+
+    private string GetRoleBadgeClass(string role)
+    {
+        return role switch
+        {
+            "Administrador" => "bg-primary",
+            "Junta Directiva" => "bg-warning",
+            "Residente" => "bg-success",
+            "Conserje" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+
+    private List<string> GetRolePermissions(string role)
+    {
+        return role switch
+        {
+            "Administrador" => new List<string>
+            {
+                "Gestionar usuarios",
+                "Configurar edificio",
+                "Ver reportes completos",
+                "Crear invitaciones"
+            },
+            "Junta Directiva" => new List<string>
+            {
+                "Ver reportes",
+                "Gestionar residentes",
+                "Configurar básico",
+                "Comunicaciones"
+            },
+            "Residente" => new List<string>
+            {
+                "Ver información personal",
+                "Reportar problemas",
+                "Comunicarse con administración",
+                "Acceder a eventos"
+            },
+            _ => new List<string> { "Acceso básico al sistema" }
+        };
+    }
+}

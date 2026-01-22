@@ -1,0 +1,104 @@
+﻿@page "/owners/edit"
+@using Microsoft.EntityFrameworkCore
+@using SpiderHood.Models
+@inject IDbContextFactory<SpiderHood.Data.SpiderHoodContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit</PageTitle>
+
+<h1>Edit</h1>
+
+<h2>Owner</h2>
+<hr />
+@if (Owner is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="Owner" OnValidSubmit="UpdateOwner" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert"/>
+                <input type="hidden" name="Owner.Id" value="@Owner.IdOwner" />
+                <div class="mb-3">
+                    <label for="name" class="form-label">Names:</label>
+                    <InputText id="name" @bind-Value="Owner.Names" class="form-control" />
+                    <ValidationMessage For="() => Owner.Names" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="surnamem" class="form-label">Surname:</label>
+                    <InputText id="surnamem" @bind-Value="Owner.Surname" class="form-control" />
+                    <ValidationMessage For="() => Owner.Surname" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="address" class="form-label">Address:</label>
+                    <InputText id="address" @bind-Value="Owner.Address" class="form-control" />
+                    <ValidationMessage For="() => Owner.Address" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="phonenumber" class="form-label">PhoneNumber:</label>
+                    <InputText id="phonenumber" @bind-Value="Owner.PhoneNumber" class="form-control" />
+                    <ValidationMessage For="() => Owner.PhoneNumber" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/owners">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private Guid Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private Owner? Owner { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        Owner ??= await context.Owner.FirstOrDefaultAsync(m => m.IdOwner == Id);
+          
+        if (Owner is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdateOwner()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Attach(Owner!).State = EntityState.Modified;
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!OwnerExists(Owner!.IdOwner))
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        NavigationManager.NavigateTo("/owners");
+    }
+
+    private bool OwnerExists(Guid id)
+    {
+        using var context = DbFactory.CreateDbContext();
+        return context.Owner.Any(e => e.IdOwner == id);
+    }
+}

@@ -1,0 +1,850 @@
+﻿@page "/test2"
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpiderHood - Sistema de Gestión de Mantenimiento</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            background-color: #f9f9f9;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 0px;
+        }
+
+        /* Header y Navegación */
+        header {
+            background-color: white;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            color: var(--accent-color);
+            font-size: 28px;
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+            .logo-text span {
+                color: var(--secondary-color);
+            }
+
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 25px;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: var(--dark-color);
+            font-weight: 600;
+            font-size: 16px;
+            transition: color 0.3s;
+        }
+
+            nav a:hover {
+                color: var(--secondary-color);
+            }
+
+        .auth-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            font-size: 15px;
+        }
+
+        .btn-login {
+            background-color: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+
+            .btn-login:hover {
+                background-color: var(--primary-color);
+                color: white;
+            }
+
+        .btn-primary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+            .btn-primary:hover {
+                background-color: #2980b9;
+                transform: translateY(-2px);
+            }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--primary-color);
+            cursor: pointer;
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 60px 0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+        }
+
+        .hero-content {
+            display: flex;
+            align-items: center;
+            gap: 50px;
+        }
+
+        .hero-text {
+            flex: 1;
+        }
+
+        .hero-image {
+            flex: 1;
+            text-align: center;
+        }
+
+            .hero-image img {
+                max-width: 100%;
+                border-radius: 10px;
+                box-shadow: var(--shadow);
+            }
+
+        .hero h1 {
+            font-size: 42px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+            .hero h1 span {
+                color: var(--secondary-color);
+            }
+
+        .hero p {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        .features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+        }
+
+            .feature i {
+                color: var(--success-color);
+                font-size: 20px;
+            }
+
+        /* Funcionalidades */
+        .section-title {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+            .section-title h2 {
+                font-size: 36px;
+                color: var(--primary-color);
+                margin-bottom: 15px;
+            }
+
+            .section-title p {
+                color: #666;
+                font-size: 18px;
+                max-width: 700px;
+                margin: 0 auto;
+            }
+
+        .features-section {
+            padding: 80px 0;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s;
+        }
+
+            .feature-card:hover {
+                transform: translateY(-10px);
+            }
+
+            .feature-card i {
+                font-size: 40px;
+                color: var(--secondary-color);
+                margin-bottom: 20px;
+            }
+
+            .feature-card h3 {
+                font-size: 22px;
+                color: var(--primary-color);
+                margin-bottom: 15px;
+            }
+
+            .feature-card p {
+                color: #666;
+                margin-bottom: 20px;
+            }
+
+        /* Dashboard Preview */
+        .dashboard-section {
+            padding: 80px 0;
+            background-color: #f5f7fa;
+        }
+
+        .dashboard-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .dashboard-preview {
+            width: 100%;
+            max-width: 1000px;
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-top: 40px;
+        }
+
+        .dashboard-header {
+            background-color: var(--primary-color);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+            .dashboard-header h3 {
+                color: white;
+                font-size: 18px;
+            }
+
+        .dashboard-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .red {
+            background-color: #ff5f56;
+        }
+
+        .yellow {
+            background-color: #ffbd2e;
+        }
+
+        .green {
+            background-color: #27ca3f;
+        }
+
+        .dashboard-content {
+            padding: 30px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            color: var(--primary-color);
+            font-weight: 600;
+            padding: 15px;
+            text-align: left;
+            border-bottom: 2px solid #eee;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+        }
+
+        .status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+            .status.paid {
+                background-color: rgba(39, 174, 96, 0.1);
+                color: var(--success-color);
+            }
+
+            .status.pending {
+                background-color: rgba(243, 156, 18, 0.1);
+                color: var(--warning-color);
+            }
+
+        /* CTA */
+        .cta-section {
+            padding: 80px 0;
+            text-align: center;
+            background: linear-gradient(135deg, var(--primary-color) 0%, #1a2530 100%);
+            color: white;
+        }
+
+            .cta-section h2 {
+                font-size: 36px;
+                margin-bottom: 20px;
+            }
+
+            .cta-section p {
+                font-size: 18px;
+                max-width: 700px;
+                margin: 0 auto 30px;
+                opacity: 0.9;
+            }
+
+        /* Footer */
+        footer {
+            background-color: #1a2530;
+            color: #bdc3c7;
+            padding: 60px 0 30px;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-column h3 {
+            color: white;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        .footer-column ul {
+            list-style: none;
+        }
+
+            .footer-column ul li {
+                margin-bottom: 12px;
+            }
+
+        .footer-column a {
+            color: #bdc3c7;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+            .footer-column a:hover {
+                color: var(--secondary-color);
+            }
+
+        .social-icons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+            .social-icons a {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 40px;
+                height: 40px;
+                background-color: rgba(255, 255, 255, 0.1);
+                border-radius: 50%;
+                transition: all 0.3s;
+            }
+
+                .social-icons a:hover {
+                    background-color: var(--secondary-color);
+                    transform: translateY(-3px);
+                }
+
+        .copyright {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+        }
+
+        /* Responsive */
+        @*media (max-width: 992px) {
+            .hero-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .features {
+                justify-content: center;
+            }
+
+            .hero h1 {
+                font-size: 36px;
+            }
+        }
+
+        @*media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            nav {
+                position: fixed;
+                top: 70px;
+                left: 0;
+                width: 100%;
+                background-color: white;
+                padding: 20px;
+                box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+                display: none;
+            }
+
+                nav.active {
+                    display: block;
+                }
+
+                nav ul {
+                    flex-direction: column;
+                    gap: 15px;
+                }
+
+            .auth-buttons {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 32px;
+            }
+
+            .section-title h2 {
+                font-size: 30px;
+            }
+        }*@
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-spider logo-icon"></i>
+                <div class="logo-text">Spider<span>Hood</span></div>
+            </div>
+
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <nav id="mainNav">
+                <ul>
+                    <li><a href="#home">Inicio</a></li>
+                    <li><a href="#features">Funcionalidades</a></li>
+                    <li><a href="#dashboard">Dashboard</a></li>
+                    <li><a href="#pricing">Precios</a></li>
+                    <li><a href="#contact">Contacto</a></li>
+                </ul>
+            </nav>
+
+            <div class="auth-buttons">
+                <button class="btn btn-login">Iniciar Sesión</button>
+                <button class="btn btn-primary">Registrarse</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1>Gestión de Mantenimiento <span>Inteligente</span> para Comunidades</h1>
+                    <p>SpiderHood simplifica la administración de condominios y edificios, automatizando la distribución de cuotas, consumo de agua y mantenimiento de áreas comunes.</p>
+
+                    <div class="features">
+                        <div class="feature">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Cálculo automático de cuotas</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Seguimiento de consumo de agua</span>
+                        </div>
+                        <div class="feature">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Reportes y estados de cuenta</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" style="margin-top: 30px; padding: 15px 30px;">
+                        Comenzar Demo Gratuita <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <div class="hero-image">
+                    <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Dashboard de SpiderHood">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Funcionalidades -->
+    <section class="features-section" id="features">
+        <div class="container">
+            <div class="section-title">
+                <h2>Funcionalidades Potentes</h2>
+                <p>SpiderHood incluye todas las herramientas que necesitas para una gestión eficiente de tu comunidad residencial o comercial.</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <h3>Distribución de Cuotas</h3>
+                    <p>Cálculo automático de cuotas de mantenimiento según porcentaje de participación, con generación de estados de cuenta detallados.</p>
+                    <a href="#" class="btn btn-login">Ver ejemplo</a>
+                </div>
+
+                <div class="feature-card">
+                    <i class="fas fa-tint"></i>
+                    <h3>Control de Consumo de Agua</h3>
+                    <p>Registro y cálculo de consumo de agua por departamento, con comparativas mensuales y alertas de consumo excesivo.</p>
+                    <a href="#" class="btn btn-login">Ver ejemplo</a>
+                </div>
+
+                <div class="feature-card">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>Reportes y Análisis</h3>
+                    <p>Genera reportes financieros, históricos de consumo y tendencias para una mejor toma de decisiones.</p>
+                    <a href="#" class="btn btn-login">Ver ejemplo</a>
+                </div>
+
+                <div class="feature-card">
+                    <i class="fas fa-bell"></i>
+                    <h3>Notificaciones Automáticas</h3>
+                    <p>Envío automático de recordatorios de pago, notificaciones de reuniones y alertas importantes a los residentes.</p>
+                    <a href="#" class="btn btn-login">Ver ejemplo</a>
+                </div>
+
+                <div class="feature-card">
+                    <i class="fas fa-users"></i>
+                    <h3>Portal de Residentes</h3>
+                    <p>Cada propietario puede acceder a su portal personal para ver su estado de cuenta, consumo y realizar pagos en línea.</p>
+                    <a href="#" class="btn btn-login">Ver ejemplo</a>
+                </div>
+
+                <div class="feature-card">
+                    <i class="fas fa-mobile-alt"></i>
+                    <h3>Aplicación Móvil</h3>
+                    <p>Accede a todas las funciones desde tu dispositivo móvil, con notificaciones push y pagos desde cualquier lugar.</p>
+                    <a href="#" class="btn btn-login">Ver ejemplo</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard Preview -->
+    <section class="dashboard-section" id="dashboard">
+        <div class="container dashboard-container">
+            <div class="section-title">
+                <h2>Dashboard Intuitivo</h2>
+                <p>Interfaz moderna y fácil de usar que te permite gestionar toda la administración de tu comunidad en un solo lugar.</p>
+            </div>
+
+            <div class="dashboard-preview">
+                <div class="dashboard-header">
+                    <h3>Distribución de Cuotas de Mantenimiento - Enero 2026</h3>
+                    <div class="dashboard-controls">
+                        <div class="control-dot red"></div>
+                        <div class="control-dot yellow"></div>
+                        <div class="control-dot green"></div>
+                    </div>
+                </div>
+
+                <div class="dashboard-content">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Dpto</th>
+                                    <th>Propietario</th>
+                                    <th>% Part.</th>
+                                    <th>Cuota Fija</th>
+                                    <th>Consumo Agua</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>102</td>
+                                    <td>Christian Ciro Lindauro Chahuas</td>
+                                    <td>4.72%</td>
+                                    <td>S/ 224.70</td>
+                                    <td>S/ 67.85</td>
+                                    <td><strong>S/ 292.60</strong></td>
+                                    <td><span class="status paid">Pagado</span></td>
+                                </tr>
+                                <tr>
+                                    <td>201</td>
+                                    <td>Olenca Palacios Montes</td>
+                                    <td>3.45%</td>
+                                    <td>S/ 179.09</td>
+                                    <td>S/ 30.64</td>
+                                    <td><strong>S/ 209.70</strong></td>
+                                    <td><span class="status pending">Pendiente</span></td>
+                                </tr>
+                                <tr>
+                                    <td>302</td>
+                                    <td>Javier Mora Guevara</td>
+                                    <td>3.88%</td>
+                                    <td>S/ 194.51</td>
+                                    <td>S/ 21.77</td>
+                                    <td><strong>S/ 216.30</strong></td>
+                                    <td><span class="status paid">Pagado</span></td>
+                                </tr>
+                                <tr>
+                                    <td>401</td>
+                                    <td>Rocío Inés Delgado Chirinos</td>
+                                    <td>3.45%</td>
+                                    <td>S/ 179.09</td>
+                                    <td>S/ 44.13</td>
+                                    <td><strong>S/ 223.20</strong></td>
+                                    <td><span class="status pending">Pendiente</span></td>
+                                </tr>
+                                <tr>
+                                    <td>602</td>
+                                    <td>Hernani Lima Lagravery</td>
+                                    <td>3.62%</td>
+                                    <td>S/ 185.33</td>
+                                    <td>S/ 42.88</td>
+                                    <td><strong>S/ 228.20</strong></td>
+                                    <td><span class="status paid">Pagado</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2>¿Listo para simplificar la gestión de tu comunidad?</h2>
+            <p>Únete a cientos de administradores que ya usan SpiderHood para automatizar sus procesos y ahorrar tiempo valioso.</p>
+            <button class="btn btn-primary" style="padding: 15px 40px; font-size: 18px;">
+                Comenzar Prueba Gratuita <i class="fas fa-rocket"></i>
+            </button>
+            <p style="margin-top: 20px; font-size: 14px;">Prueba de 30 días sin compromiso. No se requiere tarjeta de crédito.</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="contact">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-column">
+                    <div class="logo" style="margin-bottom: 20px;">
+                        <i class="fas fa-spider logo-icon"></i>
+                        <div class="logo-text">Spider<span>Hood</span></div>
+                    </div>
+                    <p>Sistema de gestión integral para la administración de condominios y comunidades residenciales.</p>
+                    <div class="social-icons">
+                        <a href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+                </div>
+
+                <div class="footer-column">
+                    <h3>Producto</h3>
+                    <ul>
+                        <li><a href="#">Funcionalidades</a></li>
+                        <li><a href="#">Precios</a></li>
+                        <li><a href="#">Demo</a></li>
+                        <li><a href="#">Actualizaciones</a></li>
+                        <li><a href="#">API para desarrolladores</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h3>Recursos</h3>
+                    <ul>
+                        <li><a href="#">Documentación</a></li>
+                        <li><a href="#">Centro de Ayuda</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Tutoriales</a></li>
+                        <li><a href="#">Comunidad</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-column">
+                    <h3>Contacto</h3>
+                    <ul>
+                        <li><i class="fas fa-map-marker-alt" style="margin-right: 10px;"></i> Lima, Perú</li>
+                        <li><i class="fas fa-phone" style="margin-right: 10px;"></i> +51 123 456 789</li>
+                        <li><i class="fas fa-envelope" style="margin-right: 10px;"></i> info@spiderhood.com</li>
+                        <li><i class="fas fa-clock" style="margin-right: 10px;"></i> Lunes a Viernes 9am-6pm</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="copyright">
+                <p>&copy; 2026 SpiderHood. Todos los derechos reservados. | <a href="#" style="color: #bdc3c7;">Política de Privacidad</a> | <a href="#" style="color: #bdc3c7;">Términos de Servicio</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Menú móvil
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mainNav = document.getElementById('mainNav');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mainNav.classList.toggle('active');
+            mobileMenuBtn.innerHTML = mainNav.classList.contains('active')
+                ? '<i class="fas fa-times"></i>'
+                : '<i class="fas fa-bars"></i>';
+        });
+
+        // Cerrar menú al hacer clic en un enlace
+        document.querySelectorAll('nav a').forEach(link => {
+            link.addEventListener('click', () => {
+                mainNav.classList.remove('active');
+                mobileMenuBtn.innerHTML = '<i class="fas fa-bars"></i>';
+            });
+        });
+
+        // Smooth scroll para enlaces internos
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                const targetId = this.getAttribute('href');
+                if(targetId === '#') return;
+
+                const targetElement = document.querySelector(targetId);
+                if(targetElement) {
+                    window.scrollTo({
+                        top: targetElement.offsetTop - 80,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Animación para las tarjetas de funcionalidades al hacer scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if(entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Aplicar animación a las tarjetas de funcionalidades
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            observer.observe(card);
+        });
+    </script>
+</body>
+</html>

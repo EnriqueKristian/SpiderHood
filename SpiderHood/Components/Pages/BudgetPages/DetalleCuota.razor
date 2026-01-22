@@ -1,0 +1,152 @@
+﻿@page "/DetalleCuota/{id:int}"
+@using Microsoft.AspNetCore.Components
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using System.Globalization
+@inject NavigationManager Navigation
+@inject ICuotaService CuotaService
+
+<PageTitle>Detalle de Cuota</PageTitle>
+
+@if (cuota == null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Cuota Mensual: @GetNombreMes(cuota.Mes) @cuota.Anio</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="ExportarPDF">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" @onclick="ExportarExcel">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <strong>Fecha Generación:</strong><br />
+                            @cuota.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Total Distribuido:</strong><br />
+                            @cuota.TotalDistribuido.ToString("C")
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Estado:</strong><br />
+                            <span class="badge @(cuota.Procesada ? "bg-success" : "bg-warning")">
+                                @(cuota.Procesada ? "Procesada" : "Pendiente")
+                            </span>
+                        </div>
+                    </div>
+
+                    <h6>Distribución por Departamento</h6>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Departamento</th>
+                                <th>Área (m²)</th>
+                                <th>% Área</th>
+                                @foreach (var categoria in categoriasUnicas)
+                                {
+                                    <th>@categoria</th>
+                                }
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var grupo in detallesPorDepartamento)
+                            {
+                                <tr>
+                                    <td>@grupo.Key</td>
+                                    <td>@grupo.First().AreaM2.ToString("N2")</td>
+                                    <td>@grupo.First().PorcentajeArea.ToString("N2")%</td>
+                                    @foreach (var categoria in categoriasUnicas)
+                                    {
+                                        var detalle = grupo.FirstOrDefault(d => d.CategoriaNombre == categoria);
+                                        <td>@(detalle?.Monto.ToString("C") ?? "-")</td>
+                                    }
+                                    <td><strong>@grupo.Sum(d => d.Monto).ToString("C")</strong></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <h6 class="mt-4">Detalle de Gastos Incluidos</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Categoría</th>
+                                <th>Descripción Gasto</th>
+                                <th>Monto Total</th>
+                                <th>Tipo Distribución</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var gasto in gastosIncluidos)
+                            {
+                                <tr>
+                                    <td>@gasto.CategoriaNombre</td>
+                                    <td>@gasto.Descripcion</td>
+                                    <td>@gasto.Monto.ToString("C")</td>
+                                    <td>
+                                        <span class="badge @(gasto.TipoDistribucion == Models.TipoDistribucion.Fija ? "bg-info" : "bg-warning")">
+                                            @gasto.TipoDistribucion
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Models.CuotaMensual cuota = new();
+    private List<DetalleCuotaViewModel> detalles = new();
+    private List<GastoViewModel> gastosIncluidos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        cuota = await CuotaService.ObtenerCuotaAsync(Id);
+        detalles = await CuotaService.ObtenerDetallesCuotaAsync(Id);
+        gastosIncluidos = await CuotaService.ObtenerGastosIncluidosAsync(Id);
+    }
+
+    private string GetNombreMes(int mes)
+    {
+        return CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(mes);
+    }
+
+    private IEnumerable<IGrouping<string, DetalleCuotaViewModel>> detallesPorDepartamento =>
+        detalles.GroupBy(d => d.DepartamentoNombre);
+
+    private List<string> categoriasUnicas =>
+        detalles.Select(d => d.CategoriaNombre).Distinct().ToList();
+
+    private void ExportarPDF()
+    {
+        // Lógica para exportar a PDF
+    }
+
+    private void ExportarExcel()
+    {
+        // Lógica para exportar a Excel
+    }
+}

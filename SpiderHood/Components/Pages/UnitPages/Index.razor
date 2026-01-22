@@ -1,0 +1,729 @@
+﻿@page "/unit"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using System.Threading.Tasks
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.EntityFrameworkCore.Metadata
+@using SpiderHood.Data
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject NavigationManager Navigation // Inyecta el servicio de navegación
+@inject ParameterService ParameterService
+@using Microsoft.AspNetCore.Components
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Unidades Inmobiliarias</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <!-- Header principal -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div class="mb-3 mb-md-0">
+            <h1 class="h2 fw-bold text-primary mb-2">
+                <i class="bi bi-building me-2"></i>Unidades Inmobiliarias
+            </h1>
+            <p class="text-muted mb-0">Administra y gestiona todas las unidades del edificio</p>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary d-flex align-items-center">
+                <i class="bi bi-plus-circle me-2"></i>Nueva Unidad
+            </button>
+            <button class="btn btn-outline-secondary d-flex align-items-center">
+                <i class="bi bi-download me-2"></i>Exportar
+            </button>
+        </div>
+    </div>
+
+    <!-- Card principal -->
+    <div class="card shadow-sm border-0">
+        <!-- Header de la card -->
+        <div class="card-header bg-transparent border-bottom py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-grid-3x3-gap me-2"></i>Generador de Unidades
+                    </h5>
+                </div>
+                <div class="d-flex gap-2">
+                    <!-- Filtros -->
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-funnel me-1"></i>Filtrar
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-check-circle me-2"></i>Todas las unidades</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-building me-2"></i>Departamentos</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-shop me-2"></i>Oficinas</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-car-front me-2"></i>Estacionamientos</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Buscador -->
+                    <div class="input-group input-group-sm" style="width: 250px;">
+                        <span class="input-group-text bg-transparent border-end-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0" placeholder="Buscar unidad o propietario..." />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cuerpo de la card -->
+        <div class="card-body p-0">
+            <!-- Tabla de unidades -->
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4" style="width: 50px;">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="" />
+                                </div>
+                            </th>
+                            <th class="text-nowrap">
+                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center">
+                                    Tipo
+                                    <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
+                                </a>
+                            </th>
+                            <th class="text-nowrap">
+                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center">
+                                    N° Unidad
+                                    <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
+                                </a>
+                            </th>
+                            <th class="text-nowrap">
+                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center">
+                                    Área (m²)
+                                    <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
+                                </a>
+                            </th>
+                            <th class="text-nowrap">Propietario/Inquilino</th>
+                            <th class="text-nowrap">Estado</th>
+                            <th class="text-nowrap text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var unidad in units)
+                        {
+                            <tr class="border-bottom">
+                                <td class="ps-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="" />
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge @GetTypeBadgeClass(unidad.TypeUnit) me-2">
+                                            @unidad.TypeUnit
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="fw-semibold">@unidad.UnitNumber</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <span class="me-2">@unidad.Area.ToString("F2")</span>
+                                        <small class="text-muted">m²</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm bg-light rounded-circle d-flex align-items-center justify-content-center me-2">
+                                            <i class="bi bi-person text-muted"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-medium">@unidad.Names</div>
+                                            <small class="text-muted">Propietario</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge @GetStatusBadgeClass(unidad.Names)">
+                                        <i class="bi @GetStatusIcon(unidad.Names) me-1"></i>
+                                        @unidad.Names
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button" class="btn btn-outline-primary"
+                                                title="Ver detalles" @onclick="() => ViewDetails(unidad)">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary"
+                                                title="Editar" @onclick="() => EditUnit(unidad)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success"
+                                                title="Finanzas" @onclick="() => ViewFinances(unidad)">
+                                            <i class="bi bi-cash-coin"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger"
+                                                title="Eliminar" @onclick="() => DeleteUnit(unidad)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Sin resultados -->
+            @if (!units.Any())
+            {
+                <div class="text-center py-5">
+                    <div class="mb-3">
+                        <i class="bi bi-building text-muted display-4"></i>
+                    </div>
+                    <h5 class="text-muted mb-2">No hay unidades registradas</h5>
+                    <p class="text-muted mb-3">Comienza agregando tu primera unidad inmobiliaria</p>
+                    <button class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Agregar Primera Unidad
+                    </button>
+                </div>
+            }
+        </div>
+
+        <!-- Footer de la card -->
+        <div class="card-footer bg-transparent border-top py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="text-muted">
+                    Mostrando <strong>@units.Count()</strong> de <strong>@totalUnidades</strong> unidades
+                </div>
+
+                <!-- Paginación -->
+                <nav aria-label="Paginación de unidades">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" tabindex="-1">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grupo de Unidades -->
+    <div class="row mt-4">
+        <!-- Resumen -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-bottom py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-diagram-3 me-2"></i>Grupo de Unidades
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <!-- Estadísticas -->
+                        <div class="col-md-3">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body text-center py-4">
+                                    <i class="bi bi-building display-6 text-primary mb-3"></i>
+                                    <h3 class="fw-bold mb-1">@units.Count()</h3>
+                                    <p class="text-muted mb-0">Total Unidades</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body text-center py-4">
+                                    <i class="bi bi-house-door display-6 text-success mb-3"></i>
+                                    <h3 class="fw-bold mb-1">@units.Count(u => u.TypeUnit == 1)</h3>
+                                    <p class="text-muted mb-0">Departamentos</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body text-center py-4">
+                                    <i class="bi bi-people display-6 text-info mb-3"></i>
+                                    <h3 class="fw-bold mb-1">@units.Select(u => u.Names).Distinct().Count()</h3>
+                                    <p class="text-muted mb-0">Propietarios</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body text-center py-4">
+                                    <i class="bi bi-calculator display-6 text-warning mb-3"></i>
+                                    <h3 class="fw-bold mb-1">@units.Sum(u => u.Area).ToString("F1")</h3>
+                                    <p class="text-muted mb-0">Área Total (m²)</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico de distribución -->
+                        <div class="col-12 mt-2">
+                            <div class="card border-0">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-3 text-muted">Distribución por Tipo</h6>
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-grow-1">
+                                            <div class="progress" style="height: 25px;">
+                                                <div class="progress-bar bg-primary" style="width: 70%">
+                                                    Departamentos (70%)
+                                                </div>
+                                                <div class="progress-bar bg-success" style="width: 20%">
+                                                    Oficinas (20%)
+                                                </div>
+                                                <div class="progress-bar bg-info" style="width: 10%">
+                                                    Otros (10%)
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acciones rápidas -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-bottom py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning-charge me-2"></i>Acciones Rápidas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary d-flex justify-content-between align-items-center py-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-file-earmark-plus me-3"></i>
+                                <div class="text-start">
+                                    <div class="fw-medium">Generar Reporte</div>
+                                    <small class="text-muted">Reporte mensual de unidades</small>
+                                </div>
+                            </div>
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+
+                        <button class="btn btn-outline-success d-flex justify-content-between align-items-center py-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-cash-stack me-3"></i>
+                                <div class="text-start">
+                                    <div class="fw-medium">Cobrar Mantenimiento</div>
+                                    <small class="text-muted">Generar recibos mensuales</small>
+                                </div>
+                            </div>
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+
+                        <button class="btn btn-outline-info d-flex justify-content-between align-items-center py-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-envelope me-3"></i>
+                                <div class="text-start">
+                                    <div class="fw-medium">Notificar Propietarios</div>
+                                    <small class="text-muted">Enviar comunicado general</small>
+                                </div>
+                            </div>
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+
+                        <button class="btn btn-outline-warning d-flex justify-content-between align-items-center py-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-calendar-check me-3"></i>
+                                <div class="text-start">
+                                    <div class="fw-medium">Programar Reunión</div>
+                                    <small class="text-muted">Convocar asamblea</small>
+                                </div>
+                            </div>
+                            <i class="bi bi-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    
+
+    private int totalUnidades = 9;
+
+    // Métodos para clases CSS
+    private string GetTypeBadgeClass(int type)
+    {
+        return type switch
+        {
+            1 => "bg-primary",
+            4 => "bg-success",
+            2 => "bg-info",
+            3 => "bg-warning",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetStatusBadgeClass(string estado)
+    {
+        return estado switch
+        {
+            "Ocupado" => "bg-success bg-opacity-10 text-success",
+            "Alquilado" => "bg-info bg-opacity-10 text-info",
+            "Vacante" => "bg-warning bg-opacity-10 text-warning",
+            "Mantenimiento" => "bg-danger bg-opacity-10 text-danger",
+            _ => "bg-secondary bg-opacity-10 text-secondary"
+        };
+    }
+
+    private string GetStatusIcon(string estado)
+    {
+        return estado switch
+        {
+            "Ocupado" => "bi-house-check",
+            "Alquilado" => "bi-house-door",
+            "Vacante" => "bi-house",
+            "Mantenimiento" => "bi-tools",
+            _ => "bi-question-circle"
+        };
+    }
+
+    // Métodos de acciones
+    private void ViewDetails(Models.Unit unidad)
+    {
+        // Lógica para ver detalles
+    }
+
+    private void EditUnit(Models.Unit unidad)
+    {
+        // Lógica para editar
+    }
+
+    private void ViewFinances(Models.Unit unidad)
+    {
+        // Lógica para ver finanzas
+    }
+
+    private void DeleteUnit(Models.Unit unidad)
+    {
+        // Lógica para eliminar
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--    MODAL PARA CREAR / MODIFICAR UNIDADES -->
+<SpiderHood.Components.Pages.UnitPages.ModalUnit ShowModal="@MostrarModal"
+                                                 ShowModalChanged="@((valor) => MostrarModal = valor)"
+                                                 OpenMode="@OpenMode"
+                                                 ListParameters="@ParameterService.ListParameters"
+                                                 View_Unit="@_Unit"
+                                                 OnSaveItem="@((item) => SaveItem(item))" />
+
+<!--    MODAL PARA GENERAR UNIDADES -->
+<Modal @ref="modalAll" Title="Generara Bloque de Unidades" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true" IsScrollable="true">
+    <BodyTemplate>
+        <div class="modal-body">
+            <EditForm Id="create" Model="_formCreateUnit" OnValidSubmit="@GenerateBlockUnits" method="post" FormName="create" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" role="alert" />
+                <div class="mb-3">
+                    <span class="text-danger">*</span>
+                    <label for="NroUnidades" class="form-label">Nro. a Generar</label>
+                    <InputNumber id="NroUnidades" class="form-control" @bind-Value="_formCreateUnit.NroUnits" />
+                    <ValidationMessage For="() => _formCreateUnit.NroUnits" class="text-danger" />
+                    <label for="NroUnidades" class="form-label">Nro. Pisos</label>
+                    <InputNumber id="NroUnidades" class="form-control" @bind-Value="_formCreateUnit.NroPisos" />
+                    <ValidationMessage For="() => _formCreateUnit.NroPisos" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <span class="text-danger">*</span>
+                    <label for="unittype_id" class="form-label">Tipo de Unidad</label>
+                    <InputSelect id="unittype_id" @bind-Value="_formCreateUnit.IdUnitType" class="form-select">
+                        @foreach (var x in ParameterService.ListParameters.Where(c => c.IdParent == 4))
+                        {
+                            <option value="@Convert.ToInt32(x.Value)">@x.Description</option>
+                        }
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <label for="floorformat" class="form-label">Piso Inicio:</label>
+                    <InputNumber id="floorformat" @bind-Value="_formCreateUnit.StarFloor" class="form-control" aria-required="true" placeHolder="1" />
+                    <ValidationMessage For="() => _formCreateUnit.StarFloor" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="floorformat" class="form-label">Unidad Inicio:</label>
+                    <InputNumber id="floorformat" @bind-Value="_formCreateUnit.StarUnit" class="form-control" aria-required="true" placeHolder="1" />
+                    <ValidationMessage For="() => _formCreateUnit.StarUnit" class="text-danger" />
+                    
+                    <label for="floorformat" class="form-label">Formato Unidad:</label>
+                    <InputSelect id="unittype_id" @bind-Value="_formCreateUnit.formatUnit" class="form-select">
+                        <option value="0x" selected>0x</option>
+                        <option value="00x">0xx</option>
+                    </InputSelect>
+                    <ValidationMessage For="() => _formCreateUnit.formatUnit" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="shortdescription" class="form-label">Area:</label>
+                    <InputNumber id="area" @bind-Value="_formCreateUnit.Area" class="form-control" />
+                    <ValidationMessage For="() => _formCreateUnit.Area" class="text-danger" />
+                </div>
+            </EditForm>
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <Button Color="ButtonColor.Primary" form="create" Type="ButtonType.Submit">Aceptar</Button>
+        <Button Color="ButtonColor.Secondary" @onclick="OnHideModalAllClick">Cancelar</Button>
+    </FooterTemplate>
+</Modal>
+
+<!--    MODAL PARA ELIMINAR UNIDADES -->
+<Modal @ref="modal" Title="Eliminar Categoria" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true">
+    <BodyTemplate>
+        ¿Esta seguro que desea eliminar la Categoria?.
+    </BodyTemplate>
+    <FooterTemplate>
+        <Button Color="ButtonColor.Primary" @onclick="DeleteItem">Aceptar</Button>
+        <Button Color="ButtonColor.Secondary" @onclick="OnHideModalClick">Cancelar</Button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    private Modal modal = default!;
+    private Modal modalAll = default!;
+
+    private async Task OnShowCreateGroupUnit()
+    {
+        //_Unit.IdUnit = IdUnit;
+        await modalAll.ShowAsync();
+    }
+
+    private async Task OnShowModalDelete(Guid IdCategory)
+    {
+        //Usuarios.Add(nuevo);
+        _Unit = new Models.Unit();
+        //_Unit.IdUnit = IdUnit;
+        await modalAll.ShowAsync();
+    }
+
+    private async Task OnHideModalClick()
+    {
+        await modal.HideAsync();
+    }
+
+    private async Task OnHideModalAllClick()
+    {
+        await modalAll.HideAsync();
+    }
+
+    private async Task GenerateBlockUnits()
+    {
+        // Lógica adicional después de cerrar el modal, si es necesario
+
+        if (_formCreateUnit is not null)
+        {
+            for (int i = 1; i <= _formCreateUnit.NroPisos; i++)
+            {
+                int StarUnitLocal = _formCreateUnit.StarUnit;
+
+                for (int j=1; j<=_formCreateUnit.NroUnits; j++)
+                {
+                    Models.Unit _blockunit = new Models.Unit();
+
+                    //_blockunit.IdUnit = Guid.NewGuid();
+                    _blockunit.IdBuilding = ParameterService.IdBuilding;
+                    //_blockunit.IdGroupOwner = IdOwner;
+                    _blockunit.TypeUnit = _formCreateUnit.IdUnitType;
+                    _blockunit.Area = _formCreateUnit.Area;
+                    string cad1 = _formCreateUnit.formatUnit.Substring(0, _formCreateUnit.formatUnit.Length - 1);
+                    _blockunit.UnitNumber = _formCreateUnit.StarFloor.ToString() + cad1 + StarUnitLocal.ToString();
+
+                    ParameterService.ec.AddNewRecord(_blockunit);
+
+                    StarUnitLocal += 1;
+                }
+                _formCreateUnit.StarFloor += 1;
+                //_formCreateUnit.StarUnit = 1;
+            }
+        }
+
+        _formCreateUnit = new UnidadModel();
+
+        await modalAll.HideAsync();
+        OnInitialized();
+        return;
+    }
+
+    private async Task DeleteItem()
+    {
+        // Lógica adicional después de cerrar el modal, si es necesario
+        await ParameterService.ec.DeleteRecordAsync(_Unit);
+        await ParameterService.context.SaveChangesAsync();
+        await modal.HideAsync();
+        OnInitialized();
+        return;
+        //await Task.CompletedTask;
+    }
+
+    private IQueryable<Models.Unit> units = Enumerable.Empty<Models.Unit>().AsQueryable();
+    private IQueryable<Models.Unit> list_units = Enumerable.Empty<Models.Unit>().AsQueryable();
+    public async ValueTask DisposeAsync() => await ParameterService.context.DisposeAsync();
+
+    /*  === Parametros de la Ventana Modal  === */
+    private bool MostrarModal = false;
+    private Models.OpenType OpenMode;
+
+    private Models.Unit _Unit = new Models.Unit();
+    private UnidadModel _formCreateUnit = new UnidadModel();
+
+    //  CLASE PARA GENERAR UNIDADES EN BLOQUE
+    public class UnidadModel
+    {
+        [Range(1, int.MaxValue, ErrorMessage = "El número de unidades debe ser mayor a 0")]
+        public int NroUnits { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "El número de Pisos debe ser mayor a 0")]
+        public int NroPisos { get; set; }
+
+
+        public int IdUnitType { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "El Piso de inicio debe ser mayor a 0")]
+        public int StarFloor { get; set; } 
+
+
+        [Range(1, int.MaxValue, ErrorMessage = "El número de unidades debe ser mayor a 0")]
+        public int StarUnit { get; set; } 
+
+        [RegularExpression(@"^0+[0-9A-Za-z]$", ErrorMessage = "Formato inválido. Ejemplos válidos: 0x, 00x")]
+        public string formatUnit { get; set; } = string.Empty;
+
+        [Range(1, double.MaxValue, ErrorMessage = "El número de unidades debe ser mayor a 1")]
+        public decimal Area { get; set; } 
+    }
+
+
+    protected override void OnInitialized()
+    {
+        units = ParameterService.ec.GetUnitsByBuilding(ParameterService.IdBuilding).AsQueryable();
+        list_units = units.Where(c => c.TypeUnit == 1);
+    }
+
+    private void AbrirModal(Models.Unit _cat, int type, Models.OpenType mode)
+    {
+        MostrarModal = true;
+        OpenMode = mode;
+
+        _Unit = mode switch
+        {
+            OpenType.Create => new Models.Unit { IdBuilding = ParameterService.IdBuilding },
+            OpenType.Update => _cat,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Valor inesperado: {mode}")
+        };
+    }
+
+    private async Task SaveItem(SpiderHood.Models.Unit item)
+    {
+        switch (OpenMode)
+        {
+            case Models.OpenType.Create:
+                await AddItem(item);
+                break;
+
+            case Models.OpenType.Update:
+                await UpdateItem(item);
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}");
+        }
+
+        OnInitialized();
+        return;
+
+    }
+
+    private async Task AddItem(SpiderHood.Models.Unit item)
+    {
+        //Usuarios.Add(nuevo);
+        item.IdBuilding = ParameterService.IdBuilding;
+        await ParameterService.ec.AddNewRecordAsync(_Unit);
+        await ParameterService.context.SaveChangesAsync();
+    }
+
+    private async Task UpdateItem(SpiderHood.Models.Unit item)
+    {
+        await ParameterService.ec.UpdateRecordAsync(item);
+
+        try
+        {
+            await ParameterService.context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!ItemExists(item!.IdUnit))
+            {
+                Navigation.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+    }
+
+    private bool ItemExists(Guid id)
+    {
+        return ParameterService.context.Unit.Any(e => e.IdUnit == id);
+    }
+}

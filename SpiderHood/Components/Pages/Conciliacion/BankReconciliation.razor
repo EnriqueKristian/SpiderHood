@@ -1,0 +1,1388 @@
+﻿@page "/conciliacion"
+@page "/conciliacion/{accountId:int}"
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject ExpenseService ExpenseService
+@inject BankAccountService BankService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+@rendermode InteractiveServer
+@inject ParameterService ParameterService
+
+<PageTitle>SpiderHood - Conciliación Bancaria</PageTitle>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="page-title">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>Conciliación Bancaria
+                    </h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/">Inicio</a></li>
+                            <li class="breadcrumb-item"><a href="/finanzas">Finanzas</a></li>
+                            <li class="breadcrumb-item active">Conciliación</li>
+                        </ol>
+                    </nav>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" @onclick="ExportarConciliacion">
+                        <i class="fas fa-file-export me-1"></i> Exportar
+                    </button>
+                    <button class="btn btn-primary" @onclick="MostrarModalCargarEstado">
+                        <i class="fas fa-upload me-1"></i> Cargar Estado
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    @if (!string.IsNullOrEmpty(mensajeExito))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>
+            @mensajeExito
+            <button type="button" class="btn-close" @onclick="() => mensajeExito = null"></button>
+        </div>
+    }
+    
+    @if (!string.IsNullOrEmpty(mensajeError))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            @mensajeError
+            <button type="button" class="btn-close" @onclick="() => mensajeError = null"></button>
+        </div>
+    }
+
+    <!-- Selector de Cuenta y Período -->
+    <div class="row mb-4">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Cuenta Bancaria</label>
+                            <select class="form-select" @onchange="CambiarCuenta">
+                                <option value="">Seleccionar cuenta...</option>
+                                @foreach (var cuenta in cuentasBancarias)
+                                {
+                                    <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
+                                }
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label class="form-label">Período</label>
+                            <select class="form-select" @bind="periodoSeleccionado">
+                                <!-- @onchange="CambiarPeriodo"-->
+                                <option value="mesActual">Mes Actual</option>
+                                <option value="mesAnterior">Mes Anterior</option>
+                                <option value="trimestreActual">Trimestre Actual</option>
+                                <option value="personalizado">Personalizado</option>
+                            </select>
+                        </div>
+                        
+                        @if (periodoSeleccionado == "personalizado")
+                        {
+                            <div class="col-md-2">
+                                <label class="form-label">Desde</label>
+                                <input type="date" class="form-control" @bind="fechaDesde" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Hasta</label>
+                                <input type="date" class="form-control" @bind="fechaHasta" />
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Resumen Conciliación</h6>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-value text-primary">@totalTransacciones</div>
+                                <div class="stat-label">Transacciones</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-card">
+                                <div class="stat-value @(totalPendiente > 0 ? "text-warning" : "text-success")">
+                                    @totalPendiente.ToString("C")
+                                </div>
+                                <div class="stat-label">Pendiente</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (cuentaSeleccionadaId == Guid.Empty)
+    {
+        <div class="text-center py-5">
+            <i class="fas fa-university fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Selecciona una cuenta bancaria para comenzar</h5>
+            <p class="text-muted">O carga un nuevo estado de cuenta</p>
+        </div>
+    }
+    else if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-3">Cargando transacciones...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Filtros y Búsqueda -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex gap-3 align-items-center">
+                                <div class="form-check">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="showOnlyUnmatched"
+                                           @bind="mostrarSoloNoConciliados" />
+                                    <label class="form-check-label" for="showOnlyUnmatched">
+                                        Mostrar solo no conciliados
+                                    </label>
+                                </div>
+                                
+                                <div class="vr"></div>
+                                
+                                <!--    BOTONES DE FILTRO   -->
+                                <div class="btn-group" role="group">
+                                    <button class="btn @(filtroTipo == null ? "btn-primary" : "btn-outline-primary")" 
+                                            @onclick="() => FiltrarPorTipo(null)">
+                                        Todas (@totalTransacciones)
+                                    </button>
+                                    <button class="btn @(filtroTipo == "Gasto" ? "btn-primary" : "btn-outline-primary")" 
+                                            @onclick="() => FiltrarPorTipo(Gasto)">
+                                        Gastos (@transacciones.Count(t => t.Tipo == "Gasto"))
+                                    </button>
+                                    <button class="btn @(filtroTipo == "Ingreso" ? "btn-primary" : "btn-outline-primary")" 
+                                            @onclick="() => FiltrarPorTipo(Ingreso)">
+                                        Ingresos (@transacciones.Count(t => t.Tipo == "Ingreso"))
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex gap-2">
+                                <div class="input-group" style="width: 300px;">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           placeholder="Buscar descripción, referencia..."
+                                           @bind="textoBusqueda"
+                                           @bind:event="oninput" />
+                                </div>
+                                
+                                <button class="btn btn-outline-secondary" @onclick="LimpiarFiltros">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestañas de Transacciones -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body p-0">
+                        <ul class="nav nav-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link @(tabActiva == "noConciliados" ? "active" : "")" 
+                                        @onclick="() => CambiarTab(noConciliados)">
+                                    <i class="fas fa-question-circle me-2"></i>
+                                    No Conciliados
+                                    <span class="badge bg-warning ms-2">@transaccionesNoConciliadas.Count</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link @(tabActiva == "conciliados" ? "active" : "")" 
+                                        @onclick="() => CambiarTab(conciliados)">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    Conciliados
+                                    <span class="badge bg-success ms-2">@transaccionesConciliadas.Count</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link @(tabActiva == "todos" ? "active" : "")" 
+                                        @onclick="() => CambiarTab(todos)">
+                                    <i class="fas fa-list me-2"></i>
+                                    Todas las Transacciones
+                                    <span class="badge bg-secondary ms-2">@transacciones.Count</span>
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content">
+                            <!-- Tabla de Transacciones -->
+                            <div class="table-responsive" style="max-height: 600px;">
+                                <table class="table table-hover mb-0">
+                                    <thead class="sticky-top bg-white" style="top: 0; z-index: 1;">
+                                        <tr>
+                                            <th width="40">
+                                                <input type="checkbox" 
+                                                       class="form-check-input" 
+                                                       @onchange="SeleccionarTodosTransacciones">
+                                            </th>
+                                            <th width="60">Fecha</th>
+                                            <th>Descripción</th>
+                                            <th width="80">Referencia</th>
+                                            <th width="100" class="text-end">Monto</th>
+                                            <th width="80">Tipo</th>
+                                            <th width="150">Conciliado Con</th>
+                                            <th width="100">Estado</th>
+                                            <th width="120" class="text-center">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var transaccion in transaccionesFiltradas)
+                                        {
+                                            <tr class="@(transaccion.Selected ? "table-primary" : "")">
+                                                <td>
+                                                    @if (transaccion.ReconciliationStatus == 0)
+                                                    {
+                                                        <input type="checkbox" 
+                                                               class="form-check-input" 
+                                                               @bind="transaccion.Selected" />
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-light text-dark">
+                                                        @transaccion.StatementDate.ToString("dd/MM/yy")
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                        {
+                                                            <i class="fas fa-check-circle text-success me-2"></i>
+                                                        }
+                                                        <div>
+                                                            <div class="fw-bold">@transaccion.Description</div>
+                                                            @if (!string.IsNullOrEmpty(transaccion.Notes))
+                                                            {
+                                                                <small class="text-muted">@transaccion.Notes</small>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <code>@transaccion.Reference</code>
+                                                </td>
+                                                <td class="text-end fw-bold @(transaccion.Amount  < 0 ? "text-danger" : "text-success")">
+                                                    @Math.Abs(transaccion.Amount).ToString("C")
+                                                </td>
+                                                <td>
+                                                    <span class="badge @(transaccion.Amount < 0 ? "bg-danger" : "bg-success")">
+                                                        @transaccion.Tipo
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                    {
+                                                        <div class="d-flex align-items-center">
+                                                            <i class="fas fa-link text-primary me-2"></i>
+                                                            <div>
+                                                                <div class="small">@transaccion.GastoConciliado?.Category</div>
+                                                                <div class="text-muted small">@transaccion.GastoConciliado?.Description</div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    else if (transaccion.PosiblesMatches.Any())
+                                                    {
+                                                        var gastosIds = new HashSet<Guid>(gastosPendientes.Select(g => g.IdExpense));
+
+                                                        @if(transaccion.PosiblesMatches.Where(c => gastosIds.Contains(c.IdExpense)).Count() > 0 ){
+                                                            
+                                                            <div class="dropdown">
+                                                                <button class="btn btn-sm btn-outline-primary dropdown-toggle" 
+                                                                        type="button" 
+                                                                        data-bs-toggle="dropdown">
+                                                                    @transaccion.PosiblesMatches.Where(c => gastosIds.Contains(c.IdExpense)).Count() posibles matches
+                                                                </button>
+                                                                <ul class="dropdown-menu">
+                                                                @foreach (var match in transaccion.PosiblesMatches.Where(c => gastosIds.Contains(c.IdExpense)))
+                                                                {
+                                                                    <li>
+                                                                        <a class="dropdown-item" 
+                                                                            @onclick="() => ConciliarConGasto(transaccion, match)">
+                                                                            <div class="d-flex justify-content-between">
+                                                                                <span>@match.Category</span>
+                                                                                <span class="text-muted">@match.Amount.ToString("C")</span>
+                                                                            </div>
+                                                                            <small class="text-muted">@match.Description</small>
+                                                                        </a>
+                                                                    </li>
+                                                                }
+                                                                </ul>
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">No encontrado</span>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">No encontrado</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                    {
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-check me-1"></i> Conciliado
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-warning">
+                                                            <i class="fas fa-clock me-1"></i> Pendiente
+                                                        </span>
+                                                    }
+                                                </td>
+                                                <td class="text-center">
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        @if (transaccion.ReconciliationStatus == ConcilationType.NoConciliada)
+                                                        {
+                                                            <button class="btn btn-outline-primary" 
+                                                                    title="Conciliar manualmente"
+                                                                    @onclick="() => MostrarModalConciliar(transaccion)">
+                                                                <i class="fas fa-link"></i>
+                                                            </button>
+                                                            <button class="btn btn-outline-success" 
+                                                                    title="Crear gasto desde transacción"
+                                                                    @onclick="() => CrearGastoDesdeTransaccion(transaccion)">
+                                                                <i class="fas fa-plus-circle"></i>
+                                                            </button>
+                                                        }
+                                                        <button class="btn btn-outline-info" 
+                                                                title="Ver detalles"
+                                                                @onclick="() => VerDetallesTransaccion(transaccion)">
+                                                            <i class="fas fa-eye"></i>
+                                                        </button>
+                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                        {
+                                                            <button class="btn btn-outline-danger" 
+                                                                    title="Desconciliar"
+                                                                    @onclick="() => DesconciliarTransaccion(transaccion)">
+                                                                <i class="fas fa-unlink"></i>
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                
+                                @if (!transaccionesFiltradas.Any())
+                                {
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                                        <h5 class="text-muted">No se encontraron transacciones</h5>
+                                        <p class="text-muted">Intenta cambiar los filtros o cargar un nuevo estado de cuenta</p>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pie de tabla con acciones masivas -->
+                    @if (transaccionesNoConciliadas.Any(t => t.Selected))
+                    {
+                        <div class="card-footer bg-light">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="text-muted">
+                                        @transaccionesNoConciliadas.Count(t => t.Selected) transacciones seleccionadas
+                                    </span>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-outline-secondary" @onclick="DeseleccionarTodo">
+                                        Deseleccionar todo
+                                    </button>
+                                    <div class="dropdown">
+                                        <button class="btn btn-primary dropdown-toggle" 
+                                                type="button" 
+                                                data-bs-toggle="dropdown">
+                                            <i class="fas fa-bolt me-2"></i>Acciones masivas
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" @onclick="ConciliarSeleccionadas">
+                                                    <i class="fas fa-link me-2"></i>Conciliar seleccionadas
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" @onclick="GenerarGastosSeleccionados">
+                                                    <i class="fas fa-plus-circle me-2"></i>Generar gastos
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" @onclick="IgnorarSeleccionadas">
+                                                    <i class="fas fa-ban me-2"></i>Ignorar transacciones
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Resumen -->
+        <div class="row mt-4">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Resumen de Conciliación</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Estado Actual</h6>
+                                <div class="list-group list-group-flush">
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Saldo Inicial:</span>
+                                        <span class="fw-bold">@saldoInicial.ToString("C")</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Total Gastos:</span>
+                                        <span class="fw-bold text-danger">@totalGastos.ToString("C")</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Total Ingresos:</span>
+                                        <span class="fw-bold text-success">@totalIngresos.ToString("C")</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Saldo Final (Calculado):</span>
+                                        <span class="fw-bold @(saldoFinalCalculado < 0 ? "text-danger" : "text-success")">
+                                            @saldoFinalCalculado.ToString("C")
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6>Conciliación</h6>
+                                <div class="list-group list-group-flush">
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Conciliados:</span>
+                                        <span class="badge bg-success">@transaccionesConciliadas.Count</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Pendientes:</span>
+                                        <span class="badge bg-warning">@transaccionesNoConciliadas.Count</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Coincidencias encontradas:</span>
+                                        <span class="badge bg-info">@totalCoincidencias</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>Diferencia:</span>
+                                        <span class="fw-bold @(diferenciaConciliacion < 0 ? "text-danger" : "text-success")">
+                                            @diferenciaConciliacion.ToString("C")
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <div class="progress" style="height: 25px;">
+                                @{
+                                    var porcentajeConciliado = totalTransacciones > 0 ? 
+                                        (transaccionesConciliadas.Count * 100 / totalTransacciones) : 0;
+                                }
+                                <div class="progress-bar bg-success" 
+                                     role="progressbar" 
+                                     style="width: @porcentajeConciliado%">
+                                    @porcentajeConciliado% Conciliado
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Acciones Rápidas</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success" @onclick="FinalizarConciliacion">
+                                <i class="fas fa-check-double me-2"></i>Finalizar Conciliación
+                            </button>
+                            <button class="btn btn-outline-primary" @onclick="BuscarCoincidenciasAutomaticas">
+                                <i class="fas fa-search me-2"></i>Buscar Coincidencias Automáticas
+                            </button>
+                            <button class="btn btn-outline-warning" @onclick="MostrarReporteDiferencias">
+                                <i class="fas fa-chart-bar me-2"></i>Ver Reporte de Diferencias
+                            </button>
+                        </div>
+                        
+                        <hr />
+                        
+                        <div class="mt-3">
+                            <h6>Última Conciliación</h6>
+                            @if (ultimaConciliacion != null)
+                            {
+                                <div class="alert alert-info">
+                                    <div class="small">
+                                        <strong>@ultimaConciliacion.Fecha.ToString("dd/MM/yyyy")</strong><br />
+                                        Por: @ultimaConciliacion.Usuario<br />
+                                        Estado: 
+                                        <span class="badge @(ultimaConciliacion.Completada ? "bg-success" : "bg-warning")">
+                                            @(ultimaConciliacion.Completada ? "Completada" : "Pendiente")
+                                        </span>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted small">No hay conciliaciones previas</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal para Cargar Estado de Cuenta -->
+@if (mostrarModalCargarEstado)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-upload me-2"></i>Cargar Estado de Cuenta
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalCargarEstado"></button>
+                </div>
+                <div class="modal-body">
+                    <CargarEstadoCuenta OnClose="CerrarModalCargarEstado" 
+                                       OnCargado="EstadoCuentaCargado" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal para Conciliar Manualmente -->
+@if (mostrarModalConciliar && transaccionSeleccionada != null)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-link me-2"></i>Conciliar Transacción
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalConciliar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-4">
+                        <h6>Transacción Bancaria</h6>
+                        <div class="card">
+                            <div class="card-body">
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-4">Fecha:</dt>
+                                    <dd class="col-sm-8">@transaccionSeleccionada.StatementDate.ToString("dd/MM/yyyy")</dd>
+                                    
+                                    <dt class="col-sm-4">Descripción:</dt>
+                                    <dd class="col-sm-8">@transaccionSeleccionada.Description</dd>
+                                    
+                                    <dt class="col-sm-4">Referencia:</dt>
+                                    <dd class="col-sm-8">@transaccionSeleccionada.Reference</dd>
+                                    
+                                    <dt class="col-sm-4">Monto:</dt>
+                                    <dd class="col-sm-8 fw-bold @(transaccionSeleccionada.Amount < 0 ? "text-danger" : "text-success")">
+                                        @Math.Abs(transaccionSeleccionada.Amount).ToString("C")
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h6 class="mb-3">Seleccionar Gasto para Conciliar</h6>
+                        
+                        @if (gastosParaConciliar.Any())
+                        {
+                            <div class="list-group" style="max-height: 300px; overflow-y: auto;">
+                                @foreach (var gasto in gastosParaConciliar)
+                                {
+                                    <button class="list-group-item list-group-item-action"
+                                            @onclick="() => ConciliarConGasto(transaccionSeleccionada, gasto)">
+                                        <div class="d-flex w-100 justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">@gasto.Description</h6>
+                                                <small class="text-muted">
+                                                    <span class="badge bg-info">@gasto.Category</span>
+                                                    @if (!string.IsNullOrEmpty(gasto.Supplier))
+                                                    {
+                                                        <span class="ms-2">@gasto.Supplier</span>
+                                                    }
+                                                </small>
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="fw-bold @(gasto.Amount < 0 ? "text-danger" : "text-success")">
+                                                    @Math.Abs(gasto.Amount).ToString("C")
+                                                </div>
+                                                <small class="text-muted">
+                                                    @gasto.ExpenseDate.ToString("dd/MM/yy")
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </button>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                No se encontraron gastos pendientes de conciliar
+                            </div>
+                        }
+                        
+                        <div class="text-center mt-3">
+                            <button class="btn btn-outline-primary" @onclick="() => CrearGastoDesdeTransaccion(transaccionSeleccionada)">
+                                <i class="fas fa-plus-circle me-2"></i>Crear nuevo gasto
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+<!-- Modal para Crear Gasto desde Transacción -->
+@if (mostrarModalCrearGasto && transaccionParaGasto != null)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-plus-circle me-2"></i>Crear Gasto desde Transacción
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalCrearGasto"></button>
+                </div>
+                <div class="modal-body">
+                    <CrearGastoDesdeTransaccion Transaccion="transaccionParaGasto"
+                                                Categorias="categoriasGastos"
+                                                OnGastoCreado="GastoCreadoExitosamente"
+                                                OnCancel="CerrarModalCrearGasto"
+                                                FilteredCategory="FilteredCategory" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    [Parameter]
+    public Guid AccountId { get; set; }
+
+    // Servicios y datos
+    private List<BankAccount> cuentasBancarias = new();
+    private List<TransactionBankView> transacciones = new();
+    public List<ViewExpense> gastosPendientes = new();
+    private List<CategoriaGasto> categoriasGastos = new();
+    private List<Models.Category> FilteredCategory = new();
+
+    // Filtros y estado
+    private Guid cuentaSeleccionadaId = Guid.Empty;
+    private string periodoSeleccionado = "mesActual";
+    private DateTime fechaDesde = DateTime.Now.AddMonths(-1);
+    private DateTime fechaHasta = DateTime.Now;
+    private string tabActiva = "noConciliados";
+    private bool mostrarSoloNoConciliados = true;
+    private string? filtroTipo = null;
+    private string textoBusqueda = "";
+    private bool seleccionarTodos = false;
+    private bool cargando = false;
+
+    // Modales
+    private bool mostrarModalCargarEstado = false;
+    private bool mostrarModalConciliar = false;
+    private bool mostrarModalCrearGasto = false;
+    private TransactionBankView? transaccionSeleccionada = null;
+    private TransactionBankView? transaccionParaGasto = null;
+    private List<ViewExpense> gastosParaConciliar = new();
+
+    // Mensajes
+    private string? mensajeExito = null;
+    private string? mensajeError = null;
+
+    // Estadísticas
+    private decimal saldoInicial = 0;
+    private decimal saldoFinalCalculado = 0;
+    private decimal totalGastos = 0;
+    private decimal totalIngresos = 0;
+    private decimal diferenciaConciliacion = 0;
+    private decimal totalPendiente = 0;
+    private int totalTransacciones = 0;
+    private int totalCoincidencias = 0;
+    private Conciliacion? ultimaConciliacion = null;
+
+    private string conciliados = "conciliados";
+    private string noConciliados = "noConciliados";
+    private string todos = "todos";
+    private string Gasto = "Gasto";
+    private string Ingreso = "Ingreso";
+
+    // Propiedades calculadas
+    private List<TransactionBankView> transaccionesFiltradas => GetTransaccionesFiltradas();
+    private List<TransactionBankView> transaccionesConciliadas =>
+        transacciones.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada).ToList();
+    private List<TransactionBankView> transaccionesNoConciliadas =>
+        transacciones.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada).ToList();
+
+
+
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatosIniciales();
+        //AccountId = 1;
+
+        if (AccountId != Guid.Empty)
+        {
+            cuentaSeleccionadaId = AccountId;
+            await CargarTransacciones();
+        }
+    }
+
+    private async Task CargarDatosIniciales()
+    {
+        cargando = true;
+
+        try
+        {
+            // Cargar cuentas bancarias
+            cuentasBancarias = await BankService.ObtenerCuentasBancariasAsync(ParameterService.ec, ParameterService.IdBuilding);
+
+            // Cargar categorías de gastos
+            categoriasGastos = await ExpenseService.ObtenerCategoriasAsync();
+
+            // Cargar última conciliación
+            ultimaConciliacion = await BankService.ObtenerUltimaConciliacionAsync();
+
+            FilteredCategory = ParameterService.ec.GetCategories(ParameterService.IdBuilding);
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al cargar datos: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CargarTransacciones()
+    {
+        cargando = true;
+
+        try
+        {
+            // Cargar transacciones del período seleccionado
+            var (fechaInicio, fechaFin) = ObtenerFechasPeriodo();
+            transacciones = await BankService.ObtenerTransaccionesAsync(ParameterService.ec,  cuentaSeleccionadaId, fechaInicio, fechaFin);
+
+            // Cargar gastos pendientes del mismo período
+            gastosPendientes = await ExpenseService.ObtenerGastosPendientesConciliacionAsync(ParameterService.ec, ParameterService.IdBuilding, fechaInicio, fechaFin);
+
+            // Buscar coincidencias automáticas
+            await BuscarCoincidencias();
+
+            // Calcular estadísticas
+            CalcularEstadisticas();
+
+            mensajeExito = $"Cargadas {transacciones.Count} transacciones";
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al cargar transacciones: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task BuscarCoincidencias()
+    {
+        totalCoincidencias = 0;
+
+        foreach (var transaccion in transacciones.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada && t.Amount < 0))
+        {
+            // Buscar gastos con monto similar (±10%)
+            var montoTransaccion = Math.Abs(transaccion.Amount);
+            var posiblesMatches = gastosPendientes
+                .Where(g => Math.Abs(g.Amount - montoTransaccion) / montoTransaccion <= 0.1m)
+                .OrderBy(g => Math.Abs(g.Amount - montoTransaccion))
+                .Take(3)
+                .ToList();
+
+            transaccion.PosiblesMatches = posiblesMatches;
+
+            // Si hay coincidencia exacta, conciliar automáticamente
+            //Colocar logica cuando haay mas de 2
+            var matchExacto = posiblesMatches.FirstOrDefault(g => g.Amount == montoTransaccion);
+            if (matchExacto != null)
+            {
+                await ConciliarConGasto(transaccion, matchExacto, automatico: true);
+            }
+
+            totalCoincidencias += posiblesMatches.Count;
+        }
+    }
+
+    private async Task ConciliarConGasto(TransactionBankView transaccion, ViewExpense gasto, bool automatico = false)
+    {
+        try
+        {
+            // Conciliar transacción con gasto
+            transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+            transaccion.GastoConciliado = gasto;
+            transaccion.ReconciliationDate = DateTime.Now;
+
+            // Marcar gasto como conciliado
+            gasto.Reconciled = true;
+            gasto.ReconciledTransactionId = transaccion.IdStatementDetail;
+            gasto.AutoReconcile = automatico;
+
+            // Actualizar en base de datos
+            //await BankService.ConciliarTransaccionAsync(transaccion.IdStatementDetail, gasto.IdExpense);
+            //await ExpenseService.MarcarGastoComoConciliadoAsync(gasto.IdExpense, transaccion.IdStatementDetail);
+
+            // Remover de listas pendientes
+            gastosPendientes.Remove(gasto);
+
+            // Recalcular estadísticas
+            CalcularEstadisticas();
+
+            if (!automatico)
+            {
+                mensajeExito = $"Transacción conciliada con gasto: {gasto.Description}";
+                CerrarModalConciliar();
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al conciliar: {ex.Message}";
+        }
+    }
+
+    private async Task DesconciliarTransaccion(TransactionBankView transaccion)
+    {
+        if (transaccion.GastoConciliado == null) return;
+
+        if (await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"¿Desconciliar transacción '{transaccion.Description}' con gasto '{transaccion.GastoConciliado.Description}'?"))
+        {
+            try
+            {
+                // Desconciliar
+                transaccion.ReconciliationStatus = ConcilationType.NoConciliada;
+                transaccion.GastoConciliado.Reconciled = false;
+                transaccion.GastoConciliado.ReconciledTransactionId = null;
+
+                // Agregar gasto de vuelta a pendientes
+                gastosPendientes.Add(transaccion.GastoConciliado);
+                //transaccion.GastoConciliado = null;
+
+                // Actualizar en base de datos
+                //await BankService.DesconciliarTransaccionAsync(transaccion.IdStatementDetail);
+                //await ExpenseService.DesconciliarGastoAsync(transaccion.GastoConciliado?.IdExpense ?? Guid.Empty);
+
+                mensajeExito = "Transacción desconciliada";
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                mensajeError = $"Error al desconciliar: {ex.Message}";
+            }
+        }
+    }
+
+    private void MostrarModalConciliar(TransactionBankView transaccion)
+    {
+        transaccionSeleccionada = transaccion;
+
+        // Filtrar gastos pendientes para esta transacción
+        gastosParaConciliar = gastosPendientes
+            .Where(g => Math.Abs(g.Amount - Math.Abs(transaccion.Amount)) / Math.Abs(transaccion.Amount) <= 0.2m)
+            .OrderBy(g => Math.Abs(g.Amount - Math.Abs(transaccion.Amount)))
+            .ToList();
+
+        //gastosParaConciliar = gastosPendientes;
+
+        mostrarModalConciliar = true;
+    }
+
+    private void CerrarModalConciliar()
+    {
+        mostrarModalConciliar = false;
+        transaccionSeleccionada = null;
+        gastosParaConciliar.Clear();
+    }
+
+    private void CrearGastoDesdeTransaccion(TransactionBankView transaccion)
+    {
+        transaccionParaGasto = transaccion;
+        mostrarModalCrearGasto = true;
+    }
+
+    private void CerrarModalCrearGasto()
+    {
+        mostrarModalCrearGasto = false;
+        transaccionParaGasto = null;
+    }
+
+    private async Task GastoCreadoExitosamente(ViewExpense nuevoGasto)
+    {
+        nuevoGasto.IdBuilding = ParameterService.IdBuilding;
+        await ParameterService.ec.AddNewRecordAsync(nuevoGasto);
+
+        // Conciliar automáticamente con la transacción
+        if (transaccionParaGasto != null)
+        {
+            await ConciliarConGasto(transaccionParaGasto, nuevoGasto);
+        }
+
+        CerrarModalCrearGasto();
+        mensajeExito = "Gasto creado y conciliado exitosamente";
+    }
+
+    private async Task GenerarGastosSeleccionados()
+    {
+        var transaccionesSeleccionadas = transaccionesNoConciliadas.Where(t => t.Selected).ToList();
+
+        if (!transaccionesSeleccionadas.Any())
+        {
+            mensajeError = "No hay transacciones seleccionadas";
+            return;
+        }
+
+        // Aquí se podría abrir un modal para crear múltiples gastos a la vez
+        // Por ahora, crear uno por uno
+        foreach (var transaccion in transaccionesSeleccionadas)
+        {
+            // Crear gasto básico desde transacción
+            var nuevoGasto = new ViewExpense
+            {
+                Description = transaccion.Description,
+                Amount = Math.Abs(transaccion.Amount),
+                ExpenseDate = transaccion.StatementDate,
+                IdCategory = new Guid("AF644C38-2C70-4B07-8BCA-F7AE0E834470"),// "Varios", // Categoría por defecto
+                IdBuilding = ParameterService.IdBuilding,
+                Distribution = TypeDistribution.Fija,
+                Status = StatusExpense.Approved,
+                PaymentMethod = PaymentMethod.BankTransfer
+                //Reconciled = false
+            };
+
+            // Guardar gasto
+            var gastoCreado = await ExpenseService.CrearGastoAsync(ParameterService.ec, nuevoGasto);
+
+            // Conciliar
+            await ConciliarConGasto(transaccion, gastoCreado);
+        }
+
+        DeseleccionarTodo();
+        mensajeExito = $"Se generaron {transaccionesSeleccionadas.Count} gastos nuevos";
+    }
+
+    private async Task ConciliarSeleccionadas()
+    {
+        var transaccionesSeleccionadas = transaccionesNoConciliadas.Where(t => t.Selected).ToList();
+
+        if (!transaccionesSeleccionadas.Any())
+        {
+            mensajeError = "No hay transacciones seleccionadas";
+            return;
+        }
+
+        // Conciliar con el primer match disponible
+        foreach (var transaccion in transaccionesSeleccionadas)
+        {
+            if (transaccion.PosiblesMatches.Any())
+            {
+                await ConciliarConGasto(transaccion, transaccion.PosiblesMatches.First());
+            }
+        }
+
+        DeseleccionarTodo();
+        mensajeExito = $"Conciliadas {transaccionesSeleccionadas.Count} transacciones";
+    }
+
+    private async Task IgnorarSeleccionadas()
+    {
+        var transaccionesSeleccionadas = transaccionesNoConciliadas.Where(t => t.Selected).ToList();
+
+        if (!transaccionesSeleccionadas.Any())
+        {
+            mensajeError = "No hay transacciones seleccionadas";
+            return;
+        }
+
+        if (await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"¿Ignorar {transaccionesSeleccionadas.Count} transacciones seleccionadas?"))
+        {
+            foreach (var transaccion in transaccionesSeleccionadas)
+            {
+                transaccion.Ignored = true;
+                await BankService.MarcarTransaccionComoIgnoradaAsync(transaccion);
+            }
+
+            DeseleccionarTodo();
+            mensajeExito = $"Se ignoraron {transaccionesSeleccionadas.Count} transacciones";
+            StateHasChanged();
+        }
+    }
+
+    private void SeleccionarTodosTransacciones(ChangeEventArgs e)
+    {
+        seleccionarTodos = (bool)e.Value; 
+
+        foreach (var transaccion in transaccionesNoConciliadas)
+        {
+            transaccion.Selected = seleccionarTodos;
+        }
+    }
+
+    private void DeseleccionarTodo()
+    {
+        seleccionarTodos = false;
+        foreach (var transaccion in transacciones)
+        {
+            transaccion.Selected = false;
+        }
+    }
+
+    private async Task FinalizarConciliacion()
+    {
+        if (transaccionesNoConciliadas.Any())
+        {
+            if (!await JSRuntime.InvokeAsync<bool>("confirm", 
+                "Hay transacciones pendientes de conciliar. ¿Deseas finalizar de todos modos?"))
+            {
+                return;
+            }
+        }
+
+        try
+        {
+
+            foreach (var transaccion in transacciones.Where(c => c.ReconciliationStatus == ConcilationType.Conciliada && c.GastoConciliado != null))
+            {
+                ViewExpense gasto = transaccion.GastoConciliado!;
+                Guid Id = transaccion.IdStatementDetail;
+
+                // Actualizar en base de datos
+                await BankService.ConciliarTransaccionAsync(ParameterService.ec, transaccion, gasto);
+                await ExpenseService.MarcarGastoComoConciliadoAsync(gasto.IdExpense, transaccion.IdStatementDetail);
+            }
+
+            foreach (var transaccion in transacciones.Where(c => c.ReconciliationStatus == ConcilationType.NoConciliada && c.GastoConciliado != null))
+            {
+                ViewExpense gasto = transaccion.GastoConciliado!;
+                Guid Id = transaccion.IdStatementDetail;
+
+
+                // Actualizar en base de datos
+                await BankService.DesconciliarTransaccionAsync(ParameterService.ec, transaccion);
+                await ExpenseService.DesconciliarGastoAsync(transaccion.GastoConciliado?.IdExpense ?? Guid.Empty);
+            }
+
+            var conciliacion = new Conciliacion
+            {
+                CuentaBancariaId = cuentaSeleccionadaId,
+                FechaInicio = fechaDesde,
+                FechaFin = fechaHasta,
+                TransaccionesProcesadas = transacciones.Count,
+                TransaccionesConciliadas = transaccionesConciliadas.Count,
+                Diferencia = diferenciaConciliacion,
+                Completada = true,
+                Fecha = DateTime.Now,
+                Usuario = "Administrador" // En una app real, esto vendría del usuario autenticado
+            };
+
+            await BankService.GuardarConciliacionAsync(conciliacion);
+            mensajeExito = "Conciliación finalizada exitosamente";
+
+            await CargarTransacciones();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al finalizar conciliación: {ex.Message}";
+        }
+    }
+
+    private async Task BuscarCoincidenciasAutomaticas()
+    {
+        cargando = true;
+
+        try
+        {
+            await BuscarCoincidencias();
+            mensajeExito = "Búsqueda de coincidencias completada";
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error en búsqueda automática: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task MostrarReporteDiferencias()
+    {
+        // Implementar lógica para mostrar reporte
+        await JSRuntime.InvokeVoidAsync("alert", "Reporte de diferencias (función en desarrollo)");
+    }
+
+    private async Task ExportarConciliacion()
+    {
+        try
+        {
+            var datos = new
+            {
+                Cuenta = cuentasBancarias.FirstOrDefault(c => c.IdBankAccount == cuentaSeleccionadaId)?.BankName,
+                Periodo = $"{fechaDesde:dd/MM/yyyy} - {fechaHasta:dd/MM/yyyy}",
+                Transacciones = transacciones,
+                Resumen = new
+                {
+                    SaldoInicial = saldoInicial,
+                    TotalGastos = totalGastos,
+                    TotalIngresos = totalIngresos,
+                    SaldoFinal = saldoFinalCalculado,
+                    Conciliadas = transaccionesConciliadas.Count,
+                    Pendientes = transaccionesNoConciliadas.Count,
+                    Diferencia = diferenciaConciliacion
+                }
+            };
+
+            await JSRuntime.InvokeVoidAsync("descargarJSON", datos, $"conciliacion_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+            mensajeExito = "Conciliación exportada exitosamente";
+
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al exportar: {ex.Message}";
+        }
+    }
+
+    private void CalcularEstadisticas()
+    {
+        totalTransacciones = transacciones.Count;
+        totalGastos = transacciones.Where(t => t.Amount < 0).Sum(t => t.Amount);
+        totalIngresos = transacciones.Where(t => t.Amount > 0).Sum(t => t.Amount);
+        saldoFinalCalculado = saldoInicial + totalGastos + totalIngresos;
+
+        // Calcular diferencia entre transacciones conciliadas y gastos
+        var totalConciliado = transaccionesConciliadas.Where(t => t.Amount < 0).Sum(t => t.Amount);
+        var totalGastosConciliados = transaccionesConciliadas
+            .Where(t => t.GastoConciliado != null)
+            .Sum(t => t.GastoConciliado?.Amount ?? 0);
+
+        diferenciaConciliacion = Math.Abs(totalConciliado) - totalGastosConciliados;
+        totalPendiente = Math.Abs(transaccionesNoConciliadas.Where(t => t.Amount < 0).Sum(t => t.Amount));
+    }
+
+    private List<TransactionBankView> GetTransaccionesFiltradas()
+    {
+        IEnumerable<TransactionBankView> resultado = transacciones;
+
+        // Aplicar filtro de tab
+        if (tabActiva == "conciliados")
+        {
+            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada);
+        }
+        else if (tabActiva == "noConciliados")
+        {
+            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada);
+        }
+
+        // Aplicar filtro de tipo
+        if (filtroTipo != null)
+        {
+            resultado = resultado.Where(t => t.Tipo == filtroTipo);
+        }
+
+        // Aplicar filtro de búsqueda
+        if (!string.IsNullOrEmpty(textoBusqueda))
+        {
+            var busqueda = textoBusqueda.ToLower();
+            resultado = resultado.Where(t =>
+                t.Description.ToLower().Contains(busqueda) ||
+                t.Reference.ToLower().Contains(busqueda) ||
+                t.Notes?.ToLower().Contains(busqueda) == true);
+        }
+
+        // Aplicar filtro de no conciliados
+        if (mostrarSoloNoConciliados && tabActiva == "todos")
+        {
+            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada);
+        }
+
+        return resultado.OrderByDescending(t => t.StatementDate).ToList();
+    }
+
+    private (DateTime inicio, DateTime fin) ObtenerFechasPeriodo()
+    {
+        var hoy = DateTime.Today;
+
+        return periodoSeleccionado switch
+        {
+            "mesAnterior" => (
+                new DateTime(hoy.Year, hoy.Month, 1).AddMonths(-1),
+                new DateTime(hoy.Year, hoy.Month, 1).AddDays(-1)
+            ),
+            "trimestreActual" => (
+                new DateTime(hoy.Year, ((hoy.Month - 1) / 3) * 3 + 1, 1),
+                new DateTime(hoy.Year, ((hoy.Month - 1) / 3) * 3 + 4, 1).AddDays(-1)
+            ),
+            "personalizado" => (fechaDesde, fechaHasta),
+            _ => ( // mesActual
+                new DateTime(hoy.Year, hoy.Month, 1),
+                new DateTime(hoy.Year, hoy.Month, DateTime.DaysInMonth(hoy.Year, hoy.Month))
+            )
+        };
+    }
+
+    private async Task CambiarCuenta(ChangeEventArgs args)
+    {
+        cuentaSeleccionadaId = Guid.Parse(args.Value?.ToString() ?? Guid.Empty.ToString());
+        if (cuentaSeleccionadaId != Guid.Empty)
+        {
+            await CargarTransacciones();
+        }
+    }
+
+    private async Task CambiarPeriodo()
+    {
+        if (cuentaSeleccionadaId != Guid.Empty)
+        {
+    await CargarTransacciones();
+        }
+    }
+
+    private void CambiarTab(string tab)
+    {
+        tabActiva = tab;
+    }
+
+    private void FiltrarPorTipo(string? tipo)
+    {
+        filtroTipo = tipo;
+    }
+
+    private void LimpiarFiltros()
+    {
+        filtroTipo = null;
+        textoBusqueda = "";
+        mostrarSoloNoConciliados = false;
+        DeseleccionarTodo();
+    }
+
+    private void MostrarModalCargarEstado()
+    {
+        mostrarModalCargarEstado = true;
+    }
+
+    private void CerrarModalCargarEstado()
+    {
+        mostrarModalCargarEstado = false;
+    }
+
+    private async Task EstadoCuentaCargado(List<TransactionBankView> nuevasTransacciones)
+    {
+        if (cuentaSeleccionadaId == Guid.Empty && cuentasBancarias.Any())
+        {
+    cuentaSeleccionadaId = cuentasBancarias.First().IdBankAccount;
+        }
+
+        // Agregar nuevas transacciones
+        transacciones.AddRange(nuevasTransacciones);
+
+        // Buscar coincidencias con las nuevas transacciones
+        await BuscarCoincidencias();
+
+        // Recalcular estadísticas
+        CalcularEstadisticas();
+
+        mensajeExito = $"Se cargaron {nuevasTransacciones.Count} nuevas transacciones";
+        CerrarModalCargarEstado();
+    }
+
+    private void VerDetallesTransaccion(TransactionBankView transaccion)
+    {
+        // Implementar vista de detalles
+        var detalles = $"Fecha: {transaccion.StatementDate:dd/MM/yyyy}\n" +
+              $"Descripción: {transaccion.Description}\n" +
+              $"Monto: {transaccion.Amount:C}\n" +
+              $"Referencia: {transaccion.Reference}\n" +
+              $"Tipo: {transaccion.Tipo}\n" +
+              $"Estado: {(transaccion.ReconciliationStatus == ConcilationType.Conciliada ? "Conciliado" : "Pendiente")}";
+
+        JSRuntime.InvokeVoidAsync("alert", detalles);
+    }
+
+    public void Dispose()
+    {
+        // Limpiar recursos si es necesario
+    }
+
+}

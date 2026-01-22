@@ -1,0 +1,245 @@
+﻿@page "/category"
+@rendermode InteractiveServer
+@using System.Threading.Tasks
+@using SpiderHood.Data
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject NavigationManager Navigation
+@inject ParameterService ParameterService
+@implements IDisposable
+
+<link rel="stylesheet" href="@Assets["Category.css"]" />
+
+<section>
+    <div class="row">
+        <div class="col-md-8 order-md-2 mb-4">
+            <h2><i class="bi bi-tags me-2"></i>Administración de Categorias</h2>
+            <p class="text-muted mb-0">Organiza tus gastos y mantenimientos con categorías personalizadas</p>
+        </div>
+        <div class="col-md-3 order-md-2 mb-4">
+            <button class="w-100 btn btn-primary btn-lg" type="button" 
+                    @onclick="() => OpenModal(new Category(), 0, OpenType.Create)">
+                Agregar Categoria
+            </button>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="main-content">
+        <div class="categories-section">
+            <h4>Categorías Existentes</h4>
+
+            @if (!Categories.Any())
+            {
+                <div class="alert alert-info">
+                    No hay categorías registradas. ¡Comienza agregando una!
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    @foreach (var categoria in CatParent)
+                    {
+                        <div class="col-md-6 mb-4">
+                            <CategoryCard Category="categoria" 
+                                          Categories="_categories"
+                                          OnEdit="ShowModal"
+                                         OnDelete="ShowDeleteModal"
+                                         OnAddSubcategory="() => OpenModal(new Category { ParentId = categoria.IdCategory }, 1, OpenType.Create)" />
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="footer-note">
+        <p>El tipo de distribución seleccionado para cada categoría o subcategoría se aplicará automáticamente a los gastos que se registren con ellas.</p>
+    </div>
+</section>
+
+<!-- MODAL PARA NUEVO / MODIFICACION DE CATEGORIAS -->
+<SpiderHood.Components.Pages.CategoryPages.ModalCategory 
+    ShowModal="@_mostrarModal"
+    ShowModalChanged="@((valor) => _mostrarModal = valor)"
+    OpenMode="@_openMode"
+    ViewCategory="@_currentCategory"
+    TypeCategory="@_typeCategory"
+    OnSaveItem="@SaveItem" />
+
+<!-- MODAL PARA ELIMINACION DE CATEGORIAS -->
+<Modal @ref="_deleteModal" 
+       Title="Eliminar Categoria" 
+       UseStaticBackdrop="true" 
+       CloseOnEscape="false" 
+       IsVerticallyCentered="true">
+    <BodyTemplate>
+        ¿Está seguro que desea eliminar la categoría?
+        @if (_currentCategory != null)
+        {
+            <div class="mt-2 fw-bold">@_currentCategory.ShortDescript</div>
+        }
+    </BodyTemplate>
+    <FooterTemplate>
+        <Button Color="ButtonColor.Danger" @onclick="DeleteItem">Eliminar</Button>
+        <Button Color="ButtonColor.Secondary" @onclick="HideDeleteModal">Cancelar</Button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+    // Variables privadas
+    private Category _currentCategory = null!;
+    private List<Category> _categories = new();
+    private List<Category> _catParent = new();
+    private bool _mostrarModal = false;
+    private int _typeCategory = 0; // 0 Categoria | 1 Sub Categoria
+    private OpenType _openMode;
+    private Modal _deleteModal = null!;
+
+    // Propiedades calculadas
+    private List<Category> Categories => _categories;
+    private List<Category> CatParent => _catParent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategories();
+    }
+
+    private async Task LoadCategories()
+    {
+        try
+        {
+            _categories = ParameterService.ec.GetCategories(ParameterService.IdBuilding);
+            
+            _catParent = _categories
+                .Where(c => c.Nivel == 0)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            // En producción, loguear el error
+            Console.Error.WriteLine($"Error cargando categorías: {ex.Message}");
+        }
+    }
+
+
+    private async Task ShowModal(Models.Category category)
+    {
+        OpenModal(category, 0, OpenType.Update);
+    }
+
+    private void OpenModal(Category item, int type, OpenType mode)
+    {
+        _currentCategory = item;
+        _typeCategory = type;
+        _openMode = mode;
+        _mostrarModal = true;
+    }
+
+    private async Task ShowDeleteModal(Guid idCategory)
+    {
+        _currentCategory = _categories.FirstOrDefault(c => c.IdCategory == idCategory) 
+            ?? new Category { IdCategory = idCategory };
+        await _deleteModal.ShowAsync();
+    }
+
+    private async Task HideDeleteModal()
+    {
+        await _deleteModal.HideAsync();
+    }
+
+    private async Task SaveItem(Category item)
+    {
+        try
+        {
+            if (_openMode == OpenType.Create)
+            {
+                await AddItem(item);
+            }
+            else if (_openMode == OpenType.Update)
+            {
+                await UpdateItem(item);
+            }
+
+            await LoadCategories();
+        }
+        catch (Exception ex)
+        {
+            // Manejar el error apropiadamente
+            Console.Error.WriteLine($"Error guardando categoría: {ex.Message}");
+        }
+        finally
+        {
+            _mostrarModal = false;
+        }
+    }
+
+    private async Task AddItem(Category item)
+    {
+        item.IdCategory = Guid.NewGuid();
+        item.IdBuilding = ParameterService.IdBuilding;
+        await ParameterService.ec.AddNewRecordAsync(item);
+        await ParameterService.context.SaveChangesAsync();
+    }
+
+    private async Task UpdateItem(Category item)
+    {
+        try
+        {
+            await ParameterService.ec.UpdateRecordAsync(item);
+            await ParameterService.context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error actualizando categoría: {ex.Message}");
+            if (!await ItemExists(item.IdCategory))
+            {
+                Navigation.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+    }
+
+    private async Task DeleteItem()
+    {
+        try
+        {
+            await ParameterService.ec.DeleteRecordAsync(_currentCategory);
+            await ParameterService.context.SaveChangesAsync();
+            await LoadCategories();
+        }
+        catch (Exception ex)
+        {
+            // Manejar el error apropiadamente
+            Console.Error.WriteLine($"Error eliminando categoría: {ex.Message}");
+        }
+        finally
+        {
+            await _deleteModal.HideAsync();
+        }
+    }
+
+    private async Task<bool> ItemExists(Guid id)
+    {
+        return await Task.Run(() => 
+            ParameterService.context.Building.Any(e => e.IdBuilding == id));
+    }
+
+    private string GetDistributionClass(TypeDistribution tipo)
+    {
+        return tipo == TypeDistribution.Fija 
+            ? "distribution-fixed" 
+            : "distribution-percentage";
+    }
+
+    public void Dispose()
+    {
+        // Liberar recursos si es necesario
+    }
+}

@@ -1,0 +1,1811 @@
+﻿@page "/budgetgenerator/{Id}/{Status}"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using System.Threading.Tasks
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
+@inject ParameterService ParameterService
+@inject ExpenseService ExpenseService
+
+<style>
+    .expense-calculation {
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        --primary-color: #3b82f6;
+        --secondary-color: #6b7280;
+        --success-color: #10b981;
+        --danger-color: #ef4444;
+        --warning-color: #f59e0b;
+        --info-color: #8b5cf6;
+        --light-bg: #f9fafb;
+        --border-color: #e5e7eb;
+        --card-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    /* Cards */
+    .card-hover {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 1px solid var(--border-color);
+    }
+
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--card-shadow-hover);
+        }
+
+    /* Tables */
+    .expense-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+        .expense-table th {
+            background-color: var(--light-bg);
+            color: #374151;
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .expense-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+            transition: background-color 0.2s ease;
+        }
+
+        .expense-table tr:hover:not(.section-header-row):not(.section-total):not(.grand-total) {
+            background-color: #f8fafc;
+        }
+
+    /* Section Styles */
+    .section-header-row {
+        background-color: #e5e7eb !important;
+        position: relative;
+    }
+
+    .section-total {
+        background-color: #f3f4f6;
+        font-weight: 600;
+    }
+
+    .grand-total {
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: 700;
+    }
+
+    /* Currency Input */
+    .currency-input {
+        position: relative;
+    }
+
+    .currency-symbol {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6b7280;
+        font-weight: 500;
+        z-index: 1;
+        pointer-events: none;
+        font-size: 0.75rem;
+    }
+
+    .currency-input .form-control {
+        padding-left: 2rem;
+        position: relative;
+        z-index: 0;
+    }
+
+    /* Apartment Distribution */
+    .apartment-distribution {
+        background-color: #f0f9ff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Calculation Formula */
+    .calculation-formula {
+        background-color: #f8fafc;
+        border-left: 4px solid var(--primary-color);
+        padding: 1rem;
+        border-radius: 0 4px 4px 0;
+        font-family: 'Courier New', monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        margin-top: 1rem;
+    }
+
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    /* Empty States */
+    .no-data {
+        text-align: center;
+        padding: 3rem;
+        color: #6b7280;
+    }
+
+        .no-data i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #d1d5db;
+            opacity: 0.7;
+        }
+
+    /* Add Item Button */
+    .add-item-btn {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 5;
+    }
+
+    /* Empty Section */
+    .empty-section {
+        text-align: center;
+        padding: 1rem;
+        color: #6b7280;
+        font-style: italic;
+        background-color: var(--light-bg);
+        border-radius: 4px;
+        margin: 0.5rem 0;
+        border: 1px dashed var(--border-color);
+    }
+
+    /* Transitions */
+    .transition-all {
+        transition: all 0.3s ease-in-out;
+    }
+
+    .card {
+        transition: all 0.3s ease-in-out;
+    }
+
+    /* Utility Classes */
+    .d-none {
+        display: none !important;
+    }
+
+    /* Responsive Design */
+    @*media (max-width: 768px) {
+        .expense-table {
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+            .expense-table th,
+            .expense-table td {
+                padding: 0.5rem;
+                font-size: 0.875rem;
+            }
+
+        .currency-symbol {
+            font-size: 0.6rem;
+            left: 0.5rem;
+        }
+
+        .currency-input .form-control {
+            padding-left: 1.5rem;
+        }
+
+        .action-buttons {
+            flex-wrap: wrap;
+        }
+    }*@
+
+    /* Focus States */
+    .form-control:focus,
+    .form-select:focus,
+    .btn:focus {
+        box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.25);
+        border-color: var(--primary-color);
+        outline: none;
+    }
+
+    /* Button Styles */
+    .btn {
+        transition: all 0.2s ease;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .btn-outline-danger:hover {
+        background-color: var(--danger-color);
+        color: white;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+    /* Accessibility */
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+</style>
+
+<div class="expense-calculation">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">Cálculo de Presupuesto Mensual</h1>
+            <p class="text-muted mb-0">Calcule los gastos mensuales y determine la cuota por departamento</p>
+        </div>
+        <div class="d-flex gap-2">
+            @if (IdBudgetHeader != Guid.Empty)
+            {
+                @if ( !_readonly)
+                {
+                    <button class="btn btn-outline-primary" @onclick="LoadSampleData">
+                        <i class="bi bi-upload me-1"></i>Cargar Plantilla
+                    </button>
+                }
+            }
+            <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="ShowNewCalculationModal">
+                <i class="bi bi-plus-circle me-2"></i>Nuevo Cálculo
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Total Mensual</h6>
+                            <h2 class="mb-0">S/ @_totalMonthly.ToString("N2")</h2>
+                        </div>
+                        <div style="color: #3b82f6;">
+                            <i class="bi bi-calculator-fill" style="font-size: 1.2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Total Anual</h6>
+                            <h2 class="mb-0">S/ @_totalAnnual.ToString("N2")</h2>
+                        </div>
+                        <div style="color: #10b981;">
+                            <i class="bi bi-calendar-check-fill" style="font-size: 1.2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Departamentos</h6>
+                            <h2 class="mb-0">@_totalApartments</h2>
+                        </div>
+                        <div style="color: #f59e0b;">
+                            <i class="bi bi-building-fill" style="font-size: 1.2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex gap-2">
+                            @if (!_readonly)
+                            {
+                                <button disabled="@_isDisable" class="btn btn-outline-success" @onclick="SaveCalculation">
+                                    <i class="bi bi-save me-1"></i>Guardar
+                                </button>
+                            }
+                            <button disabled="@_isDisable" class="btn btn-outline-success" @onclick="GenerateReport">
+                                <i class="bi bi-file-pdf me-1"></i>Generar Reporte
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Expenses Table -->
+        <div class="@(showorNot ? "col-md-8" : "col-md-11") transition-all">
+            <div class="card card-hover">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Detalle de Gastos - @GetMonthName(_selectedMonth) @_selectedYear</h5>
+                    <div style="width:20%"></div>
+
+                    @if (IdBudgetHeader != Guid.Empty)
+                    {
+                        <div class="d-flex gap-2">
+                            @if (!_readonly) { 
+                                <button class="btn btn-sm btn-outline-primary" @onclick="AddNewSection" disabled="@_readonly">
+                                    <i class="bi bi-plus-lg me-1"></i>Nueva Sección
+                                </button>
+                            }
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="PublishBudget">
+                                <i class="@_icon"></i>&nbsp@_msjButtonWorflow
+                            </button>
+                            @if(_Status == BudgetStatus.Check)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="PublishBudgetR">
+                                    <i class="fa-solid fa-ban"></i>&nbspRechazar
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (_Budget.Details.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="expense-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 5%">Item</th>
+                                        <th style="width: 28%">Descripción</th>
+                                        <th style="width: 15%">Costo Mensual</th>
+                                        <th style="width: 15%">Costo Anual</th>
+                                        <th style="width: 15%">Frecuencia</th>
+                                        <th style="width: 12%">Tipo</th>
+                                        <th style="width: 10%">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var section in GetSections())
+                                    {
+                                        var sectionItems = _Budget.Details.Where(x => x.IdSection == section.Id).ToList();
+                                        var hasItems = sectionItems.Any(x => !x.IsHeader);
+
+                                        <!-- Section Header -->
+                                        <tr class="section-header-row">
+                                            <td colspan="7">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <strong>@GetSectionName(section.Id)</strong>
+                                                    @if ( !_readonly )
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-primary add-item-btn" disabled="@_readonly"
+                                                            @onclick="() => AddExpenseItemToSection(section.Id)">
+                                                            <i class="bi bi-plus me-1"></i>Agregar Item
+                                                        </button>
+                                                    }
+                                                    
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        @if (!hasItems)
+                                        {
+                                            <tr>
+                                                <td colspan="7">
+                                                    <div class="empty-section">
+                                                        No hay items en esta sección
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var item in sectionItems.Where(x => !x.IsHeader))
+                                            {
+                                                <tr>
+                                                    <td>
+                                                        <span>@item.ItemNumber</span>
+                                                        <!--<InputNumber @bind-Value="item.ItemNumber"
+                                                                    class="form-control form-control-sm"
+                                                                    step="0.01"
+                                                                    @onchange="CalculateTotals" />-->
+                                                    </td>
+                                                    <td>
+                                                        <InputText @bind-Value="item.Description" readonly="@_readonly"
+                                                                   class="form-control form-control-sm"
+                                                                   @onchange="CalculateTotals" />
+                                                    </td>
+                                                    <td>
+                                                        <div class="currency-input">
+                                                            <span class="currency-symbol" style="font-size:0.6em">S/</span>
+                                                            <input @bind="item.MonthlyAmount" readonly="@_readonly"
+                                                                         class="form-control form-control-sm"
+                                                                         step="0.01"
+                                                                         style="justify-items:right"
+                                                                         @bind:event="onchange"
+                                                                         @bind:after="() => CalculateTotals()" />
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div class="currency-input">
+                                                            <span class="currency-symbol" style="font-size:0.6em">S/</span>
+                                                            <InputNumber @bind-Value="item.AnnualAmount"
+                                                                         class="form-control form-control-sm"
+                                                                         step="0.01" readonly
+                                                                         style="justify-items:right" />
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <select @bind="item.Frequency" disabled="@_readonly"
+                                                                @bind:event="onchange"
+                                                                @bind:after="() => UpdateFrequency(item)"
+                                                                class="form-select form-select-sm">
+                                                                <!--    PARAMETRO PADRE    -->
+                                                                @foreach (var frec in filteredParameters.Where(c => c.IdParent == 38))
+                                                                {
+                                                                    <option value="@frec.Value">@frec.ShortDescription</option>
+                                                                }
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <select @bind="item.Type" @bind:event="onchange" disabled="@_readonly"
+                                                                @bind:after="() => CalculateTotals()"
+                                                                class="form-select form-select-sm">
+                                                            @foreach (var frec in filteredParameters.Where(c => c.IdParent == 8))
+                                                            {
+                                                                <option value="@int.Parse(frec.Value.ToString())">@frec.ShortDescription</option>
+                                                            }
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group btn-group-sm" role="group">
+                                                            <button class="btn btn-outline-danger" disabled="@_readonly"
+                                                                    @onclick="() => RemoveExpenseItem(item.IdBudgetDetail)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            }
+
+                                            <!-- Section Total -->
+                                            var sectionTotal = GetSectionTotal(section.Id);
+                                            <tr class="section-total">
+                                                <td colspan="2">
+                                                    <strong>Total @GetSectionName(section.Id).Substring(0, Math.Min(GetSectionName(section.Id).Length, 26))</strong>
+                                                </td>
+                                                <td align="right"><strong><span class="currency-symbol" style="font-size:0.7em">S/</span> @sectionTotal.Monthly.ToString("N2")</strong></td>
+                                                <td align="right"><strong><label style="font-size:0.8em">S/&nbsp;</label>@sectionTotal.Annual.ToString("N2")</strong></td>
+                                                <td></td>
+                                                <td></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-secondary" disabled="@_readonly"
+                                                            @onclick="() => RemoveSection(section.Id)"
+                                                            title="Eliminar sección">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+
+                                    <!-- Grand Total -->
+                                    <tr class="grand-total">
+                                        <td colspan="2">
+                                            <strong>TOTAL MENSUAL PRESUPUESTADO</strong>
+                                        </td>
+                                        <td><strong>S/ @_totalMonthly.ToString("N2")</strong></td>
+                                        <td><strong>S/ @_totalAnnual.ToString("N2")</strong></td>
+                                        <td colspan="3"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Calculation Formula -->
+                        <div class="mt-4">
+                            <h6 class="mb-2">Fórmula de Cálculo:</h6>
+                            <div class="calculation-formula">
+                                Cuota por Departamento = (Total Mensual / N° de Departamentos)
+                                <br />
+                                <strong>S/ @_totalMonthly.ToString("N2") / @_totalApartments = S/ @_quotaPerApartment.ToString("N2")</strong>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="no-data">
+                            <i class="bi bi-calculator"></i>
+                            <h4 class="mb-2">No se ha creado aun el Presupuesto</h4>
+                            <p class="text-muted mb-3">Comienza agregando una sección o cargando la Plantilla</p>
+                            @if (IdBudgetHeader != Guid.Empty)
+                            {
+                                <div class="d-flex gap-2 justify-content-center">
+                                    <button class="btn btn-primary" style="border-radius: 40px;" @onclick="LoadSampleData">
+                                        <i class="bi bi-upload me-2"></i>Cargar Plantilla
+                                    </button>
+                                    <button class="btn btn-outline-primary" style="border-radius: 40px;" @onclick="AddNewSection">
+                                        <i class="bi bi-plus-lg me-2"></i>Crear Primera Sección
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <span>Primero debe Crear el Presupuesto</span>
+                                <p/>
+                                <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="ShowNewCalculationModal">
+                                    <i class="bi bi-plus-circle me-2"></i>Nuevo Cálculo
+                                </button>
+                            }
+
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration and Distribution -->
+        <div class="@(showorNot ? "col-md-4" : "col-md-1") transition-all">
+            <button class="btn btn-outline-success" @onclick="ShoworNot">
+                <i class="@class5"></i>
+            </button>
+            <p></p>
+            <!-- Apartments Configuration -->
+            <div class="@class1 transition-all">
+                <div class="card-header">
+                    <h5 class="mb-0">Configuración de Departamentos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-group mb-3">
+                        <label class="form-label">Número Total de Departamentos</label>
+                        <InputNumber @bind-Value="_totalApartments"
+                                     class="form-control"
+                                     min="1"
+                                     @onchange="CalculateQuota" />
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label class="form-label">Número de Departamentos Habitados</label>
+                        <InputNumber @bind-Value="_occupiedApartments"
+                                     class="form-control"
+                                     min="0"
+                                     max="@_totalApartments"
+                                     @onchange="CalculateQuota" />
+                        <div class="form-text text-muted">
+                            @(_occupiedApartments == _totalApartments ? "Todos los departamentos están habitados" :
+                                                        $"{_totalApartments - _occupiedApartments} departamentos vacíos")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Distribución Especial</label>
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="_useProportionalDistribution" class="form-check-input" />
+                            <label class="form-check-label">Usar distribución proporcional</label>
+                        </div>
+                        <div class="form-text text-muted">
+                            Distribuye gastos proporcionalmente según área o tipo de departamento
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Quota Distribution -->
+            <div class="@class2 transition-all">
+                <div class="card-header">
+                    <h5 class="mb-0">Distribución de Cuotas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="apartment-distribution">
+                        <div class="mb-3">
+                            <h6>Cuota Mensual por Departamento:</h6>
+                            <h3 class="text-primary">S/ @_quotaPerApartment.ToString("N2")</h3>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6>Ingresos Totales Mensuales:</h6>
+                            <h4 class="text-success">S/ @( (_quotaPerApartment * _occupiedApartments).ToString("N2"))</h4>
+                            <small class="text-muted">
+                                Basado en @_occupiedApartments departamentos habitados
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6>Balance Mensual:</h6>
+                            @{
+                                var balance = (_quotaPerApartment * _occupiedApartments) - _totalMonthly;
+                                var balanceClass = balance >= 0 ? "text-success" : "text-danger";
+                            }
+                            <h4 class="@balanceClass">S/ @balance.ToString("N2")</h4>
+                            <small class="text-muted">
+                                @(balance >= 0 ? "Superávit" : "Déficit")
+                            </small>
+                        </div>
+
+                        <div>
+                            <h6>Desglose por Categoría:</h6>
+                            <div class="mt-2">
+                                @foreach (var section in GetSectionTotals())
+                                {
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <small>@(section.Name)</small>
+                                        <small>S/ @( (section.Monthly / _totalApartments ).ToString("N2"))</small>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="CopyToClipboard">
+                            <i class="bi bi-clipboard me-1"></i>Copiar Detalle
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" @onclick="ClearAllData">
+                            <i class="bi bi-trash me-1"></i>Limpiar Todo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for New Calculation -->
+<Modal @ref="_newCalcModal" Title="Nuevo Cálculo de Gastos" Size="ModalSize.Regular">
+    <BodyTemplate>
+        <EditForm Model="_newCalculation" OnValidSubmit="CreateNewCalculation">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Mes *</label>
+
+                        <select class="form-select"
+                                @bind="_newCalculation.Month"
+                                 @bind:event="onchange"
+                                @bind:after="() => OnSelectedCalculationChanged()">
+                            @foreach (var month in _availableMonths)
+                            {
+                                <option value="@month.Value">@month.Text</option>
+                            }
+                        </select>
+
+
+                        <ValidationMessage For="@(() => _newCalculation.Month)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Año *</label>
+                        <select class="form-select"
+                                @bind="_newCalculation.Year" @bind:event="onchange"
+                                @bind:after="() => OnSelectedCalculationChanged()">
+                                @for (int i = 2025; i <= 2030; i++)
+                                {
+                                    <option value="@i">@i</option>
+                                }
+                        </select>
+                        <ValidationMessage For="@(() => _newCalculation.Year)" />
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-group">
+                        <label class="form-label">Descripción</label>
+                        <textarea @bind="_newCalculation.Description"
+                                  class="form-control"
+                                  rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Plantilla Base</label>
+                        <select @bind-Value="_newCalculation.Template" @bind-Value:event="oninput" class="form-select">
+                            <option value="">Sin plantilla</option>
+                            <option value="basic">Plantilla Básica</option>
+                            <option value="complete">Plantilla Completa</option>
+                            <option value="previous">Copiar mes anterior</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-primary" @onclick="CreateNewCalculation">
+            <i class="bi bi-check me-1"></i>Crear
+        </button>
+        <button class="btn btn-secondary" @onclick="() => _newCalcModal.HideAsync()">
+            <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+    </FooterTemplate>
+</Modal>
+
+<!-- Modal for New Section -->
+<Modal @ref="_newSectionModal" Title="Nueva Sección" Size="ModalSize.Regular">
+    <BodyTemplate>
+        <EditForm Model="_newSection" OnValidSubmit="AddNewSectionFromModal">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <!-- Categorías disponibles -->
+            <div class="mb-3">
+                <label class="form-label"><strong>Categorías Disponibles</strong></label>
+
+                    <div class="list-group mb-3">
+                    @foreach (var categoria in _Categories)
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action"
+                                    @onclick="() => SeleccionarCategoria(categoria)">
+                                @categoria.Description
+                            </button>
+                        }
+                    </div>
+            </div>
+
+            @if (_Categories.Count == 0)
+            {
+                <div class="form-group mb-3">
+                    <label class="form-label"><strong>Nombre de la Sección *</strong></label>
+                    <InputText @bind-Value="_newSection.Name" class="form-control" />
+                    <ValidationMessage For="@(() => _newSection.Name)" />
+                </div>
+            }
+
+            <div class="form-group mb-3">
+                <label class="form-label"><strong>Posición</strong></label>
+                <select @bind-Value="_newSection.Position" @bind-Value:event="oninput" class="form-select">
+                    <option value="last">Al final</option>
+                    @foreach (var section in GetSections())
+                    {
+                        <option value="section.Id">Después de: @GetSectionName(section.Id)</option>
+                    }
+                </select>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-primary" @onclick="AddNewSectionFromModal">
+            <i class="bi bi-check me-1"></i>Agregar
+        </button>
+        <button class="btn btn-secondary" @onclick="() => _newSectionModal.HideAsync()">
+            <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+    </FooterTemplate>
+</Modal>
+
+<p></p>
+
+<InstallmentTable 
+    Installments="@Installments" 
+    Month="@_selectedMonth" 
+    Year="@_selectedYear"
+    Budget="@_Budget"/>
+
+@code {
+
+    private int _selectedMonth = DateTime.Now.Month; // Mes actual
+    private int _selectedYear = DateTime.Now.Year;   // Año actual
+    private BudgetStatus _Status = BudgetStatus.Created;
+
+    private decimal _totalMonthly = 0;
+    private decimal _totalAnnual = 0;
+    private int _totalApartments = 30;
+    private int _occupiedApartments = 30;
+    private decimal _quotaPerApartment = 0;
+    private bool _useProportionalDistribution = false;
+    private bool _isNewBudet = false;
+    private bool _isDisable = true;
+    private bool _readonly = false;
+
+    private NewCalculation _newCalculation = new();
+    private NewSection _newSection = new();
+    private Modal _newCalcModal = null!;
+    private Modal _newSectionModal = null!;
+
+    private string class1 = "card card-hover mb-4";
+    private string class2 = "card card-hover";
+    private string class5 = "bi bi-arrow-bar-right";
+    private bool showorNot = true;
+    private string _msjButtonWorflow = "Sol. Aprob.";
+    private string _icon = "fa-solid fa-list-check";
+
+    private List<SelectListItem> _availableMonths = new();
+    private List<ViewBudgetDetail> _budgetDetailTemplate = new();
+    private List<Models.Parameter> filteredParameters = new();
+    public List<ViewExpense> gastosPendientes = new();
+    private List<Category> filteredCategories = new();
+    private List<Category> _Categories = new();
+    private BudgetHeader _Budget = new();
+
+    private List<OwnerUnitView> Owners = new();
+    private List<OwnerUnitView> GroupOwners = new();
+    private List<Installment> Installments = new();
+
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+    [Parameter]
+    public string Status { get; set; } = string.Empty;
+
+    private Guid IdBudgetHeader = Guid.Empty;
+
+    private BudgetStatus ValidateParameter(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return BudgetStatus.Created;
+
+        if (!Enum.TryParse<BudgetStatus>(value, true, out var status))
+            return BudgetStatus.Created;
+
+        switch (status)
+        {
+            case BudgetStatus.Created or BudgetStatus.Rejected:
+                _readonly = false;
+                break;
+            case BudgetStatus.Check:
+                SetWorkflowState("Aprobar", "fa-solid fa-file", true);
+                break;
+            case BudgetStatus.Approved:
+                SetWorkflowState("Publicar", "fa-solid fa-upload", true);
+                break;
+            case BudgetStatus.Active:
+                SetWorkflowState("Cerrar", "fa-solid fa-folder-closed", true);
+                break;
+            case BudgetStatus.Closed:
+                SetWorkflowState("Cerrado", "fa-solid fa-lock", true);
+                break;
+        }
+
+        return status;
+    }
+
+    private void SetWorkflowState(string message, string icon, bool isReadonly)
+    {
+        _msjButtonWorflow = message;
+        _icon = icon;
+        _readonly = isReadonly;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ParameterService.IdBuilding == Guid.Empty)
+            return;
+
+        _Status = ValidateParameter(Status);
+
+        await Task.WhenAll(
+            LoadDataDefault(),
+            ShoworNot()
+        );
+
+        if (Guid.TryParse(Id, out var parsedId))
+        {
+            IdBudgetHeader = parsedId;
+            _Budget = ParameterService.ec.GetBudgetById(IdBudgetHeader);
+            //_Budget = await ParameterService.ec.GetBudgetByIdAsync(IdBudgetHeader);
+            _isNewBudet = false;
+            _isDisable = false;
+            _selectedMonth = _Budget.Month;
+            _selectedYear = _Budget.Year;
+            await LoadData();
+        }
+        else if (Id == "new" && IdBudgetHeader == Guid.Empty)
+        {
+            _isNewBudet = true;
+            _isDisable = true;
+        }
+    }
+
+    /*  SECCION LOAD DATA   */
+
+    private async Task LoadData()
+    {
+        _Budget.Details = await ParameterService.ec.GetBudgetDetail(IdBudgetHeader);
+        //_expenseItems = await ParameterService.ec.GetBudgetDetailAsync(IdBudgetHeader);
+        await CalculateTotals();
+    }
+
+    private async Task LoadSampleData()
+    {
+        var sequentialNumber = 0.0m;
+        _Budget.Details.Clear();
+
+        foreach (var detail in _budgetDetailTemplate)
+        {
+            if (detail.IsHeader)
+                sequentialNumber = 0.00m;
+
+            var categoryAmount = gastosPendientes
+                .Where(c => c.IdCategory == detail.IdCategory)
+                .Sum(x => x.Amount);
+
+            var newItem = new BudgetDetail
+            {
+                IdBudgetDetail = detail.IdBudgetDetail,
+                IdCategory = detail.IdCategory,
+                IdSection = detail.IdSection,
+                ItemNumber = detail.IdSection + sequentialNumber,
+                Description = detail.Description,
+                MonthlyAmount = detail.MonthlyAmount == 0 ? categoryAmount : detail.MonthlyAmount,
+                AnnualAmount = detail.AnnualAmount,
+                Frequency = detail.Frequency,
+                Type = detail.Type,
+                IsHeader = detail.IsHeader
+            };
+
+            _Budget.Details.Add(newItem);
+            sequentialNumber += 0.01m;
+        }
+
+        await CalculateTotals();
+    }
+
+    private async Task LoadDataDefault()
+    {
+        DateTime startDate = new DateTime(_selectedYear, _selectedMonth, 1);
+
+        //Cargar Template Default
+        _budgetDetailTemplate = await ParameterService.ec.GetBudgetDetailDefault(ParameterService.IdBuilding);
+
+        //Cargar los gastos pendientes en rango de fecha
+        gastosPendientes = await ExpenseService.ObtenerGastosPendientesConciliacionAsync(ParameterService.ec, ParameterService.IdBuilding, startDate.AddMonths(-1), startDate.AddMonths(1));
+
+        //Cargar Categoria
+        filteredCategories = ParameterService.ec.GetCategories(ParameterService.IdBuilding);
+
+        //Caargar lista de Parametros
+        filteredParameters = @ParameterService.ListParameters.ToList();
+
+        //Cargar Lista de Propietarios 
+        Owners = ParameterService.ec.GetOwnersByBuilding(ParameterService.IdBuilding);
+        GroupOwners = Owners.Where(c => c.Role == 1 && c.TypeUnit == 1).ToList();
+
+        //Cargar Meses por Culura
+        _availableMonths = await ParameterService.GetMonthList("es-PE");
+
+    }
+
+    /*  SECCION CALCULOS   */
+
+    private async Task CalculateTotals()
+    {
+        _totalMonthly = 0;
+        _totalAnnual = 0;
+
+        var nonHeaderItems = _Budget.Details.Where(x => !x.IsHeader).ToList();
+
+        foreach (var item in nonHeaderItems)
+        {
+            var annualMultiplier = GetAnnualMultiplier(item.Frequency);
+            var annualValue = item.MonthlyAmount * annualMultiplier;
+
+            if (item.AnnualAmount != annualValue)
+            {
+                item.AnnualAmount = Math.Round(annualValue, 2);
+            }
+
+            _totalMonthly += item.MonthlyAmount;
+            _totalAnnual += item.AnnualAmount;
+        }
+
+        await CalculateQuota();
+
+        StateHasChanged();
+    }
+
+    private decimal GetAnnualMultiplier(int frequency)
+    {
+        return frequency switch
+        {
+            1 => 12,  // Anual
+            2 => 6,   // Semestral
+            3 => 4,   // Trimestral
+            4 => 3,   // Cuatrimestral
+            _ => 1    // Mensual u otros
+        };
+    }
+
+    private async Task CalculateQuota()
+    {
+        _quotaPerApartment = _totalApartments > 0
+            ? Math.Round(_totalMonthly / _totalApartments, 2)
+            : 0;
+
+        Installments.Clear();
+
+        foreach (var unit in GroupOwners)
+        {
+            Installment _dpto = new Installment();
+            _dpto.IdInstallment = Guid.NewGuid();
+            _dpto.IdBudgetHeader = IdBudgetHeader;
+            _dpto.CreationDate = DateTime.Now; //_Budget.BudgetDate;
+            _dpto.TotalArea = unit.TotalArea;
+            _dpto.UnitName = unit.UnitNumber;
+            _dpto.OwnerName = unit.FirstName;
+            _dpto.IdGroupUnit = unit.IdGroupUnit;
+            _dpto.CreatedBy = ParameterService.UserName;
+            _dpto.DueDate = DateTime.Now.AddDays(ParameterService.DueDay);
+            _dpto.Status = 1; //Created
+
+            decimal _total = 0;
+            int _nroAparments = ParameterService.nroGroupUnit;
+            decimal _distr = unit.TotalArea / ParameterService.TotalAera;
+
+            foreach (var item in _Budget.Details)
+            {
+                _total += item.Type == 1 ? item.MonthlyAmount / _nroAparments : item.MonthlyAmount * _distr;
+            }
+
+            _dpto.Amount = _total;
+            _dpto.Percent = 100 * _distr;
+
+            Installments.Add(_dpto);
+        }
+
+        StateHasChanged();
+    }
+
+    private void UpdateFrequency(BudgetDetail item)
+    {
+        var annualMultiplier = GetAnnualMultiplier(item.Frequency);
+        item.AnnualAmount = item.MonthlyAmount * annualMultiplier;
+
+        _ = CalculateTotals();
+    }
+
+    /*  SECCION MANAGE SECTIONS   */
+
+    private string GetMonthName(int monthNumber) =>
+     _availableMonths?.FirstOrDefault(m => m.Value == monthNumber.ToString())?.Text
+     ?? "Mes Desconocido";
+
+    private string GetSectionName(int sectionId) =>
+        _Budget.Details.FirstOrDefault(x => x.IdSection == sectionId && x.IsHeader)?.Description
+        ?? $"Sección {sectionId}";
+
+    private List<SectionInfo> GetSections() =>
+        _Budget.Details
+            .Where(x => x.IsHeader)
+            .Select(x => new SectionInfo
+            {
+                Id = x.IdSection,
+                Name = x.Description,
+                IdCategory = x.IdCategory
+            })
+            .OrderBy(x => x.Id)
+            .ToList();
+    
+    private bool IsLastItemInSection(Guid itemId, int sectionId)
+    {
+        var sectionItems = _Budget.Details
+            .Where(x => x.IdSection == sectionId && !x.IsHeader)
+            .ToList();
+
+        return sectionItems.LastOrDefault()?.IdBudgetDetail == itemId;
+    }
+
+    private (decimal Monthly, decimal Annual) GetSectionTotal(int sectionId)
+    {
+        var sectionItems = _Budget.Details.Where(x => x.IdSection == sectionId && !x.IsHeader).ToList();
+        return (
+            Monthly: sectionItems.Sum(x => x.MonthlyAmount),
+            Annual: sectionItems.Sum(x => x.AnnualAmount)
+        );
+    }
+
+    private List<SectionTotal> GetSectionTotals()
+    {
+        var sections = new List<SectionTotal>();
+
+        foreach (var section in GetSections())
+        {
+            var total = GetSectionTotal(section.Id);
+            if (total.Monthly > 0 || total.Annual > 0)
+            {
+                sections.Add(new SectionTotal
+                {
+                    Id = section.Id,
+                    Name = GetSectionName(section.Id),
+                    Monthly = total.Monthly,
+                    Annual = total.Annual
+                });
+            }
+        }
+        return sections;
+    }
+
+    private void AddExpenseItemToSection(int sectionId)
+    {
+        var sectionItems = _Budget.Details.Where(x => x.IdSection == sectionId && !x.IsHeader).ToList();
+        var lastItemNumber = sectionItems.Any()
+            ? sectionItems.Max(x => x.ItemNumber)
+            : Math.Floor(GetNextSectionItemNumber(sectionId));
+
+        var newItem = new BudgetDetail
+        {
+            IdBudgetDetail = Guid.NewGuid(),
+            IdSection = sectionId,
+            IdCategory = Guid.NewGuid(),
+            ItemNumber = lastItemNumber + 0.01m,
+            Description = "Nuevo Item",
+            MonthlyAmount = 0,
+            AnnualAmount = 0,
+            Frequency = 1,
+            Type = 1,
+            isNewItem = true,
+            IdBudgetHeader = IdBudgetHeader
+        };
+
+        // Insertar después del último item de la sección
+        var lastItemIndex = _Budget.Details.FindLastIndex(x => x.IdSection == sectionId && !x.IsHeader);
+        if (lastItemIndex >= 0)
+        {
+            _Budget.Details.Insert(lastItemIndex + 1, newItem);
+        }
+        else
+        {
+            // Si no hay items en la sección, insertar después del header
+            var headerIndex = _Budget.Details.FindIndex(x => x.IdSection == sectionId && x.IsHeader);
+            if (headerIndex >= 0)
+            {
+                _Budget.Details.Insert(headerIndex + 1, newItem);
+            }
+            else
+            {
+                _Budget.Details.Add(newItem);
+            }
+        }
+
+        _ = CalculateTotals();
+    }
+
+    private void AddExpenseItemToFirstSection()
+    {
+        var firstSection = GetSections().FirstOrDefault();
+        if (firstSection != null)
+        {
+            AddExpenseItemToSection(firstSection.Id);
+        }
+        else
+        {
+            // Si no hay secciones, crear una primero
+            _ = AddNewSection();
+        }
+    }
+
+    private async Task AddNewSection()
+    {
+        //Filtrar Categorias de Nivel 0
+        var existingSections = GetSections();
+
+        _Categories = filteredCategories
+            .Where(c => c.Nivel == 0 && !existingSections.Select(x => x.IdCategory).Contains(c.IdCategory))
+            .ToList();
+
+        _newSection = new NewSection
+        {
+            Name = "",
+            Position = "last",
+            IdCategory = Guid.Empty
+        };
+
+        await _newSectionModal.ShowAsync();
+    }
+
+    private async Task AddNewSectionFromModal1()
+    {
+        bool isNewCategory = false;
+
+        if (string.IsNullOrWhiteSpace(_newSection.Name))
+            return;
+
+        // Determinar el ID de la nueva sección
+        var existingSections = GetSections();
+        var newSectionId = existingSections.Any()
+            ? existingSections.Max(x => x.Id) + 1
+            : 1;
+
+        //Obtener el IdCategory correspondiente
+        var newCategoryId = filteredCategories
+            .FirstOrDefault(c => c.Description == _newSection.Name)?.IdCategory ?? Guid.NewGuid();
+
+
+        //Verificar si la categoría ya existe
+        if (filteredCategories.Where(c => c.Description == _newSection.Name).Count() == 0)
+        {
+            //Crear nueva categoria
+            isNewCategory = true;
+        }
+
+        // Crear el header de la sección
+        var sectionHeader = new BudgetDetail
+        {
+            IdBudgetDetail = Guid.NewGuid(),
+            IdSection = newSectionId,
+            ItemNumber = newSectionId,
+            IdCategory = newCategoryId,
+            Description = _newSection.Name.ToUpper(),
+            IsHeader = true,
+            isNewItem = isNewCategory,
+            IdBudgetHeader = IdBudgetHeader
+        };
+
+
+        // Determinar dónde insertar la sección
+        if (_newSection.Position == "last" || !int.TryParse(_newSection.Position, out int afterSectionId))
+        {
+            _Budget.Details.Add(sectionHeader);
+        }
+        else
+        {
+            // Insertar después de la sección especificada
+            var sectionIndex = _Budget.Details.FindLastIndex(x => x.IdSection == afterSectionId);
+            if (sectionIndex >= 0)
+            {
+                _Budget.Details.Insert(sectionIndex + 1, sectionHeader);
+            }
+            else
+            {
+                _Budget.Details.Add(sectionHeader);
+            }
+        }
+
+        if (!isNewCategory)
+        {
+            //Obtener el IdCategory correspondiente
+            int oldIdSection = _budgetDetailTemplate
+            .FirstOrDefault(c => c.Description == _newSection.Name)?.IdSection ?? 1;
+
+            decimal SequentialNumber = (decimal)oldIdSection + 0.01m;
+
+            foreach (var newItem in _budgetDetailTemplate.Where(c => c.IdSection == oldIdSection && !c.IsHeader))
+            {
+                BudgetDetail detail = new BudgetDetail();
+                detail.IdBudgetDetail = newItem.IdBudgetDetail;
+                detail.IdCategory = newItem.IdCategory;
+                detail.IdSection = newSectionId;
+                detail.ItemNumber = SequentialNumber ;
+                detail.Description = newItem.Description;
+                detail.MonthlyAmount = newItem.MonthlyAmount == 0
+                          ? gastosPendientes.Where(c => c.IdCategory == newItem.IdCategory).Sum(x => x.Amount)
+                          : newItem.MonthlyAmount;
+                detail.AnnualAmount = newItem.AnnualAmount;
+                detail.Frequency = newItem.Frequency;
+                detail.Type = newItem.Type;
+                detail.IsHeader = newItem.IsHeader;
+                detail.IdBudgetHeader = IdBudgetHeader;
+
+                _Budget.Details.Add(detail);
+                SequentialNumber = SequentialNumber + 0.01m;
+
+            }
+        }
+
+        await _newSectionModal.HideAsync();
+        StateHasChanged();
+    }
+
+    private async Task AddNewSectionFromModal()
+    {
+        if (string.IsNullOrWhiteSpace(_newSection.Name))
+            return;
+
+        var existingSections = GetSections();
+        var newSectionId = existingSections.Any()
+            ? existingSections.Max(x => x.Id) + 1
+            : 1;
+
+        var existingCategory = filteredCategories
+            .FirstOrDefault(c => c.Description == _newSection.Name);
+
+        var isNewCategory = existingCategory == null;
+        var categoryId = existingCategory?.IdCategory ?? Guid.NewGuid();
+
+        var sectionHeader = CreateSectionHeader(newSectionId, categoryId, isNewCategory);
+        InsertSectionInPosition(sectionHeader);
+
+        if (!isNewCategory)
+        {
+            await AddTemplateItemsToSection(newSectionId, existingCategory!.IdCategory);
+        }
+
+        await _newSectionModal.HideAsync();
+        StateHasChanged();
+    }
+
+    private BudgetDetail CreateSectionHeader(int sectionId, Guid categoryId, bool isNew)
+    {
+        return new BudgetDetail
+        {
+            IdBudgetDetail = Guid.NewGuid(),
+            IdSection = sectionId,
+            ItemNumber = sectionId,
+            IdCategory = categoryId,
+            Description = _newSection.Name.ToUpper(),
+            IsHeader = true,
+            isNewItem = isNew,
+            IdBudgetHeader = IdBudgetHeader
+        };
+    }
+
+    private void InsertSectionInPosition(BudgetDetail sectionHeader)
+    {
+        if (_newSection.Position == "last" || !int.TryParse(_newSection.Position, out int afterSectionId))
+        {
+            _Budget.Details.Add(sectionHeader);
+            return;
+        }
+
+        var sectionIndex = _Budget.Details.FindLastIndex(x => x.IdSection == afterSectionId);
+        _Budget.Details.Insert(sectionIndex >= 0 ? sectionIndex + 1 : _Budget.Details.Count, sectionHeader);
+    }
+
+    private async Task AddTemplateItemsToSection(int newSectionId, Guid categoryId)
+    {
+        var oldIdSection = _budgetDetailTemplate
+            .FirstOrDefault(c => c.IdCategory == categoryId)?.IdSection ?? 1;
+
+        var sequentialNumber = (decimal)newSectionId + 0.01m;
+        var templateItems = _budgetDetailTemplate
+            .Where(c => c.IdSection == oldIdSection && !c.IsHeader);
+
+        foreach (var templateItem in templateItems)
+        {
+            var categoryAmount = gastosPendientes
+                .Where(c => c.IdCategory == templateItem.IdCategory)
+                .Sum(x => x.Amount);
+
+            var detail = new BudgetDetail
+            {
+                IdBudgetDetail = templateItem.IdBudgetDetail,
+                IdCategory = templateItem.IdCategory,
+                IdSection = newSectionId,
+                ItemNumber = sequentialNumber,
+                Description = templateItem.Description,
+                MonthlyAmount = templateItem.MonthlyAmount == 0 ? categoryAmount : templateItem.MonthlyAmount,
+                AnnualAmount = templateItem.AnnualAmount,
+                Frequency = templateItem.Frequency,
+                Type = templateItem.Type,
+                IsHeader = templateItem.IsHeader,
+                IdBudgetHeader = IdBudgetHeader
+            };
+
+            _Budget.Details.Add(detail);
+            sequentialNumber += 0.01m;
+        }
+    }
+
+    private void RemoveExpenseItem(Guid id)
+    {
+        var item = _Budget.Details.FirstOrDefault(x => x.IdBudgetDetail == id);
+        if (item != null)
+        {
+            _Budget.Details.Remove(item);
+            _ = CalculateTotals();
+        }
+    }
+
+    private void RemoveSection(int sectionId)
+    {
+        var itemsToRemove = _Budget.Details.Where(x => x.IdSection == sectionId).ToList();
+        foreach (var item in itemsToRemove)
+        {
+            _Budget.Details.Remove(item);
+        }
+
+        _ = CalculateTotals();
+    }
+
+    private decimal GetNextSectionItemNumber(int sectionId) => sectionId;
+
+    /*  SECCION FILTER   */
+
+    private void ChangeYear(int delta)
+    {
+        _selectedYear += delta;
+        StateHasChanged();
+    }
+
+    /*  SECCION MODALES   */
+
+    private async Task ShowNewCalculationModal()
+    {
+        if (_newCalcModal == null ) return;
+
+        _newCalculation = new NewCalculation
+        {
+            Month = _selectedMonth,
+            Year = _selectedYear,
+            TotalApartments = _totalApartments,
+            Description = "Presupuesto - " + @GetMonthName(_selectedMonth) + " " +_selectedYear
+        };
+
+        await _newCalcModal.ShowAsync();
+    }
+
+    private async Task CreateNewCalculation()
+    {
+        // Implementar lógica para crear nuevo cálculo
+        IdBudgetHeader = Guid.NewGuid();
+
+        _Budget = new BudgetHeader
+        {
+            IdBudgetHeader = IdBudgetHeader,
+            IdBuilding = ParameterService.IdBuilding,
+            //Month = _selectedMonth,
+            //Year = _selectedYear,
+            BudgetDate = new DateTime(_selectedYear, _selectedMonth, 1),
+            BudgetName = $"Presupuesto {GetMonthName(_selectedMonth)} {_selectedYear}",
+            Status = BudgetStatus.Created,
+            CreatedBy = "Admin"
+        };
+
+        _isDisable = false;
+        await _newCalcModal.HideAsync();
+        StateHasChanged();
+    }
+
+    /*  SECCION SAVE   */
+
+    public async Task SaveCalculation1()
+    {
+        _newCalcModal = null!;
+
+        using (var transaction = await ParameterService.context.Database.BeginTransactionAsync())
+        {
+            try
+            {
+                if (_Status != BudgetStatus.Created)
+                {
+                }
+                else
+                {
+                    // Guardar categorías nuevas
+                    foreach (var header in _Budget.Details.Where(c => c.IsHeader))
+                    {
+                        if (header.isNewItem)
+                        {
+                            var nuevaCategoria = new Category
+                                {
+                                    IdCategory = header.IdCategory,
+                                    Description = header.Description,
+                                    ShortDescript = header.Description,
+                                    Color = "#FFFFFF",
+                                    Icon = "fa-solid fa-droplet",
+                                    IdBuilding = ParameterService.IdBuilding,
+                                    Nivel = header.IdSection
+                                };
+                            //await unitOfWork.Categories.AddAsync(nuevaCategoria);
+                            await ParameterService.ec.AddNewRecordAsync(nuevaCategoria);
+                        }
+
+                        foreach (var subItem in _Budget.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader))
+                        {
+                            if (subItem.isNewItem)
+                            {
+                                var nuevaSubCategoria = new Category
+                                    {
+                                        ParentId = header.IdCategory,
+                                        IdCategory = subItem.IdCategory,
+                                        Description = subItem.Description,
+                                        ShortDescript = subItem.Description,
+                                        Color = "#FFFFFF",
+                                        Icon = "fa-solid fa-droplet",
+                                        IdBuilding = ParameterService.IdBuilding
+                                    };
+                                //    await unitOfWork.Categories.AddAsync(nuevaSubCategoria);
+                                await ParameterService.ec.AddNewRecordAsync(nuevaSubCategoria);
+                            }
+                        }
+                    }
+                }
+                if (_isNewBudet) {
+
+                    _Budget.Amount = _totalMonthly;
+                    _Budget.AnnualAmount = _totalAnnual;
+
+                    //await unitOfWork.BudgetHeaders.AddAsync(headerBudget);
+                    await ParameterService.ec.AddNewRecordAsync(_Budget);
+
+                    //Agregar todos los item a BudgetDetail
+                    foreach (var item in _Budget.Details)
+                    {
+                        item.IdBudgetHeader = IdBudgetHeader;
+                        //await unitOfWork.ExpenseItems.AddAsync(item);
+                        await ParameterService.ec.AddNewRecordAsync(item);
+                    }
+                    _isNewBudet = false;
+                    Id = IdBudgetHeader.ToString();
+                }
+                else
+                {
+                    if (_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected)
+                    {
+                        await ParameterService.ec.DelBudgetDetailByHeaderAsync(IdBudgetHeader);
+
+                        //Insertar lo que no esta
+                        foreach (var item in _Budget.Details)
+                        {
+                            item.IdBudgetHeader = IdBudgetHeader;
+                            //await unitOfWork.ExpenseItems.AddAsync(item);
+                            await ParameterService.ec.AddNewRecordAsync(item);
+                        }
+                        _Budget.Amount = _totalMonthly;
+                        _Budget.AnnualAmount = _totalAnnual;
+                    }
+
+                    //Actualiza la cabecera
+                    await ParameterService.ec.UpdateRecordAsync(_Budget);
+                }
+                //await unitOfWork.CompleteAsync();
+                await transaction.CommitAsync();
+
+                Console.WriteLine("Cálculo guardado exitosamente");
+
+                _isNewBudet = false;
+                _Budget.Details.Clear();
+                _Budget.Details = await ParameterService.ec.GetBudgetDetail(IdBudgetHeader);
+
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                Console.WriteLine($"Error al guardar cálculo: {ex.Message}");
+            }
+        }
+
+    }    
+    
+    public async Task SaveCalculation()
+    {
+        using var transaction = await ParameterService.context.Database.BeginTransactionAsync();
+
+        try
+        {
+            if (_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected)
+            {
+                await SaveCategories();
+
+                if (_isNewBudet)
+                {
+                    await CreateNewBudget();
+                }
+                else
+                {
+                    await UpdateExistingBudget();
+                }
+            }
+            else
+            {
+                await ParameterService.ec.UpdateRecordAsync(_Budget);
+
+                if( _Status == BudgetStatus.Active  ){
+
+                    foreach( var item in Installments)
+                    {
+                        await ParameterService.ec.AddNewRecordAsync(item);
+                    }
+                }
+
+            }
+
+            await transaction.CommitAsync();
+            await ReloadBudgetData();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            Console.WriteLine($"Error al guardar cálculo: {ex.Message}");
+        }
+    }
+
+    private async Task SaveCategories()
+    {
+        foreach (var header in _Budget.Details.Where(c => c.IsHeader && c.isNewItem))
+        {
+            await SaveCategory(header, Guid.Empty);
+
+            foreach (var subItem in _Budget.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader && c.isNewItem))
+            {
+                await SaveCategory(subItem, header.IdCategory);
+            }
+        }
+    }
+
+    private async Task SaveCategory(BudgetDetail item, Guid parentId)
+    {
+        var category = new Category
+        {
+            IdCategory = item.IdCategory,
+            Description = item.Description,
+            ShortDescript = item.Description,
+            Color = "#FFFFFF",
+            Icon = "fa-solid fa-droplet",
+            IdBuilding = ParameterService.IdBuilding,
+            Nivel = parentId == Guid.Empty ? 0 : item.IdSection,
+            ParentId = parentId
+        };
+
+        await ParameterService.ec.AddNewRecordAsync(category);
+    }
+
+    private async Task CreateNewBudget()
+    {
+        _Budget.Amount = _totalMonthly;
+        _Budget.AnnualAmount = _totalAnnual;
+
+        await ParameterService.ec.AddNewRecordAsync(_Budget);
+
+        foreach (var item in _Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
+        {
+            item.IdBudgetHeader = IdBudgetHeader;
+            await ParameterService.ec.AddNewRecordAsync(item);
+        }
+
+        _isNewBudet = false;
+        Id = IdBudgetHeader.ToString();
+    }
+
+    private async Task UpdateExistingBudget()
+    {
+        await ParameterService.ec.DelBudgetDetailByHeaderAsync(IdBudgetHeader);
+
+        foreach (var item in _Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
+        {
+            item.IdBudgetHeader = IdBudgetHeader;
+            await ParameterService.ec.AddNewRecordAsync(item);
+        }
+
+        _Budget.Amount = _totalMonthly;
+        _Budget.AnnualAmount = _totalAnnual;
+        await ParameterService.ec.UpdateRecordAsync(_Budget);
+    }
+
+    private async Task ReloadBudgetData()
+    {
+        _isNewBudet = false;
+        _Budget.Details.Clear();
+        //_expenseItems = await ParameterService.ec.GetBudgetDetailAsync(IdBudgetHeader);
+        _Budget.Details = await ParameterService.ec.GetBudgetDetail(IdBudgetHeader);
+    }
+
+    private async Task PublishBudget(MouseEventArgs args)
+    {
+        UpdateBudgetStatus();
+
+        if (_Status != BudgetStatus.Closed)
+        {
+            _Budget.Status = _Status;
+            await SaveCalculation();
+        }
+    }
+
+    private void UpdateBudgetStatus()
+    {
+        switch (_Status)
+        {
+            case BudgetStatus.Created or BudgetStatus.Rejected:
+                _Status = BudgetStatus.Check;
+                SetWorkflowState("Aprobar", "fa-solid fa-file", true);
+                break;
+            case BudgetStatus.Check:
+                _Status = BudgetStatus.Approved;
+                SetWorkflowState("Publicar", "fa-solid fa-upload", true);
+                break;
+            case BudgetStatus.Approved:
+                _Status = BudgetStatus.Active;
+                SetWorkflowState("Cerrar", "fa-solid fa-folder-closed", true);
+                break;
+            case BudgetStatus.Active:
+                _Status = BudgetStatus.Closed;
+                SetWorkflowState("Cerrado", "fa-solid fa-lock", true);
+                break;
+        }
+    }
+
+    private async Task PublishBudgetR(MouseEventArgs args)
+    {
+        SetWorkflowState("Sol. Aprob.", "fa-solid fa-list-check", false);
+        _Status = BudgetStatus.Created;
+    }
+    
+    /*  SECCION GENERAL FUNCTIONS   */
+    
+    private async Task GenerateReport()
+    {
+        // Implementar generación de reporte PDF
+        Console.WriteLine("Generando reporte PDF...");
+    }
+
+    private async Task CopyToClipboard()
+    {
+        // Implementar copia al portapapeles
+        Console.WriteLine("Detalle copiado al portapapeles");
+    }
+
+    private void ClearAllData()
+    {
+        _Budget.Details.Clear();
+        _totalMonthly = 0;
+        _totalAnnual = 0;
+        _quotaPerApartment = 0;
+        StateHasChanged();
+    }
+
+    private async Task OnSelectedCalculationChanged()
+    {
+        _selectedMonth = _newCalculation.Month;
+        _selectedYear = _newCalculation.Year;
+        _newCalculation.Description = $"Presupuesto - {GetMonthName(_newCalculation.Month)} {_newCalculation.Year}";
+    }
+
+    private void SeleccionarCategoria(Models.Category category)
+    {
+        //Logica de Seleccionar
+        _newSection.Name = category.Description;
+        _newSection.IdCategory = category.IdCategory;
+    }
+
+    private async Task ShoworNot()
+    {
+        showorNot = !showorNot;
+
+        if (showorNot)
+        {
+            class1 = "card card-hover mb-4";
+            class2 = "card card-hover";
+            class5 = "bi bi-arrow-bar-right";
+        }
+        else
+        {
+            class1 = "d-none";
+            class2 = "d-none";
+            class5 = "bi bi-arrow-bar-left";
+        }
+
+        StateHasChanged();
+    }
+}

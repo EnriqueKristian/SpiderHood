@@ -1,0 +1,180 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using SpiderHood.Services
+@inherits LayoutComponentBase
+@inject ParameterService ParameterService
+
+@if (ShowModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content" >
+                <div class="modal-header">
+                    <h5 class="modal-title">@((OpenMode == Models.OpenType.Create) ? "Agregar Propietario" : "Actualizar Propietario")</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <EditForm Id="create" Model="@ViewOwner" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" role="alert" />
+                <div class="modal-body">
+                        <table class="table-color">
+                            <tr>
+                                <td width="100px"><strong>Tipo Persona</strong></td>
+                                <td colspan="3">
+                                    <table width="60%">
+                                        <tr>
+                                            <td>
+                                                <div class="radio-option">
+                                                    <input type="radio" 
+                                                        id="Natural"
+                                                        name="tipoPersona"
+                                                        @onchange="CambiarPersona"
+                                                        value="Natural"
+                                                        checked/>
+                                                        <label for="distFijo" class="radio-label">
+                                                            <span class="radio-title">Natural</span>
+                                                        </label>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="radio-option">
+                                                     <input type="radio"
+                                                       id="Juridica"
+                                                       name="tipoPersona"
+                                                       @onchange="CambiarPersona"
+                                                       value="Juridica"/>
+                                                       <label for="distProporcional" class="radio-label">
+                                                           <span class="radio-title">Jurídica</span>
+                                                       </label>
+                                                 </div>
+                                             </td>
+                                       </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="text-danger">*</span>
+                                    <label for="names" class="form-label"><strong>@((SelectedPersonType == "Natural") ? "Nombres" : "Razon Social"):</strong></label>
+                                </td>
+                                <td colspan="3">
+                                    <div class="mb-3">
+                                        <InputText id="names" @bind-Value="ViewOwner.Names" class="form-control" aria-required="true" />
+                                        <ValidationMessage For="() => ViewOwner.Names" class="text-danger" />
+                                    </div>
+                                </td>
+                            </tr>
+                            @if (SelectedPersonType == "Natural")
+                            {
+                                <tr>
+                                    <td>
+                                        <label for="surnamem" class="form-label"><strong>Apellidos:</strong></label>
+                                    </td>
+                                    <td colspan="3">
+                                        <div class="mb-1">
+                                            <InputText id="surnamem" @bind-Value="ViewOwner.Surname" class="form-control" />
+                                            <ValidationMessage For="() => ViewOwner.Surname" class="text-danger" />
+                                        </div>
+                                    </td>
+                                </tr> 
+                            }
+                            else
+                            {
+                                ViewOwner.Surname = ViewOwner.Names;
+                            }
+                            <tr>
+                                <td>
+                                    <!--<span class="text-danger">*</span>-->
+                                    <label for="typedoc" class="form-label"><strong>Tipo Doc:</strong></label>
+                                </td>
+                                <td>
+                                    <div class="mb-3">
+                                        <InputSelect id="typedoc" @bind-Value="ViewOwner.IdTypeIdNumber" class="form-select">
+
+                                            @foreach (var param in ParameterService.ListParameters.Where(c => c.IdParent == Convert.ToInt32( Models.ParamParent.DocumentType)))
+                                            {
+                                                <option value="@param.Value" selected>@param.ShortDescription</option>
+                                            }
+
+                                        </InputSelect>
+                                        <ValidationMessage For="() => ViewOwner.IdTypeIdNumber" class="text-danger" />
+                                    </div>
+                                </td>
+                                <td>
+                                    <!--<span class="text-danger">*</span>-->
+                                    <label for="nrodoc" class="form-label"><strong>Doc:</strong></label>
+                                </td>
+                                <td>
+                                    <div class="mb-3">
+                                        <InputText id="nrodoc" @bind-Value="ViewOwner.IdNumber" class="form-control" aria-required="true" />
+                                        <ValidationMessage For="() => ViewOwner.IdNumber" class="text-danger" />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="text-danger">*</span>
+                                    <label for="address" class="form-label"><strong>Direccion:</strong></label>
+                                </td>
+                                <td colspan="3">
+                                    <div class="mb-3">
+                                        <InputText id="address" @bind-Value="ViewOwner.Address" class="form-control" aria-required="true" />
+                                        <ValidationMessage For="() => ViewOwner.Address" class="text-danger" />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="phonenumber" class="form-label"><strong>Teléfono:</strong></label></td>
+                                <td colspan="3">
+                                    <div class="mb-1">
+                                        <InputText id="phonenumber" @bind-Value="ViewOwner.PhoneNumber" class="form-control" />
+                                        <ValidationMessage For="() => ViewOwner.PhoneNumber" class="text-danger" />
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    
+                </div>
+                <div class="modal-footer">
+                    <Button Color="ButtonColor.Secondary" @onclick="CerrarModal">Close</Button>
+                    <Button Color="ButtonColor.Primary" form="create" class="btn btn-primary" Type="ButtonType.Submit">@((OpenMode == Models.OpenType.Create) ? "Save" : "Update")</Button>
+                </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool ShowModal { get; set; }
+    [Parameter] public Models.OpenType OpenMode { get; set; }
+    [Parameter] public Models.Owner ViewOwner { get; set; }
+    //[Parameter] public IQueryable<Models.Parameter> ListParameters { get; set; }
+    [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
+    [Parameter] public EventCallback<SpiderHood.Models.Owner> OnSaveModal { get; set; }
+
+    // Propiedad para el valor seleccionado
+    private string SelectedUnitId { get; set; }
+    private string SelectedPersonType { get; set; } = "Natural";
+
+    private async Task Guardar()
+    {
+        await OnSaveModal.InvokeAsync(ViewOwner);
+        await CerrarModal();
+    }
+
+    private async Task CerrarModal()
+    {
+        ShowModal = false;
+        await ShowModalChanged.InvokeAsync(ShowModal);
+    }
+
+    private void OnClickCheck()
+    {
+        //TypeOwner = int.Parse(e.Value.ToString());
+
+    }
+    private void CambiarPersona(ChangeEventArgs args)
+    {
+        SelectedPersonType = args.Value.ToString();
+    }
+}

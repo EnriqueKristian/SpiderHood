@@ -1,0 +1,1152 @@
+﻿@page "/workflow"
+@using System.ComponentModel.DataAnnotations
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IWorkflowService WorkflowService
+@implements IDisposable
+
+<PageTitle>Administración de Workflows</PageTitle>
+
+<style>
+    /* wwwroot/css/workflow.css */
+    .workflow-container {
+        padding: 20px;
+    }
+
+    .workflow-selector {
+        margin-bottom: 20px;
+    }
+
+    .workflow-details {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-top: 15px;
+    }
+
+    .workflow-diagram-image {
+        max-width: 100%;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+    }
+
+    .step-badge {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        line-height: 24px;
+        text-align: center;
+        border-radius: 50%;
+        color: white;
+        margin-right: 8px;
+        font-size: 0.8rem;
+    }
+
+    /* Estilos para el modal */
+    .modal {
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-dialog {
+        margin-top: 100px;
+    }
+
+    /* Responsive */
+    @*media (max-width: 768px) {
+        .workflow-container {
+            padding: 10px;
+        }
+
+        .workflow-diagram-image {
+            max-height: 300px !important;
+        }
+    }*@
+</style>
+
+<div class="workflow-container">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="workflow-selector card">
+                <div class="card-header">
+                    <h3>Seleccionar Workflow</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="workflowSelect" class="form-label">Seleccione un workflow:</label>
+                        <select @onchange="(e) => OnWorkflowSelected(e.Value!.ToString()!)" class="form-select" id="workflowSelect">
+                            <option value="">-- Seleccione --</option>
+                            @foreach (var workflow in workflows)
+                            {
+                                <option value="@workflow.Id">@workflow.Name</option>
+                            }
+                        </select>
+                    </div>
+                    
+                    <div class="workflow-details">
+                        @if (selectedWorkflow != null)
+                        {
+                            <h5>@selectedWorkflow.Name</h5>
+                            <p>@selectedWorkflow.Description</p>
+                            <p><strong>Versión:</strong> @selectedWorkflow.Version</p>
+                            <p><strong>Estado:</strong> 
+                                <span class="badge @GetStatusBadgeClass(selectedWorkflow.Status)">
+                                    @selectedWorkflow.Status
+                                </span>
+                            </p>
+                            <p><strong>Fecha creación:</strong> @selectedWorkflow.CreatedDate.ToShortDateString()</p>
+                            @if (selectedWorkflow.UpdatedDate.HasValue)
+                            {
+                                <p><strong>Última actualización:</strong> @selectedWorkflow.UpdatedDate.Value.ToShortDateString()</p>
+                            }
+                        }
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-primary" @onclick="LoadWorkflow" disabled="@(selectedWorkflow == null)">
+                            <i class="bi bi-diagram-3"></i> Mostrar Workflow
+                        </button>
+                        <button class="btn btn-outline-secondary ms-2" @onclick="ResetSelection">
+                            <i class="bi bi-arrow-clockwise"></i> Reiniciar
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Panel de detalles del paso seleccionado -->
+            @if (selectedWorkflowDetails?.Any() == true && showDetails)
+            {
+                <div class="card mt-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5>Detalles del Workflow</h5>
+                        <span class="badge bg-primary">@selectedWorkflowDetails.Count pasos</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="list-group list-group-flush">
+                            @foreach (var detail in selectedWorkflowDetails.OrderBy(d => d.Order))
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">
+                                            <span class="step-badge @GetStepTypeClass(detail.StepType)">@detail.Order</span>
+                                            @detail.StepName
+                                        </h6>
+                                        <small class="text-muted">@detail.StepType</small>
+                                    </div>
+                                    <p class="mb-1">@detail.Description</p>
+                                    @if (detail.StepType == "Decisión")
+                                    {
+                                        <div class="mt-2">
+                                            <small class="text-success">
+                                                <i class="bi bi-check-circle"></i> SÍ: @detail.NextStepIfYes
+                                            </small>
+                                            <br />
+                                            <small class="text-danger">
+                                                <i class="bi bi-x-circle"></i> NO: @detail.NextStepIfNo
+                                            </small>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <div class="col-md-8">
+            <div class="workflow-display card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3>
+                        @if (selectedWorkflow != null)
+                        {
+                            <span>@selectedWorkflow.Name - Diagrama de Flujo</span>
+                        }
+                        else
+                        {
+                            <span>Visualización de Workflow</span>
+                        }
+                    </h3>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleDetails" title="Mostrar/ocultar detalles">
+                            <i class="bi @(showDetails ? "bi-eye-slash" : "bi-eye")"></i>
+                            @(showDetails ? "Ocultar" : "Mostrar") detalles
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (selectedWorkflow == null)
+                    {
+                        <div class="text-center py-5">
+                            <i class="bi bi-diagram-3 display-1 text-muted"></i>
+                            <h4 class="mt-3">No hay workflow seleccionado</h4>
+                            <p class="text-muted">Por favor, seleccione un workflow de la lista para visualizarlo.</p>
+                        </div>
+                    }
+                    else if (isLoading)
+                    {
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-3">Cargando diagrama del workflow...</p>
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(workflowImageSrc))
+                    {
+                        <!-- Mostrar imagen del workflow desde la BD -->
+                        <div class="workflow-image-container text-center">
+                            <h5 class="mb-3">Diagrama del Workflow</h5>
+                            <div class="border rounded p-3 mb-3">
+                                <img src="@workflowImageSrc" 
+                                     alt="Diagrama del workflow @selectedWorkflow.Name" 
+                                     class="img-fluid workflow-diagram-image"
+                                     style="max-height: 500px;" />
+                                <div class="mt-2 text-muted small">
+                                    <i class="bi bi-file-image"></i> @selectedWorkflow.OriginalFileName
+                                </div>
+                            </div>
+                            
+                            <!-- Información del archivo -->
+                            <div class="row text-start">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6><i class="bi bi-info-circle"></i> Información de la Imagen</h6>
+                                            <p class="mb-1"><strong>Tipo:</strong> @selectedWorkflow.ImageContentType</p>
+                                            <p class="mb-1"><strong>Tamaño:</strong> @(selectedWorkflow.WorkflowImage?.Length / 1024) KB</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <h6><i class="bi bi-diagram-3"></i> Resumen del Workflow</h6>
+                                            <p class="mb-1"><strong>Pasos:</strong> @selectedWorkflowDetails?.Count</p>
+                                            <p class="mb-1"><strong>Decisiones:</strong> @selectedWorkflowDetails?.Count(d => d.StepType == "Decisión")</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Si no hay imagen, mostrar un placeholder -->
+                        <div class="text-center py-5">
+                            <i class="bi bi-image display-1 text-muted"></i>
+                            <h4 class="mt-3">No hay imagen disponible</h4>
+                            <p class="text-muted">Este workflow no tiene un diagrama asociado.</p>
+                            <button class="btn btn-outline-primary mt-2" @onclick="GenerateSampleImage">
+                                <i class="bi bi-magic"></i> Generar imagen de ejemplo
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+            
+            <!-- Acciones del workflow -->
+            @if (selectedWorkflow != null)
+            {
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5>Gestión del Workflow</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-outline-primary" @onclick="ShowUploadModal">
+                                <i class="bi bi-upload"></i> Subir nueva imagen
+                            </button>
+                            <button class="btn btn-outline-success" @onclick="ExecuteWorkflow">
+                                <i class="bi bi-play-circle"></i> Ejecutar Workflow
+                            </button>
+                            <button class="btn btn-outline-info" @onclick="ShowHistory">
+                                <i class="bi bi-clock-history"></i> Ver Historial
+                            </button>
+                            <button class="btn btn-outline-warning" @onclick="EditWorkflow">
+                                <i class="bi bi-pencil-square"></i> Editar Detalles
+                            </button>
+                            <button class="btn btn-outline-danger" @onclick="ConfirmDelete">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal para subir imagen -->
+@if (showUploadModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Subir imagen del workflow</h5>
+                    <button type="button" class="btn-close" @onclick="CloseUploadModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="imageUpload" class="form-label">Seleccionar archivo de imagen</label>
+                        <!--input type="file" @ref="fileInput" @onchange="OnFileSelected" class="form-control" id="imageUpload" accept=".png,.jpg,.jpeg,.gif" /-->
+                        <InputFile OnChange="OnFileSelected" accept=".png,.jpg,.jpeg,.gif" />
+                        <div class="form-text">
+                            Formatos permitidos: PNG, JPG, JPEG, GIF. Tamaño máximo: 5MB.
+                        </div>
+                    </div>
+                    @if (selectedFile != null)
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-file-image"></i> Archivo seleccionado: @selectedFile.Name (@(selectedFile.Size / 1024) KB)
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseUploadModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="UploadImage" disabled="@(selectedFile == null)">
+                        <i class="bi bi-upload"></i> Subir imagen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal de confirmación para eliminar -->
+@if (showDeleteConfirm)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar eliminación</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Está seguro que desea eliminar el workflow <strong>@selectedWorkflow?.Name</strong>?</p>
+                    <p class="text-danger">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        Esta acción no se puede deshacer. Se eliminarán todos los detalles asociados.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancelar</button>
+                    <button type="button" class="btn btn-danger" @onclick="DeleteWorkflow">
+                        <i class="bi bi-trash"></i> Eliminar definitivamente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Workflow> workflows = new List<Workflow>();
+    private Workflow selectedWorkflow = new();
+    private List<WorkflowDetail> selectedWorkflowDetails = new List<WorkflowDetail>();
+    private string selectedWorkflowId = "";
+    private string workflowImageSrc = "";
+    private bool showDetails = true;
+    private bool isLoading = false;
+    private bool showUploadModal = false;
+    private bool showDeleteConfirm = false;
+    
+    // Para manejo de archivos
+    //private ElementReference fileInput;
+    private IBrowserFile? selectedFile;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkflows();
+        
+        // Seleccionar el primer workflow por defecto
+        if (workflows.Any())
+        {
+            selectedWorkflowId = workflows[0].Id.ToString();
+            await OnWorkflowSelected(selectedWorkflowId);
+        }
+    }
+    
+    private async Task LoadWorkflows()
+    {
+        workflows = await WorkflowService.GetAllWorkflowsAsync();
+    }
+    
+    private async Task OnWorkflowSelected(string _selectedWorkflowId)
+    {
+        selectedWorkflowId = _selectedWorkflowId;
+        if (!string.IsNullOrEmpty(selectedWorkflowId))
+        {
+            selectedWorkflow = await WorkflowService.GetWorkflowByIdAsync(int.Parse(selectedWorkflowId));
+            await LoadWorkflowDetails();
+            await LoadWorkflowImage();
+        }
+        else
+        {
+            selectedWorkflow = null;
+            selectedWorkflowDetails.Clear();
+            workflowImageSrc = "";
+        }
+    }
+    
+    private async Task LoadWorkflow()
+    {
+        await OnWorkflowSelected(selectedWorkflowId);
+    }
+    
+    private async Task LoadWorkflowDetails()
+    {
+        if (selectedWorkflow != null)
+        {
+            selectedWorkflowDetails = await WorkflowService.GetWorkflowDetailsAsync(selectedWorkflow.Id);
+        }
+    }
+    
+    private async Task LoadWorkflowImage()
+    {
+        if (selectedWorkflow != null)
+        {
+            isLoading = true;
+            StateHasChanged();
+            
+            try
+            {
+                workflowImageSrc = await WorkflowService.GetWorkflowImageAsBase64Async(selectedWorkflow.Id);
+            }
+            finally
+            {
+                isLoading = false;
+            }
+        }
+    }
+    
+    private void ResetSelection()
+    {
+        selectedWorkflowId = "";
+        selectedWorkflow = null;
+        selectedWorkflowDetails.Clear();
+        workflowImageSrc = "";
+        showDetails = true;
+    }
+    
+    private void ToggleDetails()
+    {
+        showDetails = !showDetails;
+    }
+    
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Activo" => "bg-success",
+            "En revisión" => "bg-warning",
+            "Inactivo" => "bg-secondary",
+            "Eliminado" => "bg-danger",
+            _ => "bg-info"
+        };
+    }
+    
+    private string GetStepTypeClass(string stepType)
+    {
+        return stepType switch
+        {
+            "Inicio" => "bg-success",
+            "Fin" => "bg-danger",
+            "Decisión" => "bg-warning",
+            _ => "bg-primary"
+        };
+    }
+    
+    // Métodos para manejo de archivos
+    private void ShowUploadModal()
+    {
+        showUploadModal = true;
+    }
+    
+    private void CloseUploadModal()
+    {
+        showUploadModal = false;
+        selectedFile = null;
+    }
+    
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+    }
+    
+    private async Task UploadImage()
+    {
+        if (selectedFile != null && selectedWorkflow != null)
+        {
+            isLoading = true;
+            
+            try
+            {
+                // Leer el archivo como byte array
+                using var stream = selectedFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024); // 5MB
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                var imageData = memoryStream.ToArray();
+                
+                // Actualizar el workflow con la nueva imagen
+                selectedWorkflow.WorkflowImage = imageData;
+                selectedWorkflow.ImageContentType = selectedFile.ContentType;
+                selectedWorkflow.OriginalFileName = selectedFile.Name;
+                selectedWorkflow.UpdatedDate = DateTime.Now;
+                
+                // En una implementación real, aquí se llamaría a un método del servicio para actualizar en BD
+                // await WorkflowService.UpdateWorkflowImageAsync(selectedWorkflow.Id, imageData, selectedFile.ContentType, selectedFile.Name);
+                
+                await LoadWorkflowImage();
+                CloseUploadModal();
+            }
+            catch (Exception ex)
+            {
+                // Manejar error
+                Console.WriteLine($"Error al subir imagen: {ex.Message}");
+            }
+            finally
+            {
+                isLoading = false;
+            }
+        }
+    }
+    
+    private async Task GenerateSampleImage()
+    {
+        // Generar una imagen de ejemplo simple (en base64)
+        var sampleImage = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+        workflowImageSrc = $"data:image/png;base64,{sampleImage}";
+        
+        if (selectedWorkflow != null)
+        {
+            selectedWorkflow.WorkflowImage = Convert.FromBase64String(sampleImage);
+            selectedWorkflow.ImageContentType = "image/png";
+            selectedWorkflow.OriginalFileName = "sample_workflow.png";
+        }
+    }
+    
+    private void ExecuteWorkflow()
+    {
+        // Lógica para ejecutar el workflow
+        Console.WriteLine($"Ejecutando workflow: {selectedWorkflow.Name}");
+    }
+    
+    private void ShowHistory()
+    {
+        // Lógica para mostrar historial
+        Console.WriteLine($"Mostrando historial del workflow: {selectedWorkflow.Name}");
+    }
+    
+    private void EditWorkflow()
+    {
+        // Navegar a página de edición o mostrar modal
+        Console.WriteLine($"Editando workflow: {selectedWorkflow.Name}");
+    }
+    
+    private void ConfirmDelete()
+    {
+        showDeleteConfirm = true;
+    }
+    
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+    }
+    
+    private async Task DeleteWorkflow()
+    {
+        if (selectedWorkflow != null)
+        {
+            await WorkflowService.DeleteWorkflowAsync(selectedWorkflow.Id);
+            showDeleteConfirm = false;
+            await LoadWorkflows();
+            
+            if (workflows.Any())
+            {
+                selectedWorkflowId = workflows[0].Id.ToString();
+                await OnWorkflowSelected(selectedWorkflowId);
+            }
+            else
+            {
+                ResetSelection();
+            }
+        }
+    }
+    
+    public void Dispose()
+    {
+        // Limpieza si es necesaria
+    }
+}
+
+
+@*
+
+<PageTitle>Administración de Workflows</PageTitle>
+
+<style>
+    .workflow-container {
+        padding: 20px;
+    }
+
+    .workflow-selector {
+        margin-bottom: 20px;
+    }
+
+    .workflow-display {
+        min-height: 600px;
+    }
+
+    .workflow-details {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-top: 15px;
+    }
+
+    /* Estilos para el diagrama de workflow */
+    .workflow-diagram {
+        position: relative;
+        padding: 20px;
+        margin: 0 auto;
+        max-width: 800px;
+    }
+
+    .workflow-node {
+        position: relative;
+        margin: 0 auto 20px;
+        width: 200px;
+        text-align: center;
+    }
+
+    .node-content {
+        background-color: #007bff;
+        color: white;
+        padding: 12px;
+        border-radius: 8px;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    }
+
+    .start-node .node-content {
+        background-color: #28a745;
+    }
+
+    .end-node .node-content {
+        background-color: #dc3545;
+    }
+
+    .node-title {
+        font-weight: bold;
+        font-size: 14px;
+    }
+
+    .node-connector {
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 20px;
+        background-color: #6c757d;
+    }
+
+        .node-connector.down:after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            border-right: 2px solid #6c757d;
+            border-bottom: 2px solid #6c757d;
+            transform: rotate(45deg);
+        }
+
+    .vertical-line {
+        margin: 0 auto;
+        width: 2px;
+        height: 30px;
+        background-color: #6c757d;
+    }
+
+    /* Estilos para nodos de decisión */
+    .decision-node {
+        position: relative;
+        margin: 0 auto 40px;
+        width: 250px;
+        text-align: center;
+    }
+
+        .decision-node .node-content {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+    .decision-branches {
+        position: relative;
+        margin-top: 20px;
+    }
+
+    .branch {
+        position: absolute;
+        top: 20px;
+    }
+
+    .yes-branch {
+        left: 100%;
+        margin-left: 30px;
+    }
+
+    .no-branch {
+        right: 100%;
+        margin-right: 30px;
+    }
+
+    .branch-label {
+        position: absolute;
+        top: -20px;
+        font-size: 12px;
+        font-weight: bold;
+        color: #6c757d;
+    }
+
+    .yes-branch .branch-label {
+        left: 0;
+    }
+
+    .no-branch .branch-label {
+        right: 0;
+    }
+
+    .branch-line {
+        position: absolute;
+        top: 0;
+        width: 30px;
+        height: 2px;
+        background-color: #6c757d;
+    }
+
+    .yes-branch .branch-line {
+        left: 0;
+    }
+
+    .no-branch .branch-line {
+        right: 0;
+    }
+
+    .branch-node {
+        position: relative;
+        margin-top: 0;
+        margin-left: 30px;
+    }
+
+    .no-branch .branch-node {
+        margin-left: 0;
+        margin-right: 30px;
+    }
+
+    .vertical-line.long {
+        height: 100px;
+        margin-top: 20px;
+    }
+
+    .back-arrow {
+        position: absolute;
+        bottom: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 24px;
+        color: #6c757d;
+    }
+
+    /* Estilos para placeholders */
+    .placeholder-diagram {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .placeholder-node {
+        background-color: #e9ecef;
+        padding: 15px 30px;
+        border-radius: 5px;
+        min-width: 150px;
+        text-align: center;
+        font-weight: bold;
+    }
+
+        .placeholder-node.decision {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+        }
+
+    .placeholder-arrow {
+        font-size: 24px;
+        color: #6c757d;
+    }
+
+        .placeholder-arrow.yes, .placeholder-arrow.no {
+            font-size: 16px;
+            margin: 5px 0;
+        }
+
+        .placeholder-arrow.yes {
+            color: #28a745;
+        }
+
+        .placeholder-arrow.no {
+            color: #dc3545;
+        }
+
+    /* Responsive */
+    @*media (max-width: 768px) {
+    .workflow-diagram {
+        transform: scale(0.8);
+    }
+
+    .decision-branches {
+        transform: scale(0.7);
+    }
+}
+</style>
+
+<div class="workflow-container">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="workflow-selector card">
+                <div class="card-header">
+                    <h3>Seleccionar Workflow</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="workflowSelect" class="form-label">Seleccione un workflow:</label>
+                        <select @bind="selectedWorkflowId" class="form-select" id="workflowSelect">
+                            <option value="">-- Seleccione --</option>
+                            @foreach (var workflow in workflows)
+                            {
+                                <option value="@workflow.Id">@workflow.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="workflow-details">
+                        @if (selectedWorkflow != null)
+                        {
+                            <h5>@selectedWorkflow.Name</h5>
+                            <p>@selectedWorkflow.Description</p>
+                            <p><strong>Versión:</strong> @selectedWorkflow.Version</p>
+                            <p><strong>Estado:</strong> @selectedWorkflow.Status</p>
+                            <p><strong>Fecha creación:</strong> @selectedWorkflow.CreatedDate.ToShortDateString()</p>
+                        }
+                    </div>
+
+                    <div class="mt-3">
+                        <button class="btn btn-primary" @onclick="LoadWorkflow">
+                            <i class="bi bi-diagram-3"></i> Mostrar Workflow
+                        </button>
+                        <button class="btn btn-outline-secondary ms-2" @onclick="ResetSelection">
+                            <i class="bi bi-arrow-clockwise"></i> Reiniciar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Información del Workflow</h5>
+                </div>
+                <div class="card-body">
+                    <p>Esta página permite visualizar diferentes workflows del sistema de administración.</p>
+                    <p>Seleccione un workflow de la lista para visualizar su diagrama de flujo.</p>
+
+                    <div class="alert alert-info mt-2">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Workflow actual:</strong>
+                        @if (selectedWorkflow != null)
+                        {
+                            <span>@selectedWorkflow.Name</span>
+                        }
+                        else
+                        {
+                            <span>Ningún workflow seleccionado</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="workflow-display card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3>
+                        @if (selectedWorkflow != null)
+                        {
+                            <span>@selectedWorkflow.Name</span>
+                        }
+                        else
+                        {
+                            <span>Visualización de Workflow</span>
+                        }
+                    </h3>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleDetails" title="Mostrar/ocultar detalles">
+                            <i class="bi @(showDetails ? "bi-eye-slash" : "bi-eye")"></i>
+                            @(showDetails ? "Ocultar" : "Mostrar") detalles
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (selectedWorkflow == null)
+                    {
+                        <div class="text-center py-5">
+                            <i class="bi bi-diagram-3 display-1 text-muted"></i>
+                            <h4 class="mt-3">No hay workflow seleccionado</h4>
+                            <p class="text-muted">Por favor, seleccione un workflow de la lista para visualizarlo.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="workflow-visualization">
+                            <!-- Aquí se renderizará el workflow seleccionado -->
+                            @if (selectedWorkflowId == "1")
+                            {
+                                <!-- Workflow de presupuesto basado en la imagen proporcionada -->
+                                <div class="budget-workflow">
+                                    <h4 class="text-center mb-4">Workflow de Presupuesto</h4>
+                                    <div class="workflow-diagram">
+                                        <!-- Nodo: ADMINISTRACIÓN -->
+                                        <div class="workflow-node start-node">
+                                            <div class="node-content">
+                                                <div class="node-title">ADMINISTRACIÓN</div>
+                                            </div>
+                                            <div class="node-connector down"></div>
+                                        </div>
+
+                                        <!-- Línea vertical -->
+                                        <div class="vertical-line"></div>
+
+                                        <!-- Nodo: INICIO -->
+                                        <div class="workflow-node">
+                                            <div class="node-content">
+                                                <div class="node-title">INICIO</div>
+                                            </div>
+                                            <div class="node-connector down"></div>
+                                        </div>
+
+                                        <!-- Línea vertical -->
+                                        <div class="vertical-line"></div>
+
+                                        <!-- Nodo: CREA PRESUPUESTO -->
+                                        <div class="workflow-node">
+                                            <div class="node-content">
+                                                <div class="node-title">CREA PRESUPUESTO</div>
+                                            </div>
+                                            <div class="node-connector down"></div>
+                                        </div>
+
+                                        <!-- Línea vertical -->
+                                        <div class="vertical-line"></div>
+
+                                        <!-- Nodo de decisión: ¿RECHAZADO? -->
+                                        <div class="decision-node">
+                                            <div class="node-content">
+                                                <div class="node-title">¿APROBADO?</div>
+                                            </div>
+                                            <div class="decision-branches">
+                                                <div class="branch yes-branch">
+                                                    <div class="branch-label">SÍ</div>
+                                                    <div class="branch-line right"></div>
+                                                    <div class="branch-node">
+                                                        <div class="node-content">
+                                                            <div class="node-title">APROBAR</div>
+                                                        </div>
+                                                        <div class="node-connector down"></div>
+                                                    </div>
+                                                    <div class="vertical-line"></div>
+                                                    <div class="branch-node">
+                                                        <div class="node-content">
+                                                            <div class="node-title">ACTIVO</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="branch no-branch">
+                                                    <div class="branch-label">NO</div>
+                                                    <div class="branch-line left"></div>
+                                                    <div class="vertical-line long"></div>
+                                                    <div class="back-arrow">
+                                                        <i class="bi bi-arrow-up-left"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Nodo final -->
+                                        <div class="workflow-node end-node">
+                                            <div class="node-content">
+                                                <div class="node-title">FIN</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    @if (showDetails)
+                                    {
+                                        <div class="workflow-details mt-4 p-3 border rounded">
+                                            <h5>Detalles del Workflow de Presupuesto</h5>
+                                            <p>Este workflow representa el proceso de creación y aprobación de presupuestos en el sistema de administración.</p>
+                                            <ul>
+                                                <li><strong>INICIO:</strong> Punto de inicio del workflow</li>
+                                                <li><strong>CREA PRESUPUESTO:</strong> Etapa de creación del presupuesto</li>
+                                                <li><strong>¿APROBADO?:</strong> Punto de decisión para verificar si requiere revisión</li>
+                                                <li><strong>SÍ:</strong> Flujo cuando no requiere revisión, procede a aprobación</li>
+                                                <li><strong>NO:</strong> Flujo cuando requiere revisión, regresa al inicio</li>
+                                                <li><strong>APROBAR:</strong> Etapa de aprobación del presupuesto</li>
+                                                <li><strong>ACTIVO:</strong> Estado final cuando el presupuesto está activo</li>
+                                                <li><strong>FIN:</strong> Finalización del workflow</li>
+                                            </ul>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else if (selectedWorkflowId == "2")
+                            {
+                                <!-- Otro workflow de ejemplo -->
+                                <div class="text-center py-4">
+                                    <h4>Workflow de Aprobación de Gastos</h4>
+                                    <p class="text-muted">Diagrama del workflow de aprobación de gastos se mostraría aquí.</p>
+                                    <div class="placeholder-diagram mt-4">
+                                        <div class="placeholder-node">INICIO</div>
+                                        <div class="placeholder-arrow">↓</div>
+                                        <div class="placeholder-node">REVISIÓN</div>
+                                        <div class="placeholder-arrow">↓</div>
+                                        <div class="placeholder-node">APROBACIÓN</div>
+                                        <div class="placeholder-arrow">↓</div>
+                                        <div class="placeholder-node">FIN</div>
+                                    </div>
+                                </div>
+                            }
+                            else if (selectedWorkflowId == "3")
+                            {
+                                <!-- Otro workflow de ejemplo -->
+                                <div class="text-center py-4">
+                                    <h4>Workflow de Contratación</h4>
+                                    <p class="text-muted">Diagrama del workflow de contratación se mostraría aquí.</p>
+                                    <div class="placeholder-diagram mt-4">
+                                        <div class="placeholder-node">SOLICITUD</div>
+                                        <div class="placeholder-arrow">↓</div>
+                                        <div class="placeholder-node">EVALUACIÓN</div>
+                                        <div class="placeholder-arrow">↓</div>
+                                        <div class="placeholder-node decision">¿APROBADO?</div>
+                                        <div class="placeholder-arrow yes">SÍ → CONTRATAR</div>
+                                        <div class="placeholder-arrow no">NO → ARCHIVAR</div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5>Acciones</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary" disabled="@(selectedWorkflow == null)">
+                            <i class="bi bi-pencil"></i> Editar Workflow
+                        </button>
+                        <button class="btn btn-outline-success" disabled="@(selectedWorkflow == null)">
+                            <i class="bi bi-clipboard-check"></i> Ejecutar Workflow
+                        </button>
+                        <button class="btn btn-outline-info" disabled="@(selectedWorkflow == null)">
+                            <i class="bi bi-graph-up"></i> Ver Historial
+                        </button>
+                        <button class="btn btn-outline-danger" disabled="@(selectedWorkflow == null)">
+                            <i class="bi bi-trash"></i> Eliminar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Workflow> workflows = new List<Workflow>();
+    private string selectedWorkflowId = "";
+    private Workflow selectedWorkflow = null;
+    private bool showDetails = true;
+
+    protected override void OnInitialized()
+    {
+        // Inicializar la lista de workflows disponibles
+        workflows = new List<Workflow>
+        {
+            new Workflow { Id = 1, Name = "Presupuesto", Description = "Workflow para creación y aprobación de presupuestos", Version = "1.0", Status = "Activo", CreatedDate = new DateTime(2023, 10, 15) },
+            new Workflow { Id = 2, Name = "Aprobación de Gastos", Description = "Workflow para aprobación de gastos operativos", Version = "2.1", Status = "Activo", CreatedDate = new DateTime(2023, 9, 20) },
+            new Workflow { Id = 3, Name = "Contratación", Description = "Workflow para proceso de contratación de personal", Version = "1.5", Status = "En revisión", CreatedDate = new DateTime(2023, 11, 5) },
+            new Workflow { Id = 4, Name = "Compras", Description = "Workflow para proceso de compras y adquisiciones", Version = "3.2", Status = "Activo", CreatedDate = new DateTime(2023, 8, 12) },
+            new Workflow { Id = 5, Name = "Proyectos", Description = "Workflow para gestión y aprobación de proyectos", Version = "2.0", Status = "Activo", CreatedDate = new DateTime(2023, 12, 1) }
+        };
+
+        // Seleccionar el workflow de presupuesto por defecto
+        selectedWorkflowId = "1";
+        selectedWorkflow = workflows.FirstOrDefault(w => w.Id == 1);
+    }
+
+    private void LoadWorkflow()
+    {
+        if (!string.IsNullOrEmpty(selectedWorkflowId))
+        {
+            selectedWorkflow = workflows.FirstOrDefault(w => w.Id == int.Parse(selectedWorkflowId));
+        }
+        else
+        {
+            selectedWorkflow = null;
+        }
+    }
+
+    private void ResetSelection()
+    {
+        selectedWorkflowId = "";
+        selectedWorkflow = null;
+        showDetails = true;
+    }
+
+    private void ToggleDetails()
+    {
+        showDetails = !showDetails;
+    }
+
+    public class Workflow
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string Version { get; set; }
+        public string Status { get; set; }
+        public DateTime CreatedDate { get; set; }
+    }
+}
+
+
+
+
+
+*@
+
+
+
+
+
+
+
+
+
+
+@* Pages/WorkflowView.razor *@
+
+
+

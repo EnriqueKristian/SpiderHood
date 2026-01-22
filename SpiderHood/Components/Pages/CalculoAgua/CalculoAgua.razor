@@ -1,0 +1,313 @@
+﻿@page "/calculoagua"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject ICalculoService CalculoService
+
+<style>
+
+    /* Estilos personalizados para el sistema de agua */
+    .agua-calculator {
+        padding: 20px;
+    }
+
+    .card {
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border: none;
+        margin-bottom: 20px;
+    }
+
+    .card-header {
+        border-radius: 10px 10px 0 0 !important;
+        padding: 15px 20px;
+    }
+
+    .table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+
+    .input-group-text {
+        background-color: #e9ecef;
+        border: 1px solid #ced4da;
+    }
+
+    .consumo-actual {
+        background-color: #f0f7ff;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .badge {
+        font-size: 0.9em;
+        padding: 5px 10px;
+    }
+
+    .btn-lg {
+        padding: 12px 30px;
+        font-size: 1.1rem;
+    }
+
+    /* Estilos para la tabla de resultados */
+    .table-striped tbody tr:nth-of-type(odd) {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+
+    .table-primary {
+        background-color: #cce5ff !important;
+    }
+
+    /* Animaciones */
+    .btn {
+        transition: all 0.3s ease;
+    }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+    /* Responsive */
+    @*media (max-width: 768px) {
+        .agua-calculator {
+            padding: 10px;
+        }
+
+        .display-4 {
+            font-size: 2.5rem;
+        }
+
+        .btn-lg {
+            padding: 10px 20px;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+    }*@
+</style>
+
+<div class="agua-calculator">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h3><i class="fas fa-tint mr-2"></i>CÁLCULO CONSUMO DE AGUA</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Departamento:</label>
+                                <input @bind="departamento.Nombre" class="form-control" placeholder="Ej: Dpto 101" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Código:</label>
+                                <input @bind="departamento.Codigo" class="form-control" placeholder="Ej: DPTO-101" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Lectura Anterior (m³):</label>
+                                <InputNumber @bind-Value="departamento.LecturaAnterior" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Lectura Actual (m³):</label>
+                                <InputNumber @bind-Value="departamento.LecturaActual" class="form-control" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Cargo Fijo:</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">S/</span>
+                                    <InputNumber @bind-Value="cargoFijo" class="form-control" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="consumo-actual">
+                                <h5>Consumo Actual:</h5>
+                                <div class="display-4 text-primary">
+                                    @departamento.ConsumoActual.ToString("F2") m³
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mb-4">
+                        <button @onclick="Calcular" class="btn btn-success btn-lg mr-3">
+                            <i class="fas fa-calculator mr-2"></i>Calcular Consumo
+                        </button>
+                        <button @onclick="GuardarLectura" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save mr-2"></i>Guardar Lectura
+                        </button>
+                    </div>
+
+                    @if (resultado != null)
+                    {
+                        <div class="resultado mt-4">
+                            <h4 class="mb-3">Resultado del Cálculo</h4>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Rango</th>
+                                            <th>Consumo (m³)</th>
+                                            <th>Tarifa</th>
+                                            <th>Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var detalle in resultado.Detalles)
+                                        {
+                                            <tr>
+                                                <td>@detalle.Rango</td>
+                                                <td>@detalle.Consumo.ToString("F2")</td>
+                                                <td>S/ @detalle.Tarifa.ToString("F3")</td>
+                                                <td>S/ @detalle.Monto.ToString("F2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot class="table-secondary">
+                                        <tr>
+                                            <td colspan="3" class="text-end"><strong>Subtotal:</strong></td>
+                                            <td><strong>S/ @resultado.Subtotal.ToString("F2")</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="text-end"><strong>Cargo Fijo:</strong></td>
+                                            <td><strong>S/ @resultado.CargoFijo.ToString("F2")</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="3" class="text-end"><strong>Total sin IGV:</strong></td>
+                                            <td><strong>S/ @resultado.TotalSinIGV.ToString("F2")</strong></td>
+                                        </tr>
+                                        <tr class="table-primary">
+                                            <td colspan="3" class="text-end"><strong>TOTAL + IGV (18%):</strong></td>
+                                            <td><strong>S/ @resultado.TotalConIGV.ToString("F2")</strong></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h4><i class="fas fa-history mr-2"></i>HISTÓRICO DE CONSUMO</h4>
+                </div>
+                <div class="card-body">
+                    @if (historicoConsumo.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Año</th>
+                                        <th>Consumo (m³)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in historicoConsumo)
+                                    {
+                                        <tr>
+                                            <td>@item.Anio</td>
+                                            <td>@item.Consumo.ToString("F2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No hay histórico disponible</p>
+                    }
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h4><i class="fas fa-cogs mr-2"></i>Configuración Rápida</h4>
+                </div>
+                <div class="card-body">
+                    <p class="mb-3">Tarifas actuales:</p>
+                    <div class="list-group">
+                        @foreach (var tarifa in tarifas)
+                        {
+                            <div class="list-group-item">
+                                <small class="text-muted">@tarifa.DescripcionRango</small><br>
+                                <strong>S/ @tarifa.Total.ToString("F3")</strong>
+                            </div>
+                        }
+                    </div>
+                    <div class="mt-3 text-center">
+                        <a href="/configwater" class="btn btn-outline-warning btn-sm">
+                            <i class="fas fa-edit mr-1"></i>Configurar Tarifas
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Departamento departamento = new();
+    private decimal cargoFijo = 5.04m;
+    private CalculoResultado? resultado;
+    private List<ConsumoHistorico> historicoConsumo = new();
+    private List<TarifaAgua> tarifas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarTarifas();
+        await CargarHistorico();
+    }
+
+    private async Task CargarTarifas()
+    {
+        tarifas = await CalculoService.ObtenerTarifasAsync();
+    }
+
+    private async Task CargarHistorico()
+    {
+        if (departamento.Id > 0)
+        {
+            historicoConsumo = await CalculoService.ObtenerHistoricoAsync(departamento.Id);
+        }
+    }
+
+    private async Task Calcular()
+    {
+        if (departamento.ConsumoActual > 0)
+        {
+            resultado = await CalculoService.CalcularConsumoAsync(departamento.ConsumoActual, cargoFijo);
+        }
+    }
+
+    private async Task GuardarLectura()
+    {
+        if (departamento.ConsumoActual > 0)
+        {
+            await CalculoService.GuardarLecturaAsync(departamento);
+            await CargarHistorico();
+            await Calcular();
+        }
+    }
+}

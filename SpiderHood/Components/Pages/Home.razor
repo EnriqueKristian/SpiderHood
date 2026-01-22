@@ -1,0 +1,510 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+@layout MainLayout
+@using Microsoft.AspNetCore.Components
+@using SpiderHood.Services
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+
+<!--
+<header class="header-design">
+    <div class="listar-map-button">
+        <div class="listar-map-button-text" style="display: inline-block; opacity: 1;">
+            <span class="icon-map2">
+                How it Works?
+            </span>
+        </div>
+    </div>
+
+    <div class="footer-wave"></div>
+
+</header>
+
+<h1>Hello, world!</h1>
+-->
+@code{
+    /*  === DECLARACION DE VARIABLES EN DURO   === */
+    private Guid IdBuilding = new Guid("C574A553-1573-48C8-F85E-08DE3426C28E");
+
+    [Inject]
+    private ParameterService ParameterService { get; set; } = default!;
+
+}
+
+
+<PageTitle>Dashboard - AdminEdificios</PageTitle>
+
+<div class="dashboard-container">
+    <!-- Header principal -->
+    <div class="dashboard-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-icon me-3">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <div>
+                        <h1 class="h3 mb-1 fw-bold">Bienvenido, Administrador</h1>
+                        <p class="text-muted mb-0">
+                            <i class="bi bi-calendar-check me-1"></i>
+                            @DateTime.Now.ToString("dddd, dd MMMM yyyy")
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 text-md-end">
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-outline-primary">
+                        <i class="bi bi-bell me-1"></i>
+                        <span class="badge bg-danger">3</span>
+                    </button>
+                    <button class="btn btn-outline-secondary">
+                        <i class="bi bi-question-circle me-1"></i> Ayuda
+                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-1"></i> Mi Cuenta
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>Perfil</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i>Configuración</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen rápido -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card summary-card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Ingresos Mensuales</h6>
+                            <h3 class="card-title mb-0">S/. 45,280</h3>
+                            <span class="small"><i class="bi bi-arrow-up me-1"></i>12% vs mes anterior</span>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="bi bi-cash-stack"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card summary-card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Unidades Ocupadas</h6>
+                            <h3 class="card-title mb-0">42/50</h3>
+                            <span class="small">84% de ocupación</span>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="bi bi-house-door"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card summary-card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Pendientes</h6>
+                            <h3 class="card-title mb-0">18</h3>
+                            <span class="small">5 urgentes</span>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card summary-card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Morosidad</h6>
+                            <h3 class="card-title mb-0">4.2%</h3>
+                            <span class="small"><i class="bi bi-arrow-down me-1"></i>2% vs mes anterior</span>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="bi bi-graph-down"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="row">
+        <!-- Columna izquierda - Gráficos y actividad -->
+        <div class="col-lg-8">
+            <!-- Gráfico de ingresos -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-graph-up me-2"></i>Ingresos 2024
+                    </h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                data-bs-toggle="dropdown">
+                            Este Año
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#">Este Mes</a></li>
+                            <li><a class="dropdown-item" href="#">Últimos 3 Meses</a></li>
+                            <li><a class="dropdown-item" href="#">Este Año</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 300px;">
+                        <!-- Aquí iría tu gráfico (Chart.js, etc.) -->
+                        <div class="placeholder-chart d-flex align-items-center justify-content-center">
+                            <div class="text-center">
+                                <i class="bi bi-bar-chart display-4 text-muted mb-3"></i>
+                                <p class="text-muted">Gráfico de ingresos mensuales</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actividad reciente -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history me-2"></i>Actividad Reciente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="activity-timeline">
+                        @foreach (var activity in recentActivities)
+                        {
+                            <div class="activity-item @(activity.IsImportant ? "important" : "")">
+                                <div class="activity-icon @activity.IconColor">
+                                    <i class="bi @activity.Icon"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <div class="d-flex justify-content-between">
+                                        <h6 class="mb-1">@activity.Title</h6>
+                                        <small class="text-muted">@activity.Time</small>
+                                    </div>
+                                    <p class="mb-0 text-muted">@activity.Description</p>
+                                    @if (!string.IsNullOrEmpty(activity.User))
+                                    {
+                                        <small class="text-muted">
+                                            <i class="bi bi-person me-1"></i>@activity.User
+                                        </small>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna derecha - Accesos rápidos y estado -->
+        <div class="col-lg-4">
+            <!-- Accesos rápidos -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-lightning-charge me-2"></i>Accesos Rápidos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        @foreach (var quickAction in quickActions)
+                        {
+                            <div class="col-6">
+                                <a href="@quickAction.Url" class="quick-action-card @quickAction.Color">
+                                    <div class="text-center py-3">
+                                        <i class="bi @quickAction.Icon display-5 mb-2"></i>
+                                        <h6 class="mb-0">@quickAction.Title</h6>
+                                    </div>
+                                </a>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estado del edificio -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-building me-2"></i>Estado del Edificio
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="building-status">
+                        <div class="status-item">
+                            <div class="status-indicator bg-success"></div>
+                            <div class="status-content">
+                                <span>Electricidad</span>
+                                <small class="text-muted">Normal</small>
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-indicator bg-success"></div>
+                            <div class="status-content">
+                                <span>Agua</span>
+                                <small class="text-muted">Normal</small>
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-indicator bg-warning"></div>
+                            <div class="status-content">
+                                <span>Ascensores</span>
+                                <small class="text-muted">1 en mantenimiento</small>
+                            </div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-indicator bg-danger"></div>
+                            <div class="status-content">
+                                <span>Seguridad</span>
+                                <small class="text-muted">Cámara 3 offline</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Próximos vencimientos -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-calendar-event me-2"></i>Próximos Vencimientos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="upcoming-due-list">
+                        @foreach (var due in upcomingDues)
+                        {
+                            <div class="due-item @(due.IsUrgent ? "urgent" : "")">
+                                <div class="due-date @due.DateColor">
+                                    <span class="day">@due.Day</span>
+                                    <span class="month">@due.Month</span>
+                                </div>
+                                <div class="due-content">
+                                    <h6 class="mb-1">@due.Title</h6>
+                                    <p class="mb-0 text-muted">@due.Description</p>
+                                    <small class="text-muted">
+                                        <i class="bi bi-building me-1"></i>@due.Unit
+                                    </small>
+                                </div>
+                                <div class="due-amount">
+                                    <span class="badge bg-light text-dark">@due.Amount</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección inferior - Tabla de últimos pagos -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-cash-coin me-2"></i>Últimos Pagos Registrados
+                    </h5>
+                    <a href="/pagos" class="btn btn-sm btn-outline-primary">Ver todos</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Unidad</th>
+                                    <th>Propietario</th>
+                                    <th>Concepto</th>
+                                    <th>Monto</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var payment in recentPayments)
+                                {
+                                    <tr>
+                                        <td>@payment.Date.ToString("dd/MM/yyyy")</td>
+                                        <td>
+                                            <span class="badge bg-primary">@payment.Unit</span>
+                                        </td>
+                                        <td>@payment.Owner</td>
+                                        <td>@payment.Concept</td>
+                                        <td class="fw-bold @(payment.Amount >= 0 ? "text-success" : "text-danger")">
+                                            @payment.Amount.ToString("C")
+                                        </td>
+                                        <td>
+                                            <span class="badge @payment.StatusClass">
+                                                @payment.Status
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" title="Ver recibo">
+                                                <i class="bi bi-receipt"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Modelos de datos
+    public class ActivityItem
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Time { get; set; } = string.Empty;
+        public string User { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+        public string IconColor { get; set; } = string.Empty;
+        public bool IsImportant { get; set; }
+    }
+
+    public class QuickAction
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public string Color { get; set; } = "bg-light";
+    }
+
+    public class DueItem
+    {
+        public string Day { get; set; } = string.Empty;
+        public string Month { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Unit { get; set; } = string.Empty;
+        public string Amount { get; set; } = string.Empty;
+        public string DateColor { get; set; } = "bg-secondary";
+        public bool IsUrgent { get; set; }
+    }
+
+    public class Payment
+    {
+        public DateTime Date { get; set; }
+        public string Unit { get; set; } = string.Empty;
+        public string Owner { get; set; } = string.Empty;
+        public string Concept { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string StatusClass { get; set; } = string.Empty;
+    }
+
+    // Datos de ejemplo
+    private List<ActivityItem> recentActivities = new()
+    {
+        new ActivityItem
+        {
+            Title = "Pago registrado",
+            Description = "Mantenimiento mensual DEP-301",
+            Time = "Hace 15 min",
+            User = "Carlos Ruiz",
+            Icon = "bi-cash-coin",
+            IconColor = "bg-success",
+            IsImportant = false
+        },
+        new ActivityItem
+        {
+            Title = "Nueva solicitud",
+            Description = "Reparación de fuga de agua",
+            Time = "Hace 1 hora",
+            User = "Ana Martínez",
+            Icon = "bi-tools",
+            IconColor = "bg-warning",
+            IsImportant = true
+        },
+        new ActivityItem
+        {
+            Title = "Alerta de morosidad",
+            Description = "3 unidades con pago pendiente",
+            Time = "Hace 2 horas",
+            User = "Sistema",
+            Icon = "bi-exclamation-triangle",
+            IconColor = "bg-danger",
+            IsImportant = true
+        },
+        new ActivityItem
+        {
+            Title = "Reporte generado",
+            Description = "Estado de cuentas mensual",
+            Time = "Hace 4 horas",
+            User = "Administración",
+            Icon = "bi-file-earmark-text",
+            IconColor = "bg-info",
+            IsImportant = false
+        }
+    };
+
+    private List<QuickAction> quickActions = new()
+    {
+        new QuickAction { Title = "Nuevo Pago", Icon = "bi-cash", Url = "/pagos/nuevo", Color = "bg-success text-white" },
+        new QuickAction { Title = "Unidades", Icon = "bi-building", Url = "/unidades", Color = "bg-primary text-white" },
+        new QuickAction { Title = "Reportes", Icon = "bi-graph-up", Url = "/reportes", Color = "bg-info text-white" },
+        new QuickAction { Title = "Mantenimiento", Icon = "bi-tools", Url = "/mantenimiento", Color = "bg-warning text-white" },
+        new QuickAction { Title = "Comunicados", Icon = "bi-megaphone", Url = "/comunicados", Color = "bg-purple text-white" },
+        new QuickAction { Title = "Configuración", Icon = "bi-gear", Url = "/configuracion", Color = "bg-secondary text-white" }
+    };
+
+    private List<DueItem> upcomingDues = new()
+    {
+        new DueItem { Day = "15", Month = "ENE", Title = "Mantenimiento", Description = "Pago mensual", Unit = "DEP-201", Amount = "S/. 250", DateColor = "bg-primary", IsUrgent = true },
+        new DueItem { Day = "18", Month = "ENE", Title = "Agua", Description = "Factura mensual", Unit = "Todo el edificio", Amount = "S/. 1,850", DateColor = "bg-info", IsUrgent = false },
+        new DueItem { Day = "20", Month = "ENE", Title = "Luz común", Description = "Factura eléctrica", Unit = "Áreas comunes", Amount = "S/. 2,300", DateColor = "bg-warning", IsUrgent = false },
+        new DueItem { Day = "25", Month = "ENE", Title = "Seguridad", Description = "Servicio mensual", Unit = "Vigilancia", Amount = "S/. 3,500", DateColor = "bg-secondary", IsUrgent = false }
+    };
+
+    private List<Payment> recentPayments = new()
+    {
+        new Payment { Date = DateTime.Now.AddDays(-1), Unit = "DEP-101", Owner = "María González", Concept = "Mantenimiento", Amount = 250, Status = "Completado", StatusClass = "bg-success" },
+        new Payment { Date = DateTime.Now.AddDays(-2), Unit = "DEP-205", Owner = "Juan Pérez", Concept = "Agua", Amount = 85, Status = "Completado", StatusClass = "bg-success" },
+        new Payment { Date = DateTime.Now.AddDays(-3), Unit = "DEP-308", Owner = "Laura Silva", Concept = "Mantenimiento", Amount = 250, Status = "Pendiente", StatusClass = "bg-warning" },
+        new Payment { Date = DateTime.Now.AddDays(-4), Unit = "LOC-01", Owner = "TechStore SAC", Concept = "Alquiler", Amount = 1500, Status = "Completado", StatusClass = "bg-success" },
+        new Payment { Date = DateTime.Now.AddDays(-5), Unit = "DEP-412", Owner = "Roberto Díaz", Concept = "Multa", Amount = 100, Status = "Rechazado", StatusClass = "bg-danger" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Aquí podrías cargar datos reales de tu API/database
+        await base.OnInitializedAsync();
+        await ParameterService.LoadParametersAsync(IdBuilding);
+    }
+
+    // Método para manejar notificaciones
+    private void ToggleNotifications()
+    {
+        // Lógica para mostrar notificaciones
+    }
+}

@@ -1,0 +1,224 @@
+﻿@page "/generacioncuota"
+@using Microsoft.AspNetCore.Components
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using System.Globalization
+@inject NavigationManager Navigation
+@inject ICuotaService CuotaService
+@inject IGastoService GastoService
+@inject ParameterService ParameterService
+@rendermode InteractiveServer
+
+
+<PageTitle>Generación de Cuotas Mensuales</PageTitle>
+
+<h3>Generar Cuota Mensual</h3>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Configuración del Mes</h5>
+            </div>
+            
+            <div class="card-body">
+                <table width="100%">
+                    <tr>
+                        <td style="padding-right: 15px;">
+                            <label class="form-label">Mes</label>
+                        </td>
+                        <td style="padding-right: 15px;" width="120px">
+                            <div class="mb-3">
+                                <select @bind="mesSeleccionado" class="form-select">
+                                    @foreach (var mes in meses)
+                                    {
+                                        <option value="@mes.Value">@mes.Text</option>
+                                    }
+                                </select>
+                            </div>
+                        </td>
+                        <td style="padding-right: 15px;">
+                            <label class="form-label">Año</label>
+                        </td>
+                        <td style="padding-right: 15px;" width="120px">
+                            <div class="mb-3">
+                                <input type="number" class="form-control" @bind="anioSeleccionado" />
+                            </div>
+                        </td>
+                        <td style="padding-right: 15px;">
+                            <label class="form-label">Fecha de Vencimiento</label>
+                        </td>
+                        <td style="padding-right: 15px;" width="160px">
+                            <div class="mb-3">
+                                <input type="date" class="form-control" @bind="fechaVencimiento" />
+                            </div>
+                        </td>
+                        <td style="padding-right: 15px;">
+                            <button class="btn btn-primary" @onclick="VerGastosPendientes">
+                                <i class="fas fa-search"></i> Ver Gastos Pendientes
+                            </button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (mostrarGastos)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Gastos Pendientes para Considerar</h5>
+            <small>Seleccione los gastos a incluir en la cuota</small>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" @onchange="SeleccionarTodos" /></th>
+                        <th>Fecha</th>
+                        <th>Categoría</th>
+                        <th>Descripción</th>
+                        <th>Monto</th>
+                        <th>Tipo Distribución</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var gasto in gastosPendientes)
+                    {
+                        <tr>
+                            <td>
+                                <input type="checkbox"
+                                       checked="@gasto.Seleccionado"
+                                       @onchange="@((e) => SeleccionarGasto(gasto, e.Value))" />
+                            </td>
+                            <td>@gasto.FechaGasto.ToShortDateString()</td>
+                            <td>@gasto.CategoriaNombre</td>
+                            <td>@gasto.Descripcion</td>
+                            <td>@gasto.Monto.ToString("C")</td>
+                            <td>
+                                <span class="badge @(gasto.TipoDistribucion == TipoDistribucion.Fija ? "bg-info" : "bg-warning")">
+                                    @gasto.TipoDistribucion
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-info"
+                                        @onclick="@(() => VerDetalleGasto(gasto.Id))">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" class="text-end"><strong>Total Seleccionado:</strong></td>
+                        <td><strong>@totalSeleccionado.ToString("C")</strong></td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <div class="mt-3">
+                <button class="btn btn-success me-2" @onclick="GenerarCuota"
+                        disabled="@(!gastosPendientes.Any(g => g.Seleccionado))">
+                    <i class="fas fa-calculator"></i> Generar Cuota
+                </button>
+                <button class="btn btn-secondary" @onclick="Cancelar">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private int mesSeleccionado = DateTime.Now.Month;
+    private int anioSeleccionado = DateTime.Now.Year;
+    private DateTime fechaVencimiento = DateTime.Now.AddMonths(1);
+    private bool mostrarGastos = false;
+    private List<GastoPendienteViewModel> gastosPendientes = new();
+    private decimal totalSeleccionado = 0;
+
+        /*private List<SelectListItem> meses = new()
+        {
+            new SelectListItem { Value = "1", Text = "Enero" },
+            new SelectListItem { Value = "2", Text = "Febrero" },
+            // ... resto de meses
+        };*/
+
+    private List<SelectListItem> meses = new();
+
+    
+
+    protected override async Task OnInitializedAsync()
+    {
+        meses = await ParameterService.GetMonthList("es-PE");
+    }
+
+    private async Task VerGastosPendientes()
+    {
+        gastosPendientes = await GastoService.ObtenerGastosPendientesAsync();
+        mostrarGastos = true;
+        CalcularTotalSeleccionado();
+        StateHasChanged();
+    }
+
+    private void SeleccionarGasto(GastoPendienteViewModel gasto, object isChecked)
+    {
+        gasto.Seleccionado = (bool)isChecked;
+        CalcularTotalSeleccionado();
+    }
+
+    private void SeleccionarTodos(ChangeEventArgs e)
+    {
+        var seleccionar = (bool)e.Value!;
+        foreach (var gasto in gastosPendientes)
+        {
+            gasto.Seleccionado = seleccionar;
+        }
+        CalcularTotalSeleccionado();
+    }
+
+    private void CalcularTotalSeleccionado()
+    {
+        totalSeleccionado = gastosPendientes
+            .Where(g => g.Seleccionado)
+            .Sum(g => g.Monto);
+    }
+
+    private async Task GenerarCuota()
+    {
+        var gastosSeleccionados = gastosPendientes
+            .Where(g => g.Seleccionado)
+            .Select(g => g.Id)
+            .ToList();
+
+        var resultado = await CuotaService.GenerarCuotaMensualAsync(
+            mesSeleccionado,
+            anioSeleccionado,
+            fechaVencimiento,
+            gastosSeleccionados
+        );
+
+        if (resultado.Exito)
+        {
+            Navigation.NavigateTo($"/cuotas/detalle/{resultado.CuotaId}");
+        }
+    }
+
+    private void VerDetalleGasto(Guid gastoId)
+    {
+        Navigation.NavigateTo($"/gastos/detalle/{gastoId}");
+    }
+
+    private void Cancelar()
+    {
+        mostrarGastos = false;
+        gastosPendientes.Clear();
+    }
+
+
+}

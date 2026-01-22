@@ -1,0 +1,221 @@
+﻿@page "/roles"
+@using SpiderHood.Models
+
+<PageTitle>Roles y Permisos</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1 class="page-title">
+                    <i class="fas fa-user-shield me-2"></i>Roles y Permisos
+                </h1>
+                <button class="btn btn-primary" @onclick="AgregarRol">
+                    <i class="fas fa-plus-circle me-1"></i> Nuevo Rol
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Lista de Roles -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Roles del Sistema</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        @foreach (var rol in roles)
+                        {
+                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(rolSeleccionado?.Id == rol.Id ? "active" : "")"
+                                    @onclick="() => SeleccionarRol(rol)">
+                                <div>
+                                    <div class="fw-bold">@rol.Nombre</div>
+                                    <small class="text-muted">@rol.Descripcion</small>
+                                </div>
+                                <span class="badge @GetRolBadgeClass(rol.Nombre) rounded-pill">
+                                    @rol.UsuariosAsignados
+                                </span>
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detalles del Rol y Permisos -->
+        <div class="col-lg-8">
+            @if (rolSeleccionado != null)
+            {
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Permisos del Rol: @rolSeleccionado.Nombre</h5>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary btn-sm" @onclick="EditarRol">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" @onclick="EliminarRol">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            @foreach (var categoria in permisosPorCategoria)
+                            {
+                                <div class="col-md-6 mb-4">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">@categoria.Key</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            @foreach (var permiso in categoria.Value)
+                                            {
+                                                <div class="form-check form-switch mb-3">
+                                                    <input class="form-check-input"
+                                                           type="checkbox"
+                                                           id="@permiso.Id"
+                                                           checked="@permiso.Activo"
+                                                           @onchange="(e) => CambiarPermiso(permiso, e.Value)" />
+                                                    <label class="form-check-label" for="@permiso.Id">
+                                                        @permiso.Nombre
+                                                        <small class="text-muted d-block">@permiso.Descripcion</small>
+                                                    </label>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-success" @onclick="GuardarPermisos">
+                            <i class="fas fa-save me-1"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-user-shield fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Selecciona un rol para ver sus permisos</h5>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Rol> roles = new();
+    private Rol? rolSeleccionado;
+    private Dictionary<string, List<Permiso>> permisosPorCategoria = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarRoles();
+        await CargarPermisos();
+    }
+
+    private async Task CargarRoles()
+    {
+        // Datos de ejemplo
+        roles = new List<Rol>
+        {
+            new Rol { Id = 1, Nombre = "Administrador", Descripcion = "Acceso completo al sistema", UsuariosAsignados = 1 },
+            new Rol { Id = 2, Nombre = "Junta Directiva", Descripcion = "Acceso a reportes y configuración básica", UsuariosAsignados = 2 },
+            new Rol { Id = 3, Nombre = "Residente", Descripcion = "Acceso limitado a funciones básicas", UsuariosAsignados = 3 },
+            new Rol { Id = 4, Nombre = "Invitado", Descripcion = "Acceso de solo lectura", UsuariosAsignados = 0 }
+        };
+    }
+
+    private async Task CargarPermisos()
+    {
+        // Permisos de ejemplo organizados por categoría
+        permisosPorCategoria = new Dictionary<string, List<Permiso>>
+        {
+            ["Gestión de Usuarios"] = new List<Permiso>
+            {
+                new Permiso { Id = 1, Nombre = "Ver usuarios", Descripcion = "Puede ver la lista de usuarios", Activo = true },
+                new Permiso { Id = 2, Nombre = "Crear usuarios", Descripcion = "Puede crear nuevos usuarios", Activo = true },
+                new Permiso { Id = 3, Nombre = "Editar usuarios", Descripcion = "Puede modificar usuarios existentes", Activo = true },
+                new Permiso { Id = 4, Nombre = "Eliminar usuarios", Descripcion = "Puede eliminar usuarios del sistema", Activo = true }
+            },
+            ["Gestión de Contenido"] = new List<Permiso>
+            {
+                new Permiso { Id = 5, Nombre = "Ver contenido", Descripcion = "Puede ver el contenido publicado", Activo = true },
+                new Permiso { Id = 6, Nombre = "Crear contenido", Descripcion = "Puede crear nuevo contenido", Activo = true },
+                new Permiso { Id = 7, Nombre = "Editar contenido", Descripcion = "Puede modificar contenido existente", Activo = true },
+                new Permiso { Id = 8, Nombre = "Publicar contenido", Descripcion = "Puede publicar contenido en el sistema", Activo = false }
+            },
+            ["Configuración del Sistema"] = new List<Permiso>
+            {
+                new Permiso { Id = 9, Nombre = "Ver configuración", Descripcion = "Puede ver la configuración del sistema", Activo = true },
+                new Permiso { Id = 10, Nombre = "Modificar configuración", Descripcion = "Puede cambiar la configuración", Activo = false },
+                new Permiso { Id = 11, Nombre = "Gestionar roles", Descripcion = "Puede crear y modificar roles", Activo = true },
+                new Permiso { Id = 12, Nombre = "Ver logs", Descripcion = "Puede acceder a los registros del sistema", Activo = false }
+            }
+        };
+    }
+
+    private string GetRolBadgeClass(string nombreRol)
+    {
+        return nombreRol switch
+        {
+            "Administrador" => "bg-primary",
+            "Junta Directiva" => "bg-warning",
+            "Residente" => "bg-success",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void SeleccionarRol(Rol rol)
+    {
+        rolSeleccionado = rol;
+    }
+
+    private void AgregarRol()
+    {
+        // Lógica para agregar nuevo rol
+    }
+
+    private void EditarRol()
+    {
+        // Lógica para editar rol
+    }
+
+    private async Task EliminarRol()
+    {
+        if (rolSeleccionado != null)
+        {
+            // Confirmación antes de eliminar
+            if (await jsRuntime.InvokeAsync<bool>("confirm", $"¿Está seguro de eliminar el rol {rolSeleccionado.Nombre}?"))
+            {
+                roles.Remove(rolSeleccionado);
+                rolSeleccionado = null;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void CambiarPermiso(Permiso permiso, object? isChecked)
+    {
+        if (isChecked is bool checkedValue)
+        {
+            permiso.Activo = checkedValue;
+        }
+    }
+
+    private async Task GuardarPermisos()
+    {
+        // Lógica para guardar permisos
+        await jsRuntime.InvokeVoidAsync("alert", "Permisos guardados correctamente");
+    }
+
+    [Inject]
+    private IJSRuntime jsRuntime { get; set; } = default!;
+}

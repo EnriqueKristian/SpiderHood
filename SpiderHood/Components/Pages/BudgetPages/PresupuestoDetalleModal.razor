@@ -1,0 +1,239 @@
+﻿<!-- PresupuestoDetalleModal.razor -->
+@using SpiderHood.Models
+@inject SpiderHood.Services.ParameterService ParameterService
+
+<style>
+    .metadata {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 5px;
+        padding-top: 5px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .metadata-item {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .metadata-label {
+        font-size: 0.85rem;
+        opacity: 0.8;
+    }
+
+    .metadata-value {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 20px;
+        background-color: #f9fafc;
+        border-top: 1px solid #eef2f7;
+    }
+
+    .details-table{
+        width:100%;
+    }
+</style>
+
+
+
+<div class="modal-overlay" @onclick="CerrarModal">
+    <div class="modal-content modal-xl" @onclick:stopPropagation>
+        <div class="modal-header">
+            <h5 class="modal-title">
+                <i class="fas fa-file-invoice-dollar me-2"></i>
+                @Presupuesto?.BudgetName
+            </h5>
+            <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+        </div>
+
+        <div class="modal-body">
+            @if (Presupuesto != null)
+            {
+                <!-- Información General -->
+                <div class="info-section" style="padding:20px;background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <span class="metadata-label">Mes:</span>
+                                    <span><strong>@Presupuesto.Mes</strong></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="metadata-label">Estado:</span>
+                                    <span class="estado-badge estado-@Presupuesto.Status">
+                                        <!--  Status del presupuesto  -->
+                                        <strong>@Presupuesto.Status</strong>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="info-item">
+                                    <span class ="metadata-label">Fecha Creación:</span>
+                                    <span><strong>@Presupuesto.CreatedOn.ToString("dd/MM/yyyy")</strong></span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="metadata-label">Creado por:</span>
+                                <span><strong>@Presupuesto.CreatedBy</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                </div>
+
+                <!-- Resumen por Categorías -->
+                <div class="summary-section" style="padding:20px">
+                    <h6>Resumen por Categorías</h6>
+                    <div class="row">
+                        @foreach (var categoria in Categorias.Where(c => c.Nivel == 0))
+                        {
+                            var totalCategoria = Presupuesto.Details
+                            .Where(d => d.IdParent == categoria.IdCategory)
+                            .Sum(d => d.MonthlyAmount);
+
+                            if (totalCategoria > 0)
+                            {
+                                <div class="col-md-4 mb-3">
+                                    <div class="category-card">
+                                        <div class="category-header" style="background-color: @categoria.Color">
+                                            <i class="fas fa-tag"></i>
+                                            <span>@categoria.ShortDescript</span>
+                                        </div>
+                                        <div class="category-body">
+                                            <div class="category-amount">S/ @totalCategoria.ToString("N2")</div>
+                                            <div class="category-percentage">
+                                                @{
+                                                    var porcentaje = Presupuesto.Amount > 0
+                                                    ? (totalCategoria / Presupuesto.Amount) * 100
+                                                    : 0;
+                                                }
+                                                @porcentaje.ToString("N1")%
+                                            </div>
+                                            <div class="progress-bar">
+                                                <div class="progress-fill" style="width:@porcentaje%" ></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- Tabla de Detalles -->
+                <div class="details-section" style="padding:20px">
+                    <h6>Detalles del Presupuesto</h6>
+
+                    <div class="table-responsive">
+                        <table class="presupuestos-table">
+                            <thead>
+                                <tr>
+                                    <!--<th style="width:20px">Item</th>-->
+                                    <th>Descripción</th>
+                                    <th>Costo Mensual</th>
+                                    <th>Frecuencia</th>
+                                    <th>Tipo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var section in GetSections())
+                                {
+                                    var sectionItems = Presupuesto.Details.Where(x => x.IdSection == section.Id).ToList();
+                                    var hasItems = sectionItems.Any(x => !x.IsHeader);
+
+                                    <!-- Section Header -->
+                                    <tr class="section-header-row">
+                                        <td colspan="4">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <strong>@GetSectionName(section.Id)</strong>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    @if (!hasItems)
+                                    {
+                                        <tr>
+                                            <td colspan="4">
+                                                <div class="empty-section">
+                                                    No hay items en esta sección
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var item in sectionItems.Where(x => !x.IsHeader))
+                                        {
+                                            <tr>
+                                                <!--<td style ="width:20px">@item.ItemNumber</td>-->
+                                                <td>@item.ItemNumber - @item.Description</td>
+                                                <td align="right">S/ @item.MonthlyAmount.ToString("N2")</td>
+                                                
+                                                <!--    PARAMETRO PADRE    -->
+                                                <td align="center">@ParameterService.GetChildParameterDescription(38, item.Frequency)</td>
+                                                <td align="center">@ParameterService.GetChildParameterDescription(8, item.Type)</td>
+                                            </tr>
+                                        }
+                                    }
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td><strong>TOTAL PRESUPUESTO:</strong></td>
+                                    <td align="right">
+                                        <strong>S/ @Presupuesto.Amount.ToString("N2")</strong>
+                                    </td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public BudgetHeader? Presupuesto { get; set; }
+    [Parameter] public List<Category> Categorias { get; set; } = new();
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+
+    private BudgetDetail nuevoDetalle = new();
+
+    private void CerrarModal()
+    {
+        OnClose.InvokeAsync();
+    }
+
+    private async Task GuardarCambios()
+    {
+        await OnSave.InvokeAsync();
+    }
+
+    private List<SectionInfo> GetSections()
+    {
+        return Presupuesto!.Details!
+            .Where(x => x.IsHeader)
+            .Select(x => new SectionInfo { Id = x.IdSection, Name = x.Description, IdCategory = x.IdCategory })
+            .OrderBy(x => x.Id)
+            .ToList();
+    }
+
+    private string GetSectionName(int sectionId)
+    {
+        var header = Presupuesto!.Details!.FirstOrDefault(x => x.IdSection == sectionId && x.IsHeader);
+        return header?.Description ?? $"Sección {sectionId}";
+    }
+}

@@ -1,0 +1,201 @@
+﻿@page "/Settings"
+@rendermode InteractiveServer
+
+<link rel="stylesheet" href="MenuTabs.css" />
+<script src=@Assets["js/Tabs.js"]></script>
+
+
+            
+<section>
+    <div><h4><strong>Application Settings</strong></h4></div>
+    <div><h8 class="text-muted">Administra la información del Sistema</h8></div>
+    <br />
+</section>
+
+<section class="accordion">
+    <section class="accordion-tabs">
+        <button class="accordion-tab accordion-active" data-actab-group="0" data-actab-id="0">General</button>
+        <button class="accordion-tab" data-actab-group="0" data-actab-id="1">Tarifas</button>
+        <button class="accordion-tab" data-actab-group="0" data-actab-id="2">Exoneraciones</button>
+        <button class="accordion-tab" data-actab-group="0" data-actab-id="3">Notificaciones</button>
+        <!--button class="accordion-tab" data-actab-group="0" data-actab-id="4">Tab 5</!--button-->
+    </section>
+    <section class="accordion-content">
+        <article class="accordion-item accordion-active" data-actab-group="0" data-actab-id="0">
+            <h6 class="accordion-item__label"><strong>Configuración General</strong></h6>
+            <hr />
+            <div class="accordion-item__container" style="height: @_Divheigt;">
+              <div class="row">
+                    <div class="col-md-4 order-md-2 mb-4 overflow-auto" style="height:@_Divheigt;">
+                      <h4 class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted">Your cart</span>
+                        <span class="badge bg-secondary rounded-pill">3</span>
+                      </h4>
+                      <ul class="list-group mb-3">
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                          <div>
+                            <h6 class="my-0">Product name</h6>
+                            <small class="text-muted">Product details</small>
+                          </div>
+                          <span class="text-muted">$12</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                          <div>
+                            <h6 class="my-0">Second product</h6>
+                            <small class="text-muted">Product details</small>
+                          </div>
+                          <span class="text-muted">$8</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between bg-light">
+                          <div class="text-success">
+                            <h6 class="my-0">Promo code</h6>
+                            <small>EXAMPLECODE</small>
+                          </div>
+                          <span class="text-success">−$3</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                          <span>Total (USD)</span>
+                          <strong>$40</strong>
+                        </li>
+                      </ul>
+
+                      <form class="card p-2">
+                        <div class="input-group">
+                          <input type="text" class="form-control" placeholder="Promo code">
+                          <button type="submit" class="btn btn-secondary">Redeem</button>
+                        </div>
+                      </form>
+                    </div>  
+                <!-- Billing Column -->
+                    <div class="col-md-6 order-md-0 overflow-auto" style="height:@_Divheigt;">
+                  <form>
+                    <div class="row g-2">
+                        <div class="col-sm-8">
+                        <label for="currency" class="form-label">Currency</label>
+                            <select class="form-select" id="currency" required>
+                                <option value="">Choose...</option>
+                                <option>S/. Soles</option>
+                                <option>Dolares</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                        <label for="bank" class="form-label">Entidad Recaudadora</label>
+                        <input type="text" class="form-control" id="bank" placeholder="ScotiaBank">
+                        </div>
+                        <div class="col-12">
+                            <label for="account" class="form-label">Nro. de Cuenta</label>
+                            <input type="text" class="form-control" id="account" placeholder="193-281824-4-54" required>
+                        </div>
+                        <div class="col-12">
+                        <label for="email" class="form-label">Email <span class="text-muted">(Optional)</span></label>
+                        <input type="email" class="form-control" id="email" placeholder="you@example.com">
+                        </div>
+                        <div class="col-md-5">
+                        <label for="country" class="form-label">Country</label>
+                        <select class="form-select" id="country" required>
+                            <option value="">Choose...</option>
+                            <option>Pakistan</option>
+                        </select>
+                        </div>
+                        <div class="col-md-4">
+                        <label for="state" class="form-label">City</label>
+                        <select class="form-select" id="state" required>
+                            <option value="">Choose...</option>
+                            <option>Lahore</option>
+                        </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="zip" class="form-label">Zip</label>
+                            <input type="text" class="form-control" id="zip" required>
+                          </div>
+                    </div>
+
+                    <!--hr class="my-4">
+
+                    <div class="form-check">
+                      <input type="checkbox" class="form-check-input" id="same-address">
+                      <label class="form-check-label" for="same-address">Shipping address is the same as my billing address</label>
+                    </div>
+                    <div class="form-check">
+                      <input type="checkbox" class="form-check-input" id="save-info">
+                      <label class="form-check-label" for="save-info">Save this information for next time</label>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h4 class="mb-3">Payment</h4>
+                    <div class="my-3">
+                      <div class="form-check">
+                        <input id="credit" name="paymentMethod" type="radio" class="form-check-input" checked required>
+                        <label class="form-check-label" for="credit">Credit card</label>
+                      </div>
+                      <div class="form-check">
+                        <input id="debit" name="paymentMethod" type="radio" class="form-check-input" required>
+                        <label class="form-check-label" for="debit">Debit card</label>
+                      </div>
+                      <div class="form-check">
+                        <input id="paypal" name="paymentMethod" type="radio" class="form-check-input" required>
+                        <label class="form-check-label" for="paypal">PayPal</label>
+                      </div>
+                    </div>
+
+                    <div-- class="row gy-3">
+                      <div class="col-md-6">
+                        <label for="cc-name" class="form-label">Name on card</label>
+                        <input type="text" class="form-control" id="cc-name" required>
+                        <small class="text-muted">Full name as displayed on card</small>
+                      </div>
+
+                      <div class="col-md-6">
+                        <label for="cc-number" class="form-label">Credit card number</label>
+                        <input type="text" class="form-control" id="cc-number" required>
+                      </div>
+
+                      <div class="col-md-3">
+                        <label for="cc-expiration" class="form-label">Expiration</label>
+                        <input type="text" class="form-control" id="cc-expiration" required>
+                      </div>
+
+                      <div class="col-md-3">
+                        <label for="cc-cvv" class="form-label">CVV</label>
+                        <input type="text" class="form-control" id="cc-cvv" required>
+                      </div>
+                    </div-->
+
+                    <hr class="my-4">
+                    <button class="w-100 btn btn-primary btn-lg" type="submit">Guardar Configuración</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+        </article>
+        <article class="accordion-item" data-actab-group="0" data-actab-id="1">
+            <h4 class="accordion-item__label">Configuración de Cuotas</h4>
+            <div class="accordion-item__container">
+                <p>reprehenderit temporibus, assumenda cupiditate consequatur soluta odit ex repudiandae delectus cumque, provident hic sed quod? Quis, nam. Similique eaque quae vel recusandae expedita qui sint fugiat, nisi assumenda et ex molestiae atque deleniti magni, ipsam libero!</p>
+            </div>
+        </article>
+        <article class="accordion-item" data-actab-group="0" data-actab-id="2">
+            <h4 class="accordion-item__label">Exoneraciones de Pago</h4>
+            <div class="accordion-item__container" style="height: @_Divheigt;">
+                <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Voluptates, deserunt minima? Ut facere minus, ipsa dolore animi quis alias eos, porro corporis quod esse quidem. Maxime a aperiam perspiciatis architecto?</p>
+            </div>
+        </article>
+        <article class="accordion-item" data-actab-group="0" data-actab-id="3">
+            <h4 class="accordion-item__label">Configuración de Exonraciones</h4>
+            <div class="accordion-item__container">
+                <p>psum dolor sit amet, consectetur adipisicing elit. Voluptates, deserunt minima? Ut facere minus, ipsa dolore</p>
+            </div>
+        </article>
+        <article class="accordion-item" data-actab-group="0" data-actab-id="4">
+            <h4 class="accordion-item__label">Tab 5</h4>
+            <div class="accordion-item__container">
+                <p>Peding to be implemented!</p>
+            </div>
+        </article>
+    </section>
+</section>
+
+@code{
+    public string _Divheigt = "260px";
+}

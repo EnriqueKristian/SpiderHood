@@ -1,0 +1,203 @@
+﻿@using SpiderHood.Models
+@using System.Globalization
+@inject SpiderHood.Services.ParameterService ParameterService
+
+<div class="row">
+    <div class="col-md-11">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5>Cuota Mensual: @GetNombreMes(Month) @Year</h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary me-2" @onclick="ExportarPDF">
+                        <i class="fas fa-file-pdf"></i> PDF
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" @onclick="ExportarExcel">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+
+                <h6>Distribución por Departamento</h6>
+
+                <div class="table-responsive">
+                    <table class="expense-table">
+                        <thead>
+                            <tr>
+                                <th width="15%">Departamento</th>
+                                <th>Propietario</th>
+                                <th width="15%" align="center">Área Total (m²)</th>
+                                <th width="15%" align="center">% Área</th>
+                                <th width="15%" align="center">Total</th>
+                                <th width="15%" align="center">Acción</th>
+
+
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Installments!)
+                            {
+                                <tr @onclick="() => installementSelected(item)"
+                                    class="@(selectedInstallment?.IdInstallment == item.IdInstallment ? "selected" : "")">
+                                    <td>DPTO @item.UnitName</td>
+                                    <td>@item.OwnerName</td>
+                                    <td align="right">@item.TotalArea.ToString("N2")</td>
+                                    <td align="right">@item.Percent.ToString("N2")%</td>
+                                    <td align="right">S/ @item.Amount.ToString("N2")</td>
+                                    <td class="col-acciones" align="center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-secondary"
+                                                    title="Ver Presupuesto"
+                                                    @onclick:stopPropagation @onclick="() => VerDetalle(item)">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<Modal @ref="viewinstallment" Title="Detalle de Cuota" Size="ModalSize.Large">
+    <BodyTemplate>
+            
+        <div class="table-responsive">
+            <table class="expense-table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%">Item</th>
+                        <th style="width: 50%">Descripción</th>
+                        <th style="width: 15%">Presupuesto</th>
+                        <th style="width: 15%">Cuota</th>
+                        <th style="width: 15%">Tipo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var section in GetSections())
+                    {
+                        var sectionItems = Budget!.Details.Where(x => x.IdSection == section.Id).ToList();
+                        var hasItems = sectionItems.Any(x => !x.IsHeader);
+
+                        <!-- Section Header -->
+                        <tr class="section-header-row">
+                            <td colspan="5">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <strong>@GetSectionName(section.Id)</strong>
+                                </div>
+                            </td>
+                        </tr>
+
+                        @if (!hasItems)
+                        {
+                            <tr>
+                                <td colspan="7">
+                                    <div class="empty-section">
+                                        No hay items en esta sección
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var item in sectionItems.Where(x => !x.IsHeader))
+                            {
+                                <tr>
+                                    <td>@item.ItemNumber</td>
+                                    <td>@item.Description</td>
+                                    <td align="right">@item.MonthlyAmount.ToString("N2")</td>
+                                    @{
+                                        var total = item.Type == 1
+                                                    ? item.MonthlyAmount / ParameterService.nroGroupUnit
+                                                            : item.MonthlyAmount * _distr;
+
+                                        _TotalAmount += total/2;
+                                    }
+
+                                    <td align="right">S/ @total.ToString("N2")</td>
+                                    <!--    PARAMETRO PADRE    -->
+                                    <td align="center">@ParameterService.GetChildParameterDescription(8, item.Type)</td>
+                                </tr>
+                            }
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2"><strong>TOTAL PRESUPUESTO:</strong></td>
+                        <td align="right">
+                            <strong>S/ @_TotalAmount.ToString("N2")</strong>
+                        </td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-secondary" @onclick="() => viewinstallment.HideAsync()">
+            <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+
+    [Parameter] public List<Installment>? Installments { get; set; }
+    [Parameter] public int Month { get; set; }
+    [Parameter] public int Year  { get; set; }
+    [Parameter] public BudgetHeader? Budget { get; set; }
+
+    private Installment? selectedInstallment = null;
+    private Modal viewinstallment = null!;
+    private decimal _distr;
+    private decimal _TotalAmount = 0;
+
+    private string GetNombreMes(int mes)
+    {
+        return CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(mes);
+    }
+
+    private void ExportarPDF()
+    {
+        // Lógica para exportar a PDF
+    }
+
+    private void ExportarExcel()
+    {
+        // Lógica para exportar a Excel
+    }
+
+    private void VerDetalle(Installment _installment)
+    {
+        // Lógica para exportar a Excel
+        _distr = _installment.Percent / 100;
+        _TotalAmount = 0;
+        viewinstallment.ShowAsync();
+    }
+
+    private void installementSelected(Installment item)
+    {
+        selectedInstallment = item;
+    }
+
+    private List<SectionInfo> GetSections()
+    {
+        return Budget!.Details!
+            .Where(x => x.IsHeader)
+            .Select(x => new SectionInfo { Id = x.IdSection, Name = x.Description, IdCategory = x.IdCategory })
+            .OrderBy(x => x.Id)
+            .ToList();
+    }
+
+    private string GetSectionName(int sectionId)
+    {
+        var header = Budget!.Details!.FirstOrDefault(x => x.IdSection == sectionId && x.IsHeader);
+        return header?.Description ?? $"Sección {sectionId}";
+    }
+}

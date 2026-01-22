@@ -1,0 +1,85 @@
+﻿@page "/category/create"
+@using Microsoft.EntityFrameworkCore
+@using SpiderHood.Models
+@inject IDbContextFactory<SpiderHood.Data.SpiderHoodContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Create</PageTitle>
+
+<h1>Create</h1>
+
+<h2>Category</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="Category" OnValidSubmit="AddCategory" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert"/>
+            @if (type == 1 ){
+            <div class="mb-3">
+                <span class="text-danger">*</span>
+                <label for="parent_cat" class="form-label">Description:</label>
+                <InputText id="parent_cat" class="form-control" aria-required="true" @bind-Value="@Name" readonly />
+            </div>
+            }
+            <div class="mb-3">
+                <span class="text-danger">*</span>
+                <label for="description" class="form-label">Description:</label>
+                <InputText id="description" @bind-Value="Category.Description" class="form-control" aria-required="true"/> 
+                <ValidationMessage For="() => Category.Description" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="shortdescription" class="form-label">Short Description:</label>
+                <InputText id="shortdescription" @bind-Value="Category.ShortDescript" class="form-control" /> 
+                <ValidationMessage For="() => Category.ShortDescript" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="icon" class="form-label">Icon:</label> 
+                <InputText id="icon" @bind-Value="Category.Icon" class="form-control" /> 
+                <ValidationMessage For="() => Category.Icon" class="text-danger" /> 
+            </div>  
+            <div class="mb-3">
+                <label for="color" class="form-label">Color:</label>
+                <InputText id="color" @bind-Value="Category.Color" class="form-control" />
+                <ValidationMessage For="() => Category.Color" class="text-danger" />
+            </div>
+            <button type="submit" class="btn btn-primary">Create</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/Category">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private Category Category { get; set; } = new();
+
+    [SupplyParameterFromQuery]
+    private int type { get; set; }
+
+    [SupplyParameterFromQuery]
+    private Guid parent_id { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string Name { get; set; }
+
+    [SupplyParameterFromQuery]
+    private Guid Id { get; set; }
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddCategory()
+    {
+        using var context = DbFactory.CreateDbContext();
+
+        Category.ParentId = type == 0 ? Guid.Empty : parent_id;
+        Category.IdBuilding = new Guid("C574A553-1573-48C8-F85E-08DE3426C28E");
+
+        SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
+
+        await ec.AddNewRecordAsync(Category);
+        await context.SaveChangesAsync();
+        NavigationManager.NavigateTo("/Category");
+    }
+}

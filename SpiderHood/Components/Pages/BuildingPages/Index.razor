@@ -1,0 +1,1800 @@
+﻿@page "/buildings"
+@rendermode InteractiveServer
+@using System.Threading.Tasks
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using SpiderHood.Models
+@inject NavigationManager Navigation
+@inject Services.ParameterService ParameterService
+
+<style>
+    .building-management {
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    
+    .card-hover {
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .edit-mode {
+        border: 2px solid #3b82f6;
+        background-color: #f0f9ff;
+    }
+    
+    .building-active {
+        border-left: 4px solid #10b981;
+    }
+    
+    .building-inactive {
+        border-left: 4px solid #ef4444;
+    }
+    
+    .section-title {
+        color: #374151;
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .building-selector {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 1rem;
+    }
+    
+    .building-selector:hover {
+        border-color: #3b82f6;
+        background-color: #f8fafc;
+    }
+    
+    .building-selector.active {
+        border-color: #3b82f6;
+        background-color: #eff6ff;
+    }
+    
+    .building-info {
+        flex: 1;
+    }
+    
+    .building-number {
+        width: 40px;
+        height: 40px;
+        background-color: #3b82f6;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 1rem;
+    }
+    
+    .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .edit-button {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    
+    .config-card:hover .edit-button {
+        opacity: 1;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6b7280;
+    }
+    
+    .form-compact .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-compact .form-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    
+    .payment-methods {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .payment-method-tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        background-color: #e0f2fe;
+        border: 1px solid #7dd3fc;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .payment-method-tag:hover {
+        background-color: #bae6fd;
+    }
+    
+    .payment-method-tag.selected {
+        background-color: #0ea5e9;
+        color: white;
+        border-color: #0ea5e9;
+    }
+    
+    .currency-selector {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background-color: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .currency-selector:hover {
+        border-color: #3b82f6;
+    }
+    
+    .currency-selector.selected {
+        border-color: #3b82f6;
+        background-color: #eff6ff;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
+    
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-active {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-inactive {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .building-actions {
+        display: flex;
+        gap: 0.5rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    
+    .building-selector:hover .building-actions {
+        opacity: 1;
+    }
+
+    .info-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.75rem;
+        background-color: #f3f4f6;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+</style>
+
+<div class="building-management">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">Administración de Edificios</h1>
+            <p class="text-muted mb-0">Gestión completa de propiedades y configuraciones por edificio</p>
+        </div>
+        <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="ShowCreateModal">
+            <i class="bi bi-building-add me-2"></i>Nuevo Edificio
+        </button>
+    </div>
+
+    <!-- Metrics Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Total Edificios</h6>
+                            <h2 class="mb-0">@Buildings.Count</h2>
+                        </div>
+                        <div style="color: #3b82f6;">
+                            <i class="bi bi-buildings-fill" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Departamentos Totales</h6>
+                            <h2 class="mb-0">@Buildings.Sum(b => b.Apartments)</h2>
+                        </div>
+                        <div style="color: #10b981;">
+                            <i class="bi bi-door-open-fill" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Estacionamientos</h6>
+                            <h2 class="mb-0">@Buildings.Sum(b => b.Parkings)</h2>
+                        </div>
+                        <div style="color: #f59e0b;">
+                            <i class="bi bi-car-front-fill" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Área Total</h6>
+                            <h2 class="mb-0">@Buildings.Sum(b => b.TotalArea) m²</h2>
+                        </div>
+                        <div style="color: #8b5cf6;">
+                            <i class="bi bi-rulers" style="font-size: 2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <!-- Lista de Edificios -->
+        <div class="col-md-5">
+            <div class="card card-hover">
+                <div class="card-header">
+                    <h5 class="mb-0">Seleccionar Edificio</h5>
+                </div>
+                <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                    @if (Buildings.Any())
+                    {
+                        @foreach (var building in Buildings)
+                        {
+                            <div class="building-selector @(SelectedBuilding?.IdBuilding == building.IdBuilding ? "active" : "")" 
+                                 @onclick="() => SelectBuilding(building)">
+                                <div class="building-number">@building.Number</div>
+                                <div class="building-info">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">@building.Name</h6>
+                                            <p class="text-muted small mb-1">@building.Location</p>
+                                            <div class="d-flex gap-2">
+                                                <!--    PARAMETRO_PADRE     -->
+                                                <span class="badge bg-info">@ParameterService.GetChildParameterDescription(34,building.Type)</span>
+                                                <span class="status-badge @(building.IsActive ? "status-active" : "status-inactive")">
+                                                    @(building.IsActive ? "Activo" : "Inactivo")
+                                                </span>
+                                            </div>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <span class="info-chip">
+                                                    <i class="bi bi-building"></i> @building.Floors Pisos
+                                                </span>
+                                                <span class="info-chip">
+                                                    <i class="bi bi-door-closed"></i> @building.Apartments Dptos
+                                                </span>
+                                                <span class="info-chip">
+                                                    <i class="bi bi-car-front"></i> @building.Parkings Estac.
+                                                </span>
+                                                @if (building.Basements > 0)
+                                                {
+                                                    <span class="info-chip">
+                                                        <i class="bi bi-arrow-down-square"></i> @building.Basements Sót.
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="building-actions">
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    title="Editar" 
+                                                    @onclick="() => EditBuilding(building)"
+                                                    @onclick:stopPropagation>
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary" 
+                                                    title="Configuración Rápida"
+                                                    @onclick="() => ShowQuickConfig(building)"
+                                                    @onclick:stopPropagation>
+                                                <i class="bi bi-gear"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <i class="bi bi-buildings"></i>
+                            <h4 class="mb-2">No hay edificios registrados</h4>
+                            <p class="text-muted mb-3">Comienza agregando tu primer edificio</p>
+                            <button class="btn btn-primary" style="border-radius: 50px;" @onclick="ShowCreateModal">
+                                <i class="bi bi-building-add me-2"></i>Crear Primer Edificio
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuración del Edificio Seleccionado -->
+        <div class="col-md-7">
+            @if (SelectedBuilding != null)
+            {
+                <div class="card card-hover building-active">
+                    <!--div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">Configuración: @SelectedBuilding.Name</h5>
+                            <p class="text-muted small mb-0">Edificio #@SelectedBuilding.Number - @SelectedBuilding.Location</p>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-2" @onclick="CopyConfigToAll">
+                                <i class="bi bi-copy me-1"></i>Copiar a todos
+                            </button>
+                            <button class="btn btn-sm btn-success" @onclick="SaveAllConfigurations">
+                                <i class="bi bi-save me-1"></i>Guardar Todo
+                            </button>
+                        </div>
+                    </!--div-->
+                    <div class="card-body">
+                        <EditForm Model="SelectedBuilding.Configuration" OnValidSubmit="SaveConfiguration">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary />
+                            
+                            <div class="config-grid">
+                                <!-- Sección Moneda y Bancos -->
+                                <div class="card card-hover config-card @(_editingSection == "currency" ? "edit-mode" : "")">
+                                    <div class="card-body">
+                                        <div class="edit-button">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => StartEditSection(currency)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <h6 class="section-title">
+                                            <i class="bi bi-currency-exchange me-2"></i>Moneda y Cuentas
+                                        </h6>
+                                        
+                                        @if (_editingSection == "currency")
+                                        {
+                                            <div class="form-compact">
+                                                <div class="form-group">
+                                                    <label class="form-label">Moneda Principal</label>
+                                                    <div class="d-flex gap-2">
+                                                        @foreach (var currency in _currencies)
+                                                        {
+                                                            <div class="currency-selector @(SelectedBuilding.Configuration.Currency == currency.Code ? "selected" : "")"
+                                                                 @onclick="() => SelectedBuilding.Configuration.Currency = currency.Code">
+                                                                <span class="fw-semibold">@currency.Symbol</span>
+                                                                <span class="text-muted">@currency.Name</span>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="form-group">
+                                                    <label class="form-label">Cuentas Bancarias</label>
+                                                    <div>
+                                                        @for (int i = 0; i < SelectedBuilding.Configuration.BankAccounts.Count; i++)
+                                                        {
+                                                            var index = i;
+                                                            <div class="d-flex align-items-center mb-2">
+                                                                <InputText @bind-Value="SelectedBuilding.Configuration.BankAccounts[index].BankName" 
+                                                                           class="form-control form-control-sm me-2" 
+                                                                           placeholder="Nombre del banco" />
+                                                                <InputText @bind-Value="SelectedBuilding.Configuration.BankAccounts[index].AccountNumber" 
+                                                                           class="form-control form-control-sm" 
+                                                                           placeholder="Número de cuenta" />
+                                                                @if (SelectedBuilding.Configuration.BankAccounts.Count > 1)
+                                                                {
+                                                                    <button type = "button" class= "btn btn-outline-secondary"
+                                                                            @onclick="() => EditBankAccount(index)">
+                                                                        <i class="bi bi-pencil"></i>
+                                                                    </button>
+                                                                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" 
+                                                                            @onclick="() => RemoveBankAccount(index)">
+                                                                        <i class="bi bi-trash"></i>
+                                                                    </button>
+                                                                }
+                                                            </div>
+                                                        }
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary" 
+                                                                @onclick="AddBankAccount">
+                                                            <i class="bi bi-plus"></i> Agregar cuenta
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="action-buttons">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(currency)">
+                                                        <i class="bi bi-check"></i> Guardar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="mb-3">
+                                                <label class="form-label small text-muted">Moneda Principal</label>
+                                                <div class="fw-semibold">
+                                                    @(SelectedBuilding.Configuration.Currency == "PEN" ? "S/ (Soles)" : 
+                                                      SelectedBuilding.Configuration.Currency == "USD" ? "$ (Dólares)" : SelectedBuilding.Configuration.Currency)
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="form-label small text-muted">Cuentas Bancarias</label>
+                                                <div>
+                                                    @foreach (var account in SelectedBuilding.Configuration.BankAccounts)
+                                                    {
+                                                        <div class="d-flex align-items-center mb-2">
+                                                            <i class="bi bi-bank text-primary me-2"></i>
+                                                            <div>
+                                                                <div class="fw-semibold">@account.BankName</div>
+                                                                <div class="text-muted small">Cuenta: @account.AccountNumber</div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Sección Pagos -->
+                                <div class="card card-hover config-card @(_editingSection == "payments" ? "edit-mode" : "")">
+                                    <div class="card-body">
+                                        <div class="edit-button">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => StartEditSection(payments)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <h6 class="section-title">
+                                            <i class="bi bi-credit-card me-2"></i>Configuración de Pagos
+                                        </h6>
+                                        
+                                        @if (_editingSection == "payments")
+                                        {
+                                            <div class="form-compact">
+                                                <div class="form-group">
+                                                    <label class="form-label">Métodos de Pago</label>
+                                                    <div class="payment-methods">
+                                                        @foreach (var method in _paymentMethods)
+                                                        {
+                                                            <div class="payment-method-tag @(SelectedBuilding.Configuration.PaymentMethods.Contains(method) ? "selected" : "")"
+                                                                 @onclick="() => TogglePaymentMethod(method)">
+                                                                @method
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Periodo de Pago</label>
+                                                            <select @bind-Value="SelectedBuilding.Configuration.PaymentPeriod" @bind-Value:event="oninput" class="form-select form-select-sm">
+                                                                <option value=1>Mensual</option>
+                                                                <option value=2>Bimestral</option>
+                                                                <option value=3>Trimestral</option>
+                                                                <option value=4>Semestral</option>
+                                                                <option value=5>Anual</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Día de Vencimiento</label>
+                                                            <InputNumber @bind-Value="SelectedBuilding.Configuration.DueDay" 
+                                                                        class="form-control form-control-sm" 
+                                                                        min="1" max="31" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="action-buttons">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(payments)">
+                                                        <i class="bi bi-check"></i> Guardar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="row g-3">
+                                                <div class="col-12">
+                                                    <label class="form-label small text-muted">Métodos de Pago</label>
+                                                    <div>
+                                                        @foreach (var method in SelectedBuilding.Configuration.PaymentMethods)
+                                                        {
+                                                            <span class="badge bg-success me-2 mb-1">@method</span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label small text-muted">Periodo de Pago</label>
+                                                    <div class="fw-semibold">@SelectedBuilding.Configuration.PaymentPeriod</div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label small text-muted">Día de Vencimiento</label>
+                                                    <div class="fw-semibold">@SelectedBuilding.Configuration.DueDay de cada mes</div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Sección Multas y Mora -->
+                                <div class="card card-hover config-card @(_editingSection == "fines" ? "edit-mode" : "")">
+                                    <div class="card-body">
+                                        <div class="edit-button">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => StartEditSection(fines)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <h6 class="section-title">
+                                            <i class="bi bi-exclamation-triangle me-2"></i>Multas y Mora
+                                        </h6>
+                                        
+                                        @if (_editingSection == "fines")
+                                        {
+                                            <div class="form-compact">
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Monto de Multa</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">@(SelectedBuilding.Configuration.Currency == "PEN" ? "S/" : "$")</span>
+                                                                <InputNumber @bind-Value="SelectedBuilding.Configuration.FineAmount" 
+                                                                            class="form-control" 
+                                                                            step="0.01" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Tasa de Interés Mora</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <InputNumber @bind-Value="SelectedBuilding.Configuration.LateInterestRate" 
+                                                                            class="form-control" 
+                                                                            step="0.01" />
+                                                                <span class="input-group-text">% mensual</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Día de Emisión Recibos</label>
+                                                            <InputNumber @bind-Value="SelectedBuilding.Configuration.InvoiceDay" 
+                                                                        class="form-control form-control-sm" 
+                                                                        min="1" max="31" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="action-buttons">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(fines)">
+                                                        <i class="bi bi-check"></i> Guardar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label small text-muted">Monto de Multa</label>
+                                                    <div class="fw-semibold">
+                                                        @(SelectedBuilding.Configuration.Currency == "PEN" ? "S/" : "$")@SelectedBuilding.Configuration.FineAmount.ToString("N2")
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label small text-muted">Tasa de Interés Mora</label>
+                                                    <div class="fw-semibold">@SelectedBuilding.Configuration.LateInterestRate.ToString("N2")% mensual</div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label small text-muted">Día de Emisión Recibos</label>
+                                                    <div class="fw-semibold">@SelectedBuilding.Configuration.InvoiceDay de cada mes</div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Sección Contactos -->
+                                <div class="card card-hover config-card @(_editingSection == "admin" ? "edit-mode" : "")">
+                                    <div class="card-body">
+                                        <div class="edit-button">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => StartEditSection(admin)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <h6 class="section-title">
+                                            <i class="bi bi-person-lines-fill me-2"></i>Contacto Administración
+                                        </h6>
+                                        
+                                        @if (_editingSection == "admin")
+                                        {
+                                            <div class="form-compact">
+                                                <div class="form-group">
+                                                    <label class="form-label">Nombre</label>
+                                                    <InputText @bind-Value="SelectedBuilding.Configuration.AdminContact.Name" 
+                                                              class="form-control form-control-sm" />
+                                                </div>
+                                                
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Teléfono</label>
+                                                            <InputText @bind-Value="SelectedBuilding.Configuration.AdminContact.Phone" 
+                                                                      class="form-control form-control-sm" />
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Email</label>
+                                                            <InputText @bind-Value="SelectedBuilding.Configuration.AdminContact.Email" 
+                                                                      type="email"
+                                                                      class="form-control form-control-sm" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="form-group">
+                                                    <label class="form-label">Dirección</label>
+                                                    <InputText @bind-Value="SelectedBuilding.Configuration.AdminContact.Address" 
+                                                              class="form-control form-control-sm" />
+                                                </div>
+                                                
+                                                <div class="action-buttons">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(admin)">
+                                                        <i class="bi bi-check"></i> Guardar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="d-flex align-items-start mb-3">
+                                                <i class="bi bi-person-circle text-primary me-3 mt-1"></i>
+                                                <div>
+                                                    <div class="fw-semibold">@SelectedBuilding.Configuration.AdminContact.Name</div>
+                                                    <div class="text-muted small">Administrador</div>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-telephone text-success me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.AdminContact.Phone</div>
+                                            </div>
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-envelope text-warning me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.AdminContact.Email</div>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-geo-alt text-danger me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.AdminContact.Address</div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Sección Inmobiliaria -->
+                                <div class="card card-hover config-card @(_editingSection == "realty" ? "edit-mode" : "")">
+                                    <div class="card-body">
+                                        <div class="edit-button">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => StartEditSection(realty)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <h6 class="section-title">
+                                            <i class="bi bi-building me-2"></i>Inmobiliaria
+                                        </h6>
+                                        
+                                        @if (_editingSection == "realty")
+                                        {
+                                            <div class="form-compact">
+                                                <div class="form-group">
+                                                    <label class="form-label">Nombre</label>
+                                                    <InputText @bind-Value="SelectedBuilding.Configuration.RealEstateCompany.Name" 
+                                                              class="form-control form-control-sm" />
+                                                </div>
+                                                
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Teléfono</label>
+                                                            <InputText @bind-Value="SelectedBuilding.Configuration.RealEstateCompany.Phone" 
+                                                                      class="form-control form-control-sm" />
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Email</label>
+                                                            <InputText @bind-Value="SelectedBuilding.Configuration.RealEstateCompany.Email" 
+                                                                      type="email"
+                                                                      class="form-control form-control-sm" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="form-group">
+                                                    <label class="form-label">Dirección</label>
+                                                    <InputText @bind-Value="SelectedBuilding.Configuration.RealEstateCompany.Address" 
+                                                              class="form-control form-control-sm" />
+                                                </div>
+                                                
+                                                <div class="action-buttons">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(realty)">
+                                                        <i class="bi bi-check"></i> Guardar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="mb-3">
+                                                <div class="fw-semibold mb-1">@SelectedBuilding.Configuration.RealEstateCompany.Name</div>
+                                                <div class="text-muted small">Sociedad Anónima</div>
+                                            </div>
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-telephone text-success me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.RealEstateCompany.Phone</div>
+                                            </div>
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-envelope text-warning me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.RealEstateCompany.Email</div>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-geo-alt text-danger me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.RealEstateCompany.Address</div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Sección Mantenimiento -->
+                                <div class="card card-hover config-card @(_editingSection == "maintenance" ? "edit-mode" : "")">
+                                    <div class="card-body">
+                                        <div class="edit-button">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => StartEditSection(maintenance)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                        
+                                        <h6 class="section-title">
+                                            <i class="bi bi-tools me-2"></i>Empresa de Mantenimiento
+                                        </h6>
+                                        
+                                        @if (_editingSection == "maintenance")
+                                        {
+                                            <div class="form-compact">
+                                                <div class="form-group">
+                                                    <label class="form-label">Nombre</label>
+                                                    <InputText @bind-Value="SelectedBuilding.Configuration.MaintenanceCompany.Name" 
+                                                              class="form-control form-control-sm" />
+                                                </div>
+                                                
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Teléfono Oficina</label>
+                                                            <InputText @bind-Value="SelectedBuilding.Configuration.MaintenanceCompany.OfficePhone" 
+                                                                      class="form-control form-control-sm" />
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Teléfono Celular</label>
+                                                            <InputText @bind-Value="SelectedBuilding.Configuration.MaintenanceCompany.MobilePhone" 
+                                                                      class="form-control form-control-sm" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="form-group">
+                                                    <label class="form-label">Email</label>
+                                                    <InputText @bind-Value="SelectedBuilding.Configuration.MaintenanceCompany.Email" 
+                                                              type="email"
+                                                              class="form-control form-control-sm" />
+                                                </div>
+                                                
+                                                <div class="form-group">
+                                                    <label class="form-label">Dirección</label>
+                                                    <InputText @bind-Value="SelectedBuilding.Configuration.MaintenanceCompany.Address" 
+                                                              class="form-control form-control-sm" />
+                                                </div>
+                                                
+                                                <div class="action-buttons">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(maintenance)">
+                                                        <i class="bi bi-check"></i> Guardar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="mb-3">
+                                                <div class="fw-semibold mb-1">@SelectedBuilding.Configuration.MaintenanceCompany.Name</div>
+                                                <div class="text-muted small">Contratista principal</div>
+                                            </div>
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-telephone text-success me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.MaintenanceCompany.OfficePhone</div>
+                                            </div>
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-phone text-success me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.MaintenanceCompany.MobilePhone</div>
+                                            </div>
+                                            <div class="d-flex align-items-center mb-2">
+                                                <i class="bi bi-envelope text-warning me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.MaintenanceCompany.Email</div>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <i class="bi bi-geo-alt text-danger me-2"></i>
+                                                <div class="small">@SelectedBuilding.Configuration.MaintenanceCompany.Address</div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                                 <!-- Sección Categoría Default -->
+                                <div class="card card-hover config-card @(_editingSection == "category" ? "edit-mode" : "")">
+                                    <div class="card-body">
+                                        <div class="edit-button">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => StartEditSection(category)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+                                    
+                                        <h6 class="section-title">
+                                            <i class="bi bi-tags me-2"></i>Categoría Default de Gastos
+                                        </h6>
+                                    
+                                        @if (_editingSection == "category")
+                                        {
+                                            <div class="form-compact">
+                                                <div class="form-group">
+                                                    <label class="form-label">Categoría Principal</label>
+                                                    <select @bind-Value="SelectedBuilding.Configuration.DefaultCategory" @bind-Value:event="oninput" class="form-select form-select-sm">
+                                                        <option value="">Seleccionar categoría</option>
+                                                        @foreach(var item in filteredCategory.Where(c => c.Nivel == 0))
+                                                        {
+                                                            <optgroup label="@item.ShortDescript">
+                                                                @foreach(var subitem in filteredCategory.Where(c => c.ParentId == item.IdCategory))
+                                                            {
+                                                                <option value="@subitem.IdCategory">@subitem.ShortDescript</option>
+                                                            }
+                                                            </optgroup>
+                                                        }
+                                                    </select>
+                                                </div>
+                                            
+                                                <div class="action-buttons">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(category)">
+                                                        <i class="bi bi-check"></i> Guardar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="d-flex align-items-center">
+                                                <div class="bg-primary rounded-circle p-3 me-3">
+                                                    <i class="bi bi-tag-fill text-white"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">@GetDefaultCategoryName()</div>
+                                                    <div class="text-muted small">Categoría principal por defecto</div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card card-hover">
+                    <div class="card-body">
+                        <div class="empty-state">
+                            <i class="bi bi-building-gear" style="font-size: 4rem;"></i>
+                            <h4 class="mb-2">Selecciona un edificio</h4>
+                            <p class="text-muted mb-3">Para ver y editar la configuración, selecciona un edificio de la lista</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear/editar edificio -->
+<Modal @ref="_buildingModal" Title="@(_isEditingBuilding ? "Editar Edificio" : "Nuevo Edificio")" Size="ModalSize.Large">
+    <BodyTemplate>
+        <EditForm Model="_editingBuilding" OnValidSubmit="SaveBuilding">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Nombre del Edificio *</label>
+                        <InputText @bind-Value="_editingBuilding.Name" class="form-control" />
+                        <ValidationMessage For="@(() => _editingBuilding.Name)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Ubicación *</label>
+                        <InputText @bind-Value="_editingBuilding.Location" class="form-control" />
+                        <ValidationMessage For="@(() => _editingBuilding.Location)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Tipo *</label>
+                        <select @bind-Value="_editingBuilding.Type" @bind-Value:event="oninput" class="form-select">
+                            <option value="Familiar">Familiar</option>
+                            <option value="Comercial">Comercial</option>
+                            <option value="Mixto">Mixto</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Número de Pisos *</label>
+                        <InputNumber @bind-Value="_editingBuilding.Floors" class="form-control" min="1" />
+                        <ValidationMessage For="@(() => _editingBuilding.Floors)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Sótanos</label>
+                        <InputNumber @bind-Value="_editingBuilding.Basements" class="form-control" min="0" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Departamentos *</label>
+                        <InputNumber @bind-Value="_editingBuilding.Apartments" class="form-control" min="0" />
+                        <ValidationMessage For="@(() => _editingBuilding.Apartments)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Estacionamientos</label>
+                        <InputNumber @bind-Value="_editingBuilding.Parkings" class="form-control" min="0" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Depósitos</label>
+                        <InputNumber @bind-Value="_editingBuilding.Deposits" class="form-control" min="0" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Otros</label>
+                        <InputNumber @bind-Value="_editingBuilding.Others" class="form-control" min="0" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Área Total (m²) *</label>
+                        <InputNumber @bind-Value="_editingBuilding.TotalArea" class="form-control" step="0.01" min="0" />
+                        <ValidationMessage For="@(() => _editingBuilding.TotalArea)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Estado</label>
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="_editingBuilding.IsActive" class="form-check-input" />
+                            <label class="form-check-label">Activo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-primary" @onclick="SaveBuilding">
+            <i class="bi bi-check me-1"></i>@(_isEditingBuilding ? "Actualizar" : "Crear")
+        </button>
+        <button class="btn btn-secondary" @onclick="() => _buildingModal.HideAsync()">
+            <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+    </FooterTemplate>
+</Modal>
+
+<!-- Modal de configuración rápida -->
+<Modal @ref="_quickConfigModal" Title="Configuración Rápida" Size="ModalSize.Regular">
+    <BodyTemplate>
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Esta configuración se aplicará solo al edificio seleccionado.
+        </div>
+         <div class="form-group mb-3">
+            <label class="form-label">Copiar configuración de:</label>
+            <select @bind-Value="_sourceBuildingId" @bind-Value:event="oninput" class="form-select">
+                <option value="">-- Seleccionar edificio --</option>
+                @foreach (var building in Buildings.Where(b => b.IdBuilding != _quickConfigBuilding?.IdBuilding))
+                {
+                    <option value="@building.IdBuilding">@building.Name (Edificio #@building.Number)</option>
+                }
+            </select>
+        </div>
+        <div class="form-group mb-3">
+            
+            <label class="form-label">¿Qué configuraciones copiar?</label>
+            <div class="form-check">
+                <InputCheckbox @bind-Value="_copyCurrency" class="form-check-input" />
+                <label class="form-check-label">Moneda y cuentas bancarias</label>
+            </div>
+            
+            <div class="form-check">
+                <InputCheckbox @bind-Value="_copyPayments" class="form-check-input" />
+                <label class="form-check-label">Configuración de pagos</label>
+            </div>
+            <div class="form-check">
+                <InputCheckbox @bind-Value="_copyFines" class="form-check-input" />
+                <label class="form-check-label">Multas y mora</label>
+            </div>
+            <div class="form-check">
+                <InputCheckbox @bind-Value="_copyContacts" class="form-check-input" />
+                <label class="form-check-label">Contactos</label>
+            </div>
+            
+            <div class="form-check">
+                <InputCheckbox id="copyAll" class="form-check-input" @bind-Value="_copyAll"  />
+                <label class="form-check-label" for="copyAll">Todas las configuraciones</label>
+            </div>
+            
+            <!--
+            <div class="form-check">
+                <InputCheckbox @bind-Value="_copyAll" class="form-check-input"
+                               @onchange="(e) => _copyAll = (bool)e.Value; if (_copyAll) { _copyCurrency = _copyPayments = _copyFines = _copyContacts = true; }" />
+                <label class="form-check-label">Todas las configuraciones</label>
+            </div>
+            -->
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-primary" @onclick="ApplyQuickConfig" disabled="@(_sourceBuildingId == null)">
+            <i class="bi bi-copy me-1"></i>Aplicar Configuración
+        </button>
+        <button class="btn btn-secondary" @onclick="() => _quickConfigModal.HideAsync()">
+            <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+    </FooterTemplate>
+</Modal>
+
+<!-- Modal para crear/editar Cuentas Bancarias -->
+<Modal @ref="_bankAccount" Title="@(_isEditingBanckAccount ? "Editar Cta." : "Nuevo Cta.")" Size="ModalSize.Large">
+    <BodyTemplate>
+        <EditForm Model="_editingBankAccout" OnValidSubmit="SaveBankAccout" method="post" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Banco *</label>
+                        <InputText @bind-Value="_editingBankAccout.BankName" class="form-control" min="1" />
+                        <ValidationMessage For="@(() => _editingBankAccout.BankName)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Nro. de cuenta *</label>
+                        <InputText @bind-Value="_editingBankAccout.AccountNumber" class="form-control" />
+                        <ValidationMessage For="@(() => _editingBankAccout.AccountNumber)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Tipo *</label>
+                        <select @bind-Value="_editingBankAccout.AccountType" @bind-Value:event="oninput" class="form-select">
+                            <!--    PARAMETRO_PADRE     -->
+                            @foreach( var type in filteredParameters!.Where(c => c.IdParent == 31))
+                            {
+                                <option value="@type.Value">@type.ShortDescription</option>    
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Saldo Inicial *</label>
+                        <InputNumber @bind-Value="_editingBankAccout.ReconciledBalance" class="form-control" min="0" />
+                        <ValidationMessage For="@(() => _editingBankAccout.ReconciledBalance)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Estado</label>
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="_editingBuilding.IsActive" class="form-check-input" />
+                            <label class="form-check-label">Activo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-primary" @onclick="SaveBankAccout">
+            <i class="bi bi-check me-1"></i>@(_isEditingBanckAccount ? "Actualizar" : "Crear")
+        </button>
+        <button class="btn btn-secondary" @onclick="() => CloseBankModal()">
+            <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+    private List<Building> Buildings = new();
+    private Building? SelectedBuilding = null;
+    private Building _editingBuilding = new();
+    private Building? _quickConfigBuilding = null;
+    private BankAccount _editingBankAccout = new();
+    private IReadOnlyList<Models.Parameter>? filteredParameters;
+    private List<Models.Category> filteredCategory = new();
+
+    private string _editingSection = "";
+    private BuildingConfiguration _configurationBackup = new();
+    private bool _isEditingBuilding = false;
+    private bool _isEditingBanckAccount = false;
+    private Guid? _sourceBuildingId = null;
+    private bool _copyCurrency = true;
+    private bool _copyPayments = true;
+    private bool _copyFines = true;
+    private bool _copyContacts = true;
+    private bool _copyAll = true;
+
+    private Modal _buildingModal = null!;
+    private Modal _quickConfigModal = null!;
+    private Modal _bankAccount = null!;
+    //private Modal _contact = null!;
+
+
+    private const string payments = "payments";
+    private const string currency = "currency";
+    private const string fines = "fines";
+    private const string admin = "admin";
+    private const string realty = "realty";
+    private const string maintenance = "maintenance";
+    private const string category = "category";
+
+    private List<string> _paymentMethods = new();// { "Transferencia Bancaria", "Pago en Efectivo", "Tarjeta de Crédito", "Cheque" };
+    private List<Currency> _currencies = new()
+    {
+        new Currency { Code = "PEN", Symbol = "S/", Name = "Soles" },
+        new Currency { Code = "USD", Symbol = "$", Name = "Dólares" },
+        new Currency { Code = "EUR", Symbol = "€", Name = "Euros" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBuildings();
+    }
+
+    private async Task LoadBuildings()
+    {
+        Buildings = ParameterService.ec.GetBuilding(Guid.NewGuid());
+        filteredParameters = ParameterService.ListParameters;
+        filteredCategory = ParameterService.ec.GetCategories(ParameterService.IdBuilding);
+        //<!--    PARAMETRO_PADRE     -->
+        _paymentMethods = filteredParameters
+            .Where(c => c.IdParent == 16)
+            .Select(c => c.ShortDescription) // o c.Name, según tu modelo
+            .ToList();
+
+
+        // Seleccionar el primer edificio por defecto
+        if (Buildings.Any())
+        {
+            SelectedBuilding = Buildings.First();
+            SelectedBuilding.Configuration = await GetConfiguration(SelectedBuilding.Name);
+        }
+    }
+
+    private async Task<BuildingConfiguration> GetConfiguration(string buildingName)
+    {
+        if( ParameterService.IdBuilding == Guid.Empty )
+        {
+            return new BuildingConfiguration();
+        }
+        var configs = await ParameterService.ec.GetBuildingConfiguration(ParameterService.IdBuilding);
+
+        if (configs != null && configs.Count > 0 )
+        {
+            BuildingConfiguration config = configs[0];
+
+            List<BankAccount> bankAccounts = await ParameterService.ec.GetBankAccountsByBuilding(ParameterService.IdBuilding);
+
+            foreach (var bank in bankAccounts)
+            {
+                config.BankAccounts.Add(bank);
+            }
+
+            List<Contact> contacts = await ParameterService.ec.GetAllContacts(config.IdBuildingConfiguration);
+
+           config.AdminContact = contacts.FirstOrDefault(c => c.TypeContact == 1) ?? new Contact();
+           config.RealEstateCompany = contacts.FirstOrDefault(c => c.TypeContact == 2) ?? new Contact();
+           config.MaintenanceCompany = contacts.FirstOrDefault(c => c.TypeContact == 3) ?? new Contact();
+
+            return config;            
+        }
+        else
+        {
+            return CreateDefaultConfiguration(buildingName);
+        }
+    }
+
+    private BuildingConfiguration CreateDefaultConfiguration(string buildingName)
+    {
+        return new BuildingConfiguration
+        {
+            Currency = "PEN",
+            BankAccounts = new List<BankAccount>
+            {
+                new BankAccount { BankName = "Banco A", AccountNumber = "123456789" }
+            },
+            PaymentMethods = new List<string> { "Transferencia Bancaria", "Pago en Efectivo" },
+            PaymentPeriod = 1,
+            DueDay = 5,
+            FineAmount = 10.00m,
+            LateInterestRate = 2.00m,
+            InvoiceDay = 1,
+            AdminContact = new Contact
+            {
+                Name = "Pepito Perez",
+                Phone = "987654321",
+                Email = "algo@algo.com",
+                Address = "Av. Siempre Viva 123"
+            },
+            RealEstateCompany = new Contact
+            {
+                Name = "Mattins",
+                Phone = "123456789",
+                Email = "algo@algo.com",
+                Address = "Av. Los Olivos 456"
+            },
+            MaintenanceCompany = new Contact
+            {
+                Name = "Mantenciones S.A.",
+                OfficePhone = "961651893",
+                MobilePhone = "961893518",
+                Email = "algo@algo.com",
+                Address = "Dirección de la Empresa de Mantenimiento 789"
+            }
+        };
+    }
+
+    private void SelectBuilding(Building building)
+    {
+        SelectedBuilding = building;
+        CancelEdit(); // Cancelar cualquier edición en curso
+    }
+
+    private async Task EditBuilding(Building building)
+    {
+        _editingBuilding = building.Clone();
+        _isEditingBuilding = true;
+        await _buildingModal.ShowAsync();
+    }
+
+    private async Task ShowCreateModal()
+    {
+        _editingBuilding = new Building
+        {
+            IdBuilding = Guid.NewGuid(),
+            Number = Buildings.Count + 1,
+            IsActive = true,
+            Configuration = CreateDefaultConfiguration("Nuevo Edificio")
+        };
+        _isEditingBuilding = false;
+        await _buildingModal.ShowAsync();
+    }
+
+    private async Task CloseBankModal(){
+        //RemoveBankAccount(SelectedBuilding!.Configuration.BankAccounts.Count);
+        await _bankAccount.HideAsync();
+    }
+
+    private async Task CloseContactModal()
+    {
+        RemoveBankAccount(SelectedBuilding!.Configuration.BankAccounts.Count);
+        await _bankAccount.HideAsync();
+    }
+
+    private async Task SaveBuilding()
+    {
+        try
+        {
+            if (_isEditingBuilding)
+            {
+                var index = Buildings.FindIndex(b => b.IdBuilding == _editingBuilding.IdBuilding);
+                if (index >= 0)
+                {
+                    Buildings[index] = _editingBuilding.Clone();
+                }
+            }
+            else
+            {
+                Buildings.Add(_editingBuilding.Clone());
+            }
+
+            // Si estamos editando el edificio seleccionado, actualizarlo
+            if (SelectedBuilding?.IdBuilding == _editingBuilding.IdBuilding)
+            {
+                SelectedBuilding = _editingBuilding.Clone();
+            }
+
+            await _buildingModal.HideAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar edificio: {ex.Message}");
+        }
+    }
+
+    private async Task SaveBankAccout()
+    {
+        try
+        {
+            if (!_isEditingBanckAccount)
+            {
+                SelectedBuilding!.Configuration.BankAccounts.Add(_editingBankAccout);
+                _editingBankAccout = new BankAccount();
+            }
+            else
+            {
+                //SelectedBuilding!.Configuration.BankAccounts.Add(_editingBankAccout);
+            }
+            await _bankAccount.HideAsync();
+            StateHasChanged();
+            _isEditingBanckAccount = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar edificio: {ex.Message}");
+        }
+    }
+
+    private async Task SaveContact()
+    {
+        try
+        {
+            if (!_isEditingBanckAccount)
+            {
+                SelectedBuilding!.Configuration.BankAccounts.Add(_editingBankAccout);
+                _editingBankAccout = new BankAccount();
+            }
+            else
+            {
+                //SelectedBuilding!.Configuration.BankAccounts.Add(_editingBankAccout);
+            }
+            await _bankAccount.HideAsync();
+            StateHasChanged();
+            _isEditingBanckAccount = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar edificio: {ex.Message}");
+        }
+    }
+
+    private void StartEditSection(string section)
+    {
+        if (SelectedBuilding != null)
+        {
+            _configurationBackup = SelectedBuilding.Configuration.Clone();
+            _editingSection = section;
+        }
+    }
+
+    private void CancelEdit()
+    {
+        if (SelectedBuilding != null && !string.IsNullOrEmpty(_editingSection))
+        {
+            SelectedBuilding.Configuration = _configurationBackup.Clone();
+        }
+        _editingSection = "";
+    }
+
+    private async Task SaveSection(string section)
+    {
+        try
+        {
+            // Aquí iría la lógica para guardar en la base de datos
+            var interno = SelectedBuilding!.Configuration;
+
+            //validar el Id, si esta vacio, guardar configuracion Base
+            if(interno.IdBuildingConfiguration == Guid.Empty)
+            {
+                interno.IdBuildingConfiguration = Guid.NewGuid();
+                interno.IdBuilding = ParameterService.IdBuilding;
+                await ParameterService.ec.AddNewRecordAsync(interno);
+            }
+
+            switch (section)
+            {
+                case payments:
+                    //await SaveSectionAAsync(ct);
+
+                    break;
+
+                case currency:
+                    //await SaveSectionBAsync(ct);
+                    //Actualizar Moneda
+
+                    //Actualizar Bank Account
+                    if (interno.BankAccounts.Count > 0)
+                    {
+                        foreach (var bank in interno.BankAccounts)
+                        {
+                            if (bank.IdBankAccount == Guid.Empty)
+                            {
+                                //add BankAccount
+
+                                // Busca el primer elemento que cumpla las condiciones
+                                //<!--    PARAMETRO_PADRE     -->
+                                var match = filteredParameters
+                                    .FirstOrDefault(c => c.IdParent == 31 && c.Value == bank.AccountType);
+
+                                // Asigna el nombre si se encontró coincidencia, de lo contrario usa un valor por defecto
+                                bank.AccountName = match?.ShortDescription ?? "Nombre no disponible";
+
+                                bank.IdBankAccount = Guid.NewGuid();
+                                bank.IdBuilding = interno.IdBuilding;
+
+                                await ParameterService.ec.AddNewRecordAsync(bank);
+                            }
+                            else
+                            {
+                                //Update BankAccount
+                                await ParameterService.ec.UpdateRecordAsync(bank);
+                            }
+                        }
+                    }
+                    break;
+
+                case fines:
+                    //await SaveSectionCAsync(ct);
+                    break;                
+                case admin:
+                    //await SaveSectionAAsync(ct);
+
+                    if(SelectedBuilding.Configuration.AdminContact.IdContact == Guid.Empty)
+                    {
+                        SelectedBuilding.Configuration.AdminContact.IdContact = Guid.NewGuid();
+                        SelectedBuilding.Configuration.AdminContact.IdRelatedEntity = interno.IdBuildingConfiguration;
+                        SelectedBuilding.Configuration.AdminContact.TypeContact = 1;
+                        await ParameterService.ec.AddNewRecordAsync(SelectedBuilding.Configuration.AdminContact);
+                    }
+                    else
+                    {
+                        await ParameterService.ec.UpdateRecordAsync(SelectedBuilding.Configuration.AdminContact);
+                    }
+                    break;
+
+                case realty:
+                    //await SaveSectionBAsync(ct);
+                    if ( SelectedBuilding.Configuration.RealEstateCompany.IdContact == Guid.Empty ){
+                        SelectedBuilding.Configuration.RealEstateCompany.IdContact = Guid.NewGuid();
+                        SelectedBuilding.Configuration.RealEstateCompany.IdRelatedEntity = interno.IdBuildingConfiguration;
+                        SelectedBuilding.Configuration.RealEstateCompany.TypeContact = 2;
+                        await ParameterService.ec.AddNewRecordAsync(SelectedBuilding.Configuration.RealEstateCompany);
+                    }
+                    else
+                    {
+                        await ParameterService.ec.UpdateRecordAsync(SelectedBuilding.Configuration.RealEstateCompany);
+                    }
+                    break;
+
+                case maintenance:
+                    //await SaveSectionCAsync(ct);
+                    if(SelectedBuilding.Configuration.MaintenanceCompany.IdContact == Guid.Empty ) {
+                        SelectedBuilding.Configuration.MaintenanceCompany.IdContact = Guid.NewGuid();
+                        SelectedBuilding.Configuration.MaintenanceCompany.IdRelatedEntity = interno.IdBuildingConfiguration;
+                        SelectedBuilding.Configuration.MaintenanceCompany.TypeContact = 3;
+                        await ParameterService.ec.AddNewRecordAsync(SelectedBuilding.Configuration.MaintenanceCompany);
+                    }
+                    else
+                    {
+                        await ParameterService.ec.UpdateRecordAsync(SelectedBuilding.Configuration.MaintenanceCompany);
+                    }
+                    break;
+                case category:
+                    //await SaveSectionCAsync(ct);
+                    break;
+                default:
+                    //await SaveSectionDefaultAsync(section, ct);
+                    break;
+            }
+
+            await ParameterService.ec.UpdateRecordAsync(SelectedBuilding.Configuration);
+
+            _editingSection = "";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar: {ex.Message}");
+        }
+    }
+
+    private async Task SaveConfiguration()
+    {
+        try
+        {
+            // Guardar todas las configuraciones del edificio actual
+            await Task.Delay(500);
+            // Lógica de guardado en base de datos
+            // await SaveBuildingConfiguration(SelectedBuilding);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar configuración: {ex.Message}");
+        }
+    }
+
+    private async Task SaveAllConfigurations()
+    {
+        try
+        {
+            // Guardar configuraciones de todos los edificios
+            // Esta función sería útil para guardar cambios en lote
+            foreach (var building in Buildings)
+            {
+                // await SaveBuildingConfiguration(building);
+            }
+
+            // Mostrar mensaje de éxito
+            Console.WriteLine("Todas las configuraciones guardadas exitosamente");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar todas las configuraciones: {ex.Message}");
+        }
+    }
+
+    private void AddBankAccount()
+    {
+        if (SelectedBuilding != null)
+        {
+            //SelectedBuilding.Configuration.BankAccounts.Add(new BankAccount());
+            _bankAccount.ShowAsync();
+        }
+    }
+
+    private void EditBankAccount(int index)
+    {
+        if (SelectedBuilding != null && SelectedBuilding.Configuration.BankAccounts.Count > 1)
+        {
+            _editingBankAccout = SelectedBuilding.Configuration.BankAccounts[index];
+            _isEditingBanckAccount = true;
+        }
+        _bankAccount.ShowAsync();
+    }
+
+    private void RemoveBankAccount(int index)
+    {
+        if (SelectedBuilding != null && SelectedBuilding.Configuration.BankAccounts.Count > 1)
+        {
+            SelectedBuilding.Configuration.BankAccounts.RemoveAt(index);
+        }
+    }
+
+    private void TogglePaymentMethod(string method)
+    {
+        if (SelectedBuilding != null)
+        {
+            if (SelectedBuilding.Configuration.PaymentMethods.Contains(method))
+            {
+                SelectedBuilding.Configuration.PaymentMethods.Remove(method);
+            }
+            else
+            {
+                SelectedBuilding.Configuration.PaymentMethods.Add(method);
+            }
+        }
+    }
+
+    private async Task ShowQuickConfig(Building building)
+    {
+        _quickConfigBuilding = building;
+        _sourceBuildingId = null;
+        _copyCurrency = _copyPayments = _copyFines = _copyContacts = _copyAll = true;
+        await _quickConfigModal.ShowAsync();
+    }
+
+    private async Task ApplyQuickConfig()
+    {
+        if (_quickConfigBuilding != null && _sourceBuildingId.HasValue)
+        {
+            var sourceBuilding = Buildings.FirstOrDefault(b => b.IdBuilding == _sourceBuildingId.Value);
+            if (sourceBuilding != null)
+            {
+                if (_copyCurrency)
+                {
+                    _quickConfigBuilding.Configuration.Currency = sourceBuilding.Configuration.Currency;
+                    _quickConfigBuilding.Configuration.BankAccounts = sourceBuilding.Configuration.BankAccounts
+                        .Select(a => a.Clone()).ToList();
+                }
+                
+                if (_copyPayments)
+                {
+                    _quickConfigBuilding.Configuration.PaymentMethods = new List<string>(sourceBuilding.Configuration.PaymentMethods);
+                    _quickConfigBuilding.Configuration.PaymentPeriod = sourceBuilding.Configuration.PaymentPeriod;
+                    _quickConfigBuilding.Configuration.DueDay = sourceBuilding.Configuration.DueDay;
+                }
+                
+                if (_copyFines)
+                {
+                    _quickConfigBuilding.Configuration.FineAmount = sourceBuilding.Configuration.FineAmount;
+                    _quickConfigBuilding.Configuration.LateInterestRate = sourceBuilding.Configuration.LateInterestRate;
+                    _quickConfigBuilding.Configuration.InvoiceDay = sourceBuilding.Configuration.InvoiceDay;
+                }
+                
+                if (_copyContacts)
+                {
+                    _quickConfigBuilding.Configuration.AdminContact = sourceBuilding.Configuration.AdminContact.Clone();
+                    _quickConfigBuilding.Configuration.RealEstateCompany = sourceBuilding.Configuration.RealEstateCompany.Clone();
+                    _quickConfigBuilding.Configuration.MaintenanceCompany = sourceBuilding.Configuration.MaintenanceCompany.Clone();
+                }
+                
+                // Si estamos editando el edificio seleccionado, actualizar la vista
+                if (SelectedBuilding?.IdBuilding == _quickConfigBuilding.IdBuilding)
+                {
+                    SelectedBuilding = _quickConfigBuilding;
+                }
+                
+                await _quickConfigModal.HideAsync();
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task CopyConfigToAll()
+    {
+        if (SelectedBuilding != null)
+        {
+            // Copiar configuración del edificio seleccionado a todos los demás
+            foreach (var building in Buildings.Where(b => b.IdBuilding != SelectedBuilding.IdBuilding))
+            {
+                building.Configuration = SelectedBuilding.Configuration.Clone();
+            }
+            
+            // Mostrar mensaje de éxito
+            Console.WriteLine($"Configuración copiada a {Buildings.Count - 1} edificios");
+        }
+    }
+
+    private bool CopyAll
+    {
+        get => _copyAll;
+        set
+        {
+            _copyAll = value;
+            if (value)
+            {
+                _copyCurrency = _copyPayments = _copyFines = _copyContacts = true;
+            }
+            else
+            {
+                _copyCurrency = _copyPayments = _copyFines = _copyContacts = false;
+            }
+        }
+    }
+
+    private async Task ChangeTypeAccount(ChangeEventArgs args)
+    {
+        //Logica para cambiar el tipo de cuenta
+        _editingBankAccout.AccountNumber = args.Value!.ToString()!;
+    }
+
+    private string GetDefaultCategoryName()
+    {
+        var category = filteredCategory.FirstOrDefault(c => c.IdCategory == SelectedBuilding!.Configuration.DefaultCategory);
+        return category?.ShortDescript ?? "Categoría General";
+    }
+
+}

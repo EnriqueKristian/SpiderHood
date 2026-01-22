@@ -1,0 +1,139 @@
+﻿@page "/configwater"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject ICalculoService CalculoService
+@inject NavigationManager Navigation
+
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h3><i class="fas fa-table mr-2"></i>TABLA DE CÁLCULO DE TARIFA DE AGUA</h3>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info mb-4">
+                <i class="fas fa-info-circle mr-2"></i>
+                Configure los rangos y tarifas para el cálculo de consumo de agua. Use -1 en "Hasta" para rangos "más".
+            </div>
+
+            <div class="table-responsive mb-4">
+                <table class="table table-bordered">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>Rango</th>
+                            <th>Desde (m³)</th>
+                            <th>Hasta (m³)</th>
+                            <th>Potable (S/)</th>
+                            <th>Alcantarillado (S/)</th>
+                            <th>Total (S/)</th>
+                            <th>Diferencial (S/)</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tarifa in tarifas)
+                        {
+                            <tr>
+                                <td>
+                                    <input @bind="tarifa.Rango" class="form-control form-control-sm" />
+                                </td>
+                                <td>
+                                    <InputNumber @bind-Value="tarifa.Minimo" class="form-control form-control-sm" />
+                                </td>
+                                <td>
+                                    <InputNumber @bind-Value="tarifa.Maximo" class="form-control form-control-sm" />
+                                </td>
+                                <td>
+                                    <InputNumber @bind-Value="tarifa.Potable" class="form-control form-control-sm" />
+                                </td>
+                                <td>
+                                    <InputNumber @bind-Value="tarifa.Alcantarillado" class="form-control form-control-sm" />
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success">@tarifa.Total.ToString("F3")</span>
+                                </td>
+                                <td>
+                                    <InputNumber @bind-Value="tarifa.Diferencial" class="form-control form-control-sm" />
+                                </td>
+                                <td>
+                                    <button @onclick="() => EliminarTarifa(tarifa)"
+                                            class="btn btn-danger btn-sm">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mb-4">
+                <button @onclick="AgregarTarifa" class="btn btn-outline-primary">
+                    <i class="fas fa-plus mr-2"></i>Agregar Nuevo Rango
+                </button>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <button @onclick="GuardarConfiguracion" class="btn btn-success btn-lg">
+                    <i class="fas fa-save mr-2"></i>Guardar Configuración
+                </button>
+                <button @onclick="RestablecerValores" class="btn btn-warning btn-lg">
+                    <i class="fas fa-undo mr-2"></i>Restablecer Valores
+                </button>
+                <button @onclick="VolverAlCalculo" class="btn btn-secondary btn-lg">
+                    <i class="fas fa-arrow-left mr-2"></i>Volver al Cálculo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<TarifaAgua> tarifas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        tarifas = await CalculoService.ObtenerTarifasAsync();
+    }
+
+    private void AgregarTarifa()
+    {
+        var nuevaTarifa = new TarifaAgua
+        {
+            Id = tarifas.Count + 1,
+            Rango = $"R{tarifas.Count + 1}",
+            Minimo = 0,
+            Maximo = 0,
+            Potable = 0,
+            Alcantarillado = 0,
+            Diferencial = 0
+        };
+        tarifas.Add(nuevaTarifa);
+    }
+
+    private void EliminarTarifa(TarifaAgua tarifa)
+    {
+        tarifas.Remove(tarifa);
+        // Reasignar IDs
+        for (int i = 0; i < tarifas.Count; i++)
+        {
+            tarifas[i].Id = i + 1;
+        }
+    }
+
+    private async Task GuardarConfiguracion()
+    {
+        await CalculoService.GuardarTarifasAsync(tarifas);
+        VolverAlCalculo();
+    }
+
+    private async Task RestablecerValores()
+    {
+        tarifas = await CalculoService.ObtenerTarifasAsync();
+    }
+
+    private void VolverAlCalculo()
+    {
+        Navigation.NavigateTo("/");
+    }
+}

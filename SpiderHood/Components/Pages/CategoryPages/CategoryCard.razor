@@ -1,0 +1,73 @@
+﻿<div class="category-card">
+    <div class="category-header" style="background:@Category.Color">
+        <div class="category-name">@Category.ShortDescript</div>
+        <div class="subcategory-count">
+            @Categories.Count(c => c.ParentId == Category.IdCategory) Sub Categorías
+        </div>
+        <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-outline-secondary"
+                    title="Editar" @onclick="() => EditItem(Category)">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button type="button" class="btn btn-outline-danger"
+                    title="Eliminar" @onclick="() => ConfirmDelete(Category.IdCategory)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="subcategory-list">
+        @foreach (var subcategoria in Categories.Where(c => c.ParentId == Category.IdCategory))
+        {
+            <div class="subcategory-item">
+                <div class="checkbox-container">
+                    @if (!string.IsNullOrEmpty(subcategoria.Icon))
+                    {
+                        <i class="@subcategoria.Icon"></i>
+                    }
+                </div>
+                <label class="subcategory-name">@subcategoria.ShortDescript</label>
+                <span class="distribution-tag @GetDistributionClass(subcategoria.Distribution)">
+                    @subcategoria.Distribution
+                </span>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-secondary"
+                            title="Editar" @onclick="() => EditItem(subcategoria)">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger"
+                            title="Eliminar" @onclick="() => ConfirmDelete(subcategoria.IdCategory)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="add-subcategory" @onclick="OnAddSubcategory">
+        <i class="fas fa-plus"></i> Agregar Sub Categoría
+    </div>
+</div>
+
+@code {
+    [Parameter] public required Models.Category Category { get; set; }
+    [Parameter] public required List<Models.Category> Categories { get; set; }
+    [Parameter] public EventCallback<Models.Category> OnEdit { get; set; }
+    [Parameter] public EventCallback<Guid> OnDelete { get; set; }
+    [Parameter] public EventCallback OnAddSubcategory { get; set; }
+
+    [Inject] private Services.ParameterService ParameterService { get; set; } = null!;
+
+
+
+    private async Task ConfirmDelete(Guid IdCategory) => await OnDelete.InvokeAsync(IdCategory);
+
+    private async Task EditItem(Models.Category category) => await OnEdit.InvokeAsync(category);
+
+    private string GetDistributionClass(Models.TypeDistribution tipo)
+    {
+        return tipo == Models.TypeDistribution.Fija
+            ? "distribution-fixed"
+            : "distribution-percentage";
+    }
+}

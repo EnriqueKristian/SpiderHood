@@ -1,0 +1,128 @@
+﻿@using SpiderHood.Models
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label for="nombre" class="form-label">Nombre Completo *</label>
+        <input type="text" class="form-control" id="nombre"
+               @bind="Usuario.Nombre"
+               @bind:event="oninput" />
+        <ValidationMessage For="@(() => Usuario.Nombre)" />
+    </div>
+
+    <div class="col-md-6">
+        <label for="email" class="form-label">Correo Electrónico *</label>
+        <input type="email" class="form-control" id="email"
+               @bind="Usuario.Email"
+               @bind:event="oninput" />
+        <ValidationMessage For="@(() => Usuario.Email)" />
+    </div>
+
+    <div class="col-md-6">
+        <label for="telefono" class="form-label">Teléfono</label>
+        <input type="tel" class="form-control" id="telefono"
+               @bind="Usuario.Telefono"
+               @bind:event="oninput" />
+    </div>
+
+    <div class="col-md-6">
+        <label for="rol" class="form-label">Rol *</label>
+        <select class="form-select" id="rol" @bind="Usuario.Rol">
+            <option value="">Seleccionar rol...</option>
+            <option value="Administrador">Administrador</option>
+            <option value="Junta Directiva">Junta Directiva</option>
+            <option value="Residente">Residente</option>
+        </select>
+        <ValidationMessage For="@(() => Usuario.Rol)" />
+    </div>
+
+    <div class="col-md-6">
+        <label for="departamento" class="form-label">Departamento</label>
+        <input type="text" class="form-control" id="departamento"
+               @bind="Usuario.Departamento"
+               @bind:event="oninput" />
+    </div>
+
+    <div class="col-md-6">
+        <label for="estado" class="form-label">Estado</label>
+        <select class="form-select" id="estado" @bind="Usuario.Estado">
+            <option value="Activo">Activo</option>
+            <option value="Inactivo">Inactivo</option>
+        </select>
+    </div>
+
+    <div class="col-md-6">
+        <label for="fechaIngreso" class="form-label">Fecha de Ingreso</label>
+        <input type="date" class="form-control" id="fechaIngreso"
+               @bind="Usuario.FechaIngreso"
+               @bind:format="yyyy-MM-dd" />
+    </div>
+
+    <div class="col-md-6">
+        <label for="password" class="form-label">Contraseña @(Usuario.Id == 0 ? "*" : "")</label>
+        <div class="input-group">
+            <input type="password" class="form-control" id="password"
+                   @bind="passwordTemporal"
+                   @bind:event="oninput" />
+            <button class="btn btn-outline-secondary" type="button"
+                    @onclick="TogglePasswordVisibility">
+                <i class="fas @(mostrarPassword ? "fa-eye-slash" : "fa-eye")"></i>
+            </button>
+        </div>
+        @if (Usuario.Id == 0)
+        {
+            <ValidationMessage For="@(() => passwordTemporal)" />
+        }
+    </div>
+
+    <div class="col-12 mt-4">
+        <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary" @onclick="OnCancel">
+                Cancelar
+            </button>
+            <button type="button" class="btn btn-primary" @onclick="Guardar">
+                <i class="fas fa-save me-1"></i>
+                Guardar
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Usuario Usuario { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<Usuario> OnSave { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private string passwordTemporal = "";
+    private bool mostrarPassword = false;
+    private EditContext? editContext;
+
+    protected override void OnInitialized()
+    {
+        editContext = new EditContext(Usuario);
+    }
+
+    private void Guardar()
+    {
+        if (editContext?.Validate() ?? false)
+        {
+            if (!string.IsNullOrEmpty(passwordTemporal))
+            {
+                // En una app real, aquí se hashearía la contraseña
+                Usuario.PasswordHash = passwordTemporal;
+            }
+
+            OnSave.InvokeAsync(Usuario);
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        mostrarPassword = !mostrarPassword;
+        // Aquí se cambiaría el tipo del input de password a text y viceversa
+    }
+}

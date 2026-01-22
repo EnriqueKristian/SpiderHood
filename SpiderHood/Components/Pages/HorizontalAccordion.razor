@@ -1,0 +1,223 @@
+﻿@* HorizontalAccordion.razor *@
+
+<style>
+    .horizontal-accordion-container {
+        position: relative;
+        width: 100%;
+        height: @Height;
+        border: 2px solid #ddd;
+        border-radius: 10px;
+        background: white;
+        overflow: hidden;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .accordion-panels {
+        display: flex;
+        height: 100%;
+        width: 100%;
+    }
+
+    .accordion-panel {
+        height: 100%;
+        background: white;
+        border-left: 1px solid #dee2e6;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        cursor: pointer;
+        min-width: 60px;
+        max-width: 80%;
+    }
+
+    .panel-header {
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        text-align: center;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        width: 60px;
+        min-width: 60px;
+        font-weight: 500;
+        color: #495057;
+        user-select: none;
+    }
+
+    .panel-content {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        opacity: 0;
+        transform: translateX(20px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        width: 0;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .accordion-panel.expanded {
+        min-width: 400px;
+        flex: 1;
+        box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+        z-index: 10;
+    }
+
+        .accordion-panel.expanded .panel-content {
+            opacity: 1;
+            transform: translateX(0);
+            width: auto;
+            min-width: 340px;
+        }
+
+    .panel-indicator {
+        position: absolute;
+        top: 50%;
+        left: 15px;
+        transform: translateY(-50%) rotate(90deg);
+        transition: transform 0.3s ease;
+        color: #6c757d;
+        font-size: 12px;
+    }
+
+    .accordion-panel.expanded .panel-indicator {
+        transform: translateY(-50%) rotate(-90deg);
+    }
+
+    /* Colores personalizables */
+    .accordion-panel.panel-1 .panel-header {
+        background-color: #e3f2fd;
+        color: #1565c0;
+    }
+
+    .accordion-panel.panel-2 .panel-header {
+        background-color: #f3e5f5;
+        color: #7b1fa2;
+    }
+
+    .accordion-panel.panel-3 .panel-header {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+
+    .accordion-panel.panel-4 .panel-header {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+
+    .accordion-panel:not(.expanded):hover .panel-header {
+        background-color: #e9ecef;
+    }
+</style>
+
+<div class="horizontal-accordion-container">
+    <div class="accordion-panels">
+        @for (int i = 0; i < Panels.Count; i++)
+        {
+            var panel = Panels[i];
+            <div class="accordion-panel panel-@(i + 1) @(panel.IsExpanded ? "expanded" : "")"
+                 @onclick="() => TogglePanel(i)">
+                <div class="panel-header">
+                    <span>@panel.Title</span>
+                    <div class="panel-indicator">▼</div>
+                </div>
+                @if (panel.IsExpanded)
+                {
+                    <div class="panel-content">
+                        @panel.Content
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<AccordionPanel> Panels { get; set; } = new();
+
+    [Parameter]
+    public string Height { get; set; } = "500px";
+
+    [Parameter]
+    public bool AllowMultiple { get; set; } = false;
+
+    private void TogglePanel(int index)
+    {
+        var panel = Panels[index];
+
+        if (!panel.IsExpanded)
+        {
+            if (!AllowMultiple)
+            {
+                // Cerrar todos los demás paneles
+                for (int i = 0; i < Panels.Count; i++)
+                {
+                    if (i != index)
+                    {
+                        Panels[i].IsExpanded = false;
+                    }
+                }
+            }
+            panel.IsExpanded = true;
+        }
+        else if (AllowMultiple)
+        {
+            panel.IsExpanded = false;
+        }
+
+        StateHasChanged();
+    }
+
+    public void ExpandPanel(int index)
+    {
+        if (index >= 0 && index < Panels.Count)
+        {
+            if (!AllowMultiple)
+            {
+                foreach (var panel in Panels)
+                {
+                    panel.IsExpanded = false;
+                }
+            }
+            Panels[index].IsExpanded = true;
+            StateHasChanged();
+        }
+    }
+
+    public void CollapseAll()
+    {
+        foreach (var panel in Panels)
+        {
+            panel.IsExpanded = false;
+        }
+        StateHasChanged();
+    }
+
+    public void ExpandAll()
+    {
+        if (AllowMultiple)
+        {
+            foreach (var panel in Panels)
+            {
+                panel.IsExpanded = true;
+            }
+            StateHasChanged();
+        }
+    }
+
+    public class AccordionPanel
+    {
+        public string Title { get; set; } = "";
+        public RenderFragment? Content { get; set; }
+        public bool IsExpanded { get; set; }
+    }
+}

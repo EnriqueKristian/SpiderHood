@@ -1,0 +1,19 @@
+﻿<div class="col-md-3">
+    <div class="@ClassBorder">
+        <div class="card-body">
+            <h5 class="card-title">@Title</h5>
+            <p class="@Class">
+                @TotalExpenses.ToString("C2")
+            </p>
+            <small class="text-muted">@TotalCount gasto(s)</small>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public decimal TotalExpenses { get; set; }
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public string ClassBorder { get; set; } = string.Empty;
+}

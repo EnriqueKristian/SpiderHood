@@ -1,0 +1,72 @@
+﻿@using System.ComponentModel.DataAnnotations
+
+@inherits LayoutComponentBase
+
+@if (ShowModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@((OpenMode == Models.OpenType.Create) ? "Agregar Unidad" : "Actualizar Unidad")</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <EditForm Model="@View_Unit" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" role="alert" />
+                    <div class="modal-body">
+                    
+                        <div class="mb-3">
+                            <span class="text-danger">*</span>
+                            <label for="unittype_id" class="form-label">Tipo de Unidad</label>
+                            <InputSelect id="unittype_id" @bind-Value="View_Unit.TypeUnit" class="form-select">
+                                @foreach (var x in ListParameters.Where(c => c.IdParent == 4))
+                                {
+                                    <option value="@Convert.ToInt32(x.Value)">@x.Description</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <span class="text-danger">*</span>
+                            <label for="description" class="form-label">Numero de Unidad:</label>
+                            <InputText id="description" @bind-Value="View_Unit.UnitNumber" class="form-control" aria-required="true" />
+                            <ValidationMessage For="() => View_Unit.UnitNumber" class="text-danger" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="Area" class="form-label">Area:</label>
+                            <InputNumber id="Area" @bind-Value="View_Unit.Area" class="form-control" />
+                            <ValidationMessage For="() => View_Unit.Area" class="text-danger" />
+                        </div>
+                    </div>
+                    <div class="modal-footer" >
+                            <Button Color="ButtonColor.Secondary" @onclick="CerrarModal">Close</Button>
+                        <button type="submit" class="btn btn-primary">@((OpenMode == Models.OpenType.Create) ? "Save" : "Update")</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool ShowModal { get; set; }
+    //[Parameter] public int TypeCategory { get; set; }
+    [Parameter] public Models.OpenType OpenMode { get; set; }
+    [Parameter] public Models.Unit View_Unit { get; set; }
+    [Parameter] public IReadOnlyList<Models.Parameter> ListParameters { get; set; }
+    [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
+    [Parameter] public EventCallback<SpiderHood.Models.Unit> OnSaveItem { get; set; }
+
+    private async Task Guardar()
+    {
+        await OnSaveItem.InvokeAsync(View_Unit);
+        await CerrarModal();
+    }
+
+    private async Task CerrarModal()
+    {
+        ShowModal = false;
+        await ShowModalChanged.InvokeAsync(ShowModal);
+    }
+
+}

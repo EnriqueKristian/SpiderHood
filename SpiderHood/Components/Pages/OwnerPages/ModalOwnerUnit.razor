@@ -1,0 +1,154 @@
+﻿@using System.ComponentModel.DataAnnotations
+
+@inherits LayoutComponentBase
+
+@if (ShowModalUnit)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">@((OpenMode == Models.OpenType.Create) ? "Agregar Propietario" : "Actualizar Propietario")</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                        <table class="table-color">
+                            <tr>
+                            <td width="20%">
+                                    <label for="names" class="form-label"><strong>Propietario :</strong></label>
+                                </td>
+                            <td align="left" colspan="3" >
+                                    <label>@ViewOwner.Names @ViewOwner.Surname</label>
+                                </td>
+                            </tr>
+                    @if (OpenMode == Models.OpenType.Update)
+                    {
+                            <tr>
+                                <td><label class="form-label"><strong>DPTO:</strong></label></td>
+                                <td align="left" colspan="3">
+                                    <EditForm Id="create" Model="@FreeUnits" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
+                                    <DataAnnotationsValidator />
+                                    <ValidationSummary class="text-danger" role="alert" />
+                                        <!-- InputSelect para seleccionar la Unidad -->
+                                        <InputSelect @bind-Value="@SelectedUnitId">
+                                            <option value="0">-- Seleccionar Unidad --</option>
+                                            @foreach (var row in FreeUnits.Where(c => c.IdGroupOwner == Guid.Empty && c.TypeUnit == 1))
+                                            {
+                                                <option value="@row.IdUnit">@row.UnitNumber</option>
+                                            }
+                                        </InputSelect>
+                                    </EditForm>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="4"><hr /></td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" align="center" width="40%" style="border:solid">
+                                    <label class="form-label"><strong>Estacionamientos:</strong></label>
+                                    <div class="gridModal" style="width:50%">
+                                        <Microsoft.AspNetCore.Components.QuickGrid.QuickGrid Items="@FreeUnits.Where(c => c.IdGroupOwner == Guid.Empty && c.TypeUnit == 2)" class="gridCustom table-hover">
+                                            <Microsoft.AspNetCore.Components.QuickGrid.TemplateColumn Title="Actions">
+                                                <input type="checkbox" @onclick="@(() => OnClickCheck(context))"></input>
+                                            </Microsoft.AspNetCore.Components.QuickGrid.TemplateColumn>
+                                            <Microsoft.AspNetCore.Components.QuickGrid.PropertyColumn Property="@(c => c.UnitNumber)" Sortable="true" />
+                                        </Microsoft.AspNetCore.Components.QuickGrid.QuickGrid>
+                                    </div>
+                                </td>
+                                <td></td>
+                                <td align="center" width="40%" style="border:solid">
+                                    <label class="form-label"><strong>Depositos:</strong></label>
+                                    <div class="gridModal" style="width:50%">
+                                        
+                                        <Microsoft.AspNetCore.Components.QuickGrid.QuickGrid Items="@FreeUnits.Where(c => c.IdGroupOwner == Guid.Empty && c.TypeUnit == 3)" class="gridCustom table-sm table-hover">
+                                            <Microsoft.AspNetCore.Components.QuickGrid.TemplateColumn Title="Actions">
+                                                <input type="checkbox" @onclick="@(() => OnClickCheck(context))"></input>
+                                            </Microsoft.AspNetCore.Components.QuickGrid.TemplateColumn>
+                                            <Microsoft.AspNetCore.Components.QuickGrid.PropertyColumn Property="@(c => c.UnitNumber)" Sortable="true" />
+                                        </Microsoft.AspNetCore.Components.QuickGrid.QuickGrid>
+                                    </div>
+                                </td>
+                            </tr>
+                    }
+                    else{
+                            <tr>
+                                <td><label class="form-label"><strong>DPTO :</strong></label></td>
+                                <td colspan="3">
+                                        <!-- InputSelect para seleccionar el Gruopo de Unidad -->
+                                        <InputSelect id="Unidad" name="Unidad" required @bind-Value="@SelectedUnitId">
+                                            <optgroup label="Departamento">
+                                                @foreach (var row in FreeUnits.Where(c => c.IdGroupOwner != Guid.Empty && c.TypeUnit == 1))
+                                                {
+                                                    <option value="@row.IdGroupOwner">@row.GroupName</option>
+                                                }
+                                                </optgroup>
+                                        </InputSelect>
+                                </td>
+                            </tr>
+                    }
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <Button Color="ButtonColor.Secondary" @onclick="CerrarModal">Close</Button>
+                    <Button Color="ButtonColor.Primary" form="create" class="btn btn-primary" Type="ButtonType.Submit">@((OpenMode == Models.OpenType.Create) ? "Save" : "Update")</Button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool ShowModalUnit { get; set; }
+    [Parameter] public int TypeOwner { get; set; }
+    [Parameter] public Models.OpenType OpenMode { get; set; }
+    [Parameter] public Models.OwnerUnit ViewOwner { get; set; }
+    [Parameter] public IQueryable<Models.Unit> FreeUnits { get; set; }
+    [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
+    [Parameter] public EventCallback<List<Models.Unit>> OnSaveGroupUnit { get; set; }
+
+    // Propiedad para el valor seleccionado
+    [Required(ErrorMessage = "El Group de Departamento es obligatorio")]
+    private string SelectedUnitId { get; set; } = string.Empty;
+
+
+    private async Task Guardar()
+    {
+
+        Models.Unit _unit = new Models.Unit();
+        if (OpenMode == Models.OpenType.Update)
+            _unit = FreeUnits.FirstOrDefault(c => c.IdUnit == new Guid(SelectedUnitId));
+        else
+            _unit = FreeUnits.FirstOrDefault(c => c.IdGroupOwner == new Guid(SelectedUnitId));
+
+        _unit.IdOwner = ViewOwner.IdOwner;
+        _Unidades.Add(_unit);
+        await OnSaveGroupUnit.InvokeAsync(_Unidades);
+        await CerrarModal();
+        SelectedUnitId = string.Empty;
+        _Unidades = new List<Models.Unit>();
+    }
+
+    private async Task CerrarModal()
+    {
+        ShowModalUnit = false;
+        await ShowModalChanged.InvokeAsync(ShowModalUnit);
+    }
+
+    private List<Models.Unit> _Unidades = new(); // Lista para almacenar los seleccionados
+
+    private void OnClickCheck(Models.Unit _unit)
+    {
+        //TypeOwner = int.Parse(e.Value.ToString());
+        _unit.IdOwner = ViewOwner.IdOwner;
+
+        if (_Unidades.Contains(_unit))
+        {
+            _Unidades.Remove(_unit); // Si ya está, lo quitamos
+        }
+        else
+        {
+            _Unidades.Add(_unit); // Si no está, lo agregamos
+        }
+
+    }
+}

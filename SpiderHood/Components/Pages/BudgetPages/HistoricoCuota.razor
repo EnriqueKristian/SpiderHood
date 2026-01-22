@@ -1,0 +1,146 @@
+﻿@page "/cuotahistorico"
+@page "/cuotahistorico/{IdBudgetHeader:guid}"
+@using Microsoft.EntityFrameworkCore.Metadata.Internal
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject ICuotaService CuotaService
+@inject NavigationManager Navigation
+@inject ParameterService ParameterService
+@using Microsoft.AspNetCore.Mvc.Rendering
+
+<PageTitle>Histórico de Cuotas</PageTitle>
+
+<h3>Histórico de Cuotas Generadas</h3>
+
+<div class="row mb-3">
+    <div class="col-md-3">
+        <select class="form-select" @bind="anioFiltro">
+            <option value="0">Todos los años</option>
+            @foreach (var anio in añosDisponibles)
+            {
+                <option value="@anio">@anio</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" @bind="mesFiltro">
+            <option value="0">Todos los meses</option>
+            @foreach (var mes in meses)
+            {
+                <option value="@mes.Value">@mes.Text</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button class="btn btn-primary" @onclick="Filtrar">
+            <i class="fas fa-filter"></i> Filtrar
+        </button>
+    </div>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Mes/Año</th>
+            <th>Fecha Generación</th>
+            <th>Total</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var cuota in cuotas)
+        {
+            <tr>
+                <td>@GetNombreMes(cuota.Mes) @cuota.Anio</td>
+                <td>@cuota.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")</td>
+                <td>@cuota.TotalDistribuido.ToString("C")</td>
+                <td>
+                    <span class="badge @(cuota.Procesada ? "bg-success" : "bg-warning")">
+                        @(cuota.Procesada ? "Procesada" : "Pendiente")
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-info"
+                            @onclick="@(() => VerDetalle(cuota.Id))">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning"
+                            @onclick="@(() => ReversarCuota(cuota.Id))"
+                            disabled="@cuota.Procesada">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private List<CuotaMensual> cuotas = new();
+    private int anioFiltro = DateTime.Now.Year;
+    private int mesFiltro = 0;
+    private List<int> añosDisponibles = new();
+    private List<Models.SelectListItem> meses = new List<Models.SelectListItem>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ParameterService.IdBuilding == Guid.Empty)
+            return;
+
+        //var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        //var id = uri.Segments[2].TrimEnd('/');
+        //await CargarCuotas();
+        //await CargarAñosDisponibles();
+        //InicializarMeses();
+    }
+
+    private async Task CargarCuotas()
+    {
+        cuotas = await CuotaService.ObtenerCuotasAsync(anioFiltro, mesFiltro);
+    }
+
+    private async Task CargarAñosDisponibles()
+    {
+        añosDisponibles = await CuotaService.ObtenerAñosDisponiblesAsync();
+    }
+
+    private async Task Filtrar()
+    {
+        await CargarCuotas();
+    }
+
+    private void VerDetalle(int cuotaId)
+    {
+        Navigation.NavigateTo($"/cuotas/detalle/{cuotaId}");
+    }
+
+    private async Task ReversarCuota(int cuotaId)
+    {
+        // Lógica para reversar la cuota
+    }
+
+    private string GetNombreMes(int cuotaId)
+    {
+        // Lógica para reversar la cuota
+        return new DateTime(1, cuotaId, 1).ToString("MMMM", new System.Globalization.CultureInfo("es-ES"));
+        
+    }
+
+    private void InicializarMeses()
+    {
+        meses.Add(new Models.SelectListItem { Value = "1", Text = "Enero" });
+        meses.Add(new Models.SelectListItem { Value = "2", Text = "Febrero" });
+        meses.Add(new Models.SelectListItem { Value = "3", Text = "Marzo" });
+        meses.Add(new Models.SelectListItem { Value = "4", Text = "Abril" });
+        meses.Add(new Models.SelectListItem { Value = "5", Text = "Mayo" });
+        meses.Add(new Models.SelectListItem { Value = "6", Text = "Junio" });
+        meses.Add(new Models.SelectListItem { Value = "7", Text = "Julio" });
+        meses.Add(new Models.SelectListItem { Value = "8", Text = "Agosto" });
+        meses.Add(new Models.SelectListItem { Value = "9", Text = "Septiembre" });
+        meses.Add(new Models.SelectListItem { Value = "10", Text = "Octubre" });
+        meses.Add(new Models.SelectListItem { Value = "11", Text = "Noviembre" });
+        meses.Add(new Models.SelectListItem { Value = "12", Text = "Diciembre" });
+    }
+
+}

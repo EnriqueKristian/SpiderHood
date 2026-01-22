@@ -1,0 +1,62 @@
+﻿@page "/unittypes/create"
+@using Microsoft.EntityFrameworkCore
+@using SpiderHood.Data
+@using SpiderHood.Models
+
+@inject IDbContextFactory<SpiderHood.Data.SpiderHoodContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Create</PageTitle>
+
+<h1>Create</h1>
+
+<h2>UnitType</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="UnitType" OnValidSubmit="AddUnitType" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert"/>
+            <div class="mb-3">
+                <span class="text-danger">*</span>
+                <label for="type" class="form-label">Type:</label> 
+                <InputText id="type" @bind-Value="UnitType.Type" class="form-control" aria-required="true"/> 
+                <ValidationMessage For="() => UnitType.Type" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <span class="text-danger">*</span>
+                <label for="description" class="form-label">Description:</label>
+                <InputText id="type" @bind-Value="UnitType.Description" class="form-control" aria-required="true" />
+                <ValidationMessage For="() => UnitType.Description" class="text-danger" />
+            </div>
+            <div class="mb-3">
+                <label for="status" class="form-label">Status:</label> 
+                <InputNumber id="status" @bind-Value="UnitType.Status" class="form-control" /> 
+                <ValidationMessage For="() => UnitType.Status" class="text-danger" /> 
+            </div>        
+            <button type="submit" class="btn btn-primary">Create</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/unittypes">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private UnitType UnitType { get; set; } = new();
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddUnitType()
+    {
+        using var context = DbFactory.CreateDbContext();
+        //context.UnitType.Add(UnitType);
+
+        SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
+        ec.AddNewRecord(UnitType);
+
+        //await context.SaveChangesAsync();
+        NavigationManager.NavigateTo("/unittypes");
+    }
+}

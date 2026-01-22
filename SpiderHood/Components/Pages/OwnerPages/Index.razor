@@ -1,0 +1,1289 @@
+﻿@page "/owner"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using SpiderHood.Data
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject NavigationManager Navigation // Inyecta el servicio de navegación
+@inject ParameterService ParameterService
+
+@layout MainLayout
+@using Microsoft.AspNetCore.Components
+@using System.ComponentModel.DataAnnotations.Schema
+@inject IJSRuntime JSRuntime
+
+
+<!--    MODAL PARA NUEVO / MODIFICACION DE PROPIETARIOS   -->
+<SpiderHood.Components.Pages.OwnerPages.ModalOwner ShowModal="@MostrarModal"
+                                                         ShowModalChanged="@((valor) => MostrarModal = valor)"
+                                                         OpenMode="@OpenMode"
+                                                   ViewOwner="@_Owner"
+                                                   OnSaveModal="@((own) => SaveItem(own))" />
+
+
+<!--    MODAL PARA NUEVO / MODIFICACION DE PROPIETARIOS   -->
+<SpiderHood.Components.Pages.OwnerPages.ModalOwnerUnit ShowModalUnit="@MostrarModalUnit"
+                                                   ShowModalChanged="@((valor) => MostrarModalUnit = valor)"
+                                                   OpenMode="@OpenMode"
+                                                       ViewOwner="@_OwnerUnit"
+                                                   FreeUnits="@FreeUnits"
+                                                       OnSaveGroupUnit="@((unt) => SaveGroupUnit(unt))" />
+
+
+<!--    MODAL PARA ELIMINACION DE PROPIETARIOS   -->
+<Modal @ref="modal" Title="Eliminar Categoria" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true">
+    <BodyTemplate>
+        ¿Esta seguro que desea eliminar al Propietario?.
+    </BodyTemplate>
+    <FooterTemplate>
+        <Button Color="ButtonColor.Primary" @onclick="DeleteItem">Aceptar</Button>
+        <Button Color="ButtonColor.Secondary" @onclick="OnHideModalClick">Cancelar</Button>
+    </FooterTemplate>
+</Modal>
+
+<PageTitle>Propietarios</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <!-- Header principal -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div class="mb-3 mb-md-0">
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    <div class="icon-shape bg-primary rounded-circle p-3">
+                        <i class="bi bi-people text-white fs-4"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="h3 fw-bold mb-1">Propietarios</h1>
+                    <p class="text-muted mb-0">Administra propietarios, residentes, inquilinos</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" @onclick="ExportToExcel">
+                <i class="bi bi-file-earmark-excel me-2"></i>Exportar
+            </button>
+            <button class="btn btn-primary" @onclick="ShowAddOwnerModal">
+                <i class="bi bi-plus-circle me-2"></i>Nuevo Propietario
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros y controles -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body py-3">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold mb-1">Tipo de Unidad</label>
+                            <select class="form-select" @bind="selectedUnitType">
+                                <option value="all">Todos los tipos</option>
+                                <option value="DPTO">Departamento</option>
+                                <option value="EST">Estacionamiento</option>
+                                <option value="LOC">Local Comercial</option>
+                                <option value="OFI">Oficina</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold mb-1">Torre/Piso</label>
+                            <select class="form-select" @bind="selectedTower">
+                                <option value="all">Todas las torres</option>
+                                @foreach (var tower in availableTowers)
+                                {
+                                    <option value="@tower">@tower</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold mb-1">Estado</label>
+                            <select class="form-select" @bind="selectedStatus">
+                                <option value="all">Todos los estados</option>
+                                <option value="Activo">Activo</option>
+                                <option value="Inactivo">Inactivo</option>
+                                <option value="Moroso">Moroso</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold mb-1">Búsqueda</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+                                <InputText type="text" class="form-control border-start-0"
+                                           placeholder="Buscar propietario o unidad..."
+                                           @bind-Value="@searchTerm"
+                                           @oninput="e => { searchTerm = ((ChangeEventArgs)e).Value?.ToString(); FilterOwners(); }" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas rápidas -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-people-fill display-6 text-primary"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="card-title text-primary mb-1">Total Propietarios</h5>
+                            <p class="card-text fs-3 fw-bold mb-0">@totalOwners</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-house-door-fill display-6 text-success"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="card-title text-success mb-1">Unidades Ocupadas</h5>
+                            <p class="card-text fs-3 fw-bold mb-0">@occupiedUnits/@totalUnits</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-exclamation-triangle-fill display-6 text-warning"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="card-title text-warning mb-1">Propietarios Morosos</h5>
+                            <p class="card-text fs-3 fw-bold mb-0">@delinquentOwners</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="bi bi-calculator-fill display-6 text-info"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5 class="card-title text-info mb-1">Área Promedio</h5>
+                            <p class="card-text fs-3 fw-bold mb-0">@(averageArea.ToString("F1")) m²</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de propietarios -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent border-bottom py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-list-columns me-2"></i>Lista de Propietarios
+                            </h5>
+                            <p class="text-muted mb-0 small">
+                                Mostrando @startRecord - @endRecord de @totalRecords registros
+                            </p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <!-- Selector de página -->
+                            <div class="d-flex align-items-center">
+                                <label class="me-2 text-muted">Mostrar:</label>
+                                <select class="form-select form-select-sm" style="width: auto;"
+                                        @onchange="(e) => ChangePageSize(Convert.ToInt32(e.Value))">
+                                    <!option value="10" selected="@(pageSize == 10)">10</!option>
+                                    <!option value="25" selected="@(pageSize == 25)">25</!option>
+                                    <!option value="50" selected="@(pageSize == 50)">50</!option>
+                                    <!option value="100" selected="@(pageSize == 100)">100</!option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    @if (currentPageData.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-4" style="width: 60px;">#</th>
+                                        <th>GRUPO (m²)</th>
+                                        <th>PROPIETARIO(S)</th>
+                                        <th style="width: 100px;">UNIDAD</th>
+                                        <th style="width: 80px;">NRO.</th>
+                                        <th style="width: 100px;">ÁREA (m²)</th>
+                                        <th style="width: 120px;" class="text-center">ACCIÓN</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var owner in currentPageData)
+                                    {
+                                        <tr class="owner-row" @onclick="() => SelectOwner(owner)" style="cursor: pointer;">
+                                            <td class="ps-4">
+                                                <span class="badge bg-primary"> @ParameterService.GetChildParameterDescription(4, 1) @owner.GroupNumber</span>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-bold">Area Total</span>
+                                                    <small class="text-muted">@owner.TotalArea.ToString("F2") m² total</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    @*foreach (var propietario in Owners.Where(c => c.IdOwner == owner.IdOwner && c.TypeUnit == 1))*@
+                                                    @foreach (var propietario in owner.Owners)
+                                                    {
+                                                        <div class="mb-1">
+                                                            <div class="fw-medium">@propietario.FullName</div>
+                                                            <small class="text-muted">
+                                                                <i class="bi bi-telephone me-1"></i>@propietario.PhoneNumber
+                                                            </small>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetUnitTypeBadge(1)">
+                                                    @ParameterService.GetChildParameterDescription(4, 1)
+                                                </span>
+                                            </td>
+                                            <td align="center">
+                                                <span class="fw-bold">@owner.GroupNumber</span>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-semibold">@owner.Area.ToString("F2")<small class="text-muted"> m²</small></span>
+                                                    @*  @if (owner.AreaEstacionamiento > 0)
+                                                    {
+                                                        <small class="text-muted">
+                                                            + @owner.AreaEstacionamiento.ToString("F2") est.
+                                                        </small>
+                                                    }*@
+                                                </div>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="btn-group btn-group-sm">
+                                                    <button class="btn btn-outline-primary"
+                                                            title="Ver detalles"
+                                                            @onclick:stopPropagation @onclick="() => ViewOwnerDetails(owner)">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-secondary"
+                                                            title="Editar"
+                                                            @onclick:stopPropagation @onclick="() => EditOwner(owner)">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-success"
+                                                            title="Agregar residente"
+                                                            @onclick:stopPropagation @onclick="() => AddResident(owner)">
+                                                        <i class="bi bi-person-plus"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <!-- Detalle de subunidades -->
+                                    @*foreach (var subunidad in Owners.Where(c => c.IdOwner == owner.IdOwner && c.Role == 1 && c.TypeUnit != 1))*@
+                                    @foreach (var subunidad in owner.Units.Where(c => c.TypeUnit != 1))
+                                    {
+                                        <tr class="table-group-child">
+                                            <td class="ps-5">
+                                                <i class="bi bi-arrow-return-right me-1 text-muted"></i>
+                                            </td>
+                                            <td class="ps-4">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="bi bi-arrow-right-short me-2 text-muted"></i>
+                                                <span class="text-muted">@subunidad.TypeUnit @subunidad.UnitNumber</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(subunidad.UnitNumber))
+                                                {
+                                                    <div class="text-muted small">
+                                                        <i class="bi bi-person me-1"></i>
+                                                    </div>
+                                                }
+                                            </td>
+                                            <td>
+                                                    <span class="badge @GetUnitTypeBadge(subunidad.TypeUnit)">
+                                                        @ParameterService.GetChildParameterDescription(4, subunidad.TypeUnit)
+                                                    </span>
+                                            </td>
+                                            <td align="center">@subunidad.UnitNumber</td>
+                                        <td>@subunidad.Area.ToString("F2")<small class="text-muted"> m²</small></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-secondary"
+                                                        title="Gestionar subunidad"
+                                                        @onclick:stopPropagation @onclick="() => ManageSubUnit(subunidad)">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                        <!-- Separador -->
+                                        <tr>
+                                            <td colspan="7" class="p-0">
+                                                <div class="border-bottom" style="height: 1px; background-color: #f0f0f0;"></div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <div class="mb-3">
+                                <i class="bi bi-people text-muted display-4"></i>
+                            </div>
+                            <h5 class="text-muted mb-2">No hay propietarios registrados</h5>
+                            <p class="text-muted mb-3">Para los filtros seleccionados</p>
+                            <button class="btn btn-primary" @onclick="ShowAddOwnerModal">
+                                <i class="bi bi-plus-circle me-2"></i>Agregar Primer Propietario
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                <!-- Paginación -->
+                @if (totalPages > 1)
+                {
+                    <div class="card-footer bg-transparent border-top py-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center">
+                            <!-- Información de página -->
+                            <div class="text-muted">
+                                Página @currentPage de @totalPages •
+                                @filteredOwners.Count propietarios encontrados
+                            </div>
+
+                            <!-- Controles de paginación -->
+                            <nav aria-label="Paginación de propietarios">
+                                <ul class="pagination pagination-sm mb-0">
+                                    <!-- Primera página -->
+                                    <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                        <a class="page-link" @onclick="GoToFirstPage"
+                                           title="Primera página">
+                                            <i class="bi bi-chevron-double-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Página anterior -->
+                                    <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                        <a class="page-link" @onclick="GoToPreviousPage"
+                                           title="Página anterior">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Páginas numeradas -->
+                                    @foreach (var pageNum in GetPageNumbers())
+                                    {
+                                        if (pageNum == -1)
+                                        {
+                                            <li class="page-item disabled">
+                                                <span class="page-link">...</span>
+                                            </li>
+                                        }
+                                        else
+                                        {
+                                            <li class="page-item @(pageNum == currentPage ? "active" : "")">
+                                                <a class="page-link" @onclick="() => GoToPage(pageNum)">
+                                                    @pageNum
+                                                </a>
+                                            </li>
+                                        }
+                                    }
+
+                                    <!-- Página siguiente -->
+                                    <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                        <a class="page-link" @onclick="GoToNextPage"
+                                           title="Página siguiente">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+
+                                    <!-- Última página -->
+                                    <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                        <a class="page-link" @onclick="GoToLastPage"
+                                           title="Última página">
+                                            <i class="bi bi-chevron-double-right"></i>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </nav>
+
+                            <!-- Salto a página -->
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-muted">Ir a:</span>
+                                <input type="number" class="form-control form-control-sm"
+                                       style="width: 70px;"
+                                       min="1" max="@totalPages"
+                                       @bind="jumpToPage"
+                                       @bind:event="oninput" />
+                                <button class="btn btn-sm btn-outline-primary"
+                                        @onclick="JumpToPage"
+                                        disabled="@(jumpToPage < 1 || jumpToPage > totalPages)">
+                                    Ir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para agregar/editar propietario -->
+@if (showOwnerModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi @(isEditingOwner ? "bi-pencil" : "bi-plus-circle") me-2"></i>
+                        @(isEditingOwner ? "Editar Propietario" : "Nuevo Propietario")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseOwnerModal"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Nombre Completo *</label>
+                                <input type="text" class="form-control" @bind="currentOwner.Names"
+                                       placeholder="Nombre del propietario" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Documento de Identidad *</label>
+                                <input type="text" class="form-control" @bind="currentOwner.Names"
+                                       placeholder="Número de DNI" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Teléfono</label>
+                                <input type="text" class="form-control" @bind="currentOwner.Names"
+                                       placeholder="Número de teléfono" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="text" class="form-control" @bind="currentOwner.Names"
+                                       placeholder="correo@ejemplo.com" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tipo de Unidad *</label>
+                                <select class="form-select" @bind="currentOwner.TypeUnit">
+                                    <option value="DPTO">Departamento</option>
+                                    <option value="EST">Estacionamiento</option>
+                                    <option value="LOC">Local Comercial</option>
+                                    <option value="OFI">Oficina</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Número de Unidad *</label>
+                                <input type="text" class="form-control" @bind="currentOwner.UnitNumber"
+                                       placeholder="Ej: 1001, 2, A-1" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Torre/Piso</label>
+                                <label class="form-label">currentOwner.Floor</label>
+                                <!--input type="number" class="form-control" @bind="currentOwner.Floor"
+                                       placeholder="Ej: 1, 2, 3" /-->
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Área (m²) *</label>
+                                <input type="number" class="form-control" @bind="currentOwner.Area"
+                                       step="0.01" min="0" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha de Adquisición</label>
+                                <label class="form-label">currentOwner.FechaAdquisicion</label>
+                                <!--
+                                <input type="date" class="form-control" @bind="currentOwner.FechaAdquisicion"
+                                       @bind:format="yyyy-MM-dd" />
+                                       -->
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Estado</label>
+                                <label class="form-label">currentOwner.Estado</label>
+                                <!--
+                                <select class="form-select" @bind="currentOwner.Estado">
+                                    <option value="Activo">Activo</option>
+                                    <option value="Inactivo">Inactivo</option>
+                                    <option value="Moroso">Moroso</option>
+                                </select>
+                                -->
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Observaciones</label>
+                                <label class="form-label">currentOwner.Observaciones</label>
+                                <!--
+                                <textarea class="form-control" rows="3" @bind="currentOwner.Observaciones"
+                                          placeholder="Observaciones adicionales..."></textarea>
+                                          -->
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseOwnerModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveOwner">
+                        <i class="bi bi-save me-2"></i>Guardar Propietario
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+
+    // Variables de paginación
+    private List<Models.OwnerUnitView> filteredOwners = new();
+    private List<OwnerUnitView> currentPageData1 = new();
+
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 0;
+    private int totalRecords = 0;
+    private int startRecord = 0;
+    private int endRecord = 0;
+    private int jumpToPage = 1;
+
+    // Variables de filtro
+    private int selectedUnitType = 0;
+    private int selectedTower = 0;
+    private string selectedStatus = "all";
+    private string searchTerm = string.Empty;
+
+    // Modal
+    private bool showOwnerModal = false;
+    private bool isEditingOwner = false;
+    private OwnerUnit currentOwner = new();
+
+    // Datos auxiliares
+    private List<int> availableTowers = new() { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+
+    // Propiedades calculadas
+    private int totalOwners => filteredOwners.Count;
+    private int totalUnits => GroupUnits.Count();
+    private int occupiedUnits => 1;//Owners.Count(o => o.Estado == "Activo");
+    private int delinquentOwners => 2;// Owners.Count(o => o.Estado == "Moroso");
+    private decimal averageArea => GroupUnits.Any() ? GroupUnits.Average(o => o.TotalArea) : 0;
+
+
+
+    /*  === DECLARACION DE VARIABLES    === */
+    private Models.OwnerUnit _OwnerUnit = new Models.OwnerUnit();
+    private Models.Owner _Owner = new Models.Owner();
+    private IQueryable<Models.Unit> FreeUnits = Enumerable.Empty<Models.Unit>().AsQueryable();
+
+    //public async ValueTask DisposeAsync() => await ParameterService.context.DisposeAsync();
+
+    /*  === Parametros de la Ventana Modal  === */
+    private bool MostrarModal = false;
+    private Models.OpenType OpenMode = 0;   //Crear
+    private Modal modal = default!;
+
+    private bool MostrarModalUnit = false;
+
+
+    private List<Models.OwnerUnitView> OwnerUnits = new();
+
+
+    public class GroupUnit1
+    {
+        public Guid IdGroupUnit { get; set; }
+        public string GroupNumber { get; set; } = null!;
+        [Precision(18, 2)]
+        public decimal TotalArea { get; set; }
+        public decimal Area { get; set; }
+        public List<RealEstateUnit> Units { get; set; } = new();
+        public List<ApartmentOwner> Owners { get; set; } = new();
+    }
+
+    public class RealEstateUnit
+    {
+        public Guid IdUnit { get; set; }
+        public string UnitNumber { get; set; } = string.Empty;
+        [Precision(18, 2)]
+        public decimal Area { get; set; }
+        public int TypeUnit { get; set; }
+        public int Number { get; set; }
+        public bool IsAvailable { get; set; } = true;
+        public Guid IdGroupUnit { get; set; }
+        public Guid IdBuilding { get; set; }
+    }
+
+    public class ApartmentOwner
+    {
+        public Guid IdOwner { get; set; }
+        public string IdentityDocument { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string FirstName { get; set; }= string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+        public Guid IdBuilding { get; set; }
+        public Guid IdGroupUnit { get; set; }
+        [NotMapped]
+        public string FullName => FirstName + " " +LastName;
+    }
+
+    private List<GroupUnit1> GroupUnits = new();
+    private List<RealEstateUnit> Units = new();
+    private List<ApartmentOwner> Owners1 = new();
+    private List<GroupUnit1> filteredGroupUnits = new();
+
+    private List<GroupUnit1> currentPageData = new();
+
+    protected override void OnInitialized()
+    {
+        if (ParameterService.IdBuilding == Guid.Empty) return;
+
+        var ownerUnits = ParameterService.ec.GetOwnersByBuilding(ParameterService.IdBuilding);
+
+        // Diccionarios para lookup eficiente
+        var unitsByGroup = new Dictionary<Guid, List<RealEstateUnit>>();
+        var ownersByGroup = new Dictionary<Guid, List<ApartmentOwner>>();
+
+        // Procesar todo en una sola pasada
+        foreach (var ownerUnit in ownerUnits)
+        {
+            var groupId = ownerUnit.IdGroupUnit;
+
+            // Procesar GroupUnits (solo si TypeUnit == 1 y Role == 1)
+            if (ownerUnit.TypeUnit == 1 && ownerUnit.Role == 1)
+            {
+                GroupUnits.Add(new GroupUnit1
+                {
+                    IdGroupUnit = groupId,
+                    GroupNumber = ownerUnit.GroupNumber.ToString(),
+                    Area = ownerUnit.Area,
+                    TotalArea = ownerUnit.TotalArea
+                });
+            }
+
+            // Procesar Units (solo si Role == 1)
+            if (ownerUnit.Role == 1)
+            {
+                if (!unitsByGroup.ContainsKey(groupId))
+                    unitsByGroup[groupId] = new List<RealEstateUnit>();
+
+                unitsByGroup[groupId].Add(new RealEstateUnit
+                {
+                    IdUnit = ownerUnit.IdUnit,
+                    UnitNumber = ownerUnit.UnitNumber.ToString(),
+                    Area = ownerUnit.Area,
+                    TypeUnit = ownerUnit.TypeUnit,
+                    Number = ownerUnit.Number,
+                    IsAvailable = ownerUnit.IsAvailable,
+                    IdGroupUnit = groupId,
+                    IdBuilding = ownerUnit.IdBuilding
+                });
+            }
+
+            // Procesar Owners (solo si TypeUnit == 1)
+            if (ownerUnit.TypeUnit == 1)
+            {
+                if (!ownersByGroup.ContainsKey(groupId))
+                    ownersByGroup[groupId] = new List<ApartmentOwner>();
+
+                ownersByGroup[groupId].Add(new ApartmentOwner
+                {
+                    IdOwner = ownerUnit.IdOwner,
+                    IdentityDocument = ownerUnit.IdentityDocument,
+                    Address = ownerUnit.Address,
+                    PhoneNumber = ownerUnit.PhoneNumber,
+                    FirstName = ownerUnit.FirstName,
+                    LastName = ownerUnit.LastName,
+                    Email = ownerUnit.Email,
+                    IsActive = ownerUnit.IsActive,
+                    IdBuilding = ownerUnit.IdBuilding,
+                    IdGroupUnit = groupId
+                });
+            }
+        }
+
+        // Asignar Units y Owners a cada GroupUnit
+        foreach (var groupUnit in GroupUnits)
+        {
+            if (unitsByGroup.TryGetValue(groupUnit.IdGroupUnit, out var units))
+                groupUnit.Units = units;
+
+            if (ownersByGroup.TryGetValue(groupUnit.IdGroupUnit, out var owners))
+                groupUnit.Owners = owners;
+        }
+
+        FilterOwners();
+    }
+
+    private void FilterOwners()
+    {
+        if (string.IsNullOrEmpty(searchTerm))
+        {
+            // Sin búsqueda - filtro simple
+            filteredGroupUnits = GroupUnits
+                .Where(group => selectedUnitType == 0 ||
+                       group.Units.Any(u => u.TypeUnit == selectedUnitType))
+                .Select(group => new GroupUnit1
+                {
+                    IdGroupUnit = group.IdGroupUnit,
+                    GroupNumber = group.GroupNumber,
+                    Area = group.Area,
+                    TotalArea = group.TotalArea,
+                    Owners = FilterOwnersInGroup(group),
+                    Units = FilterUnitsInGroup(group)
+                })
+                .Where(group => group.Owners.Any() && group.Units.Any())
+                .ToList();
+        }
+        else
+        {
+            // Con búsqueda - lógica especial
+            filteredGroupUnits = GroupUnits
+                .Where(group => GroupMatchesSearch(group))
+                .Select(group => new GroupUnit1
+                {
+                    IdGroupUnit = group.IdGroupUnit,
+                    GroupNumber = group.GroupNumber,
+                    Area = group.Area,
+                    TotalArea = group.TotalArea,
+                    Owners = FilterOwnersInGroup(group, includeAllIfUnitMatches: true),
+                    Units = FilterUnitsInGroup(group)
+                })
+                .Where(group => group.Owners.Any() || group.Units.Any())
+                .ToList();
+        }
+
+        UpdatePagination();
+    }
+
+    private bool GroupMatchesSearch(GroupUnit1 group)
+    {
+        // Filtro por tipo
+        if (selectedUnitType != 0 &&
+            !group.Units.Any(u => u.TypeUnit == selectedUnitType))
+            return false;
+
+        // Verificar si hay matches en el grupo
+        bool hasOwnerMatch = group.Owners.Any(owner =>
+            (selectedStatus == "all" ||
+             (selectedStatus == "active" && owner.IsActive) ||
+             (selectedStatus == "inactive" && !owner.IsActive)) &&
+            (owner.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+             owner.IdentityDocument.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)));
+
+        bool hasUnitMatch = group.Units.Any(unit =>
+            (selectedUnitType == 0 || unit.TypeUnit == selectedUnitType) &&
+            unit.UnitNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+        return hasOwnerMatch || hasUnitMatch;
+    }
+
+    private List<ApartmentOwner> FilterOwnersInGroup(GroupUnit1 group, bool includeAllIfUnitMatches = false)
+    {
+        var unitsInGroup = group.Units
+            .Where(u => selectedUnitType == 0 || u.TypeUnit == selectedUnitType)
+            .ToList();
+
+        bool shouldIncludeAllOwners = includeAllIfUnitMatches &&
+            unitsInGroup.Any(u => u.UnitNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+
+        return group.Owners
+            .Where(owner =>
+            {
+                // Filtro por estado
+                if (selectedStatus != "all")
+                {
+                    bool isActive = owner.IsActive;
+                    if ((selectedStatus == "active" && !isActive) ||
+                        (selectedStatus == "inactive" && isActive))
+                        return false;
+                }
+
+                // Si buscamos por unidad y hay match, incluir todos los owners
+                if (shouldIncludeAllOwners)
+                    return true;
+
+                // Búsqueda normal
+                if (string.IsNullOrEmpty(searchTerm))
+                    return true;
+
+                return owner.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                       owner.IdentityDocument.Contains(searchTerm, StringComparison.OrdinalIgnoreCase);
+            })
+            .ToList();
+    }
+
+    private List<RealEstateUnit> FilterUnitsInGroup(GroupUnit1 group)
+    {
+        return group.Units
+            .Where(unit =>
+            {
+                // Filtro por tipo
+                if (selectedUnitType != 0 && unit.TypeUnit != selectedUnitType)
+                    return false;
+
+                // Filtro por búsqueda
+                if (string.IsNullOrEmpty(searchTerm))
+                    return true;
+
+                return unit.UnitNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase);
+            })
+            .ToList();
+    }
+
+    /*  SECCION PAGINACION   */
+
+    private void UpdatePagination()
+    {
+    totalRecords = filteredGroupUnits.Count;
+    totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+        // Ajustar página actual si es necesario
+        if (currentPage > totalPages && totalPages > 0)
+        {
+            currentPage = totalPages;
+        }
+        else if (currentPage < 1 && totalPages > 0)
+        {
+            currentPage = 1;
+        }
+
+        // Calcular registros a mostrar
+        startRecord = totalRecords > 0 ? ((currentPage - 1) * pageSize) + 1 : 0;
+        endRecord = Math.Min(currentPage * pageSize, totalRecords);
+
+        // Obtener datos de la página actual
+        currentPageData = filteredGroupUnits
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize)
+        .ToList();
+
+        // Actualizar jumpToPage
+        jumpToPage = currentPage;
+    }
+
+    private void GoToPage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagination();
+        }
+    }
+
+    private void GoToFirstPage() => GoToPage(1);
+    private void GoToPreviousPage() => GoToPage(currentPage - 1);
+    private void GoToNextPage() => GoToPage(currentPage + 1);
+    private void GoToLastPage() => GoToPage(totalPages);
+    private void JumpToPage() => GoToPage(jumpToPage);
+
+    private void ChangePageSize(int newSize)
+    {
+        pageSize = newSize;
+        currentPage = 1;
+        UpdatePagination();
+    }
+
+    private List<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        int maxPagesToShow = 5;
+
+        if (totalPages <= maxPagesToShow)
+        {
+            // Mostrar todas las páginas
+            for (int i = 1; i <= totalPages; i++)
+            {
+                pages.Add(i);
+            }
+        }
+        else
+        {
+            // Lógica para mostrar páginas con elipsis
+            if (currentPage <= 3)
+            {
+                // Primeras páginas
+                for (int i = 1; i <= 4; i++)
+                {
+                    pages.Add(i);
+                }
+                pages.Add(-1); // Elipsis
+                pages.Add(totalPages);
+            }
+            else if (currentPage >= totalPages - 2)
+            {
+                // Últimas páginas
+                pages.Add(1);
+                pages.Add(-1); // Elipsis
+                for (int i = totalPages - 3; i <= totalPages; i++)
+                {
+                    pages.Add(i);
+                }
+            }
+            else
+            {
+                // En medio
+                pages.Add(1);
+                pages.Add(-1); // Elipsis
+                for (int i = currentPage - 1; i <= currentPage + 1; i++)
+                {
+                    pages.Add(i);
+                }
+                pages.Add(-1); // Elipsis
+                pages.Add(totalPages);
+            }
+        }
+
+        return pages;
+    }
+
+    /*  SECCION DEL LOGICA OWNER   */
+
+    private string GetUnitTypeBadge(int tipoUnidad)
+    {
+        return tipoUnidad switch
+        {
+            1 => "bg-primary",
+            2 => "bg-success",
+            3 => "bg-warning",
+            4 => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+
+    private void ShowAddOwnerModal()
+    {
+        isEditingOwner = false;
+        currentOwner = new Models.OwnerUnit
+        {
+            //Estado = "Activo",
+            //FechaAdquisicion = DateTime.Now
+        };
+        showOwnerModal = true;
+    }
+
+    private void SelectOwner(GroupUnit1 owner)
+    {
+        // Navegar a detalles del propietario
+        Navigation.NavigateTo($"/Owners/{owner.IdGroupUnit}");
+    }
+
+    private void ViewOwnerDetails(GroupUnit1 owner)
+    {
+        // Mostrar detalles en modal o navegar
+        Navigation.NavigateTo($"/propietarios/{owner.IdGroupUnit}/detalles");
+    }
+
+    private void EditOwner(GroupUnit1 owner)
+    {
+        isEditingOwner = true;
+        /*currentOwner = new OwnerUnit
+        {
+            IdOwner = owner.IdOwner,
+            //Floor = owner.Torre,
+            TypeUnit = owner.TypeUnit.ToString(),
+            UnitNumber = owner.UnitNumber,
+            AreaTotal = owner.TotalArea,
+            Area = owner.Area,
+            //Estado = owner.Estado,
+            //Nombre = owner.Propietarios.FirstOrDefault()?.Nombre ?? "",
+            //Telefono = owner.Propietarios.FirstOrDefault()?.Telefono ?? "",
+            //Email = owner.Propietarios.FirstOrDefault()?.Email ?? "",
+            //FechaAdquisicion = owner.FechaRegistro,
+            //Observaciones = owner.Observaciones
+        };*/
+        showOwnerModal = true;
+    }
+
+    private void AddResident(GroupUnit1 owner)
+    {
+        // Lógica para agregar residente
+    }
+
+    private void ManageSubUnit(RealEstateUnit subUnidad)
+    {
+        // Lógica para gestionar subunidad
+    }
+
+    private void SaveOwner()
+    {
+        if (isEditingOwner)
+        {
+            /*var existing = GroupUnits.FirstOrDefault(o => o.IdOwner == currentOwner.IdOwner);
+            if (existing != null)
+            {
+                existing.Torre = currentOwner.Torre;
+                existing.TipoUnidad = currentOwner.TipoUnidad;
+                existing.NumeroUnidad = currentOwner.NumeroUnidad;
+                existing.Estado = currentOwner.Estado;
+
+                if (existing.Propietarios.Any())
+                {
+                    existing.Propietarios[0].Nombre = currentOwner.Nombre;
+                    existing.Propietarios[0].Telefono = currentOwner.Telefono;
+                    existing.Propietarios[0].Email = currentOwner.Email;
+                    }
+                
+            }*/
+        }
+        else
+        {
+            //var newId = owners.Any() ? owners.Max(o => o.Id) + 1 : 1;
+            currentOwner.IdOwner = new Guid();
+            /*currentOwner.Propietarios = new List<PropietarioInfo>
+            {
+                new PropietarioInfo
+                {
+                    Nombre = currentOwner.Nombre,
+                    Telefono = currentOwner.Telefono,
+                    Email = currentOwner.Email
+                    }
+            };*/
+            //Owners.Add(currentOwner);
+        }
+
+        CloseOwnerModal();
+        FilterOwners();
+    }
+
+    private void CloseOwnerModal()
+    {
+        showOwnerModal = false;
+        currentOwner = new Models.OwnerUnit();
+    }
+
+    private async Task ExportToExcel()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Exportando propietarios a Excel...");
+    }
+
+    // Watchers para filtros
+    private string _searchTerm = string.Empty, _selectedStatus = "all";
+    private int _selectedUnitType = 0, _selectedTower = 0;
+
+    protected override void OnParametersSet()
+    {
+        if (_selectedUnitType != selectedUnitType || _selectedTower != selectedTower ||
+            _selectedStatus != selectedStatus || _searchTerm != searchTerm)
+        {
+            _selectedUnitType = selectedUnitType;
+            _selectedTower = selectedTower;
+            _selectedStatus = selectedStatus;
+            _searchTerm = searchTerm;
+            FilterOwners();
+        }
+    }
+
+    /*  SECCION DEL FUNCION MODAL   */
+
+    private void AbrirModal(Models.OwnerUnit item, Models.OpenType _mode)
+    {
+        MostrarModal = true;
+        OpenMode = _mode;
+
+        try
+        {
+            //SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
+            FreeUnits = ParameterService.ec.GetUnitsByBuilding(ParameterService.IdBuilding).AsQueryable();
+
+            switch (_mode)
+            {
+                case Models.OpenType.Create:
+                    _Owner = new Models.Owner();
+                    // Si necesitas copiar valores, descomenta:
+                    // _Owner.IdTypeIdNumber = _own.IdTypeIdNumber;
+                    break;
+
+                case Models.OpenType.Update:
+                    //_Owner = _own;
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(_mode), $"Valor inesperado: {_mode}");
+            }
+        }
+        catch 
+        {
+            // Opcional: mostrar mensaje al usuario
+            MostrarModal = false;
+            // Si tienes un sistema de alertas:
+            //await MostrarMensajeError("Ocurrió un error al cargar la información. Intenta nuevamente.");
+        }
+    }
+
+    private async Task OnShowModalDelete(Guid IdOwner)
+    {
+        _Owner = new Models.Owner();
+        _Owner.IdOwner = IdOwner;
+        await modal.ShowAsync();
+    }
+
+    private async Task OnHideModalClick()
+    {
+        await modal.HideAsync();
+    }
+
+    /*  SECCION DEL CRUD CATEGORY   */
+
+    private async Task SaveItem(SpiderHood.Models.Owner _item)
+    {
+        await (OpenMode switch
+        {
+            Models.OpenType.Update => UpdateItem(_item),
+            Models.OpenType.Create => AddItem(_item),
+            _ => throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}")
+        });
+
+
+        _OwnerUnit = new OwnerUnit();
+        OnInitialized();
+        return;
+
+    }
+
+    private async Task AddItem(SpiderHood.Models.Owner item)
+    {
+        item.IdBuilding = ParameterService.IdBuilding;
+        await ParameterService.ec.AddNewRecordAsync(item);
+        await ParameterService.context.SaveChangesAsync();
+    }
+
+    private async Task UpdateItem(SpiderHood.Models.Owner item)
+    {
+        await ParameterService.ec.UpdateRecordAsync(item);
+
+        try
+        {
+            await ParameterService.context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!ItemExists(item!.IdOwner))
+            {
+                Navigation.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+    }
+
+    private async Task DeleteItem()
+    {
+        // Lógica adicional después de cerrar el modal, si es necesario
+        await ParameterService.ec.DeleteRecordAsync(_Owner);
+        await ParameterService.context.SaveChangesAsync();
+        await modal.HideAsync();
+        OnInitialized();
+        return;
+    }
+
+    private bool ItemExists(Guid id)
+    {
+        return ParameterService.context.Owner.Any(e => e.IdOwner == id);
+    }
+
+    private void AbrirModalProp(Models.OwnerUnit _own, Models.OpenType _mode)
+    {
+        //throw new NotImplementedException();
+        MostrarModalUnit = true;
+        OpenMode = _mode;
+        FreeUnits = ParameterService.ec.GetUnitsByBuilding(ParameterService.IdBuilding).AsQueryable();
+
+        _OwnerUnit.IdOwner = _own.IdOwner;
+        _OwnerUnit.Names = _own.Names;
+        _OwnerUnit.Surname = _own.Surname;
+    }
+
+    private async Task SaveGroupUnit(List<Models.Unit> _Units)
+    {
+        //if (OpenMode == TipoEdicion.Editar)
+        //{
+        // Update existing category logic here
+        //await UpdateOwner(_Owner);
+
+        decimal _AreaTotal = 0;
+
+        // Obtener la unidad de tipo "DEPARTAMENTO"
+        Models.Unit _funit = _Units.FirstOrDefault(c => c.TypeUnit == 1)!;
+
+        // Obtener el grupo de la unidades disponibles
+        Models.Unit _cUnit = FreeUnits.FirstOrDefault(c => c.IdUnit == _funit.IdUnit)!;
+
+        //SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
+
+        //Verificar si el grupo ya tiene un propietario asignado
+        if (_cUnit.IdGroupOwner == Guid.Empty)
+        {
+            // Crear un nuevo Grupo de Unidad y asigna el propietario
+            Models.OwnerUnit _GroupUnit = new Models.OwnerUnit();
+            _GroupUnit.IdGroupOwner = Guid.NewGuid();
+            _GroupUnit.IdOwner = _cUnit.IdOwner;
+            _GroupUnit.GroupName = "DPTO " + _cUnit.UnitNumber.ToString();
+            _GroupUnit.TypeOwner =1;            //Titular
+            _GroupUnit.AreaTotal = _cUnit.Area;
+            
+            await ParameterService.ec.AddNewRecordAsync(_GroupUnit);
+
+            //Crear las unidades asignadas al propietario
+            foreach (Models.Unit x1 in _Units)
+            {
+                    //Crear registro de GroupUnit para cada unidad asignada
+                    Models.GroupUnit x2 = new Models.GroupUnit();
+                    x2.IdGroupOwner = _GroupUnit.IdGroupOwner;
+                    x2.IdUnit = x1.IdUnit;
+                x2.TypeGroupUnit = x1.TypeUnit ==1 ? GroupUnitType.Individual : GroupUnitType.Shared;
+                    _AreaTotal += x1.Area;
+
+                await ParameterService.ec.AddNewRecordAsync(x2);
+            }
+
+            await ParameterService.ec.UpdateRecordAsync(_GroupUnit.IdGroupOwner, _AreaTotal);
+        }
+        else
+        {
+            //Lógica para manejar el caso donde el grupo ya tiene un propietario    
+            Models.OwnerGroupOwner _existingGroupOwner = new Models.OwnerGroupOwner();
+            //_existingGroupOwner = ec.GetOwnerGroupOwnerById(_cUnit.IdGroupOwner);
+
+            _existingGroupOwner.IdGroupOwner = _cUnit.IdGroupOwner;
+            _existingGroupOwner.IdOwner = _cUnit.IdOwner;
+            _existingGroupOwner.TypeOwner = 2; //Adicional
+
+            await ParameterService.ec.AddNewRecordAsync(_existingGroupOwner);
+        }
+        //}
+        //else
+        //{
+            // Create new Category / Subcategory logic here
+            //await AddOwner(_Owner);
+        //}
+        OnInitialized();
+        return;
+
+    }
+}

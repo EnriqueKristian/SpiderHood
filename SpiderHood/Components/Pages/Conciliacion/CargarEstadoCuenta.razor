@@ -1,0 +1,513 @@
+﻿@using SpiderHood.Models
+@using System.Text.Json
+
+<script src=@Assets["js/conciliacion.js"]></script>
+
+<div class="cargar-estado-container">
+    <div class="mb-4">
+        <h6>Cargar Estado de Cuenta</h6>
+        <p class="text-muted">Sube un archivo CSV, Excel o PDF de tu estado de cuenta bancario</p>
+    </div>
+
+    <!-- Selector de Formato -->
+    <div class="mb-4">
+        <label class="form-label">Formato del Archivo</label>
+        <select class="form-select" @bind="formatoSeleccionado">
+            <option value="CSV">CSV (Comma Separated Values)</option>
+            <option value="Excel">Excel (.xlsx, .xls)</option>
+            <option value="PDF">PDF (Extracción automática)</option>
+            <option value="OFX">OFX (Formato bancario)</option>
+        </select>
+    </div>
+
+    <!-- Zona de arrastrar y soltar -->
+    <div class="drop-zone @(estaSobreZona ? "drop-zone-active" : "")"
+         @ondragenter="HandleDragEnter"
+         @ondragleave="HandleDragLeave"
+         @ondragover="HandleDragOver"
+         @ondrop="HandleDrop">
+        <div class="text-center py-5">
+            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+            <h5>Arrastra y suelta tu archivo aquí</h5>
+            <p class="text-muted">o haz clic para seleccionar</p>
+            <InputFile class="form-control d-none"
+                   id="fileInput"
+                       @ref="fileInput"
+                   OnChange="HandleFileSelected"
+                   accept=".csv,.xlsx,.xls,.pdf,.ofx,.qbo" />
+            <button class="btn btn-outline-primary mt-3" @onclick="SeleccionarArchivo">
+                <i class="fas fa-folder-open me-2"></i>Seleccionar Archivo
+            </button>
+        </div>
+    </div>
+
+    <!-- Archivo seleccionado -->
+    @if (archivoSeleccionado != null)
+    {
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-file @GetFileIconClass() text-primary me-2"></i>
+                        <span class="fw-bold">@archivoSeleccionado.Name</span>
+                        <span class="text-muted ms-2">(@(archivoSeleccionado.Size / 1024) KB)</span>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="EliminarArchivo">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorProcesamiento))
+                {
+                    <div class="alert alert-danger mt-2">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        @errorProcesamiento
+                    </div>
+                }
+
+                <!-- Opciones de mapeo para CSV/Excel -->
+                @if ((formatoSeleccionado == "CSV" || formatoSeleccionado == "Excel") && columnasDisponibles.Any())
+                {
+                    <div class="mt-3">
+                        <h6 class="mb-3">Configurar Mapeo de Columnas</h6>
+
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Columna Fecha</label>
+                                <select class="form-select" @bind="columnaFecha">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach (var columna in columnasDisponibles)
+                                    {
+                                        <option value="@columna">@columna</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Columna Descripción</label>
+                                <select class="form-select" @bind="columnaDescripcion">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach (var columna in columnasDisponibles)
+                                    {
+                                        <option value="@columna">@columna</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Columna Monto</label>
+                                <select class="form-select" @bind="columnaMonto">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach (var columna in columnasDisponibles)
+                                    {
+                                        <option value="@columna">@columna</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Columna Referencia</label>
+                                <select class="form-select" @bind="columnaReferencia">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach (var columna in columnasDisponibles)
+                                    {
+                                        <option value="@columna">@columna</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Vista previa -->
+                        @if (datosProcesados.Any())
+                        {
+                            <div class="mt-3">
+                                <h6 class="mb-2">Vista Previa (primeras 5 filas)</h6>
+                                <div class="table-responsive" style="max-height: 200px;">
+                                    <table class="table table-sm table-bordered">
+                                        <thead>
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Descripción</th>
+                                                <th>Monto</th>
+                                                <th>Referencia</th>
+                                                <th>Tipo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var fila in datosProcesados.Take(5))
+                                            {
+                                                <tr>
+                                                    <td>@fila.StatementDate.ToString("dd/MM/yyyy")</td>
+                                                    <td>@fila.Description</td>
+                                                    <td class="@(fila.Amount < 0 ? "text-danger" : "text-success")">
+                                                        @fila.Amount.ToString("C")
+                                                    </td>
+                                                    <td>@fila.Reference</td>
+                                                    <td>
+                                                        <span class="badge @(fila.Amount < 0 ? "bg-danger" : "bg-success")">
+                                                            @fila.Tipo
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <!-- Acciones -->
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <button class="btn btn-outline-secondary" @onclick="Cancelar">
+                        Cancelar
+                    </button>
+                    <button class="btn btn-primary"
+                            @onclick="ProcesarArchivo"
+                            disabled="@(!ConfiguracionValida() || procesando)">
+                        @if (procesando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        }
+                        <i class="fas fa-cog me-2"></i>Procesar Archivo
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Plantillas predefinidas -->
+    <div class="mt-4">
+        <h6 class="mb-3">Plantillas de Bancos</h6>
+        <div class="row g-2">
+            @foreach (var plantilla in plantillasBancos)
+            {
+                <div class="col-md-3">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-university fa-2x text-primary mb-2"></i>
+                            <h6 class="card-title">@plantilla.Nombre</h6>
+                            <p class="card-text small text-muted">@plantilla.Descripcion</p>
+                            <button class="btn btn-sm btn-outline-primary"
+                                    @onclick="() => UsarPlantilla(plantilla)">
+                                Usar Plantilla
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<List<TransactionBankView>> OnCargado { get; set; }
+
+    // Estados
+    private bool estaSobreZona = false;
+    private bool procesando = false;
+    private string errorProcesamiento = "";
+
+    // Archivo
+    private IBrowserFile? archivoSeleccionado = null;
+    private string formatoSeleccionado = "CSV";
+    private InputFile? fileInput;
+
+    // Mapeo de columnas
+    private List<string> columnasDisponibles = new();
+    private string columnaFecha = "";
+    private string columnaDescripcion = "";
+    private string columnaMonto = "";
+    private string columnaReferencia = "";
+
+    // Datos procesados
+    private List<TransactionBankView> datosProcesados = new();
+
+    // Plantillas de bancos
+    private List<PlantillaBanco> plantillasBancos = new()
+    {
+        new PlantillaBanco { Id = 1, Nombre = "BBVA", Descripcion = "Formato CSV estándar BBVA" },
+        new PlantillaBanco { Id = 2, Nombre = "Santander", Descripcion = "Formato Excel Santander" },
+        new PlantillaBanco { Id = 3, Nombre = "Banorte", Descripcion = "Formato PDF Banorte" },
+        new PlantillaBanco { Id = 4, Nombre = "HSBC", Descripcion = "Formato OFX HSBC" }
+    };
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = default!;
+
+    private void SeleccionarArchivo()
+    {
+        JSRuntime.InvokeVoidAsync("clickFileInput", "fileInput");
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        archivoSeleccionado = e.File;
+        errorProcesamiento = "";
+
+        // Detectar formato por extensión
+        var extension = Path.GetExtension(archivoSeleccionado.Name).ToLower();
+        formatoSeleccionado = extension switch
+        {
+            ".csv" => "CSV",
+            ".xlsx" or ".xls" => "Excel",
+            ".pdf" => "PDF",
+            ".ofx" or ".qbo" => "OFX",
+            _ => "CSV"
+        };
+
+        // Si es CSV o Excel, obtener vista previa de columnas
+        if (formatoSeleccionado == "CSV" || formatoSeleccionado == "Excel")
+        {
+            await ObtenerVistaPreviaColumnas();
+        }
+    }
+
+    private async Task ObtenerVistaPreviaColumnas()
+    {
+        if (archivoSeleccionado == null) return;
+
+        try
+        {
+            // Leer primeras líneas del archivo para obtener columnas
+            using var stream = archivoSeleccionado.OpenReadStream();
+            using var reader = new StreamReader(stream);
+
+            // Para CSV, leer primera línea
+            if (formatoSeleccionado == "CSV")
+            {
+                var primeraLinea = await reader.ReadLineAsync();
+                if (!string.IsNullOrEmpty(primeraLinea))
+                {
+                    columnasDisponibles = primeraLinea.Split(',').ToList();
+                }
+            }
+            // Para Excel, necesitaríamos una librería como EPPlus
+            // Por simplicidad, usaremos columnas genéricas
+            else if (formatoSeleccionado == "Excel")
+            {
+                columnasDisponibles = new List<string>
+                {
+                    "Columna A", "Columna B", "Columna C", "Columna D",
+                    "Columna E", "Columna F", "Columna G", "Columna H"
+                };
+            }
+
+            // Auto-seleccionar columnas probables
+            AutoSeleccionarColumnas();
+        }
+        catch (Exception ex)
+        {
+            errorProcesamiento = $"Error al leer archivo: {ex.Message}";
+        }
+    }
+
+    private void AutoSeleccionarColumnas()
+    {
+        // Buscar columnas que probablemente contengan fechas
+        var posiblesFechas = columnasDisponibles.Where(c =>
+            c.Contains("fecha", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("date", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("fec", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (posiblesFechas.Any())
+            columnaFecha = posiblesFechas.First();
+
+        // Buscar columnas de descripción
+        var posiblesDesc = columnasDisponibles.Where(c =>
+            c.Contains("desc", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("concepto", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("detalle", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("nota", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (posiblesDesc.Any())
+            columnaDescripcion = posiblesDesc.First();
+
+        // Buscar columnas de monto
+        var posiblesMonto = columnasDisponibles.Where(c =>
+            c.Contains("monto", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("importe", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("cantidad", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("amount", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("saldo", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (posiblesMonto.Any())
+            columnaMonto = posiblesMonto.First();
+
+        // Buscar columnas de referencia
+        var posiblesRef = columnasDisponibles.Where(c =>
+            c.Contains("ref", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("folio", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("id", StringComparison.OrdinalIgnoreCase) ||
+            c.Contains("numero", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (posiblesRef.Any())
+            columnaReferencia = posiblesRef.First();
+    }
+
+    private async Task ProcesarArchivo()
+    {
+        if (archivoSeleccionado == null) return;
+
+        procesando = true;
+        errorProcesamiento = "";
+
+        try
+        {
+            // Simular procesamiento (en una app real, esto procesaría el archivo)
+            await Task.Delay(1000);
+
+            // Generar datos de ejemplo basados en el mapeo
+            datosProcesados = GenerarDatosEjemplo();
+
+            // Notificar al componente padre
+            await OnCargado.InvokeAsync(datosProcesados);
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            errorProcesamiento = $"Error al procesar archivo: {ex.Message}";
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private List<TransactionBankView> GenerarDatosEjemplo()
+    {
+        var transacciones = new List<TransactionBankView>();
+        var random = new Random();
+
+        // Generar 10 transacciones de ejemplo
+        for (int i = 1; i <= 10; i++)
+        {
+            var fecha = DateTime.Now.AddDays(-random.Next(30));
+            var monto = random.Next(100, 5000);
+            var esGasto = random.Next(2) == 0;
+
+            transacciones.Add(new TransactionBankView
+            {
+                IdStatementDetail = new Guid(),
+                StatementDate = fecha,
+                Description = $"Transacción {i} - {GetDescripcionAleatoria()}",
+                Amount = esGasto ? -monto : monto,
+                //Tipo = esGasto ? "Gasto" : "Ingreso",
+                //Referencia = $"REF{random.Next(10000, 99999)}",
+                //Notas = "Cargado desde archivo",
+                ReconciliationStatus = ConcilationType.NoConciliada,
+                IdBankAccount = new Guid()
+            });
+        }
+
+        return transacciones;
+    }
+
+    private string GetDescripcionAleatoria()
+    {
+        var descripciones = new[]
+        {
+            "Pago proveedor", "Transferencia recibida", "Pago de servicios",
+            "Depósito en efectivo", "Compra en tienda", "Pago de nómina",
+            "Retiro en cajero", "Pago de impuestos", "Devolución de compra",
+            "Intereses ganados"
+        };
+
+        var random = new Random();
+        return descripciones[random.Next(descripciones.Length)];
+    }
+
+    private bool ConfiguracionValida()
+    {
+        if (archivoSeleccionado == null) return false;
+
+        // Validar que las columnas requeridas estén seleccionadas
+        return !string.IsNullOrEmpty(columnaFecha) &&
+               !string.IsNullOrEmpty(columnaDescripcion) &&
+               !string.IsNullOrEmpty(columnaMonto);
+    }
+
+    private void EliminarArchivo()
+    {
+        archivoSeleccionado = null;
+        columnasDisponibles.Clear();
+        datosProcesados.Clear();
+        errorProcesamiento = "";
+    }
+
+    private void Cancelar()
+    {
+        OnClose.InvokeAsync();
+    }
+
+    private void UsarPlantilla(PlantillaBanco plantilla)
+    {
+        // Configurar según plantilla
+        formatoSeleccionado = plantilla.Nombre switch
+        {
+            "BBVA" => "CSV",
+            "Santander" => "Excel",
+            "Banorte" => "PDF",
+            "HSBC" => "OFX",
+            _ => "CSV"
+        };
+
+        //mensajeExito = $"Plantilla {plantilla.Nombre} aplicada";
+    }
+
+    private string GetFileIconClass()
+    {
+        return formatoSeleccionado switch
+        {
+            "CSV" => "fa-file-csv",
+            "Excel" => "fa-file-excel",
+            "PDF" => "fa-file-pdf",
+            "OFX" => "fa-file-invoice-dollar",
+            _ => "fa-file"
+        };
+    }
+
+    // Manejo de drag and drop
+    private void HandleDragEnter(DragEventArgs e)
+    {
+        estaSobreZona = true;
+        e.DataTransfer.DropEffect = "copy";
+    }
+
+    private void HandleDragLeave(DragEventArgs e)
+    {
+        estaSobreZona = false;
+    }
+
+    private void HandleDragOver(DragEventArgs e)
+    {
+        e.DataTransfer.DropEffect = "copy";
+    }
+
+    private async Task HandleDrop(DragEventArgs e)
+    {
+        estaSobreZona = false;
+
+        if (e.DataTransfer.Files.Count() > 0)
+        {
+            var file = e.DataTransfer.Files[0];
+            // Crear un IBrowserFile a partir del archivo
+            // En una implementación real, necesitarías manejar esto diferente
+            //await HandleFileSelected(new InputFileChangeEventArgs(new List<IBrowserFile> { file }));
+            //await HandleFileSelected(new InputFileChangeEventArgs(new[] { file }));
+        }
+    }
+
+
+public class PlantillaBanco
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = "";
+    public string Descripcion { get; set; } = "";
+}
+}

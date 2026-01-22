@@ -1,0 +1,581 @@
+﻿@page "/presupuesto"
+@using Blazored.Toast.Services
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPresupuestoService PresupuestoService
+@inject ParameterService ParameterService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+
+<PageTitle>SpiderHood - Gestión de Presupuestos</PageTitle>
+@*
+<div class="presupuestos-container">
+    <!-- Header -->
+    <div class="header">
+        <div class="logo-section">
+            <i class="fas fa-spider logo-icon"></i>
+            <div class="logo-text">Spider<span>Hood</span> - Presupuestos</div>
+        </div>
+        
+        <div class="header-controls">
+            <div class="current-month">
+                <i class="fas fa-calendar-alt"></i> @DateTime.Now.ToString("MMMM yyyy")
+            </div>
+            <div class="header-stats">
+                <span>Presupuestos Activos: <strong>@TotalActivos</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filters-section">
+        <div class="filter-row">
+            <div class="search-box">
+                <i class="fas fa-search search-icon"></i>
+                <input type="text" class="search-input" 
+                       placeholder="Buscar presupuesto por código o descripción..." 
+                       @bind="searchTerm" 
+                       @bind:event="oninput" />
+            </div>
+            
+            <div class="filter-group">
+                <label>Mes:</label>
+                <select class="filter-select" @bind="selectedMonth">
+                    <option value="">Todos los meses</option>
+                    @foreach (var mes in mesesDisponibles)
+                    {
+                        <option value="@mes">@mes</option>
+                    }
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Estado:</label>
+                <select class="filter-select" @bind="selectedEstado">
+                    <option value="">Todos</option>
+                    <option value="Activo">Activos</option>
+                    <option value="Cerrado">Cerrados</option>
+                    <option value="Pendiente">Pendientes</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones de Acción -->
+    <div class="action-section">
+        <div class="action-buttons">
+            <button class="btn btn-primary" @onclick="NuevoPresupuesto">
+                <i class="fas fa-plus"></i> Nuevo Presupuesto
+            </button>
+            <button class="btn btn-outline" @onclick="GestionarCategorias">
+                <i class="fas fa-tags"></i> Gestionar Categorías
+            </button>
+            <button class="btn btn-outline" @onclick="ExportarPresupuestos">
+                <i class="fas fa-file-export"></i> Exportar
+            </button>
+        </div>
+        
+        <div class="action-info">
+            <span class="info-item">
+                <i class="fas fa-file-invoice-dollar"></i>
+                Total Presupuestos: <strong>@presupuestos.Count</strong>
+            </span>
+            <span class="info-item">
+                <i class="fas fa-check-circle"></i>
+                Activos: <strong>@TotalActivos</strong>
+            </span>
+            <span class="info-item">
+                <i class="fas fa-money-bill-wave"></i>
+                Total General: <strong>S/ @TotalGeneral.ToString("N2")</strong>
+            </span>
+        </div>
+    </div>
+
+    <!-- Tabla de Presupuestos -->
+    <div class="table-section">
+        @if (isLoading)
+        {
+            <div class="loading-table">
+                <div class="spinner"></div>
+                <p>Cargando presupuestos...</p>
+            </div>
+        }
+        else if (!presupuestos.Any())
+        {
+            <div class="empty-state">
+                <i class="fas fa-file-invoice-dollar fa-3x"></i>
+                <h3>No hay presupuestos</h3>
+                <p>No se encontraron presupuestos con los filtros aplicados.</p>
+                <button class="btn btn-primary" @onclick="NuevoPresupuesto">
+                    <i class="fas fa-plus"></i> Crear Primer Presupuesto
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="presupuestos-table">
+                    <thead>
+                        <tr>
+                            <th class="col-codigo">CÓDIGO</th>
+                            <th class="col-mes">MES</th>
+                            <th class="col-descripcion">DESCRIPCIÓN</th>
+                            
+                            <!-- Columnas dinámicas de categorías -->
+                            @foreach (var categoria in categoriasActivas.OrderBy(c => c.Orden))
+                            {
+                                <th class="col-categoria" style="color: @categoria.Color">
+                                    @categoria.Nombre.ToUpper()
+                                </th>
+                            }
+                            
+                            <th class="col-total">TOTAL</th>
+                            <th class="col-estado">ESTADO</th>
+                            <th class="col-acciones">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var presupuesto in presupuestosPaginados)
+                        {
+                            <tr @onclick="() => SeleccionarPresupuesto(presupuesto)" 
+                                class="@(presupuestoSeleccionado?.Id == presupuesto.Id ? "selected" : "")">
+                                <td class="col-codigo">
+                                    <strong>@presupuesto.Codigo</strong>
+                                </td>
+                                <td class="col-mes">@presupuesto.Mes</td>
+                                <td class="col-descripcion">@presupuesto.Descripcion</td>
+                                
+                                <!-- Montos por categoría -->
+                                @foreach (var categoria in categoriasActivas.OrderBy(c => c.Orden))
+                                {
+                                    var monto = GetMontoCategoria(presupuesto, categoria.Id);
+                                    <td class="col-categoria text-right">
+                                        <span>S/ @monto.ToString("N2")</span>
+                                    </td>
+                                }
+                                
+                                <td class="col-total text-right">
+                                    <strong>S/ @presupuesto.TotalPresupuesto.ToString("N2")</strong>
+                                </td>
+                                <td class="col-estado">
+                                    <span class="estado-badge estado-@presupuesto.Estado.ToLower()">
+                                        @presupuesto.Estado
+                                    </span>
+                                </td>
+                                <td class="col-acciones">
+                                    <div class="action-buttons">
+                                        <button class="btn-icon btn-view" 
+                                                @onclick="() => VerDetalle(presupuesto)" 
+                                                title="Ver Detalles">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn-icon btn-edit" 
+                                                @onclick="() => EditarPresupuesto(presupuesto)" 
+                                                title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn-icon btn-delete" 
+                                                @onclick="() => EliminarPresupuesto(presupuesto)" 
+                                                title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <button class="btn-icon btn-clone" 
+                                                @onclick="() => ClonarPresupuesto(presupuesto)" 
+                                                title="Clonar">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td colspan="3" class="text-right"><strong>TOTALES:</strong></td>
+                            
+                            <!-- Totales por categoría -->
+                            @foreach (var categoria in categoriasActivas.OrderBy(c => c.Orden))
+                            {
+                                var totalCategoria = GetTotalCategoria(categoria.Id);
+                                <td class="text-right">
+                                    <strong>S/ @totalCategoria.ToString("N2")</strong>
+                                </td>
+                            }
+                            
+                            <td class="text-right">
+                                <strong class="total-general">S/ @TotalGeneral.ToString("N2")</strong>
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <!-- Paginación -->
+            <div class="pagination-section">
+                <div class="pagination-info">
+                    Mostrando @inicioPagina - @finPagina de @presupuestos.Count presupuestos
+                </div>
+                <div class="pagination-controls">
+                    <button class="pagination-btn" @onclick="PaginaAnterior" disabled="@(paginaActual == 1)">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    
+                    @for (int i = 1; i <= totalPaginas; i++)
+                    {
+                        <button class="pagination-btn @(i == paginaActual ? "active" : "")" 
+                                @onclick="() => IrAPagina(i)">
+                            @i
+                        </button>
+                    }
+                    
+                    <button class="pagination-btn" @onclick="PaginaSiguiente" 
+                            disabled="@(paginaActual == totalPaginas)">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    
+                    <div class="page-size-selector">
+                        <span>Mostrar:</span>
+                        <select @bind="tamanoPagina" @onchange="CambiarTamanoPagina">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal de Detalle de Presupuesto -->
+@if (mostrarModalDetalle && presupuestoDetalle != null)
+{
+    <PresupuestoDetalleModal 
+        Presupuesto="presupuestoDetalle"
+        Categorias="categoriasActivas"
+        OnClose="CerrarModalDetalle"
+        OnSave="GuardarCambiosDetalle" />
+}
+
+<!-- Modal de Gestión de Categorías -->
+@if (mostrarModalCategorias)
+{
+    <GestionCategoriasModal 
+        OnClose="CerrarModalCategorias"
+        OnSave="ActualizarCategorias" />
+}
+
+
+
+@code {
+    // Servicios inyectados
+    [Inject] private IPresupuestoService presupuestoService { get; set; } = null!;
+    [Inject] private NavigationManager navigation { get; set; } = null!;
+    [Inject] private IToastService toastService { get; set; } = null!;
+
+    // Variables de estado
+    private bool isLoading = true;
+    private List<Presupuesto> presupuestos = new();
+    private List<Categoria> categoriasActivas = new();
+    private Presupuesto? presupuestoSeleccionado = null;
+    private Presupuesto? presupuestoDetalle = null;
+
+    // Filtros
+    private string searchTerm = "";
+    private string selectedMonth = "";
+    private string selectedEstado = "";
+
+    // Paginación
+    private int paginaActual = 1;
+    private int tamanoPagina = 10;
+    private int totalPaginas => (int)Math.Ceiling(presupuestos.Count / (double)tamanoPagina);
+    private int inicioPagina => ((paginaActual - 1) * tamanoPagina) + 1;
+    private int finPagina => Math.Min(inicioPagina + tamanoPagina - 1, presupuestos.Count);
+
+    // Modales
+    private bool mostrarModalDetalle = false;
+    private bool mostrarModalCategorias = false;
+
+    // Datos calculados
+    private List<Presupuesto> presupuestosPaginados =>
+        presupuestos.Skip((paginaActual - 1) * tamanoPagina).Take(tamanoPagina).ToList();
+
+    private decimal TotalGeneral => presupuestos.Sum(p => p.TotalPresupuesto);
+    private int TotalActivos => presupuestos.Count(p => p.Estado == "Activo");
+
+    private List<string> mesesDisponibles => presupuestos
+        .Select(p => p.Mes)
+        .Distinct()
+        .OrderBy(m => m)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Cargar presupuestos
+            presupuestos = await presupuestoService.GetPresupuestosAsync();
+
+            // Cargar categorías activas
+            categoriasActivas = await presupuestoService.GetCategoriasAsync(true);
+
+            // Calcular totales por categoría para cada presupuesto
+            await CalcularTotales();
+        }
+        catch (Exception ex)
+        {
+            await toastService.ShowErrorAsync($"Error al cargar datos: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CalcularTotales()
+    {
+        foreach (var presupuesto in presupuestos)
+        {
+            // Cargar detalles del presupuesto
+            var detalles = await presupuestoService.GetDetallesByPresupuestoAsync(presupuesto.Id);
+
+            // Calcular total por categoría
+            var categoriasPresupuesto = await presupuestoService.GetCategoriasByPresupuestoAsync(presupuesto.Id);
+
+            presupuesto.TotalPresupuesto = detalles.Sum(d => d.Monto);
+        }
+    }
+
+    private decimal GetMontoCategoria(Presupuesto presupuesto, int categoriaId)
+    {
+        // Obtener detalles de esta categoría para el presupuesto
+        var detallesCategoria = presupuesto.Detalles
+            .Where(d => d.CategoriaId == categoriaId)
+            .ToList();
+
+        return detallesCategoria.Sum(d => d.Monto);
+    }
+
+    private decimal GetTotalCategoria(int categoriaId)
+    {
+        // Calcular total de todos los presupuestos para esta categoría
+        decimal total = 0;
+        foreach (var presupuesto in presupuestos)
+        {
+            total += GetMontoCategoria(presupuesto, categoriaId);
+        }
+        return total;
+    }
+
+    // Métodos de filtrado
+    private async Task FiltrarPresupuestos()
+    {
+        try
+        {
+            presupuestos = await presupuestoService.GetPresupuestosAsync(
+                search: string.IsNullOrWhiteSpace(searchTerm) ? null : searchTerm,
+                mes: string.IsNullOrWhiteSpace(selectedMonth) ? null : selectedMonth,
+                estado: string.IsNullOrWhiteSpace(selectedEstado) ? null : selectedEstado
+            );
+
+            paginaActual = 1; // Volver a primera página
+            await CalcularTotales();
+        }
+        catch (Exception ex)
+        {
+            await toastService.ShowErrorAsync($"Error al filtrar: {ex.Message}");
+        }
+    }
+
+    // Métodos de paginación
+    private void IrAPagina(int pagina)
+    {
+        if (pagina < 1 || pagina > totalPaginas) return;
+        paginaActual = pagina;
+    }
+
+    private void PaginaAnterior() => IrAPagina(paginaActual - 1);
+    private void PaginaSiguiente() => IrAPagina(paginaActual + 1);
+
+    private void CambiarTamanoPagina()
+    {
+        paginaActual = 1; // Volver a primera página
+    }
+
+    // Métodos de acciones
+    private void NuevoPresupuesto()
+    {
+        navigation.NavigateTo("/presupuestos/nuevo");
+    }
+
+    private async void VerDetalle(Presupuesto presupuesto)
+    {
+        try
+        {
+            // Cargar presupuesto completo con detalles
+            presupuestoDetalle = await presupuestoService.GetPresupuestoByIdAsync(presupuesto.Id);
+            if (presupuestoDetalle != null)
+            {
+                mostrarModalDetalle = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            await toastService.ShowErrorAsync($"Error al cargar detalles: {ex.Message}");
+        }
+    }
+
+    private void EditarPresupuesto(Presupuesto presupuesto)
+    {
+        navigation.NavigateTo($"/presupuestos/editar/{presupuesto.Id}");
+    }
+
+    private async void EliminarPresupuesto(Presupuesto presupuesto)
+    {
+        var confirmado = await toastService.ShowConfirmAsync(
+            "¿Eliminar Presupuesto?",
+            $"¿Está seguro de eliminar el presupuesto {presupuesto.Codigo}? Esta acción no se puede deshacer.",
+            "Eliminar", "Cancelar");
+
+        if (confirmado)
+        {
+            try
+            {
+                await presupuestoService.DeletePresupuestoAsync(presupuesto.Id);
+                await toastService.ShowSuccessAsync("Presupuesto eliminado correctamente");
+                await CargarDatos();
+            }
+            catch (Exception ex)
+            {
+                await toastService.ShowErrorAsync($"Error al eliminar: {ex.Message}");
+            }
+        }
+    }
+
+    private async void ClonarPresupuesto(Presupuesto presupuesto)
+    {
+        try
+        {
+            // Crear nuevo presupuesto basado en el existente
+            var nuevoPresupuesto = new Presupuesto
+            {
+                Codigo = $"{presupuesto.Codigo}-COPIA",
+                Mes = DateTime.Now.ToString("MMMM yyyy"),
+                Descripcion = $"{presupuesto.Descripcion} (Copia)",
+                Estado = "Activo",
+                UsuarioCreacion = "UsuarioActual" // Obtener del sistema de autenticación
+            };
+
+            var creado = await presupuestoService.CreatePresupuestoAsync(nuevoPresupuesto);
+
+            // Clonar detalles
+            foreach (var detalle in presupuesto.Detalles)
+            {
+                var nuevoDetalle = new PresupuestoDetalle
+                {
+                    PresupuestoId = creado.Id,
+                    CategoriaId = detalle.CategoriaId,
+                    Descripcion = detalle.Descripcion,
+                    Monto = detalle.Monto,
+                    Notas = detalle.Notas
+                };
+                await presupuestoService.AddDetalleToPresupuestoAsync(nuevoDetalle);
+            }
+
+            await toastService.ShowSuccessAsync("Presupuesto clonado correctamente");
+            await CargarDatos();
+        }
+        catch (Exception ex)
+        {
+            await toastService.ShowErrorAsync($"Error al clonar: {ex.Message}");
+        }
+    }
+
+    private void GestionarCategorias()
+    {
+        mostrarModalCategorias = true;
+    }
+
+    private void SeleccionarPresupuesto(Presupuesto presupuesto)
+    {
+        presupuestoSeleccionado = presupuesto;
+    }
+
+    // Métodos de modales
+    private void CerrarModalDetalle()
+    {
+        mostrarModalDetalle = false;
+        presupuestoDetalle = null;
+    }
+
+    private async Task GuardarCambiosDetalle()
+    {
+        if (presupuestoDetalle != null)
+        {
+            try
+            {
+                await presupuestoService.UpdatePresupuestoAsync(presupuestoDetalle);
+                await toastService.ShowSuccessAsync("Cambios guardados correctamente");
+                await CargarDatos();
+            }
+            catch (Exception ex)
+            {
+                await toastService.ShowErrorAsync($"Error al guardar: {ex.Message}");
+            }
+        }
+        CerrarModalDetalle();
+    }
+
+    private void CerrarModalCategorias()
+    {
+        mostrarModalCategorias = false;
+    }
+
+    private async Task ActualizarCategorias()
+    {
+        await CargarDatos(); // Recargar categorías
+        CerrarModalCategorias();
+    }
+
+    private async Task ExportarPresupuestos()
+    {
+        try
+        {
+            // Lógica de exportación
+            await toastService.ShowInfoAsync("Exportación iniciada...");
+        }
+        catch (Exception ex)
+        {
+            await toastService.ShowErrorAsync($"Error al exportar: {ex.Message}");
+        }
+    }
+
+    // Observadores de cambios en filtros
+    private async Task OnSearchTermChanged()
+    {
+        await FiltrarPresupuestos();
+    }
+
+    private async Task OnSelectedMonthChanged()
+    {
+        await FiltrarPresupuestos();
+    }
+
+    private async Task OnSelectedEstadoChanged()
+    {
+        await FiltrarPresupuestos();
+    }
+}
+*@

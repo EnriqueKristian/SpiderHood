@@ -1,0 +1,173 @@
+﻿@using System.ComponentModel.DataAnnotations
+
+@inherits LayoutComponentBase
+
+<link rel="stylesheet" href="@Assets["Category.css"]" />
+
+@if (ShowModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@((OpenMode == Models.OpenType.Create) ? "Agregar Categoria" : "Actualizar Categoria")</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <EditForm Model="@ViewCategory" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" role="alert" />
+                <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="description" class="form-label">@((TypeCategory == 1) ? "Nombre de la Sub Categoria" : "Nombre de la Categoria"):</label>
+                            <InputText id="description" @bind-Value="ViewCategory.Description" class="form-control" aria-required="true" placeholder="@NombrePlaceholder" />
+                            <ValidationMessage For="() => ViewCategory.Description" class="text-danger" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="shortdescription" class="form-label">Short Description:</label>
+                            <InputText id="shortdescription" @bind-Value="ViewCategory.ShortDescript" class="form-control" placeholder="@DescripcionPlaceholder" />
+                            <ValidationMessage For="() => ViewCategory.ShortDescript" class="text-danger" />
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label">Icono</label>
+                            <div class="icon-grid">
+                                @foreach (var icon in IconosDisponibles)
+                                {
+                                    var isSelected = icon == ViewCategory.Icon;
+                                    <button type="button"
+                                            class="icon-item @(isSelected ? "selected" : "")"
+                                            title="@icon"
+                                            @onclick="@(() => SeleccionarIcono(icon))">
+                                        <i class="@icon"></i>
+                                    </button>
+                                }
+                            </div>
+                            <ValidationMessage For="() => ViewCategory.Icon" class="text-danger" />
+                        </div>
+                        @if (TypeCategory == 0)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Color</label>
+                                <div class="color-grid">
+                                    @foreach (var color in ColoresDisponibles)
+                                    {
+                                        var isSelected = color == ViewCategory.Color;
+                                        <button type="button"
+                                        class="color-item @(isSelected ? "selected" : "")"
+                                        style="background-color:@color"
+                                        title="@color"
+                                        @onclick="@(() => SeleccionarColor(color))">
+                                        </button>
+                                    }
+                                </div>
+                                <ValidationMessage For="@(() => ViewCategory.Color)" />
+                            </div>
+                        }
+                        else
+                        {
+                            ViewCategory.Color = "#FFFFFF";    
+                        }
+                        <div class="form-group">
+                            <label class="form-label">Tipo de Distribución:</label>
+                            <div class="distribution-options">
+                                <div class="distribution-option @(ViewCategory.Distribution == Models.TypeDistribution.Fija ? "selected" : "")"
+                                     @onclick="() => SeleccionarDistribucion(Models.TypeDistribution.Fija)">
+                                    Fija
+                                </div>
+                                <div class="distribution-option @(ViewCategory.Distribution == Models.TypeDistribution.Proporcional ? "selected" : "")"
+                                     @onclick="() => SeleccionarDistribucion(Models.TypeDistribution.Proporcional)">
+                                    Porcentaje
+                                </div>
+                            </div>
+                            <p class="form-description">@DistribucionDescripcion</p>
+                        </div>
+                </div>
+                    <div class="modal-footer">
+                        <Button Color="ButtonColor.Secondary" @onclick="CerrarModal">Close</Button>
+                        <button type="submit" class="btn btn-primary">@((OpenMode == Models.OpenType.Create) ? "Save" : "Update")</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool ShowModal { get; set; }
+    [Parameter] public int TypeCategory { get; set; }
+    [Parameter] public Models.OpenType OpenMode { get; set; }
+    [Parameter] public Models.Category ViewCategory { get; set; }
+    [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
+    [Parameter] public EventCallback<SpiderHood.Models.Category> OnSaveItem { get; set; }
+
+    private bool isCategoryMode = true;
+
+    private string NombrePlaceholder => isCategoryMode ? "Ej: Servicios Básicos" : "Ej: Luz, Agua, Mantenimiento";
+    private string NombreLabel => isCategoryMode ? "Nombre de la Categoría:" : "Nombre de la Sub Categoría:";
+
+    private string DescripcionPlaceholder => isCategoryMode
+        ? "Ej: Gastos de servicios esenciales"
+        : "Ej: Consumo eléctrico mensual";
+    public string DescripcionDescripcion => isCategoryMode
+        ? "Una breve descripción de la categoría"
+        : "Una breve descripción de la subcategoría";
+
+    private string DistribucionDescripcion => isCategoryMode
+    ? "Este valor se heredará a los gastos cuando selecciones esta categoría"
+    : "Este valor se heredará a los gastos cuando selecciones esta subcategoría";
+
+    private void SeleccionarDistribucion(Models.TypeDistribution tipo)
+    {
+        ViewCategory.Distribution = tipo;
+    }
+
+    private async Task Guardar()
+    {
+        await OnSaveItem.InvokeAsync(ViewCategory);
+        await CerrarModal();
+    }
+
+    private async Task CerrarModal()
+    {
+        ShowModal = false;
+        await ShowModalChanged.InvokeAsync(ShowModal);
+    }
+
+    private void SeleccionarColor(string color) => ViewCategory.Color = color;
+    private void SeleccionarIcono(string icono) => ViewCategory.Icon = icono;
+
+    // Paleta de 24 colores (puedes ajustar a tu guía de estilos)
+    private readonly string[] ColoresDisponibles =
+    [
+        "#0d6efd","#6610f2","#6f42c1","#d63384",
+        "#dc3545","#fd7e14","#ffc107","#198754",
+        "#20c997","#0dcaf0","#6c757d","#343a40",
+        "#4e79a7","#f28e2b","#e15759","#76b7b2",
+        "#59a14f","#edc948","#b07aa1","#ff9da7",
+        "#9c755f","#bab0ab","#2c3e50","#27ae60"
+    ];
+
+    // Fuente de iconos (puedes cambiar por tus clases de iconos: Bootstrap Icons, FontAwesome, etc.)
+    private readonly string[] IconosDisponibles =
+        [
+        "fa-solid fa-droplet",
+        "fa-solid fa-hammer",
+        "fa-solid fa-inbox",
+        "fa-solid fa-lightbulb",
+        "fa-solid fa-lock",
+        "fa-solid fa-paperclip",
+        "fa-solid fa-screwdriver-wrench",
+        "fa-solid fa-tree",
+        "fa-solid fa-user-group",
+        "fa-solid fa-users",
+        "fa-regular fa-address-book",
+        "fa-solid fa-bell",
+        "fa-solid fa-box-archive",
+        "fa-solid fa-building-circle-check",
+        "fa-solid fa-calendar-days",
+        "fa-solid fa-chart-line",
+        "fa-solid fa-leaf",
+        "fa-solid fa-plant-wilt",
+        "fa-solid fa-shield-halved",
+        "fa-solid fa-sliders"
+    ];
+}

@@ -1,0 +1,103 @@
+﻿@using SpiderHood.Models
+@using SpiderHood.Services
+@using System.Globalization
+@inject ICalculoService CalculoService
+
+<div class="entrada-manual-container">
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5><i class="fas fa-keyboard mr-2"></i>Entrada Manual de Lecturas</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Departamento:</label>
+                        <input @bind="nuevaLectura.GroupNumber"
+                               class="form-control"
+                               placeholder="Ej: 101" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">ID Lectura:</label>
+                        <input @bind="nuevaLectura.Code"
+                               class="form-control"
+                               placeholder="Ej: 101112025" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Lectura Actual:</label>
+                        <InputNumber @bind-Value="nuevaLectura.CurrentReading"
+                                     class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button @onclick="AgregarLectura" class="btn btn-primary w-100">
+                        <i class="fas fa-plus mr-2"></i>Agregar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lista rápida de últimas lecturas -->
+            @if (lecturasManuales.Any())
+            {
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Dpto</th>
+                                <th>Lectura</th>
+                                <th>Fecha</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var lectura in lecturasManuales.Take(5))
+                            {
+                                <tr>
+                                    <td>@lectura.GroupNumber</td>
+                                    <td>@lectura.CurrentReading.ToString("F3")</td>
+                                    <td><small>@lectura.ReadingDate.ToString("HH:mm")</small></td>
+                                    <td>
+                                        <button @onclick="() => RemoverLectura(lectura)"
+                                                class="btn btn-danger btn-sm">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private SpiderHood.Models.WaterReadingDetail nuevaLectura = new();
+    private List<SpiderHood.Models.WaterReadingDetail> lecturasManuales = new();
+
+    private void AgregarLectura()
+    {
+        if (!string.IsNullOrEmpty(nuevaLectura.GroupNumber.ToString()) &&
+            nuevaLectura.CurrentReading > 0)
+        {
+            nuevaLectura.ReadingDate = DateTime.Now;
+            //nuevaLectura.Period = DateTime.Now.ToString("MMMM-yy",new CultureInfo("es-ES"));
+            //nuevaLectura.Periodo = DateTime.Now;
+            lecturasManuales.Insert(0, nuevaLectura);
+            nuevaLectura = new SpiderHood.Models.WaterReadingDetail();
+
+            StateHasChanged();
+        }
+    }
+
+    private void RemoverLectura(SpiderHood.Models.WaterReadingDetail lectura)
+    {
+        lecturasManuales.Remove(lectura);
+        StateHasChanged();
+    }
+}

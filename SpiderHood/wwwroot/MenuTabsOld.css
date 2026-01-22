@@ -1,0 +1,78 @@
+﻿body {
+}
+
+.div-height {
+    height: 3vh;
+}
+
+.heading-design {
+    cursor: pointer;
+    background-color: #fff;
+    border-bottom: solid 1px #212121;
+    padding: 1rem;
+    transition: background-color 0.5s ease;
+}
+
+.heading-design:hover {
+    background-color: #ff9800;
+    border-bottom: solid 1px #ff9800;
+}
+
+.heading-prog {
+    cursor: pointer;
+    background-color: #fff;
+    border-bottom: solid 1px #212121;
+    padding: 1rem;
+    transition: background-color 0.5s ease;
+    transition: color 0.5s ease;
+}
+
+.heading-prog:hover {
+    color: #eeeeee;
+    background-color: #212121;
+    border-bottom: solid 1px #212121;
+}
+
+.heading-music {
+    cursor: pointer;
+    background-color: #fff;
+    border-bottom: solid 1px #212121;
+    padding: 1rem;
+    transition: background-color 0.5s ease;
+}
+
+.heading-music:hover {
+    background-color: #ff6f61;
+    border-bottom: solid 1px #ff6f61;
+}
+
+.tab-content {
+    display: none;
+}
+
+.left-content {
+    padding-left: 4rem;
+    padding-top: 4rem;
+    font-size: 3.75rem;
+}
+
+.right-content {
+    padding-left: 4rem;
+    padding-top: 4rem;
+}
+
+.img-custwidth {
+    padding-top: 4rem;
+    width: 512px;
+}
+
+
+.tab-content-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}

@@ -1,0 +1,15 @@
+﻿<h3>SpiderCard</h3>
+
+<div class="card text-center shadow-sm">
+    <div class="card-body">
+        <i class="fas @Icon fa-2x mb-2"></i>
+        <h5 class="card-title">@Title</h5>
+        <p class="card-text display-6">@Count</p>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; }
+    [Parameter] public int Count { get; set; }
+    [Parameter] public string Icon { get; set; }
+}

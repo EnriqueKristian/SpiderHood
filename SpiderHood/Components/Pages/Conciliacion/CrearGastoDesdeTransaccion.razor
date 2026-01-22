@@ -1,0 +1,313 @@
+﻿@using SpiderHood.Models
+
+<div class="crear-gasto-form">
+    <div class="mb-4">
+        <h6>Crear Gasto desde Transacción</h6>
+        <p class="text-muted">Completa la información para crear un nuevo gasto en el sistema</p>
+    </div>
+
+    @if (Transaccion == null)
+    {
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            No hay transacción seleccionada
+        </div>
+        return;
+    }
+
+    <!-- Información de la transacción -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h6 class="mb-0">Transacción Original</h6>
+        </div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Fecha:</dt>
+                <dd class="col-sm-8">@Transaccion.StatementDate.ToString("dd/MM/yyyy")</dd>
+
+                <dt class="col-sm-4">Descripción:</dt>
+                <dd class="col-sm-8">@Transaccion.Description</dd>
+
+                <dt class="col-sm-4">Referencia:</dt>
+                <dd class="col-sm-8">@Transaccion.Reference</dd>
+
+                <dt class="col-sm-4">Monto:</dt>
+                <dd class="col-sm-8 fw-bold text-danger">
+                    @Math.Abs(Transaccion.Amount).ToString("C")
+                </dd>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Formulario del gasto -->
+    <form @onsubmit="CrearGasto">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Descripción del Gasto *</label>
+                <input type="text"
+                       class="form-control @(errores.ContainsKey("Descripcion") ? "is-invalid" : "")"
+                       @bind="nuevoGasto.Description"
+                       @bind:event="oninput" />
+                @if (errores.ContainsKey("Descripcion"))
+                {
+                    <div class="invalid-feedback d-block">
+                        @errores["Descripcion"]
+                    </div>
+                }
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Categoría *</label>
+                <select class="form-select @(errores.ContainsKey("Categoria") ? "is-invalid" : "")"
+                        @bind="nuevoGasto.IdCategory">
+                    <option value="">Seleccionar categoría...</option>
+                    @foreach (var item in FilteredCategory.Where(c => c.Nivel == 0))
+                    {
+                        <optgroup label="@item.ShortDescript">
+                            @foreach (var subitem in FilteredCategory.Where(c => c.ParentId == item.IdCategory))
+                            {
+                                <option value="@subitem.IdCategory">@subitem.ShortDescript</option>
+                            }
+                        </optgroup>
+                    }
+                    </select>
+
+                @if (errores.ContainsKey("Categoria"))
+                {
+                    <div class="invalid-feedback d-block">
+                        @errores["Categoria"]
+                    </div>
+                }
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Proveedor</label>
+                <input type="text"
+                       class="form-control"
+                       placeholder="Nombre del proveedor"
+                       @bind="nuevoGasto.Supplier"
+                       @bind:event="oninput" />
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Fecha del Gasto *</label>
+                <input type="date"
+                       class="form-control @(errores.ContainsKey("Fecha") ? "is-invalid" : "")"
+                       @bind="nuevoGasto.ExpenseDate"
+                       @bind:format="yyyy-MM-dd" />
+                @if (errores.ContainsKey("Fecha"))
+                {
+                    <div class="invalid-feedback d-block">
+                        @errores["Fecha"]
+                    </div>
+                }
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Monto *</label>
+                <div class="input-group">
+                    <span class="input-group-text">S/</span>
+                    <input type="number"
+                           class="form-control @(errores.ContainsKey("Monto") ? "is-invalid" : "")"
+                           step="0.01"
+                           min="0.01"
+                           @bind="nuevoGasto.Amount"
+                           @bind:event="oninput" />
+                </div>
+                @if (errores.ContainsKey("Monto"))
+                {
+                    <div class="invalid-feedback d-block">
+                        @errores["Monto"]
+                    </div>
+                }
+                <small class="form-text text-muted">
+                    Monto de la transacción: @Math.Abs(Transaccion.Amount).ToString("C")
+                </small>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Método de Pago</label>
+                <select class="form-select" @bind="nuevoGasto.PaymentMethod">
+                    <option value=@PaymentMethod.BankTransfer>Transferencia</option>
+                    <option value=@PaymentMethod.CreditCard>Tarjeta de Crédito</option>
+                    <option value=@PaymentMethod.DebitCard>Tarjeta de Débito</option>
+                    <option value=@PaymentMethod.Cash>Efectivo</option>
+                    <option value=@PaymentMethod.Check>Cheque</option>
+                </select>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Notas / Observaciones</label>
+                <textarea class="form-control"
+                          rows="3"
+                          placeholder="Información adicional sobre el gasto..."
+                          @bind="nuevoGasto.Notes"
+                          @bind:event="oninput"></textarea>
+            </div>
+
+            <!--
+            <div class="col-md-6">
+                <label class="form-label">Departamento Asociado</label>
+                <select class="form-select" @bind="nuevoGasto.IdBuilding">
+                    <option value="@nuevoGasto.IdBuilding">Gasto General del Edificio</option>
+                </select>
+            </div>
+            -->
+            <div class="col-md-6">
+                <label class="form-label">Tipo Distribución</label>
+                <select class="form-select" @bind="nuevoGasto.Distribution">
+                    <option value=@TypeDistribution.Fija>Fija</option>
+                    <option value=@TypeDistribution.Proporcional>Porcentaje</option>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Estado</label>
+                <select class="form-select" @bind="nuevoGasto.Status">
+                    <option value=@StatusExpense.Approved>Aprobado</option>
+                    <option value=@StatusExpense.Pending>Pendiente</option>
+                    <option value=@StatusExpense.Rejected>Rechazado</option>
+                </select>
+            </div>
+            
+            <div class="col-12">
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           @bind="nuevoGasto.AutoReconcile" />
+                    <label class="form-check-label">
+                        Conciliar automáticamente con la transacción bancaria
+                    </label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           @bind="guardarComoPlantilla" />
+                    <label class="form-check-label">
+                        Guardar como plantilla para transacciones similares
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones de acción -->
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    @onclick="Cancelar"
+                    :disabled="procesando">
+                Cancelar
+            </button>
+            <button type="submit"
+                    class="btn btn-primary"
+                    disabled="@procesando">
+                @if (procesando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                }
+                <i class="fas fa-save me-2"></i>Crear Gasto
+            </button>
+        </div>
+    </form>
+</div>
+
+@code {
+    [Parameter]
+    public TransactionBankView? Transaccion { get; set; }
+
+    [Parameter]
+    public List<CategoriaGasto> Categorias { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<ViewExpense> OnGastoCreado { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public List<Category> FilteredCategory { get; set; } = new();
+
+    private ViewExpense nuevoGasto = new();
+    private bool procesando = false;
+    private bool guardarComoPlantilla = false;
+    private Dictionary<string, string> errores = new();
+
+    protected override void OnParametersSet()
+    {
+        if (Transaccion != null)
+        {
+            // Inicializar el gasto con datos de la transacción
+            nuevoGasto = new ViewExpense
+            {
+                Description = Transaccion.Description,
+                Amount = Math.Abs(Transaccion.Amount),
+                ExpenseDate = Transaccion.StatementDate,
+                Status = StatusExpense.Approved,
+                Distribution = TypeDistribution.Fija,
+                Reconciled = false,
+                AutoReconcile = true,
+                Notes = $"Creado desde transacción bancaria. Referencia: {Transaccion.Reference}"
+            };
+        }
+    }
+
+    private async Task CrearGasto()
+    {
+        errores.Clear();
+
+        // Validación
+        if (string.IsNullOrWhiteSpace(nuevoGasto.Description))
+            errores["Descripcion"] = "La descripción es requerida";
+
+        if (nuevoGasto.IdCategory == Guid.Empty)
+            errores["Categoria"] = "La categoría es requerida";
+
+        if (nuevoGasto.Amount <= 0)
+            errores["Monto"] = "El monto debe ser mayor a cero";
+
+        if (nuevoGasto.ExpenseDate == default)
+            errores["Fecha"] = "La fecha es requerida";
+
+        if (errores.Any())
+        {
+            return;
+        }
+
+        procesando = true;
+
+        try
+        {
+            // Aquí iría la lógica para guardar el gasto en la base de datos
+            // Por ahora, simulamos la creación
+
+            // Asignar ID y otros campos
+            nuevoGasto.IdExpense = Guid.NewGuid();//new Random().Next(1000, 9999);
+            nuevoGasto.ExpenseDate = DateTime.Now;
+
+            if (nuevoGasto.AutoReconcile && Transaccion != null)
+            {
+                nuevoGasto.Reconciled = true;
+                nuevoGasto.ReconciledTransactionId = Transaccion.IdStatementDetail;
+            }
+
+            // Notificar al componente padre
+            await OnGastoCreado.InvokeAsync(nuevoGasto);
+        }
+        catch (Exception ex)
+        {
+            errores["General"] = $"Error al crear gasto: {ex.Message}";
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private void Cancelar()
+    {
+        OnCancel.InvokeAsync();
+    }
+}

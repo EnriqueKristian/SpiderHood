@@ -1,0 +1,1387 @@
+﻿@using SpiderHood.Models
+@using SpiderHood.Services
+@using System.Globalization
+@inject ICalculoService CalculoService
+@inject NavigationManager Navigation
+@inject ParameterService ParameterService
+@using ClosedXML.Excel
+@inject IJSRuntime JSRuntime
+
+<script src="/js/fileDownload.js"></script>
+
+<div class="lectura-bloque-container">
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h3><i class="fas fa-water mr-2"></i>LECTURA DE AGUA EN BLOQUE</h3>
+        </div>
+        <div class="card-body">
+            <!-- Selector de período -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label"><strong>Período:</strong></label>
+                        @if (_esPrimeraCarga)
+                        {
+                            <table>
+                                <tr>
+                                    <td>
+                                        <select class="form-select" @bind="_mesInicio">
+                                            @foreach (var mes in _mesesDisponibles)
+                                            {
+                                                <option value="@mes.Value">@mes.Text</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <select class="form-select" @bind="_anioInicio">
+                                            @foreach (var anio in _aniosDisponibles)
+                                            {
+                                                <option value="@anio.Value">@anio.Text</option>
+                                            }
+                                        </select>
+                                    </td>
+                                </tr>
+                            </table>
+                        }
+                        else{
+                            <select @bind="_ultimoPeriodo" class="form-select" @bind:event="onchange" @bind:after="() => CargarPeriodo(_ultimoPeriodo)">
+                                @foreach (var item in _periodos.OrderByDescending(c => c.Period))
+                                {
+                                    <option value="@item.Period">@item.Period.ToString("MMM-yy")</option>
+                                }
+                            </select>
+                        }
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label"><strong>Cargo Fijo:</strong></label>
+                        <div class="input-group">
+                            <span class="input-group-text">S/</span>
+                            <InputNumber @bind-Value="_cargoFijo" class="form-control" />
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button @onclick="() => ExportarPlantillaVacia()" class="btn btn-primary w-100">
+                        <i class="fas fa-search mr-2"></i>Descargar Plantilla
+                    </button>
+                </div>
+            </div>
+
+            <!-- Importación desde Excel -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5><i class="fas fa-file-excel mr-2"></i>&nbsp;Importar desde Excel</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label"><strong>Seleccionar archivo Excel:</strong></label>
+                                <InputFile Onchange="CargarArchivoExcel"
+                                           accept=".xlsx,.xls,.csv"
+                                           class="form-control" disabled="@(_lecturaActual.Status != 1)" />
+                            </div>
+                            @if (!string.IsNullOrEmpty(_archivoNombre))
+                            {
+                                <div class="alert alert-success">
+                                    <i class="fas fa-check-circle mr-2"></i>
+                                    Archivo cargado: @_archivoNombre (@_lecturasCargadas.Count registros)
+                                    <button @onclick="ProcesarLecturasCargadas"
+                                            class="btn btn-success btn-sm float-end">
+                                        Procesar Todas
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-center">
+                    <div class="text-center">
+                        <div class="display-6 text-primary">@_lecturasProcesadas.Count</div>
+                        <div class="text-muted">Lecturas procesadas</div>
+                        @if (_esPrimeraCarga)
+                        {
+                            <div class="text-muted"><strong>Primera Carga</strong></div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mensajes de estado -->
+            @if (!string.IsNullOrEmpty(mensaje))
+            {
+                <div class="alert @(mensaje.Contains("éxito") ? "alert-success" : mensaje.Contains("Error") ? "alert-danger" : "alert-warning") alert-dismissible fade show">
+                    <div class="d-flex align-items-center">
+                        <i class="bi @(mensaje.Contains("éxito") ? "bi-check-circle-fill" : mensaje.Contains("Error") ? "bi-exclamation-triangle-fill" : "bi-info-circle-fill") me-2"></i>
+                        <div>
+                            <strong>@mensaje</strong>
+                            <br />
+                            @foreach (var error in _lecturaActual.errors)
+                            {
+                                <label>@error</label><br />
+                            }
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" @onclick="() => mensaje = string.Empty"></button>
+                </div>
+            }
+
+            <!-- Tabla de lecturas -->
+            @if (_lecturasProcesadas.Any())
+            {
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th>Dpto</th>
+                                <th>Período</th>
+                                <th>ID Lectura</th>
+                                <th>Lectura Anterior</th>
+                                <th>Lectura Actual</th>
+                                <th>Consumo (m³)</th>
+                                <th>Monto Total</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var lectura in _lecturasProcesadas)
+                            {
+                                <tr class="@(!lectura.Minimum ? "table-success" : "table-warning")">
+                                    <td>@lectura.GroupNumber</td>
+                                    <td>@lectura.Period.ToString("MMMM-yy", new CultureInfo("es-ES"))</td>
+                                    <td><small class="text-muted">@lectura.Code</small></td>
+                                    <td align="right">@lectura.PreviousReading.ToString("F3")</td>
+                                    <td align="right">
+                                        <strong>@lectura.CurrentReading.ToString("F3")</strong>
+                                    </td>
+                                    <td align="right">
+                                        @if (lectura.Procesed)
+                                        {
+                                            <span class="badge @(!lectura.Minimum ? "bg-primary" : "bg-danger")">
+                                                @lectura.Consumption.ToString("F2") m³
+                                            </span>
+                                        }
+                                        else{
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-danger dropdown-toggle"
+                                                        type="button"
+                                                        data-bs-toggle="dropdown">
+                                                    Posibles Actions
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li>
+                                                        <a class="dropdown-item"
+                                                           @onclick="() => ApplyMinimun(lectura)">
+                                                            <div class="d-flex justify-content-between">
+                                                                <span>Minimo</span>
+                                                                <span class="text-muted">@ParameterService.MinAgua</span>
+                                                            </div>
+                                                            <small class="text-muted">Aplicar Minimo</small>
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <a class="dropdown-item">
+                                                            <div class="d-flex justify-content-between">
+                                                                <span>Otro</span>
+                                                                <span class="text-muted">@_anotherValue</span>
+                                                            </div>
+                                                            <InputNumber @bind-Value="_anotherValue" class="form-control" @onkeypress="async (e) => await onKeyPress(lectura, e)" />
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            }
+                                    </td>
+                                    <td align="right">
+                                            <strong class="text-success">
+                                            S/ @lectura.CalculatedAmount.ToString("F2")
+                                            </strong>
+                                    </td>
+                                    <td>
+                                        <button @onclick="() => SeleccionarLectura(lectura)"
+                                                class="btn btn-info btn-sm mr-1"
+                                                title="Ver detalle">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-secondary">
+                            <tr>
+                                <td colspan="6" class="text-end"><strong>TOTAL GENERAL:</strong></td>
+                                <td colspan="2">
+                                    <strong class="text-primary">
+                                        S/ @TotalGeneral.ToString("F2")
+                                    </strong>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="d-flex justify-content-between">
+                    <button @onclick="ExportarAExcel" class="btn btn-success">
+                        <i class="fas fa-file-excel mr-2"></i>Exportar a Excel
+                    </button>
+                    @if (_lecturaActual.Status == 1 && !_error && !_pending)
+                    {
+                        <button @onclick="GuardarLecturas" class="btn btn-primary">
+                            <i class="fas fa-save mr-2"></i>Guardar Lecturas
+                        </button>
+                    }
+                    <button @onclick="LimpiarDatos" class="btn btn-danger">
+                        <i class="fas fa-trash mr-2"></i>Limpiar Todo
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-file-import fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">No hay lecturas cargadas</h4>
+                    <p class="text-muted">Importe un archivo Excel o ingrese lecturas manualmente</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Modal para detalle de cálculo -->
+    @if (_lecturaSeleccionada != null && _lecturaSeleccionada.CalculationDetail != null)
+    {
+        <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5)">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-calculator mr-2"></i>
+                            Detalle de Cálculo - Dpto @_lecturaSeleccionada.GroupNumber
+                        </h5>
+                        <button @onclick="CerrarModalDetalle" class="btn-close btn-close-white"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Consumo:</strong> @_lecturaSeleccionada.Consumption.ToString("F2") m³
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Período:</strong> @_lecturaActual.Period.ToString("MMMM yy")
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead>
+                                    <tr class="table-secondary">
+                                        <th align="center">Rango</th>
+                                        <th align="center">Consumo (m³)</th>
+                                        <th align="center">Tarifa Unit.</th>
+                                        <th align="center">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var detalle in _lecturaSeleccionada.CalculationDetail.Detalles)
+                                    {
+                                        <tr>
+                                            <td>@detalle.Rango</td>
+                                            <td align="right">@detalle.Consumo.ToString("F2")</td>
+                                            <td align="right">S/ @detalle.Tarifa.ToString("F3")</td>
+                                            <td align="right">S/ @detalle.Monto.ToString("F2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="3" class="text-end">Subtotal:</td>
+                                        <td align="right">S/ @_lecturaSeleccionada.CalculationDetail.Subtotal.ToString("F2")</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" class="text-end">Cargo Fijo:</td>
+                                        <td align="right">S/ @_lecturaSeleccionada.CalculationDetail.CargoFijo.ToString("F2")</td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" class="text-end">Total sin IGV:</td>
+                                        <td align="right">S/ @_lecturaSeleccionada.CalculationDetail.TotalSinIGV.ToString("F2")</td>
+                                    </tr>
+                                    <tr class="table-primary">
+                                        <td colspan="3" class="text-end"><strong>TOTAL + IGV:</strong></td>
+                                        <td align="right"><strong>S/ @_lecturaSeleccionada.CalculationDetail.TotalConIGV.ToString("F2")</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button @onclick="CerrarModalDetalle" class="btn btn-secondary">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // Constantes y configuración
+    private const decimal CARGO_FIJO_DEFAULT = 5.04m;
+
+    // Estado del componente
+    private DateTime _periodoActual = DateTime.Now;
+    private decimal _cargoFijo = CARGO_FIJO_DEFAULT;
+    private List<WaterReadingDetail> _lecturasProcesadas = new();
+    private List<WaterReadingDetail> _lecturasCargadas = new();
+    private WaterReading _lecturaActual = new();
+    private WaterReadingDetail? _lecturaSeleccionada;
+    private string _archivoNombre = string.Empty;
+    private IBrowserFile? _archivoExcel;
+    private DateTime _ultimoPeriodo;
+    private List<WaterReading> _periodos = new();
+    private List<WaterReadingDetail> _detallesPeriodoAnterior = new();
+    private bool _esPrimeraCarga = false;
+    private string mensaje = "";
+    private bool _error = false;
+    private double _anotherValue = 0;
+    private bool _pending = true;
+
+    // Selectores de fecha
+    private List<SelectListItem> _mesesDisponibles = new();
+    private List<SelectListItem> _aniosDisponibles = new();
+    private int _anioInicio;
+    private int _mesInicio;
+
+    // Propiedades calculadas
+    private decimal TotalGeneral => _lecturasProcesadas
+        .Sum(l => l.CalculatedAmount);
+
+    private bool HayLecturasCargadas => _lecturasCargadas.Any();
+    private bool HayLecturasProcesadas => _lecturasProcesadas.Any();
+    private bool PuedeGuardar => HayLecturasProcesadas && _lecturasProcesadas.All(l => l.Procesed);
+
+    private async Task onKeyPress(WaterReadingDetail lectura, KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await Task.Delay(500); // Asegurar que cambiara el valor
+            _ = RecalcularLectura(lectura, _anotherValue);
+            _anotherValue = 0;
+            await CountTotal();
+        }
+    }
+
+    private async Task ApplyMinimun(WaterReadingDetail lectura)
+    {
+        _ = RecalcularLectura(lectura, ParameterService.MinAgua);
+        await CountTotal();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ParameterService.IdBuilding == Guid.Empty) return;
+
+        await CargarDatosIniciales();
+    }
+
+    private async Task CargarDatosIniciales()
+    {
+        try
+        {
+            // Cargar datos estáticos
+            await CargarListasEstaticas();
+
+            // Cargar periodos desde BD
+            _periodos = await CalculoService.GetPeriodsAsync(
+                ParameterService.ec,
+                ParameterService.IdBuilding
+            );
+
+            // Determinar si es primera carga
+            _esPrimeraCarga = _periodos.Count == 0;
+
+            // Configurar periodo inicial
+            await ConfigurarPeriodoInicial();
+
+            // Cargar lecturas del periodo anterior
+            //await CargarLecturasPeriodoAnterior();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Implementar logging de errores
+            Console.WriteLine($"Error al cargar datos iniciales: {ex.Message}");
+        }
+    }
+
+    private async Task CargarListasEstaticas()
+    {
+        _mesesDisponibles = await ParameterService.GetMonthList("es-PE");
+        _aniosDisponibles = await ParameterService.GetYearList(2020, 2030);
+    }
+
+    private async Task ConfigurarPeriodoInicial()
+    {
+        if (_esPrimeraCarga)
+        {
+            _anioInicio = DateTime.Now.AddYears(-1).Year;
+            _mesInicio = DateTime.Now.AddMonths(-1).Month;
+            _ultimoPeriodo = new DateTime(_anioInicio, _mesInicio, 1);
+            await CrearNuevoPeriodo();
+        }
+        else
+        {
+            _ultimoPeriodo = _periodos.Max(p => p.Period);
+            _ultimoPeriodo = _ultimoPeriodo.AddMonths(1);
+            _ultimoPeriodo = new DateTime(_ultimoPeriodo.Year, _ultimoPeriodo.Month, 1);
+            if (!_periodos.Any(p => p.Period == _ultimoPeriodo))
+            {
+                await CrearNuevoPeriodo();
+            }
+        }
+
+        _periodoActual = _ultimoPeriodo;
+    }
+
+    private async Task CrearNuevoPeriodo()
+    {
+        var nuevoPeriodo = new WaterReading
+        {
+            IdWaterReading = Guid.NewGuid(),
+            Status = 1,
+            IdBuilding = ParameterService.IdBuilding,
+            Period = _ultimoPeriodo,
+            CreatedOn = DateTime.Now
+        };
+
+        _periodos.Add(nuevoPeriodo);
+        _lecturaActual = nuevoPeriodo;
+    }
+
+    private async Task CargarLecturasPeriodoAnterior()
+    {
+        if (_esPrimeraCarga)
+        {
+            _detallesPeriodoAnterior = await CalculoService.GetFirstWaterReadingDetailList(
+                ParameterService.ec,
+                ParameterService.IdBuilding
+            );
+        }
+        else
+        {
+            var periodoAnterior = _periodos
+                .FirstOrDefault(p => p.Period == _ultimoPeriodo.AddMonths(-1));
+
+            if (periodoAnterior != null)
+            {
+                _detallesPeriodoAnterior = await CalculoService
+                    .ObtenerLecturasPorPeriodoAsync(ParameterService.ec, periodoAnterior);
+            }
+        }
+    }
+
+    private async Task CargarPeriodo(DateTime periodo)
+    {
+        try
+        {
+            _error = false;
+            mensaje = string.Empty;
+            _periodoActual = periodo;
+
+            _periodos = _periodos.OrderBy(c => c.Period).ToList();
+
+            var periodoExistente = _periodos.FirstOrDefault(p => p.Period == periodo);
+
+            if (periodoExistente != null)
+            {
+                _lecturaActual = periodoExistente;
+                _lecturasProcesadas = await CalculoService.ObtenerLecturasPorPeriodoAsync(
+                    ParameterService.ec,
+                    _lecturaActual
+                );
+
+                if (_lecturasProcesadas.Count == 0 && _periodos[0].Period == periodo )
+                {
+                    _lecturasProcesadas = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.ec, ParameterService.IdBuilding);
+                }
+
+                MarcarTodasComoProcesadas();
+                await RecalcularTodas();
+
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            // TODO: Mostrar mensaje de error al usuario
+            Console.WriteLine($"Error al cargar periodo: {ex.Message}");
+        }
+    }
+
+    private async Task CargarArchivoExcel(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            _archivoExcel = e.File;
+            _archivoNombre = _archivoExcel.Name;
+            mensaje = string.Empty;
+            _error = false;
+            _pending = true;
+
+            if (_archivoExcel.Size > 10 * 1024 * 1024) // 10MB límite
+            {
+                // TODO: Mostrar error de archivo muy grande
+                return;
+            }
+
+            using var stream = _archivoExcel.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            if (_esPrimeraCarga)
+            {
+                _periodoActual = new DateTime(_anioInicio, _mesInicio, 1);
+            }
+
+            //await SincronizarConPeriodoAnterior();
+            await CargarLecturasPeriodoAnterior();
+
+            _lecturaActual = await CalculoService.ImportarDesdeExcelAsync(
+                memoryStream,
+                ParameterService.IdBuilding,
+                _periodoActual,
+                _detallesPeriodoAnterior, _archivoNombre, ParameterService.ec 
+            );
+
+            _lecturasCargadas = _lecturaActual.WaterReadingDetail ?? new List<WaterReadingDetail>();
+
+            if (_lecturaActual.errors.Count > 0)
+            {
+                int erroresEncontrados = _lecturaActual.errors.Count;
+
+                mensaje = $"Archivo '{_archivoNombre}' con errores. "
+                    + Environment.NewLine
+                    + $"Se encontraron ({erroresEncontrados}) errores."
+                    + Environment.NewLine
+                    + "El formato debe ser: DPTO | Periodo | Lectura Actual | Fecha Lectura";
+
+                _error = true;
+            }
+
+            //errorProcesamiento = _lecturaActual.errors;
+            await ProcesarLecturasCargadas();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Mostrar mensaje de error al usuario
+            Console.WriteLine($"Error al cargar archivo: {ex.Message}");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task ProcesarLecturasCargadas()
+    {
+        if (!_lecturasCargadas.Any()) return;
+
+        if (_esPrimeraCarga)
+        {
+            _lecturasProcesadas = _lecturasCargadas;
+            MarcarTodasComoProcesadas();
+        }
+        else
+        {
+            _lecturasProcesadas = await CalculoService.ProcesarLecturasBloqueAsync(
+                _lecturasCargadas,
+                _cargoFijo
+            );
+        }
+
+        StateHasChanged();
+    }
+
+    private void MarcarTodasComoProcesadas()
+    {
+        foreach (var lectura in _lecturasProcesadas)
+        {
+            lectura.Procesed = true;
+            lectura.Minimum = lectura.Consumption <= 0;
+        }
+    }
+
+    private async Task RecalcularLectura(WaterReadingDetail lectura, double value)
+    {
+        try
+        {
+            var consumo = lectura.Consumption == 0 ?
+                                value : lectura.Consumption;
+
+            var calculo = await CalculoService.CalcularConsumoAsync(consumo, _cargoFijo);
+
+            lectura.CalculationDetail = calculo;
+            lectura.CalculatedAmount = calculo.TotalConIGV;
+            lectura.Minimum = lectura.Consumption <= 0;
+            lectura.Consumption = consumo;
+            lectura.Procesed = true;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Mostrar error al recalcular
+            Console.WriteLine($"Error al recalcular: {ex.Message}");
+        }
+    }
+
+    private async Task RecalcularTodas()
+    {
+        foreach (var lectura in _lecturasProcesadas.Where(l => l.Procesed))
+        {
+            await RecalcularLectura(lectura, ParameterService.MinAgua);
+        }
+    }
+
+    private void SeleccionarLectura(WaterReadingDetail lectura)
+    {
+        _lecturaSeleccionada = lectura;
+        StateHasChanged();
+    }
+
+    private void CerrarModalDetalle()
+    {
+        _lecturaSeleccionada = null;
+        StateHasChanged();
+    }
+
+    private async Task GuardarLecturas()
+    {
+        try
+        {
+            if (!PuedeGuardar)
+            {
+                // TODO: Mostrar mensaje de que faltan procesar lecturas
+                return;
+            }
+
+            // Asignar detalles procesados a la lectura actual
+            _lecturaActual.WaterReadingDetail = _lecturasProcesadas;
+            _lecturaActual.TotalAmount = TotalGeneral;
+            //_lecturaActual.ModifiedDate = DateTime.Now;
+
+            // Guardar en base de datos
+            await ParameterService.ec.AddNewRecordAsync(_lecturaActual);
+
+            _esPrimeraCarga = false;
+
+            // TODO: Mostrar mensaje de éxito
+            await MostrarMensajeExito("Lecturas guardadas exitosamente");
+
+            LimpiarDatos();
+
+            _periodos = await CalculoService.GetPeriodsAsync(
+                ParameterService.ec,
+                ParameterService.IdBuilding
+            );
+            await ConfigurarPeriodoInicial();
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Mostrar mensaje de error
+            Console.WriteLine($"Error al guardar: {ex.Message}");
+        }
+    }
+
+    private void LimpiarDatos()
+    {
+        _lecturasProcesadas.Clear();
+        _lecturasCargadas.Clear();
+        _archivoNombre = string.Empty;
+        _archivoExcel = null;
+        _lecturaSeleccionada = null;
+        _error = false;
+        mensaje = string.Empty;
+
+        StateHasChanged();
+    }
+
+    private async Task MostrarMensajeExito(string mensaje)
+    {
+        // TODO: Implementar notificación de éxito (usar Toast, Snackbar, etc.)
+        Console.WriteLine($"Éxito: {mensaje}");
+        await Task.CompletedTask;
+    }
+
+    private async Task MostrarMensajeError(string mensaje)
+    {
+        // TODO: Implementar notificación de error
+        Console.WriteLine($"Error: {mensaje}");
+        await Task.CompletedTask;
+    }
+
+    private async Task CountTotal()
+    {
+        int Total = _lecturasProcesadas.Count(c => !c.Procesed);
+
+        if (Total == 0) _pending = false;
+    }
+
+    // FUNCIONES FALTANTES DESARROLLADAS
+
+    private async Task EliminarLectura(WaterReadingDetail lectura)
+    {
+        try
+        {
+    _lecturasProcesadas.Remove(lectura);
+    StateHasChanged();
+
+    await MostrarMensajeExito("Lectura eliminada");
+        }
+        catch (Exception ex)
+        {
+    await MostrarMensajeError($"Error al eliminar: {ex.Message}");
+        }
+    }
+
+    private async Task EditarLecturaManual()
+    {
+        // TODO: Implementar modal o formulario para edición manual
+        await Task.CompletedTask;
+    }
+
+    private async Task ValidarConsistenciaDatos()
+    {
+        try
+        {
+    var inconsistencias = new List<string>();
+
+    foreach (var lectura in _lecturasProcesadas)
+    {
+        // Validar consumo negativo
+        if (lectura.Consumption < 0)
+        {
+            inconsistencias.Add($"Lectura {lectura.Code} tiene consumo negativo");
+        }
+
+        // Validar que si hay consumo debe tener monto calculado
+        if (lectura.Consumption > 0 && lectura.CalculatedAmount > 0)
+        {
+            inconsistencias.Add($"Lectura {lectura.Code} tiene consumo pero no monto calculado");
+        }
+    }
+
+    if (inconsistencias.Any())
+    {
+        // TODO: Mostrar advertencias
+        foreach (var inc in inconsistencias)
+        {
+            Console.WriteLine($"Advertencia: {inc}");
+        }
+    }
+        }
+        catch (Exception ex)
+        {
+    Console.WriteLine($"Error en validación: {ex.Message}");
+        }
+    }
+
+    private async Task GenerarReporteConsumo()
+    {
+        try
+        {
+    if (!HayLecturasProcesadas) return;
+
+    var resumen = new
+    {
+        Periodo = _periodoActual.ToString("MMMM yyyy"),
+        TotalUnidades = _lecturasProcesadas.Count,
+        TotalConsumo = _lecturasProcesadas.Sum(l => l.Consumption),
+        MontoTotal = TotalGeneral,
+        UnidadesConsumoMinimo = _lecturasProcesadas.Count(l => l.Minimum),
+        PromedioConsumo = _lecturasProcesadas.Average(l => l.Consumption)
+    };
+
+    // TODO: Mostrar reporte en modal o exportar PDF
+    Console.WriteLine($"Reporte generado para {resumen.Periodo}");
+        }
+        catch (Exception ex)
+        {
+    await MostrarMensajeError($"Error al generar reporte: {ex.Message}");
+        }
+    }
+
+    private async Task CambiarCargoFijo(decimal nuevoCargoFijo)
+    {
+        _cargoFijo = nuevoCargoFijo;
+
+        // Recalcular todas las lecturas con nuevo cargo fijo
+        foreach (var lectura in _lecturasProcesadas)
+        {
+    if (lectura.Procesed)
+    {
+        await RecalcularLectura(lectura, ParameterService.MinAgua);
+    }
+        }
+
+        await MostrarMensajeExito($"Cargo fijo actualizado a {nuevoCargoFijo:C}");
+    }
+
+    private async Task SincronizarConPeriodoAnterior()
+    {
+        try
+        {
+    if (!_detallesPeriodoAnterior.Any())
+    {
+        await MostrarMensajeError("No hay datos del periodo anterior");
+        return;
+    }
+
+    foreach (var lecturaActual in _lecturasProcesadas)
+    {
+        var lecturaAnterior = _detallesPeriodoAnterior
+            .FirstOrDefault(l => l.GroupNumber == lecturaActual.GroupNumber);
+
+        if (lecturaAnterior != null)
+        {
+            // Copiar datos relevantes del periodo anterior
+            lecturaActual.PreviousReading = lecturaAnterior.CurrentReading;
+            // TODO: Agregar más campos según sea necesario
+        }
+    }
+
+    await MostrarMensajeExito("Datos sincronizados con periodo anterior");
+    StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+    await MostrarMensajeError($"Error en sincronización: {ex.Message}");
+        }
+    }
+
+    private async Task ExportarAExcel()
+    {
+        try
+        {
+    if (!HayLecturasProcesadas)
+    {
+        await MostrarMensajeError("No hay datos para exportar");
+        return;
+    }
+
+    // Generar el archivo Excel
+    var fileName = $"Lecturas_Agua_{_periodoActual:yyyyMM}.xlsx";
+    var fileBytes = await GenerarExcelAsync();
+
+    // Descargar el archivo
+    await DescargarArchivo(fileName, fileBytes);
+
+    await MostrarMensajeExito($"Archivo {fileName} generado exitosamente");
+        }
+        catch (Exception ex)
+        {
+    await MostrarMensajeError($"Error al exportar: {ex.Message}");
+        }
+    }
+
+    private async Task<byte[]> GenerarExcelAsync()
+    {
+        using var memoryStream = new MemoryStream();
+
+        using (var workbook = new XLWorkbook())
+        {
+    // Hoja 1: Datos detallados
+    var worksheet = workbook.Worksheets.Add("Lecturas Detalladas");
+    GenerarHojaDetallada(worksheet);
+
+    // Hoja 2: Resumen
+    var resumenWorksheet = workbook.Worksheets.Add("Resumen");
+    GenerarHojaResumen(resumenWorksheet);
+
+    // Hoja 3: Estadísticas
+    var estadisticasWorksheet = workbook.Worksheets.Add("Estadísticas");
+    GenerarHojaEstadisticas(estadisticasWorksheet);
+
+    // Ajustar columnas automáticamente
+    worksheet.Columns().AdjustToContents();
+    resumenWorksheet.Columns().AdjustToContents();
+    estadisticasWorksheet.Columns().AdjustToContents();
+
+    // Guardar en el stream
+    workbook.SaveAs(memoryStream);
+        }
+
+        return memoryStream.ToArray();
+    }
+
+    private void GenerarHojaDetallada(IXLWorksheet worksheet)
+    {
+        // Título
+        worksheet.Cell("A1").Value = "REPORTE DE LECTURAS DE AGUA";
+        worksheet.Cell("A1").Style.Font.Bold = true;
+        worksheet.Cell("A1").Style.Font.FontSize = 14;
+        worksheet.Range("A1:G1").Merge();
+        worksheet.Cell("A1").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        // Subtítulo
+        worksheet.Cell("A2").Value = $"Período: {_periodoActual:MMMM yyyy}";
+        worksheet.Cell("A2").Style.Font.Bold = true;
+        worksheet.Range("A2:G2").Merge();
+
+        // Fecha de generación
+        worksheet.Cell("A3").Value = $"Generado: {DateTime.Now:dd/MM/yyyy HH:mm}";
+        worksheet.Range("A3:G3").Merge();
+        worksheet.Cell("A3").Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        // Encabezados de columna
+        var headers = new[]
+        {
+            "Unidad", "Lectura Anterior", "Lectura Actual", "Consumo (m³)",
+            "Cargo Fijo", "Monto Consumo", "Subtotal", "IGV (18%)", "TOTAL"
+        };
+
+        int row = 5; // Fila donde empiezan los encabezados
+
+        for (int i = 0; i < headers.Length; i++)
+        {
+    var cell = worksheet.Cell(row, i + 1);
+    cell.Value = headers[i];
+    cell.Style.Font.Bold = true;
+    cell.Style.Fill.BackgroundColor = XLColor.LightGray;
+    cell.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        }
+
+        // Datos de las lecturas
+        row++;
+        foreach (var lectura in _lecturasProcesadas.OrderBy(l => l.GroupNumber))
+        {
+    worksheet.Cell(row, 1).Value = lectura.GroupNumber;
+    worksheet.Cell(row, 2).Value = lectura.PreviousReading;
+    worksheet.Cell(row, 3).Value = lectura.CurrentReading;
+    worksheet.Cell(row, 4).Value = lectura.Consumption;
+
+    if (lectura.CalculationDetail != null)
+    {
+        worksheet.Cell(row, 5).Value = lectura.CalculationDetail.CargoFijo;
+        worksheet.Cell(row, 5).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(row, 6).Value = lectura.Consumption;
+        worksheet.Cell(row, 6).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(row, 7).Value = lectura.CalculationDetail.Subtotal;
+        worksheet.Cell(row, 7).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(row, 8).Value = lectura.CalculationDetail.IGV;
+        worksheet.Cell(row, 8).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(row, 9).Value = lectura.CalculationDetail.TotalConIGV;
+        worksheet.Cell(row, 9).Style.NumberFormat.Format = "#,##0.00";
+
+        // Resaltar consumo mínimo
+        if (lectura.Minimum)
+        {
+            worksheet.Range(row, 1, row, 9).Style.Fill.BackgroundColor = XLColor.LightYellow;
+        }
+    }
+
+    // Aplicar bordes a toda la fila
+    worksheet.Range(row, 1, row, 9).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+    row++;
+        }
+
+        // Total general
+        row++;
+        worksheet.Cell(row, 8).Value = "TOTAL GENERAL:";
+        worksheet.Cell(row, 8).Style.Font.Bold = true;
+        worksheet.Cell(row, 8).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+
+        worksheet.Cell(row, 9).Value = TotalGeneral;
+        worksheet.Cell(row, 9).Style.Font.Bold = true;
+        worksheet.Cell(row, 9).Style.NumberFormat.Format = "#,##0.00";
+        worksheet.Cell(row, 9).Style.Fill.BackgroundColor = XLColor.LightGreen;
+        worksheet.Cell(row, 9).Style.Border.OutsideBorder = XLBorderStyleValues.Medium;
+
+        // Formato de números
+        worksheet.Column(4).Style.NumberFormat.Format = "#,##0"; // Consumo
+        worksheet.Columns(5, 9).Style.NumberFormat.Format = "#,##0.00"; // Montos
+    }
+
+    private void GenerarHojaResumen(IXLWorksheet worksheet)
+    {
+        // Título
+        worksheet.Cell("A1").Value = "RESUMEN DEL PERÍODO";
+        worksheet.Cell("A1").Style.Font.Bold = true;
+        worksheet.Cell("A1").Style.Font.FontSize = 14;
+        worksheet.Range("A1:B1").Merge();
+
+        // Datos del resumen
+        int row = 3;
+
+        var resumenData = new Dictionary<string, object>
+        {
+            ["Período"] = _periodoActual.ToString("MMMM yyyy"),
+            ["Total Unidades"] = _lecturasProcesadas.Count,
+            ["Total Consumo (m³)"] = _lecturasProcesadas.Sum(l => l.Consumption),
+            ["Consumo Promedio (m³)"] = _lecturasProcesadas.Average(l => l.Consumption),
+            ["Unidades con Consumo Mínimo"] = _lecturasProcesadas.Count(l => l.Minimum),
+            ["Cargo Fijo Aplicado"] = _cargoFijo,
+            ["Subtotal"] = _lecturasProcesadas.Sum(l => l.CalculationDetail!.Subtotal),
+            ["IGV Total"] = _lecturasProcesadas.Sum(l => l.CalculationDetail?.IGV ?? 0),
+            ["TOTAL GENERAL"] = TotalGeneral
+        };
+
+        foreach (var item in resumenData)
+        {
+            worksheet.Cell(row, 1).Value = item.Key;
+            worksheet.Cell(row, 1).Style.Font.Bold = true;
+
+            switch (item.Key)
+            {
+                case "Período":
+                    worksheet.Cell(row, 2).Value = item.Value.ToString();
+                    break;
+                case "Total Unidades":
+                case "Unidades con Consumo Mínimo":
+                    worksheet.Cell(row, 2).Value = (int)item.Value;
+                    break;
+                        case "Cargo Fijo Aplicado":
+                        case "Subtotal":
+                        case "IGV Total":
+                        case "TOTAL GENERAL":
+                            worksheet.Cell(row, 2).Value = (decimal)item.Value;
+                    break;
+                default:
+                    worksheet.Cell(row, 2).Value = (double)item.Value;
+                    break;
+            }
+
+            // Formato para montos y números
+            if (item.Key.Contains("TOTAL") || item.Key.Contains("Subtotal") ||
+                item.Key.Contains("IGV") || item.Key.Contains("Cargo Fijo"))
+            {
+                worksheet.Cell(row, 2).Style.NumberFormat.Format = "#,##0.00";
+            }
+            else if (item.Key.Contains("Consumption"))
+            {
+                worksheet.Cell(row, 2).Style.NumberFormat.Format = "#,##0.00";
+            }
+
+            row++;
+        }
+
+        // Resaltar total general
+        worksheet.Cell(row - 1, 1).Style.Fill.BackgroundColor = XLColor.LightBlue;
+        worksheet.Cell(row - 1, 2).Style.Fill.BackgroundColor = XLColor.LightBlue;
+        worksheet.Cell(row - 1, 2).Style.Font.Bold = true;
+
+        // Ajustar columnas
+        worksheet.Columns().AdjustToContents();
+    }
+
+    private void GenerarHojaEstadisticas(IXLWorksheet worksheet)
+    {
+        // Título
+        worksheet.Cell("A1").Value = "ESTADÍSTICAS DE CONSUMO";
+        worksheet.Cell("A1").Style.Font.Bold = true;
+        worksheet.Cell("A1").Style.Font.FontSize = 14;
+        worksheet.Range("A1:C1").Merge();
+
+        // Calcular estadísticas
+        var consumos = _lecturasProcesadas.Where(l => l.Consumption > 0).Select(l => l.Consumption).ToList();
+
+        if (consumos.Any())
+        {
+            var estadisticas = new Dictionary<string, decimal>
+            {
+                ["Consumo Máximo"] = (decimal)consumos.Max(),
+                ["Consumo Mínimo"] = (decimal)consumos.Min(),
+                ["Consumo Promedio"] = (decimal)consumos.Average(),
+                ["Consumo Mediano"] = CalcularMediana(consumos.Select(x => (decimal)x).ToList()),
+                ["Desviación Estándar"] = CalcularDesviacionEstandar(consumos.Select(x => (decimal)x).ToList())
+            };
+
+    int row = 3;
+    foreach (var item in estadisticas)
+    {
+        worksheet.Cell(row, 1).Value = item.Key;
+        worksheet.Cell(row, 1).Style.Font.Bold = true;
+
+        worksheet.Cell(row, 2).Value = item.Value;
+        worksheet.Cell(row, 2).Style.NumberFormat.Format = "#,##0.00";
+
+        row++;
+    }
+
+    // Histograma de consumo
+    row += 2;
+    worksheet.Cell(row, 1).Value = "DISTRIBUCIÓN DE CONSUMO";
+    worksheet.Cell(row, 1).Style.Font.Bold = true;
+    worksheet.Range(row, 1, row, 3).Merge();
+
+    row++;
+    worksheet.Cell(row, 1).Value = "Rango (m³)";
+    worksheet.Cell(row, 2).Value = "Cantidad";
+    worksheet.Cell(row, 3).Value = "Porcentaje";
+
+    var rangos = new[]
+    {
+                (0m, 10m, "0-10"),
+                (10.01m, 20m, "11-20"),
+                (20.01m, 30m, "20-30"),
+                (30.01m, 50m, "30-50"),
+                (50.01m, 100m, "50-100"),
+                (100.01m, decimal.MaxValue, ">100")
+            };
+
+    row++;
+    foreach (var rango in rangos)
+    {
+                var cantidad = consumos.Count(c => (decimal)c >= rango.Item1 && (decimal)c <= rango.Item2);
+                var porcentaje = consumos.Count > 0 ? (cantidad * 100m / consumos.Count) : 0;
+
+                worksheet.Cell(row, 1).Value = rango.Item3;
+                worksheet.Cell(row, 2).Value = cantidad;
+                worksheet.Cell(row, 3).Value = porcentaje / 100; // Para formato porcentaje
+                worksheet.Cell(row, 3).Style.NumberFormat.Format = "0.00%";
+
+                row++;
+            }
+        }
+        else
+        {
+            worksheet.Cell("A3").Value = "No hay datos de consumo disponibles";
+        }
+
+        worksheet.Columns().AdjustToContents();
+    }
+
+    private decimal CalcularMediana(List<decimal> valores)
+    {
+        if (!valores.Any()) return 0;
+
+        var sorted = valores.OrderBy(v => v).ToList();
+        int count = sorted.Count;
+
+        if (count % 2 == 0)
+        {
+            return (sorted[count / 2 - 1] + sorted[count / 2]) / 2;
+        }
+        else
+        {
+            return sorted[count / 2];
+        }
+    }
+
+    private decimal CalcularDesviacionEstandar(List<decimal> valores)
+    {
+        if (valores.Count < 2) return 0;
+
+        var promedio = valores.Average();
+        var sumaCuadrados = valores.Sum(v => (v - promedio) * (v - promedio));
+
+        return (decimal)Math.Sqrt((double)(sumaCuadrados / (valores.Count - 1)));
+    }
+
+    private async Task DescargarArchivo(string fileName, byte[] fileBytes)
+    {
+        await JSRuntime.InvokeVoidAsync(
+            "descargarArchivo",
+            fileName,
+            Convert.ToBase64String(fileBytes)
+        );
+    }
+
+    // JavaScript para descargar el archivo
+    public static class FileUtil
+    {
+        public static async Task SaveAs(IJSRuntime js, string filename, byte[] data)
+        {
+            await js.InvokeAsync<object>(
+                "saveAsFile",
+                filename,
+                Convert.ToBase64String(data)
+            );
+        }
+    }
+
+    private async Task ExportarPlantillaVacia()
+    {
+        try
+        {
+            using var memoryStream = new MemoryStream();
+
+            using (var workbook = new XLWorkbook())
+            {
+                var worksheet = workbook.Worksheets.Add("Plantilla");
+
+                // Encabezados
+                var headers = new[] { "Dpto.", "CurrentReading", "Fecha. Lectura" };
+
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    worksheet.Cell(1, i + 1).Value = headers[i];
+                    worksheet.Cell(1, i + 1).Style.Font.Bold = true;
+                    worksheet.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+                }
+
+                // Formato para ID de unidad
+                worksheet.Column(1).Style.NumberFormat.Format = "@"; // Texto
+
+                // Agregar algunas unidades como ejemplo
+                var unidades = await ObtenerUnidadesDelEdificio();
+                int row = 2;
+
+                foreach (var unidad in unidades)
+                {
+                    worksheet.Cell(row, 1).Value = unidad.Number;
+                    worksheet.Cell(row, 2).Value = ""; // Lectura actual vacía
+                    worksheet.Cell(row, 3).Value = ""; // Observaciones vacías
+                    row++;
+                }
+
+                // Instrucciones
+                worksheet.Cell(row + 2, 1).Value = "INSTRUCCIONES:";
+                worksheet.Cell(row + 2, 1).Style.Font.Bold = true;
+                worksheet.Cell(row + 3, 1).Value = "1. Complete la columna 'CurrentReading' con la lectura actual";
+                worksheet.Cell(row + 4, 1).Value = "2. No modifique la columna 'Dpto.'";
+                worksheet.Cell(row + 5, 1).Value = "3. Guarde el archivo y cárguelo en el sistema";
+
+                workbook.SaveAs(memoryStream);
+            }
+
+            var fileName = $"Plantilla_Lecturas_{DateTime.Now:yyyyMMdd}.xlsx";
+            await DescargarArchivo(fileName, memoryStream.ToArray());
+
+            await MostrarMensajeExito("Plantilla descargada exitosamente");
+        }
+        catch (Exception ex)
+        {
+            await MostrarMensajeError($"Error al generar plantilla: {ex.Message}");
+        }
+    }
+
+    private async Task ExportarComparativoConsumo()
+    {
+        try
+        {
+            if (_detallesPeriodoAnterior == null || !_detallesPeriodoAnterior.Any())
+            {
+                await MostrarMensajeError("No hay datos del período anterior para comparar");
+                return;
+            }
+
+            using var memoryStream = new MemoryStream();
+
+            using (var workbook = new XLWorkbook())
+            {
+                var worksheet = workbook.Worksheets.Add("Comparativo");
+
+                // Título
+                worksheet.Cell("A1").Value = "COMPARATIVO DE CONSUMO";
+                worksheet.Cell("A1").Style.Font.Bold = true;
+                worksheet.Cell("A1").Style.Font.FontSize = 14;
+                worksheet.Range("A1:G1").Merge();
+
+                // Períodos
+                worksheet.Cell("A2").Value = $"Período Anterior: {_ultimoPeriodo.AddMonths(-1):MMMM yyyy}";
+                worksheet.Cell("A3").Value = $"Período Actual: {_periodoActual:MMMM yyyy}";
+
+                // Encabezados
+                int row = 5;
+                var headers = new[]
+                {
+                "Unidad", "Consumo Anterior", "Consumo Actual", "Diferencia",
+                "Variación %", "Tendencia", "Ahorro/Incremento"
+            };
+
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    worksheet.Cell(row, i + 1).Value = headers[i];
+                    worksheet.Cell(row, i + 1).Style.Font.Bold = true;
+                    worksheet.Cell(row, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+                }
+
+                // Datos comparativos
+                row++;
+                foreach (var lecturaActual in _lecturasProcesadas)
+                {
+                    var lecturaAnterior = _detallesPeriodoAnterior
+                        .FirstOrDefault(l => l.GroupNumber == lecturaActual.GroupNumber);
+
+                    double consumoAnterior = lecturaAnterior?.Consumption ?? 0;
+                    double consumoActual = lecturaActual.Consumption;
+                    double diferencia = consumoActual - consumoAnterior;
+                    double variacionPorcentual = consumoAnterior > 0 ?
+                        (diferencia / consumoAnterior) * 100 : 0;
+
+                    worksheet.Cell(row, 1).Value = lecturaActual.GroupNumber;
+                    worksheet.Cell(row, 2).Value = consumoAnterior;
+                    worksheet.Cell(row, 3).Value = consumoActual;
+                    worksheet.Cell(row, 4).Value = diferencia;
+                    worksheet.Cell(row, 5).Value = variacionPorcentual / 100; // Para formato %
+                    worksheet.Cell(row, 5).Style.NumberFormat.Format = "0.00%";
+
+                    // Tendencia con iconos
+                    worksheet.Cell(row, 6).Value = diferencia > 0 ? "↑" : diferencia < 0 ? "↓" : "→";
+                    worksheet.Cell(row, 6).Style.Font.FontColor =
+                        diferencia > 0 ? XLColor.Red : diferencia < 0 ? XLColor.Green : XLColor.Black;
+
+                    // Cálculo de ahorro/incremento en dinero
+                    decimal montoDiferencia = 0;
+                    if (lecturaActual.CalculationDetail != null && lecturaAnterior?.CalculationDetail != null)
+                    {
+                        montoDiferencia = lecturaActual.CalculationDetail.TotalConIGV -
+                                         lecturaAnterior.CalculationDetail.TotalConIGV;
+                    }
+
+                    worksheet.Cell(row, 7).Value = montoDiferencia;
+                    worksheet.Cell(row, 7).Style.NumberFormat.Format = "#,##0.00";
+                    worksheet.Cell(row, 7).Style.Font.FontColor =
+                        montoDiferencia < 0 ? XLColor.Green : XLColor.Red;
+
+                    // Resaltar variaciones significativas
+                    if (Math.Abs(variacionPorcentual) > 50)
+                    {
+                        worksheet.Range(row, 1, row, 7).Style.Fill.BackgroundColor = XLColor.LightYellow;
+                    }
+
+                    row++;
+                }
+
+                // Totales
+                row++;
+                worksheet.Cell(row, 2).Value = _detallesPeriodoAnterior.Sum(l => l.Consumption);
+                worksheet.Cell(row, 3).Value = _lecturasProcesadas.Sum(l => l.Consumption);
+                worksheet.Cell(row, 4).Value = worksheet.Cell(row, 3).GetValue<decimal>() -
+                                              worksheet.Cell(row, 2).GetValue<decimal>();
+
+                // Formato
+                worksheet.Columns("B:D").Style.NumberFormat.Format = "#,##0.00";
+                worksheet.Columns().AdjustToContents();
+
+                workbook.SaveAs(memoryStream);
+            }
+
+            var fileName = $"Comparativo_{_periodoActual:yyyyMM}.xlsx";
+            await DescargarArchivo(fileName, memoryStream.ToArray());
+
+            await MostrarMensajeExito("Reporte comparativo generado exitosamente");
+        }
+        catch (Exception ex)
+        {
+            await MostrarMensajeError($"Error al generar comparativo: {ex.Message}");
+        }
+    }
+
+    private async Task<List<Models.UnitView>> ObtenerUnidadesDelEdificio()
+    {
+        // Implementación para obtener las unidades del edificio
+        // Esta es una implementación de ejemplo
+        return ParameterService.ec.GetGroupUnitsByType(ParameterService.IdBuilding, 1);
+    }
+
+}

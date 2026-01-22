@@ -1,0 +1,60 @@
+﻿@using SpiderHood.Models
+
+<section>
+    <div class="fullscreen-container" id="myGridView">
+        
+        <table class="table table-hover ">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Nombre</th>
+                    <th>Valor</th>
+                    <th>Estado</th>
+                    <th>Padre</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Items)
+                {
+                    @if (@item.IdParent == 0)
+                    {
+                        <tr>
+                            <td>@item.IdTabla</td>
+                            <td><strong>@item.ShortDescription</strong></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    }
+                    else
+                    {
+                        <tr>
+                            <td>@item.IdTabla</td>
+                            <td><span style="margin-left: 20px;"><em>@item.ShortDescription</em></span></td>
+                            <td>@item.Value</td>
+                            <td>@(item.Estado == Models.ParameterEstado.Activo ? "Activo" : "Inactivo")</td>
+
+                            <td>@item.IdParent</td>
+                            <button class="btn-list btn-icon-danger" @onclick="() => OpenModal(item)">
+                                <i class="fa-regular fa-building" title="Editar Parametro"></i>
+                            </button>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@code {
+    [Parameter] public IQueryable<Parameter> Items { get; set; }
+    [Parameter] public EventCallback<Parameter> OnOpenParameter { get; set; }
+
+    private async Task OpenModal(Parameter _param)
+    {
+        await OnOpenParameter.InvokeAsync(_param);
+    }
+
+}

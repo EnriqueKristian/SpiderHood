@@ -1,0 +1,859 @@
+﻿@page "/expenseNew"
+@rendermode InteractiveServer
+@inject ParameterService ParameterService
+@layout MainLayout
+@using Microsoft.AspNetCore.Components
+@using SpiderHood.Services
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<PageTitle>Resumen de Gastos</PageTitle>
+
+<style>
+    /* Estilos específicos para resumen de gastos */
+    .icon-shape {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+    }
+
+    /* Cards de resumen con gradientes */
+    .summary-card {
+        border-radius: 12px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+        .summary-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+        }
+
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%) !important;
+    }
+
+    .bg-gradient-success {
+        background: linear-gradient(135deg, #198754 0%, #146c43 100%) !important;
+    }
+
+    .bg-gradient-info {
+        background: linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%) !important;
+    }
+
+    /* Estilos para tabla jerárquica */
+    .category-header {
+        border-left: 4px solid #0d6efd !important;
+        transition: background-color 0.2s ease;
+    }
+
+        .category-header:hover {
+            background-color: #e9ecef !important;
+        }
+
+    .expense-detail {
+        background-color: #fcfcfc;
+        border-left: 2px solid #e9ecef;
+    }
+
+        .expense-detail:hover {
+            background-color: #f5f5f5 !important;
+        }
+
+    /* Badges personalizados */
+    .badge {
+        padding: 0.35em 0.65em;
+        font-weight: 500;
+        border-radius: 6px;
+    }
+
+    .bg-success.bg-opacity-10 {
+        background-color: rgba(25, 135, 84, 0.1) !important;
+        border: 1px solid rgba(25, 135, 84, 0.2);
+    }
+
+    .bg-info.bg-opacity-10 {
+        background-color: rgba(13, 202, 240, 0.1) !important;
+        border: 1px solid rgba(13, 202, 240, 0.2);
+    }
+
+    /* Estilos para la tabla */
+    .table th {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #dee2e6;
+        background-color: #f8f9fa;
+    }
+
+    .table td {
+        vertical-align: middle;
+        padding: 1rem 0.75rem;
+    }
+
+    /* Botones de acción */
+    .btn-group .btn {
+        border-radius: 6px !important;
+        margin: 0 1px;
+        padding: 0.25rem 0.5rem;
+    }
+
+        .btn-group .btn:hover {
+            transform: translateY(-1px);
+        }
+
+    /* Switch personalizado */
+    .form-check-input:checked {
+        background-color: #198754;
+        border-color: #198754;
+    }
+
+    .form-check-input:focus {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    /* Progress bars */
+    .progress {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        border-radius: 10px;
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+
+    /* Estilos para el modal */
+    .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 12px 12px 0 0;
+    }
+
+    .modal-footer {
+        border-top: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+        border-radius: 0 0 12px 12px;
+    }
+
+</style>
+
+<div class="container-fluid px-4 py-3">
+    <!-- Header principal -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div class="mb-3 mb-md-0">
+            <div class="d-flex align-items-center">
+                <div class="me-3">
+                    <div class="icon-shape bg-danger rounded-circle p-3">
+                        <i class="bi bi-cash-stack text-white fs-4"></i>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="h3 fw-bold mb-1">Resumen de Gastos</h1>
+                    <div class="d-flex align-items-center">
+                        <h3 class="h5 text-primary mb-0 me-3">Enero 2025</h3>
+                        <span class="badge bg-primary">12 gasto(s)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" @onclick="ExportToExcel">
+                <i class="bi bi-file-earmark-excel me-2"></i>Exportar Excel
+            </button>
+            <button class="btn btn-primary" @onclick="ShowAddExpenseModal">
+                <i class="bi bi-plus-circle me-2"></i>Agregar Gasto
+            </button>
+        </div>
+    </div>
+
+    <!-- Cards de resumen -->
+    <div class="row mb-4">
+        <!-- Total Gastos -->
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card summary-card border-0 bg-gradient-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Total Gastos</h6>
+                            <h2 class="card-title display-6 fw-bold mb-1">S/ 4,935.00</h2>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-receipt me-2"></i>
+                                <span class="small">12 gasto(s)</span>
+                            </div>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="bi bi-wallet2 display-4 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gastos Fijos -->
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card summary-card border-0 bg-gradient-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Gastos Fijos</h6>
+                            <h2 class="card-title display-6 fw-bold mb-1">S/ 3,270.00</h2>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-lock me-2"></i>
+                                <span class="small">5 gasto(s) fijos</span>
+                            </div>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="bi bi-graph-up-arrow display-4 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gastos Proporcionales -->
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card summary-card border-0 bg-gradient-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="card-subtitle mb-2 opacity-75">Gastos Proporcionales</h6>
+                            <h2 class="card-title display-6 fw-bold mb-1">S/ 1,665.00</h2>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-percent me-2"></i>
+                                <span class="small">7 gasto(s) proporcionales</span>
+                            </div>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="bi bi-pie-chart display-4 opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros y controles -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body py-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-calendar text-primary me-3 fs-4"></i>
+                                <div class="flex-grow-1">
+                                    <label class="form-label fw-semibold mb-1">Mes</label>
+                                    <div class="input-group">
+                                        <select class="form-select" @bind="selectedMonth">
+                                            <option value="1">Enero</option>
+                                            <option value="2">Febrero</option>
+                                            <option value="3">Marzo</option>
+                                            <option value="4">Abril</option>
+                                            <option value="5">Mayo</option>
+                                            <option value="6">Junio</option>
+                                            <option value="7">Julio</option>
+                                            <option value="8">Agosto</option>
+                                            <option value="9">Septiembre</option>
+                                            <option value="10">Octubre</option>
+                                            <option value="11">Noviembre</option>
+                                            <option value="12">Diciembre</option>
+                                        </select>
+                                        <select class="form-select" @bind="selectedYear">
+                                            @foreach (var year in availableYears)
+                                            {
+                                                <option value="@year">@year</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-tag text-primary me-3 fs-4"></i>
+                                <div class="flex-grow-1">
+                                    <label class="form-label fw-semibold mb-1">Categoría</label>
+                                    <select class="form-select" @bind="selectedCategory">
+                                        <option value="all">Todas las categorías</option>
+                                        @foreach (var category in categories)
+                                        {
+                                            <option value="@category">@category</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-funnel text-primary me-3 fs-4"></i>
+                                <div class="flex-grow-1">
+                                    <label class="form-label fw-semibold mb-1">Distribución</label>
+                                    <select class="form-select" @bind="selectedDistribution">
+                                        <option value="all">Todas las distribuciones</option>
+                                        <option value="Fija">Fija</option>
+                                        <option value="Proporcional">Proporcional</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle de gastos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-transparent border-bottom py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-list-check me-2"></i>Detalle de Gastos
+                            </h5>
+                            <p class="text-muted mb-0 small">Desglose por categoría y distribución</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleAllCategories">
+                                <i class="bi bi-arrows-collapse me-1"></i>
+                                @(allExpanded ? "Contraer todo" : "Expandir todo")
+                            </button>
+                            <div class="input-group input-group-sm" style="width: 200px;">
+                                <span class="input-group-text bg-transparent border-end-0">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0"
+                                       placeholder="Buscar gasto..."
+                                       @bind="searchTerm"
+                                       @bind:event="oninput" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    @if (filteredExpenses.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-4" style="width: 200px;">CATEGORÍA</th>
+                                        <th>DESCRIPCIÓN</th>
+                                        <th style="width: 120px;">FECHA</th>
+                                        <th style="width: 150px;">DISTRIBUCIÓN</th>
+                                        <th style="width: 150px;" class="text-end">MONTO</th>
+                                        <th style="width: 120px;" class="text-center">ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var categoryGroup in groupedExpenses)
+                                    {
+                                        <!-- Encabezado de categoría -->
+                                        <tr class="category-header"
+                                            style="background-color: #f8f9fa; cursor: pointer;"
+                                            @onclick="() => ToggleCategory(categoryGroup.Key)">
+                                            <td class="ps-4 fw-bold">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="bi @(expandedCategories.Contains(categoryGroup.Key) ? "bi-folder-minus" : "bi-folder-plus") me-2"></i>
+                                                    <span>@categoryGroup.Key</span>
+                                                </div>
+                                            </td>
+                                            <td colspan="2">
+                                                <span class="text-muted">@categoryGroup.Value.Count gasto(s)</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-secondary">Total categoría</span>
+                                            </td>
+                                            <td class="text-end fw-bold text-primary">
+                                                S/ @categoryGroup.Value.Sum(e => e.TotalAmount).ToString("N2")
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        title="Agregar gasto a esta categoría"
+                                                        @onclick:stopPropagation
+                                                        @onclick="() => AddExpenseToCategory(categoryGroup.Key)">
+                                                    <i class="bi bi-plus-lg"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Detalle de gastos (si la categoría está expandida) -->
+                                        @if (expandedCategories.Contains(categoryGroup.Key))
+                                        {
+                                            @foreach (var expense in categoryGroup.Value)
+                                            {
+                                                <tr class="expense-detail">
+                                                    <td class="ps-5">
+                                                        <div class="d-flex align-items-center">
+                                                            <i class="bi bi-arrow-return-right me-2 text-muted"></i>
+                                                        </div>
+                                                    </td>
+                                                    <td class="ps-2">
+                                                        <div class="d-flex align-items-center">
+                                                            <i class="bi bi-receipt me-2 text-muted"></i>
+                                                            <div>
+                                                                <div class="fw-medium">@expense.ExpenseDescription</div>
+                                                                @if (!string.IsNullOrEmpty(expense.Observaciones))
+                                                                {
+                                                                    <small class="text-muted">@expense.Observaciones</small>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <div class="d-flex flex-column">
+                                                            <span class="fw-medium">@expense.DueDate.ToString("dd-MMM")</span>
+                                                            <small class="text-muted">@expense.DueDate.ToString("yyyy")</small>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge @GetDistributionBadgeClass(expense.IdDistribution)">
+                                                            <i class="bi @GetDistributionIcon(expense.IdDistribution) me-1"></i>
+                                                            @expense.Distribution
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-end">
+                                                        <span class="fw-bold @(expense.TotalAmount > 0 ? "text-danger" : "text-success")">
+                                                            S/ @expense.TotalAmount.ToString("N2")
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <div class="btn-group btn-group-sm">
+                                                            <button class="btn btn-outline-success"
+                                                                    title="Marcar como pagado"
+                                                                    @onclick="() => TogglePaidStatus(expense)">
+                                                                <i class="bi @(expense.Pagado ? "bi-check-circle-fill" : "bi-check-circle")"></i>
+                                                            </button>
+                                                            <button class="btn btn-outline-secondary"
+                                                                    title="Editar"
+                                                                    @onclick="() => EditExpense(expense)">
+                                                                <i class="bi bi-pencil"></i>
+                                                            </button>
+                                                            <button class="btn btn-outline-danger"
+                                                                    title="Eliminar"
+                                                                    @onclick="() => DeleteExpense(expense)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+
+                                        <!-- Separador -->
+                                        <tr>
+                                            <td colspan="6" class="p-0">
+                                                <div class="border-bottom" style="height: 2px; background-color: #e9ecef;"></div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <div class="mb-3">
+                                <i class="bi bi-receipt text-muted display-4"></i>
+                            </div>
+                            <h5 class="text-muted mb-2">No hay gastos registrados</h5>
+                            <p class="text-muted mb-3">Para el mes y filtros seleccionados</p>
+                            <button class="btn btn-primary" @onclick="ShowAddExpenseModal">
+                                <i class="bi bi-plus-circle me-2"></i>Registrar Primer Gasto
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                <!-- Footer con estadísticas -->
+                <div class="card-footer bg-transparent border-top py-3">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <i class="bi bi-pie-chart fs-4 text-primary"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1">Distribución por Tipo</h6>
+                                    <div class="progress" style="height: 8px; width: 200px;">
+                                        <div class="progress-bar bg-success" style="width: 66.3%">66.3% Fijos</div>
+                                        <div class="progress-bar bg-info" style="width: 33.7%">33.7% Prop.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <i class="bi bi-currency-exchange fs-4 text-primary"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1">Promedio por Gasto</h6>
+                                    <p class="mb-0 fw-bold">S/ @(totalGastos > 0 ? (totalGastos / totalExpenses).ToString("N2") : "0.00")</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                <div class="me-3">
+                                    <i class="bi bi-check-circle fs-4 text-primary"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1">Estado de Pagos</h6>
+                                    <p class="mb-0">
+                                        <span class="badge bg-success me-1">@expenses.Count(e => e.Pagado) pagado(s)</span>
+                                        <span class="badge bg-warning">@expenses.Count(e => !e.Pagado) pendiente(s)</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para agregar/editar gasto -->
+@if (showExpenseModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi @(isEditingExpense ? "bi-pencil" : "bi-plus-circle") me-2"></i>
+                        @(isEditingExpense ? "Editar Gasto" : "Nuevo Gasto")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseExpenseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Categoría *</label>
+                                <select class="form-select" @bind="currentExpense.Category">
+                                    <option value="">Seleccionar categoría</option>
+                                    @foreach (var category in categories)
+                                    {
+                                        <option value="@category">@category</option>
+                                    }
+                                    <option value="new">+ Nueva categoría</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Descripción *</label>
+                                <input type="text" class="form-control" @bind="currentExpense.ExpenseDescription"
+                                       placeholder="Descripción del gasto" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Monto (S/) *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">S/</span>
+                                    <input type="number" class="form-control" @bind="currentExpense.TotalAmount"
+                                           step="0.01" min="0" />
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha *</label>
+                                <input type="date" class="form-control" @bind="currentExpense.DueDate"
+                                       @bind:format="yyyy-MM-dd" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Distribución *</label>
+                                <select class="form-select" @bind="currentExpense.IdDistribution">
+                                    <option value=@Models.TypeDistribution.Fija>Fija</option>
+                                    <option value=@Models.TypeDistribution.Proporcional>Proporcional %</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Estado de Pago</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox"
+                                           @bind="currentExpense.Pagado" />
+                                    <label class="form-check-label">
+                                        @(currentExpense.Pagado ? "Pagado" : "Pendiente")
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Observaciones</label>
+                                <textarea class="form-control" rows="3" @bind="currentExpense.Observaciones"
+                                          placeholder="Observaciones adicionales..."></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseExpenseModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveExpense">
+                        <i class="bi bi-save me-2"></i>Guardar Gasto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+
+    // Datos de ejemplo
+    private List<Models.Expense> expenses = new();
+
+    // Variables de estado
+    private List<Models.Expense> filteredExpenses = new();
+    Dictionary<string, List<SpiderHood.Models.Expense>> groupedExpenses = new();
+    private HashSet<string> expandedCategories = new();
+    private bool allExpanded = true;
+
+    private int selectedMonth = 1;
+    private int selectedYear = 2025;
+    private string selectedCategory = "all";
+    private string selectedDistribution = "all";
+    private string searchTerm = string.Empty;
+
+    private bool showExpenseModal = false;
+    private bool isEditingExpense = false;
+    private Models.Expense currentExpense = new();
+
+    // Datos auxiliares
+    private List<string> categories = new();
+    private List<int> availableYears = Enumerable.Range(2020, 10).ToList();
+
+    // Propiedades calculadas
+    private decimal totalGastos => filteredExpenses.Sum(e => e.TotalAmount);
+    private decimal gastosFijos => filteredExpenses.Where(e => e.IdDistribution == Models.TypeDistribution.Fija).Sum(e => e.TotalAmount);
+    private decimal gastosProporcionales => filteredExpenses.Where(e => e.IdDistribution == Models.TypeDistribution.Proporcional).Sum(e => e.TotalAmount);
+    private int totalExpenses => filteredExpenses.Count;
+
+    protected override void OnInitialized()
+    {
+        // Expandir todas las categorías al inicio
+
+        categories = ParameterService.ec.GetCategories(ParameterService.IdBuilding)
+                .Where(c => c.Nivel == 0)
+                .Select(c => c.ShortDescript).ToList();
+
+        expandedCategories = new HashSet<string>(categories);
+        expenses = ParameterService.ec.GetExpensesByBuilding(ParameterService.IdBuilding).ToList();
+
+        FilterExpenses();
+    }
+
+    private void FilterExpenses()
+    {
+        /*filteredExpenses = expenses
+            .Where(e => e.DueDate.Month == selectedMonth && e.DueDate.Year == selectedYear)
+            .Where(e => selectedCategory == "all" || e.Category == selectedCategory)
+            .Where(e => selectedDistribution == "all" || e.Distribution == selectedDistribution)
+            .Where(e => string.IsNullOrEmpty(searchTerm) ||
+                       e.ExpenseDescription.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                       e.Category.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                       e.Observaciones.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(e => e.Category)
+            .ThenBy(e => e.DueDate)
+            .ToList();*/
+
+
+        filteredExpenses = expenses
+        .Where(e => selectedCategory == "all" || e.Category == selectedCategory)
+        .Where(e => selectedDistribution == "all" || e.Distribution == selectedDistribution)
+        .Where(e => string.IsNullOrEmpty(searchTerm) ||
+                   e.ExpenseDescription.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                   e.Category.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                   e.Observaciones.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(e => e.Category)
+        .ThenBy(e => e.DueDate)
+        .ToList();
+        GroupExpenses();
+    }
+
+    private void GroupExpenses()
+    {
+        groupedExpenses = filteredExpenses
+            .GroupBy(e => e.Category)
+            .OrderBy(g => g.Key)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+
+            /*
+        var groupedExpenses = filteredExpenses
+            .GroupBy(e => new { e.FilterbyMonth, e.Category })
+            .OrderBy(g => g.Key.FilterbyMonth)
+            .ThenBy(g => g.Key.Category)
+            .ToDictionary(g => $"{g.Key.FilterbyMonth} - {g.Key.Category}", g => g.ToList());
+            */
+
+    }
+
+    private void ToggleCategory(string category)
+    {
+        if (expandedCategories.Contains(category))
+            expandedCategories.Remove(category);
+        else
+            expandedCategories.Add(category);
+    }
+
+    private void ToggleAllCategories()
+    {
+        allExpanded = !allExpanded;
+
+        if (allExpanded)
+        {
+            expandedCategories = new HashSet<string>(groupedExpenses.Keys);
+        }
+        else
+        {
+            expandedCategories.Clear();
+        }
+    }
+
+    private string GetDistributionBadgeClass(Models.TypeDistribution distribucion)
+    {
+        return distribucion switch
+        {
+            Models.TypeDistribution.Fija => "bg-success bg-opacity-10 text-success",
+            Models.TypeDistribution.Proporcional => "bg-info bg-opacity-10 text-info",
+            _ => "bg-secondary bg-opacity-10 text-secondary"
+        };
+    }
+
+    private string GetDistributionIcon(Models.TypeDistribution distribucion)
+    {
+        return distribucion switch
+        {
+            Models.TypeDistribution.Fija => "bi-lock",
+            Models.TypeDistribution.Proporcional => "bi-percent",
+            _ => "bi-question-circle"
+        };
+    }
+
+    private void ShowAddExpenseModal()
+    {
+        isEditingExpense = false;
+        currentExpense = new Models.Expense
+        {
+            DueDate = new DateTime(selectedYear, selectedMonth, 1),
+            IdDistribution = Models.TypeDistribution.Fija,
+            Pagado = true
+        };
+        showExpenseModal = true;
+    }
+
+    private void AddExpenseToCategory(string category)
+    {
+        isEditingExpense = false;
+        currentExpense = new Models.Expense
+        {
+            Category = category,
+            DueDate = new DateTime(selectedYear, selectedMonth, 1),
+            IdDistribution = Models.TypeDistribution.Fija,
+            Pagado = true
+        };
+        showExpenseModal = true;
+    }
+
+    private void EditExpense(Models.Expense expense)
+    {
+        isEditingExpense = true;
+        currentExpense = new Models.Expense
+        {
+            IdExpense = expense.IdExpense,
+            IdCategory = expense.IdCategory,
+            ExpenseDescription = expense.ExpenseDescription,
+            TotalAmount = expense.TotalAmount,
+            DueDate = expense.DueDate,
+            IdDistribution = expense.IdDistribution,
+            Pagado = expense.Pagado
+            //Observaciones = expense.Observaciones
+        };
+        showExpenseModal = true;
+    }
+
+    private void SaveExpense()
+    {
+        if (isEditingExpense)
+        {
+            var existing = expenses.FirstOrDefault(e => e.IdExpense == currentExpense.IdExpense);
+            if (existing != null)
+            {
+                existing.IdCategory = currentExpense.IdCategory;
+                existing.ExpenseDescription = currentExpense.ExpenseDescription;
+                existing.TotalAmount = currentExpense.TotalAmount;
+                existing.DueDate = currentExpense.DueDate;
+                existing.IdDistribution = currentExpense.IdDistribution;
+                existing.Pagado = currentExpense.Pagado;
+                existing.Observaciones = currentExpense.Observaciones;
+            }
+        }
+        else
+        {
+            //var newId = expenses.Any() ? expenses.Max(e => e.Id) + 1 : 1;
+            currentExpense.IdExpense = new Guid();
+            expenses.Add(currentExpense);
+        }
+
+        CloseExpenseModal();
+        FilterExpenses();
+    }
+
+    private void DeleteExpense(Models.Expense expense)
+    {
+        expenses.Remove(expense);
+        FilterExpenses();
+    }
+
+    private void TogglePaidStatus(Models.Expense expense)
+    {
+        expense.Pagado = !expense.Pagado;
+    }
+
+    private void CloseExpenseModal()
+    {
+        showExpenseModal = false;
+        currentExpense = new Models.Expense();
+    }
+
+    private async Task ExportToExcel()
+    {
+        // Lógica para exportar a Excel
+        await JSRuntime.InvokeVoidAsync("alert", "Exportando gastos a Excel...");
+    }
+
+    // Watchers para filtros
+    private int _selectedMonth, _selectedYear;
+    private string _selectedCategory = "all", _selectedDistribution = "all", _searchTerm = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (_selectedMonth != selectedMonth || _selectedYear != selectedYear ||
+            _selectedCategory != selectedCategory || _selectedDistribution != selectedDistribution ||
+            _searchTerm != searchTerm)
+        {
+            _selectedMonth = selectedMonth;
+            _selectedYear = selectedYear;
+            _selectedCategory = selectedCategory;
+            _selectedDistribution = selectedDistribution;
+            _searchTerm = searchTerm;
+            FilterExpenses();
+        }
+    }
+}

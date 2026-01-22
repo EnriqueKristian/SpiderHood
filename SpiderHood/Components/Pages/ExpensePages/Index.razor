@@ -1,0 +1,280 @@
+﻿@page "/expense"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.EntityFrameworkCore.Metadata.Internal
+@using SpiderHood.Components.Pages.ParameterPages
+@using SpiderHood.Data
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject NavigationManager Navigation // Inyecta el servicio de navegación
+@inject ParameterService ParameterService
+
+<section>
+    <div class="row">
+        @* ====== TITULO ====== *@
+        <div class="col-md-6 order-md-2 mb-1"><h2>Resumen de Gastos</h2><h6>Enero 2025</h6></div>
+    </div>
+</section>
+<section>
+<div class="container my-4">
+    @* ====== CARDS RESUMEN SUPERIOR ====== *@
+    <div class="row g-3 mb-2">
+        <ExpenseCard Title="Total Gastos" TotalCount="@TotalCount" TotalExpenses="@TotalExpenses" Class="h5 mb-1" ClassBorder="card shadow-sm h-100"></ExpenseCard>
+        <ExpenseCard Title="Gastos Fijos" TotalCount="@FixedCount" TotalExpenses="@FixedExpenses" Class="h6 mb-1" ClassBorder="card shadow-sm h-100"></ExpenseCard>
+        <ExpenseCard Title="Gastos Proporcionales" TotalCount="@ProportionalCount" TotalExpenses="@ProportionalExpenses" Class="h6 mb-1" ClassBorder="card shadow-sm h-100"></ExpenseCard>
+    </div>
+    @* ====== FILTROS ====== *@
+    <div class="card mb-2 shadow-sm">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <table>
+                    <tr>
+                        <td><label class="form-label"><strong>Mes</strong></label></td>
+                        <td width="30%"><input type="month" class="form-control" @onchange="FilterByDate" /></td>
+                        <td></td>
+                        <td align="center"><label class="form-label"><strong>Categoría</strong></label></td>
+                        <td width="30%">
+                            <select class="form-select" @bind="SelectedCategory">
+                                <option value="all">Todas</option>
+                                @foreach (var item in FilteredCategory.Where(c => c.Nivel == 0))
+                                {
+                                    <option value="@item.IdCategory">@item.ShortDescript</option>
+                                }
+                            </select>
+                        </td>
+                        <td width="20%" align="right">
+                                <button class="w-80 btn btn-primary btn-lg" type="button" @onclick="() => AbrirModal(_newExpense, OpenType.Create)">Agregar Gasto</button>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @* ====== RESUMEN POR CATEGORÍA ====== *@
+    <!--
+    <div class="row g-3 mb-4">
+        @foreach (var x in FilteredExpenses.Select(e => e.Category).Distinct())
+        {
+                // Totales por categoría (según ejemplo)
+                decimal TotalCat = FilteredExpenses.Where(e => e.Category == x.ToString()).Sum(e => e.TotalAmount);
+                int CountCat = FilteredExpenses.Count(e => e.Category == x.ToString());
+
+                <ExpenseCard Title="@x" TotalCount="@CountCat" TotalExpenses="@TotalCat" Class="mb-1" ClassBorder="card border-start border-primary border-3 h-100"></ExpenseCard>
+        }
+    </div>
+     -->
+
+    @* ====== TABLA DE GASTOS ====== *@
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <strong>Detalle de gastos</strong>
+        </div>
+        <div class="card-body p-0">
+                <div class="grid" id="myGridView" style="width:100%">
+                    <table class="table table-hover custom-grid" border="1">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Categoría</th>
+                            <th>Descripción</th>
+                            <th>Fecha</th>
+                            <th>Distribución</th>
+                            <th class="text-end">Monto</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!FilteredExpenses.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    No hay gastos registrados para los filtros seleccionados.
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            FilteredExpensesByCat = FilteredExpenses.Where(c => (SelectedCategory == "all" || c.IdCategory.ToString() == SelectedCategory) && (SelectedMonth == "2025-01" || c.FilterbyMonth == SelectedMonth));
+
+                            @foreach (var x in FilteredExpenses.Select(e => e.Category).Distinct())
+                            {
+                                decimal TotalCat = FilteredExpenses.Where(e => e.Category == x.ToString()).Sum(e => e.TotalAmount);
+                                //int CountCat = FilteredExpenses.Count(e => e.Category == x.ToString());
+                                <tr>
+                                    <td colspan="4" class="bg-light">
+                                        <strong>@x</strong>
+                                    </td>
+                                        <td class="text-end bg-light">
+                                            <strong style ="color:darkblue;"><em>@TotalCat.ToString("C2")</em></strong>
+                                    </td>
+                                        <td class="bg-light"></td>
+                                </tr>
+                                @foreach (var item in FilteredExpensesByCat.Where(c => c.Category == x.ToString()))
+                                {
+                                    <tr>
+                                        <td align="center"> * </td>
+                                        <td>@item.ExpenseDescription</td>
+                                            <td class="text-center">@item.DueDate.ToString("dd-MMM yy")</td>
+                                            <td class="text-center">@item.Distribution</td>
+                                        <td class="text-end">@item.TotalAmount.ToString("C2")</td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-secondary me-1"
+                                                    title="Editar"
+                                                    @onclick="@(() => AbrirModal(item, OpenType.Update))">
+                                                <i class="fa-solid fa-pen-to-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    title="Eliminar"
+                                                    @onclick="@(() => DeleteItem(item))">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+</section>
+
+<!--    MODAL PARA NUEVO / MODIFICACION DE CATEGORIAS   -->
+<SpiderHood.Components.Pages.ExpensePages.ModalExpense ShowModal="@MostrarModal"
+                                                           ShowModalChanged="@((valor) => MostrarModal = valor)"
+                                                           OpenMode="@OpenMode"
+                                                       ExpenseView="@_newExpense"
+                                                       FilteredCategory="@FilteredCategory"
+                                                       OnSaveItem="@((item) => SaveItem(item))" />
+
+@code {
+    private Models.Expense _newExpense = new Models.Expense();
+    private IQueryable<Models.Expense> FilteredExpenses = Enumerable.Empty<Models.Expense>().AsQueryable();
+    private IQueryable<Models.Expense> FilteredExpensesByCat = Enumerable.Empty<Models.Expense>().AsQueryable();
+    private IQueryable<Models.Category> FilteredCategory = Enumerable.Empty<Models.Category>().AsQueryable();
+
+    private bool MostrarModal = false;
+    private Models.OpenType OpenMode = OpenType.ReadOnly;
+
+    private string SelectedMonth = "2025-01";
+    private string SelectedCategory = "all";
+
+    // Totales generales
+    private decimal TotalExpenses => FilteredExpenses.Sum(e => e.TotalAmount);
+    private int TotalCount => FilteredExpenses.Count();
+
+    private decimal FixedExpenses => FilteredExpenses
+        .Where(e => e.IdDistribution == Models.TypeDistribution.Fija)
+        .Sum(e => e.TotalAmount);
+
+    private int FixedCount => FilteredExpenses
+        .Count(e => e.IdDistribution == Models.TypeDistribution.Fija);
+
+    //private int FixedCount => FilteredExpenses.Count(e => e.Distribution.Contains("Fija", StringComparison.OrdinalIgnoreCase));
+
+    private decimal ProportionalExpenses => FilteredExpenses
+        .Where(e => e.IdDistribution == Models.TypeDistribution.Proporcional)
+        .Sum(e => e.TotalAmount);
+
+    private int ProportionalCount => FilteredExpenses
+        .Count(e => e.IdDistribution == Models.TypeDistribution.Proporcional);
+
+
+    protected override void OnInitialized()
+    {
+        if (ParameterService.IdBuilding == Guid.Empty)
+            return;
+        // Aquí cargarías los parámetros desde tu API o servicio
+        FilteredExpenses = ParameterService.ec.GetExpensesByBuilding(ParameterService.IdBuilding).AsQueryable();
+        FilteredCategory = ParameterService.ec.GetCategories(ParameterService.IdBuilding).AsQueryable();
+    }
+
+    private void AbrirModal(Models.Expense item, OpenType mode)
+    {
+        MostrarModal = true;
+        OpenMode = mode;
+
+        switch (mode)
+        {
+            case Models.OpenType.Create:
+                _newExpense = new Models.Expense();
+                _newExpense.IdBuilding = ParameterService.IdBuilding;
+                _newExpense.DueDate = DateTime.Now;
+                break;
+
+            case Models.OpenType.Update:
+                _newExpense = item;
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mode), $"Valor inesperado: {mode}");
+        }
+    }
+    
+    private async Task SaveItem(SpiderHood.Models.Expense item)
+    {
+        switch (OpenMode)
+        {
+            case Models.OpenType.Create:
+                await AddItem(item);
+                break;
+
+            case Models.OpenType.Update:
+                await UpdateItem(item);
+                break;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}");
+        }
+
+        OnInitialized();
+        return;
+    }
+
+    private async Task AddItem(SpiderHood.Models.Expense item)
+    {
+        //Usuarios.Add(nuevo);
+        item.IdBuilding = ParameterService.IdBuilding;
+
+        await ParameterService.ec.AddNewRecordAsync(item);
+        await ParameterService.context.SaveChangesAsync();
+    }
+
+    private async Task UpdateItem(SpiderHood.Models.Expense item)
+    {
+        await ParameterService.ec.UpdateRecordAsync(item);
+
+        try
+        {
+            await ParameterService.context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!ItemExists(item!.IdExpense))
+            {
+                Navigation.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+    }
+
+    private bool ItemExists(Guid id)
+    {
+        return ParameterService.context.Expense.Any(e => e.IdExpense == id);
+    }
+
+    private void DeleteItem(Models.Expense item)
+    {
+        //AllExpenses.Remove(item);
+    }
+
+    private void FilterByDate(ChangeEventArgs args)
+    {
+        SelectedMonth = args.Value?.ToString() ?? string.Empty;
+    }
+}

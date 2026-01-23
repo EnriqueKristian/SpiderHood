@@ -40,8 +40,8 @@ namespace SpiderHood.Services
 
         public async Task<ViewExpense> ObtenerGastoPorIdAsync(Guid id)
         {
-            var gastos = await ParameterService.ec.getGastos();
-            return gastos.FirstOrDefault(g => g.IdExpense == id);
+            var gastos = await ParameterService.ec.GetGastos();
+            return gastos.FirstOrDefault(g => g.IdExpense == id)!;
             /*return await _context.Gasto
                 .Include(g => g.Categoria)
                 .FirstOrDefaultAsync(g => g.Id == id);*/
@@ -49,7 +49,7 @@ namespace SpiderHood.Services
 
         public async Task<List<ViewExpense>> ObtenerGastosPorPeriodoAsync(DateTime fechaInicio, DateTime fechaFin)
         {
-            return await ParameterService.ec.getGastos();
+            return await ParameterService.ec.GetGastos();
             /*return await _context.Gasto
                 .Include(g => g.Categoria)
                 .Where(g => g.FechaGasto >= fechaInicio && g.FechaGasto <= fechaFin)
@@ -88,7 +88,7 @@ namespace SpiderHood.Services
 
         public async Task<List<CategoriaGasto>> ObtenerCategoriasAsync()
         {
-            return await ParameterService.ec.getCategoriasGasto();
+            return await ParameterService.ec.GetCategoriasGasto();
             /*return await _context.CategoriasGasto
                 .Where(c => c.Activo)
                 .OrderBy(c => c.Nombre)

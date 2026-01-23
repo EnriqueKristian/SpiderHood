@@ -7,13 +7,9 @@ using SpiderHood.Models;
 
 namespace SpiderHood.Data
 {
-    public class BDLayout
+    public class BDLayout(SpiderHoodContext? _db)
     {
-        protected readonly SpiderHoodContext? _dbcontext;
-        public BDLayout(SpiderHoodContext? _db)
-        {
-            _dbcontext = _db;
-        }
+        protected readonly SpiderHoodContext? _dbcontext = _db;
         public SpiderHood.Models.UnitType AddNewRecord(SpiderHood.Models.UnitType? ec)
         {
             //Here define the ExecuteSqlRaw extension method to execute a stored procedure with INS_UnitType 
@@ -21,7 +17,6 @@ namespace SpiderHood.Data
             _dbcontext.SaveChanges();
             return ec;
         }
-
 
         public async Task<bool> DeleteRecordAsync(Models.Category? ec)
         {
@@ -118,9 +113,6 @@ namespace SpiderHood.Data
 
         public async Task<SpiderHood.Models.ServiceReading> AddNewRecordAsync(SpiderHood.Models.ServiceReading? ec)
         {
-            await using var transaction = await _dbcontext!.Database.BeginTransactionAsync();
-            try
-            {
                 // Ejecuta el procedimiento almacenado INS_WaterReading de forma asincrónica
                 await _dbcontext!.Database.ExecuteSqlRawAsync(
                         "INS_ServiceReading {0},{1},{2},{3},{4},{5},{6}",
@@ -132,36 +124,31 @@ namespace SpiderHood.Data
                         ec?.TotalAmount!,
                         ec?.IdPeriod!
                     );
-
-                    foreach (var item in ec!.WaterReadingDetail!)
-                    {
-                        await _dbcontext!.Database.ExecuteSqlRawAsync(
-                        "INS_ServiceReadingDetail {0},{1},{2},{3},{4},{5},{6},{7},{8}",
-                        item?.IdServiceReadingDetail!,
-                        item?.IdGroupUnit!,
-                        Math.Round(Convert.ToDecimal(item?.CurrentReading), 4),
-                        Math.Round(Convert.ToDecimal(item?.Consumption), 4),
-                        item?.ReadingDate!,
-                        item?.Code!,
-                        item!.CalculatedAmount!,
-                        item!.Minimum!,
-                        item.IdServiceReading
-                    );
-                    }
-
-                await transaction.CommitAsync();
-            }
-
-            catch (Exception ex) {
-                await transaction.RollbackAsync();
-                Console.WriteLine($"Error al guardar cálculo de Agua: {ex.Message}");
-            }
             
             await _dbcontext.SaveChangesAsync();
             return ec!;
         }
 
-
+        public async Task<SpiderHood.Models.ServiceReadingDetail> AddNewRecordAsync(List<SpiderHood.Models.ServiceReadingDetail>? ec)
+        {
+            foreach (var item in ec!)
+            {
+                await _dbcontext!.Database.ExecuteSqlRawAsync(
+                "INS_ServiceReadingDetail {0},{1},{2},{3},{4},{5},{6},{7},{8}",
+                item?.IdServiceReadingDetail!,
+                item?.IdGroupUnit!,
+                Math.Round(Convert.ToDecimal(item?.CurrentReading), 4),
+                Math.Round(Convert.ToDecimal(item?.Consumption), 4),
+                item?.ReadingDate!,
+                item?.Code!,
+                item!.CalculatedAmount!,
+                item!.Minimum!,
+                item.IdServiceReading
+                );
+                await _dbcontext.SaveChangesAsync();
+            }
+            return new();
+        }
 
         public async Task<SpiderHood.Models.Contact> AddNewRecordAsync(SpiderHood.Models.Contact? ec)
         {
@@ -715,9 +702,9 @@ namespace SpiderHood.Data
         {
             try
             {
-                return _dbcontext!.Building
+                return [.._dbcontext!.Building
                     .FromSqlInterpolated($"EXEC GET_AllBuildings")
-                    .ToList();
+                    ];
             }
             catch (Exception ex)
             {
@@ -752,9 +739,9 @@ namespace SpiderHood.Data
         {
             try
             {
-                return _dbcontext!.MovDetKey
+                return [.._dbcontext!.MovDetKey
                     .FromSqlInterpolated($"EXEC GET_AllMovementDetail {IdBankAccout}, {star}, {end}")
-                    .ToList();
+                    ];
             }
             catch (Exception ex)
             {
@@ -768,9 +755,9 @@ namespace SpiderHood.Data
         {
             try
             {
-                return _dbcontext!.TransactionBankView
+                return [.._dbcontext!.TransactionBankView
                     .FromSqlInterpolated($"GET_BankTransactionsNoConcilied {IdBuilding}, {star}, {end}")
-                    .ToList();
+                    ];
             }
             catch (Exception ex)
             {
@@ -784,9 +771,9 @@ namespace SpiderHood.Data
         {
             try
             {
-                return _dbcontext!.MovementHeader
+                return [.._dbcontext!.MovementHeader
                     .FromSqlInterpolated($"EXEC GET_MovementByName {FileName}, {IdBuilding}")
-                    .ToList();
+                    ];
             }
             catch (Exception ex)
             {
@@ -799,9 +786,9 @@ namespace SpiderHood.Data
         {
             try
             {
-                return _dbcontext!.UnitType
+                return [.._dbcontext!.UnitType
                     .FromSqlInterpolated($"EXEC GET_UnitType")
-                    .ToList();
+                    ];
             }
             catch (Exception ex)
             {
@@ -1059,7 +1046,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_PeriodsByBuilding {IdBuilding}")
                     .ToListAsync();
 
-                return result ?? new List<Models.Period>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1080,7 +1067,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC TEMP_GET_DetalleCuota")
                     .ToListAsync();
 
-                return result ?? new List<DetalleCuotaViewModel>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1089,7 +1076,7 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<GastoResumen>> getGastosPrincipales()
+        public async Task<List<GastoResumen>> GetGastosPrincipales()
         {
             if (_dbcontext == null)
             {
@@ -1101,7 +1088,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC TEMP_GET_GastosPrincipales")
                     .ToListAsync();
 
-                return result ?? new List<GastoResumen>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1110,7 +1097,7 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<ViewExpense>> getGastos()
+        public async Task<List<ViewExpense>> GetGastos()
         {
             if (_dbcontext == null)
             {
@@ -1122,7 +1109,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC temp_GetGasto")
                     .ToListAsync();
 
-                return result ?? new List<ViewExpense>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1131,7 +1118,7 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<Departamento>> getDptos()
+        public async Task<List<Departamento>> GetDptos()
         {
             if (_dbcontext == null)
             {
@@ -1143,7 +1130,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC TEMP_GETDpto")
                     .ToListAsync();
 
-                return result ?? new List<Departamento>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1152,7 +1139,7 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<CategoriaGasto>> getCategoriasGasto()
+        public async Task<List<CategoriaGasto>> GetCategoriasGasto()
         {
             if (_dbcontext == null)
             {
@@ -1164,7 +1151,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC TEMP_GET_Caqtegoria")
                     .ToListAsync();
 
-                return result ?? new List<CategoriaGasto>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1185,7 +1172,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC TEMP_GET_GastosPendientes")
                     .ToListAsync();
 
-                return result ?? new List<GastoPendienteViewModel>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1206,7 +1193,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC TEMP_GET_CuotasMensuales")
                     .ToListAsync();
 
-                return result ?? new List<CuotaMensual>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1229,7 +1216,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_BankAccountsByBuilding {idBuilding}")
                     .ToListAsync();
 
-                return result ?? new List<BankAccount>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1250,7 +1237,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_BuildingConfiguration {idBuilding}")
                     .ToListAsync();
 
-                return result ?? new List<BuildingConfiguration>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1271,7 +1258,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_ServiceReadingList {IdBuilding}")
                     .ToListAsync();
 
-                return result ?? new List<ServiceReading>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1292,7 +1279,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_ServiceReadingDetailList {period}")
                     .ToListAsync();
 
-                return result ?? new List<ServiceReadingDetail>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1314,7 +1301,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_FirstWaterReadingDetailList {IdBuilding}")
                     .ToListAsync();
 
-                return result ?? new List<ServiceReadingDetail>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1337,7 +1324,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_BudgetDetailDefault {idBuilding}")
                     .ToListAsync();
 
-                return result ?? new List<ViewBudgetDetail>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1358,7 +1345,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_List_BudgetDetail {idBudgetHeader}")
                     .ToListAsync();
 
-                return result ?? new List<BudgetDetail>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1379,7 +1366,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_AllContacts {idBuildingConfiguration}")
                     .ToListAsync();
 
-                return result ?? new List<Contact>();
+                return result ?? [];
             }
             catch (Exception ex)
             {
@@ -1389,7 +1376,7 @@ namespace SpiderHood.Data
         }
 
 
-        public async Task<List<ViewExpense>> getPendingConciliationExpenses(Guid idBuilding, DateTime from, DateTime to)
+        public async Task<List<ViewExpense>> GetPendingConciliationExpenses(Guid idBuilding, DateTime from, DateTime to)
         {
             try
             {
@@ -1397,7 +1384,7 @@ namespace SpiderHood.Data
                     .FromSql($"EXEC GET_PendingConciliationExpenses {idBuilding}")
                     .ToListAsync();
 
-                return result ?? new List<ViewExpense>();
+                return result ?? [];
             }
             catch (Exception ex)
             {

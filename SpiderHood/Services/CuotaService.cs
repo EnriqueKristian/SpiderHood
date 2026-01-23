@@ -64,7 +64,7 @@ namespace SpiderHood.Services
                     .Where(d => d.Activo)
                     .ToListAsync();*/
 
-                var departamentos = await ParameterService.ec.getDptos();
+                var departamentos = await ParameterService.ec.GetDptos();
 
                 if (!departamentos.Any())
                 {
@@ -304,7 +304,7 @@ namespace SpiderHood.Services
         public async Task<List<int>> ObtenerAñosDisponiblesAsync()
         {
 
-            List<int> x =  new List<int>();
+            List<int> x =  [];
             x.Add(2022);
             x.Add(2023);
             x.Add(2024);
@@ -442,7 +442,7 @@ namespace SpiderHood.Services
                     g => g.Sum(d => d.Monto)
                 );
 
-            var gastosPrincipales = await ParameterService.ec.getGastosPrincipales();
+            var gastosPrincipales = await ParameterService.ec.GetGastosPrincipales();
 
             /*var gastosPrincipales = await _context.DetallesCuota
                 .Where(d => d.CuotaId == cuotaId)

@@ -1183,7 +1183,7 @@
             AnnualAmount = 0,
             Frequency = 1,
             Type = 1,
-            isNewItem = true,
+            IsNewItem = true,
             IdBudgetHeader = IdBudgetHeader
         };
 
@@ -1277,7 +1277,7 @@
             IdCategory = newCategoryId,
             Description = _newSection.Name.ToUpper(),
             IsHeader = true,
-            isNewItem = isNewCategory,
+            IsNewItem = isNewCategory,
             IdBudgetHeader = IdBudgetHeader
         };
 
@@ -1374,7 +1374,7 @@
             IdCategory = categoryId,
             Description = _newSection.Name.ToUpper(),
             IsHeader = true,
-            isNewItem = isNew,
+            IsNewItem = isNew,
             IdBudgetHeader = IdBudgetHeader
         };
     }
@@ -1543,11 +1543,11 @@
 
     private async Task SaveCategories()
     {
-        foreach (var header in _Budget.Details.Where(c => c.IsHeader && c.isNewItem))
+        foreach (var header in _Budget.Details.Where(c => c.IsHeader && c.IsNewItem))
         {
             await SaveCategory(header, Guid.Empty);
 
-            foreach (var subItem in _Budget.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader && c.isNewItem))
+            foreach (var subItem in _Budget.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader && c.IsNewItem))
             {
                 await SaveCategory(subItem, header.IdCategory);
             }

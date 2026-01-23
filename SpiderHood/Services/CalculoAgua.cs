@@ -49,7 +49,7 @@ namespace SpiderHood.Services
         public decimal TotalSinIGV { get; set; }
         public decimal IGV { get; set; } = 0.18m; // 18%
         public decimal TotalConIGV => TotalSinIGV * (1 + IGV);
-        public List<DetalleCalculo> Detalles { get; set; } = new();
+        public List<DetalleCalculo> Detalles { get; set; } = [];
     }
 
     public class DetalleCalculo
@@ -63,27 +63,25 @@ namespace SpiderHood.Services
     // Implementación del servicio
     public class CalculoService : ICalculoService
     {
-        private List<TarifaAgua> _tarifas = new();
-        private List<ConsumoHistorico> _historicos = new();
-        //private List<Departamento> _departamentos = new();
+        private List<TarifaAgua> _tarifas = [];
+        private List<ConsumoHistorico> _historicos = [];
 
         public CalculoService()
         {
             // Tarifas por defecto según la tabla proporcionada
-            _tarifas = new List<TarifaAgua>
-            {
+            _tarifas = [
                 new() { Id = 1, Rango = "R1", Minimo = 0, Maximo = 10, Potable = 1.15m, Alcantarillado = 0.52m, Diferencial = 1.67m },
                 new() { Id = 2, Rango = "R2", Minimo = 10, Maximo = 25, Potable = 1.34m, Alcantarillado = 0.61m, Diferencial = 0.27m },
                 new() { Id = 3, Rango = "R3", Minimo = 25, Maximo = 50, Potable = 2.96m, Alcantarillado = 1.33m, Diferencial = 2.35m },
                 new() { Id = 4, Rango = "R4", Minimo = 50, Maximo = -1, Potable = 5.01m, Alcantarillado = 2.26m, Diferencial = 2.99m }
-            };
+            ];
 
             // Datos de ejemplo
-            _historicos = new List<ConsumoHistorico>
-            {
+            _historicos = [
+            
                 new() { Id = 1, DepartamentoId = 1, Anio = 2023, Consumo = 1338.99 },
                 new() { Id = 2, DepartamentoId = 1, Anio = 2022, Consumo = 14865.86 }
-            };
+            ];
         }
 
         public Task<List<TarifaAgua>> ObtenerTarifasAsync()
@@ -187,10 +185,10 @@ namespace SpiderHood.Services
         public Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, Guid IdBuilding, DateTime period, List<ServiceReadingDetail> previous, string filename,BDLayout ec)
         {
 
-            ServiceReading reading = new ServiceReading();
+            ServiceReading reading = new();
 
             var lecturas = new List<Models.ServiceReadingDetail>();
-            List<string> errores = new();
+            List<string> errores = [];
 
             //Cargar Cabecera de Lectura
             reading.IdServiceReading = Guid.NewGuid();
@@ -301,7 +299,7 @@ namespace SpiderHood.Services
 
             //return lecturas;
             reading.errors = errores;
-            reading.WaterReadingDetail = lecturas.OrderBy(h => h.GroupNumber).ToList();
+            reading.WaterReadingDetail = [..lecturas.OrderBy(h => h.GroupNumber)];
             return Task.FromResult(reading);
         }
 
@@ -318,7 +316,7 @@ namespace SpiderHood.Services
                     lectura.CalculatedAmount = calculo.TotalConIGV;
                     lectura.Consumption = consumo;
                 }
-                lectura.Minimum = lectura.Consumption <= 0 ? true : false;
+                lectura.Minimum = lectura.Consumption <= 0;
                 lectura.Procesed = !lectura.Minimum;
             }
 

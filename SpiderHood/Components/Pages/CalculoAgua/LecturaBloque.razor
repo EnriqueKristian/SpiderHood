@@ -20,37 +20,12 @@
                 <div class="col-md-4">
                     <div class="form-group">
                         <label class="form-label"><strong>Período:</strong></label>
-                        @if (_esPrimeraCarga)
-                        {
-                            <table>
-                                <tr>
-                                    <td>
-                                        <select class="form-select" @bind="_mesInicio">
-                                            @foreach (var mes in _mesesDisponibles)
-                                            {
-                                                <option value="@mes.Value">@mes.Text</option>
-                                            }
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <select class="form-select" @bind="_anioInicio">
-                                            @foreach (var anio in _aniosDisponibles)
-                                            {
-                                                <option value="@anio.Value">@anio.Text</option>
-                                            }
-                                        </select>
-                                    </td>
-                                </tr>
-                            </table>
-                        }
-                        else{
                             <select @bind="_ultimoPeriodo" class="form-select" @bind:event="onchange" @bind:after="() => CargarPeriodo(_ultimoPeriodo)">
                                 @foreach (var item in _periods.OrderBy(c => c.StartDate))
                                 {
                                     <option value="@item.StartDate">@item.StartDate.ToString("MMM-yy")</option>
                                 }
                             </select>
-                        }
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -339,7 +314,7 @@
     private string _archivoNombre = string.Empty;
     private IBrowserFile? _archivoExcel;
     private DateTime _ultimoPeriodo;
-    //private List<ServiceReading> _periodos = new();
+    
     private List<ServiceReadingDetail> _detallesPeriodoAnterior = new();
     private bool _esPrimeraCarga = false;
     private string mensaje = "";
@@ -351,8 +326,8 @@
     private Period _currentPeriod = new();
 
     // Selectores de fecha
-    private List<SelectListItem> _mesesDisponibles = new();
-    private List<SelectListItem> _aniosDisponibles = new();
+//    private List<SelectListItem> _mesesDisponibles = new();
+  //  private List<SelectListItem> _aniosDisponibles = new();
     private int _anioInicio = DateTime.Now.Year;
     private int _mesInicio= DateTime.Now.Month;
 
@@ -392,16 +367,8 @@
     {
         try
         {
-            // Cargar datos estáticos
-            await CargarListasEstaticas();
-
             // Cargar periodos desde BD
-            /*_periodos = await CalculoService.GetPeriodsAsync(
-            ParameterService.ec,
-                ParameterService.IdBuilding
-            );*/
-
-        _periods = await ParameterService.GetPeriodsAsync();
+            _periods = await ParameterService.GetPeriodsAsync();
 
             // Determinar si es primera carga
             _esPrimeraCarga = _periods.Count == 0;
@@ -410,7 +377,7 @@
             await ConfigurarPeriodoInicial();
 
             // Cargar lecturas del periodo anterior
-            //await CargarLecturasPeriodoAnterior();
+            await CargarPeriodo(_periodoActual);
         }
         catch (Exception ex)
         {
@@ -419,41 +386,15 @@
         }
     }
 
-    private async Task CargarListasEstaticas()
-    {
-        _mesesDisponibles = await ParameterService.GetMonthList("es-PE");
-        _aniosDisponibles = await ParameterService.GetYearList(2020, 2030);
-    }
-
     private async Task ConfigurarPeriodoInicial()
     {
-        //_ultimoPeriodo = _periods.Max(p => p.StartDate);
         _ultimoPeriodo = new DateTime(_anioInicio, _mesInicio, 1);
 
         if (!_periods.Any(p => p.StartDate == _ultimoPeriodo))
         {
             await CrearNuevoPeriodo();
         }
-
-        /*if (_esPrimeraCarga)
-        {
-            _anioInicio = DateTime.Now.AddYears(-1).Year;
-            _mesInicio = DateTime.Now.AddMonths(-1).Month;
-            _ultimoPeriodo = new DateTime(_anioInicio, _mesInicio, 1);
-            await CrearNuevoPeriodo();
-            }
-        else
-        {
-            _ultimoPeriodo = _periodos.Max(p => p.Period);
-            _ultimoPeriodo = _ultimoPeriodo.AddMonths(1);
-            _ultimoPeriodo = new DateTime(_ultimoPeriodo.Year, _ultimoPeriodo.Month, 1);
-            if (!_periodos.Any(p => p.Period == _ultimoPeriodo))
-            {
-                await CrearNuevoPeriodo();
-                }
-            }*/
-
-                                _periodoActual = _ultimoPeriodo;
+        _periodoActual = _ultimoPeriodo;
     }
 
     private async Task CrearNuevoPeriodo()
@@ -531,7 +472,7 @@
                     _lecturasProcesadas = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.ec, ParameterService.IdBuilding);
                     }*/
 
-                        MarcarTodasComoProcesadas();
+                                                        MarcarTodasComoProcesadas();
                 await RecalcularTodas();
 
                 StateHasChanged();
@@ -683,6 +624,7 @@
 
     private async Task GuardarLecturas()
     {
+        using var transaction = await ParameterService.context.Database.BeginTransactionAsync();
         try
         {
             if (!PuedeGuardar)
@@ -699,31 +641,33 @@
             _lecturaActual.TotalAmount = TotalGeneral;
             _lecturaActual.IdPeriod = _currentPeriod.IdPeriod;
 
-    // Guardar en base de datos
-    await ParameterService.ec.AddNewRecordAsync(_lecturaActual);
+            // Guardar en base de datos
+            await ParameterService.ec.AddNewRecordAsync(_lecturaActual);
 
-    _esPrimeraCarga = false;
+            // Guardar en base de datos
+            await ParameterService.ec.AddNewRecordAsync(_lecturaActual.WaterReadingDetail);
 
-    // TODO: Mostrar mensaje de éxito
-    await MostrarMensajeExito("Lecturas guardadas exitosamente");
+            await transaction.CommitAsync();
 
-    LimpiarDatos();
+            _esPrimeraCarga = false;
 
-    /*_periods = await CalculoService.GetPeriodsAsync(
-    ParameterService.ec,
-                    ParameterService.IdBuilding
-                );*/
+            await MostrarMensajeExito("Lecturas guardadas exitosamente");
+
+            LimpiarDatos();
 
             _periods = await ParameterService.GetPeriodsAsync();
 
             await ConfigurarPeriodoInicial();
+
+            await CargarPeriodo(_periodoActual);
 
             StateHasChanged();
         }
         catch (Exception ex)
         {
             // TODO: Mostrar mensaje de error
-            Console.WriteLine($"Error al guardar: {ex.Message}");
+            await transaction.RollbackAsync();
+            await MostrarMensajeError($"Error al guardar lecturas: {ex.Message}");
         }
     }
 
@@ -740,16 +684,18 @@
         StateHasChanged();
     }
 
-    private async Task MostrarMensajeExito(string mensaje)
+    private async Task MostrarMensajeExito(string _mensaje)
     {
         // TODO: Implementar notificación de éxito (usar Toast, Snackbar, etc.)
+        mensaje = _mensaje;
         Console.WriteLine($"Éxito: {mensaje}");
         await Task.CompletedTask;
     }
 
-    private async Task MostrarMensajeError(string mensaje)
+    private async Task MostrarMensajeError(string _mensaje)
     {
         // TODO: Implementar notificación de error
+        mensaje = _mensaje;
         Console.WriteLine($"Error: {mensaje}");
         await Task.CompletedTask;
     }
@@ -892,6 +838,8 @@
     await MostrarMensajeError($"Error en sincronización: {ex.Message}");
         }
     }
+
+    #region Exportar a Excel
 
     private async Task ExportarAExcel()
     {
@@ -1415,5 +1363,7 @@
         // Esta es una implementación de ejemplo
         return ParameterService.ec.GetGroupUnitsByType(ParameterService.IdBuilding, 1);
     }
+
+    #endregion
 
 }

@@ -120,7 +120,7 @@ namespace SpiderHood.Models
         public int BuildingId { get; set; }
         public int ApartmentNumber { get; set; }
         public string Status { get; set; } = "Pending"; // Active, Pending, Inactive
-        public List<BuildingModel> Buildings { get; set; } = new();
+        public List<BuildingModel> Buildings { get; set; } = [];
         public DateTime CreatedDate { get; set; } = DateTime.Now;
     }
 
@@ -180,7 +180,7 @@ namespace SpiderHood.Models
         public int Sequence { get; set; }
         public ConcilationType ReconciliationStatus { get; set; }
         public DateTime? ReconciliationDate { get; set; }
-        public List<ViewExpense> PosiblesMatches { get; set; } = new();
+        public List<ViewExpense> PosiblesMatches { get; set; } = [];
         public bool Ignored { get; set; } = false;
         public bool Selected { get; set; } = false;
         public string Reference => (Amount < 0 ? "G" : "I") + Sequence.ToString("D4");
@@ -319,7 +319,7 @@ namespace SpiderHood.Models
         public decimal TotalArea { get; set; }
         public string CreatedBy { get; set; } = string.Empty;
         [NotMapped]
-        public List<PaidInstallments> Paids { get; set; } = new();
+        public List<PaidInstallments> Paids { get; set; } = [];
         public int Status { get; set; }
         public Guid IdGroupUnit { get; set; }
         public DateTime DueDate { get; set; }
@@ -348,7 +348,7 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal TotalDistribuido { get; set; }
         public string UsuarioGeneracion { get; set; } = string.Empty;
-        public List<DetalleCuota> Detalles { get; set; } = new();
+        public List<DetalleCuota> Detalles { get; set; } = [];
         public bool Procesada { get; set; }
     }
 
@@ -376,9 +376,9 @@ namespace SpiderHood.Models
         public int TotalDepartamentos { get; set; }
         public int TotalGastosIncluidos { get; set; }
         public DateTime FechaGeneracion { get; set; }
-        public Dictionary<string, decimal> ResumenPorCategoria { get; set; } = new();
-        public List<string> Errores { get; set; } = new();
-        public List<string> Advertencias { get; set; } = new();
+        public Dictionary<string, decimal> ResumenPorCategoria { get; set; } = [];
+        public List<string> Errores { get; set; } = [];
+        public List<string> Advertencias { get; set; } = [];
 
         public static ResultadoGeneracion Exitoso(int cuotaId, string mensaje = "Cuota generada exitosamente")
         {
@@ -398,7 +398,7 @@ namespace SpiderHood.Models
                 Exito = false,
                 Mensaje = mensaje,
                 FechaGeneracion = DateTime.Now,
-                Errores = errores ?? new List<string>()
+                Errores = errores ?? []
             };
         }
 
@@ -473,7 +473,7 @@ namespace SpiderHood.Models
         public decimal PorcentajeArea { get; set; }
         [Precision(18, 2)]
         public decimal TotalAPagar { get; set; }
-        public List<DetalleCuotaCategoriaViewModel> DetallePorCategoria { get; set; } = new();
+        public List<DetalleCuotaCategoriaViewModel> DetallePorCategoria { get; set; } = [];
         public bool Pagado { get; set; }
         public DateTime? FechaPago { get; set; }
     }
@@ -501,9 +501,9 @@ namespace SpiderHood.Models
         public decimal TotalMonto { get; set; }
         [Precision(18, 2)]
         public decimal PromedioPorDepartamento { get; set; }
-        public List<GastoIncluidoViewModel> GastosIncluidos { get; set; } = new();
-        public List<DistribucionDepartamentoViewModel> DistribucionDepartamentos { get; set; } = new();
-        public Dictionary<string, decimal> DistribucionPorCategoria { get; set; } = new();
+        public List<GastoIncluidoViewModel> GastosIncluidos { get; set; } = [];
+        public List<DistribucionDepartamentoViewModel> DistribucionDepartamentos { get; set; } = [];
+        public Dictionary<string, decimal> DistribucionPorCategoria { get; set; } = [];
     }
 
     public class GastoIncluidoViewModel
@@ -571,7 +571,7 @@ namespace SpiderHood.Models
     // Models/ResultadoPaginado para paginación
     public class ResultadoPaginado<T>
     {
-        public List<T> Items { get; set; } = new();
+        public List<T> Items { get; set; } = [];
         public int PaginaActual { get; set; }
         public int TotalPaginas { get; set; }
         public int TotalItems { get; set; }
@@ -688,13 +688,13 @@ namespace SpiderHood.Models
 
         public static List<SelectListItem> GetMesesSelectList()
         {
-            return Enumerable.Range(1, 12)
+            return [..Enumerable.Range(1, 12)
                 .Select(m => new SelectListItem
                 {
                     Value = m.ToString(),
                     Text = CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
                 })
-                .ToList();
+                ];
         }
 
         public static List<SelectListItem> GetAniosSelectList(int aniosAtras = 10, int aniosAdelante = 2)
@@ -702,14 +702,14 @@ namespace SpiderHood.Models
             var anioActual = DateTime.Now.Year;
             var anios = Enumerable.Range(anioActual - aniosAtras, aniosAtras + aniosAdelante + 1);
 
-            return anios
+            return [..anios
                 .Select(a => new SelectListItem
                 {
                     Value = a.ToString(),
                     Text = a.ToString()
                 })
                 .OrderByDescending(x => x.Value)
-                .ToList();
+                ];
         }
 
         public static decimal CalcularMontoPorcentual(this decimal montoTotal, decimal porcentaje)
@@ -827,10 +827,7 @@ namespace SpiderHood.Models
         public string Mes => CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(Month);
 
         [NotMapped]
-        public List<BudgetDetail> Details { get; set; } = new();
-        //[NotMapped]
-        //public List<PresupuestoCategoria> Categorias { get; set; } = new();
-
+        public List<BudgetDetail> Details { get; set; } = [];
     }
     public class BudgetDetail
     {
@@ -848,7 +845,7 @@ namespace SpiderHood.Models
         public int Type { get; set; }
         public bool IsHeader { get; set; } = false;
         public Guid IdBudgetHeader { get; set; }
-        public bool isNewItem { get; set; } = false;
+        public bool IsNewItem { get; set; } = false;
 		public Guid IdParent { get; set; }
     }
 
@@ -888,9 +885,9 @@ namespace SpiderHood.Models
 
         // Navigation properties
         [NotMapped]
-        public List<PresupuestoDetalle> Detalles { get; set; } = new();
+        public List<PresupuestoDetalle> Detalles { get; set; } = [];
         [NotMapped]
-        public List<PresupuestoCategoria> Categorias { get; set; } = new();
+        public List<PresupuestoCategoria> Categorias { get; set; } = [];
     }
 
     public class PresupuestoDetalle
@@ -923,7 +920,7 @@ namespace SpiderHood.Models
 
         // Navigation properties
         [NotMapped]
-        public List<PresupuestoDetalle> Detalles { get; set; } = new();
+        public List<PresupuestoDetalle> Detalles { get; set; } = [];
     }
 
     public class PresupuestoCategoria

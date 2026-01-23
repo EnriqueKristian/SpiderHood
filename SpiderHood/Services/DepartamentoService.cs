@@ -15,7 +15,7 @@ public class DepartamentoService : IDepartamentoService
 
     public async Task<List<Departamento>> ObtenerDepartamentosActivosAsync()
     {
-        return await ParameterService.ec.getDptos();
+        return await ParameterService.ec.GetDptos();
         /*return await _context.Departamentos
             .Where(d => d.Activo)
             .OrderBy(d => d.Nombre)
@@ -26,7 +26,7 @@ public class DepartamentoService : IDepartamentoService
     {
         // The original code was returning a List<Departamento> from getDptos(), but the method expects a single Departamento.
         // To fix CS0029, fetch the list and return the Departamento with the matching id.
-        var departamentos = await ParameterService.ec.getDptos();
+        var departamentos = await ParameterService.ec.GetDptos();
         return departamentos.FirstOrDefault(d => d.Id == id)!;
     }
 

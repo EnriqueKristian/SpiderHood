@@ -52,6 +52,8 @@ namespace SpiderHood.Models
         public bool IsCurrentPeriod { get; set; }
         [NotMapped]
         public string Description { get; set; } = string.Empty;
+        [NotMapped]
+        public bool IsNewPeriod { get; set; } = false;
 
         // Navigation properties
         [NotMapped]
@@ -61,4 +63,6 @@ namespace SpiderHood.Models
         //public ICollection<CommonExpense> Expenses { get; set; }
         public ICollection<BudgetHeader>? Budgets { get; set; }
     }
+
+
 }

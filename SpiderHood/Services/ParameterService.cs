@@ -1,8 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DocumentFormat.OpenXml.Packaging;
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 using System.Diagnostics.Metrics;
 using System.Globalization;
+using System.Reflection.Metadata.Ecma335;
 
 namespace SpiderHood.Services
 {
@@ -18,11 +20,14 @@ namespace SpiderHood.Services
         private int _dueday;
         private int _nroGroupUnit;
         private int _minAgua;
+        private List<Period> _periods = new();
         private bool _disposed = false;
 
+
         // Cache para evitar cargas innecesarias
-        private readonly Dictionary<Guid, (List<Parameter> Parameters, DateTime LastUpdated)> _cache
-            = new Dictionary<Guid, (List<Parameter>, DateTime)>();
+        private readonly Dictionary<Guid, (List<Parameter> Parameters, DateTime LastUpdated, List<Period> Periodos)> _cache
+            = new Dictionary<Guid, (List<Parameter>, DateTime, List<Period>)>();
+
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
         // Exponer BDLayout como público para ser usado en todas las llamadas
@@ -37,7 +42,6 @@ namespace SpiderHood.Services
         public string UserName => _username;
         public int DueDay => _dueday;
         public int nroGroupUnit => _nroGroupUnit;
-
         public int MinAgua => _minAgua;
 
         public event Action? OnChange;
@@ -52,6 +56,7 @@ namespace SpiderHood.Services
             _dueday = 21;
             _nroGroupUnit = 30;
             _minAgua = 10;
+            
         }
 
         /// <summary>
@@ -67,6 +72,8 @@ namespace SpiderHood.Services
                 && DateTime.UtcNow - cached.LastUpdated < CacheDuration)
             {
                 _listParameters = new List<Parameter>(cached.Parameters);
+                _periods = new List<Period>(cached.Periodos);
+
                 _idBuilding = idBuilding;
                 await SetDefaultUserIdAsync();
                 NotifyStateChanged();
@@ -77,13 +84,15 @@ namespace SpiderHood.Services
             try
             {
                 var parameters = await ec.GetParametersByBuildingAsync(idBuilding);
+                var periodos =  await ec.GetPeriodByBuilding(idBuilding);
 
-                _listParameters = parameters ?? new List<Parameter>();
+                _listParameters = parameters ?? [];
+                _periods = periodos;
                 _idBuilding = idBuilding;
                 await SetDefaultUserIdAsync();
 
                 // Actualizar caché
-                UpdateCache(idBuilding, _listParameters);
+                UpdateCache(idBuilding, _listParameters,_periods);
 
                 NotifyStateChanged();
             }
@@ -267,6 +276,23 @@ namespace SpiderHood.Services
             return await ec.GetPeriodByBuilding(IdBuilding);
         }
 
+        public async Task<Models.Period> CreateNewPeriod(DateTime lastPeriod)
+        {
+            return new Models.Period
+            {
+                IdPeriod = Guid.NewGuid(),
+                IdBuilding = IdBuilding,
+                Name = lastPeriod.ToString("MMMM-yy", CultureInfo.InvariantCulture),
+                PeriodType = 1,
+                StartDate = lastPeriod,
+                EndDate = new DateTime(lastPeriod.Year, lastPeriod.Month, DateTime.DaysInMonth(lastPeriod.Year, lastPeriod.Month)),
+                ClosingDate = new DateTime(lastPeriod.Year, lastPeriod.Month, DateTime.DaysInMonth(lastPeriod.Year, lastPeriod.Month)),
+                Status = 1,
+                IsCurrentPeriod = true,
+                IsNewPeriod = true
+            };
+        }
+
         /// <summary>
         /// Obtiene un parámetro específico por su IdTabla
         /// </summary>
@@ -360,9 +386,9 @@ namespace SpiderHood.Services
             // _idUser = user?.Id ?? Guid.Empty;
         }
 
-        private void UpdateCache(Guid buildingId, List<Parameter> parameters)
+        private void UpdateCache(Guid buildingId, List<Parameter> parameters, List<Period> periodos)
         {
-            _cache[buildingId] = (new List<Parameter>(parameters), DateTime.UtcNow);
+            _cache[buildingId] = (new List<Parameter>(parameters), DateTime.UtcNow, new List<Period>(periodos));
         }
 
         private async Task UpdateLocalParameter(Parameter parameter)
@@ -384,8 +410,8 @@ namespace SpiderHood.Services
         #region IDisposable Implementation
         public void Dispose()
         {
-            //Dispose(true);
-            //GC.SuppressFinalize(this);
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
         protected virtual void Dispose(bool disposing)

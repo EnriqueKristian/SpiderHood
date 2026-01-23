@@ -408,19 +408,7 @@
             CreatedOn = DateTime.Now
         };
 
-        var newPeriod = new Period
-            {
-                IdPeriod = Guid.NewGuid(),
-                IdBuilding = ParameterService.IdBuilding,
-                Name = _ultimoPeriodo.ToString("MMMM yyyy", CultureInfo.InvariantCulture),
-                PeriodType = 1,
-                StartDate = _ultimoPeriodo,
-                EndDate = new DateTime(_ultimoPeriodo.Year, _ultimoPeriodo.Month, DateTime.DaysInMonth(_ultimoPeriodo.Year, _ultimoPeriodo.Month)),
-                ClosingDate = new DateTime(_ultimoPeriodo.Year, _ultimoPeriodo.Month, DateTime.DaysInMonth(_ultimoPeriodo.Year, _ultimoPeriodo.Month)),
-                Status = 1,
-                IsCurrentPeriod = true
-            };
-
+        Period newPeriod = ParameterService.CreateNewPeriod(_ultimoPeriodo).Result;
         _periods.Add(newPeriod);
         _lecturaActual = nuevoPeriodo;
         _currentPeriod = newPeriod;
@@ -467,12 +455,7 @@
                     periodo
                 );
 
-                /*if (_lecturasProcesadas.Count == 0 && _periodos[0].Period == periodo )
-                {
-                    _lecturasProcesadas = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.ec, ParameterService.IdBuilding);
-                    }*/
-
-                                                        MarcarTodasComoProcesadas();
+                MarcarTodasComoProcesadas();
                 await RecalcularTodas();
 
                 StateHasChanged();
@@ -634,7 +617,10 @@
             }
 
             //agregar periodo
-            await ParameterService.ec.AddNewRecordAsync(_currentPeriod);
+            if (_periods.Where(c => c.IsNewPeriod).Count() > 0)
+            {
+                await ParameterService.ec.AddNewRecordAsync(_currentPeriod);
+            }
 
             // Asignar detalles procesados a la lectura actual
             _lecturaActual.WaterReadingDetail = _lecturasProcesadas;

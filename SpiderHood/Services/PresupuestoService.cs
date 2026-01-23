@@ -1,7 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DocumentFormat.OpenXml.Drawing.Charts;
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 using System;
+using System.Net.NetworkInformation;
 
 namespace SpiderHood.Services
 {
@@ -18,6 +20,10 @@ namespace SpiderHood.Services
         Task<BudgetHeader> CreatePresupuestoAsync(BudgetHeader presupuesto);
         Task UpdatePresupuestoAsync(BudgetHeader presupuesto);
         Task DeletePresupuestoAsync(Guid id);
+        Task<BudgetState> InitializeBudgetStateAsync(BudgetHeader selectedBudget);
+        Task LoadDefaultBudgetDetailsAsync(BudgetState state);
+        Task LoadDataDefaultAsync(BudgetState state);
+        Task SaveBudgetAsync(BudgetState state, List<Models.Period> _periods);
 
         // Categorías
         Task<List<Category>> GetCategoriasAsync(Guid IdBuilding, bool? activas = true);
@@ -276,6 +282,177 @@ namespace SpiderHood.Services
                 Console.WriteLine($"Error al eliminar presupuesto : {ex.Message}");
                 throw;
             }
+        }
+
+        public async Task<BudgetState> InitializeBudgetStateAsync(BudgetHeader selectedBudget)
+        {
+            var state = new BudgetState();
+
+            state.Budget = selectedBudget!;
+            await LoadDataDefaultAsync(state);
+
+            if (selectedBudget?.IdBudgetHeader != Guid.Empty)
+            {
+
+                state.UpdateStatus(selectedBudget!.Status);
+                state.IsNewBudget = false;
+                state.IsDisabled = false;
+
+                await LoadBudgetDetailsAsync(state);
+                state.CalculateTotals();
+            }
+            else {
+                state.IsNewBudget = true;
+                state.IsDisabled = true;
+                state.Status = BudgetStatus.Created;
+            }
+
+            return state;
+        }
+
+        public async Task LoadBudgetDetailsAsync(BudgetState state)
+        {
+            state.Budget.Details = await ec.GetBudgetDetail(state.Budget.IdBudgetHeader);
+        }
+
+        public async Task LoadDataDefaultAsync(BudgetState state)
+        {
+            state.ExpensesList  = await ec.GetPendingConciliationExpenses(state.Budget.IdBuilding, state.Budget.BudgetDate, state.Budget.BudgetDate);
+            state.Owners = ec.GetOwnersByBuilding(state.Budget.IdBuilding);
+            state.Owners = state.Owners.Where(c => c.Role == 1 && c.TypeUnit == 1).ToList();
+        }
+
+        public async Task LoadDefaultBudgetDetailsAsync(BudgetState state)
+        {
+            //Cargar Template Default
+            state.ListDefault = await ec.GetBudgetDetailDefault(state.Budget.IdBuilding);
+            
+
+            var sequentialNumber = 0.0m;
+            state.Budget.Details.Clear();
+
+            foreach (var detail in state.ListDefault)
+            {
+                if (detail.IsHeader)
+                    sequentialNumber = 0.00m;
+
+                var categoryAmount = state.ExpensesList
+                    .Where(c => c.IdCategory == detail.IdCategory)
+                    .Sum(x => x.Amount);
+
+                var newItem = new BudgetDetail
+                {
+                    IdBudgetDetail = detail.IdBudgetDetail,
+                    IdCategory = detail.IdCategory,
+                    IdSection = detail.IdSection,
+                    ItemNumber = detail.IdSection + sequentialNumber,
+                    Description = detail.Description,
+                    MonthlyAmount = detail.MonthlyAmount == 0 ? categoryAmount : detail.MonthlyAmount,
+                    AnnualAmount = detail.AnnualAmount,
+                    Frequency = detail.Frequency,
+                    Type = detail.Type,
+                    IsHeader = detail.IsHeader,
+                    IdBudgetHeader = state.Budget.IdBudgetHeader,
+                    IdParent = detail.IdParent
+                };
+
+                state.Budget.Details.Add(newItem);
+                sequentialNumber += 0.01m;
+            }
+            state.CalculateTotals();
+
+            Task.CompletedTask.Wait();
+        }
+
+        public async Task SaveBudgetAsync(BudgetState state, List<Models.Period> _periods)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+               foreach (var period in _periods.Where(c => c.IsNewPeriod)) {
+                        await ec.AddNewRecordAsync(period);
+               }
+
+                if (state.Status == BudgetStatus.Created || state.Status == BudgetStatus.Rejected)
+                {
+                    await SaveCategoriesAsync(state);
+                }
+
+                if (state.IsNewBudget)
+                {
+                    await CreateNewBudgetAsync(state);
+                }
+                else
+                {
+                    await UpdateExistingBudgetAsync(state);
+                }
+
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                //throw new BudgetException("Error al guardar el presupuesto", ex);
+                throw new Exception("Error al guardar el presupuesto", ex);
+            }
+        }
+
+        private async Task SaveCategoriesAsync(BudgetState state)
+        {
+            foreach (var header in state.Details.Where(c => c.IsHeader && c.IsNewItem))
+            {
+                await SaveCategoryAsync(header, Guid.Empty, state.Budget.IdBuilding);
+
+                foreach (var subItem in state.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader && c.IsNewItem))
+                {
+                    await SaveCategoryAsync(subItem, header.IdCategory, state.Budget.IdBuilding);
+                }
+            }
+        }
+
+        private async Task SaveCategoryAsync(BudgetDetail item, Guid parentId, Guid IdBuilding)
+        {
+            var category = new Category
+            {
+                IdCategory = item.IdCategory,
+                Description = item.Description,
+                ShortDescript = item.Description,
+                Color = "#FFFFFF",
+                Icon = "fa-solid fa-droplet",
+                IdBuilding = IdBuilding,
+                Nivel = parentId == Guid.Empty ? 0 : item.IdSection,
+                ParentId = parentId
+            };
+
+            await ec.AddNewRecordAsync(category);
+        }
+
+        private async Task CreateNewBudgetAsync(BudgetState state)
+        {
+            
+            await ec.AddNewRecordAsync(state.Budget);
+
+            foreach (var item in state.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
+            {
+                item.IdBudgetHeader = state.Budget.IdBudgetHeader;
+                await ec.AddNewRecordAsync(item);
+            }
+
+            state.IsNewBudget = false;
+        }
+
+        private async Task UpdateExistingBudgetAsync(BudgetState state)
+        {
+            await ec.DelBudgetDetailByHeaderAsync(state.Budget.IdBudgetHeader);
+
+            foreach (var item in state.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
+            {
+                item.IdBudgetHeader = state.Budget.IdBudgetHeader;
+                await ec.AddNewRecordAsync(item);
+            }
+
+            await ec.UpdateRecordAsync(state.Budget);
         }
 
         #endregion

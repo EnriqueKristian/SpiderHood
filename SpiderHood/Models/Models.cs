@@ -866,6 +866,8 @@ namespace SpiderHood.Models
         public int Frequency { get; set; } = 1;
         public int Type { get; set; } = 1;
         public bool IsHeader { get; set; } = false;
+
+        public Guid IdParent { get; set; }
     }
 
 

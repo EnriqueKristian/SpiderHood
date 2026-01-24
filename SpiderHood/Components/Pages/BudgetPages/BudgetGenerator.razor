@@ -272,97 +272,17 @@
 
 <div class="expense-calculation">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="mb-1">Cálculo de Presupuesto Mensual</h1>
-            <p class="text-muted mb-0">Calcule los gastos mensuales y determine la cuota por departamento</p>
-        </div>
-        <div class="d-flex gap-2">
-            @if (_BudgetState.Budget.IdBudgetHeader != Guid.Empty)
-            {
-                @if (!_BudgetState.IsReadOnly)
-                {
-                    <button class="btn btn-outline-primary" @onclick="LoadSampleData">
-                        <i class="bi bi-upload me-1"></i>Cargar Plantilla
-                    </button>
-                }
-            }
-            <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="ShowNewCalculationModal">
-                <i class="bi bi-plus-circle me-2"></i>Nuevo Cálculo
-            </button>
-        </div>
-    </div>
-
-    <!-- Summary Cards -->
-    <div class="row g-4 mb-4">
-        <div class="col-md-3">
-            <div class="card card-hover">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted text-uppercase small">Total Mensual</h6>
-                            <h2 class="mb-0">S/ @_BudgetState.TotalMonthly.ToString("N2")</h2>
-                        </div>
-                        <div style="color: #3b82f6;">
-                            <i class="bi bi-calculator-fill" style="font-size: 1.2rem;"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card card-hover">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted text-uppercase small">Total Anual</h6>
-                            <h2 class="mb-0">S/ @_BudgetState.TotalAnnual.ToString("N2")</h2>
-                        </div>
-                        <div style="color: #10b981;">
-                            <i class="bi bi-calendar-check-fill" style="font-size: 1.2rem;"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card card-hover">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted text-uppercase small">Departamentos</h6>
-                            <h2 class="mb-0">@_BudgetState.TotalApartments</h2>
-                        </div>
-                        <div style="color: #f59e0b;">
-                            <i class="bi bi-building-fill" style="font-size: 1.2rem;"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card card-hover">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex gap-2">
-                            @if (!_BudgetState.IsReadOnly)
-                            {
-                                <button disabled="@_BudgetState.IsDisabled" class="btn btn-outline-success" @onclick="SaveCalculation">
-                                    <i class="bi bi-save me-1"></i>Guardar
-                                </button>
-                            }
-                            <button disabled="@_BudgetState.IsDisabled" class="btn btn-outline-success" @onclick="GenerateReport">
-                                <i class="bi bi-file-pdf me-1"></i>Generar Reporte
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <BudgetHeaderComponent TotalMonthly="_BudgetState.TotalMonthly"
+                           TotalAnnual="_BudgetState.TotalAnnual"
+                           TotalApartments="_BudgetState.TotalApartments"
+                           Status="_BudgetState.Status"
+                           IsReadOnly="_BudgetState.IsReadOnly"
+                           IsDisabled="_BudgetState.IsDisabled"
+                           IdBudgetHeader="_BudgetState.Budget.IdBudgetHeader"
+                           OnNewCalculation="ShowNewCalculationModal"
+                           OnLoadTemplate="LoadSampleData"
+                           OnSave="SaveCalculation"
+                           OnGenerateReport="GenerateReport" />
 
     <div class="row">
         <!-- Expenses Table -->
@@ -386,7 +306,7 @@
                             </button>
                             @if(_Status == BudgetStatus.Check)
                             {
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="PublishBudgetR">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="RejectBudget">
                                     <i class="fa-solid fa-ban"></i>&nbspRechazar
                                 </button>
                             }
@@ -589,108 +509,19 @@
         </div>
 
         <!-- Configuration and Distribution -->
-        <div class="@(showorNot ? "col-md-4" : "col-md-1") transition-all">
-            <button class="btn btn-outline-success" @onclick="ShoworNot">
-                <i class="@class5"></i>
-            </button>
-            <p></p>
-            <!-- Apartments Configuration -->
-            <div class="@class1 transition-all">
-                <div class="card-header">
-                    <h5 class="mb-0">Configuración de Departamentos</h5>
-                </div>
-                <div class="card-body">
-                    <div class="form-group mb-3">
-                        <label class="form-label">Número Total de Departamentos</label>
-                        <InputNumber @bind-Value="_BudgetState.TotalApartments"
-                                     class="form-control"
-                                     min="1"
-                                     @onchange="CalculateQuota" />
-                    </div>
+        <InformatioPanelComponent   TotalMonthly="_BudgetState.TotalMonthly"
+                                    QuotaPerApartment="_BudgetState.QuotaPerApartment"
+                                    TotalInstallments="_BudgetState.TotalInstallments"
+                                    OccupiedApartments="_BudgetState.OccupiedApartments"
+                                    TotalApartments="_BudgetState.TotalApartments"
+                                    showorNot="@showorNot"
+                                    class2="@class2"
+                                    class5="@class5"
+                                    OnCopyToClipboard="CopyToClipboard"
+                                    OnClearAllData="ClearAllData"
+                                    SectionTotals="GetSectionTotals()" 
+                                    OnShoworNot="ShoworNot"  />
 
-                    <div class="form-group mb-3">
-                        <label class="form-label">Número de Departamentos Habitados</label>
-                        <InputNumber @bind-Value="_BudgetState.OccupiedApartments"
-                                     class="form-control"
-                                     min="0"
-                                     max="@_BudgetState.TotalApartments"
-                                     @onchange="CalculateQuota" />
-                        <div class="form-text text-muted">
-                            @(_BudgetState.OccupiedApartments == _BudgetState.TotalApartments ? "Todos los departamentos están habitados" :
-                                                        $"{_BudgetState.TotalApartments - _BudgetState.OccupiedApartments} departamentos vacíos")
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Distribución Especial</label>
-                        <div class="form-check">
-                            <InputCheckbox @bind-Value="_useProportionalDistribution" class="form-check-input" />
-                            <label class="form-check-label">Usar distribución proporcional</label>
-                        </div>
-                        <div class="form-text text-muted">
-                            Distribuye gastos proporcionalmente según área o tipo de departamento
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Monthly Quota Distribution -->
-            <div class="@class2 transition-all">
-                <div class="card-header">
-                    <h5 class="mb-0">Distribución de Cuotas</h5>
-                </div>
-                <div class="card-body">
-                    <div class="apartment-distribution">
-                        <div class="mb-3">
-                            <h6>Cuota Mensual por Departamento:</h6>
-                            <h3 class="text-primary">S/ @_BudgetState.QuotaPerApartment.ToString("N2")</h3>
-                        </div>
-
-                        <div class="mb-3">
-                            <h6>Ingresos Totales Mensuales:</h6>
-                            <h4 class="text-success">S/ @( _BudgetState.TotalInstallments.ToString("N2"))</h4>
-                            <small class="text-muted">
-                                Basado en @_BudgetState.OccupiedApartments departamentos habitados
-                            </small>
-                        </div>
-
-                        <div class="mb-3">
-                            <h6>Balance Mensual:</h6>
-                            @{
-                                var balance = _BudgetState.TotalInstallments - _BudgetState.TotalMonthly;
-                                var balanceClass = balance >= 0 ? "text-success" : "text-danger";
-                            }
-                            <h4 class="@balanceClass">S/ @balance.ToString("N2")</h4>
-                            <small class="text-muted">
-                                @(balance >= 0 ? "Superávit" : "Déficit")
-                            </small>
-                        </div>
-
-                        <div>
-                            <h6>Desglose por Categoría:</h6>
-                            <div class="mt-2">
-                                @foreach (var section in GetSectionTotals())
-                                {
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <small>@(section.Name)</small>
-                                        <small>S/ @( (section.Monthly / _BudgetState.TotalApartments ).ToString("N2"))</small>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="action-buttons">
-                        <button class="btn btn-outline-secondary btn-sm" @onclick="CopyToClipboard">
-                            <i class="bi bi-clipboard me-1"></i>Copiar Detalle
-                        </button>
-                        <button class="btn btn-outline-danger btn-sm" @onclick="ClearAllData">
-                            <i class="bi bi-trash me-1"></i>Limpiar Todo
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -1343,7 +1174,8 @@
                 BudgetDate = _selectedPeriod, //new DateTime(_selectedYear, _selectedMonth, 1),
                 BudgetName = $"Presupuesto {GetMonthName(_currentPeriod.StartDate.Month)} {_currentPeriod.StartDate.Year}",
                 Status = BudgetStatus.Created,
-                CreatedBy = "Admin"
+                CreatedBy = "Admin",
+                IdPeriod = _periods.Where(c => c.StartDate == _selectedPeriod).FirstOrDefault()!.IdPeriod
             };
 
         _BudgetState.IsDisabled = false;
@@ -1356,114 +1188,8 @@
     #region SAVE
     public async Task SaveCalculation()
     {
-    await presupuestoService.SaveBudgetAsync(_BudgetState, _periods);
-    /*using var transaction = await ParameterService.context.Database.BeginTransactionAsync();
-    * 
-        try
-    {
-        foreach (var period in _periods.Where(c => c.IsNewPeriod))
-        {
-            await ParameterService.ec.AddNewRecordAsync(period);
-            }
-
-        if (_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected)
-        {
-            await SaveCategories();
-
-            if (_BudgetState.IsNewBudget)
-            {
-                await CreateNewBudget();
-                }
-            else
-            {
-                await UpdateExistingBudget();
-                }
-            }
-        else
-        {
-            await ParameterService.ec.UpdateRecordAsync(_BudgetState.Budget);
-
-            if( _Status == BudgetStatus.Active  ){
-
-                foreach( var item in Installments)
-                {
-                    await ParameterService.ec.AddNewRecordAsync(item);
-                    }
-                }
-
-            }
-
-        await transaction.CommitAsync();
-
-        }
-    catch (Exception ex)
-    {
-        await transaction.RollbackAsync();
-        Console.WriteLine($"Error al guardar cálculo: {ex.Message}");
-        }*/
-
-            await ReloadBudgetData();
-    }
-
-    private async Task SaveCategories()
-    {
-        foreach (var header in _BudgetState.Budget.Details.Where(c => c.IsHeader && c.IsNewItem))
-        {
-            await SaveCategory(header, Guid.Empty);
-
-            foreach (var subItem in _BudgetState.Budget.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader && c.IsNewItem))
-            {
-                await SaveCategory(subItem, header.IdCategory);
-            }
-        }
-    }
-
-    private async Task SaveCategory(BudgetDetail item, Guid parentId)
-    {
-    var category = new Category
-        {
-            IdCategory = item.IdCategory,
-            Description = item.Description,
-            ShortDescript = item.Description,
-            Color = "#FFFFFF",
-            Icon = "fa-solid fa-droplet",
-            IdBuilding = ParameterService.IdBuilding,
-            Nivel = parentId == Guid.Empty ? 0 : item.IdSection,
-            ParentId = parentId
-        };
-
-    await ParameterService.ec.AddNewRecordAsync(category);
-    }
-
-    private async Task CreateNewBudget()
-    {
-        _BudgetState.Budget.Amount = _BudgetState.TotalMonthly;
-        _BudgetState.Budget.AnnualAmount = _BudgetState.TotalAnnual;
-
-        await ParameterService.ec.AddNewRecordAsync(_BudgetState.Budget);
-
-        foreach (var item in _BudgetState.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
-        {
-            item.IdBudgetHeader = _BudgetState.Budget.IdBudgetHeader;
-            await ParameterService.ec.AddNewRecordAsync(item);
-        }
-
-        _BudgetState.IsNewBudget = false;
-    }
-
-    private async Task UpdateExistingBudget()
-    {
-        await ParameterService.ec.DelBudgetDetailByHeaderAsync(_BudgetState.Budget.IdBudgetHeader);
-
-        foreach (var item in _BudgetState.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
-        {
-            item.IdBudgetHeader = _BudgetState.Budget.IdBudgetHeader;
-            await ParameterService.ec.AddNewRecordAsync(item);
-        }
-
-        _BudgetState.Budget.Amount = _BudgetState.TotalMonthly;
-        _BudgetState.Budget.AnnualAmount = _BudgetState.TotalAnnual;
-        await ParameterService.ec.UpdateRecordAsync(_BudgetState.Budget);
+        await presupuestoService.SaveBudgetAsync(_BudgetState, _periods);
+        await ReloadBudgetData();
     }
 
     private async Task ReloadBudgetData()
@@ -1481,8 +1207,8 @@
 
         if (_Status != BudgetStatus.Closed)
         {
-            _BudgetState.Budget.Status = _Status;
-            await SaveCalculation();
+    _BudgetState.Budget.Status = _Status;
+    await SaveCalculation();
         }
     }
 
@@ -1490,26 +1216,26 @@
     {
         switch (_Status)
         {
-            case BudgetStatus.Created or BudgetStatus.Rejected:
-                _Status = BudgetStatus.Check;
-                SetWorkflowState("Aprobar", "fa-solid fa-file", true);
-                break;
-            case BudgetStatus.Check:
-                _Status = BudgetStatus.Approved;
-                SetWorkflowState("Publicar", "fa-solid fa-upload", true);
-                break;
-            case BudgetStatus.Approved:
-                _Status = BudgetStatus.Active;
-                SetWorkflowState("Cerrar", "fa-solid fa-folder-closed", true);
-                break;
-            case BudgetStatus.Active:
-                _Status = BudgetStatus.Closed;
-                SetWorkflowState("Cerrado", "fa-solid fa-lock", true);
-                break;
+    case BudgetStatus.Created or BudgetStatus.Rejected:
+        _Status = BudgetStatus.Check;
+        SetWorkflowState("Aprobar", "fa-solid fa-file", true);
+        break;
+    case BudgetStatus.Check:
+        _Status = BudgetStatus.Approved;
+        SetWorkflowState("Publicar", "fa-solid fa-upload", true);
+        break;
+    case BudgetStatus.Approved:
+        _Status = BudgetStatus.Active;
+        SetWorkflowState("Cerrar", "fa-solid fa-folder-closed", true);
+        break;
+    case BudgetStatus.Active:
+        _Status = BudgetStatus.Closed;
+        SetWorkflowState("Cerrado", "fa-solid fa-lock", true);
+        break;
         }
     }
 
-    private async Task PublishBudgetR(MouseEventArgs args)
+    private async Task RejectBudget(MouseEventArgs args)
     {
         SetWorkflowState("Sol. Aprob.", "fa-solid fa-list-check", false);
         _Status = BudgetStatus.Created;
@@ -1517,7 +1243,7 @@
     #endregion
 
     /*  SECCION GENERAL FUNCTIONS   */
-    
+
     private async Task GenerateReport()
     {
         // Implementar generación de reporte PDF
@@ -1539,6 +1265,7 @@
     private async Task OnSelectedCalculationChanged()
     {
         _newCalculation.Description = $"Presupuesto - {GetMonthName(_selectedPeriod.Month)} {_selectedPeriod.Year}";
+        _BudgetState.Budget.BudgetName = _newCalculation.Description;
     }
 
     private void SeleccionarCategoria(Models.Category category)

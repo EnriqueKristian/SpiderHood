@@ -566,13 +566,14 @@ namespace SpiderHood.Data
         {
             // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
             await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_BudgetHeader {0},{1},{2},{3},{4},{5}",
+                "UPD_BudgetHeader {0},{1},{2},{3},{4},{5},{6}",
                 ec?.IdBudgetHeader!,
                 ec?.BudgetName!,
                 ec?.Amount!,
                 ec?.AnnualAmount!,
                 ec?.BudgetType!,
-                ec?.Status!
+                ec?.Status!,
+                ec?.IdPeriod!
             );
 
             await _dbcontext.SaveChangesAsync();
@@ -642,7 +643,7 @@ namespace SpiderHood.Data
         public async Task<SpiderHood.Models.BudgetHeader> AddNewRecordAsync(SpiderHood.Models.BudgetHeader? ec)
         {
             // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("INS_BudgetHeader {0},{1},{2},{3},{4},{5},{6},{7},{8}", ec?.IdBudgetHeader!, ec?.BudgetName!, ec!.BudgetDate, ec!.Amount, ec!.AnnualAmount, ec!.BudgetType, ec!.IdBuilding, ec!.Status, ec!.CreatedBy);
+            await _dbcontext!.Database.ExecuteSqlRawAsync("INS_BudgetHeader {0},{1},{2},{3},{4},{5},{6},{7},{8},{9}", ec?.IdBudgetHeader!, ec?.BudgetName!, ec!.BudgetDate, ec!.Amount, ec!.AnnualAmount, ec!.BudgetType, ec!.IdBuilding, ec!.Status, ec!.CreatedBy, ec!.IdPeriod );
 
             await _dbcontext.SaveChangesAsync();
             return ec!;

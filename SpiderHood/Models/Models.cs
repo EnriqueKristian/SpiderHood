@@ -818,6 +818,7 @@ namespace SpiderHood.Models
         public string BudgetType { get; set; } = string.Empty;
         public Guid IdBuilding { get; set; }
         public string CreatedBy { get; set; } = string.Empty;
+        public Guid IdPeriod { get; set; }
         public DateTime CreatedOn { get; set; }
         [NotMapped]
         public int Month { get { return BudgetDate.Month; } }

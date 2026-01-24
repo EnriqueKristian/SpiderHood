@@ -1,0 +1,162 @@
+﻿<div class="@(showorNot ? "col-md-4" : "col-md-1") transition-all">
+    <button class="btn btn-outline-success" @onclick="() => OnShoworNot.InvokeAsync()">
+        <i class="@class5"></i>
+    </button>
+    <p></p>
+    <!-- Apartments Configuration -->
+    <!--
+    <div class="@class1 transition-all">
+        <div class="card-header">
+            <h5 class="mb-0">Configuración de Departamentos</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-group mb-3">
+                <label class="form-label">Número Total de Departamentos</label>
+                <InputNumber @bind-Value="_BudgetState.TotalApartments"
+                             class="form-control"
+                             min="1"
+                             @onchange="CalculateQuota" />
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label">Número de Departamentos Habitados</label>
+                <InputNumber @bind-Value="_BudgetState.OccupiedApartments"
+                             class="form-control"
+                             min="0"
+                             max="@_BudgetState.TotalApartments"
+                             @onchange="CalculateQuota" />
+                <div class="form-text text-muted">
+                    @(_BudgetState.OccupiedApartments == _BudgetState.TotalApartments ? "Todos los departamentos están habitados" :
+                                                                                                $"{_BudgetState.TotalApartments - _BudgetState.OccupiedApartments} departamentos vacíos")
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Distribución Especial</label>
+                <div class="form-check">
+                    <InputCheckbox @bind-Value="_useProportionalDistribution" class="form-check-input" />
+                    <label class="form-check-label">Usar distribución proporcional</label>
+                </div>
+                <div class="form-text text-muted">
+                    Distribuye gastos proporcionalmente según área o tipo de departamento
+                </div>
+            </div>
+        </div>
+    </div>-->
+    <!-- Monthly Quota Distribution -->
+    <div class="@class2 transition-all">
+        <div class="card-header">
+            <h5 class="mb-0">Distribución de Cuotas</h5>
+        </div>
+        <div class="card-body">
+            <div class="apartment-distribution">
+                <div class="mb-3">
+                    <h6>Cuota Promedio por Departamento:</h6>
+                    <h3 class="text-primary">S/ @QuotaPerApartment.ToString("N2")</h3>
+                </div>
+
+                <div class="mb-3">
+                    <h6>Ingresos Totales Mensuales:</h6>
+                    <h4 class="text-success">S/ @(TotalInstallments.ToString("N2"))</h4>
+                    <small class="text-muted">
+                        Basado en @OccupiedApartments departamentos habitados
+                    </small>
+                </div>
+
+                <div class="mb-3">
+                    <h6>Balance Mensual:</h6>
+                    @{
+                        var balance = TotalInstallments - TotalMonthly;
+                        var balanceClass = balance >= 0 ? "text-success" : "text-danger";
+                    }
+                    <h4 class="@balanceClass">S/ @balance.ToString("N2")</h4>
+                    <small class="text-muted">
+                        @(balance >= 0 ? "Superávit" : "Déficit")
+                    </small>
+                </div>
+
+                <div>
+                    <h6>Desglose por Categoría:</h6>
+                    <div class="mt-2">
+                        @foreach (var section in SectionTotals)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small>@(section.Name)</small>
+                                <small>S/ @( (section.Monthly / TotalApartments ).ToString("N2"))</small>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => OnCopyToClipboard.InvokeAsync()">
+                    <i class="bi bi-clipboard me-1"></i>Copiar Detalle
+                </button>
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => OnClearAllData.InvokeAsync()">
+                    <i class="bi bi-trash me-1"></i>Limpiar Todo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    [Parameter]
+    public decimal QuotaPerApartment { get; set; }
+    [Parameter]
+    public decimal TotalInstallments { get; set; }
+    [Parameter]
+    public int OccupiedApartments { get; set; }
+    [Parameter]
+    public decimal TotalMonthly { get; set; }
+    [Parameter]
+    public int TotalApartments { get; set; }
+    [Parameter]
+    public bool showorNot { get; set; }
+    [Parameter]
+    public string class2 { get; set; } = string.Empty;
+    [Parameter]
+    public string class5 { get; set; } = string.Empty;
+
+    [Parameter]
+    public EventCallback OnCopyToClipboard { get; set; }
+    [Parameter]
+    public EventCallback OnClearAllData { get; set; }
+    [Parameter]
+    public List<Models.SectionTotal> SectionTotals { get; set; } = new();
+
+    [Parameter]
+    public EventCallback OnShoworNot { get; set; }
+
+    // Parámetros para binding de dos vías
+    
+    [Parameter]
+    public EventCallback<decimal> TotalMonthlyChanged { get; set; }
+        
+    [Parameter]
+    public EventCallback<decimal> TotalInstallmentsChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<decimal> OccupiedApartmentsChanged { get; set; }
+
+    // Métodos para actualizar los valores
+    private async Task UpdateTotalMonthly(decimal value)
+    {
+        TotalMonthly = value;
+        await TotalMonthlyChanged.InvokeAsync(value);
+    }
+
+    private async Task UpdateTotalAnnual(decimal value)
+    {
+        TotalInstallments = value;
+        await TotalInstallmentsChanged.InvokeAsync(value);
+    }
+
+    private async Task UpdateTotalApartments(int value)
+    {
+        OccupiedApartments = value;
+        await OccupiedApartmentsChanged.InvokeAsync(value);
+    }
+}

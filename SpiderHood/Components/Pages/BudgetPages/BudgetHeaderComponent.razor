@@ -6,7 +6,7 @@
     <div class="d-flex gap-2">
         @if (IdBudgetHeader != Guid.Empty)
         {
-            @if (!IsReadOnly)
+            @if (SampleData)
             {
                 <button class="btn btn-outline-primary" @onclick="() => OnLoadTemplate.InvokeAsync()">
                     <i class="bi bi-upload me-1"></i>Cargar Plantilla
@@ -74,7 +74,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex gap-2">
-                        @if (!IsReadOnly)
+                        @if (SaveBudget)
                         {
                             <button disabled="@IsDisabled" class="btn btn-outline-success" @onclick="() => OnSave.InvokeAsync()">
                                 <i class="bi bi-save me-1"></i>Guardar
@@ -108,7 +108,10 @@
 
     [Parameter]
     public bool IsReadOnly { get; set; }
-
+    [Parameter]
+    public bool SaveBudget { get; set; }
+    [Parameter]
+    public bool SampleData { get; set; }
     [Parameter]
     public bool IsDisabled { get; set; }
 

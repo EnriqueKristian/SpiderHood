@@ -277,6 +277,8 @@
                            TotalApartments="_BudgetState.TotalApartments"
                            Status="_BudgetState.Status"
                            IsReadOnly="_BudgetState.IsReadOnly"
+                           SampleData="_BudgetState.AddSampleData"
+                           SaveBudget="_BudgetState.SaveBudget()"
                            IsDisabled="_BudgetState.IsDisabled"
                            IdBudgetHeader="_BudgetState.Budget.IdBudgetHeader"
                            OnNewCalculation="ShowNewCalculationModal"
@@ -295,15 +297,17 @@
                     @if (_BudgetState.Budget.IdBudgetHeader != Guid.Empty)
                     {
                         <div class="d-flex gap-2">
-                            @if (!_BudgetState.IsReadOnly)
+                            @if (_BudgetState.AddNewSection)
                             {
-                                <button class="btn btn-sm btn-outline-primary" @onclick="AddNewSection" disabled="@_BudgetState.IsReadOnly">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="AddNewSection">
                                     <i class="bi bi-plus-lg me-1"></i>Nueva Sección
                                 </button>
                             }
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="PublishBudget">
-                                <i class="@_icon"></i>&nbsp@_msjButtonWorflow
-                            </button>
+                            @if(_BudgetState.PublishBudget()){
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="PublishBudget">
+                                    <i class="@_icon"></i>&nbsp@_msjButtonWorflow
+                                </button>
+                            }
                             @if(_Status == BudgetStatus.Check)
                             {
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="RejectBudget">
@@ -340,7 +344,7 @@
                                             <td colspan="7">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <strong>@GetSectionName(section.Id)</strong>
-                                                    @if (!_BudgetState.IsReadOnly)
+                                                    @if (_BudgetState.AddNewSection)
                                                     {
                                                         <button class="btn btn-sm btn-outline-primary add-item-btn" disabled="@_BudgetState.IsReadOnly"
                                                             @onclick="() => AddExpenseItemToSection(section.Id)">
@@ -423,7 +427,7 @@
                                                     </td>
                                                     <td>
                                                         <div class="btn-group btn-group-sm" role="group">
-                                                            <button class="btn btn-outline-danger" disabled="@_BudgetState.IsReadOnly"
+                                                            <button class="btn btn-outline-danger" disabled="@(!_BudgetState.AddNewSection)"
                                                                     @onclick="() => RemoveExpenseItem(item.IdBudgetDetail)">
                                                                 <i class="bi bi-trash"></i>
                                                             </button>
@@ -443,7 +447,7 @@
                                                 <td></td>
                                                 <td></td>
                                                 <td>
-                                                    <button class="btn btn-sm btn-outline-secondary" disabled="@_BudgetState.IsReadOnly"
+                                                    <button class="btn btn-sm btn-outline-secondary" disabled="@(!_BudgetState.AddNewSection)"
                                                             @onclick="() => RemoveSection(section.Id)"
                                                             title="Eliminar sección">
                                                         <i class="bi bi-trash"></i>
@@ -699,6 +703,9 @@
                 break;
             case BudgetStatus.Closed:
                 SetWorkflowState("Cerrado", "fa-solid fa-lock", true);
+                break;
+            case BudgetStatus.All:
+                value = BudgetStatus.Created;
                 break;
         }
         return value;
@@ -1172,14 +1179,15 @@
                 IdBudgetHeader = Guid.NewGuid(),
                 IdBuilding = ParameterService.IdBuilding,
                 BudgetDate = _selectedPeriod, //new DateTime(_selectedYear, _selectedMonth, 1),
-                BudgetName = $"Presupuesto {GetMonthName(_currentPeriod.StartDate.Month)} {_currentPeriod.StartDate.Year}",
+                BudgetName = $"Presupuesto {GetMonthName(_selectedPeriod.Month)} {_selectedPeriod.Year}",
                 Status = BudgetStatus.Created,
                 CreatedBy = "Admin",
                 IdPeriod = _periods.Where(c => c.StartDate == _selectedPeriod).FirstOrDefault()!.IdPeriod
             };
 
         _BudgetState.IsDisabled = false;
-        _textCabecera = "Detalle de Gastos - " + @GetMonthName(_currentPeriod.StartDate.Month) + " " + _currentPeriod.StartDate.Year;
+        _BudgetState.Status = BudgetStatus.Created;
+        _textCabecera = "Detalle de Gastos - " + @GetMonthName(_selectedPeriod.Month) + " " + _selectedPeriod.Year;
         await _newCalcModal.HideAsync();
         StateHasChanged();
     }
@@ -1207,9 +1215,11 @@
 
         if (_Status != BudgetStatus.Closed)
         {
-    _BudgetState.Budget.Status = _Status;
-    await SaveCalculation();
+         //   _BudgetState.Budget.Status = _Status;
+            _BudgetState.Status = _Status;
+            await SaveCalculation();
         }
+        StateHasChanged();
     }
 
     private void UpdateBudgetStatus()
@@ -1239,6 +1249,10 @@
     {
         SetWorkflowState("Sol. Aprob.", "fa-solid fa-list-check", false);
         _Status = BudgetStatus.Created;
+
+        _BudgetState.Status = _Status;
+        await SaveCalculation();
+        StateHasChanged();
     }
     #endregion
 

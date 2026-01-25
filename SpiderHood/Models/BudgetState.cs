@@ -1,4 +1,6 @@
 ﻿using BlazorBootstrap;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
 using SpiderHood.Services;
@@ -26,11 +28,39 @@ namespace SpiderHood.Models
         public int OccupiedApartments { get; set; } = 30;
         public bool UseProportionalDistribution { get; set; }
 
-        public BudgetStatus Status { get; set; }
+        private BudgetStatus _status;
+        public BudgetStatus Status
+        {
+            get => _status;
+            set
+            {
+                _status = value;
+                Budget.Status = value;
+            }
+        }
+
         public bool IsReadOnly { get; private set; }
         public bool IsNewBudget { get; set; } = true;
         public bool IsDisabled { get; set; } = true;
-        public DateTime lastPeriod { get; set; } 
+        public DateTime lastPeriod { get; set; }
+
+        public bool AddNewSection => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
+
+        public bool AddSampleData => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
+
+        public bool SaveBudget()
+        {
+            return (Status == BudgetStatus.Rejected || Status == BudgetStatus.Created)
+                   && Budget.Details.Count > 0;
+        }
+
+        public bool PublishBudget() {
+
+            if (IsNewBudget)
+                return false;
+            else 
+                return true;
+        }
 
         private readonly BudgetCalculator _calculator;
 

@@ -35,11 +35,13 @@ namespace SpiderHood.Services
         Task<CalculoResultado> CalcularConsumoAsync(double consumo, decimal cargoFijo);
         Task<List<ConsumoHistorico>> ObtenerHistoricoAsync(int departamentoId);
         Task GuardarLecturaAsync(Departamento departamento);
-        Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, Guid IdBuilding, DateTime period, List<ServiceReadingDetail> previous,string filename, BDLayout ec);
+        Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous, BDLayout ec);
         Task<List<Models.ServiceReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.ServiceReadingDetail> lecturas, decimal cargoFijo);
+        Task<Models.ServiceReading> ObtenerLecturaPorPeriodoAsync(BDLayout ec, DateTime period);
         Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(BDLayout ec, DateTime period);
         Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(BDLayout ec, Guid IdBuilding);
-        Task<List<Models.ServiceReading>> GetPeriodsAsync(BDLayout ec, Guid IdBuilding);
+        Task<List<Models.ServiceReading>> GetServiceReadingsAsync(BDLayout ec, Guid IdBuilding);
+
     }
 
     public class CalculoResultado
@@ -182,21 +184,21 @@ namespace SpiderHood.Services
             return Task.CompletedTask;
         }
 
-        public Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, Guid IdBuilding, DateTime period, List<ServiceReadingDetail> previous, string filename,BDLayout ec)
+        public Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous, BDLayout ec)
         {
 
-            ServiceReading reading = new();
+            //ServiceReading reading = new();
 
             var lecturas = new List<Models.ServiceReadingDetail>();
             List<string> errores = [];
 
             //Cargar Cabecera de Lectura
-            reading.IdServiceReading = Guid.NewGuid();
-            reading.Period = period;
-            reading.CreatedOn = DateTime.Now;
-            reading.Status = 1;
-            reading.IdBuilding = IdBuilding;
-            reading.FileName = filename;
+            //reading.IdServiceReading = Guid.NewGuid();
+            //reading.Period = period;
+            //reading.CreatedOn = DateTime.Now;
+            //reading.Status = 1;
+            //reading.IdBuilding = IdBuilding;
+            //reading.FileName = filename;
 
             using var workbook = new ClosedXML.Excel.XLWorkbook(fileStream);
             var worksheet = workbook.Worksheet(1);
@@ -263,9 +265,10 @@ namespace SpiderHood.Services
                         IdServiceReading = reading.IdServiceReading,
                         IdGroupUnit = prev!.IdGroupUnit,
                         GroupNumber = Number, 
-                        Code = Departamento + period.Month + period.Year,
+                        Code = Departamento + reading.Period.Month + reading.Period.Year,
                         CurrentReading = value,
-                        PreviousReading = prev!.CurrentReading,
+                        //PreviousReading = prev!.CurrentReading,
+                        PreviousReading = prev!.PreviousReading,
                         ReadingDate = fecha,
                         CalculatedAmount = 0,
                         Procesed = _procesed
@@ -287,10 +290,10 @@ namespace SpiderHood.Services
                         IdServiceReading = reading.IdServiceReading,
                         IdGroupUnit = item.IdGroupUnit,
                         GroupNumber = item.GroupNumber,
-                        Code = item.GroupNumber.ToString() + period.Month + period.Year,
+                        Code = item.GroupNumber.ToString() + reading.Period.Month + reading.Period.Year,
                         CurrentReading = 0,
                         PreviousReading = item.CurrentReading,
-                        ReadingDate = period,
+                        ReadingDate = reading.Period,
                         CalculatedAmount = 0
                     };
                     lecturas.Add(lectura);
@@ -323,6 +326,13 @@ namespace SpiderHood.Services
             return Task.FromResult(lecturas);
         }
 
+        public async Task<ServiceReading> ObtenerLecturaPorPeriodoAsync(BDLayout ec, DateTime period)
+        {
+            var lista = await ec.GetServiceReadingbyPeriod(period); // Espera la tarea para obtener la lista
+            return lista.FirstOrDefault()!; // Ahora sí puedes usar FirstOrDefault()
+        }
+
+
         public Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(BDLayout ec, DateTime period)
         {
             return ec.GetServiceReadingDetailbyPeriod(period);
@@ -333,7 +343,7 @@ namespace SpiderHood.Services
             return ec.GetFirstWaterReadingDetailList(IdBuilding);
         }
 
-        public Task<List<Models.ServiceReading>> GetPeriodsAsync(BDLayout ec, Guid IdBuilding)
+        public Task<List<Models.ServiceReading>> GetServiceReadingsAsync(BDLayout ec, Guid IdBuilding)
         {
             return ec.GetWaterReadingList(IdBuilding);
         }

@@ -272,19 +272,12 @@
 
 <div class="expense-calculation">
     <!-- Header -->
-    <BudgetHeaderComponent TotalMonthly="_BudgetState.TotalMonthly"
-                           TotalAnnual="_BudgetState.TotalAnnual"
-                           TotalApartments="_BudgetState.TotalApartments"
-                           Status="_BudgetState.Status"
-                           IsReadOnly="_BudgetState.IsReadOnly"
-                           SampleData="_BudgetState.AddSampleData"
-                           SaveBudget="_BudgetState.SaveBudget()"
-                           IsDisabled="_BudgetState.IsDisabled"
-                           IdBudgetHeader="_BudgetState.Budget.IdBudgetHeader"
+    <BudgetHeaderComponent _budgetState="_BudgetState"
                            OnNewCalculation="ShowNewCalculationModal"
                            OnLoadTemplate="LoadSampleData"
                            OnSave="SaveCalculation"
-                           OnGenerateReport="GenerateReport" />
+                           OnGenerateReport="GenerateReport"
+                           OnServiceReading="ShowServiceReadingModal"/>
 
     <div class="row">
         <!-- Expenses Table -->
@@ -346,7 +339,8 @@
                                                     <strong>@GetSectionName(section.Id)</strong>
                                                     @if (_BudgetState.AddNewSection)
                                                     {
-                                                        <button class="btn btn-sm btn-outline-primary add-item-btn" disabled="@_BudgetState.IsReadOnly"
+                                                        var _disable = !_BudgetState.AddNewSection;
+                                                        <button class="btn btn-sm btn-outline-primary add-item-btn" disabled="@_disable"
                                                             @onclick="() => AddExpenseItemToSection(section.Id)">
                                                             <i class="bi bi-plus me-1"></i>Agregar Item
                                                         </button>
@@ -373,10 +367,6 @@
                                                 <tr>
                                                     <td>
                                                         <span>@item.ItemNumber</span>
-                                                        <!--<InputNumber @bind-Value="item.ItemNumber"
-                                                                    class="form-control form-control-sm"
-                                                                    step="0.01"
-                                                                    @onchange="CalculateTotals" />-->
                                                     </td>
                                                     <td>
                                                         <InputText @bind-Value="item.Description" readonly="@_BudgetState.IsReadOnly"
@@ -427,7 +417,10 @@
                                                     </td>
                                                     <td>
                                                         <div class="btn-group btn-group-sm" role="group">
-                                                            <button class="btn btn-outline-danger" disabled="@(!_BudgetState.AddNewSection)"
+                                                            @{
+                                                                var _RemoveExpenseItem = !_BudgetState.AddNewSection;
+                                                            }
+                                                            <button class="btn btn-outline-danger" disabled="@_RemoveExpenseItem"
                                                                     @onclick="() => RemoveExpenseItem(item.IdBudgetDetail)">
                                                                 <i class="bi bi-trash"></i>
                                                             </button>
@@ -447,7 +440,10 @@
                                                 <td></td>
                                                 <td></td>
                                                 <td>
-                                                    <button class="btn btn-sm btn-outline-secondary" disabled="@(!_BudgetState.AddNewSection)"
+                                                    @{
+                                                        var _RemoveSection = !_BudgetState.AddNewSection;
+                                                    }
+                                                    <button class="btn btn-sm btn-outline-secondary" disabled="@_RemoveSection"
                                                             @onclick="() => RemoveSection(section.Id)"
                                                             title="Eliminar sección">
                                                         <i class="bi bi-trash"></i>
@@ -646,11 +642,11 @@
     </FooterTemplate>
 </Modal>
 
+<ServiceReadingModal ShowModal="@ShowModalServiceRegistration" _period="_BudgetState.Budget.BudgetDate" ShowModalChanged="LoadServiceCalculation" />
+
 <p></p>
 
 <InstallmentTable Installments="@_BudgetState.Installments"
-                  Month="@_currentPeriod.StartDate.Month"
-                  Year="@_currentPeriod.StartDate.Year"
                   Budget="@_BudgetState.Budget" />
 
 @code {
@@ -658,12 +654,12 @@
     [Inject] private IPresupuestoService presupuestoService { get; set; } = null!;
 
     private BudgetStatus _Status = BudgetStatus.Created;
-    private bool _useProportionalDistribution = false;
 
     private NewCalculation _newCalculation = new();
     private NewSection _newSection = new();
     private Modal _newCalcModal = null!;
     private Modal _newSectionModal = null!;
+    private bool ShowModalServiceRegistration = false;
 
     private string class1 = "card card-hover mb-4";
     private string class2 = "card card-hover";
@@ -734,7 +730,10 @@
 
         _BudgetState = await presupuestoService.InitializeBudgetStateAsync(presupuestoService._SelectedBudget!);
 
-        if (_BudgetState.IsNewBudget) await ShowNewCalculationModal();
+        if (_BudgetState.IsNewBudget)
+            await ShowNewCalculationModal();
+        else
+            _textCabecera = _BudgetState.Budget.BudgetName;
     }
 
     /*  SECCION LOAD DATA   */
@@ -1185,7 +1184,7 @@
                 IdPeriod = _periods.Where(c => c.StartDate == _selectedPeriod).FirstOrDefault()!.IdPeriod
             };
 
-        _BudgetState.IsDisabled = false;
+        //_BudgetState.IsDisabled = false;
         _BudgetState.Status = BudgetStatus.Created;
         _textCabecera = "Detalle de Gastos - " + @GetMonthName(_selectedPeriod.Month) + " " + _selectedPeriod.Year;
         await _newCalcModal.HideAsync();
@@ -1212,13 +1211,8 @@
     private async Task PublishBudget(MouseEventArgs args)
     {
         UpdateBudgetStatus();
-
-        if (_Status != BudgetStatus.Closed)
-        {
-         //   _BudgetState.Budget.Status = _Status;
-            _BudgetState.Status = _Status;
-            await SaveCalculation();
-        }
+        _BudgetState.Status = _Status;
+        await SaveCalculation();
         StateHasChanged();
     }
 
@@ -1226,22 +1220,22 @@
     {
         switch (_Status)
         {
-    case BudgetStatus.Created or BudgetStatus.Rejected:
-        _Status = BudgetStatus.Check;
-        SetWorkflowState("Aprobar", "fa-solid fa-file", true);
-        break;
-    case BudgetStatus.Check:
-        _Status = BudgetStatus.Approved;
-        SetWorkflowState("Publicar", "fa-solid fa-upload", true);
-        break;
-    case BudgetStatus.Approved:
-        _Status = BudgetStatus.Active;
-        SetWorkflowState("Cerrar", "fa-solid fa-folder-closed", true);
-        break;
-    case BudgetStatus.Active:
-        _Status = BudgetStatus.Closed;
-        SetWorkflowState("Cerrado", "fa-solid fa-lock", true);
-        break;
+            case BudgetStatus.Created or BudgetStatus.Rejected:
+                _Status = BudgetStatus.Check;
+                SetWorkflowState("Aprobar", "fa-solid fa-file", true);
+                break;
+            case BudgetStatus.Check:
+                _Status = BudgetStatus.Approved;
+                SetWorkflowState("Publicar", "fa-solid fa-upload", true);
+                break;
+            case BudgetStatus.Approved:
+                _Status = BudgetStatus.Active;
+                SetWorkflowState("Cerrar", "fa-solid fa-folder-closed", true);
+                break;
+            case BudgetStatus.Active:
+                _Status = BudgetStatus.Closed;
+                SetWorkflowState("Cerrado", "fa-solid fa-lock", true);
+                break;
         }
     }
 
@@ -1307,5 +1301,13 @@
         }
 
         StateHasChanged();
+    }
+    private void ShowServiceReadingModal()
+    {
+        ShowModalServiceRegistration = true;
+    }
+    private Task LoadServiceCalculation(bool args)
+    {
+        throw new NotImplementedException();
     }
 }

@@ -1,0 +1,40 @@
+﻿@inherits LayoutComponentBase
+
+@if (ShowModal)
+{
+<div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header">
+                    <i class="fas fa-water mr-2"></i><h5 class="modal-title">Lectura de Agua: @_period.ToString("MMMM-yy")</h5>
+                <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+            </div>
+            <div class="modal-body">
+                    <SpiderHood.Components.Pages.CalculoAgua.LecturaBloque _period="_period"/>
+            </div>
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-outline-secondary" @onclick="CerrarModal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">"Save"</button>
+                </div>
+            
+        </div>
+    </div>
+</div>
+}
+
+@code {
+
+    [Parameter] public bool ShowModal { get; set; }
+    [Parameter] public DateTime _period { get; set; }
+    [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
+        
+    private async Task CerrarModal()
+    {
+        ShowModal = false;
+        await ShowModalChanged.InvokeAsync(ShowModal);
+    }
+
+}

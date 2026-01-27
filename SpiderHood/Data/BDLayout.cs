@@ -1268,6 +1268,27 @@ namespace SpiderHood.Data
             }
         }
 
+        public async Task<List<ServiceReading>> GetServiceReadingbyPeriod(DateTime period)
+        {
+            if (_dbcontext == null)
+            {
+                throw new InvalidOperationException("Database context is not initialized.");
+            }
+            try
+            {
+                var result = await _dbcontext!.ServiceReading
+                    .FromSql($"EXEC GET_ServiceReading {period}")
+                    .ToListAsync();
+
+                return result ?? [];
+            }
+            catch (Exception ex)
+            {
+                // Log error here
+                throw new ApplicationException("Error fetching unit", ex);
+            }
+        }
+
         public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriod(DateTime period)
         {
             if (_dbcontext == null)

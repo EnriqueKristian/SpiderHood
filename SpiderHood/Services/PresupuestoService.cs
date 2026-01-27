@@ -294,16 +294,14 @@ namespace SpiderHood.Services
             if (selectedBudget?.IdBudgetHeader != Guid.Empty)
             {
 
-                state.UpdateStatus(selectedBudget!.Status);
+                //state.UpdateStatus(selectedBudget!.Status);
                 state.IsNewBudget = false;
-                state.IsDisabled = false;
 
                 await LoadBudgetDetailsAsync(state);
                 state.CalculateTotals();
             }
             else {
                 state.IsNewBudget = true;
-                state.IsDisabled = true;
                 state.Status = BudgetStatus.Created;
             }
 

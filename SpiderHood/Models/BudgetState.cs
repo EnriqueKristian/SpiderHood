@@ -27,33 +27,26 @@ namespace SpiderHood.Models
         public int TotalApartments { get; set; } = 30;
         public int OccupiedApartments { get; set; } = 30;
         public bool UseProportionalDistribution { get; set; }
-
-        private BudgetStatus _status;
         public BudgetStatus Status
         {
-            get => _status;
+            get => Budget.Status;
             set
             {
-                _status = value;
                 Budget.Status = value;
             }
         }
-
-        public bool IsReadOnly { get; private set; }
+        public bool IsReadOnly => !(Status == BudgetStatus.Rejected || Status == BudgetStatus.Created);
         public bool IsNewBudget { get; set; } = true;
-        public bool IsDisabled { get; set; } = true;
+        //public bool IsDisabled { get; set; } = true;
         public DateTime lastPeriod { get; set; }
-
         public bool AddNewSection => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
-
         public bool AddSampleData => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
-
+        public bool LoadServiceReading => !(Budget.Details.Count > 0);
         public bool SaveBudget()
         {
             return (Status == BudgetStatus.Rejected || Status == BudgetStatus.Created)
                    && Budget.Details.Count > 0;
         }
-
         public bool PublishBudget() {
 
             if (IsNewBudget)
@@ -61,22 +54,15 @@ namespace SpiderHood.Models
             else 
                 return true;
         }
+        public bool GenerateReport() {
+            return Budget.Details.Count == 0;
+        }
 
         private readonly BudgetCalculator _calculator;
 
         public BudgetState()
         {
             _calculator = new BudgetCalculator(this);
-        }
-
-        public void UpdateStatus(BudgetStatus newStatus)
-        {
-            Status = newStatus;
-            IsReadOnly = Status switch
-            {
-                BudgetStatus.Created or BudgetStatus.Rejected => false,
-                _ => true
-            };
         }
 
         public void CalculateTotals()

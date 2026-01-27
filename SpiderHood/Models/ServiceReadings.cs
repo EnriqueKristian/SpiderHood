@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 using SpiderHood.Data;
 using SpiderHood.Models;
@@ -108,7 +110,7 @@ namespace SpiderHood.Models
 
 
 
-       
+
 
 
 
@@ -123,5 +125,48 @@ namespace SpiderHood.Models
 
     }
 
+    public class ServiceReadingState{
+        public ServiceReading CurrentReading { get; set; } = new();
 
+        private List<ServiceReadingDetail> _currentReadingDetail = new List<ServiceReadingDetail>();
+        public List<ServiceReadingDetail> CurrentReadingDetail
+        {
+            get => _currentReadingDetail;
+            set
+            {
+                _currentReadingDetail = value;
+                CurrentReading.WaterReadingDetail = value ?? null; // Sync with CurrentReading
+            }
+        }
+
+        public List<ServiceReadingDetail> PreviousReadingDetail { get; set; } = [];
+
+        /*public int Status
+        {
+            get => CurrentReading.Status;
+            set => CurrentReading.Status = value;
+        }*/
+
+        public bool LoadFromExcel => !(CurrentReading.Status == 1);
+
+        public bool ShowSaveReadings
+        {
+            get
+            {
+                try
+                {
+                    bool exist = _currentReadingDetail.Any(c => !c.Procesed);
+                    bool existError = CurrentReading.errors.Any();
+                    bool valstatus = CurrentReading.Status == 1 ? true : false;
+                    return (valstatus && !exist && !existError); // error y pendiente
+                }
+                catch
+                {
+                    return false;
+                }
+                
+            }
+        }
+
+    }
 }

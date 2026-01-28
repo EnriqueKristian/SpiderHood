@@ -18,6 +18,7 @@ namespace SpiderHood.Models
         public List<OwnerUnitView> Owners { get; set; } = [];
         public List<ViewBudgetDetail> ListDefault { get; set; } = [];
         public List<ViewExpense> ExpensesList { get; set; } = [];
+        public List<ServiceReadingDetail> WaterReadings { get; set; } = [];
 
         public decimal TotalMonthly { get; private set; }
         public decimal TotalAnnual { get; private set; }
@@ -125,6 +126,10 @@ namespace SpiderHood.Models
 
             _state.Installments.Clear();
 
+            Guid idAgua = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
+
+            ServiceReadingDetail wateritem = new ServiceReadingDetail();
+
             foreach (var unit in _state.Owners)
             {
                 Installment _dpto = new Installment();
@@ -143,9 +148,19 @@ namespace SpiderHood.Models
                 int _nroAparments = 30;//ParameterService.nroGroupUnit;
                 decimal _distr = unit.TotalArea / (decimal)2861.9; // ParameterService.TotalAera;
 
+                if (_state.WaterReadings != null )
+                     wateritem = _state.WaterReadings.Where(c => c.IdGroupUnit == unit.IdGroupUnit).FirstOrDefault()!;
+
                 foreach (var item in _state.Budget.Details)
                 {
-                    _total += item.Type == 1 ? item.MonthlyAmount / _nroAparments : item.MonthlyAmount * _distr;
+                    if (item.IdCategory == idAgua && _state.WaterReadings!.Count > 0 )
+                    {
+                        _total += wateritem!.CalculatedAmount;
+                    }
+                    else
+                    {
+                        _total += item.Type == 1 ? item.MonthlyAmount / _nroAparments : item.MonthlyAmount * _distr;
+                    }
                 }
 
                 _dpto.Amount = _total;

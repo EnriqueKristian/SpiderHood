@@ -618,7 +618,7 @@ namespace SpiderHood.Data
         public SpiderHood.Models.Unit AddNewRecord(SpiderHood.Models.Unit? ec)
         {
             //Here define the ExecuteSqlRaw extension method to execute a stored procedure with INS_Unit
-            _dbcontext!.Database.ExecuteSqlRaw("INS_Unit {0},{1},{2},{3},{4},{5},{6}", Guid.NewGuid(), ec?.UnitNumber!, ec!.Area, ec!.Number, ec!.TypeUnit, ec!.IsAvaiable, ec!.IdBuilding);
+            _dbcontext!.Database.ExecuteSqlRaw("INS_Unit {0},{1},{2},{3},{4},{5},{6}", Guid.NewGuid(), ec?.UnitNumber!, ec!.Area, ec!.Number, ec!.TypeUnit, ec!.IsAvailable, ec!.IdBuilding);
             _dbcontext.SaveChanges();
             return ec;
         }
@@ -634,7 +634,7 @@ namespace SpiderHood.Data
         public async Task<SpiderHood.Models.Unit> AddNewRecordAsync(SpiderHood.Models.Unit? ec)
         {
             // Ejecuta el procedimiento almacenado INS_Unit de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("INS_Unit {0},{1},{2},{3},{4},{5},{6}", Guid.NewGuid(), ec?.UnitNumber!, ec!.Area, ec!.Number, ec!.TypeUnit, ec!.IsAvaiable, ec!.IdBuilding );
+            await _dbcontext!.Database.ExecuteSqlRawAsync("INS_Unit {0},{1},{2},{3},{4},{5},{6}", Guid.NewGuid(), ec?.UnitNumber!, ec!.Area, ec!.Number, ec!.TypeUnit, ec!.IsAvailable, ec!.IdBuilding );
 
             await _dbcontext.SaveChangesAsync();
             return ec!;

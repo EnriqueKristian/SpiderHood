@@ -36,7 +36,7 @@ builder.Services.AddScoped<ExpenseService>();
 builder.Services.AddScoped<IPresupuestoService, BudgetService>();
 
 // Add other services
-builder.Services.AddScoped<IToastService, ToastService>(); // Implementar según necesidad
+//builder.Services.AddScoped<SpiderHood.Services.ToastService>();
 builder.Services.AddSingleton<ICalculoService, CalculoService>();
 
 

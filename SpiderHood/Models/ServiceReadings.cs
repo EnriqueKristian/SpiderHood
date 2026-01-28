@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
+﻿using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
+using Mono.TextTemplating;
 using OfficeOpenXml;
 using SpiderHood.Data;
 using SpiderHood.Models;
@@ -69,60 +69,9 @@ namespace SpiderHood.Models
         public decimal TotalAmount { get; set; }
 
         [NotMapped]
-        public List<string> errors { get; set; } = new List<string>();
-    }
-
-
-    public class ExcelExportService
-    {
-        public async Task ExportWaterReadingsAsync(
-            List<ServiceReadingDetail> lecturas,
-            DateTime periodo,
-            decimal total)
-        {
-            using var package = new ExcelPackage();
-            var worksheet = package.Workbook.Worksheets.Add("Lecturas");
-
-            // Configurar cabeceras
-            worksheet.Cells[1, 1].Value = "Unidad";
-            worksheet.Cells[1, 2].Value = "Lectura Actual";
-            worksheet.Cells[1, 3].Value = "Consumo";
-            worksheet.Cells[1, 4].Value = "Monto";
-
-            // Llenar datos
-            for (int i = 0; i < lecturas.Count; i++)
-            {
-                worksheet.Cells[i + 2, 1].Value = lecturas[i].Code;
-                worksheet.Cells[i + 2, 2].Value = lecturas[i].CurrentReading;
-                worksheet.Cells[i + 2, 3].Value = lecturas[i].Consumption;
-                worksheet.Cells[i + 2, 4].Value = lecturas[i].CalculatedAmount;
-            }
-
-            // Agregar total
-            worksheet.Cells[lecturas.Count + 3, 3].Value = "TOTAL:";
-            worksheet.Cells[lecturas.Count + 3, 4].Value = total;
-
-            // Guardar archivo
-            var bytes = package.GetAsByteArray();
-            // TODO: Implementar descarga
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        public ValidationResult? ValidationErrors { get; set; } 
+        [NotMapped]
+        public bool HasErrors => ValidationErrors == null ? false :  ValidationErrors!.Errors.Count > 0;
     }
 
     public class ServiceReadingState{
@@ -141,11 +90,7 @@ namespace SpiderHood.Models
 
         public List<ServiceReadingDetail> PreviousReadingDetail { get; set; } = [];
 
-        /*public int Status
-        {
-            get => CurrentReading.Status;
-            set => CurrentReading.Status = value;
-        }*/
+        public decimal CargoFijo { get; set; } = 0;
 
         public bool LoadFromExcel => !(CurrentReading.Status == 1);
 
@@ -156,7 +101,7 @@ namespace SpiderHood.Models
                 try
                 {
                     bool exist = _currentReadingDetail.Any(c => !c.Procesed);
-                    bool existError = CurrentReading.errors.Any();
+                    bool existError = CurrentReading.HasErrors;
                     bool valstatus = CurrentReading.Status == 1 ? true : false;
                     return (valstatus && !exist && !existError); // error y pendiente
                 }
@@ -165,6 +110,16 @@ namespace SpiderHood.Models
                     return false;
                 }
                 
+            }
+        }
+
+        public DateTime Period { get; set; }
+
+        public bool OpenFromModal
+        {
+            get
+            {
+                return (Period == DateTime.MinValue);
             }
         }
 

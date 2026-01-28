@@ -1,0 +1,76 @@
+﻿@inject Services.ToastService ToastService
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+    @foreach (var toast in _toasts)
+    {
+        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-@toast.Type.ToString().ToLower() text-white">
+                <i class="@GetIcon(toast.Type) me-2"></i>
+                <strong class="me-auto">@toast.Title</strong>
+                <small>@DateTime.Now.ToString("HH:mm")</small>
+                <button type="button" class="btn-close btn-close-white ms-2"
+                        @onclick="() => RemoveToast(toast.Id)"></button>
+            </div>
+            <div class="toast-body">
+                @toast.Message
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ToastItem> _toasts = new();
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShow += ShowToast;
+    }
+
+    private void ShowToast(Services.ToastMessage message)
+    {
+        var toast = new ToastItem
+        {
+            Id = Guid.NewGuid(),
+            Title = message.Title,
+            Message = message.Message,
+            Type = message.Type
+        };
+
+        _toasts.Add(toast);
+        StateHasChanged();
+
+        // Auto-remover después de la duración
+        var timer = new System.Timers.Timer(message.Duration);
+        timer.Elapsed += (sender, args) =>
+        {
+            InvokeAsync(() =>
+            {
+                RemoveToast(toast.Id);
+                timer.Dispose();
+            });
+        };
+        timer.AutoReset = false;
+        timer.Start();
+    }
+
+    private void RemoveToast(Guid id)
+    {
+        _toasts.RemoveAll(t => t.Id == id);
+        StateHasChanged();
+    }
+
+    private string GetIcon(Services.ToastType type) => type switch
+    {
+        Services.ToastType.Success => "fas fa-check-circle",
+        Services.ToastType.Error => "fas fa-exclamation-circle",
+        Services.ToastType.Warning => "fas fa-exclamation-triangle",
+        Services.ToastType.Info => "fas fa-info-circle",
+        _ => "fas fa-bell"
+    };
+
+    public class ToastItem : Services.ToastMessage
+    {
+        public Guid Id { get; set; }
+    }
+}
+

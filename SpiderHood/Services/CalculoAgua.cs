@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 
@@ -192,71 +195,31 @@ namespace SpiderHood.Services
             var lecturas = new List<Models.ServiceReadingDetail>();
             List<string> errores = [];
 
-            //Cargar Cabecera de Lectura
-            //reading.IdServiceReading = Guid.NewGuid();
-            //reading.Period = period;
-            //reading.CreatedOn = DateTime.Now;
-            //reading.Status = 1;
-            //reading.IdBuilding = IdBuilding;
-            //reading.FileName = filename;
-
             using var workbook = new ClosedXML.Excel.XLWorkbook(fileStream);
             var worksheet = workbook.Worksheet(1);
+
+            ServiceLoadExcel readExcel = new ServiceLoadExcel();
+
+            ValidationResult?  readingValidation = new();
 
             int fila = 2; // Comienza después del encabezado
             foreach (var row in worksheet.RowsUsed().Skip(1))
             {
 
-                var Departamento = row.Cell(1).GetValue<string>();
-                var Periodo = row.Cell(2).GetValue<string>()?.Trim();
-                var Lectura = row.Cell(3).GetValue<string>()?.Trim();
-                var fechaStr = row.Cell(4).GetValue<string>()?.Trim();
-                bool _procesed = true;
+                readExcel.Aparment = row.Cell(1).GetValue<string>();
+                readExcel.Period = row.Cell(2).GetValue<string>().Trim();
+                readExcel.Reading = row.Cell(3).GetValue<string>().Trim();
+                readExcel.sDateReading = row.Cell(4).GetValue<string>().Trim();
+                readExcel.Procesed = true;
 
                 // Validaciones
+                WaterReadingValidator _validator = new WaterReadingValidator();
 
-                if (!DateTime.TryParse(Periodo, out DateTime periodo)) { 
-                    errores.Add($"Fila {fila-1}: Periodo inválido");
-                    _procesed = false;
-                }
-                else if (periodo > DateTime.Today) { 
-                    errores.Add($"Fila {fila-1}: Fecha futura no permitida");
-                    _procesed = false;
-                     }
+                readingValidation  = _validator.ValidateLoadExcelReading(readExcel, readingValidation);
 
-                if (!DateTime.TryParse(fechaStr, out DateTime fecha))
-                {
-                    _procesed = false;
-                    errores.Add($"Fila {fila-1}: Fecha inválida");
-                }
-                else if (fecha > DateTime.Today)
-                {
-                    _procesed = false; 
-                    errores.Add($"Fila {fila - 1}: Fecha futura no permitida");
-                }
+                var prev = previous.Where(c => c.GroupNumber == readExcel.Number).FirstOrDefault();
 
-
-                if (!int.TryParse(Departamento, out int Number))
-                {
-                    _procesed = false;
-                    errores.Add($"Fila {fila - 1}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
-                }
-
-
-                if (!double.TryParse(Lectura, out double value))
-                {
-                    errores.Add($"Fila {fila - 1}: Lectura Actual inválido (debe ser un número positivo)");
-                    _procesed = false;
-                }
-                // Si no hay errores en esta fila, agregar a la lista
-                /*if (errores.Any(e => e.Contains($"Fila {fila-1}")))
-                {
-                    strCheck = "Error de Dato";
-                }*/
-
-                var prev = previous.Where(c => c.GroupNumber == Number).FirstOrDefault();
-
-                if (_procesed)
+                if (readExcel.Procesed)
                 {
                     var lectura = new Models.ServiceReadingDetail
                     {
@@ -264,14 +227,14 @@ namespace SpiderHood.Services
                         IdServiceReadingDetail = Guid.NewGuid(),
                         IdServiceReading = reading.IdServiceReading,
                         IdGroupUnit = prev!.IdGroupUnit,
-                        GroupNumber = Number, 
-                        Code = Departamento + reading.Period.Month + reading.Period.Year,
-                        CurrentReading = value,
-                        //PreviousReading = prev!.CurrentReading,
-                        PreviousReading = prev!.PreviousReading,
-                        ReadingDate = fecha,
+                        GroupNumber = readExcel.Number, 
+                        Code = readExcel.Aparment + reading.Period.Month + reading.Period.Year,
+                        CurrentReading = readExcel.ReadingValue,
+                        PreviousReading = prev!.CurrentReading,
+                        //PreviousReading = prev!.PreviousReading,
+                        ReadingDate = readExcel.DateReading,
                         CalculatedAmount = 0,
-                        Procesed = _procesed
+                        Procesed = readExcel.Procesed
                     };
                     lecturas.Add(lectura);
                 }
@@ -301,7 +264,7 @@ namespace SpiderHood.Services
             }
 
             //return lecturas;
-            reading.errors = errores;
+            reading.ValidationErrors = readingValidation!;
             reading.WaterReadingDetail = [..lecturas.OrderBy(h => h.GroupNumber)];
             return Task.FromResult(reading);
         }
@@ -348,4 +311,179 @@ namespace SpiderHood.Services
             return ec.GetWaterReadingList(IdBuilding);
         }
     }
+
+
+    public class ServiceLoadExcel {
+
+        public string Aparment { get; set; } = string.Empty;
+        public string Period { get; set; } = string.Empty;
+        public string Reading { get; set; } = string.Empty;
+        public string sDateReading { get; set; } = string.Empty;
+
+        public int row = 0;
+        public bool Procesed = true;
+        public DateTime DateReading => DateTime.TryParse(sDateReading, out DateTime date) ? date : DateTime.MinValue;
+        public double ReadingValue => double.TryParse(Reading, out double value) ? value : 0;
+        public int Number => int.TryParse(Aparment, out int num) ? num : 0;
+
+    }
+
+    public class WaterReadingValidator
+    {
+        private readonly ValidationSettings? _settings;
+
+        public WaterReadingValidator(ValidationSettings settings)
+        {
+            _settings = settings;
+        }
+
+        public WaterReadingValidator()
+        {
+        }
+        public ValidationResult ValidateFile(IBrowserFile file)
+        {
+            var result = new ValidationResult();
+
+            // Validar tamaño
+            if (file.Size > _settings.MaxFileSize)
+            {
+                result.AddError("FILE_SIZE",
+                    $"El archivo excede el tamaño máximo permitido ({_settings.MaxFileSize / 1024 / 1024}MB)");
+            }
+
+            // Validar extensión
+            var validExtensions = new[] { ".xlsx", ".xls" };
+            var extension = Path.GetExtension(file.Name);
+            if (!validExtensions.Contains(extension.ToLower()))
+            {
+                result.AddError("FILE_EXTENSION",
+                    $"Extensión no válida. Use: {string.Join(", ", validExtensions)}");
+            }
+
+            return result;
+        }
+
+        public ValidationResult ValidateLoadExcelReading(ServiceLoadExcel reading, ValidationResult result)
+        {
+            //var result = new ValidationResult();
+
+                if (!DateTime.TryParse(reading.Period, out DateTime periodo))
+                {
+                    //errores.Add($"Fila {.row - 1}: Periodo inválido");
+                    result!.AddError("PERIODO_INVALIDO", $"Fila {reading.row - 1}: Periodo inválido");
+                    reading.Procesed = false;
+                }
+                else if (periodo > DateTime.Today)
+                {
+                    //errores.Add($"Fila {fila - 1}: Fecha futura no permitida");
+                    result!.AddError("PERIODO_INVALIDO", $"Fila {reading.row - 1}: Periodo con Fecha Futura");
+                    reading.Procesed = false;
+            }
+
+                if (!DateTime.TryParse(reading.sDateReading , out DateTime fecha))
+                {
+                    result!.AddError("FECHA_LECTURA", $"Fila {reading.row - 1}: Fecha inválida");
+                    reading.Procesed = false;
+                    //errores.Add($"Fila {fila - 1}: Fecha inválida");
+                }
+                else if (fecha > DateTime.Today)
+                {
+                    result!.AddError("FECHA_LECTURA", $"Fila {reading.row - 1}: Fecha futura no permitida");
+                    reading.Procesed = false;
+                    //errores.Add($"Fila {fila - 1}: Fecha futura no permitida");
+                }
+
+                if (!int.TryParse(reading.Aparment, out int Number))
+                {
+                    result!.AddError("DPTO_INVALIDO", $"Fila {reading.row - 1}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
+                    reading.Procesed = false;
+                    //errores.Add($"Fila {fila - 1}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
+                }
+
+                if (!double.TryParse(reading.Reading, out double value))
+                {
+                    result!.AddError("LECTURA_INVALIDO", $"Fila {reading.row - 1}: Lectura Actual inválido (debe ser un número positivo)");
+                    reading.Procesed = false;
+                    //errores.Add($"Fila {fila - 1}: Lectura Actual inválido (debe ser un número positivo)");
+                }
+
+            return result!;
+        }
+
+        public ValidationResult ValidateReading(ServiceReadingDetail reading)
+        {
+            var result = new ValidationResult();
+
+            if (reading.Consumption < 0)
+                result.AddError("CONSUMPTION_NEGATIVE", "El consumo no puede ser negativo");
+
+            if (reading.ReadingDate > DateTime.Now.AddDays(1))
+                result.AddError("FUTURE_DATE", "La fecha de lectura no puede ser futura");
+
+            //if (string.IsNullOrWhiteSpace(reading.ApartmentCode))
+            //    result.AddError("MISSING_APARTMENT", "El código de departamento es requerido");
+
+            return result;
+        }
+
+        public ValidationResult ValidateBeforeSave(ServiceReading reading,
+            List<ServiceReadingDetail> details)
+        {
+            var result = new ValidationResult();
+
+            // Validar que haya lecturas
+            if (!details.Any())
+                result.AddError("NO_READINGS", "No hay lecturas para guardar");
+
+            // Validar que todas estén procesadas
+            var unprocessed = details.Where(d => !d.Procesed).ToList();
+            if (unprocessed.Any())
+                result.AddError("UNPROCESSED_READINGS",
+                    $"Hay {unprocessed.Count} lecturas sin procesar");
+
+            // Validar totales
+            var total = details.Sum(d => d.CalculatedAmount);
+            if (total <= 0)
+                result.AddError("INVALID_TOTAL", "El total general debe ser mayor a 0");
+
+            // Validar período
+            if (reading.Period > DateTime.Now)
+                result.AddError("FUTURE_PERIOD", "El período no puede ser futuro");
+
+            return result;
+        }
+    }
+
+    // ========== CLASES DE SOPORTE ==========
+    public class ValidationResult
+    {
+        public bool IsValid => !Errors.Any();
+        public List<ValidationError> Errors { get; } = new();
+        public Dictionary<string, object> Metadata { get; } = new();
+
+        public void AddError(string code, string message)
+        {
+            Errors.Add(new ValidationError(code, message));
+        }
+    }
+
+    public class ValidationError
+    {
+        public string Code { get; }
+        public string Message { get; }
+
+        public ValidationError(string code, string message)
+        {
+            Code = code;
+            Message = message;
+        }
+    }
+
+    public class ValidationSettings
+    {
+        public long MaxFileSize { get; set; } = 10 * 1024 * 1024; // 10MB
+        public decimal MinConsumption { get; set; } = 5.0m;
+        public int MaxReadingsPerFile { get; set; } = 1000;
+    }
+
 }

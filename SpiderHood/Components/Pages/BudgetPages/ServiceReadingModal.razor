@@ -1,4 +1,6 @@
-﻿@inherits LayoutComponentBase
+﻿@using SpiderHood.Components.Pages.Components
+@using SpiderHood.Models
+@inherits LayoutComponentBase
 
 @if (ShowModal)
 {
@@ -10,14 +12,18 @@
                 <button type="button" class="btn-close" @onclick="CerrarModal"></button>
             </div>
             <div class="modal-body">
-                    <SpiderHood.Components.Pages.CalculoAgua.LecturaBloque _period="_period"/>
+                    <SpiderHood.Components.Pages.CalculoAgua.LecturaBloque @ref="LecturaBloqueRef" _period="_period" OnSaveReady="UpdateStatus" />
             </div>
                 <div class="modal-footer">
                     <button type="button"
                             class="btn btn-outline-secondary" @onclick="CerrarModal">
                         Cancelar
                     </button>
-                    <button type="submit" class="btn btn-primary">"Save"</button>
+                    <button type="submit" class="btn btn-primary"
+                            @onclick='() => ExecuteWithConfirmation(SaveData, "Guardar Lectura", "¿Guardar las lecturas procesadas?", "info")'
+                            disabled="@IsDisabledToSave">
+                        Save
+                    </button>
                 </div>
             
         </div>
@@ -25,16 +31,53 @@
 </div>
 }
 
+<!-- Agregar al final del componente -->
+<ConfirmationModal @ref="_confirmationModal" 
+                   OnClose="OnConfirmationResult" />
+
 @code {
 
     [Parameter] public bool ShowModal { get; set; }
     [Parameter] public DateTime _period { get; set; }
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
-        
+    [Parameter] public EventCallback<List<ServiceReadingDetail>> OnSaveReading { get; set; }
+
+    private bool IsDisabledToSave = true;
+    private CalculoAgua.LecturaBloque? LecturaBloqueRef;
+    private ConfirmationModal? _confirmationModal;
+    private decimal TotalAmount = 0;
+    private ConfirmationUtil util = new ConfirmationUtil();
+    private List<Models.ServiceReadingDetail> WaterReadingDetail = [];
+
     private async Task CerrarModal()
     {
         ShowModal = false;
         await ShowModalChanged.InvokeAsync(ShowModal);
     }
 
+    private Task SaveData()
+    {
+        // Aquí procesas lo que el modal envió
+        LecturaBloqueRef?.GuardarLectura();
+        ShowModal = false;
+        OnSaveReading.InvokeAsync(WaterReadingDetail);
+        return Task.CompletedTask;
+    }
+
+    private Task UpdateStatus(Models.ServiceReadingState value)
+    {
+        IsDisabledToSave = !value.ShowSaveReadings;
+        WaterReadingDetail = value.CurrentReadingDetail;
+        return Task.CompletedTask;
+    }
+
+    private async Task ExecuteWithConfirmation(Func<Task> action, string actionName, string message = "", string type = "warning")
+    {
+        await util.ExecuteWithConfirmation(action, actionName, _confirmationModal, message, type);
+    }
+
+    private async Task OnConfirmationResult(bool confirmed)
+    {
+        await util.OnConfirmationResult(confirmed);
+    }
 }

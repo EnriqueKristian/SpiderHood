@@ -28,7 +28,7 @@ namespace SpiderHood.Models
         public int TypeUnit { get; set; }
         public Guid IdOwner { get; set; }
         public int Number { get; set; }
-        public bool IsAvaiable { get; set; }
+        public bool IsAvailable { get; set; }
     }
 
     public class UnitView
@@ -40,7 +40,7 @@ namespace SpiderHood.Models
         public decimal Area { get; set; }
         public int TypeUnit { get; set; }
         public int Number { get; set; } 
-        public bool IsAvaiable { get; set; }
+        public bool IsAvailable { get; set; }
         
         
     }

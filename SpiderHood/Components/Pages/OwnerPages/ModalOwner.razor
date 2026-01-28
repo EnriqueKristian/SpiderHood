@@ -153,7 +153,7 @@
     [Parameter] public EventCallback<SpiderHood.Models.Owner> OnSaveModal { get; set; }
 
     // Propiedad para el valor seleccionado
-    private string SelectedUnitId { get; set; }
+    private string SelectedUnitId { get; set; } = string.Empty;
     private string SelectedPersonType { get; set; } = "Natural";
 
     private async Task Guardar()

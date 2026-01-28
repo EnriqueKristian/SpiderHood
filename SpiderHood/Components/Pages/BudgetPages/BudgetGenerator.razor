@@ -642,7 +642,7 @@
     </FooterTemplate>
 </Modal>
 
-<ServiceReadingModal ShowModal="@ShowModalServiceRegistration" _period="_BudgetState.Budget.BudgetDate" ShowModalChanged="LoadServiceCalculation" />
+<ServiceReadingModal ShowModal="@ShowModalServiceRegistration" _period="_BudgetState.Budget.BudgetDate" ShowModalChanged="LoadServiceCalculation" OnSaveReading="LoadTotalConsumtion" />
 
 <p></p>
 
@@ -794,6 +794,7 @@
 
     /*  SECCION MANAGE SECTIONS   */
     #region SECCION MANAGE SECTIONS
+
     private string GetMonthName(int monthNumber) =>
      _availableMonths?.FirstOrDefault(m => m.Value == monthNumber.ToString())?.Text
      ?? "Mes Desconocido";
@@ -1302,12 +1303,20 @@
 
         StateHasChanged();
     }
+
     private void ShowServiceReadingModal()
     {
         ShowModalServiceRegistration = true;
     }
+
     private Task LoadServiceCalculation(bool args)
     {
-        throw new NotImplementedException();
+        ShowModalServiceRegistration = false;
+        return Task.CompletedTask;
+    }
+
+    private void LoadTotalConsumtion(List<ServiceReadingDetail> WaterReadings)
+    {
+        _BudgetState.WaterReadings = WaterReadings;
     }
 }

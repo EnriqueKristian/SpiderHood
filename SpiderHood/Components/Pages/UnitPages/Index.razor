@@ -421,46 +421,6 @@
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <!--    MODAL PARA CREAR / MODIFICAR UNIDADES -->
 <SpiderHood.Components.Pages.UnitPages.ModalUnit ShowModal="@MostrarModal"
                                                  ShowModalChanged="@((valor) => MostrarModal = valor)"
@@ -581,7 +541,7 @@
                     Models.Unit _blockunit = new Models.Unit();
 
                     //_blockunit.IdUnit = Guid.NewGuid();
-                    _blockunit.IdBuilding = ParameterService.IdBuilding;
+                    _blockunit.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
                     //_blockunit.IdGroupOwner = IdOwner;
                     _blockunit.TypeUnit = _formCreateUnit.IdUnitType;
                     _blockunit.Area = _formCreateUnit.Area;
@@ -608,7 +568,7 @@
     {
         // Lógica adicional después de cerrar el modal, si es necesario
         await ParameterService.ec.DeleteRecordAsync(_Unit);
-        await ParameterService.context.SaveChangesAsync();
+        await ParameterService.Context.SaveChangesAsync();
         await modal.HideAsync();
         OnInitialized();
         return;
@@ -617,7 +577,7 @@
 
     private IQueryable<Models.Unit> units = Enumerable.Empty<Models.Unit>().AsQueryable();
     private IQueryable<Models.Unit> list_units = Enumerable.Empty<Models.Unit>().AsQueryable();
-    public async ValueTask DisposeAsync() => await ParameterService.context.DisposeAsync();
+    public async ValueTask DisposeAsync() => await ParameterService.Context.DisposeAsync();
 
     /*  === Parametros de la Ventana Modal  === */
     private bool MostrarModal = false;
@@ -655,7 +615,8 @@
 
     protected override void OnInitialized()
     {
-        units = ParameterService.ec.GetUnitsByBuilding(ParameterService.IdBuilding).AsQueryable();
+        if (ParameterService.CurrentBuilding == null) return;
+        units = ParameterService.ec.GetUnitsByBuilding(ParameterService.CurrentBuilding.IdBuilding).AsQueryable();
         list_units = units.Where(c => c.TypeUnit == 1);
     }
 
@@ -666,7 +627,7 @@
 
         _Unit = mode switch
         {
-            OpenType.Create => new Models.Unit { IdBuilding = ParameterService.IdBuilding },
+            OpenType.Create => new Models.Unit { IdBuilding = ParameterService.CurrentBuilding.IdBuilding },
             OpenType.Update => _cat,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Valor inesperado: {mode}")
         };
@@ -696,9 +657,9 @@
     private async Task AddItem(SpiderHood.Models.Unit item)
     {
         //Usuarios.Add(nuevo);
-        item.IdBuilding = ParameterService.IdBuilding;
+        item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
         await ParameterService.ec.AddNewRecordAsync(_Unit);
-        await ParameterService.context.SaveChangesAsync();
+        await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(SpiderHood.Models.Unit item)
@@ -707,7 +668,7 @@
 
         try
         {
-            await ParameterService.context.SaveChangesAsync();
+            await ParameterService.Context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -724,6 +685,6 @@
 
     private bool ItemExists(Guid id)
     {
-        return ParameterService.context.Unit.Any(e => e.IdUnit == id);
+        return ParameterService.Context.Unit.Any(e => e.IdUnit == id);
     }
 }

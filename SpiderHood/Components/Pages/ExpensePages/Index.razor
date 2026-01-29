@@ -184,11 +184,11 @@
 
     protected override void OnInitialized()
     {
-        if (ParameterService.IdBuilding == Guid.Empty)
+        if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
             return;
         // Aquí cargarías los parámetros desde tu API o servicio
-        FilteredExpenses = ParameterService.ec.GetExpensesByBuilding(ParameterService.IdBuilding).AsQueryable();
-        FilteredCategory = ParameterService.ec.GetCategories(ParameterService.IdBuilding).AsQueryable();
+        FilteredExpenses = ParameterService.ec.GetExpensesByBuilding(ParameterService.CurrentBuilding.IdBuilding).AsQueryable();
+        FilteredCategory = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding).AsQueryable();
     }
 
     private void AbrirModal(Models.Expense item, OpenType mode)
@@ -200,7 +200,7 @@
         {
             case Models.OpenType.Create:
                 _newExpense = new Models.Expense();
-                _newExpense.IdBuilding = ParameterService.IdBuilding;
+                _newExpense.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
                 _newExpense.DueDate = DateTime.Now;
                 break;
 
@@ -236,10 +236,10 @@
     private async Task AddItem(SpiderHood.Models.Expense item)
     {
         //Usuarios.Add(nuevo);
-        item.IdBuilding = ParameterService.IdBuilding;
+        item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
 
         await ParameterService.ec.AddNewRecordAsync(item);
-        await ParameterService.context.SaveChangesAsync();
+        await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(SpiderHood.Models.Expense item)
@@ -248,7 +248,7 @@
 
         try
         {
-            await ParameterService.context.SaveChangesAsync();
+            await ParameterService.Context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -265,7 +265,7 @@
 
     private bool ItemExists(Guid id)
     {
-        return ParameterService.context.Expense.Any(e => e.IdExpense == id);
+        return ParameterService.Context.Expense.Any(e => e.IdExpense == id);
     }
 
     private void DeleteItem(Models.Expense item)

@@ -603,13 +603,36 @@
                                         </div>
                                         
                                         <h6 class="section-title">
-                                            <i class="bi bi-exclamation-triangle me-2"></i>Multas y Mora
+                                            <i class="bi bi-exclamation-triangle me-2"></i>Defaults, Multas y Mora
                                         </h6>
                                         
                                         @if (_editingSection == "fines")
                                         {
                                             <div class="form-compact">
                                                 <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Consumo Mínimo</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <InputNumber @bind-Value="SelectedBuilding.Configuration.MinWaterConsumtion"
+                                                                             class="form-control"
+                                                                             step="0.01" />
+                                                                <span class="input-group-text"> m³</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Cargo Fijo</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">@(SelectedBuilding.Configuration.Currency == "PEN" ? "S/" : "$")</span>
+                                                                <InputNumber @bind-Value="SelectedBuilding.Configuration.DefaultFixedCharge"
+                                                                             class="form-control"
+                                                                             step="0.01" />
+                                                                <span class="input-group-text">M3</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                     <div class="col-md-6">
                                                         <div class="form-group">
                                                             <label class="form-label">Monto de Multa</label>
@@ -655,6 +678,18 @@
                                         else
                                         {
                                             <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label small text-muted">Comsumo Mínimo </label>
+                                                    <div class="fw-semibold">
+                                                        @SelectedBuilding.Configuration.MinWaterConsumtion.ToString("N2") m³
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label small text-muted">Cargo Fijo</label>
+                                                    <div class="fw-semibold">
+                                                        @(SelectedBuilding.Configuration.Currency == "PEN" ? "S/" : "$")@SelectedBuilding.Configuration.DefaultFixedCharge.ToString("N2")
+                                                    </div>
+                                                </div>
                                                 <div class="col-md-6">
                                                     <label class="form-label small text-muted">Monto de Multa</label>
                                                     <div class="fw-semibold">
@@ -1275,9 +1310,11 @@
 
     private async Task LoadBuildings()
     {
+        if (ParameterService.CurrentBuilding == null) return;
+
         Buildings = ParameterService.ec.GetBuilding(Guid.NewGuid());
         filteredParameters = ParameterService.ListParameters;
-        filteredCategory = ParameterService.ec.GetCategories(ParameterService.IdBuilding);
+        filteredCategory = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding);
         //<!--    PARAMETRO_PADRE     -->
         _paymentMethods = filteredParameters
             .Where(c => c.IdParent == 16)
@@ -1295,17 +1332,17 @@
 
     private async Task<BuildingConfiguration> GetConfiguration(string buildingName)
     {
-        if( ParameterService.IdBuilding == Guid.Empty )
+        if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
         {
             return new BuildingConfiguration();
         }
-        var configs = await ParameterService.ec.GetBuildingConfiguration(ParameterService.IdBuilding);
+        var configs = await ParameterService.ec.GetBuildingConfiguration(ParameterService.CurrentBuilding.IdBuilding);
 
         if (configs != null && configs.Count > 0 )
         {
             BuildingConfiguration config = configs[0];
 
-            List<BankAccount> bankAccounts = await ParameterService.ec.GetBankAccountsByBuilding(ParameterService.IdBuilding);
+            List<BankAccount> bankAccounts = await ParameterService.ec.GetBankAccountsByBuilding(ParameterService.CurrentBuilding.IdBuilding);
 
             foreach (var bank in bankAccounts)
             {
@@ -1510,7 +1547,7 @@
             if(interno.IdBuildingConfiguration == Guid.Empty)
             {
                 interno.IdBuildingConfiguration = Guid.NewGuid();
-                interno.IdBuilding = ParameterService.IdBuilding;
+                interno.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
                 await ParameterService.ec.AddNewRecordAsync(interno);
             }
 

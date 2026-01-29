@@ -646,8 +646,11 @@
 
 <p></p>
 
-<InstallmentTable Installments="@_BudgetState.Installments"
-                  Budget="@_BudgetState.Budget" />
+@if( _BudgetState.IsWaterReadingReady &&_BudgetState.Status > BudgetStatus.Created ){
+    <InstallmentTable Installments="@_BudgetState.Installments"
+                  Budget="@_BudgetState.Budget"
+                  WaterReadings="@_BudgetState.WaterReadings"/>
+}
 
 @code {
 
@@ -661,7 +664,7 @@
     private Modal _newSectionModal = null!;
     private bool ShowModalServiceRegistration = false;
 
-    private string class1 = "card card-hover mb-4";
+    //private string class1 = "card card-hover mb-4";
     private string class2 = "card card-hover";
     private string class5 = "bi bi-arrow-bar-right";
     private bool showorNot = true;
@@ -680,7 +683,6 @@
     private DateTime _selectedPeriod;
 
     private BudgetState _BudgetState = new();
-
 
     private BudgetStatus ValidateParameter(BudgetStatus value)
     {
@@ -715,7 +717,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (ParameterService.IdBuilding == Guid.Empty)
+        if (ParameterService.CurrentBuilding == null || presupuestoService._Budgets.Count ==0 )
             return;
 
         //Obtiene el presupuesto de la pagina de lista de presupuestos
@@ -726,14 +728,21 @@
             ShoworNot()
         );
 
-        presupuestoService._SelectedBudget.IdBuilding = ParameterService.IdBuilding;
+        presupuestoService._SelectedBudget.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
 
         _BudgetState = await presupuestoService.InitializeBudgetStateAsync(presupuestoService._SelectedBudget!);
+        _BudgetState.TotalArea = ParameterService.CurrentBuilding.TotalArea;
+
 
         if (_BudgetState.IsNewBudget)
             await ShowNewCalculationModal();
         else
+        {
             _textCabecera = _BudgetState.Budget.BudgetName;
+            //Cargar Lectura de Agua
+            _BudgetState.WaterReadings = await ParameterService.ec.GetServiceReadingDetailbyPeriod(_BudgetState.Budget.BudgetDate);
+            _BudgetState.CalculateTotals();
+        }
     }
 
     /*  SECCION LOAD DATA   */
@@ -749,7 +758,7 @@
         // Cargar periodos desde BD
         _periods = await ParameterService.GetPeriodsAsync();
         //Cargar Categoria
-        filteredCategories = ParameterService.ec.GetCategories(ParameterService.IdBuilding);
+        filteredCategories = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding);
         //Caargar lista de Parametros
         filteredParameters = @ParameterService.ListParameters.ToList();
         //Cargar Meses por Culura
@@ -1177,7 +1186,7 @@
         _BudgetState.Budget = new BudgetHeader
             {
                 IdBudgetHeader = Guid.NewGuid(),
-                IdBuilding = ParameterService.IdBuilding,
+                IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
                 BudgetDate = _selectedPeriod, //new DateTime(_selectedYear, _selectedMonth, 1),
                 BudgetName = $"Presupuesto {GetMonthName(_selectedPeriod.Month)} {_selectedPeriod.Year}",
                 Status = BudgetStatus.Created,
@@ -1290,13 +1299,13 @@
 
         if (showorNot)
         {
-            class1 = "card card-hover mb-4";
+            //class1 = "card card-hover mb-4";
             class2 = "card card-hover";
             class5 = "bi bi-arrow-bar-right";
         }
         else
         {
-            class1 = "d-none";
+            //class1 = "d-none";
             class2 = "d-none";
             class5 = "bi bi-arrow-bar-left";
         }

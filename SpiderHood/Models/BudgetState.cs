@@ -1,10 +1,4 @@
-﻿using BlazorBootstrap;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.EntityFrameworkCore;
-using SpiderHood.Models;
-using SpiderHood.Services;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using Microsoft.EntityFrameworkCore;
 
 namespace SpiderHood.Models
 {
@@ -24,7 +18,7 @@ namespace SpiderHood.Models
         public decimal TotalAnnual { get; private set; }
         public decimal QuotaPerApartment { get; private set; }
         public decimal TotalInstallments { get; private set; }
-
+        public decimal TotalArea { get; set; } = 9999;
         public int TotalApartments { get; set; } = 30;
         public int OccupiedApartments { get; set; } = 30;
         public bool UseProportionalDistribution { get; set; }
@@ -38,11 +32,11 @@ namespace SpiderHood.Models
         }
         public bool IsReadOnly => !(Status == BudgetStatus.Rejected || Status == BudgetStatus.Created);
         public bool IsNewBudget { get; set; } = true;
-        //public bool IsDisabled { get; set; } = true;
-        public DateTime lastPeriod { get; set; }
+        public DateTime LastPeriod { get; set; }
         public bool AddNewSection => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
         public bool AddSampleData => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
         public bool LoadServiceReading => !(Budget.Details.Count > 0);
+        public bool IsWaterReadingReady => (WaterReadings.Count > 0);
         public bool SaveBudget()
         {
             return (Status == BudgetStatus.Rejected || Status == BudgetStatus.Created)
@@ -74,25 +68,15 @@ namespace SpiderHood.Models
 
         public void CalculateQuota()
         {
+            if (WaterReadings == null || !IsWaterReadingReady) return;
             Installments.Clear();
             TotalInstallments = _calculator.CalculateQuota(TotalApartments);
-
-            //if (Installments.Any())
-            //{
-            //Installments = _calculator.UpdateInstallments(Installments);
-            //}
         }
     }
 
-    // BudgetCalculator.cs
-    public class BudgetCalculator
+    public class BudgetCalculator(BudgetState state)
     {
-        private readonly BudgetState _state;
-
-        public BudgetCalculator(BudgetState state)
-        {
-            _state = state;
-        }
+        private readonly BudgetState _state = state;
 
         public (decimal Monthly, decimal Annual) CalculateTotals()
         {
@@ -112,54 +96,51 @@ namespace SpiderHood.Models
             return (monthly, annual);
         }
 
-        public decimal CalculateQuota(int totalApartments)
+        public decimal CalculateQuota1(int totalApartments)
         {
-            /*return totalApartments > 0
-                ? Math.Round(_state.TotalMonthly / totalApartments, 2)
-                : 0;*/
-
-            decimal _quotaPerApartment = totalApartments > 0
-            ? Math.Round(_state.TotalMonthly / totalApartments, 2)
-            : 0;
-
             decimal _totalInstallments = 0;
+            decimal _totalWaterConsumption = _state.WaterReadings.Sum(c => c.CalculatedAmount); ;
 
             _state.Installments.Clear();
 
             Guid idAgua = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
 
-            ServiceReadingDetail wateritem = new ServiceReadingDetail();
+            ServiceReadingDetail wateritem = new();
 
             foreach (var unit in _state.Owners)
             {
-                Installment _dpto = new Installment();
-                _dpto.IdInstallment = Guid.NewGuid();
-                _dpto.IdBudgetHeader = _state.Budget.IdBudgetHeader;
-                _dpto.CreationDate = DateTime.Now; //_Budget.BudgetDate;
-                _dpto.TotalArea = unit.TotalArea;
-                _dpto.UnitName = unit.UnitNumber;
-                _dpto.OwnerName = unit.FirstName;
-                _dpto.IdGroupUnit = unit.IdGroupUnit;
-                _dpto.CreatedBy = "eechevarria"; //UserName;
-                _dpto.DueDate = DateTime.Now.AddDays(10);//DateTime.Now.AddDays(ParameterService.DueDay);
-                _dpto.Status = 1; //Created
+                Installment _dpto = new Installment
+                {
+                    IdInstallment = Guid.NewGuid(),
+                    IdBudgetHeader = _state.Budget.IdBudgetHeader,
+                    CreationDate = DateTime.Now, //_Budget.BudgetDate;
+                    TotalArea = unit.TotalArea,
+                    UnitName = unit.UnitNumber,
+                    OwnerName = unit.FirstName,
+                    IdGroupUnit = unit.IdGroupUnit,
+                    CreatedBy = "eechevarria", //UserName;
+                    DueDate = DateTime.Now.AddDays(10),//DateTime.Now.AddDays(ParameterService.DueDay);
+                    Status = 1 //Created
+                };
 
                 decimal _total = 0;
-                int _nroAparments = 30;//ParameterService.nroGroupUnit;
-                decimal _distr = unit.TotalArea / (decimal)2861.9; // ParameterService.TotalAera;
+                decimal _distr = unit.TotalArea / _state.TotalArea; // ParameterService.TotalAera;
 
-                if (_state.WaterReadings != null )
-                     wateritem = _state.WaterReadings.Where(c => c.IdGroupUnit == unit.IdGroupUnit).FirstOrDefault()!;
+                if (_state.WaterReadings.Count > 0)
+                {
+                    wateritem = _state.WaterReadings.Where(c => c.IdGroupUnit == unit.IdGroupUnit).FirstOrDefault()!;
+                    _total += wateritem.CalculatedAmount;
+                }
 
                 foreach (var item in _state.Budget.Details)
                 {
                     if (item.IdCategory == idAgua && _state.WaterReadings!.Count > 0 )
                     {
-                        _total += wateritem!.CalculatedAmount;
+                        _total += Math.Abs(item.MonthlyAmount - _totalWaterConsumption ) / totalApartments;//wateritem!.CalculatedAmount;
                     }
                     else
                     {
-                        _total += item.Type == 1 ? item.MonthlyAmount / _nroAparments : item.MonthlyAmount * _distr;
+                        _total += item.Type == 1 ? item.MonthlyAmount / totalApartments : item.MonthlyAmount * _distr;
                     }
                 }
 
@@ -170,6 +151,97 @@ namespace SpiderHood.Models
                 _state.Installments.Add(_dpto);
             }
             return _totalInstallments;
+        }
+        
+        public decimal CalculateQuota(int totalApartments)
+        {
+            const string WATER_GUID = "CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C";
+            const string CREATED_BY = "eechevarria";
+
+            // Pre-cálculos
+            decimal totalWaterConsumption = _state.WaterReadings.Sum(c => c.CalculatedAmount);
+            bool hasWaterReadings = _state.WaterReadings.Count > 0;
+            Guid waterCategoryId = Guid.Parse(WATER_GUID);
+
+            // Diccionario de lecturas de agua
+            var waterReadingsDict = hasWaterReadings
+                ? _state.WaterReadings.ToDictionary(w => w.IdGroupUnit)
+                : null;
+
+            // Separar items del presupuesto
+            var budgetDetails = _state.Budget.Details.ToList();
+            var waterBudgetItem = budgetDetails.FirstOrDefault(d => d.IdCategory == waterCategoryId);
+            var otherBudgetItems = budgetDetails.Where(d => d.IdCategory != waterCategoryId).ToList();
+
+            // Calcular diferencia de agua una sola vez
+            decimal waterDifferencePerApartment = hasWaterReadings && waterBudgetItem != null
+                ? Math.Abs(waterBudgetItem.MonthlyAmount - totalWaterConsumption) / totalApartments
+                : 0;
+
+            // Pre-calcular valores constantes por tipo de item
+            var type1Items = otherBudgetItems.Where(i => i.Type == 1).ToList();
+            var typeNot1Items = otherBudgetItems.Where(i => i.Type != 1).ToList();
+
+            decimal type1Total = type1Items.Sum(i => i.MonthlyAmount) / totalApartments;
+
+            _state.Installments.Clear();
+            var now = DateTime.Now;
+            var dueDate = now.AddDays(10);
+
+            // Usar for en lugar de foreach para mejor performance
+            var owners = _state.Owners;
+            decimal totalInstallments = 0;
+
+            for (int i = 0; i < owners.Count; i++)
+            {
+                var unit = owners[i];
+                decimal distributionFactor = unit.TotalArea / _state.TotalArea;
+                decimal unitTotal = 0;
+
+                // Agua
+                if (hasWaterReadings)
+                {
+                    if (waterReadingsDict != null && waterReadingsDict.TryGetValue(unit.IdGroupUnit, out var waterItem))
+                    {
+                        unitTotal += waterItem.CalculatedAmount;
+                    }
+
+                    if (waterBudgetItem != null)
+                    {
+                        unitTotal += waterDifferencePerApartment;
+                    }
+                }
+
+                // Items tipo 1 (suma fija por departamento)
+                unitTotal += type1Total;
+
+                // Items no tipo 1 (proporcionales al área)
+                foreach (var item in typeNot1Items)
+                {
+                    unitTotal += item.MonthlyAmount * distributionFactor;
+                }
+
+                // Crear installment con object initializer
+                _state.Installments.Add(new Installment
+                {
+                    IdInstallment = Guid.NewGuid(),
+                    IdBudgetHeader = _state.Budget.IdBudgetHeader,
+                    CreationDate = now,
+                    TotalArea = unit.TotalArea,
+                    UnitName = unit.UnitNumber,
+                    OwnerName = unit.FirstName,
+                    IdGroupUnit = unit.IdGroupUnit,
+                    CreatedBy = CREATED_BY,
+                    DueDate = dueDate,
+                    Status = 1,
+                    Amount = unitTotal,
+                    Percent = 100 * distributionFactor
+                });
+
+                totalInstallments += unitTotal;
+            }
+
+            return totalInstallments;
         }
 
         public List<Installment> UpdateInstallments(List<Installment> installments)

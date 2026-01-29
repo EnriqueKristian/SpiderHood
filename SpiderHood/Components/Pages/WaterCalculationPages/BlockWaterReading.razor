@@ -271,7 +271,7 @@
                                                            @onclick="() => ApplyMinimun(lectura)">
                                                             <div class="d-flex justify-content-between">
                                                                 <span>Minimo</span>
-                                                                <span class="text-muted">@ParameterService.MinAgua</span>
+                                                                <span class="text-muted">@ParameterService.CurrentBuilding.Configuration.MinWaterConsumtion</span>
                                                             </div>
                                                             <small class="text-muted">Aplicar Minimo</small>
                                                         </a>
@@ -490,13 +490,13 @@
 
     private async Task ApplyMinimun(ServiceReadingDetail lectura)
     {
-        _ = RecalcularLectura(lectura, ParameterService.MinAgua);
+        _ = RecalcularLectura(lectura, (double)ParameterService.CurrentBuilding.Configuration.MinWaterConsumtion);
         await OnSaveReady.InvokeAsync(_ServiceReadingState);
     }
 
     protected override async Task OnInitializedAsync()
     {
-        if (ParameterService.IdBuilding == Guid.Empty) return;
+        if (ParameterService.CurrentBuilding == null) return;
         await CargarDatosIniciales();
     }
 
@@ -530,7 +530,7 @@
         //Obtener el último período registrado
         readings = await CalculoService.GetServiceReadingsAsync(
             ParameterService.ec,
-            ParameterService.IdBuilding
+            ParameterService.CurrentBuilding.IdBuilding
         );
 
         _ServiceReadingState.Period = _period;
@@ -576,7 +576,7 @@
                     {
                         IdServiceReading = Guid.NewGuid(),
                         Status = 1,
-                        IdBuilding = ParameterService.IdBuilding,
+                        IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
                         Period = _ultimoPeriodo,
                         CreatedOn = DateTime.Now,
                         IdPeriod = periodoExistente.IdPeriod
@@ -647,7 +647,7 @@
 
             if (_ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any())
             {
-                _ServiceReadingState.PreviousReadingDetail = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.ec, ParameterService.IdBuilding);
+                _ServiceReadingState.PreviousReadingDetail = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.ec, ParameterService.CurrentBuilding.IdBuilding);
             } 
 
             _ServiceReadingState.CurrentReading = await CalculoService.ImportarDesdeExcelAsync(
@@ -752,7 +752,7 @@
     {
         foreach (var lectura in _ServiceReadingState.CurrentReadingDetail.Where(l => l.Procesed))
         {
-            await RecalcularLectura(lectura, ParameterService.MinAgua);
+            await RecalcularLectura(lectura, (double)ParameterService.CurrentBuilding.Configuration.MinWaterConsumtion);
         }
     }
 
@@ -770,7 +770,7 @@
 
     private async Task GuardarLecturas()
     {
-        using var transaction = await ParameterService.context.Database.BeginTransactionAsync();
+        using var transaction = await ParameterService.Context.Database.BeginTransactionAsync();
         try
         {
             if (!PuedeGuardar)
@@ -940,7 +940,7 @@
         {
             if (lectura.Procesed)
             {
-                await RecalcularLectura(lectura, ParameterService.MinAgua);
+                await RecalcularLectura(lectura, (double)ParameterService.CurrentBuilding.Configuration.MinWaterConsumtion);
             }
         }
 
@@ -1081,8 +1081,8 @@
 
     private async Task<List<Models.UnitView>> ObtenerUnidadesDelEdificio()
     {
-        // Implementación para obtener las unidades del edificio
-        return ParameterService.ec.GetGroupUnitsByType(ParameterService.IdBuilding, 1);
+        // Implementación para obtener las unidades del edificio: TODO PADRE
+        return ParameterService.ec.GetGroupUnitsByType(ParameterService.CurrentBuilding.IdBuilding, 1);
     }
 
     #endregion

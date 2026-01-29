@@ -805,7 +805,7 @@
         try
         {
             // Cargar cuentas bancarias
-            cuentasBancarias = await BankService.ObtenerCuentasBancariasAsync(ParameterService.ec, ParameterService.IdBuilding);
+            cuentasBancarias = await BankService.ObtenerCuentasBancariasAsync(ParameterService.ec, ParameterService.CurrentBuilding.IdBuilding);
 
             // Cargar categorías de gastos
             categoriasGastos = await ExpenseService.ObtenerCategoriasAsync();
@@ -813,7 +813,7 @@
             // Cargar última conciliación
             ultimaConciliacion = await BankService.ObtenerUltimaConciliacionAsync();
 
-            FilteredCategory = ParameterService.ec.GetCategories(ParameterService.IdBuilding);
+            FilteredCategory = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding);
         }
         catch (Exception ex)
         {
@@ -836,7 +836,7 @@
             transacciones = await BankService.ObtenerTransaccionesAsync(ParameterService.ec,  cuentaSeleccionadaId, fechaInicio, fechaFin);
 
             // Cargar gastos pendientes del mismo período
-            gastosPendientes = await ExpenseService.ObtenerGastosPendientesConciliacionAsync(ParameterService.ec, ParameterService.IdBuilding, fechaInicio, fechaFin);
+            gastosPendientes = await ExpenseService.ObtenerGastosPendientesConciliacionAsync(ParameterService.ec, ParameterService.CurrentBuilding.IdBuilding, fechaInicio, fechaFin);
 
             // Buscar coincidencias automáticas
             await BuscarCoincidencias();
@@ -990,7 +990,7 @@
 
     private async Task GastoCreadoExitosamente(ViewExpense nuevoGasto)
     {
-        nuevoGasto.IdBuilding = ParameterService.IdBuilding;
+        nuevoGasto.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
         await ParameterService.ec.AddNewRecordAsync(nuevoGasto);
 
         // Conciliar automáticamente con la transacción
@@ -1024,7 +1024,7 @@
                 Amount = Math.Abs(transaccion.Amount),
                 ExpenseDate = transaccion.StatementDate,
                 IdCategory = new Guid("AF644C38-2C70-4B07-8BCA-F7AE0E834470"),// "Varios", // Categoría por defecto
-                IdBuilding = ParameterService.IdBuilding,
+                IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
                 Distribution = TypeDistribution.Fija,
                 Status = StatusExpense.Approved,
                 PaymentMethod = PaymentMethod.BankTransfer

@@ -12,7 +12,7 @@
                 <button type="button" class="btn-close" @onclick="CerrarModal"></button>
             </div>
             <div class="modal-body">
-                    <SpiderHood.Components.Pages.CalculoAgua.LecturaBloque @ref="LecturaBloqueRef" _period="_period" OnSaveReady="UpdateStatus" />
+                    <SpiderHood.Components.Pages.WaterCalculationPages.BlockWaterReading @ref="LecturaBloqueRef" _period="_period" OnSaveReady="UpdateStatus" />
             </div>
                 <div class="modal-footer">
                     <button type="button"
@@ -43,7 +43,7 @@
     [Parameter] public EventCallback<List<ServiceReadingDetail>> OnSaveReading { get; set; }
 
     private bool IsDisabledToSave = true;
-    private CalculoAgua.LecturaBloque? LecturaBloqueRef;
+    private WaterCalculationPages.BlockWaterReading? LecturaBloqueRef;
     private ConfirmationModal? _confirmationModal;
     private decimal TotalAmount = 0;
     private ConfirmationUtil util = new ConfirmationUtil();

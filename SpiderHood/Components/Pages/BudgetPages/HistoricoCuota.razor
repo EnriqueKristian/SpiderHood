@@ -85,7 +85,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (ParameterService.IdBuilding == Guid.Empty)
+        if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
             return;
 
         //var uri = Navigation.ToAbsoluteUri(Navigation.Uri);

@@ -1337,7 +1337,7 @@ td {
 
     protected override async Task OnInitializedAsync()
     {
-        if (ParameterService.IdBuilding == Guid.Empty)
+        if (ParameterService.CurrentBuilding == null)
             return;
 
         await CargarDatos();
@@ -1355,13 +1355,13 @@ td {
             presupuestoService._SelectedBudget = new();
 
             // Cargar presupuestos
-            presupuestoService._Budgets = await presupuestoService.GetPresupuestosAsync(ParameterService.IdBuilding);
+            presupuestoService._Budgets = await presupuestoService.GetPresupuestosAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // Cargar categorías activas
-            categoriasActivas = await presupuestoService.GetCategoriasAsync(ParameterService.IdBuilding, true);
+            categoriasActivas = await presupuestoService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding, true);
 
             // Calcular totales por categoría para cada presupuesto
-            SumCategory = await presupuestoService.GetPresupuestosSumAsync(ParameterService.IdBuilding);
+            SumCategory = await presupuestoService.GetPresupuestosSumAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             //Aplicar Filtros
             await FiltrarPresupuestos();

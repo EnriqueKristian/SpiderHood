@@ -647,13 +647,14 @@
     protected override void OnInitialized()
     {
         // Expandir todas las categorías al inicio
+        if (ParameterService.CurrentBuilding == null) return;
 
-        categories = ParameterService.ec.GetCategories(ParameterService.IdBuilding)
+        categories = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding)
                 .Where(c => c.Nivel == 0)
                 .Select(c => c.ShortDescript).ToList();
 
         expandedCategories = new HashSet<string>(categories);
-        expenses = ParameterService.ec.GetExpensesByBuilding(ParameterService.IdBuilding).ToList();
+        expenses = ParameterService.ec.GetExpensesByBuilding(ParameterService.CurrentBuilding.IdBuilding).ToList();
 
         FilterExpenses();
     }

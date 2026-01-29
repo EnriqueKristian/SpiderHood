@@ -11,70 +11,59 @@ namespace SpiderHood.Services
     public class ParameterService : IDisposable
     {
         
-        private List<Parameter> _listParameters = new();
-        private Guid _idBuilding;
+        private List<Parameter> _listParameters = [];
         private Guid _idUser;
-        private decimal _TotalArea;
         private string _role;
         private string _username;
-        private int _dueday;
-        private int _nroGroupUnit;
-        private int _minAgua;
-        private List<Period> _periods = new();
+        private List<Period> _periods = [];
         private bool _disposed = false;
 
 
         // Cache para evitar cargas innecesarias
         private readonly Dictionary<Guid, (List<Parameter> Parameters, DateTime LastUpdated, List<Period> Periodos)> _cache
-            = new Dictionary<Guid, (List<Parameter>, DateTime, List<Period>)>();
+            = [];
 
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
         // Exponer BDLayout como público para ser usado en todas las llamadas
         public BDLayout ec { get; private set; }
-        public SpiderHoodContext context { get; private set; }
+        public SpiderHoodContext Context { get; private set; }
 
         public IReadOnlyList<Parameter> ListParameters => _listParameters.AsReadOnly();
-        public Guid IdBuilding => _idBuilding;
+
+        public Building CurrentBuilding { get; set; } = null!;
+
+
         public Guid IdUser => _idUser;
-        public decimal TotalAera => _TotalArea;
         public string Role => _role;
         public string UserName => _username;
-        public int DueDay => _dueday;
-        public int nroGroupUnit => _nroGroupUnit;
-        public int MinAgua => _minAgua;
-
+        
         public event Action? OnChange;
 
         public ParameterService(SpiderHoodContext _context)
         {
-            context = _context ?? throw new ArgumentNullException(nameof(_context));
-            ec = new BDLayout(context);
+            Context = _context ?? throw new ArgumentNullException(nameof(_context));
+            ec = new BDLayout(Context);
             _role = "Admin";
-            _TotalArea = 2861.9m;
             _username = "eechevarria";
-            _dueday = 21;
-            _nroGroupUnit = 30;
-            _minAgua = 10;
-            
         }
 
         /// <summary>
         /// Carga inicial desde la base de datos con caché
         /// </summary>
-        public async Task LoadParametersAsync(Guid idBuilding, bool forceReload = false)
+        public async Task LoadParametersAsync(Guid IdBuilding, bool forceReload = false)
         {
-            if (idBuilding == Guid.Empty)
-                throw new ArgumentException("IdBuilding cannot be empty", nameof(idBuilding));
+            if (IdBuilding == Guid.Empty)
+                return;
+                //throw new ArgumentException("IdBuilding cannot be empty", nameof(IdBuilding));
 
             // Verificar caché si no es recarga forzada
-            if (!forceReload && _cache.TryGetValue(idBuilding, out var cached)
+            if (!forceReload && _cache.TryGetValue(IdBuilding, out var cached)
                 && DateTime.UtcNow - cached.LastUpdated < CacheDuration)
             {
-                _listParameters = new List<Parameter>(cached.Parameters);
-                _periods = new List<Period>(cached.Periodos);
+                _listParameters = [.. cached.Parameters];
+                _periods = [.. cached.Periodos];
 
-                _idBuilding = idBuilding;
                 await SetDefaultUserIdAsync();
                 NotifyStateChanged();
                 return;
@@ -83,23 +72,28 @@ namespace SpiderHood.Services
             // Carga desde base de datos usando el EC público
             try
             {
-                var parameters = await ec.GetParametersByBuildingAsync(idBuilding);
-                var periodos =  await ec.GetPeriodByBuilding(idBuilding);
+                var parameters = await ec.GetParametersByBuildingAsync(IdBuilding);
+                var periodos =  await ec.GetPeriodByBuilding(IdBuilding);
+                var building = await ec.GetBuildingById(IdBuilding);
+                if (building is null)
+                    throw new InvalidOperationException($"Building with Id {IdBuilding} not found.");
+                CurrentBuilding = building;
+                var listconfig = await ec.GetBuildingConfiguration(IdBuilding);
+                CurrentBuilding!.Configuration = listconfig.FirstOrDefault()!;
 
                 _listParameters = parameters ?? [];
                 _periods = periodos;
-                _idBuilding = idBuilding;
                 await SetDefaultUserIdAsync();
 
                 // Actualizar caché
-                UpdateCache(idBuilding, _listParameters,_periods);
+                UpdateCache(IdBuilding, _listParameters,_periods);
 
                 NotifyStateChanged();
             }
             catch (Exception ex)
             {
                 // Log error (considerar usar ILogger)
-                throw new InvalidOperationException($"Error loading parameters for building {idBuilding}", ex);
+                throw new InvalidOperationException($"Error loading parameters for building {IdBuilding}", ex);
             }
         }
 
@@ -119,14 +113,14 @@ namespace SpiderHood.Services
             if (parameter == null)
                 throw new ArgumentNullException(nameof(parameter));
 
-            if (parameter.IdBuilding != _idBuilding)
+            if (parameter.IdBuilding != CurrentBuilding.IdBuilding)
                 throw new InvalidOperationException("Parameter belongs to a different building");
 
             try
             {
-                await using var transaction = await context.Database.BeginTransactionAsync();
+                await using var transaction = await Context.Database.BeginTransactionAsync();
 
-                var existing = await context.Parameter
+                var existing = await Context.Parameter
                     .AsNoTracking()
                     .FirstOrDefaultAsync(p => p.IdTabla == parameter.IdTabla);
 
@@ -138,7 +132,7 @@ namespace SpiderHood.Services
                     //parameter.ModifiedDate = DateTime.UtcNow;
                     //parameter.ModifiedBy = _idUser;
 
-                    context.Parameter.Update(parameter);
+                    Context.Parameter.Update(parameter);
                     savedParameter = parameter;
                 }
                 else
@@ -148,16 +142,16 @@ namespace SpiderHood.Services
                     //parameter.CreatedDate = DateTime.UtcNow;
                     //parameter.CreatedBy = _idUser;
 
-                    await context.Parameter.AddAsync(parameter);
+                    await Context.Parameter.AddAsync(parameter);
                     savedParameter = parameter;
                 }
 
-                await context.SaveChangesAsync();
+                await Context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 // Actualizar lista local y caché
                 await UpdateLocalParameter(savedParameter);
-                ClearCacheForBuilding(_idBuilding);
+                ClearCacheForBuilding(CurrentBuilding.IdBuilding);
 
                 return OperationResult.Success(savedParameter);
             }
@@ -187,12 +181,12 @@ namespace SpiderHood.Services
 
             try
             {
-                await using var transaction = await context.Database.BeginTransactionAsync();
+                await using var transaction = await Context.Database.BeginTransactionAsync();
 
                 var now = DateTime.UtcNow;
                 foreach (var parameter in parameterList)
                 {
-                    var existing = await context.Parameter
+                    var existing = await Context.Parameter
                         .AsNoTracking()
                         .FirstOrDefaultAsync(p => p.IdTabla == parameter.IdTabla);
 
@@ -200,22 +194,22 @@ namespace SpiderHood.Services
                     {
                         //parameter.ModifiedDate = now;
                         //parameter.ModifiedBy = _idUser;
-                        context.Parameter.Update(parameter);
+                        Context.Parameter.Update(parameter);
                     }
                     else
                     {
                         //parameter.Id = Guid.NewGuid();
                         //parameter.CreatedDate = now;
                         //parameter.CreatedBy = _idUser;
-                        await context.Parameter.AddAsync(parameter);
+                        await Context.Parameter.AddAsync(parameter);
                     }
                 }
 
-                await context.SaveChangesAsync();
+                await Context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 // Recargar todos los parámetros del edificio
-                await ReloadParametersAsync(_idBuilding);
+                await ReloadParametersAsync(CurrentBuilding.IdBuilding);
 
                 return OperationResult.Success();
             }
@@ -228,7 +222,7 @@ namespace SpiderHood.Services
 
         public async Task<List<Parameter>> GetParametersByParentAsync(int idParent)
         {
-            return await context.Parameter
+            return await Context.Parameter
                 .AsNoTracking()
                 .Where(p => p.IdParent == idParent)
                 .ToListAsync();
@@ -236,7 +230,7 @@ namespace SpiderHood.Services
 
         public async Task<List<Parameter>> GetParametersByBuildingAsync(Guid idBuilding)
         {
-            return await context.Parameter
+            return await Context.Parameter
                 .AsNoTracking()
                 .Where(p => p.IdBuilding == idBuilding)
                 .ToListAsync();
@@ -273,7 +267,7 @@ namespace SpiderHood.Services
 
         public async Task<List<Period>> GetPeriodsAsync()
         {
-            return await ec.GetPeriodByBuilding(IdBuilding);
+            return await ec.GetPeriodByBuilding(CurrentBuilding!.IdBuilding);
         }
 
         public async Task<Models.Period> CreateNewPeriod(DateTime lastPeriod)
@@ -281,7 +275,7 @@ namespace SpiderHood.Services
             return new Models.Period
             {
                 IdPeriod = Guid.NewGuid(),
-                IdBuilding = IdBuilding,
+                IdBuilding = CurrentBuilding.IdBuilding,
                 Name = lastPeriod.ToString("MMMM-yy", CultureInfo.InvariantCulture),
                 PeriodType = 1,
                 StartDate = lastPeriod,
@@ -298,7 +292,7 @@ namespace SpiderHood.Services
         /// </summary>
         public async Task<Parameter?> GetParameterAsync(int idTabla)
         {
-            return await context.Parameter
+            return await Context.Parameter
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.IdTabla == idTabla);
         }
@@ -310,18 +304,18 @@ namespace SpiderHood.Services
         {
             try
             {
-                var parameter = await context.Parameter
+                var parameter = await Context.Parameter
                     .FirstOrDefaultAsync(p => p.IdTabla == idTabla);
 
                 if (parameter == null)
                     return OperationResult.Failure("Parameter not found");
 
-                context.Parameter.Remove(parameter);
-                await context.SaveChangesAsync();
+                Context.Parameter.Remove(parameter);
+                await Context.SaveChangesAsync();
 
                 // Actualizar lista local
                 _listParameters.RemoveAll(p => p.IdTabla == idTabla);
-                ClearCacheForBuilding(_idBuilding);
+                ClearCacheForBuilding(CurrentBuilding.IdBuilding);
                 NotifyStateChanged();
 
                 return OperationResult.Success();
@@ -357,7 +351,7 @@ namespace SpiderHood.Services
         /// </summary>
         public void ResetEC()
         {
-            ec = new BDLayout(context);
+            ec = new BDLayout(Context);
         }
 
         /// <summary>

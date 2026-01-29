@@ -560,7 +560,7 @@
             // Generar nuevo ID
             await AddItem(currentParameter);
         }
-        await ParameterService.LoadParametersAsync(ParameterService.IdBuilding, true);
+        await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding, true);
 
         CloseModal();
         OnInitialized();
@@ -635,7 +635,7 @@
             default:
                 throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}");
         }
-        await ParameterService.LoadParametersAsync(ParameterService.IdBuilding);
+        await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
         OnInitialized();
         return;
 
@@ -643,9 +643,9 @@
 
     private async Task AddItem(SpiderHood.Models.Parameter item)
     {
-        item.IdBuilding = ParameterService.IdBuilding;
+        item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
         await ParameterService.ec.AddNewRecordAsync(item);
-        await ParameterService.context.SaveChangesAsync();
+        await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(SpiderHood.Models.Parameter _param)
@@ -654,7 +654,7 @@
 
         try
         {
-            await ParameterService.context.SaveChangesAsync();
+            await ParameterService.Context.SaveChangesAsync();
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -673,7 +673,7 @@
     {
         // Lógica adicional después de cerrar el modal, si es necesario
         //await ParameterService.ec.DeleteRecordAsync(_Parameter);
-        await ParameterService.context.SaveChangesAsync();
+        await ParameterService.Context.SaveChangesAsync();
         //await modal.HideAsync();
         OnInitialized();
         return;
@@ -681,6 +681,6 @@
 
     private bool ItemExists(int id)
     {
-        return ParameterService.context.Parameter.Any(e => e.IdTabla == id);
+        return ParameterService.Context.Parameter.Any(e => e.IdTabla == id);
     }
 }

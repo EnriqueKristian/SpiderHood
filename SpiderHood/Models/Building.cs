@@ -48,12 +48,16 @@ namespace SpiderHood.Models
     {
         public Guid IdBuildingConfiguration { get; set; }
         public string Currency { get; set; } = "PEN";
-        public List<BankAccount> BankAccounts { get; set; } = new();
-        public List<string> PaymentMethods { get; set; } = new();
+        public List<BankAccount> BankAccounts { get; set; } = [];
+        public List<string> PaymentMethods { get; set; } = [];
         public int PaymentPeriod { get; set; }
         public int DueDay { get; set; } = 5;
         [Precision(18, 2)]
         public decimal FineAmount { get; set; } = 10.00m;
+        [Precision(18, 2)]
+        public decimal MinWaterConsumtion { get; set; } = 12.05m;
+        [Precision(18, 2)]
+        public decimal DefaultFixedCharge { get; set; } = 5.04m;
         [Precision(18, 2)]
         public decimal LateInterestRate { get; set; } = 2.00m;
         public int InvoiceDay { get; set; } = 1;
@@ -72,7 +76,7 @@ namespace SpiderHood.Models
                 IdBuildingConfiguration = this.IdBuildingConfiguration,
                 Currency = this.Currency,
                 BankAccounts = this.BankAccounts.Select(b => b.Clone()).ToList(),
-                PaymentMethods = new List<string>(this.PaymentMethods),
+                PaymentMethods = [.. this.PaymentMethods],
                 PaymentPeriod = this.PaymentPeriod,
                 DueDay = this.DueDay,
                 FineAmount = this.FineAmount,

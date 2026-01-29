@@ -714,6 +714,24 @@ namespace SpiderHood.Data
             }
         }
 
+
+        public async Task<Building?> GetBuildingById(Guid idBuilding)
+        {
+            try
+            {
+                var list = await _dbcontext!.Building
+                    .FromSqlInterpolated($"EXEC GET_BuildingById {idBuilding}")
+                    .ToListAsync();
+
+                return list.FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                // Log error here
+                throw new ApplicationException("Error fetching building", ex);
+            }
+        }
+
         public async Task<CuotaViewModel> GetCuotasMensuales(Guid IdBuilding)
         {
             try

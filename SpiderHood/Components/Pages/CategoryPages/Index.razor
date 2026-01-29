@@ -110,9 +110,10 @@
 
     private async Task LoadCategories()
     {
+        if (ParameterService.CurrentBuilding == null) return;
         try
         {
-            _categories = ParameterService.ec.GetCategories(ParameterService.IdBuilding);
+            _categories = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding);
             
             _catParent = _categories
                 .Where(c => c.Nivel == 0)
@@ -180,9 +181,9 @@
     private async Task AddItem(Category item)
     {
         item.IdCategory = Guid.NewGuid();
-        item.IdBuilding = ParameterService.IdBuilding;
+        item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
         await ParameterService.ec.AddNewRecordAsync(item);
-        await ParameterService.context.SaveChangesAsync();
+        await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(Category item)
@@ -190,7 +191,7 @@
         try
         {
             await ParameterService.ec.UpdateRecordAsync(item);
-            await ParameterService.context.SaveChangesAsync();
+            await ParameterService.Context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -211,7 +212,7 @@
         try
         {
             await ParameterService.ec.DeleteRecordAsync(_currentCategory);
-            await ParameterService.context.SaveChangesAsync();
+            await ParameterService.Context.SaveChangesAsync();
             await LoadCategories();
         }
         catch (Exception ex)
@@ -228,7 +229,7 @@
     private async Task<bool> ItemExists(Guid id)
     {
         return await Task.Run(() => 
-            ParameterService.context.Building.Any(e => e.IdBuilding == id));
+            ParameterService.Context.Building.Any(e => e.IdBuilding == id));
     }
 
     private string GetDistributionClass(TypeDistribution tipo)

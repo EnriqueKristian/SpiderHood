@@ -111,17 +111,39 @@
                                     <td>@item.Description</td>
                                     <td align="right">@item.MonthlyAmount.ToString("N2")</td>
                                     @{
-                                        var total = item.Type == 1
-                                                    ? item.MonthlyAmount / ParameterService.nroGroupUnit
-                                                            : item.MonthlyAmount * _distr;
-
+                                        var total = CalculateQuote(item);
                                         _TotalAmount += total/2;
                                     }
-
                                     <td align="right">S/ @total.ToString("N2")</td>
                                     <!--    PARAMETRO PADRE    -->
                                     <td align="center">@ParameterService.GetChildParameterDescription(8, item.Type)</td>
                                 </tr>
+                                @if (item.IdCategory == _idAgua)
+                                {
+                                    <tr>
+                                        <td></td>
+                                        <td colspan="2">
+                                            <table>
+                                                <tr>
+                                                    <th>Lec. Anterior</th>
+                                                    <th>Lec. Actual</th>
+                                                    <th>Consumo</th>
+                                                </tr>
+                                                <tr>
+                                                    @{
+                                                        var wateritem = WaterReadings!.Where(c => c.IdGroupUnit == selectedInstallment!.IdGroupUnit).FirstOrDefault()!;
+                                                        _TotalAmount += @wateritem.CalculatedAmount/2;
+                                                    }
+                                                    <td align ="right">@wateritem.PreviousReading</td>
+                                                    <td align="right">@wateritem.CurrentReading</td>
+                                                    <td align="right">@wateritem.Consumption m³</td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                        <td align="right">S/ @wateritem.CalculatedAmount.ToString("N2")</td>
+                                        <td></td>
+                                    </tr>    
+                                }
                             }
                         }
                     }
@@ -129,10 +151,11 @@
                 <tfoot>
                     <tr>
                         <td colspan="2"><strong>TOTAL PRESUPUESTO:</strong></td>
+                        <td></td>
                         <td align="right">
                             <strong>S/ @_TotalAmount.ToString("N2")</strong>
                         </td>
-                        <td colspan="2"></td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
@@ -150,11 +173,18 @@
 
     [Parameter] public List<Installment>? Installments { get; set; }
     [Parameter] public BudgetHeader? Budget { get; set; }
+    [Parameter] public List<ServiceReadingDetail>? WaterReadings { get; set; }
 
     private Installment? selectedInstallment = null;
     private Modal viewinstallment = null!;
     private decimal _distr;
     private decimal _TotalAmount = 0;
+    private decimal _TotalInstallments => Installments!.Sum(x => x.Amount);
+    private decimal _totalWaterConsumption => WaterReadings!.Sum(x => x.CalculatedAmount);
+    private Guid _idAgua => Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
+
+    private  int _waterReadingsCount;
+    private decimal _inverseNroGroupUnit;
 
     private string GetNombreMes(int mes)
     {
@@ -174,7 +204,10 @@
     private void VerDetalle(Installment _installment)
     {
         // Lógica para exportar a Excel
+        selectedInstallment = _installment;
         _distr = _installment.Percent / 100;
+        _waterReadingsCount = WaterReadings?.Count ?? 0;
+        _inverseNroGroupUnit = 1m / ParameterService.CurrentBuilding.Apartments;
         _TotalAmount = 0;
         viewinstallment.ShowAsync();
     }
@@ -197,5 +230,15 @@
     {
         var header = Budget!.Details!.FirstOrDefault(x => x.IdSection == sectionId && x.IsHeader);
         return header?.Description ?? $"Sección {sectionId}";
+    }
+
+    private decimal CalculateQuote(BudgetDetail item)
+    {
+        // Usar operadores ternarios anidados para máximo rendimiento
+        return item.IdCategory == _idAgua && _waterReadingsCount > 0
+            ? Math.Abs(item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit
+            : item.Type == 1
+                ? item.MonthlyAmount * _inverseNroGroupUnit
+                : item.MonthlyAmount * _distr;
     }
 }

@@ -1,179 +1,642 @@
 ﻿@using SpiderHood.Models
 @using System.Globalization
+@using SpiderHood.Components.Pages.Components
+@using SpiderHood.Utilities
 @inject SpiderHood.Services.ParameterService ParameterService
 
 <div class="row">
-    <div class="col-md-11">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5>Cuota Mensual: @GetNombreMes(Budget!.BudgetDate.Month) @Budget.BudgetDate.Year</h5>
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center py-3">
                 <div>
-                    <button class="btn btn-sm btn-outline-primary me-2" @onclick="ExportarPDF">
-                        <i class="fas fa-file-pdf"></i> PDF
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        Cuota Mensual: @GetNombreMes(Budget!.BudgetDate.Month) @Budget.BudgetDate.Year
+                    </h5>
+                    <small class="opacity-75">Distribución de gastos por departamento</small>
+                </div>
+                <div class="btn-group" role="group">
+                    <button class="btn btn-light btn-sm px-3" @onclick="ExportarPDF" title="Exportar a PDF">
+                        <i class="fas fa-file-pdf text-danger me-1"></i> PDF
                     </button>
-                    <button class="btn btn-sm btn-outline-success" @onclick="ExportarExcel">
-                        <i class="fas fa-file-excel"></i> Excel
+                    <button class="btn btn-light btn-sm px-3 ms-2" @onclick="ExportarExcel" title="Exportar a Excel">
+                        <i class="fas fa-file-excel text-success me-1"></i> Excel
                     </button>
                 </div>
             </div>
-            <div class="card-body">
 
-                <h6>Distribución por Departamento</h6>
+            <div class="card-body p-0">
+                <!-- Resumen Estadístico -->
+                <div class="row g-0 summary-stats">
+                    <div class="col-md-3">
+                        <div class="stat-card border-end">
+                            <div class="stat-icon bg-info">
+                                <i class="fas fa-building"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h6>Departamentos</h6>
+                                <p class="stat-value">@Installments!.Count</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card border-end">
+                            <div class="stat-icon bg-success">
+                                <i class="fas fa-calculator"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h6>Total Presupuesto</h6>
+                                <p class="stat-value">S/ @TotalBudget.ToString("N2")</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card border-end">
+                            <div class="stat-icon bg-warning">
+                                <i class="fas fa-tint"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h6>Consumo Agua</h6>
+                                <p class="stat-value">@_totalWaterConsumption.ToString("N2") m³</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-icon bg-primary">
+                                <i class="fas fa-money-bill-wave"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h6>Total Cuotas</h6>
+                                <p class="stat-value">S/ @_TotalInstallments.ToString("N2")</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                <div class="table-responsive">
-                    <table class="expense-table">
-                        <thead>
-                            <tr>
-                                <th width="15%">Departamento</th>
-                                <th>Propietario</th>
-                                <th width="15%" align="center">Área Total (m²)</th>
-                                <th width="15%" align="center">% Área</th>
-                                <th width="15%" align="center">Total</th>
-                                <th width="15%" align="center">Acción</th>
+                <!-- Tabla de Departamentos -->
+                <div class="table-container">
+                    <div class="table-header d-flex justify-content-between align-items-center p-3 border-bottom">
+                        <h6 class="mb-0 text-muted">
+                            <i class="fas fa-list me-2"></i>Listado de Departamentos
+                        </h6>
+                        <div class="search-box">
+                            <input type="text"
+                                   class="form-control form-control-sm"
+                                   placeholder="Buscar departamento..."
+                                   @bind="searchTerm"
+                                   @oninput="OnSearch" />
+                        </div>
+                        <!-- Selector de página -->
+                        <div class="d-flex align-items-center">
+                            <label class="me-2 text-muted">Mostrar:</label>
+                            <select class="form-select form-select-sm" style="width: auto;"
+                                    @onchange="(e) => ChangePageSize(Convert.ToInt32(e.Value))">
+                                <!option value="10" selected="@(pageSize == 10)">10</!option>
+                                <!option value="25" selected="@(pageSize == 25)">25</!option>
+                                <!option value="50" selected="@(pageSize == 50)">50</!option>
+                                <!option value="100" selected="@(pageSize == 100)">100</!option>
+                            </select>
+                        </div>
+                    </div>
 
-
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in Installments!)
-                            {
-                                <tr @onclick="() => installementSelected(item)"
-                                    class="@(selectedInstallment?.IdInstallment == item.IdInstallment ? "selected" : "")">
-                                    <td>DPTO @item.UnitName</td>
-                                    <td>@item.OwnerName</td>
-                                    <td align="right">@item.TotalArea.ToString("N2")</td>
-                                    <td align="right">@item.Percent.ToString("N2")%</td>
-                                    <td align="right">S/ @item.Amount.ToString("N2")</td>
-                                    <td class="col-acciones" align="center">
-                                        <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-secondary"
-                                                    title="Ver Presupuesto"
-                                                    @onclick:stopPropagation @onclick="() => VerDetalle(item)">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-                                        </div>
-                                    </td>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="15%" class="ps-4">
+                                        <i class="fas fa-door-closed me-1"></i>Departamento
+                                    </th>
+                                    <th>
+                                        <i class="fas fa-user me-1"></i>Propietario
+                                    </th>
+                                    <th width="12%" class="text-end">
+                                        <i class="fas fa-ruler-combined me-1"></i>Área (m²)
+                                    </th>
+                                    <th width="12%" class="text-end">
+                                        <i class="fas fa-percentage me-1"></i>% Área
+                                    </th>
+                                    <th width="15%" class="text-end">
+                                        <i class="fas fa-money-bill me-1"></i>Total Cuota
+                                    </th>
+                                    <th width="15%" class="text-center">
+                                        <i class="fas fa-cogs me-1"></i>Acciones
+                                    </th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @if (filteredInstallments?.Any() != true)
+                                {
+                                    <tr>
+                                        <td colspan="6" class="text-center py-5">
+                                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                            <p class="text-muted">No se encontraron departamentos</p>
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var item in _pagination.CurrentPageData!)
+                                    {
+                                        <tr @onclick="() => installementSelected(item)"
+                                            class="@GetRowClass(item)"
+                                            style="cursor: pointer;">
+                                            <td class="ps-4">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="apartment-badge bg-primary-subtle text-primary rounded-circle me-3">
+                                                        DPTO
+                                                    </div>
+                                                    <div>
+                                                        <strong>@item.UnitName</strong>
+                                                        <!--<small class="d-block text-muted">Unidad @item.UnitName</small>-->
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="owner-info">
+                                                    <strong>@item.OwnerName</strong>
+                                                    @*if (!string.IsNullOrEmpty(item.OwnerEmail))
+                                                    {
+                                                        <small class="d-block text-muted">
+                                                            <i class="fas fa-envelope me-1"></i>@item.OwnerEmail
+                                                        </small>
+                                                    }*@
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <span class="badge bg-light text-dark fs-6">
+                                                    @item.TotalArea.ToString("N2")
+                                                </span>
+                                            </td>
+                                            <td class="text-end">
+                                                <div class="progress-wrapper">
+                                                    <div class="progress" style="height: 6px;">
+                                                        <div class="progress-bar bg-info"
+                                                             style="width: @item.Percent%;"
+                                                             role="progressbar"></div>
+                                                    </div>
+                                                    <small class="text-muted">@item.Percent.ToString("N2")%</small>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <span class="amount-badge">
+                                                    S/ @item.Amount.ToString("N2")
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-outline-primary btn-sm px-3"
+                                                            title="Ver detalles de la cuota"
+                                                            @onclick:stopPropagation
+                                                            @onclick="() => VerDetalle(item)">
+                                                        <i class="fas fa-eye me-1"></i>Detalles
+                                                    </button>
+                                                    @if (item.IsPaid)
+                                                    {
+                                                        <span class="badge bg-success ms-2">
+                                                            <i class="fas fa-check me-1"></i>Pagado
+                                                        </span>
+                                                    }
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold">Totales:</td>
+                                    <td class="text-end fw-bold">
+                                        @Installments!.Sum(x => x.Percent).ToString("N2")%
+                                    </td>
+                                    <td class="text-end fw-bold text-primary">
+                                        S/ @_TotalInstallments.ToString("N2")
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <PaginationControls _pagination="@_pagination" />
+
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<Modal @ref="viewinstallment" Title="Detalle de Cuota" Size="ModalSize.Large">
+<Modal @ref="viewinstallment" Title="Detalle de Cuota" Size="ModalSize.ExtraLarge">
+    <HeaderTemplate>
+        <div class="modal-header bg-gradient-primary text-white">
+            <h5 class="modal-title">
+                <i class="fas fa-file-invoice-dollar me-2"></i>
+                Detalle de Cuota - DPTO @selectedInstallment?.UnitName
+            </h5>
+            <button type="button" class="btn-close btn-close-white"
+                    @onclick="() => viewinstallment.HideAsync()"
+                    aria-label="Close"></button>
+        </div>
+    </HeaderTemplate>
+
     <BodyTemplate>
-            
-        <div class="table-responsive">
-            <table class="expense-table">
-                <thead>
-                    <tr>
-                        <th style="width: 5%">Item</th>
-                        <th style="width: 50%">Descripción</th>
-                        <th style="width: 15%">Presupuesto</th>
-                        <th style="width: 15%">Cuota</th>
-                        <th style="width: 15%">Tipo</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var section in GetSections())
-                    {
-                        var sectionItems = Budget!.Details.Where(x => x.IdSection == section.Id).ToList();
-                        var hasItems = sectionItems.Any(x => !x.IsHeader);
-
-                        <!-- Section Header -->
-                        <tr class="section-header-row">
-                            <td colspan="5">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <strong>@GetSectionName(section.Id)</strong>
+        <div class="modal-body p-0">
+            <!-- Información del Propietario -->
+            <div class="owner-summary p-4 bg-light border-bottom">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-user me-2"></i>Propietario</h6>
+                        <p class="fs-5 fw-bold">@selectedInstallment?.OwnerName</p>
+                        <p class="text-muted">
+                            <i class="fas fa-phone me-1"></i> @selectedInstallment?.OwnerName
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="info-card">
+                                    <small class="text-muted">Área Total</small>
+                                    <p class="fw-bold mb-0">@selectedInstallment?.TotalArea.ToString("N2") m²</p>
                                 </div>
-                            </td>
-                        </tr>
+                            </div>
+                            <div class="col-6">
+                                <div class="info-card">
+                                    <small class="text-muted">% Distribución</small>
+                                    <p class="fw-bold mb-0">@selectedInstallment?.Percent.ToString("N2")%</p>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <div class="info-card bg-primary-subtle">
+                                    <small class="text-muted">Total Cuota</small>
+                                    <p class="fs-4 fw-bold text-primary mb-0">
+                                        S/ @selectedInstallment?.Amount.ToString("N2")
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                        @if (!hasItems)
-                        {
+            <!-- Tabla de Detalles -->
+            <div class="table-container p-4">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
                             <tr>
-                                <td colspan="7">
-                                    <div class="empty-section">
-                                        No hay items en esta sección
-                                    </div>
-                                </td>
+                                <th style="width: 5%">#</th>
+                                <th style="width: 40%">Descripción</th>
+                                <th style="width: 15%" class="text-end">Presupuesto</th>
+                                <th style="width: 15%" class="text-end">Cuota</th>
+                                <th style="width: 15%" class="text-center">Tipo</th>
+                                <th style="width: 10%" class="text-center">Estado</th>
                             </tr>
-                        }
-                        else
-                        {
-                            @foreach (var item in sectionItems.Where(x => !x.IsHeader))
+                        </thead>
+                        <tbody>
+                            @foreach (var section in GetSections())
                             {
-                                <tr>
-                                    <td>@item.ItemNumber</td>
-                                    <td>@item.Description</td>
-                                    <td align="right">@item.MonthlyAmount.ToString("N2")</td>
-                                    @{
-                                        var total = CalculateQuote(item);
-                                        _TotalAmount += total/2;
-                                    }
-                                    <td align="right">S/ @total.ToString("N2")</td>
-                                    <!--    PARAMETRO PADRE    -->
-                                    <td align="center">@ParameterService.GetChildParameterDescription(8, item.Type)</td>
+                                var sectionItems = Budget!.Details.Where(x => x.IdSection == section.Id).ToList();
+                                var hasItems = sectionItems.Any(x => !x.IsHeader);
+
+                                <!-- Section Header -->
+                                <tr class="section-header">
+                                    <td colspan="6" class="bg-light">
+                                        <div class="d-flex align-items-center py-2">
+                                            <i class="fas fa-folder me-2 text-primary"></i>
+                                            <strong class="text-primary">@GetSectionName(section.Id)</strong>
+                                            <span class="badge bg-secondary ms-2">
+                                                @sectionItems.Count(x => !x.IsHeader) items
+                                            </span>
+                                        </div>
+                                    </td>
                                 </tr>
-                                @if (item.IdCategory == _idAgua)
+
+                                @if (!hasItems)
                                 {
                                     <tr>
-                                        <td></td>
-                                        <td colspan="2">
-                                            <table>
-                                                <tr>
-                                                    <th>Lec. Anterior</th>
-                                                    <th>Lec. Actual</th>
-                                                    <th>Consumo</th>
-                                                </tr>
-                                                <tr>
-                                                    @{
-                                                        var wateritem = WaterReadings!.Where(c => c.IdGroupUnit == selectedInstallment!.IdGroupUnit).FirstOrDefault()!;
-                                                        _TotalAmount += @wateritem.CalculatedAmount/2;
-                                                    }
-                                                    <td align ="right">@wateritem.PreviousReading</td>
-                                                    <td align="right">@wateritem.CurrentReading</td>
-                                                    <td align="right">@wateritem.Consumption m³</td>
-                                                </tr>
-                                            </table>
+                                        <td colspan="6" class="text-center py-3 text-muted">
+                                            <i class="fas fa-inbox me-2"></i>No hay items en esta sección
                                         </td>
-                                        <td align="right">S/ @wateritem.CalculatedAmount.ToString("N2")</td>
-                                        <td></td>
-                                    </tr>    
+                                    </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var item in sectionItems.Where(x => !x.IsHeader))
+                                    {
+                                        var total = CalculateQuote(item);
+                                        _TotalAmount += total;
+
+                                        <tr class="item-row">
+                                            <td class="text-center">
+                                                <span class="badge bg-secondary">@item.ItemNumber</span>
+                                            </td>
+                                            <td>
+                                                <div class="item-description">
+                                                    <strong>@item.Description</strong>
+                                                    @*if (!string.IsNullOrEmpty(item.Comments))
+                                                    {
+                                                        <small class="d-block text-muted mt-1">
+                                                            <i class="fas fa-comment me-1"></i>@item.Comments
+                                                        </small>
+                                                    }*@
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <span class="budget-amount">S/ @item.MonthlyAmount.ToString("N2")</span>
+                                            </td>
+                                            <td class="text-end">
+                                                <span class="quote-amount fw-bold">S/ @total.ToString("N2")</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <span class="badge @GetTypeBadgeClass(item.Type)">
+                                                    @ParameterService.GetChildParameterDescription(8, item.Type)
+                                                </span>
+                                            </td>
+                                            <td class="text-center">
+                                                <i class="fas fa-check-circle text-success"></i>
+                                            </td>
+                                        </tr>
+
+                                        @if (item.IdCategory == _idAgua && WaterReadings?.Any() == true)
+                                        {
+                                            var wateritem = WaterReadings!.Where(c => c.IdGroupUnit == selectedInstallment!.IdGroupUnit).FirstOrDefault();
+                                            if (wateritem != null)
+                                            {
+                                                _TotalAmount += wateritem.CalculatedAmount;
+
+                                                <tr class="water-reading-row bg-info-subtle">
+                                                    <td></td>
+                                                    <td colspan="2">
+                                                        <div class="water-consumption">
+                                                            <h6 class="mb-2"><i class="fas fa-tint me-2"></i>Consumo de Agua</h6>
+                                                            <div class="row">
+                                                                <div class="col-4">
+                                                                    <small class="text-muted">Lectura Anterior</small>
+                                                                    <p class="fw-bold mb-0">@wateritem.PreviousReading</p>
+                                                                </div>
+                                                                <div class="col-4">
+                                                                    <small class="text-muted">Lectura Actual</small>
+                                                                    <p class="fw-bold mb-0">@wateritem.CurrentReading</p>
+                                                                </div>
+                                                                <div class="col-4">
+                                                                    <small class="text-muted">Consumo</small>
+                                                                    <p class="fw-bold mb-0">@wateritem.Consumption m³</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-end" valign="middle">
+                                                        <span class="water-amount fw-bold">S/ @wateritem.CalculatedAmount.ToString("N2")</span>
+                                                    </td>
+                                                    <td class="text-center" valign="middle">
+                                                        <span class="badge bg-info">
+                                                            <i class="fas fa-tint me-1"></i>Agua
+                                                        </span>
+                                                    </td>
+                                                    <td></td>
+                                                </tr>
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    }
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="2"><strong>TOTAL PRESUPUESTO:</strong></td>
-                        <td></td>
-                        <td align="right">
-                            <strong>S/ @_TotalAmount.ToString("N2")</strong>
-                        </td>
-                        <td></td>
-                    </tr>
-                </tfoot>
-            </table>
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold py-3">
+                                    <i class="fas fa-calculator me-2"></i>TOTAL CUOTA:
+                                </td>
+                                <td class="text-end py-3">
+                                    <span class="total-amount fs-5 fw-bold text-primary">
+                                        S/ @_TotalAmount.ToString("N2")
+                                    </span>
+                                </td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
         </div>
-
     </BodyTemplate>
+
     <FooterTemplate>
-        <button class="btn btn-secondary" @onclick="() => viewinstallment.HideAsync()">
-            <i class="bi bi-x me-1"></i>Cancelar
-        </button>
+        <div class="modal-footer bg-light">
+            <button class="btn btn-secondary" @onclick="() => viewinstallment.HideAsync()">
+                <i class="fas fa-times me-1"></i>Cerrar
+            </button>
+            <button class="btn btn-outline-primary" @onclick="ImprimirDetalle">
+                <i class="fas fa-print me-1"></i>Imprimir
+            </button>
+            <button class="btn btn-primary" @onclick="EnviarCuota">
+                <i class="fas fa-paper-plane me-1"></i>Enviar al Propietario
+            </button>
+        </div>
     </FooterTemplate>
 </Modal>
 
-@code {
+<style>
+    /* Estilos generales */
+    .card {
+        border-radius: 12px;
+        overflow: hidden;
+    }
 
+    .card-header {
+        border-bottom: none;
+    }
+
+    /* Estadísticas */
+    .summary-stats {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .stat-card {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+    }
+
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        color: white;
+        font-size: 1.25rem;
+    }
+
+    .stat-content h6 {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0;
+        color: #343a40;
+    }
+
+    /* Tabla principal */
+    .table-container {
+        background: white;
+    }
+
+    .table-header {
+        background: #f8f9fa;
+    }
+
+    .search-box {
+        width: 300px;
+    }
+
+    /* Badges y elementos visuales */
+    .apartment-badge {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+
+    .amount-badge {
+        background: linear-gradient(135deg, #20c997 0%, #099268 100%);
+        color: white;
+        padding: 0.375rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    /* Filas seleccionadas */
+    .table-row-selected {
+        background-color: rgba(13, 110, 253, 0.05) !important;
+        border-left: 4px solid #0d6efd;
+    }
+
+    .table-row-hover:hover {
+        background-color: rgba(13, 110, 253, 0.08) !important;
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+    }
+
+    /* Progress bars */
+    .progress-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+        .progress-wrapper .progress {
+            width: 100%;
+            margin-bottom: 0.25rem;
+        }
+
+    /* Modal styles */
+    .owner-summary {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+
+    .info-card {
+        padding: 0.75rem;
+        border-radius: 8px;
+        background: white;
+        border: 1px solid #dee2e6;
+    }
+
+    .section-header {
+        background: linear-gradient(135deg, #f1f3f4 0%, #e8eaed 100%) !important;
+    }
+
+    .item-row:hover {
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .water-reading-row {
+        border-left: 4px solid #0dcaf0;
+    }
+
+    .water-consumption {
+        padding: 0.75rem;
+        border-radius: 8px;
+        background: rgba(13, 202, 240, 0.1);
+    }
+
+    /* Badges de tipo */
+    .badge.type-1 {
+        background: linear-gradient(135deg, #20c997 0%, #099268 100%);
+    }
+
+    .badge.type-2 {
+        background: linear-gradient(135deg, #6f42c1 0%, #4a1d96 100%);
+    }
+
+    .badge.type-3 {
+        background: linear-gradient(135deg, #fd7e14 0%, #d9480f 100%);
+    }
+
+    .badge.type-4 {
+        background: linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%);
+    }
+
+    /* Total amount */
+    .total-amount {
+        color: #0d6efd;
+        font-weight: 700;
+    }
+
+    .budget-amount {
+        color: #6c757d;
+    }
+
+    .quote-amount {
+        color: #198754;
+    }
+
+    .water-amount {
+        color: #0dcaf0;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .summary-stats .stat-card {
+            margin-bottom: 1rem;
+            border-right: none !important;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .search-box {
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .table-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .apartment-badge {
+            width: 32px;
+            height: 32px;
+            font-size: 0.65rem;
+        }
+    }
+</style>
+
+@code {
     [Parameter] public List<Installment>? Installments { get; set; }
     [Parameter] public BudgetHeader? Budget { get; set; }
     [Parameter] public List<ServiceReadingDetail>? WaterReadings { get; set; }
+    [Parameter] public decimal TotalBudget { get; set; }
 
     private Installment? selectedInstallment = null;
     private Modal viewinstallment = null!;
@@ -183,8 +646,19 @@
     private decimal _totalWaterConsumption => WaterReadings!.Sum(x => x.CalculatedAmount);
     private Guid _idAgua => Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
 
-    private  int _waterReadingsCount;
+    private int _waterReadingsCount;
     private decimal _inverseNroGroupUnit;
+    private string searchTerm = string.Empty;
+    private List<Installment> filteredInstallments = new();
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        filteredInstallments = Installments ?? new List<Installment>();
+        _pagination.Initialize(filteredInstallments);
+        // Suscribirse a cambios en la paginación
+        _pagination.OnPaginationChanged += StateHasChanged;
+    }
 
     private string GetNombreMes(int mes)
     {
@@ -194,16 +668,17 @@
     private void ExportarPDF()
     {
         // Lógica para exportar a PDF
+        Console.WriteLine("Exportando a PDF...");
     }
 
     private void ExportarExcel()
     {
         // Lógica para exportar a Excel
+        Console.WriteLine("Exportando a Excel...");
     }
 
     private void VerDetalle(Installment _installment)
     {
-        // Lógica para exportar a Excel
         selectedInstallment = _installment;
         _distr = _installment.Percent / 100;
         _waterReadingsCount = WaterReadings?.Count ?? 0;
@@ -215,6 +690,31 @@
     private void installementSelected(Installment item)
     {
         selectedInstallment = item;
+        StateHasChanged();
+    }
+
+    private string GetRowClass(Installment item)
+    {
+        var classes = new List<string> { "table-row-hover" };
+
+        if (selectedInstallment?.IdInstallment == item.IdInstallment)
+        {
+            classes.Add("table-row-selected");
+        }
+
+        return string.Join(" ", classes);
+    }
+
+    private string GetTypeBadgeClass(int type)
+    {
+        return type switch
+        {
+            1 => "type-1",
+            2 => "type-2",
+            3 => "type-3",
+            4 => "type-4",
+            _ => "bg-secondary"
+        };
     }
 
     private List<SectionInfo> GetSections()
@@ -234,11 +734,71 @@
 
     private decimal CalculateQuote(BudgetDetail item)
     {
-        // Usar operadores ternarios anidados para máximo rendimiento
         return item.IdCategory == _idAgua && _waterReadingsCount > 0
             ? Math.Abs(item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit
             : item.Type == 1
                 ? item.MonthlyAmount * _inverseNroGroupUnit
                 : item.MonthlyAmount * _distr;
     }
+
+    private void OnSearch(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        _pagination.Search(searchTerm);
+    }
+
+    private void ImprimirDetalle()
+    {
+        Console.WriteLine("Imprimiendo detalle...");
+        // Lógica para imprimir
+    }
+
+    private void EnviarCuota()
+    {
+        Console.WriteLine("Enviando cuota al propietario...");
+        // Lógica para enviar por email
+    }
+
+    private class SectionInfo
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public Guid IdCategory { get; set; }
+    }
+
+
+    #region Paginación
+    private InstallmentPagination _pagination = new InstallmentPagination();
+    private string searchTerm1 = "";
+    private int pageSize = 25;
+
+    private void SortColumn(string column)
+    {
+        _pagination.SortByColumn(column);
+    }
+
+    private void SelectReading(Installment installment)
+    {
+        // Lógica para seleccionar una lectura
+        Console.WriteLine($"Seleccionada lectura: {installment.OwnerName}");
+    }
+    
+    private void OnPageSizeChanged()
+    {
+        _pagination.ChangePageSize(pageSize);
+    }
+
+    public void Dispose()
+    {
+        _pagination.OnPaginationChanged -= StateHasChanged;
+    }
+
+    private void ChangePageSize(int newSize)
+    {
+        pageSize = newSize;
+        OnPageSizeChanged();
+    }
+
+    #endregion
+
 }

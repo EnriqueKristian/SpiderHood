@@ -1,9 +1,4 @@
-﻿using Microsoft.IdentityModel.Tokens;
-using SpiderHood.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
+﻿using SpiderHood.Models;
 
 namespace SpiderHood.Utilities
 {
@@ -160,7 +155,6 @@ namespace SpiderHood.Utilities
                 NotifyChange();
             }
         }
-
         public void GoToFirstPage() => GoToPage(1);
         public void GoToPreviousPage() => GoToPage(CurrentPage - 1);
         public void GoToNextPage() => GoToPage(CurrentPage + 1);
@@ -309,6 +303,7 @@ namespace SpiderHood.Utilities
             // Registrar factories para tipos específicos
             _typeFactories[typeof(ServiceReadingDetail)] = () => new WaterReadingPagination();
             _typeFactories[typeof(MovementDetail)] = () => new MovementDetailPagination();
+            _typeFactories[typeof(Installment)] = () => new InstallmentPagination();
         }
 
         public static PaginationClass<T> CreateForType<T>() where T : class
@@ -449,8 +444,6 @@ namespace SpiderHood.Utilities
             return data.Where(item =>
                 (!string.IsNullOrEmpty(item.Description) &&
                  item.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
-                //(!string.IsNullOrEmpty(item.ITF &&
-                // item.ITF.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
                 (!string.IsNullOrEmpty(item.Currency) &&
                  item.Currency.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
                 (!string.IsNullOrEmpty(item.Validation) &&
@@ -471,5 +464,55 @@ namespace SpiderHood.Utilities
                     x.Validation.Equals(validationType, StringComparison.OrdinalIgnoreCase));
             }
         }
+    }
+
+    public class InstallmentPagination : PaginationClass<Installment>
+    {
+        public InstallmentPagination() : base()
+        {
+            var filterOptions = new Dictionary<string, string>
+        {
+            { "all", "Todos" },
+            { "valid", "Válidos" },
+            { "duplicate", "Duplicados" },
+            { "error", "Con error" }
+        };
+
+            var sortExpressions = new Dictionary<string, Func<Installment, object>>
+        {
+            { "UnitName", x => x.UnitName },
+            { "OwnerName", x => x.OwnerName },
+            { "TotalArea", x => x.TotalArea },
+            { "Percent", x => x.Percent },
+            { "Amount", x => x.Amount },
+            { "IsPaid", x => x.IsPaid }
+        };
+
+            InitializeConfiguration(filterOptions, sortExpressions, "UnitName");
+        }
+
+        protected override List<Installment> ApplySearch(List<Installment> data, string searchTerm)
+        {
+            var term = searchTerm.ToLower();
+
+            return data
+                .Where(x => x.UnitName.ToLower().Contains(term) ||
+                           x.OwnerName.ToLower().Contains(term))
+                .ToList();
+
+        }
+
+        public void ApplyStatusFilter(string validationType)
+        {
+            if (validationType == "all")
+            {
+                ClearFilters();
+            }
+            else
+            {
+                ApplyCustomFilter(x => x.IsPaid);
+            }
+        }
+
     }
 }

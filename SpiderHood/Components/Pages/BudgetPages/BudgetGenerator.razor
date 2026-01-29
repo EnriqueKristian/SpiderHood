@@ -467,14 +467,14 @@
                         </div>
 
                         <!-- Calculation Formula -->
-                        <div class="mt-4">
+                        <!--<div class="mt-4">
                             <h6 class="mb-2">Fórmula de Cálculo:</h6>
                             <div class="calculation-formula">
                                 Cuota por Departamento = (Total Mensual / N° de Departamentos)
                                 <br />
                                 <strong>S/ @_BudgetState.TotalMonthly.ToString("N2") / @_BudgetState.TotalApartments = S/ @_BudgetState.QuotaPerApartment.ToString("N2")</strong>
                             </div>
-                        </div>
+                        </div>-->
                     }
                     else
                     {
@@ -649,7 +649,7 @@
 @if( _BudgetState.IsWaterReadingReady &&_BudgetState.Status > BudgetStatus.Created ){
     <InstallmentTable Installments="@_BudgetState.Installments"
                   Budget="@_BudgetState.Budget"
-                  WaterReadings="@_BudgetState.WaterReadings"/>
+                  WaterReadings="@_BudgetState.WaterReadings" TotalBudget="_BudgetState.TotalMonthly"/>
 }
 
 @code {

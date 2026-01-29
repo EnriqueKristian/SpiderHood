@@ -323,6 +323,8 @@ namespace SpiderHood.Models
         public int Status { get; set; }
         public Guid IdGroupUnit { get; set; }
         public DateTime DueDate { get; set; }
+        [NotMapped]
+        public bool IsPaid { get; set; } = false;
     }
 
     // Models/DetalleCuota.cs

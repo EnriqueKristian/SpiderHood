@@ -193,7 +193,7 @@ namespace SpiderHood.Data
         {
             // Ejecuta el procedimiento almacenado INS_BuildingConfiguration de forma asincrónica
             await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_BuildingConfiguration {0},{1},{2},{3}, {4},{5},{6},{7},{8}",
+                "INS_BuildingConfiguration {0},{1},{2},{3}, {4},{5},{6},{7},{8},{9},{10}",
                 ec?.IdBuildingConfiguration!,
                 ec?.Currency!,
                 ec?.PaymentMethods!,
@@ -202,6 +202,8 @@ namespace SpiderHood.Data
                 ec?.FineAmount!,
                 ec?.LateInterestRate!,
                 ec?.InvoiceDay!,
+                ec?.MinWaterConsumtion!,
+                ec?.DefaultFixedCharge!,
                 ec?.IdBuilding!
             );
 
@@ -546,7 +548,7 @@ namespace SpiderHood.Data
         {
             // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
             await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_BuildingConfiguration {0},{1},{2},{3},{4},{5},{6},{7},{8}",
+                "UPD_BuildingConfiguration {0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}",
                 ec?.IdBuildingConfiguration!,
                 ec?.Currency!,
                 ec?.PaymentMethods!,
@@ -555,6 +557,8 @@ namespace SpiderHood.Data
                 ec?.FineAmount!,
                 ec?.LateInterestRate!,
                 ec?.InvoiceDay!,
+                ec?.MinWaterConsumtion!,
+                ec?.DefaultFixedCharge!,
                 ec?.IdBuilding!
             );
 

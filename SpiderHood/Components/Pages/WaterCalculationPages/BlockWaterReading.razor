@@ -180,7 +180,7 @@
                             <InputText type="text" class="form-control border-start-0"
                                        placeholder="Buscar Departamento ..."
                                        @bind-Value="@searchTerm"
-                                       @oninput="e => { searchTerm = ((ChangeEventArgs)e).Value?.ToString(); OnSearchTermChanged(); }" />
+                                       @oninput="OnSearch" />
                         </div>
                         <!-- Filtro por estado -->
                         <div class="dropdown">
@@ -1104,8 +1104,9 @@
         Console.WriteLine($"Seleccionada lectura: {reading.GroupNumber}");
     }
 
-    private void OnSearchTermChanged()
+    private void OnSearch(ChangeEventArgs e)
     {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
         _pagination.Search(searchTerm);
     }
 

@@ -18,7 +18,7 @@ namespace SpiderHood.Models
         public bool _isLoading = false;
         public string _currentOperation = "";
 
-        public async Task ExecuteWithConfirmation(Func<Task> action, string actionName, ConfirmationModal? _confirmationModal, string message = "", string type = "warning")
+        public async Task ExecuteWithConfirmation(Func<Task> action, string actionName, ConfirmationModal? _confirmationModal, string message = "", string type = "warning", bool isCancelOnly = false)
         {
             _pendingAction = () =>
             {
@@ -33,6 +33,7 @@ namespace SpiderHood.Models
 
             _confirmationModal?.Show(type);
             _confirmationModal?.Message = string.IsNullOrEmpty(message) ? defaultMessage : message;
+            _confirmationModal?.IsCancelOnly = isCancelOnly;
         }
 
         public async Task OnConfirmationResult(bool confirmed)

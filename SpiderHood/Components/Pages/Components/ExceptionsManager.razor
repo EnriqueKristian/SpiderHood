@@ -1,0 +1,410 @@
+﻿<!-- ExceptionsManager.razor -->
+@using SpiderHood.Models
+@inject SpiderHood.Services.ParameterService ParameterService
+@inject SpiderHood.Services.IExceptionService _exceptionService
+
+<div class="card shadow-sm mt-3">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+            Excepciones de Pago por Departamento
+        </h6>
+        <button class="btn btn-sm btn-outline-primary" @onclick="AddException">
+            <i class="fas fa-plus me-1"></i>Agregar Excepción
+        </button>
+    </div>
+
+    <div class="card-body">
+        @if (Exceptions?.Any() != true)
+        {
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-info-circle fa-2x mb-3"></i>
+                <p>No hay excepciones configuradas</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Departamento</th>
+                            <th>Categoría</th>
+                            <th class="text-center">% Excluido</th>
+                            <th>Descripción</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var exception in Exceptions!)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>DPTO @GetUnitName(exception.IdGroupUnit)</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        @GetCategoryName(exception.IdCategory)
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <input type="range" class="form-range me-2"
+                                               style="width: 100px;"
+                                               min="0" max="100" step="5"
+                                               value="@exception.PercentageExcluded"
+                                               @onchange="@(e => OnPercentageChange(exception, decimal.Parse(e.Value?.ToString() ?? "0")))" />
+                                        <span class="badge @GetPercentageBadgeClass(exception.PercentageExcluded)">
+                                            @exception.PercentageExcluded%
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control form-control-sm"
+                                           value="@exception.Description"
+                                           @onchange="@(e => OnDescriptionChange(exception, e.Value?.ToString()))" />
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-danger"
+                                                title="Eliminar"
+                                                @onclick="() => RemoveException(exception)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Resumen de impacto -->
+            <div class="alert alert-info mt-3">
+                <h6><i class="fas fa-chart-pie me-2"></i>Impacto en la Distribución</h6>
+                <div class="row mt-2">
+                    <div class="col-md-4">
+                        <small class="text-muted">Departamentos con excepciones:</small>
+                        <p class="fw-bold">@GetUnitsWithExceptions() / @Installments!.Count</p>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">Monto a redistribuir:</small>
+                        <p class="fw-bold">S/ @CalculateTotalRedistribution().ToString("N2")</p>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">Ahorro promedio por excepción:</small>
+                        <p class="fw-bold">S/ @CalculateAverageSavings().ToString("N2")</p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal para agregar excepción -->
+<Modal @ref="addExceptionModal" Title="Agregar Excepción" Size="ModalSize.Regular">
+    <BodyTemplate>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">Departamento</label>
+                    <select class="form-select" @bind="newException.IdGroupUnit">
+                        <option value="">Seleccionar departamento</option>
+                        @foreach (var unit in Installments!)
+                        {
+                            <option value="@unit.IdGroupUnit">DPTO @unit.UnitName - @unit.OwnerName</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">Categoría</label>
+                    <select class="form-select" @bind="newException.IdCategory">
+                        <option value="">Seleccionar categoría</option>
+                        @foreach (var category in AvailableCategories!)
+                        {
+                            <option value="@category.IdCategory">@category.ShortDescript</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="mb-3">
+                    <label class="form-label">Porcentaje a Excluir</label>
+                    <div class="d-flex align-items-center">
+                        <input type="range" class="form-range flex-grow-1 me-3"
+                               min="0" max="100" step="5"
+                               @bind="newException.PercentageExcluded" />
+                        <span class="badge @GetPercentageBadgeClass(newException.PercentageExcluded)"
+                              style="min-width: 70px;">
+                            @newException.PercentageExcluded%
+                        </span>
+                    </div>
+                    <small class="text-muted">
+                        @GetPercentageDescription(newException.PercentageExcluded)
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-12">
+                <div class="mb-3">
+                    <label class="form-label">Descripción/Motivo</label>
+                    <textarea class="form-control" rows="3"
+                              @bind="newException.Description"
+                              placeholder="Ej: No utiliza el ascensor, no tiene vehículo, etc."></textarea>
+                </div>
+            </div>
+        </div>
+
+        @if (CalculateExceptionImpact(newException) > 0)
+        {
+            <div class="alert alert-warning">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>Impacto Estimado</h6>
+                <p class="mb-0">
+                    Esta excepción reducirá la cuota del departamento en aproximadamente
+                    <strong>S/ @CalculateExceptionImpact(newException).ToString("N2")</strong>
+                    y será redistribuido entre los demás departamentos.
+                </p>
+            </div>
+        }
+    </BodyTemplate>
+
+    <FooterTemplate>
+        <button class="btn btn-secondary" @onclick="CancelAddException">
+            <i class="fas fa-times me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-primary" @onclick="SaveException"
+                disabled="@(!IsValidException())">
+            <i class="fas fa-save me-1"></i>Guardar Excepción
+        </button>
+    </FooterTemplate>
+</Modal>
+
+@code {
+    [Parameter] public List<Installment>? Installments { get; set; }
+    [Parameter] public BudgetHeader? Budget { get; set; }
+    [Parameter] public EventCallback OnExceptionsChanged { get; set; }
+
+    private List<InstallmentException> Exceptions { get; set; } = new();
+    private List<Category> AvailableCategories { get; set; } = new();
+    private InstallmentException newException = new();
+    private Modal addExceptionModal = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadExceptions();
+        await LoadCategories();
+    }
+
+    private async Task LoadExceptions()
+    {
+        if (Budget != null)
+        {
+            //Exceptions = await _exceptionService.GetExceptionsByBudgetAsync(Budget.IdBudgetHeader);
+            Exceptions = new List<InstallmentException>(); // Placeholder
+        }
+    }
+
+    private async Task LoadCategories()
+    {
+        // Cargar categorías del presupuesto actual
+        AvailableCategories = Budget!.Details
+            .Where(x => !x.IsHeader)
+            .Select(x => new Category
+            {
+                IdCategory = x.IdCategory,
+                ShortDescript = GetCategoryName(x.IdCategory)
+            })
+            .DistinctBy(x => x.IdCategory)
+            .ToList();
+    }
+
+    private string GetUnitName(Guid unitId)
+    {
+        return Installments?.FirstOrDefault(u => u.IdGroupUnit == unitId)?.UnitName ?? "N/A";
+    }
+
+    private string GetCategoryName(Guid categoryId)
+    {
+        // Obtener nombre de categoría del servicio de parámetros
+        //return ParameterService.GetParameterDescription(categoryId) ?? "Categoría no encontrada";
+        return "Categoría no encontrada";
+    }
+
+    private string GetPercentageBadgeClass(decimal percentage)
+    {
+        return percentage switch
+        {
+            0 => "bg-secondary",
+            <= 30 => "bg-info",
+            <= 70 => "bg-warning",
+            _ => "bg-danger"
+        };
+    }
+
+    private string GetPercentageDescription(decimal percentage)
+    {
+        return percentage switch
+        {
+            0 => "Sin exclusión - El departamento paga normalmente",
+            > 0 and < 100 => "Exclusión parcial - El departamento paga una parte",
+            100 => "Exclusión total - El departamento no paga esta categoría",
+            _ => ""
+        };
+    }
+
+    private int GetUnitsWithExceptions()
+    {
+        return Exceptions
+            .Select(e => e.IdGroupUnit)
+            .Distinct()
+            .Count();
+    }
+
+    private decimal CalculateTotalRedistribution()
+    {
+        decimal total = 0;
+
+        foreach (var exception in Exceptions)
+        {
+            var categoryAmount = Budget!.Details
+                .Where(x => x.IdCategory == exception.IdCategory && !x.IsHeader)
+                .Sum(x => x.MonthlyAmount);
+
+            total += categoryAmount * (exception.PercentageExcluded / 100);
+        }
+
+        return total;
+    }
+
+    private decimal CalculateAverageSavings()
+    {
+        if (!Exceptions.Any()) return 0;
+
+        var totalSavings = 0m;
+
+        foreach (var exception in Exceptions)
+        {
+            var categoryAmount = Budget!.Details
+                .Where(x => x.IdCategory == exception.IdCategory && !x.IsHeader)
+                .Sum(x => x.MonthlyAmount);
+
+            var areaPercentage = CalculateAreaPercentage(exception.IdGroupUnit);
+            var normalShare = categoryAmount * (areaPercentage / 100);
+            var excludedAmount = normalShare * (exception.PercentageExcluded / 100);
+
+            totalSavings += excludedAmount;
+        }
+
+        return totalSavings / Exceptions.Count;
+    }
+
+    private decimal CalculateAreaPercentage(Guid unitId)
+    {
+        var unit = Installments?.FirstOrDefault(u => u.IdGroupUnit == unitId);
+        if (unit == null) return 0;
+
+        var totalArea = Installments!.Sum(x => x.TotalArea);
+        return totalArea > 0 ? (unit.TotalArea / totalArea) * 100 : 0;
+    }
+
+    private decimal CalculateExceptionImpact(InstallmentException exception)
+    {
+        var categoryAmount = Budget!.Details
+            .Where(x => x.IdCategory == exception.IdCategory && !x.IsHeader)
+            .Sum(x => x.MonthlyAmount);
+
+        var areaPercentage = CalculateAreaPercentage(exception.IdGroupUnit);
+        var normalShare = categoryAmount * (areaPercentage / 100);
+
+        return normalShare * (exception.PercentageExcluded / 100);
+    }
+
+    private bool IsValidException()
+    {
+        return newException.IdGroupUnit != Guid.Empty &&
+               newException.IdCategory != Guid.Empty &&
+               newException.PercentageExcluded > 0;
+    }
+
+    private async void AddException()
+    {
+        newException = new InstallmentException
+        {
+            IdException = Guid.NewGuid(),
+            IdBudget = Budget!.IdBudgetHeader,
+            PercentageExcluded = 100, // Por defecto 100%
+            IsActive = true
+        };
+
+        await addExceptionModal.ShowAsync();
+    }
+
+    private async Task SaveException()
+    {
+        try
+        {
+            newException.CreatedAt = DateTime.Now;
+            newException.CreatedBy = "eechevarria";//_currentUser.Id;
+
+            await _exceptionService.CreateAsync(newException);
+            await LoadExceptions();
+
+            await addExceptionModal.HideAsync();
+            await OnExceptionsChanged.InvokeAsync();
+
+            //await ShowToast("Éxito", "Excepción agregada correctamente", "success");
+        }
+        catch (Exception ex)
+        {
+            //await ShowToast("Error", $"Error al guardar excepción: {ex.Message}", "danger");
+        }
+    }
+
+    private async Task CancelAddException()
+    {
+        await addExceptionModal.HideAsync();
+    }
+
+    private async void OnPercentageChange(InstallmentException exception, decimal newPercentage)
+    {
+        exception.PercentageExcluded = newPercentage;
+        await _exceptionService.UpdateAsync(exception);
+        await OnExceptionsChanged.InvokeAsync();
+        StateHasChanged();
+    }
+
+    private async void OnDescriptionChange(InstallmentException exception, string? newDescription)
+    {
+        if (newDescription != null)
+        {
+            exception.Description = newDescription;
+            await _exceptionService.UpdateAsync(exception);
+        }
+    }
+
+    private async void RemoveException(InstallmentException exception)
+    {
+        /*var confirmed = await ShowConfirmationDialog(
+            "Eliminar Excepción",
+            $"¿Está seguro de eliminar la excepción para DPTO {GetUnitName(exception.IdGroupUnit)}?",
+            "Eliminar",
+            "Cancelar"
+        );
+
+        if (confirmed)
+        {
+            await _exceptionService.DeleteAsync(exception.IdException);
+            await LoadExceptions();
+            await OnExceptionsChanged.InvokeAsync();
+
+            await ShowToast("Éxito", "Excepción eliminada correctamente", "success");
+        }*/
+    }
+}

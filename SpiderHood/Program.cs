@@ -39,7 +39,7 @@ builder.Services.AddScoped<IPresupuestoService, BudgetService>();
 //builder.Services.AddScoped<SpiderHood.Services.ToastService>();
 builder.Services.AddSingleton<ICalculoService, CalculoService>();
 
-
+builder.Services.AddScoped<IExceptionService, ExceptionService>();
 
 // Registrar servicios
 builder.Services.AddScoped<AuthenticationService>();

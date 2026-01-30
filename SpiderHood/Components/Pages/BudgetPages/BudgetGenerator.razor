@@ -7,9 +7,11 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using System.Globalization
+@using SpiderHood.Components.Pages.Components
 @inject NavigationManager Navigation
 @inject ParameterService ParameterService
 @inject ExpenseService ExpenseService
+@inject SpiderHood.Services.IExceptionService _exceptionService
 
 <style>
     .expense-calculation {
@@ -652,6 +654,10 @@
                   WaterReadings="@_BudgetState.WaterReadings" TotalBudget="_BudgetState.TotalMonthly"/>
 }
 
+<!-- Agregar al final del componente -->
+<ConfirmationModal @ref="_confirmationModal" 
+                   OnClose="OnConfirmationResult" />
+
 @code {
 
     [Inject] private IPresupuestoService presupuestoService { get; set; } = null!;
@@ -663,6 +669,9 @@
     private Modal _newCalcModal = null!;
     private Modal _newSectionModal = null!;
     private bool ShowModalServiceRegistration = false;
+
+    private ConfirmationModal? _confirmationModal;
+    private ConfirmationUtil util = new ConfirmationUtil();
 
     //private string class1 = "card card-hover mb-4";
     private string class2 = "card card-hover";
@@ -1218,8 +1227,12 @@
         _periods = await ParameterService.GetPeriodsAsync();
     }
 
-    private async Task PublishBudget(MouseEventArgs args)
+    private async Task PublishBudget1(MouseEventArgs args)
     {
+        //Implementar lógica para validar:
+        // Cada Seccion debe tener al menos un item
+        // Se debe tener cargada la lectura de Agua
+
         UpdateBudgetStatus();
         _BudgetState.Status = _Status;
         await SaveCalculation();
@@ -1328,4 +1341,712 @@
     {
         _BudgetState.WaterReadings = WaterReadings;
     }
+
+    private async Task PublishBudget(MouseEventArgs args)
+    {
+        try
+        {
+            // 1. Validar que haya secciones en el presupuesto
+            if (_BudgetState.Budget!.Details == null || !_BudgetState.Budget.Details.Any())
+            {
+                await ShowToast("Error", "El presupuesto no tiene detalles. Agregue secciones e items primero.", "danger");
+                return;
+            }
+
+            // 2. Obtener secciones únicas (headers)
+            var sections = _BudgetState.Budget.Details
+                .Where(x => x.IsHeader)
+                .Select(x => new { x.IdSection, x.Description })
+                .Distinct()
+                .ToList();
+
+            if (!sections.Any())
+            {
+                await ShowToast("Error", "El presupuesto no tiene secciones definidas.", "danger");
+                return;
+            }
+
+            // 3. Validar que cada sección tenga al menos un item
+            var sectionsWithoutItems = new List<string>();
+            var sectionsWithZeroAmount = new List<string>();
+
+            foreach (var section in sections)
+            {
+                var sectionItems = _BudgetState.Budget.Details
+                    .Where(x => x.IdSection == section.IdSection && !x.IsHeader)
+                    .ToList();
+
+                // Verificar si la sección tiene items
+                if (!sectionItems.Any())
+                {
+                    sectionsWithoutItems.Add(section.Description);
+                    continue;
+                }
+
+                // Verificar si los items tienen montos válidos
+                var totalSectionAmount = sectionItems.Sum(x => x.MonthlyAmount);
+                if (totalSectionAmount <= 0)
+                {
+                    sectionsWithZeroAmount.Add(section.Description);
+                }
+            }
+
+            // 4. Validar lectura de agua
+            var waterCategoryId = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
+            var hasWaterSection = sections.Any(s =>
+                _BudgetState.Budget.Details.Any(d => d.IdSection == s.IdSection &&
+                                      d.IdCategory == waterCategoryId &&
+                                      !d.IsHeader));
+
+            bool waterReadingValid = false;
+            string waterReadingMessage = string.Empty;
+
+            if (hasWaterSection)
+            {
+                // Validar que existan lecturas de agua
+                if (_BudgetState.WaterReadings == null || !_BudgetState.WaterReadings.Any())
+                {
+                    waterReadingValid = false;
+                    waterReadingMessage = "No hay lecturas de agua cargadas para el mes actual.";
+                }
+                else
+                {
+                    // Validar que todas las unidades tengan lectura
+                    var unitsWithoutReading = new List<string>();
+                    var readingsWithErrors = new List<string>();
+
+                    foreach (var reading in _BudgetState.WaterReadings)
+                    {
+                        // Validar lecturas válidas
+                        /*if (reading.CurrentReading <= reading.PreviousReading)
+                        {
+                            readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Lectura actual debe ser mayor a la anterior");
+                            }*/
+
+                if (reading.Consumption <= 0)
+                        {
+                            readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Consumo inválido");
+                        }
+                    }
+
+                    // Verificar unidades sin lectura
+                    var allUnits = Installments?.Select(i => i.IdGroupUnit).Distinct().ToList() ?? new List<Guid>();
+                    var unitsWithReading = _BudgetState.WaterReadings.Select(r => r.IdGroupUnit).Distinct().ToList();
+                    var missingUnits = allUnits.Except(unitsWithReading).ToList();
+
+                    if (missingUnits.Any())
+                    {
+                        var unitNames = Installments?
+                            .Where(i => missingUnits.Contains(i.IdGroupUnit))
+                            .Select(i => i.UnitName)
+                            .ToList() ?? new List<string>();
+
+                        waterReadingMessage = $"Faltan lecturas para: {string.Join(", ", unitNames)}";
+                        waterReadingValid = false;
+                    }
+                    else if (readingsWithErrors.Any())
+                    {
+                        waterReadingMessage = $"Errores en lecturas: {string.Join("; ", readingsWithErrors)}";
+                        waterReadingValid = false;
+                    }
+                    else
+                    {
+                        waterReadingValid = true;
+                    }
+                }
+            }
+            else
+            {
+                // No hay sección de agua, no es necesario validar lecturas
+                waterReadingValid = true;
+            }
+
+            // 5. Validar montos totales
+            var totalBudgetAmount = _BudgetState.Budget.Details
+                .Where(x => !x.IsHeader)
+                .Sum(x => x.MonthlyAmount);
+
+            if (totalBudgetAmount <= 0)
+            {
+                await ShowToast("Error", "El presupuesto total debe ser mayor a cero.", "danger");
+                return;
+            }
+
+            // 6. Preparar mensajes de error combinados
+            var errorMessages = new List<string>();
+
+            if (sectionsWithoutItems.Any())
+            {
+                errorMessages.Add($"Secciones sin items: {string.Join(", ", sectionsWithoutItems)}");
+            }
+
+            if (sectionsWithZeroAmount.Any())
+            {
+                errorMessages.Add($"Secciones con monto cero: {string.Join(", ", sectionsWithZeroAmount)}");
+            }
+
+            if (!waterReadingValid)
+            {
+                errorMessages.Add($"Lectura de agua: {waterReadingMessage}");
+            }
+
+            /* var exceptions = await _exceptionService.GetExceptionsByBudgetAsync(_BudgetState.Budget!.IdBudgetHeader);
+            if (exceptions.Any())
+            {
+                var unitsWithFullExceptions = exceptions
+                .Where(e => e.PercentageExcluded == 100)
+                .Select(e => GetUnitName(e.IdGroupUnit))
+                .Distinct()
+                .ToList();
+
+                if (unitsWithFullExceptions.Any())
+                {
+                    var exceptionDetails = $"Departamentos con excepciones totales: {string.Join(", ", unitsWithFullExceptions)}";
+                    await ShowToast("Info", exceptionDetails, "info");
+                    }
+                }*/
+
+
+            // 7. Mostrar errores si los hay
+        if (errorMessages.Any())
+            {
+                var errorDetails = string.Join("\n• ", errorMessages);
+
+                var message = $"Se encontraron los siguientes problemas:\n\n• {errorDetails}\n\n¿Desea continuar de todos modos?";
+
+                await util.ExecuteWithConfirmation(Sample, "actionName", _confirmationModal, message, "danger", true);
+
+                /*var confirmed = await ShowConfirmationDialog(
+                "Validaciones Pendientes",
+                        $"Se encontraron los siguientes problemas:\n\n• {errorDetails}\n\n¿Desea continuar de todos modos?",
+                        "Continuar",
+                        "Cancelar"
+                    );
+
+                if (confirmed)
+                {
+                    await ProceedWithPublish();
+                    }
+                else
+                {
+                    await ShowToast("Cancelado", "La publicación fue cancelada por el usuario.", "warning");
+                    }
+                return;*/
+        }
+            else
+            {
+                //8. Proceder con la publicación si todo está válido
+                await ProceedWithPublish();
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowToast("Error", $"Error al publicar presupuesto: {ex.Message}", "danger");
+        }
+    }
+
+    private async Task ProceedWithPublish()
+    {
+        try
+        {
+            // Mostrar indicador de carga
+            await ShowLoading("Publicando presupuesto...");
+
+            // 1. Actualizar estado del presupuesto
+            UpdateBudgetStatus();
+            _BudgetState.Status = _Status;
+
+            // 2. Guardar cálculo
+            await SaveCalculation();
+
+            // 3. Generar cuotas para cada departamento
+            await GenerateInstallments();
+
+            // 4. Registrar auditoría
+            await RegisterAuditLog();
+
+            // 5. Notificar a propietarios (opcional)
+            if (await ShouldNotifyOwners())
+            {
+                await NotifyOwners();
+            }
+
+            // 6. Mostrar éxito
+            await HideLoading();
+            await ShowToast("Éxito", "Presupuesto publicado correctamente", "success");
+
+            // 7. Actualizar UI
+            StateHasChanged();
+
+            // 8. Opcional: Redirigir o limpiar formulario
+            //await OnBudgetPublished.InvokeAsync(Budget);
+        }
+        catch (Exception ex)
+        {
+            await HideLoading();
+            await ShowToast("Error", $"Error al procesar la publicación: {ex.Message}", "danger");
+        }
+    }
+
+    private async Task GenerateInstallments()
+    {
+        try
+        {
+            // Limpiar cuotas existentes para este presupuesto
+            /*var existingInstallments = await _installmentService.GetByBudgetAsync(_BudgetState.Budget!.IdBudgetHeader);
+            if (existingInstallments.Any())
+            {
+                await  _installmentService.DeleteRangeAsync(existingInstallments.Select(x => x.IdInstallment));
+                }*/
+
+                            // Obtener excepciones para este presupuesto
+                            var exceptions = new List<InstallmentException>(); //  await _exceptionService.GetExceptionsByBudgetAsync(_BudgetState.Budget.IdBudgetHeader);
+
+            // Calcular distribución por departamento considerando excepciones
+            var installments = new List<Installment>();
+            var totalArea = Installments!.Sum(x => x.TotalArea);
+
+            foreach (var unit in Installments!)
+            {
+                // Calcular porcentaje base basado en área
+                var areaPercentage = (unit.TotalArea / totalArea) * 100;
+
+                // Calcular monto de la cuota considerando excepciones
+                var installmentAmount = CalculateInstallmentAmountWithExceptions(unit, areaPercentage, exceptions);
+
+                // Calcular porcentaje final ajustado por excepciones
+                var finalPercentage = CalculateAdjustedPercentage(unit, areaPercentage, exceptions);
+
+                var installment = new Installment
+                {
+                    IdInstallment = Guid.NewGuid(),
+                    IdBudgetHeader = _BudgetState.Budget!.IdBudgetHeader,
+                    IdGroupUnit = unit.IdGroupUnit,
+                    UnitName = unit.UnitName,
+                    OwnerName = unit.OwnerName,
+                    TotalArea = unit.TotalArea,
+                    Percent = Math.Round(finalPercentage, 2),
+                    Amount = Math.Round(installmentAmount, 2),
+                    DueDate = _BudgetState.Budget.BudgetDate.AddMonths(1),
+                    Status = 1, // Pendiente
+                    //CreatedAt = DateTime.Now,
+                    CreatedBy = "eechevarria"  //_currentUser.Id
+                };
+
+                installments.Add(installment);
+            }
+
+            // Guardar cuotas
+            //await _installmentService.CreateRangeAsync(installments);
+
+            // Actualizar lista local
+            Installments = installments;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error generando cuotas: {ex.Message}", ex);
+        }
+    }
+
+    private decimal CalculateInstallmentAmountWithExceptions(Installment unit, decimal areaPercentage,
+        List<InstallmentException> exceptions)
+    {
+        decimal totalAmount = 0;
+
+        // 1. Agrupar items del presupuesto por categoría
+        var itemsByCategory = _BudgetState.Budget!.Details
+            .Where(x => !x.IsHeader)
+            .GroupBy(x => x.IdCategory)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // 2. Para cada categoría, calcular la distribución
+        foreach (var categoryGroup in itemsByCategory)
+        {
+            var categoryId = categoryGroup.Key;
+            var categoryItems = categoryGroup.Value;
+            var totalCategoryAmount = categoryItems.Sum(x => x.MonthlyAmount);
+
+            // Verificar si este departamento tiene excepción para esta categoría
+            var unitException = exceptions.FirstOrDefault(e =>
+                e.IdGroupUnit == unit.IdGroupUnit &&
+                e.IdCategory == categoryId &&
+                e.IsActive);
+
+            if (unitException != null)
+            {
+                // El departamento tiene excepción para esta categoría
+                var excludedAmount = totalCategoryAmount * (unitException.PercentageExcluded / 100);
+                var applicableAmount = totalCategoryAmount - excludedAmount;
+
+                /*if (applicableAmount > 0)
+                {
+                    // Redistribuir el monto excluido entre los demás departamentos
+                    var redistributedAmount = await RedistributeExcludedAmount(
+                        excludedAmount, categoryId, unit.IdGroupUnit, exceptions);
+
+                    // Calcular participación de este departamento en el monto redistribuido
+                    var redistributionShare = CalculateRedistributionShare(unit, categoryId, exceptions);
+                    totalAmount += (applicableAmount * (areaPercentage / 100)) +
+                                  (redistributedAmount * redistributionShare);
+                }*/
+            }
+            else
+            {
+                // Sin excepción, distribución normal
+                // Para categorías específicas (ej: agua), cálculo individual
+                if (categoryId == _idAgua && _BudgetState.WaterReadings?.Any() == true)
+                {
+                    var waterItem = _BudgetState.WaterReadings.FirstOrDefault(w => w.IdGroupUnit == unit.IdGroupUnit);
+                    if (waterItem != null)
+                    {
+                        totalAmount += waterItem.CalculatedAmount;
+                    }
+                }
+                else
+                {
+                    // Distribución proporcional al área
+                    totalAmount += totalCategoryAmount * (areaPercentage / 100);
+                }
+            }
+        }
+
+        return totalAmount;
+    }
+
+    private async Task<decimal> RedistributeExcludedAmount(decimal excludedAmount, Guid categoryId,
+        Guid excludedUnitId, List<InstallmentException> exceptions)
+    {
+        // Encontrar departamentos que SÍ deben pagar esta categoría
+        var payingUnits = Installments!
+            .Where(u => u.IdGroupUnit != excludedUnitId)
+            .ToList();
+
+        if (!payingUnits.Any())
+            return 0;
+
+        // Calcular nueva distribución considerando excepciones de otros departamentos
+        var totalApplicableArea = 0m;
+        var applicableUnits = new List<(Guid UnitId, decimal Area, bool HasException)>();
+
+        foreach (var unit in payingUnits)
+        {
+            var hasException = exceptions.Any(e =>
+                e.IdGroupUnit == unit.IdGroupUnit &&
+                e.IdCategory == categoryId &&
+                e.IsActive);
+
+            if (!hasException)
+            {
+                applicableUnits.Add((unit.IdGroupUnit, unit.TotalArea, false));
+                totalApplicableArea += unit.TotalArea;
+            }
+            else
+            {
+                var exception = exceptions.First(e =>
+                    e.IdGroupUnit == unit.IdGroupUnit &&
+                    e.IdCategory == categoryId);
+
+                // Si tiene excepción parcial, considerar solo el porcentaje que sí paga
+                var applicablePercentage = (100 - exception.PercentageExcluded) / 100;
+                var effectiveArea = unit.TotalArea * applicablePercentage;
+
+                applicableUnits.Add((unit.IdGroupUnit, effectiveArea, true));
+                totalApplicableArea += effectiveArea;
+            }
+        }
+
+        // Redistribuir proporcionalmente entre los departamentos aplicables
+        var redistributedAmount = 0m;
+
+        foreach (var unit in applicableUnits)
+        {
+            var share = unit.Area / totalApplicableArea;
+            redistributedAmount += excludedAmount * share;
+        }
+
+        return redistributedAmount;
+    }
+
+    private decimal CalculateAdjustedPercentage(Installment unit, decimal areaPercentage,
+        List<InstallmentException> exceptions)
+    {
+        // Calcular porcentaje ajustado considerando excepciones
+        var totalWeightedArea = 0m;
+        var unitEffectiveArea = unit.TotalArea;
+
+        // Ajustar el área efectiva del departamento basado en sus excepciones
+        var unitExceptions = exceptions
+            .Where(e => e.IdGroupUnit == unit.IdGroupUnit && e.IsActive)
+            .ToList();
+
+        if (unitExceptions.Any())
+        {
+            // Reducir el área efectiva proporcionalmente a las excepciones
+            var exceptionFactor = 1m;
+            foreach (var exception in unitExceptions)
+            {
+                // Cada excepción reduce la participación en la distribución
+                exceptionFactor -= (exception.PercentageExcluded / 100) * GetCategoryWeight(exception.IdCategory);
+            }
+
+            unitEffectiveArea *= Math.Max(exceptionFactor, 0);
+        }
+
+        // Calcular áreas efectivas de todos los departamentos
+        var effectiveAreas = new Dictionary<Guid, decimal>();
+
+        foreach (var u in Installments!)
+        {
+            var effectiveArea = u.TotalArea;
+            var uExceptions = exceptions
+                .Where(e => e.IdGroupUnit == u.IdGroupUnit && e.IsActive)
+                .ToList();
+
+            if (uExceptions.Any())
+            {
+                var exceptionFactor = 1m;
+                foreach (var exception in uExceptions)
+                {
+                    exceptionFactor -= (exception.PercentageExcluded / 100) * GetCategoryWeight(exception.IdCategory);
+                }
+
+                effectiveArea *= Math.Max(exceptionFactor, 0);
+            }
+
+            effectiveAreas[u.IdGroupUnit] = effectiveArea;
+            totalWeightedArea += effectiveArea;
+        }
+
+        // Calcular porcentaje ajustado
+        var adjustedPercentage = totalWeightedArea > 0
+            ? (unitEffectiveArea / totalWeightedArea) * 100
+            : areaPercentage;
+
+        return adjustedPercentage;
+    }
+
+    private decimal GetCategoryWeight(Guid categoryId)
+    {
+        // Peso de la categoría en la distribución total
+        // Categorías con mayor monto tienen mayor peso
+        var categoryAmount = _BudgetState.Budget!.Details
+            .Where(x => x.IdCategory == categoryId && !x.IsHeader)
+            .Sum(x => x.MonthlyAmount);
+
+        var totalAmount = _BudgetState.Budget!.Details
+            .Where(x => !x.IsHeader)
+            .Sum(x => x.MonthlyAmount);
+
+        return totalAmount > 0 ? categoryAmount / totalAmount : 0;
+    }
+
+    private decimal CalculateRedistributionShare(Installment unit, Guid categoryId,
+        List<InstallmentException> exceptions)
+    {
+        // Calcular cuánto le corresponde de los montos redistribuidos
+        var unitException = exceptions.FirstOrDefault(e =>
+            e.IdGroupUnit == unit.IdGroupUnit &&
+            e.IdCategory == categoryId &&
+            e.IsActive);
+
+        if (unitException != null && unitException.PercentageExcluded < 100)
+        {
+            // Si tiene excepción parcial, puede recibir redistribución
+            return (100 - unitException.PercentageExcluded) / 100;
+        }
+
+        // Sin excepción o excepción total = no recibe redistribución
+        return 0;
+    }
+
+    private decimal CalculateInstallmentAmount(decimal percentage)
+    {
+        // Calcular monto base del presupuesto (sin agua)
+        var baseAmount = _BudgetState.Budget!.Details
+            .Where(x => !x.IsHeader && x.IdCategory != _idAgua)
+            .Sum(x => x.MonthlyAmount);
+
+        // Calcular agua si existe
+        decimal waterAmount = 0;
+        if (_BudgetState.WaterReadings?.Any() == true)
+        {
+            waterAmount = _BudgetState.WaterReadings.Sum(x => x.CalculatedAmount);
+        }
+
+        // Distribuir monto base según porcentaje y agregar agua individual
+        var baseDistribution = (baseAmount * percentage) / 100;
+        // Nota: El agua se calcula individualmente por departamento
+
+        return baseDistribution;
+    }
+
+    private async Task<bool> ShouldNotifyOwners()
+    {
+        // Lógica para determinar si se debe notificar a los propietarios
+        // Podría basarse en configuración del sistema o preferencias
+        //var settings = await ParameterService.GetParameterAsync(1);// "NOTIFY_OWNERS_ON_PUBLISH");
+        //return settings?.Value == 1;
+        return false;
+    }
+
+    private async Task NotifyOwners()
+    {
+        /*try
+        {
+            foreach (var installment in Installments!)
+            {
+                var email = installment.OwnerEmail;
+                if (!string.IsNullOrEmpty(email))
+                {
+                    var subject = $"Cuota de Mantenimiento - {GetNombreMes(Budget!.BudgetDate.Month)} {Budget.BudgetDate.Year}";
+                    var body = GenerateEmailBody(installment);
+
+                    await _emailService.SendEmailAsync(email, subject, body);
+                    }
+                }
+
+            await ShowToast("Info", "Notificaciones enviadas a los propietarios", "info");
+            }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error enviando notificaciones: {ex.Message}");
+            // No detener el proceso principal por errores de notificación
+            }*/
+    }
+
+    private string GenerateEmailBody(Installment installment)
+    {
+        //<p>Le informamos que la cuota de mantenimiento para el mes de {GetNombreMes(Budget!.BudgetDate.Month)} {Budget.BudgetDate.Year} ha sido publicada.</p>
+        return $@"
+        <h2>Estimado(a) {installment.OwnerName}</h2>
+        <p>Le informamos que la cuota de mantenimiento para el mes de EJEMPLO ha sido publicada.</p>
+
+        <h3>Resumen de su cuota:</h3>
+        <ul>
+            <li><strong>Departamento:</strong> {installment.UnitName}</li>
+            <li><strong>Área:</strong> {installment.TotalArea.ToString("N2")} m²</li>
+            <li><strong>Porcentaje de distribución:</strong> {installment.Percent.ToString("N2")}%</li>
+            <li><strong>Total a pagar:</strong> S/ {installment.Amount.ToString("N2")}</li>
+            <li><strong>Fecha de vencimiento:</strong> {installment.DueDate:dd/MM/yyyy}</li>
+        </ul>
+
+        <p>Puede consultar el detalle completo en el sistema de administración.</p>
+
+        <p>Atentamente,<br>
+        Administración</p>
+    ";
+    }
+
+    private async Task RegisterAuditLog()
+    {
+        /*var auditLog = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            UserId = _currentUser.Id,
+            Action = "BUDGET_PUBLISHED",
+            EntityType = "Budget",
+            EntityId = Budget!.IdBudgetHeader.ToString(),
+            Details = $"Presupuesto publicado para {GetNombreMes(Budget.BudgetDate.Month)} {Budget.BudgetDate.Year}",
+            Timestamp = DateTime.Now,
+            IpAddress = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString()
+        };
+
+        await _auditService.LogAsync(auditLog);*/
+    }
+
+    // Métodos auxiliares de UI (debes implementarlos o ajustar según tu framework)
+
+    private Task Sample()
+    {
+        // Aquí procesas lo que el modal envió
+        _ = ProceedWithPublish();
+        return Task.CompletedTask;
+    }
+
+
+    private async Task<bool> ShowConfirmationDialog(string title, string message, string confirmText,
+    string cancelText)
+    {
+        return false;
+        //await ShowToast("Cancelado", "La publicación fue cancelada por el usuario.", "warning");
+
+        /*try
+        {
+            return await JSRuntime.InvokeAsync<bool>("showConfirmation",
+                title, message, confirmText, cancelText);
+
+            
+        }
+        catch (JSException ex)
+        {
+            // Fallback a confirm nativo de JavaScript
+            Console.WriteLine($"Error con showConfirmation: {ex.Message}");
+            return await JSRuntime.InvokeAsync<bool>("confirm", $"{title}\n\n{message}\n\n¿{confirmText}?");
+        }*/
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            // Fallback a console
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
+    }
+
+    private async Task ShowLoading(string message)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showLoading", message);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando loading: {ex.Message}");
+        }
+    }
+
+    private async Task HideLoading()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("hideLoading");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error ocultando loading: {ex.Message}");
+        }
+    }
+
+    // Propiedades adicionales necesarias (agregar al @code)
+    private List<Installment>? Installments { get; set; }
+    //private BudgetHeader? Budget { get; set; }
+    //private List<ServiceReadingDetail>? WaterReadings { get; set; }
+    private Guid _idAgua = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
+
+    // Servicios (inyectados)
+    //[Inject] private IInstallmentService _installmentService { get; set; } = null!;
+    //[Inject] private IEmailService _emailService { get; set; } = null!;
+    //[Inject] private IAuditService _auditService { get; set; } = null!;
+    //[Inject] private IParameterService _parameterService { get; set; } = null!;
+    //[Inject] private IHttpContextAccessor _httpContextAccessor { get; set; } = null!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
+
+    //private CurrentUser _currentUser; // Debes tener este objeto con los datos del usuario actual
+
+    private async Task OnConfirmationResult(bool confirmed)
+    {
+        await util.OnConfirmationResult(confirmed);
+    }
+
+
+
+
+
+
 }

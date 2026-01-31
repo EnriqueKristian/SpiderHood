@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SpiderHood.Models
 {
@@ -16,6 +17,7 @@ namespace SpiderHood.Models
         public List<ViewBudgetDetail> ListDefault { get; set; } = [];
         public List<ViewExpense> ExpensesList { get; set; } = [];
         public List<ServiceReadingDetail> WaterReadings { get; set; } = [];
+        public List<CategoryException> ExceptionsList  { get; set; } = [];
 
         public decimal TotalMonthly { get; private set; }
         public decimal TotalAnnual { get; private set; }
@@ -99,10 +101,11 @@ namespace SpiderHood.Models
             return (monthly, annual);
         }
 
-        public decimal CalculateQuota1(int totalApartments)
+        public decimal CalculateQuota(int totalApartments)
         {
             decimal _totalInstallments = 0;
             decimal _totalWaterConsumption = _state.WaterReadings.Sum(c => c.CalculatedAmount); ;
+            List<CategoryException> exceptions = _state.ExceptionsList;
 
             _state.Installments.Clear();
 
@@ -143,7 +146,16 @@ namespace SpiderHood.Models
                     }
                     else
                     {
-                        _total += item.Type == 1 ? item.MonthlyAmount / totalApartments : item.MonthlyAmount * _distr;
+                        var _nroException = exceptions.Count(c => c.IdCategory == item.IdCategory);
+
+                        if ( unit.IdGroupUnit == exceptions.Where(c => c.IdCategory == item.IdCategory).Select(c => c.IdGroupUnit).FirstOrDefault())
+                        {
+                            _total += 0;
+                        }
+                        else
+                        {
+                            _total += item.Type == 1 ? item.MonthlyAmount / (totalApartments - _nroException) : item.MonthlyAmount * _distr;
+                        }
                     }
                 }
 
@@ -156,13 +168,14 @@ namespace SpiderHood.Models
             return _totalInstallments;
         }
         
-        public decimal CalculateQuota(int totalApartments)
+        public decimal CalculateQuota1(int totalApartments)
         {
             const string WATER_GUID = "CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C";
             const string CREATED_BY = "eechevarria";
 
             // Pre-cálculos
             decimal totalWaterConsumption = _state.WaterReadings.Sum(c => c.CalculatedAmount);
+            List<CategoryException> execptions = _state.ExceptionsList;
             bool hasWaterReadings = _state.WaterReadings.Count > 0;
             Guid waterCategoryId = Guid.Parse(WATER_GUID);
 
@@ -264,10 +277,23 @@ namespace SpiderHood.Models
     }
 
     // Models/InstallmentException.cs
+    public class CategoryException
+    {
+        public Guid IdException { get; set; }
+        public Guid IdGroupUnit { get; set; }
+        public Guid IdCategory { get; set; } // Categoría a excluir (ej: Mantenimiento Ascensor)
+        public string Description { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
+        public DateTime UpdatedAt { get; set; }
+        public string UpdatedBy { get; set; } = string.Empty;
+    }
+
     public class InstallmentException
     {
         public Guid IdException { get; set; }
-        public Guid IdBudget { get; set; }
+        public Guid IdBudgetHeader { get; set; }
         public Guid IdGroupUnit { get; set; }
         public Guid IdCategory { get; set; } // Categoría a excluir (ej: Mantenimiento Ascensor)
         public string Description { get; set; } = string.Empty;
@@ -279,8 +305,11 @@ namespace SpiderHood.Models
         public string UpdatedBy { get; set; } = string.Empty;
 
         // Navigation properties
+        [NotMapped]
         public virtual BudgetHeader? Budget { get; set; }
+        [NotMapped]
         public virtual Category? Category { get; set; }
+        [NotMapped]
         public virtual GroupUnit? GroupUnit { get; set; }
     }
 }
@@ -328,7 +357,9 @@ namespace SpiderHood.Services
 {
     public class ExceptionService : IExceptionService
     {
-        public SpiderHoodContext Context { get; private set; }
+        private SpiderHoodContext Context { get; set; }
+        private BDLayout ec { get; set; }
+
         private readonly ILogger<ExceptionService> _logger;
         //private readonly IBudgetService _budgetService;
         //private readonly ICategoryService _categoryService;
@@ -348,7 +379,13 @@ namespace SpiderHood.Services
         public ExceptionService(
             SpiderHoodContext context)
         {
-            //_context = context;
+            Context = context ?? throw new ArgumentNullException(nameof(context));
+            ec = new BDLayout(Context);
+        }
+
+        public async Task<List<CategoryException>> GetExceptionsByBuildingAsync(Guid idBuilding)
+        {
+            return await ec.GetExceptionsByBuildingAsync(idBuilding);
         }
 
         // CRUD Operations

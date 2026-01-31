@@ -53,7 +53,7 @@ namespace SpiderHood.Services
         /// </summary>
         public async Task LoadParametersAsync(Guid IdBuilding, bool forceReload = false)
         {
-            if (IdBuilding == Guid.Empty)
+            if ( CurrentBuilding != null)
                 return;
                 //throw new ArgumentException("IdBuilding cannot be empty", nameof(IdBuilding));
 

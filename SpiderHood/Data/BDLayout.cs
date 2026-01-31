@@ -1057,6 +1057,27 @@ namespace SpiderHood.Data
             }
         }
 
+        public async Task<List<CategoryException>> GetExceptionsByBuildingAsync(Guid IdBuilding)
+        {
+            if (_dbcontext == null)
+            {
+                throw new InvalidOperationException("Database context is not initialized.");
+            }
+            try
+            {
+                var result = await _dbcontext!.CategoryException
+                    .FromSql($"EXEC GET_Exception_All {IdBuilding}")
+                    .ToListAsync();
+
+                return result ?? [];
+            }
+            catch (Exception ex)
+            {
+                // Log error here
+                throw new ApplicationException("Error fetching unit", ex);
+            }
+        }
+
         public async Task<List<Models.Period>> GetPeriodByBuilding(Guid IdBuilding)
         {
             if (_dbcontext == null)

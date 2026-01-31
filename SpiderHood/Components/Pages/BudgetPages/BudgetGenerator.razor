@@ -651,7 +651,9 @@
 @if( _BudgetState.IsWaterReadingReady &&_BudgetState.Status > BudgetStatus.Created ){
     <InstallmentTable Installments="@_BudgetState.Installments"
                   Budget="@_BudgetState.Budget"
-                  WaterReadings="@_BudgetState.WaterReadings" TotalBudget="_BudgetState.TotalMonthly"/>
+                  WaterReadings="@_BudgetState.WaterReadings" 
+                  TotalBudget="_BudgetState.TotalMonthly"
+                  categoryExceptions="@_BudgetState.ExceptionsList"/>
 }
 
 <!-- Agregar al final del componente -->
@@ -750,6 +752,7 @@
             _textCabecera = _BudgetState.Budget.BudgetName;
             //Cargar Lectura de Agua
             _BudgetState.WaterReadings = await ParameterService.ec.GetServiceReadingDetailbyPeriod(_BudgetState.Budget.BudgetDate);
+            _BudgetState.ExceptionsList = await ParameterService.ec.GetExceptionsByBuildingAsync(_BudgetState.Budget.IdBuilding);
             _BudgetState.CalculateTotals();
         }
     }

@@ -338,7 +338,7 @@
         newException = new InstallmentException
         {
             IdException = Guid.NewGuid(),
-            IdBudget = Budget!.IdBudgetHeader,
+            IdBudgetHeader = Budget!.IdBudgetHeader,
             PercentageExcluded = 100, // Por defecto 100%
             IsActive = true
         };

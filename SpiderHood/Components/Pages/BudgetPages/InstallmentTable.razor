@@ -342,7 +342,7 @@
                                     @foreach (var item in sectionItems.Where(x => !x.IsHeader))
                                     {
                                         var total = CalculateQuote(item);
-                                        _TotalAmount += total;
+                                        _TotalAmount += total/2;
 
                                         <tr class="item-row">
                                             <td class="text-center">
@@ -380,7 +380,7 @@
                                             var wateritem = WaterReadings!.Where(c => c.IdGroupUnit == selectedInstallment!.IdGroupUnit).FirstOrDefault();
                                             if (wateritem != null)
                                             {
-                                                _TotalAmount += wateritem.CalculatedAmount;
+                                                _TotalAmount += wateritem.CalculatedAmount/2;
 
                                                 <tr class="water-reading-row bg-info-subtle">
                                                     <td></td>
@@ -654,6 +654,7 @@
     [Parameter] public List<Installment>? Installments { get; set; }
     [Parameter] public BudgetHeader? Budget { get; set; }
     [Parameter] public List<ServiceReadingDetail>? WaterReadings { get; set; }
+    [Parameter] public List<CategoryException>? categoryExceptions { get; set; }
     [Parameter] public decimal TotalBudget { get; set; }
 
     private Installment? selectedInstallment = null;
@@ -668,14 +669,24 @@
     private decimal _inverseNroGroupUnit;
     private string searchTerm = string.Empty;
     private List<Installment> filteredInstallments = new();
+    //private List<CategoryException> categoryExceptions = new();
 
     protected override void OnInitialized()
     {
-        base.OnInitialized();
-        filteredInstallments = Installments ?? new List<Installment>();
-        _pagination.Initialize(filteredInstallments);
-        // Suscribirse a cambios en la paginación
-        _pagination.OnPaginationChanged += StateHasChanged;
+        try{
+            // Inicialización de datos si es necesario
+            base.OnInitialized();
+            filteredInstallments = Installments ?? new List<Installment>();
+            //categoryExceptions = ParameterService.ec.GetExceptionsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+            _pagination.Initialize(filteredInstallments);
+            // Suscribirse a cambios en la paginación
+            _pagination.OnPaginationChanged += StateHasChanged;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during initialization: {ex.Message}");
+        }
+        
     }
 
     private string GetNombreMes(int mes)
@@ -752,11 +763,34 @@
 
     private decimal CalculateQuote(BudgetDetail item)
     {
-        return item.IdCategory == _idAgua && _waterReadingsCount > 0
+        /*return item.IdCategory == _idAgua && _waterReadingsCount > 0
             ? Math.Abs(item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit
             : item.Type == 1
                 ? item.MonthlyAmount * _inverseNroGroupUnit
-                : item.MonthlyAmount * _distr;
+                : item.MonthlyAmount * _distr;*/
+
+
+        var _total = 0m;
+
+        if (item.IdCategory == _idAgua && _waterReadingsCount > 0)
+        {
+            _total += Math.Abs(item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit;//wateritem!.CalculatedAmount;
+        }
+        else
+        {
+            var _nroException = categoryExceptions!.Count(c => c.IdCategory == item.IdCategory);
+
+            if (selectedInstallment!.IdGroupUnit == categoryExceptions!.Where(c => c.IdCategory == item.IdCategory).Select(c => c.IdGroupUnit).FirstOrDefault())
+            {
+                _total += 0;
+            }
+            else
+            {
+                _total += item.Type == 1 ? item.MonthlyAmount / (ParameterService.CurrentBuilding.Apartments - _nroException) : item.MonthlyAmount * _distr;
+            }
+        }
+        return _total;
+
     }
 
     private void OnSearch(ChangeEventArgs e)

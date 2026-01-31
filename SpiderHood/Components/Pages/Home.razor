@@ -497,6 +497,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        //if (ParameterService.CurrentBuilding == null) return;
         // Aquí podrías cargar datos reales de tu API/database
         await base.OnInitializedAsync();
         await ParameterService.LoadParametersAsync(IdBuilding);

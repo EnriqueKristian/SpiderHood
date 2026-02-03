@@ -307,6 +307,7 @@ namespace SpiderHood.Models
     {
         public Guid IdInstallment { get; set; }
         public Guid IdBudgetHeader { get; set; }
+        public int Number { get; set; }
         public string UnitName { get; set; } = string.Empty;
         public string OwnerName { get; set; } = string.Empty;
         public DateTime CreationDate { get; set; }

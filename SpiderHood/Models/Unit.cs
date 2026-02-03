@@ -41,8 +41,9 @@ namespace SpiderHood.Models
         public int TypeUnit { get; set; }
         public int Number { get; set; } 
         public bool IsAvailable { get; set; }
-        
-        
+        public Guid IdGroupUnit { get; set; }
+
+
     }
     public class GroupUnit
     {

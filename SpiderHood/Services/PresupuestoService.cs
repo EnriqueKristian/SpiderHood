@@ -377,13 +377,21 @@ namespace SpiderHood.Services
                     await SaveCategoriesAsync(state);
                 }
 
+                if (state.Status == BudgetStatus.Active) {
+                    //Guardar Installments en BD
+                    await SaveInstallment(state);
+                }
+
                 if (state.IsNewBudget)
                 {
                     await CreateNewBudgetAsync(state);
                 }
                 else
                 {
-                    await UpdateExistingBudgetAsync(state);
+                    if ( state.Status < BudgetStatus.Check || state.Status == BudgetStatus.Rejected)
+                        await UpdateExistingBudgetAsync(state);
+                    else
+                        await ec.UpdateRecordAsync(state.Budget);
                 }
 
                 await transaction.CommitAsync();
@@ -451,6 +459,29 @@ namespace SpiderHood.Services
             }
 
             await ec.UpdateRecordAsync(state.Budget);
+        }
+
+        private async Task SaveInstallment(BudgetState state) {
+            
+            foreach (var item in state.Installments)
+                await ec.AddNewRecordAsync(item);
+
+
+            var ServiceHeader = state.WaterReadings.FirstOrDefault();
+            ServiceReading UpdStatus = new ServiceReading();
+
+            UpdStatus.IdServiceReading = ServiceHeader!.IdServiceReading;
+            UpdStatus.Status = 2;
+
+            //Actualizar lectura de Agua
+            await ec.UpdateRecordAsync(UpdStatus);
+
+            InstallmentExoneration _exoneration = new();
+            _exoneration.IdBudgetHeader = state.Budget.IdBudgetHeader;
+            _exoneration.IdBuilding = state.Budget.IdBuilding;
+
+            //Generar Hist de Excepciones para calculo
+            await ec.AddNewRecordAsync(_exoneration);
         }
 
         #endregion

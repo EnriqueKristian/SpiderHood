@@ -1,6 +1,11 @@
 ﻿using ClosedXML.Excel;
 using OfficeOpenXml;
 using SpiderHood.Components.Pages.Components;
+using System.ComponentModel;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
+using IContainer = QuestPDF.Infrastructure.IContainer;
 
 namespace SpiderHood.Models
 {
@@ -583,5 +588,706 @@ namespace SpiderHood.Models
 
             return (decimal)Math.Sqrt((double)(sumaCuadrados / (valores.Count - 1)));
         }
+    }
+
+    // InstallmentExportService.cs
+
+
+
+public class InstallmentExportService
+    {
+        private readonly List<Installment> _installments;
+        private readonly BudgetHeader _budget;
+        private readonly List<ServiceReadingDetail> _waterReadings;
+        private readonly List<Exoneration> _exonerations;
+        private readonly BuildingConfiguration _configuration;
+
+        public InstallmentExportService(
+            List<Installment> installments,
+            BudgetHeader budget,
+            List<ServiceReadingDetail> waterReadings,
+            List<Exoneration> exonerations,
+            BuildingConfiguration configuration)
+        {
+            _installments = installments;
+            _budget = budget;
+            _waterReadings = waterReadings;
+            _exonerations = exonerations;
+            _configuration = configuration;
+            QuestPDF.Settings.License = LicenseType.Community;
+        }
+
+        // Exportar a Excel
+        public byte[] ExportToExcel()
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Cuotas");
+
+            // Encabezados
+            worksheet.Cell(1, 1).Value = "REPORTE DE CUOTAS";
+            worksheet.Cell(1, 1).Style.Font.Bold = true;
+            worksheet.Cell(1, 1).Style.Font.FontSize = 16;
+            worksheet.Range(1, 1, 1, 10).Merge();
+
+            worksheet.Cell(2, 1).Value = "DPTO";
+            worksheet.Cell(2, 2).Value = "PROPIETARIO";
+            worksheet.Cell(2, 3).Value = "ÁREA (m²)";
+            worksheet.Cell(2, 4).Value = "% DISTRIBUCIÓN";
+            worksheet.Cell(2, 5).Value = "CONSUMO AGUA";
+            worksheet.Cell(2, 6).Value = "CUOTA ORDINARIA";
+            worksheet.Cell(2, 7).Value = "CUOTA AGUA";
+            worksheet.Cell(2, 8).Value = "TOTAL";
+            worksheet.Cell(2, 9).Value = "FECHA VENCIMIENTO";
+            worksheet.Cell(2, 10).Value = "ESTADO";
+
+            var headerRange = worksheet.Range(2, 1, 2, 10);
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+            headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            int row = 3;
+            foreach (var installment in _installments)
+            {
+                var waterReading = _waterReadings?
+                    .FirstOrDefault(w => w.IdGroupUnit == installment.IdGroupUnit);
+
+                decimal waterAmount = waterReading?.CalculatedAmount ?? 0;
+                decimal installmentAmount = CalculateInstallmentAmount(installment);
+                decimal total = installmentAmount + waterAmount;
+
+                worksheet.Cell(row, 1).Value = installment.UnitName;
+                worksheet.Cell(row, 2).Value = installment.OwnerName;
+                worksheet.Cell(row, 3).Value = installment.TotalArea;
+                worksheet.Cell(row, 4).Value = installment.Percent;
+                worksheet.Cell(row, 5).Value = waterReading?.Consumption ?? 0;
+                worksheet.Cell(row, 6).Value = installmentAmount;
+                worksheet.Cell(row, 7).Value = waterAmount;
+                worksheet.Cell(row, 8).Value = total;
+                worksheet.Cell(row, 9).Value = installment.DueDate.ToString("dd/MM/yyyy");
+                worksheet.Cell(row, 10).Value = GetStatusText(installment.Status);
+
+                // Formato numérico
+                worksheet.Cell(row, 6).Style.NumberFormat.Format = "\"S/\" #,##0.00";
+                worksheet.Cell(row, 7).Style.NumberFormat.Format = "\"S/\" #,##0.00";
+                worksheet.Cell(row, 8).Style.NumberFormat.Format = "\"S/\" #,##0.00";
+
+                row++;
+            }
+
+            // Totales
+            worksheet.Cell(row, 5).Value = "TOTALES:";
+            worksheet.Cell(row, 5).Style.Font.Bold = true;
+            worksheet.Cell(row, 6).FormulaA1 = $"SUM(F3:F{row - 1})";
+            worksheet.Cell(row, 7).FormulaA1 = $"SUM(G3:G{row - 1})";
+            worksheet.Cell(row, 8).FormulaA1 = $"SUM(H3:H{row - 1})";
+
+            worksheet.Columns().AdjustToContents();
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        // Generar PDF individual (como el ejemplo)
+        
+        public byte[] GenerateSinglePdf(Installment installment)
+        {
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(30);
+
+                    page.Header().Element(Header);
+                    page.Content().Element(content => Content(content, installment));
+                    page.Footer().Element(Footer);
+                });
+            });
+
+            return document.GeneratePdf();
+        }
+
+        private void Header(IContainer container)
+        {
+            container.Row(row =>
+            {
+                row.RelativeItem().Column(column =>
+                {
+                    column.Item().Text("RESIDENCIAL NOVA ALZAMORA - SURQUILLO - LIMA")
+                        .FontSize(14).Bold();
+
+                    column.Item().Text("REPORTE DE DEUDAS")
+                        .FontSize(12);
+                });
+
+                //row.ConstantItem(100).Image("logo.png");
+            });
+        }
+
+        private void Content(IContainer container, Installment installment)
+        {
+            container.Column(column =>
+            {
+                // Información del departamento
+                column.Item().PaddingBottom(20).Row(row =>
+                {
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().Text($"DPTO: {installment.UnitName}")
+                            .FontSize(16).Bold();
+                        col.Item().Text($"Propietario: {installment.OwnerName}")
+                            .FontSize(12);
+                        col.Item().Text($"Período: {DateTime.Now:MMMM yyyy}")
+                            .FontSize(12);
+                    });
+
+                    row.ConstantItem(200).Column(col =>
+                    {
+                        col.Item().Text("Área Total:").FontSize(10);
+                        col.Item().Text($"{installment.TotalArea:N2} m²").Bold();
+
+                        col.Item().Text("% Distribución:").FontSize(10);
+                        col.Item().Text($"{installment.Percent:N2}%").Bold();
+                    });
+                });
+
+                // Histórico de deudas (como en el PDF ejemplo)
+                column.Item().PaddingBottom(20).Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn();
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(60);
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("Año").Bold();
+                        header.Cell().Text("Ene").Bold();
+                        header.Cell().Text("Feb").Bold();
+                        header.Cell().Text("Mar").Bold();
+                        header.Cell().Text("Abr").Bold();
+                    });
+
+                    // Aquí irían los datos históricos
+                    for (int i = 2023; i >= 2017; i--)
+                    {
+                        table.Cell().Text(i.ToString());
+                        table.Cell().Text("-");
+                        table.Cell().Text("-");
+                        table.Cell().Text("-");
+                        table.Cell().Text("-");
+                    }
+                });
+
+                // Detalle de la cuota actual
+                column.Item().PaddingBottom(20).Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn();
+                        columns.ConstantColumn(100);
+                        columns.ConstantColumn(100);
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("DESCRIPCIÓN").Bold();
+                        header.Cell().AlignRight().Text("PRESUPUESTO").Bold();
+                        header.Cell().AlignRight().Text("CUOTA").Bold();
+                    });
+
+                    decimal total = 0;
+                    foreach (var item in _budget.Details.Where(d => !d.IsHeader))
+                    {
+                        var amount = CalculateItemAmount(item, installment);
+                        total += amount;
+
+                        table.Cell().Text(item.Description);
+                        table.Cell().AlignRight().Text($"S/ {item.MonthlyAmount:N2}");
+                        table.Cell().AlignRight().Text($"S/ {amount:N2}");
+                    }
+
+                    // Agua
+                    var waterReading = _waterReadings?
+                        .FirstOrDefault(w => w.IdGroupUnit == installment.IdGroupUnit);
+
+                    if (waterReading != null)
+                    {
+                        table.Cell().Text("CONSUMO DE AGUA").Bold();
+                        table.Cell().AlignRight().Text("-");
+                        table.Cell().AlignRight().Text($"S/ {waterReading.CalculatedAmount:N2}");
+                        total += waterReading.CalculatedAmount;
+                    }
+
+                    // Total
+                    table.Cell().ColumnSpan(2).Text("TOTAL").Bold();
+                    table.Cell().AlignRight().Text($"S/ {total:N2}").Bold();
+                });
+
+                // Tabla de cálculo de agua (como en el ejemplo)
+                column.Item().Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.ConstantColumn(100);
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(60);
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("Rango m³").Bold();
+                        header.Cell().Text("Mín").Bold();
+                        header.Cell().Text("Potable").Bold();
+                        header.Cell().Text("Alcant.").Bold();
+                        header.Cell().Text("Total").Bold();
+                        header.Cell().Text("Dif.").Bold();
+                        header.Cell().Text("Consumo").Bold();
+                        header.Cell().Text("Monto").Bold();
+                    });
+
+                    // Aquí irían las tarifas de agua por rangos
+                });
+            });
+        }
+
+        private void Footer(IContainer container)
+        {
+            container.AlignCenter().Text(text =>
+            {
+                text.Span("Generado el: ").FontSize(8);
+                text.Span($"{DateTime.Now:dd/MM/yyyy HH:mm}").FontSize(8).Bold();
+            });
+        }
+        
+
+        // Generar todos los PDFs (uno por departamento)
+        public Dictionary<string, byte[]> GenerateAllPdfs()
+        {
+            var pdfs = new Dictionary<string, byte[]>();
+
+            foreach (var installment in _installments)
+            {
+                var pdfBytes = GenerateSinglePdf(installment);
+                pdfs.Add($"Cuota_{installment.UnitName}_{DateTime.Now:yyyyMM}.pdf", pdfBytes);
+            }
+
+            return pdfs;
+        }
+        
+        // Generar ZIP con todos los PDFs
+        public byte[] GenerateZipWithAllPdfs()
+        {
+            var pdfs = GenerateAllPdfs();
+
+            using var memoryStream = new MemoryStream();
+            using (var archive = new System.IO.Compression.ZipArchive(memoryStream,
+                System.IO.Compression.ZipArchiveMode.Create, true))
+            {
+                foreach (var pdf in pdfs)
+                {
+                    var entry = archive.CreateEntry(pdf.Key);
+                    using var entryStream = entry.Open();
+                    entryStream.Write(pdf.Value, 0, pdf.Value.Length);
+                }
+            }
+
+            return memoryStream.ToArray();
+        }
+        
+        // Métodos auxiliares
+        private decimal CalculateInstallmentAmount(Installment installment)
+        {
+            // Lógica para calcular el monto de la cuota
+            return installment.Amount;
+        }
+
+        private decimal CalculateItemAmount(BudgetDetail item, Installment installment)
+        {
+            // Lógica para calcular el monto por item
+            // Similar a lo que ya tienes en tu código
+            return item.MonthlyAmount * (installment.Percent / 100);
+        }
+
+        private string GetStatusText(int status)
+        {
+            return status switch
+            {
+                1 => "Pendiente",
+                2 => "Pagado",
+                3 => "Vencido",
+                _ => "Desconocido"
+            };
+        }
+
+
+
+
+        private Installment _installment = new();
+
+        public byte[] GenerateReceipt(Installment installment)
+        {
+            _installment = installment;
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            var document = Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(20);
+                    page.DefaultTextStyle(x => x.FontSize(10));
+
+                    page.Header().Element(ComposeHeader);
+                    page.Content().Element(ComposeContent);
+                    page.Footer().Element(ComposeFooter);
+                });
+            });
+
+            return document.GeneratePdf();
+        }
+
+        private void ComposeHeader(IContainer container)
+        {
+            container.Column(column =>
+            {
+                column.Item().AlignCenter().Text("RESIDENCIAL NOVA ALZAMORA - SURQUILLO - LIMA")
+                    .FontSize(14).Bold();
+
+                column.Item().AlignCenter().Text("Recibo de Mantenimiento")
+                    .FontSize(12).Bold().FontColor(Colors.Blue.Medium);
+
+                column.Item().Height(2).LineHorizontal(1);
+            });
+        }
+
+        private void ComposeContent(IContainer container)
+        {
+            container.PaddingVertical(10).Column(column =>
+            {
+                // Información del propietario
+                column.Item().Row(row =>
+                {
+                    row.RelativeItem().Text($"NOMBRE: {_installment.OwnerName.ToUpper()}")
+                        .FontSize(11).Bold();
+
+                    row.ConstantItem(100).AlignRight().Text($"DPTO: {_installment.UnitName}")
+                        .FontSize(11).Bold();
+
+                    row.ConstantItem(100).AlignRight().Text($"Part.: {_installment.Percent:N2}%")
+                        .FontSize(11).Bold();
+                });
+
+                column.Item().Height(10);
+
+                // Tabla principal
+                column.Item().Table(table =>
+                {
+                    // Definir columnas
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn(3); // DESCRIPCION
+                        columns.ConstantColumn(80); // PRESUP
+                        columns.ConstantColumn(80); // CUOTA
+                        columns.ConstantColumn(80); // DISTRIB.
+                    });
+
+                    // Encabezado de la tabla
+                    table.Header(header =>
+                    {
+                        header.Cell().ColumnSpan(4).PaddingBottom(5);
+
+                        header.Cell().Text("DESCRIPCION").Bold();
+                        header.Cell().AlignRight().Text("PRESUP").Bold();
+                        header.Cell().AlignRight().Text("CUOTA").Bold();
+                        header.Cell().AlignRight().Text("DISTRIB.").Bold();
+                    });
+
+                    decimal totalCuota = 0;
+
+                    // 1. SERVICIOS BASICOS
+                    AddSectionHeader(table, "SERVICIOS BASICOS");
+
+                    // Agua áreas comunes
+                    var waterCommon = _budget.Details
+                        .FirstOrDefault(x => x.Description.Contains("Agua Areas comunes"));
+                    if (waterCommon != null)
+                    {
+                        var amount = CalculateItemAmount(waterCommon);
+                        totalCuota += amount;
+                        AddTableRow(table, "Agua Areas comunes",
+                            waterCommon.MonthlyAmount, amount, waterCommon.Type);
+                    }
+
+                    // Consumo de luz
+                    var luzItems = _budget.Details
+                        .Where(x => x.Description.Contains("Consumo de Luz"))
+                        .ToList();
+
+                    foreach (var luz in luzItems)
+                    {
+                        var amount = CalculateItemAmount(luz);
+                        totalCuota += amount;
+                        AddTableRow(table, luz.Description,
+                            luz.MonthlyAmount, amount, luz.Type);
+                    }
+
+                    // Lectura de agua por departamento (si existe)
+                    /*if (_waterReading != null)
+                    {
+                        table.Cell().ColumnSpan(4).PaddingTop(5).PaddingBottom(5);
+
+                        table.Cell().ColumnSpan(4).Table(waterTable =>
+                        {
+                            waterTable.ColumnsDefinition(columns =>
+                            {
+                                columns.RelativeColumn();
+                                columns.ConstantColumn(60);
+                                columns.ConstantColumn(60);
+                                columns.ConstantColumn(60);
+                            });
+
+                            waterTable.Cell().Text("Lectura de Agua por Dpto").Bold();
+                            waterTable.Cell().Text("Anterior");
+                            waterTable.Cell().Text("Actual");
+                            waterTable.Cell().Text("Dif.");
+
+                            waterTable.Cell().Text("");
+                            waterTable.Cell().Text(_waterReading.PreviousReading.ToString());
+                            waterTable.Cell().Text(_waterReading.CurrentReading.ToString());
+                            waterTable.Cell().Text(_waterReading.Consumption.ToString());
+                        });
+                    }*/
+
+                    // 2. PERSONAL ADMINISTRATIVO
+                    AddSectionHeader(table, "PERSONAL ADMINISTRATIVO");
+
+                    var personalItems = _budget.Details
+                        .Where(x => x.IdCategory == GetCategoryId("PERSONAL"))
+                        .ToList();
+
+                    foreach (var item in personalItems)
+                    {
+                        var amount = CalculateItemAmount(item);
+                        totalCuota += amount;
+                        AddTableRow(table, item.Description,
+                            item.MonthlyAmount, amount, item.Type);
+                    }
+
+                    // 3. PROVISIÓN MANTENIMIENTO
+                    AddSectionHeader(table, "PROVISIÓN MANTENIMIENTO DE EQUIPOS E INSTALACIONES");
+
+                    var mantenimientoItems = _budget.Details
+                        .Where(x => x.IdCategory == GetCategoryId("MANTENIMIENTO"))
+                        .ToList();
+
+                    foreach (var item in mantenimientoItems)
+                    {
+                        var amount = CalculateItemAmount(item);
+                        totalCuota += amount;
+                        AddTableRow(table, $"• {item.Description}",
+                            item.MonthlyAmount, amount, item.Type);
+                    }
+
+                    // SUMINISTROS DIVERSOS
+                    AddSectionHeader(table, "SUMINISTROS DIVERSOS");
+
+                    var suministrosItems = _budget.Details
+                        .Where(x => x.IdCategory == GetCategoryId("SUMINISTROS"))
+                        .ToList();
+
+                    foreach (var item in suministrosItems)
+                    {
+                        var amount = CalculateItemAmount(item);
+                        totalCuota += amount;
+                        AddTableRow(table, item.Description,
+                            item.MonthlyAmount, amount, item.Type);
+                    }
+
+                    // 4. ADMINISTRACIÓN
+                    AddSectionHeader(table, "ADMINISTRACIÓN");
+
+                    var adminItems = _budget.Details
+                        .Where(x => x.IdCategory == GetCategoryId("ADMINISTRACION"))
+                        .ToList();
+
+                    foreach (var item in adminItems)
+                    {
+                        var amount = CalculateItemAmount(item);
+                        totalCuota += amount;
+                        AddTableRow(table, item.Description,
+                            item.MonthlyAmount, amount, item.Type);
+                    }
+
+                    // 5. GASTOS EXTRAORDINARIOS
+                    AddSectionHeader(table, "GASTOS EXTRAORDINARIOS");
+
+                    var extraordinariosItems = _budget.Details
+                        .Where(x => x.IdCategory == GetCategoryId("EXTRAORDINARIOS"))
+                        .ToList();
+
+                    if (!extraordinariosItems.Any())
+                    {
+                        AddTableRow(table, "-", 0, 0, 1);
+                    }
+                    else
+                    {
+                        foreach (var item in extraordinariosItems)
+                        {
+                            var amount = CalculateItemAmount(item);
+                            totalCuota += amount;
+                            AddTableRow(table, item.Description,
+                                item.MonthlyAmount, amount, item.Type);
+                        }
+                    }
+
+                    // 6. RESERVAS INTANGIBLES
+                    AddSectionHeader(table, "RESERVAS INTANGIBLES");
+
+                    var reservasItems = _budget.Details
+                        .Where(x => x.IdCategory == GetCategoryId("RESERVAS"))
+                        .ToList();
+
+                    foreach (var item in reservasItems)
+                    {
+                        var amount = CalculateItemAmount(item);
+                        totalCuota += amount;
+                        AddTableRow(table, item.Description,
+                            item.MonthlyAmount, amount, item.Type);
+                    }
+
+                    // TOTAL CUOTA
+                    table.Cell().ColumnSpan(4).PaddingTop(10);
+                    table.Cell().ColumnSpan(3).Text("TOTAL CUOTA AUGUST-23").Bold();
+                    table.Cell().AlignRight().Text($"S/ {totalCuota:N2}").Bold().FontSize(11);
+
+                    // DEUDAS ANTERIORES
+                    AddSectionHeader(table, "DEUDAS ANTERIORES");
+
+                    // Lectura de Agua - Regularización
+                    AddDebtRow(table, "Lectura de Agua - Regularización", 0);
+
+                    // Cuotas Ordinarias
+                    AddDebtRow(table, "Cuotas Ordinarias", 0);
+
+                    // Cuotas Extraordinarias
+                    AddDebtRow(table, "Cuotas Extraordinarias", 0);
+
+                    // DEUDA TOTAL
+                    table.Cell().ColumnSpan(4).PaddingTop(10);
+                    table.Cell().ColumnSpan(3).Text("DEUDA TOTAL").Bold().FontSize(11);
+                    table.Cell().AlignRight().Text($"S/ {totalCuota:N2}").Bold().FontSize(11);
+                });
+            });
+        }
+
+        private void ComposeFooter(IContainer container)
+        {
+            container.AlignCenter().Column(column =>
+            {
+                column.Item().PaddingTop(10).LineHorizontal(1);
+                column.Item().PaddingTop(5).Text(text =>
+                {
+                    text.Span("Generado el: ").FontSize(8);
+                    text.Span($"{DateTime.Now:dd/MM/yyyy HH:mm}").Bold().FontSize(8);
+                });
+            });
+        }
+
+        private void AddSectionHeader(TableDescriptor table, string title)
+        {
+            table.Cell().ColumnSpan(4).PaddingTop(10).Text(title)
+                .Bold().FontSize(11).FontColor(Colors.Blue.Medium);
+        }
+
+        private void AddTableRow(TableDescriptor table, string description,
+                                decimal presupuesto, decimal cuota, int tipo)
+        {
+            table.Cell().Text(description);
+            table.Cell().AlignRight().Text(presupuesto > 0 ? $"S/ {presupuesto:N2}" : "-");
+            table.Cell().AlignRight().Text(cuota > 0 ? $"S/ {cuota:N2}" : "-");
+            table.Cell().AlignRight().Text(GetDistributionType(tipo));
+        }
+
+        private void AddDebtRow(TableDescriptor table, string description, decimal amount)
+        {
+            table.Cell().Text(description);
+            table.Cell().ColumnSpan(2); // Saltar PRESUP y CUOTA
+            table.Cell().AlignRight().Text(amount > 0 ? $"S/ {amount:N2}" : "-");
+        }
+
+        private decimal CalculateItemAmount(BudgetDetail item)
+        {
+            // Lógica para calcular el monto según el tipo de distribución
+            if (item.Type == 1) // Por unidad
+            {
+                // Distribución equitativa
+                return item.MonthlyAmount / GetTotalUnits();
+            }
+            else if (item.Type == 2) // Por área
+            {
+                // Distribución proporcional al área
+                return item.MonthlyAmount * (_installment.Percent / 100);
+            }
+            else if (item.Type == 3) // Por consumo (agua)
+            {
+                // Para agua, usar el consumo real
+                //return _waterReading?.CalculatedAmount ?? 0;
+                return 0;
+            }
+
+            return 0;
+        }
+
+        private int GetTotalUnits()
+        {
+            // Obtener el número total de unidades
+            // Esto debería venir de tu base de datos
+            return 29; // Ejemplo
+        }
+
+        private string GetDistributionType(int tipo)
+        {
+            return tipo switch
+            {
+                1 => "Por Unidad",
+                2 => "Por Área",
+                3 => "Por Consumo",
+                _ => "Fijo"
+            };
+        }
+
+        private Guid GetCategoryId(string categoryName)
+        {
+            // Mapear nombres de categoría a IDs
+            // Deberías tener esta información en tu base de datos
+            var categories = new Dictionary<string, Guid>
+        {
+            { "PERSONAL", Guid.Parse("F0FE93B2-4D64-4D2D-8A35-C9178B45F9F7") },
+            { "MANTENIMIENTO", Guid.Parse("AA335DE7-9CC1-42B8-A48B-A0746A111463") },
+            { "SUMINISTROS", Guid.Parse("0A4BF2FE-2753-4CCB-A403-DB98E4D4464F") },
+            { "ADMINISTRACION", Guid.Parse("0A4BF2FE-2753-4CCB-A403-DB98E4D4464F") },
+            { "EXTRAORDINARIOS", Guid.Parse("0870DAFB-E08F-40E1-AE8A-860D11DAD0E2") },
+            { "RESERVAS", Guid.Parse("90A66508-F4D2-4AAE-BE01-86B24F3304D2") }
+        };
+
+            return categories.TryGetValue(categoryName, out Guid id) ? id : Guid.Empty;
+        }
+
+
+
+
+
+
     }
 }

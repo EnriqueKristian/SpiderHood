@@ -51,6 +51,14 @@ namespace SpiderHood.Data
             return true;
         }
 
+        public async Task<bool> DeleteRecordAsync(Models.Exoneration? ec)
+        {
+            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
+            await _dbcontext!.Database.ExecuteSqlRawAsync("DEL_Exoneration {0},{1}", ec?.IdExoneration!, ec?.UpdatedBy!);
+            await _dbcontext.SaveChangesAsync();
+            return true;
+        }
+
 
         public async Task<bool> DeleteRecordAsync(SpiderHood.Models.Parameter? ec)
         {
@@ -85,6 +93,25 @@ namespace SpiderHood.Data
                 ec?.Type!,
                 ec?.Status!,
                 ec!.Description
+            );
+
+            await _dbcontext.SaveChangesAsync();
+            return ec!;
+        }
+
+        public async Task<SpiderHood.Models.Exoneration> AddNewRecordAsync(SpiderHood.Models.Exoneration? ec)
+        {
+            // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
+            await _dbcontext!.Database.ExecuteSqlRawAsync(
+                "INS_Exoneration {0},{1},{2},{3},{4},{5},{6},{7}",
+                ec?.IdExoneration!,
+                ec?.IdGroupUnit!,
+                ec?.IdCategory!,
+                ec?.Description!,
+                ec?.IsActive!,
+                ec?.CreatedBy!,
+                ec?.UpdatedBy!,
+                ec!.IdBuilding
             );
 
             await _dbcontext.SaveChangesAsync();
@@ -409,6 +436,20 @@ namespace SpiderHood.Data
             return ec!;
         }
 
+
+        public async Task<SpiderHood.Models.ServiceReading> UpdateRecordAsync(SpiderHood.Models.ServiceReading? ec)
+        {
+            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
+            await _dbcontext!.Database.ExecuteSqlRawAsync(
+                "UPD_ServiceReading {0},{1}",
+                ec?.IdServiceReading!,
+                ec?.Status!
+            );
+
+            await _dbcontext.SaveChangesAsync();
+            return ec!;
+        }
+
         public async Task<SpiderHood.Models.Contact> UpdateRecordAsync(SpiderHood.Models.Contact? ec)
         {
             try
@@ -548,7 +589,7 @@ namespace SpiderHood.Data
         {
             // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
             await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_BuildingConfiguration {0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}",
+                "UPD_BuildingConfiguration {0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12}",
                 ec?.IdBuildingConfiguration!,
                 ec?.Currency!,
                 ec?.PaymentMethods!,
@@ -559,6 +600,8 @@ namespace SpiderHood.Data
                 ec?.InvoiceDay!,
                 ec?.MinWaterConsumtion!,
                 ec?.DefaultFixedCharge!,
+                ec?.DefaultCategory!,
+                ec?.WaterReadingDefault!,
                 ec?.IdBuilding!
             );
 
@@ -627,6 +670,18 @@ namespace SpiderHood.Data
             return ec;
         }
 
+
+        public async Task<SpiderHood.Models.InstallmentExoneration> AddNewRecordAsync(SpiderHood.Models.InstallmentExoneration? ec)
+        {
+            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
+            await _dbcontext!.Database.ExecuteSqlRawAsync("INS_InstallmentExoneration {0},{1}", ec?.IdBuilding!, ec?.IdBudgetHeader!);
+            await _dbcontext.SaveChangesAsync();
+            return ec!;
+        }
+
+
+
+
         public async Task<SpiderHood.Models.Parameter> AddNewRecordAsync(SpiderHood.Models.Parameter? ec)
         {
             //Here define the ExecuteSqlRaw extension method to execute a stored procedure with INS_Unit
@@ -674,7 +729,7 @@ namespace SpiderHood.Data
             try
             {
                 // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-                await _dbcontext!.Database.ExecuteSqlRawAsync("INS_Installment {0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}", ec?.IdInstallment!, ec?.IdBudgetHeader!, ec!.UnitName, ec!.OwnerName, ec!.CreationDate, ec!.Amount, ec!.Percent, ec!.TotalArea, ec!.CreatedBy, ec!.Status, ec!.IdGroupUnit, ec!.DueDate);
+                await _dbcontext!.Database.ExecuteSqlRawAsync("INS_Installment {0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12}", ec?.IdInstallment!, ec?.IdBudgetHeader!, ec!.UnitName, ec!.OwnerName, ec!.CreationDate, ec!.Amount, ec!.Percent, ec!.TotalArea, ec!.CreatedBy, ec!.Status, ec!.IdGroupUnit, ec!.DueDate, ec!.Number);
 
                 await _dbcontext.SaveChangesAsync();
             }
@@ -1057,7 +1112,7 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<CategoryException>> GetExceptionsByBuildingAsync(Guid IdBuilding)
+        public async Task<List<Exoneration>> GetExonerationsByBuildingAsync(Guid IdBuilding)
         {
             if (_dbcontext == null)
             {
@@ -1065,8 +1120,29 @@ namespace SpiderHood.Data
             }
             try
             {
-                var result = await _dbcontext!.CategoryException
-                    .FromSql($"EXEC GET_Exception_All {IdBuilding}")
+                var result = await _dbcontext!.Exoneration
+                    .FromSql($"EXEC GET_Exoneration_All {IdBuilding}")
+                    .ToListAsync();
+
+                return result ?? [];
+            }
+            catch (Exception ex)
+            {
+                // Log error here
+                throw new ApplicationException("Error fetching unit", ex);
+            }
+        }
+
+        public async Task<List<Exoneration>> GetExonerationByBudgetHeader(Guid IdBudgetHeader)
+        {
+            if (_dbcontext == null)
+            {
+                throw new InvalidOperationException("Database context is not initialized.");
+            }
+            try
+            {
+                var result = await _dbcontext!.Exoneration
+                    .FromSql($"EXEC GET_ExonerationByBudgetHeader {IdBudgetHeader}")
                     .ToListAsync();
 
                 return result ?? [];
@@ -1300,6 +1376,27 @@ namespace SpiderHood.Data
             {
                 var result = await _dbcontext!.ServiceReading
                     .FromSql($"EXEC GET_ServiceReadingList {IdBuilding}")
+                    .ToListAsync();
+
+                return result ?? [];
+            }
+            catch (Exception ex)
+            {
+                // Log error here
+                throw new ApplicationException("Error fetching unit", ex);
+            }
+        }
+
+        public async Task<List<Installment>> GetInstallmentsByBudget(Guid IdBudgetHeader)
+        {
+            if (_dbcontext == null)
+            {
+                throw new InvalidOperationException("Database context is not initialized.");
+            }
+            try
+            {
+                var result = await _dbcontext!.Installment
+                    .FromSql($"EXEC GET_InstallmentsByBudget {IdBudgetHeader}")
                     .ToListAsync();
 
                 return result ?? [];

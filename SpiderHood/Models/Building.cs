@@ -67,8 +67,11 @@ namespace SpiderHood.Models
         public Contact RealEstateCompany { get; set; } = new();
         [NotMapped]
         public Contact MaintenanceCompany { get; set; } = new();
+        
+        public List<Exoneration> Exonerations { get; set; } = [];
         public Guid IdBuilding { get; set; }
         public Guid DefaultCategory { get; set; }
+        public Guid WaterReadingDefault { get; set; }
         public BuildingConfiguration Clone()
         {
             return new BuildingConfiguration
@@ -86,7 +89,9 @@ namespace SpiderHood.Models
                 RealEstateCompany = this.RealEstateCompany.Clone(),
                 MaintenanceCompany = this.MaintenanceCompany.Clone(),
                 IdBuilding = this.IdBuilding,
-                DefaultCategory = this.DefaultCategory
+                DefaultCategory = this.DefaultCategory,
+                WaterReadingDefault = this.WaterReadingDefault, 
+                Exonerations = this.Exonerations.Select(e => e.Clone()).ToList()
             };
         }
     }

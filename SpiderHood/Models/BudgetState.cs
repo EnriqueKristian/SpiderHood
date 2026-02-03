@@ -1,5 +1,5 @@
-﻿using DocumentFormat.OpenXml.InkML;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Mono.TextTemplating;
 using SpiderHood.Data;
 using SpiderHood.Models;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -17,12 +17,13 @@ namespace SpiderHood.Models
         public List<ViewBudgetDetail> ListDefault { get; set; } = [];
         public List<ViewExpense> ExpensesList { get; set; } = [];
         public List<ServiceReadingDetail> WaterReadings { get; set; } = [];
-        public List<CategoryException> ExceptionsList  { get; set; } = [];
+        public List<Exoneration> Exonerations { get; set; } = [];
 
         public decimal TotalMonthly { get; private set; }
         public decimal TotalAnnual { get; private set; }
         public decimal QuotaPerApartment { get; private set; }
         public decimal TotalInstallments { get; private set; }
+        public BuildingConfiguration Configuration { get; set; } = new();
         public decimal TotalArea { get; set; } = 9999;
         public int TotalApartments { get; set; } = 30;
         public int OccupiedApartments { get; set; } = 30;
@@ -74,8 +75,12 @@ namespace SpiderHood.Models
         public void CalculateQuota()
         {
             if (WaterReadings == null || !IsWaterReadingReady) return;
-            Installments.Clear();
-            TotalInstallments = _calculator.CalculateQuota(TotalApartments);
+            
+            if ( Status != BudgetStatus.Active && Status != BudgetStatus.Closed)
+                TotalInstallments = _calculator.CalculateQuota(TotalApartments);
+            else 
+                TotalInstallments = Installments.Sum(i => i.Amount);
+            
         }
     }
 
@@ -104,17 +109,19 @@ namespace SpiderHood.Models
         public decimal CalculateQuota(int totalApartments)
         {
             decimal _totalInstallments = 0;
-            decimal _totalWaterConsumption = _state.WaterReadings.Sum(c => c.CalculatedAmount); ;
-            List<CategoryException> exceptions = _state.ExceptionsList;
 
+            // Calcular consumo total de agua
+            decimal _totalWaterConsumption = _state.WaterReadings.Sum(c => c.CalculatedAmount);
+
+            // Obtener excepciones/exoneraciones
+            List<Exoneration> exceptions = _state.Exonerations;
+
+            // Limpiar cuotas anteriores
             _state.Installments.Clear();
-
-            Guid idAgua = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
-
-            ServiceReadingDetail wateritem = new();
 
             foreach (var unit in _state.Owners)
             {
+                // Crear nueva cuota
                 Installment _dpto = new Installment
                 {
                     IdInstallment = Guid.NewGuid(),
@@ -122,38 +129,49 @@ namespace SpiderHood.Models
                     CreationDate = DateTime.Now, //_Budget.BudgetDate;
                     TotalArea = unit.TotalArea,
                     UnitName = unit.UnitNumber,
+                     Number = int.Parse(unit.UnitNumber),
                     OwnerName = unit.FirstName,
                     IdGroupUnit = unit.IdGroupUnit,
                     CreatedBy = "eechevarria", //UserName;
-                    DueDate = DateTime.Now.AddDays(10),//DateTime.Now.AddDays(ParameterService.DueDay);
+                    DueDate = DateTime.Now.AddDays(_state.Configuration.DueDay),//DateTime.Now.AddDays(ParameterService.DueDay);
                     Status = 1 //Created
                 };
 
                 decimal _total = 0;
-                decimal _distr = unit.TotalArea / _state.TotalArea; // ParameterService.TotalAera;
 
+                // Calcular distribución por área (si totalArea > 0)
+                decimal _distr = unit.TotalArea / _state.TotalArea;
+
+                // 1. AGREGAR CONSUMO DE AGUA (si aplica)
                 if (_state.WaterReadings.Count > 0)
                 {
-                    wateritem = _state.WaterReadings.Where(c => c.IdGroupUnit == unit.IdGroupUnit).FirstOrDefault()!;
+                    var wateritem = _state.WaterReadings.Where(c => c.IdGroupUnit == unit.IdGroupUnit).FirstOrDefault()!;
                     _total += wateritem.CalculatedAmount;
                 }
 
+                // 2. PROCESAR DETALLES DEL PRESUPUESTO
                 foreach (var item in _state.Budget.Details)
                 {
-                    if (item.IdCategory == idAgua && _state.WaterReadings!.Count > 0 )
+                    // 2.1. CASO ESPECIAL: AGUA
+                    if (item.IdCategory == _state.Configuration.WaterReadingDefault && _state.WaterReadings!.Count > 0 )
                     {
-                        _total += Math.Abs(item.MonthlyAmount - _totalWaterConsumption ) / totalApartments;//wateritem!.CalculatedAmount;
+                        // Distribuir el consumo general menos lo ya asignado individualmente
+                        _total += Math.Abs(item.MonthlyAmount - _totalWaterConsumption ) / totalApartments;
                     }
                     else
                     {
+                        // 2.2. OTRAS CATEGORÍAS
+                        //Obtener cuantos DPTOs tienen exoneracion en esta categoria
                         var _nroException = exceptions.Count(c => c.IdCategory == item.IdCategory);
 
+                        //Verificar que la unidad tenga esta exoneración
                         if ( unit.IdGroupUnit == exceptions.Where(c => c.IdCategory == item.IdCategory).Select(c => c.IdGroupUnit).FirstOrDefault())
                         {
                             _total += 0;
                         }
                         else
                         {
+                            // Distribuir según tipo
                             _total += item.Type == 1 ? item.MonthlyAmount / (totalApartments - _nroException) : item.MonthlyAmount * _distr;
                         }
                     }
@@ -161,103 +179,149 @@ namespace SpiderHood.Models
 
                 _dpto.Amount = _total;
                 _dpto.Percent = 100 * _distr;
-                _totalInstallments = _totalInstallments + _total;
+                _totalInstallments = _totalInstallments + Math.Round(_total,2);
 
                 _state.Installments.Add(_dpto);
             }
             return _totalInstallments;
         }
-        
+
         public decimal CalculateQuota1(int totalApartments)
         {
-            const string WATER_GUID = "CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C";
-            const string CREATED_BY = "eechevarria";
+            decimal _totalInstallments = 0;
 
-            // Pre-cálculos
-            decimal totalWaterConsumption = _state.WaterReadings.Sum(c => c.CalculatedAmount);
-            List<CategoryException> execptions = _state.ExceptionsList;
-            bool hasWaterReadings = _state.WaterReadings.Count > 0;
-            Guid waterCategoryId = Guid.Parse(WATER_GUID);
+            // Calcular consumo total de agua
+            decimal _totalWaterConsumption = _state.WaterReadings.Sum(c => c.CalculatedAmount);
 
-            // Diccionario de lecturas de agua
-            var waterReadingsDict = hasWaterReadings
-                ? _state.WaterReadings.ToDictionary(w => w.IdGroupUnit)
-                : null;
+            // Obtener excepciones/exoneraciones
+            List<Exoneration> exceptions = _state.Exonerations;
 
-            // Separar items del presupuesto
-            var budgetDetails = _state.Budget.Details.ToList();
-            var waterBudgetItem = budgetDetails.FirstOrDefault(d => d.IdCategory == waterCategoryId);
-            var otherBudgetItems = budgetDetails.Where(d => d.IdCategory != waterCategoryId).ToList();
-
-            // Calcular diferencia de agua una sola vez
-            decimal waterDifferencePerApartment = hasWaterReadings && waterBudgetItem != null
-                ? Math.Abs(waterBudgetItem.MonthlyAmount - totalWaterConsumption) / totalApartments
-                : 0;
-
-            // Pre-calcular valores constantes por tipo de item
-            var type1Items = otherBudgetItems.Where(i => i.Type == 1).ToList();
-            var typeNot1Items = otherBudgetItems.Where(i => i.Type != 1).ToList();
-
-            decimal type1Total = type1Items.Sum(i => i.MonthlyAmount) / totalApartments;
-
+            // Limpiar cuotas anteriores
             _state.Installments.Clear();
-            var now = DateTime.Now;
-            var dueDate = now.AddDays(10);
 
-            // Usar for en lugar de foreach para mejor performance
-            var owners = _state.Owners;
-            decimal totalInstallments = 0;
+            // Calcular área total
+            decimal totalArea = _state.TotalArea > 0 ? _state.TotalArea :
+                               _state.Owners.Sum(o => o.TotalArea);
 
-            for (int i = 0; i < owners.Count; i++)
+            foreach (var unit in _state.Owners)
             {
-                var unit = owners[i];
-                decimal distributionFactor = unit.TotalArea / _state.TotalArea;
-                decimal unitTotal = 0;
-
-                // Agua
-                if (hasWaterReadings)
-                {
-                    if (waterReadingsDict != null && waterReadingsDict.TryGetValue(unit.IdGroupUnit, out var waterItem))
-                    {
-                        unitTotal += waterItem.CalculatedAmount;
-                    }
-
-                    if (waterBudgetItem != null)
-                    {
-                        unitTotal += waterDifferencePerApartment;
-                    }
-                }
-
-                // Items tipo 1 (suma fija por departamento)
-                unitTotal += type1Total;
-
-                // Items no tipo 1 (proporcionales al área)
-                foreach (var item in typeNot1Items)
-                {
-                    unitTotal += item.MonthlyAmount * distributionFactor;
-                }
-
-                // Crear installment con object initializer
-                _state.Installments.Add(new Installment
+                // Crear nueva cuota
+                Installment _dpto = new Installment
                 {
                     IdInstallment = Guid.NewGuid(),
                     IdBudgetHeader = _state.Budget.IdBudgetHeader,
-                    CreationDate = now,
+                    CreationDate = DateTime.Now,
                     TotalArea = unit.TotalArea,
                     UnitName = unit.UnitNumber,
                     OwnerName = unit.FirstName,
                     IdGroupUnit = unit.IdGroupUnit,
-                    CreatedBy = CREATED_BY,
-                    DueDate = dueDate,
-                    Status = 1,
-                    Amount = unitTotal,
-                    Percent = 100 * distributionFactor
-                });
+                    CreatedBy = "eechevarria", // TODO: Reemplazar con usuario real
+                    DueDate = DateTime.Now.AddDays(_state.Configuration.DueDay),
+                    Status = 1 // Created
+                };
 
-                totalInstallments += unitTotal;
+                decimal _total = 0;
+
+                // Calcular distribución por área (si totalArea > 0)
+                decimal _distr = totalArea > 0 ? unit.TotalArea / totalArea : 0;
+
+                // 1. AGREGAR CONSUMO DE AGUA (si aplica)
+                if (_state.WaterReadings.Count > 0)
+                {
+                    var wateritem = _state.WaterReadings
+                        .FirstOrDefault(c => c.IdGroupUnit == unit.IdGroupUnit);
+
+                    if (wateritem != null)
+                    {
+                        _total += wateritem.CalculatedAmount;
+                    }
+                }
+
+                // 2. PROCESAR DETALLES DEL PRESUPUESTO
+                foreach (var item in _state.Budget.Details)
+                {
+                    // 2.1. CASO ESPECIAL: AGUA
+                    if (item.IdCategory == _state.Configuration.WaterReadingDefault && _state.WaterReadings.Count > 0)
+                    {
+                        // Esta lógica parece incorrecta. Normalmente el agua se distribuye diferente
+                        // Dependiendo de si hay medición individual o general
+                        if (_state.WaterReadings.Any(w => w.IdGroupUnit == unit.IdGroupUnit))
+                        {
+                            // Si tiene medición individual, ya se agregó arriba
+                            continue;
+                        }
+                        else
+                        {
+                            // Distribuir el consumo general menos lo ya asignado individualmente
+                            decimal individualWaterTotal = _state.WaterReadings.Sum(w => w.CalculatedAmount);
+                            decimal generalWaterToDistribute = Math.Abs(item.MonthlyAmount - individualWaterTotal);
+                            _total += generalWaterToDistribute / totalApartments;
+                        }
+                    }
+                    // 2.2. OTRAS CATEGORÍAS
+                    else
+                    {
+                        // Verificar si esta unidad está exonerada de esta categoría
+                        bool isExonerated = exceptions
+                            .Any(e => e.IdGroupUnit == unit.IdGroupUnit &&
+                                   e.IdCategory == item.IdCategory);
+
+                        if (isExonerated)
+                        {
+                            // Unidad exonerada - no paga esta categoría
+                            continue;
+                        }
+                        else
+                        {
+                            // Calcular cuántas unidades NO están exoneradas para esta categoría
+                            int nonExoneratedUnits = totalApartments -
+                                exceptions.Count(e => e.IdCategory == item.IdCategory);
+
+                            if (nonExoneratedUnits <= 0)
+                            {
+                                // Todas las unidades están exoneradas, no hay que distribuir
+                                continue;
+                            }
+
+                            // Distribuir según tipo
+                            if (item.Type == 1) // Distribución por unidad (igual para todos)
+                            {
+                                _total += item.MonthlyAmount / nonExoneratedUnits;
+                            }
+                            else if (item.Type == 2) // Distribución por área
+                            {
+                                // Calcular área total NO exonerada para esta categoría
+                                decimal nonExoneratedArea = _state.Owners
+                                    .Where(o => !exceptions.Any(e =>
+                                        e.IdGroupUnit == o.IdGroupUnit &&
+                                        e.IdCategory == item.IdCategory))
+                                    .Sum(o => o.TotalArea);
+
+                                if (nonExoneratedArea > 0 && totalArea > 0)
+                                {
+                                    _total += item.MonthlyAmount * (unit.TotalArea / nonExoneratedArea);
+                                }
+                            }
+                            else // Otro tipo de distribución
+                            {
+                                _total += item.MonthlyAmount * _distr;
+                            }
+                        }
+                    }
+                }
+
+                // Asignar valores finales
+                //_dpto.Amount = Math.Round(_total, 2);
+                //_dpto.Percent = totalArea > 0 ? Math.Round(100 * _distr, 2) : 0;
+                _dpto.Amount = _total;
+                _dpto.Percent = totalArea > 0 ? 100 * _distr : 0;
+
+                _totalInstallments += _dpto.Amount;
+                _state.Installments.Add(_dpto);
             }
 
-            return totalInstallments;
+            //return Math.Round(_totalInstallments, 2);
+            return _totalInstallments;
         }
 
         public List<Installment> UpdateInstallments(List<Installment> installments)
@@ -277,9 +341,9 @@ namespace SpiderHood.Models
     }
 
     // Models/InstallmentException.cs
-    public class CategoryException
+    public class Exoneration
     {
-        public Guid IdException { get; set; }
+        public Guid IdExoneration { get; set; }
         public Guid IdGroupUnit { get; set; }
         public Guid IdCategory { get; set; } // Categoría a excluir (ej: Mantenimiento Ascensor)
         public string Description { get; set; } = string.Empty;
@@ -288,6 +352,11 @@ namespace SpiderHood.Models
         public string CreatedBy { get; set; } = string.Empty;
         public DateTime UpdatedAt { get; set; }
         public string UpdatedBy { get; set; } = string.Empty;
+        public Guid IdBuilding{ get; set; }
+        [NotMapped]
+        public bool IsDeleted { get; set; } = false;
+
+        public Exoneration Clone() => (Exoneration)this.MemberwiseClone();
     }
 
     public class InstallmentException
@@ -312,6 +381,39 @@ namespace SpiderHood.Models
         [NotMapped]
         public virtual GroupUnit? GroupUnit { get; set; }
     }
+
+
+
+    public class InstallmentExoneration
+    {
+        public Guid IdInstallmentExoneration { get; set; }
+        public Guid IdGroupUnit { get; set; }
+        public Guid IdCategory { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string CreatedBy { get; set; } = string.Empty;
+        public DateTime UpdatedAt { get; set; }
+        public string UpdatedBy { get; set; } = string.Empty;
+        public Guid IdBudgetHeader { get; set; }
+        public Guid IdBuilding { get; set; }
+
+        // Relaciones (si deseas agregarlas más adelante)
+        // public GroupUnit GroupUnit { get; set; }
+        // public Category Category { get; set; }
+        // public BudgetHeader BudgetHeader { get; set; }
+    }
+
+
+
+
+
+
+
+
+
+
+
 }
 
 
@@ -383,9 +485,9 @@ namespace SpiderHood.Services
             ec = new BDLayout(Context);
         }
 
-        public async Task<List<CategoryException>> GetExceptionsByBuildingAsync(Guid idBuilding)
+        public async Task<List<Exoneration>> GetExceptionsByBuildingAsync(Guid idBuilding)
         {
-            return await ec.GetExceptionsByBuildingAsync(idBuilding);
+            return await ec.GetExonerationsByBuildingAsync(idBuilding);
         }
 
         // CRUD Operations

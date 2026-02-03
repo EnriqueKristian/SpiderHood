@@ -407,7 +407,7 @@
                                     <div class="card-body">
                                         <div class="edit-button">
                                             <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => StartEditSection(currency)">
+                                                    @onclick='() => StartEditSection("currency")'>
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                         </div>
@@ -467,7 +467,7 @@
                                                 </div>
                                                 
                                                 <div class="action-buttons">
-                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(currency)">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("currency")'>
                                                         <i class="bi bi-check"></i> Guardar
                                                     </button>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
@@ -509,7 +509,7 @@
                                     <div class="card-body">
                                         <div class="edit-button">
                                             <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => StartEditSection(payments)">
+                                                    @onclick='() => StartEditSection("payments")'>
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                         </div>
@@ -558,7 +558,7 @@
                                                 </div>
                                                 
                                                 <div class="action-buttons">
-                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(payments)">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("payments")'>
                                                         <i class="bi bi-check"></i> Guardar
                                                     </button>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
@@ -597,7 +597,7 @@
                                     <div class="card-body">
                                         <div class="edit-button">
                                             <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => StartEditSection(fines)">
+                                                    @onclick='() => StartEditSection("fines")'>
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                         </div>
@@ -666,7 +666,7 @@
                                                 </div>
                                                 
                                                 <div class="action-buttons">
-                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(fines)">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("fines")'>
                                                         <i class="bi bi-check"></i> Guardar
                                                     </button>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
@@ -714,7 +714,7 @@
                                     <div class="card-body">
                                         <div class="edit-button">
                                             <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => StartEditSection(admin)">
+                                                    @onclick='() => StartEditSection("admin")'>
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                         </div>
@@ -757,7 +757,7 @@
                                                 </div>
                                                 
                                                 <div class="action-buttons">
-                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(admin)">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("admin")'>
                                                         <i class="bi bi-check"></i> Guardar
                                                     </button>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
@@ -796,7 +796,7 @@
                                     <div class="card-body">
                                         <div class="edit-button">
                                             <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => StartEditSection(realty)">
+                                                    @onclick='() => StartEditSection("realty")'>
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                         </div>
@@ -839,7 +839,7 @@
                                                 </div>
                                                 
                                                 <div class="action-buttons">
-                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(realty)">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("realty")'>
                                                         <i class="bi bi-check"></i> Guardar
                                                     </button>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
@@ -875,7 +875,7 @@
                                     <div class="card-body">
                                         <div class="edit-button">
                                             <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => StartEditSection(maintenance)">
+                                                    @onclick='() => StartEditSection("maintenance")'>
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                         </div>
@@ -924,7 +924,7 @@
                                                 </div>
                                                 
                                                 <div class="action-buttons">
-                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(maintenance)">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("maintenance")'>
                                                         <i class="bi bi-check"></i> Guardar
                                                     </button>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
@@ -964,20 +964,20 @@
                                     <div class="card-body">
                                         <div class="edit-button">
                                             <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => StartEditSection(category)">
+                                                    @onclick='() => StartEditSection("category")'>
                                                 <i class="bi bi-pencil"></i>
                                             </button>
                                         </div>
                                     
                                         <h6 class="section-title">
-                                            <i class="bi bi-tags me-2"></i>Categoría Default de Gastos
+                                            <i class="bi bi-tags me-2"></i>Categorías Default
                                         </h6>
                                     
                                         @if (_editingSection == "category")
                                         {
                                             <div class="form-compact">
                                                 <div class="form-group">
-                                                    <label class="form-label">Categoría Principal</label>
+                                                    <label class="form-label">Categoría de Gastos Default</label>
                                                     <select @bind-Value="SelectedBuilding.Configuration.DefaultCategory" @bind-Value:event="oninput" class="form-select form-select-sm">
                                                         <option value="">Seleccionar categoría</option>
                                                         @foreach(var item in filteredCategory.Where(c => c.Nivel == 0))
@@ -993,7 +993,34 @@
                                                 </div>
                                             
                                                 <div class="action-buttons">
-                                                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => SaveSection(category)">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("category")'>
+                                                        <i class="bi bi-check"></i> Guardar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p></p>
+                                            <div class="form-compact">
+                                                <div class="form-group">
+                                                    <label class="form-label">Categoría para Calculo de Agua</label>
+                                                    <select @bind-Value="SelectedBuilding.Configuration.WaterReadingDefault" @bind-Value:event="oninput" class="form-select form-select-sm">
+                                                        <option value="">Seleccionar categoría</option>
+                                                        @foreach (var item in filteredCategory.Where(c => c.Nivel == 0))
+                                                        {
+                                                            <optgroup label="@item.ShortDescript">
+                                                                @foreach (var subitem in filteredCategory.Where(c => c.ParentId == item.IdCategory))
+                                                                {
+                                                                    <option value="@subitem.IdCategory">@subitem.ShortDescript</option>
+                                                                }
+                                                            </optgroup>
+                                                        }
+                                                    </select>
+                                                </div>
+
+                                                <div class="action-buttons">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("category")'>
                                                         <i class="bi bi-check"></i> Guardar
                                                     </button>
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
@@ -1009,8 +1036,156 @@
                                                     <i class="bi bi-tag-fill text-white"></i>
                                                 </div>
                                                 <div>
-                                                    <div class="fw-semibold">@GetDefaultCategoryName()</div>
-                                                    <div class="text-muted small">Categoría principal por defecto</div>
+                                                    <div class="fw-semibold">@GetCategoryName(SelectedBuilding!.Configuration.DefaultCategory)</div>
+                                                    <div class="text-muted small">Categoría de Gastos por defecto</div>
+                                                </div>
+                                                
+                                            </div>
+                                            <p></p>
+                                            <div class="d-flex align-items-center">
+                                                <div class="bg-primary rounded-circle p-3 me-3">
+                                                    <i class="fas fa-tint mr-3"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">Agua Potable</div>
+                                                    <div class="text-muted small">Categoría de Agua</div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+
+                               <!-- Sección Excepciones de Pago -->
+                                <div class="card card-hover config-card @(_editingSection == "exception" ? "edit-mode" : "")">
+                                    <div class="card-body">
+                                        <div class="edit-button">
+                                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                                    @onclick='() => StartEditSection("exception")'>
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        </div>
+
+                                        <h6 class="section-title">
+                                            <i class="bi bi-currency-exchange me-2"></i>Excepciones de Pago
+                                        </h6>
+
+                                        @if (_editingSection == "exception")
+                                        {
+                                            <div class="form-compact">
+                                                <div class="form-group">
+                                                    <label class="form-label">Excepciones Configuradas</label>
+                                                    <div>
+                                                        @{
+                                                            // Obtener excepciones ordenadas
+                                                            var exonerationsList = SelectedBuilding.Configuration.Exonerations
+                                                                .Where(c => !c.IsDeleted)
+                                                                .OrderBy(c => c.IdGroupUnit)
+                                                                .ThenBy(c => c.IdCategory)
+                                                                .ToList();
+                            
+                                                            var groupedExonerations = exonerationsList
+                                                                .GroupBy(c => c.IdGroupUnit);
+                                                        }
+
+                                                        @if (exonerationsList.Count == 0)
+                                                        {
+                                                            <div class="alert alert-info py-2">
+                                                                <i class="bi bi-info-circle me-2"></i>
+                                                                No hay excepciones configuradas
+                                                            </div>
+                                                        }
+
+                                                        @foreach (var group in groupedExonerations)
+                                                        {
+                                                            <div class="row-md-3 mb-3">
+                                                                <div class="card card-hover">
+                                                                    <div class="card-body">
+                                                                        <!-- Encabezado del departamento -->
+                                                                        <div class="d-flex align-items-center mb-2">
+                                                                            <i class="bi bi-building me-2"></i>
+                                                                            <div class="fw-semibold">@GetGroupUnitName(group.Key)</div>
+                                                                        </div>
+
+                                                                        <!-- Lista de categorías exoneradas -->
+                                                                        <div class="ms-4">
+                                                                            @foreach (var item in group)
+                                                                            {
+                                                                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                                                                    <div class="text-muted small">
+                                                                                        @GetCategoryName(item.IdCategory)
+                                                                                    </div>
+                                                                                    <button type="button" 
+                                                                                            class="btn btn-sm btn-outline-danger ms-2"
+                                                                                            @onclick="() => RemoveException(item)">
+                                                                                        <i class="bi bi-trash"></i>
+                                                                                    </button>
+                                                                                </div>
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        }
+                        
+                                                        <div class="mt-3">
+                                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                                    @onclick="ShowAddExceptionModal">
+                                                                <i class="bi bi-plus"></i> Agregar Exoneración
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="action-buttons mt-3">
+                                                    <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("exception")'>
+                                                        <i class="bi bi-check"></i> Guardar
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelEdit">
+                                                        Cancelar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="mb-3">
+                                                <label class="form-label small text-muted">Categorías Exoneradas por Dpto</label>
+                                                <div>
+                                                    @if (SelectedBuilding.Configuration.Exonerations.Count == 0)
+                                                    {
+                                                        <div class="text-muted">No hay excepciones configuradas</div>
+                                                    }
+                                                    else
+                                                    {
+                                                        var groupedExonerations = SelectedBuilding.Configuration.Exonerations
+                                                                .Where(c => !c.IsDeleted)
+                                                                .OrderBy(c => c.IdGroupUnit)
+                                                                .GroupBy(c => c.IdGroupUnit);
+                                                        
+
+                                                        @foreach (var group in groupedExonerations)
+                                                        {
+                                                            <div class="row-md-3 mb-3">
+                                                                <div class="card card-hover">
+                                                                    <div class="card-body">
+                                                                        <!-- Encabezado del departamento -->
+                                                                        <div class="d-flex align-items-center mb-2">
+                                                                            <i class="bi bi-building me-2"></i>
+                                                                            <div class="fw-semibold">@GetGroupUnitName(group.Key)</div>
+                                                                        </div>
+
+                                                                        <!-- Lista de categorías exoneradas -->
+                                                                        <div class="ms-4">
+                                                                            @foreach (var item in group)
+                                                                            {
+                                                                                <div class="text-muted small mb-1">@GetCategoryName(item.IdCategory)</div>
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    }
                                                 </div>
                                             </div>
                                         }
@@ -1261,14 +1436,75 @@
     </FooterTemplate>
 </Modal>
 
+<Modal @ref="_exoneration" Title="Agregar Exoneracion"  Size="ModalSize.Regular">
+    <BodyTemplate>
+        <EditForm Model="_editingBankAccout" OnValidSubmit="SaveExoneration" method="post" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="row g-3">
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label class="form-label">Departamento *</label>
+                        <select @bind-Value="_Exoneration.IdGroupUnit" @bind-Value:event="oninput" class="form-select">
+                            <!--    PARAMETRO_PADRE     -->
+                            @foreach (var type in filteredUnits)
+                            {
+                                <option value="@type.IdGroupUnit">DPTO @type.UnitNumber </option>
+                            }
+                        </select>
+                        <ValidationMessage For="@(() => _Exoneration.IdGroupUnit)" />
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label class="form-label">Categoria de Gasto *</label>
+                        <select @bind-Value="_Exoneration.IdCategory" @bind-Value:event="oninput" class="form-select">
+                            <!--    PARAMETRO_PADRE     -->
+                            <option value="">Seleccionar categoría</option>
+                            @foreach (var item in filteredCategory.Where(c => c.Nivel == 0))
+                            {
+                                <optgroup label="@item.ShortDescript">
+                                    @foreach (var subitem in filteredCategory.Where(c => c.ParentId == item.IdCategory))
+                                    {
+                                        <option value="@subitem.IdCategory">@subitem.ShortDescript</option>
+                                    }
+                                </optgroup>
+                            }
+                        </select>
+                        <ValidationMessage For="@(() => _Exoneration.IdCategory)" />
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label class="form-label">Motivo Exoneración  *</label>
+                        <InputTextArea @bind-Value="_Exoneration.Description" class="form-control" Rows="2" />
+                        <ValidationMessage For="@(() => _Exoneration.Description)" />
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-primary" @onclick="SaveExoneration">
+            <i class="bi bi-check me-1"></i>Crear
+        </button>
+        <button class="btn btn-secondary" @onclick="() => CloseExonerationModal()">
+            <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+    </FooterTemplate>
+</Modal>
+
 @code {
     private List<Building> Buildings = new();
     private Building? SelectedBuilding = null;
     private Building _editingBuilding = new();
     private Building? _quickConfigBuilding = null;
     private BankAccount _editingBankAccout = new();
+    private Exoneration _Exoneration = new();
     private IReadOnlyList<Models.Parameter>? filteredParameters;
     private List<Models.Category> filteredCategory = new();
+    private List<Models.UnitView> filteredUnits = new();
 
     private string _editingSection = "";
     private BuildingConfiguration _configurationBackup = new();
@@ -1284,16 +1520,7 @@
     private Modal _buildingModal = null!;
     private Modal _quickConfigModal = null!;
     private Modal _bankAccount = null!;
-    //private Modal _contact = null!;
-
-
-    private const string payments = "payments";
-    private const string currency = "currency";
-    private const string fines = "fines";
-    private const string admin = "admin";
-    private const string realty = "realty";
-    private const string maintenance = "maintenance";
-    private const string category = "category";
+    private Modal _exoneration = null!;
 
     private List<string> _paymentMethods = new();// { "Transferencia Bancaria", "Pago en Efectivo", "Tarjeta de Crédito", "Cheque" };
     private List<Currency> _currencies = new()
@@ -1315,6 +1542,7 @@
         Buildings = ParameterService.ec.GetBuilding(Guid.NewGuid());
         filteredParameters = ParameterService.ListParameters;
         filteredCategory = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding);
+        filteredUnits =  ParameterService.ec.GetGroupUnitsByType(ParameterService.CurrentBuilding.IdBuilding, 1);
         //<!--    PARAMETRO_PADRE     -->
         _paymentMethods = filteredParameters
             .Where(c => c.IdParent == 16)
@@ -1351,9 +1579,16 @@
 
             List<Contact> contacts = await ParameterService.ec.GetAllContacts(config.IdBuildingConfiguration);
 
-           config.AdminContact = contacts.FirstOrDefault(c => c.TypeContact == 1) ?? new Contact();
-           config.RealEstateCompany = contacts.FirstOrDefault(c => c.TypeContact == 2) ?? new Contact();
-           config.MaintenanceCompany = contacts.FirstOrDefault(c => c.TypeContact == 3) ?? new Contact();
+            config.AdminContact = contacts.FirstOrDefault(c => c.TypeContact == 1) ?? new Contact();
+            config.RealEstateCompany = contacts.FirstOrDefault(c => c.TypeContact == 2) ?? new Contact();
+            config.MaintenanceCompany = contacts.FirstOrDefault(c => c.TypeContact == 3) ?? new Contact();
+
+            List<Exoneration> exonerations = await ParameterService.ec.GetExonerationsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+            foreach (var item in exonerations)
+            {
+                config.Exonerations.Add(item);
+            }
 
             return config;            
         }
@@ -1440,6 +1675,12 @@
         await _bankAccount.HideAsync();
     }
 
+    private async Task CloseExonerationModal()
+    {
+        //RemoveBankAccount(SelectedBuilding!.Configuration.BankAccounts.Count);
+        await _exoneration.HideAsync();
+    }
+
     private async Task SaveBuilding()
     {
         try
@@ -1518,6 +1759,21 @@
         }
     }
 
+    private async Task SaveExoneration()
+    {
+        try
+        {
+            SelectedBuilding!.Configuration.Exonerations.Add(_Exoneration);   
+            _Exoneration = new Exoneration();
+            await _exoneration.HideAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar edificio: {ex.Message}");
+        }
+    }
+
     private void StartEditSection(string section)
     {
         if (SelectedBuilding != null)
@@ -1553,12 +1809,12 @@
 
             switch (section)
             {
-                case payments:
+                case "payments":
                     //await SaveSectionAAsync(ct);
 
                     break;
 
-                case currency:
+                case "currency":
                     //await SaveSectionBAsync(ct);
                     //Actualizar Moneda
 
@@ -1573,7 +1829,7 @@
 
                                 // Busca el primer elemento que cumpla las condiciones
                                 //<!--    PARAMETRO_PADRE     -->
-                                var match = filteredParameters
+                                var match = filteredParameters!
                                     .FirstOrDefault(c => c.IdParent == 31 && c.Value == bank.AccountType);
 
                                 // Asigna el nombre si se encontró coincidencia, de lo contrario usa un valor por defecto
@@ -1593,10 +1849,10 @@
                     }
                     break;
 
-                case fines:
+                case "fines":
                     //await SaveSectionCAsync(ct);
                     break;                
-                case admin:
+                case "admin":
                     //await SaveSectionAAsync(ct);
 
                     if(SelectedBuilding.Configuration.AdminContact.IdContact == Guid.Empty)
@@ -1612,7 +1868,7 @@
                     }
                     break;
 
-                case realty:
+                case "realty":
                     //await SaveSectionBAsync(ct);
                     if ( SelectedBuilding.Configuration.RealEstateCompany.IdContact == Guid.Empty ){
                         SelectedBuilding.Configuration.RealEstateCompany.IdContact = Guid.NewGuid();
@@ -1626,7 +1882,7 @@
                     }
                     break;
 
-                case maintenance:
+                case "maintenance":
                     //await SaveSectionCAsync(ct);
                     if(SelectedBuilding.Configuration.MaintenanceCompany.IdContact == Guid.Empty ) {
                         SelectedBuilding.Configuration.MaintenanceCompany.IdContact = Guid.NewGuid();
@@ -1639,8 +1895,31 @@
                         await ParameterService.ec.UpdateRecordAsync(SelectedBuilding.Configuration.MaintenanceCompany);
                     }
                     break;
-                case category:
+                case "category":
                     //await SaveSectionCAsync(ct);
+                    break;
+                case "exception":
+                    //Actualizar Bank Account
+                    if (interno.Exonerations.Count > 0)
+                    {
+                        foreach (var _exception in interno.Exonerations)
+                        {
+                            if (_exception.IdExoneration == Guid.Empty)
+                            {
+                                //add Exoneration
+                                _exception.IdExoneration = Guid.NewGuid();
+                                _exception.IdBuilding = interno.IdBuilding;
+
+                                await ParameterService.ec.AddNewRecordAsync(_exception);
+                            }
+                            else
+                            {
+                                //Update BankAccount
+                                if( _exception.IsDeleted)
+                                    await ParameterService.ec.DeleteRecordAsync(_exception);
+                            }
+                        }
+                    }
                     break;
                 default:
                     //await SaveSectionDefaultAsync(section, ct);
@@ -1681,7 +1960,7 @@
             // Esta función sería útil para guardar cambios en lote
             foreach (var building in Buildings)
             {
-                // await SaveBuildingConfiguration(building);
+                //await SaveBuildingConfiguration(building);
             }
 
             // Mostrar mensaje de éxito
@@ -1702,6 +1981,14 @@
         }
     }
 
+    private void ShowAddExceptionModal()
+    {
+        if (SelectedBuilding != null)
+        {
+            _exoneration.ShowAsync();
+        }
+    }
+
     private void EditBankAccount(int index)
     {
         if (SelectedBuilding != null && SelectedBuilding.Configuration.BankAccounts.Count > 1)
@@ -1718,6 +2005,12 @@
         {
             SelectedBuilding.Configuration.BankAccounts.RemoveAt(index);
         }
+    }
+
+    private void RemoveException(Exoneration item)
+    {
+        item.IsDeleted = true;
+        StateHasChanged();
     }
 
     private void TogglePaymentMethod(string method)
@@ -1756,34 +2049,34 @@
                     _quickConfigBuilding.Configuration.BankAccounts = sourceBuilding.Configuration.BankAccounts
                         .Select(a => a.Clone()).ToList();
                 }
-                
+
                 if (_copyPayments)
                 {
                     _quickConfigBuilding.Configuration.PaymentMethods = new List<string>(sourceBuilding.Configuration.PaymentMethods);
                     _quickConfigBuilding.Configuration.PaymentPeriod = sourceBuilding.Configuration.PaymentPeriod;
                     _quickConfigBuilding.Configuration.DueDay = sourceBuilding.Configuration.DueDay;
                 }
-                
+
                 if (_copyFines)
                 {
                     _quickConfigBuilding.Configuration.FineAmount = sourceBuilding.Configuration.FineAmount;
                     _quickConfigBuilding.Configuration.LateInterestRate = sourceBuilding.Configuration.LateInterestRate;
                     _quickConfigBuilding.Configuration.InvoiceDay = sourceBuilding.Configuration.InvoiceDay;
                 }
-                
+
                 if (_copyContacts)
                 {
                     _quickConfigBuilding.Configuration.AdminContact = sourceBuilding.Configuration.AdminContact.Clone();
                     _quickConfigBuilding.Configuration.RealEstateCompany = sourceBuilding.Configuration.RealEstateCompany.Clone();
                     _quickConfigBuilding.Configuration.MaintenanceCompany = sourceBuilding.Configuration.MaintenanceCompany.Clone();
                 }
-                
+
                 // Si estamos editando el edificio seleccionado, actualizar la vista
                 if (SelectedBuilding?.IdBuilding == _quickConfigBuilding.IdBuilding)
                 {
                     SelectedBuilding = _quickConfigBuilding;
                 }
-                
+
                 await _quickConfigModal.HideAsync();
                 StateHasChanged();
             }
@@ -1799,7 +2092,7 @@
             {
                 building.Configuration = SelectedBuilding.Configuration.Clone();
             }
-            
+
             // Mostrar mensaje de éxito
             Console.WriteLine($"Configuración copiada a {Buildings.Count - 1} edificios");
         }
@@ -1828,10 +2121,16 @@
         _editingBankAccout.AccountNumber = args.Value!.ToString()!;
     }
 
-    private string GetDefaultCategoryName()
+    private string GetCategoryName(Guid IdSearch)
     {
-        var category = filteredCategory.FirstOrDefault(c => c.IdCategory == SelectedBuilding!.Configuration.DefaultCategory);
+        var category = filteredCategory.FirstOrDefault(c => c.IdCategory == IdSearch);
         return category?.ShortDescript ?? "Categoría General";
+    }
+
+    private string GetGroupUnitName(Guid IdSearch)
+    {
+        var groupunit = filteredUnits.FirstOrDefault(c => c.IdGroupUnit == IdSearch);
+        return groupunit?.UnitNumber ?? "Sin Data";
     }
 
 }

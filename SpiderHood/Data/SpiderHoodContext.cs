@@ -47,8 +47,9 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.OwnerUnitView>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.BudgetSumCategory>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Period>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.CategoryException>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.Exoneration>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.InstallmentException>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.Installment>().HasNoKey(); // If SP doesn't return a primary key
 
             base.OnModelCreating(modelBuilder);
         }
@@ -91,8 +92,9 @@ namespace SpiderHood.Data
         public DbSet<SpiderHood.Models.OwnerUnitView> OwnerUnitView { get; set; } = null!;
         public DbSet<SpiderHood.Models.BudgetSumCategory> BudgetSumCategory { get; set; } = null!;
         public DbSet<SpiderHood.Models.Period> Period { get; set; } = null!;
-        public DbSet<SpiderHood.Models.CategoryException> CategoryException { get; set; } = null!;
+        public DbSet<SpiderHood.Models.Exoneration> Exoneration { get; set; } = null!;
         public DbSet<SpiderHood.Models.InstallmentException> InstallmentException { get; set; } = null!;
+        public DbSet<SpiderHood.Models.Installment> Installment { get; set; } = null!;
 
     }
 }

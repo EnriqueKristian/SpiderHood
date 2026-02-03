@@ -653,7 +653,7 @@
                   Budget="@_BudgetState.Budget"
                   WaterReadings="@_BudgetState.WaterReadings" 
                   TotalBudget="_BudgetState.TotalMonthly"
-                  categoryExceptions="@_BudgetState.ExceptionsList"/>
+                  Exonerations="@_BudgetState.Exonerations"/>
 }
 
 <!-- Agregar al final del componente -->
@@ -743,6 +743,7 @@
 
         _BudgetState = await presupuestoService.InitializeBudgetStateAsync(presupuestoService._SelectedBudget!);
         _BudgetState.TotalArea = ParameterService.CurrentBuilding.TotalArea;
+        _BudgetState.Configuration = ParameterService.CurrentBuilding.Configuration;
 
 
         if (_BudgetState.IsNewBudget)
@@ -752,7 +753,13 @@
             _textCabecera = _BudgetState.Budget.BudgetName;
             //Cargar Lectura de Agua
             _BudgetState.WaterReadings = await ParameterService.ec.GetServiceReadingDetailbyPeriod(_BudgetState.Budget.BudgetDate);
-            _BudgetState.ExceptionsList = await ParameterService.ec.GetExceptionsByBuildingAsync(_BudgetState.Budget.IdBuilding);
+            bool isActiveOrClosed =  _BudgetState.Status == BudgetStatus.Active ||  _BudgetState.Status == BudgetStatus.Closed;
+
+            _BudgetState.Exonerations = isActiveOrClosed
+                ? await ParameterService.ec.GetExonerationByBudgetHeader(_BudgetState.Budget.IdBudgetHeader)
+                : await ParameterService.ec.GetExonerationsByBuildingAsync(_BudgetState.Budget.IdBuilding);
+
+            _BudgetState.Installments = await ParameterService.ec.GetInstallmentsByBudget(_BudgetState.Budget.IdBudgetHeader);
             _BudgetState.CalculateTotals();
         }
     }
@@ -1426,7 +1433,7 @@
                             readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Lectura actual debe ser mayor a la anterior");
                             }*/
 
-                if (reading.Consumption <= 0)
+            if (reading.Consumption <= 0)
                         {
                             readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Consumo inválido");
                         }
@@ -1511,7 +1518,7 @@
 
 
             // 7. Mostrar errores si los hay
-        if (errorMessages.Any())
+    if (errorMessages.Any())
             {
                 var errorDetails = string.Join("\n• ", errorMessages);
 
@@ -1535,7 +1542,7 @@
                     await ShowToast("Cancelado", "La publicación fue cancelada por el usuario.", "warning");
                     }
                 return;*/
-        }
+    }
             else
             {
                 //8. Proceder con la publicación si todo está válido
@@ -1563,7 +1570,7 @@
             await SaveCalculation();
 
             // 3. Generar cuotas para cada departamento
-            await GenerateInstallments();
+            //await GenerateInstallments();
 
             // 4. Registrar auditoría
             await RegisterAuditLog();
@@ -1591,243 +1598,6 @@
         }
     }
 
-    private async Task GenerateInstallments()
-    {
-        try
-        {
-            // Limpiar cuotas existentes para este presupuesto
-            /*var existingInstallments = await _installmentService.GetByBudgetAsync(_BudgetState.Budget!.IdBudgetHeader);
-            if (existingInstallments.Any())
-            {
-                await  _installmentService.DeleteRangeAsync(existingInstallments.Select(x => x.IdInstallment));
-                }*/
-
-                            // Obtener excepciones para este presupuesto
-                            var exceptions = new List<InstallmentException>(); //  await _exceptionService.GetExceptionsByBudgetAsync(_BudgetState.Budget.IdBudgetHeader);
-
-            // Calcular distribución por departamento considerando excepciones
-            var installments = new List<Installment>();
-            var totalArea = Installments!.Sum(x => x.TotalArea);
-
-            foreach (var unit in Installments!)
-            {
-                // Calcular porcentaje base basado en área
-                var areaPercentage = (unit.TotalArea / totalArea) * 100;
-
-                // Calcular monto de la cuota considerando excepciones
-                var installmentAmount = CalculateInstallmentAmountWithExceptions(unit, areaPercentage, exceptions);
-
-                // Calcular porcentaje final ajustado por excepciones
-                var finalPercentage = CalculateAdjustedPercentage(unit, areaPercentage, exceptions);
-
-                var installment = new Installment
-                {
-                    IdInstallment = Guid.NewGuid(),
-                    IdBudgetHeader = _BudgetState.Budget!.IdBudgetHeader,
-                    IdGroupUnit = unit.IdGroupUnit,
-                    UnitName = unit.UnitName,
-                    OwnerName = unit.OwnerName,
-                    TotalArea = unit.TotalArea,
-                    Percent = Math.Round(finalPercentage, 2),
-                    Amount = Math.Round(installmentAmount, 2),
-                    DueDate = _BudgetState.Budget.BudgetDate.AddMonths(1),
-                    Status = 1, // Pendiente
-                    //CreatedAt = DateTime.Now,
-                    CreatedBy = "eechevarria"  //_currentUser.Id
-                };
-
-                installments.Add(installment);
-            }
-
-            // Guardar cuotas
-            //await _installmentService.CreateRangeAsync(installments);
-
-            // Actualizar lista local
-            Installments = installments;
-        }
-        catch (Exception ex)
-        {
-            throw new Exception($"Error generando cuotas: {ex.Message}", ex);
-        }
-    }
-
-    private decimal CalculateInstallmentAmountWithExceptions(Installment unit, decimal areaPercentage,
-        List<InstallmentException> exceptions)
-    {
-        decimal totalAmount = 0;
-
-        // 1. Agrupar items del presupuesto por categoría
-        var itemsByCategory = _BudgetState.Budget!.Details
-            .Where(x => !x.IsHeader)
-            .GroupBy(x => x.IdCategory)
-            .ToDictionary(g => g.Key, g => g.ToList());
-
-        // 2. Para cada categoría, calcular la distribución
-        foreach (var categoryGroup in itemsByCategory)
-        {
-            var categoryId = categoryGroup.Key;
-            var categoryItems = categoryGroup.Value;
-            var totalCategoryAmount = categoryItems.Sum(x => x.MonthlyAmount);
-
-            // Verificar si este departamento tiene excepción para esta categoría
-            var unitException = exceptions.FirstOrDefault(e =>
-                e.IdGroupUnit == unit.IdGroupUnit &&
-                e.IdCategory == categoryId &&
-                e.IsActive);
-
-            if (unitException != null)
-            {
-                // El departamento tiene excepción para esta categoría
-                var excludedAmount = totalCategoryAmount * (unitException.PercentageExcluded / 100);
-                var applicableAmount = totalCategoryAmount - excludedAmount;
-
-                /*if (applicableAmount > 0)
-                {
-                    // Redistribuir el monto excluido entre los demás departamentos
-                    var redistributedAmount = await RedistributeExcludedAmount(
-                        excludedAmount, categoryId, unit.IdGroupUnit, exceptions);
-
-                    // Calcular participación de este departamento en el monto redistribuido
-                    var redistributionShare = CalculateRedistributionShare(unit, categoryId, exceptions);
-                    totalAmount += (applicableAmount * (areaPercentage / 100)) +
-                                  (redistributedAmount * redistributionShare);
-                }*/
-            }
-            else
-            {
-                // Sin excepción, distribución normal
-                // Para categorías específicas (ej: agua), cálculo individual
-                if (categoryId == _idAgua && _BudgetState.WaterReadings?.Any() == true)
-                {
-                    var waterItem = _BudgetState.WaterReadings.FirstOrDefault(w => w.IdGroupUnit == unit.IdGroupUnit);
-                    if (waterItem != null)
-                    {
-                        totalAmount += waterItem.CalculatedAmount;
-                    }
-                }
-                else
-                {
-                    // Distribución proporcional al área
-                    totalAmount += totalCategoryAmount * (areaPercentage / 100);
-                }
-            }
-        }
-
-        return totalAmount;
-    }
-
-    private async Task<decimal> RedistributeExcludedAmount(decimal excludedAmount, Guid categoryId,
-        Guid excludedUnitId, List<InstallmentException> exceptions)
-    {
-        // Encontrar departamentos que SÍ deben pagar esta categoría
-        var payingUnits = Installments!
-            .Where(u => u.IdGroupUnit != excludedUnitId)
-            .ToList();
-
-        if (!payingUnits.Any())
-            return 0;
-
-        // Calcular nueva distribución considerando excepciones de otros departamentos
-        var totalApplicableArea = 0m;
-        var applicableUnits = new List<(Guid UnitId, decimal Area, bool HasException)>();
-
-        foreach (var unit in payingUnits)
-        {
-            var hasException = exceptions.Any(e =>
-                e.IdGroupUnit == unit.IdGroupUnit &&
-                e.IdCategory == categoryId &&
-                e.IsActive);
-
-            if (!hasException)
-            {
-                applicableUnits.Add((unit.IdGroupUnit, unit.TotalArea, false));
-                totalApplicableArea += unit.TotalArea;
-            }
-            else
-            {
-                var exception = exceptions.First(e =>
-                    e.IdGroupUnit == unit.IdGroupUnit &&
-                    e.IdCategory == categoryId);
-
-                // Si tiene excepción parcial, considerar solo el porcentaje que sí paga
-                var applicablePercentage = (100 - exception.PercentageExcluded) / 100;
-                var effectiveArea = unit.TotalArea * applicablePercentage;
-
-                applicableUnits.Add((unit.IdGroupUnit, effectiveArea, true));
-                totalApplicableArea += effectiveArea;
-            }
-        }
-
-        // Redistribuir proporcionalmente entre los departamentos aplicables
-        var redistributedAmount = 0m;
-
-        foreach (var unit in applicableUnits)
-        {
-            var share = unit.Area / totalApplicableArea;
-            redistributedAmount += excludedAmount * share;
-        }
-
-        return redistributedAmount;
-    }
-
-    private decimal CalculateAdjustedPercentage(Installment unit, decimal areaPercentage,
-        List<InstallmentException> exceptions)
-    {
-        // Calcular porcentaje ajustado considerando excepciones
-        var totalWeightedArea = 0m;
-        var unitEffectiveArea = unit.TotalArea;
-
-        // Ajustar el área efectiva del departamento basado en sus excepciones
-        var unitExceptions = exceptions
-            .Where(e => e.IdGroupUnit == unit.IdGroupUnit && e.IsActive)
-            .ToList();
-
-        if (unitExceptions.Any())
-        {
-            // Reducir el área efectiva proporcionalmente a las excepciones
-            var exceptionFactor = 1m;
-            foreach (var exception in unitExceptions)
-            {
-                // Cada excepción reduce la participación en la distribución
-                exceptionFactor -= (exception.PercentageExcluded / 100) * GetCategoryWeight(exception.IdCategory);
-            }
-
-            unitEffectiveArea *= Math.Max(exceptionFactor, 0);
-        }
-
-        // Calcular áreas efectivas de todos los departamentos
-        var effectiveAreas = new Dictionary<Guid, decimal>();
-
-        foreach (var u in Installments!)
-        {
-            var effectiveArea = u.TotalArea;
-            var uExceptions = exceptions
-                .Where(e => e.IdGroupUnit == u.IdGroupUnit && e.IsActive)
-                .ToList();
-
-            if (uExceptions.Any())
-            {
-                var exceptionFactor = 1m;
-                foreach (var exception in uExceptions)
-                {
-                    exceptionFactor -= (exception.PercentageExcluded / 100) * GetCategoryWeight(exception.IdCategory);
-                }
-
-                effectiveArea *= Math.Max(exceptionFactor, 0);
-            }
-
-            effectiveAreas[u.IdGroupUnit] = effectiveArea;
-            totalWeightedArea += effectiveArea;
-        }
-
-        // Calcular porcentaje ajustado
-        var adjustedPercentage = totalWeightedArea > 0
-            ? (unitEffectiveArea / totalWeightedArea) * 100
-            : areaPercentage;
-
-        return adjustedPercentage;
-    }
-
     private decimal GetCategoryWeight(Guid categoryId)
     {
         // Peso de la categoría en la distribución total
@@ -1841,46 +1611,6 @@
             .Sum(x => x.MonthlyAmount);
 
         return totalAmount > 0 ? categoryAmount / totalAmount : 0;
-    }
-
-    private decimal CalculateRedistributionShare(Installment unit, Guid categoryId,
-        List<InstallmentException> exceptions)
-    {
-        // Calcular cuánto le corresponde de los montos redistribuidos
-        var unitException = exceptions.FirstOrDefault(e =>
-            e.IdGroupUnit == unit.IdGroupUnit &&
-            e.IdCategory == categoryId &&
-            e.IsActive);
-
-        if (unitException != null && unitException.PercentageExcluded < 100)
-        {
-            // Si tiene excepción parcial, puede recibir redistribución
-            return (100 - unitException.PercentageExcluded) / 100;
-        }
-
-        // Sin excepción o excepción total = no recibe redistribución
-        return 0;
-    }
-
-    private decimal CalculateInstallmentAmount(decimal percentage)
-    {
-        // Calcular monto base del presupuesto (sin agua)
-        var baseAmount = _BudgetState.Budget!.Details
-            .Where(x => !x.IsHeader && x.IdCategory != _idAgua)
-            .Sum(x => x.MonthlyAmount);
-
-        // Calcular agua si existe
-        decimal waterAmount = 0;
-        if (_BudgetState.WaterReadings?.Any() == true)
-        {
-            waterAmount = _BudgetState.WaterReadings.Sum(x => x.CalculatedAmount);
-        }
-
-        // Distribuir monto base según porcentaje y agregar agua individual
-        var baseDistribution = (baseAmount * percentage) / 100;
-        // Nota: El agua se calcula individualmente por departamento
-
-        return baseDistribution;
     }
 
     private async Task<bool> ShouldNotifyOwners()
@@ -2028,28 +1758,11 @@
 
     // Propiedades adicionales necesarias (agregar al @code)
     private List<Installment>? Installments { get; set; }
-    //private BudgetHeader? Budget { get; set; }
-    //private List<ServiceReadingDetail>? WaterReadings { get; set; }
-    private Guid _idAgua = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
-
-    // Servicios (inyectados)
-    //[Inject] private IInstallmentService _installmentService { get; set; } = null!;
-    //[Inject] private IEmailService _emailService { get; set; } = null!;
-    //[Inject] private IAuditService _auditService { get; set; } = null!;
-    //[Inject] private IParameterService _parameterService { get; set; } = null!;
-    //[Inject] private IHttpContextAccessor _httpContextAccessor { get; set; } = null!;
     [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
-
     //private CurrentUser _currentUser; // Debes tener este objeto con los datos del usuario actual
 
     private async Task OnConfirmationResult(bool confirmed)
     {
         await util.OnConfirmationResult(confirmed);
     }
-
-
-
-
-
-
 }

@@ -1,0 +1,422 @@
+﻿@page "/periods"
+@page "/periods/{buildingId:guid}"
+
+@using System.ComponentModel.DataAnnotations
+@inject NavigationManager Navigation
+@inject Services.IPeriodService PeriodService
+@inject Services.ParameterService ParameterService
+@using SpiderHood.Components.Pages.Components
+@rendermode InteractiveServer
+
+<PageTitle>Administración de Periodos</PageTitle>
+
+<div class="container">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1">Lista de Periodos </h1>
+            <p class="text-muted mb-0">Listado de Periodos por Edificio</p>
+        </div>
+        <!-- Botones de Acción -->
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="CreateNew">
+                <i class="bi bi-plus-circle me-2"></i>Nuevo Periodo
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Total Periodos:</h6>
+                            <h2 class="mb-0">@_pagination.TotalRecords</h2>
+                        </div>
+                        <div style="color: #3b82f6;">
+                            <i class="bi bi-calculator-fill" style="font-size: 1.2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Total Activos</h6>
+                            <h2 class="mb-0">@_pagination.TotalRecords</h2>
+                        </div>
+                        <div style="color: #10b981;">
+                            <i class="bi bi-calendar-check-fill" style="font-size: 1.2rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Controles específicos para lecturas -->
+    <div class="row mb-2">
+        <div class="d-flex align-items-center gap-3 mt-2 mt-md-0">
+            <div style="width:60%">
+                <h3 class="h5 mb-0">
+                    <i class="bi bi-table me-2"></i>Vista previa de datos
+                </h3>
+                <p class="text-muted mb-0 mt-1">
+                    Mostrando @_pagination.StartRecord - @_pagination.EndRecord de @_pagination.TotalRecords registros
+                </p>
+            </div>
+            <div class="col-md-3">
+                <InputText type="text" class="form-control border-start-0"
+                           placeholder="Buscar Periodos ..."
+                           @bind-Value="@searchTerm"
+                           @oninput="OnSearch" />
+            </div>
+            <!-- Filtro por estado -->
+            <!--<div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-funnel me-1"></i>
+                    @(selectedFilter == "all" ? "Todos" :
+                                    selectedFilter == "valid" ? "Válidos" :
+                                    selectedFilter == "duplicate" ? "Duplicados" :
+                                    "Con error")
+                </button>
+                <ul class="dropdown-menu">
+                    @foreach (var filter in filters)
+                    {
+                        <li>
+                            <a class="dropdown-item @(selectedFilter == filter ? "active" : "")"
+                               @onclick="() => ChangeFilter(filter)">
+                                @GetFilterLabel(filter)
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </div>-->
+            <!-- Selector de página -->
+            <div class="d-flex align-items-center">
+                <label class="me-2 text-muted">Mostrar:</label>
+                <select class="form-select form-select-sm" style="width: auto;"
+                        @onchange="(e) => ChangePageSize(Convert.ToInt32(e.Value))">
+                    <!option value="10" selected="@(pageSize == 10)">10</!option>
+                    <!option value="25" selected="@(pageSize == 25)">25</!option>
+                    <!option value="50" selected="@(pageSize == 50)">50</!option>
+                    <!option value="100" selected="@(pageSize == 100)">100</!option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+
+
+    @if (loading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Fecha Inicio</th>
+                        <th>Fecha Fin</th>
+                        <th>Fecha Cierre</th>
+                        <th>Estado</th>
+                        <th>Periodo Actual</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var period in _pagination.CurrentPageData)
+                    {
+                        <tr>
+                            <td>@period.Name</td>
+                            <td>@GetPeriodTypeDescription(period.PeriodType)</td>
+                            <td>@period.StartDate.ToString("dd/MM/yyyy")</td>
+                            <td>@period.EndDate.ToString("dd/MM/yyyy")</td>
+                            <td>@period.ClosingDate.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                <span class="badge @GetStatusBadgeClass(period.Status)">
+                                    @GetStatusDescription(period.Status)
+                                </span>
+                            </td>
+                            <td>
+                                @if (period.IsCurrentPeriod)
+                                {
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-x-circle-fill text-secondary"></i>
+                                }
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        @onclick="() => EditPeriod(period)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => DeletePeriod(period)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                @if (!period.IsCurrentPeriod && period.Status == 1) // Active
+                                {
+                                    <button class="btn btn-sm btn-outline-success"
+                                            @onclick="() => SetAsCurrent(period.IdPeriod)">
+                                        <i class="bi bi-star-fill"></i>
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_pagination.TotalRecords == 0)
+        {
+            <div class="alert alert-warning">
+                No hay periodos registrados
+            </div>
+        }
+    }
+    <!-- Reutilizar el mismo componente de paginación -->
+    <PaginationControls _pagination="@_pagination" />
+
+    <PeriodForm ShowModal="ShowModal" isNew="@isNew" OnSave="SavePeriod" period="period" />
+</div>
+
+@code {
+    [Parameter]
+    public Guid BuildingId { get; set; }
+
+
+    private bool ShowModal = false;
+    private bool isNew = false;
+
+    private List<Models.Period> periods = new();
+    private Models.Period period = new();
+    //private List<Models.Period> filteredPeriods = new();
+    private bool loading = true;
+    //private string searchTerm = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        if (ParameterService.CurrentBuilding == null  )
+            return;
+
+        await LoadPeriods();
+
+        loading = false;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (BuildingId != Guid.Empty)
+        {
+            await LoadPeriods();
+        }
+    }
+
+    private async Task LoadPeriods()
+    {
+        periods = (await PeriodService.GetPeriodsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding)).ToList();
+        _pagination.Initialize(periods);
+        // Suscribirse a cambios en la paginación
+        _pagination.OnPaginationChanged += StateHasChanged;
+    }
+
+    private void CreateNew()
+    {
+        ShowModal = true;
+        isNew = true;
+        period = ParameterService.CreateNewPeriod(DateTime.Today).Result;
+    }
+
+    private void EditPeriod(Models.Period _period)
+    {
+        ShowModal = true;
+        isNew = false;
+        period = _period;
+    }
+
+    private async Task SavePeriod(Models.Period _period)
+    {
+        //TODO
+    }
+
+    private async Task DeletePeriod(Models.Period period)
+    {
+        /*var result = await SweetAlert.FireAsync(new SweetAlertOptions
+        {
+            Title = "¿Está seguro?",
+            Text = $"¿Desea eliminar el periodo {period.Name}?",
+            Icon = SweetAlertIcon.Warning,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Sí, eliminar",
+            CancelButtonText = "Cancelar"
+        });
+
+        if (result.IsConfirmed)
+        {
+            var success = await PeriodService.DeletePeriodAsync(period.IdPeriod);
+            if (success)
+            {
+                await SweetAlert.FireAsync("¡Eliminado!", "El periodo ha sido eliminado.", SweetAlertIcon.Success);
+                await LoadPeriods();
+            }
+        }*/
+    }
+
+    private async Task SetAsCurrent(Guid periodId)
+    {
+        /*var result = await SweetAlert.FireAsync(new SweetAlertOptions
+        {
+            Title = "¿Está seguro?",
+            Text = "¿Desea establecer este periodo como el periodo actual?",
+            Icon = SweetAlertIcon.Question,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Sí, establecer",
+            CancelButtonText = "Cancelar"
+        });
+
+        if (result.IsConfirmed)
+        {
+            var success = await PeriodService.SetAsCurrentPeriodAsync(periodId, BuildingId);
+            if (success)
+            {
+                await SweetAlert.FireAsync("¡Actualizado!", "El periodo ha sido establecido como actual.", SweetAlertIcon.Success);
+                await LoadPeriods();
+            }
+        }*/
+    }
+
+    private string GetPeriodTypeDescription(int periodType)
+    {
+        return periodType switch
+        {
+            1 => "Mensual",
+            2 => "Bimestral",
+            3 => "Trimestral",
+            4 => "Semestral",
+            5 => "Anual",
+            _ => "Desconocido"
+        };
+    }
+
+    private string GetStatusDescription(int status)
+    {
+        return status switch
+        {
+            0 => "Inactivo",
+            1 => "Activo",
+            2 => "Cerrado",
+            _ => "Desconocido"
+        };
+    }
+
+    private string GetStatusBadgeClass(int status)
+    {
+        return status switch
+        {
+            0 => "bg-secondary",
+            1 => "bg-success",
+            2 => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+    
+    #region Paginación
+
+    private Utilities.PeriodPagination _pagination = new Utilities.PeriodPagination();
+    private string searchTerm = string.Empty;
+    private string selectedFilter = "all";
+    private int pageSize = 25;
+
+    private void SortColumn(string column)
+    {
+        _pagination.SortByColumn(column);
+    }
+
+    private void SelectReading(Models.Period reading)
+    {
+        // Lógica para seleccionar una lectura
+        Console.WriteLine($"Seleccionada lectura: {reading.Name}");
+    }
+
+    private void OnSearch(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        _pagination.Search(searchTerm);
+    }
+
+    private void OnFilterChanged()
+    {
+        // Aplicar filtro según la selección
+        /*switch (selectedFilter)
+        {
+            case "processed":
+                _pagination.FilterByProcessingStatus(true);
+                break;
+            case "unprocessed":
+                _pagination.FilterByProcessingStatus(false);
+                break;
+            case "minimum":
+                _pagination.FilterMinimumConsumption();
+                break;
+            default:
+                _pagination.ClearFilters();
+                break;
+        }*/
+    }
+
+    private void OnPageSizeChanged()
+    {
+        _pagination.ChangePageSize(pageSize);
+    }
+
+    public void Dispose()
+    {
+        _pagination.OnPaginationChanged -= StateHasChanged;
+    }
+
+    private void ChangeFilter(string filter)
+    {
+        selectedFilter = filter;
+        OnFilterChanged();
+    }
+
+    private void ChangePageSize(int newSize)
+    {
+        pageSize = newSize;
+        OnPageSizeChanged();
+    }
+
+    private List<string> filters = new() { "all", "Procesadas", "Sin Procesar", "Consumo Mínimo" };
+
+    private string GetFilterLabel(string filter) => filter switch
+    {
+        "all" => "Todos",
+        "Procesadas" => "Procesadas",
+        "Sin Procesar" => "Sin Procesar",
+        "Consumo Mínimo" => "Consumo Mínimo",
+        _ => filter
+    };
+    #endregion
+
+}

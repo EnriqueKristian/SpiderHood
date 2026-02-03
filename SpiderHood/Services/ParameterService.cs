@@ -272,18 +272,21 @@ namespace SpiderHood.Services
 
         public async Task<Models.Period> CreateNewPeriod(DateTime lastPeriod)
         {
+            DateTime _new = new DateTime(lastPeriod.Year, lastPeriod.Month, 1);
+
             return new Models.Period
             {
                 IdPeriod = Guid.NewGuid(),
                 IdBuilding = CurrentBuilding.IdBuilding,
                 Name = lastPeriod.ToString("MMMM-yy", CultureInfo.InvariantCulture),
                 PeriodType = 1,
-                StartDate = lastPeriod,
-                EndDate = new DateTime(lastPeriod.Year, lastPeriod.Month, DateTime.DaysInMonth(lastPeriod.Year, lastPeriod.Month)),
-                ClosingDate = new DateTime(lastPeriod.Year, lastPeriod.Month, DateTime.DaysInMonth(lastPeriod.Year, lastPeriod.Month)),
+                StartDate = _new,
+                EndDate = _new.AddMonths(1).AddDays(-1),
+                ClosingDate = _new.AddMonths(1).AddDays(15),
                 Status = 1,
                 IsCurrentPeriod = true,
-                IsNewPeriod = true
+                IsNewPeriod = true,
+                Description = $"Período generado automáticamente para {_new.ToString("MMMM yyyy", CultureInfo.InvariantCulture)}"
             };
         }
 

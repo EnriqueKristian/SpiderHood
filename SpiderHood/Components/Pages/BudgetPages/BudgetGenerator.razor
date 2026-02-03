@@ -728,7 +728,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (ParameterService.CurrentBuilding == null || presupuestoService._Budgets.Count ==0 )
+        if (ParameterService.CurrentBuilding == null  )
             return;
 
         //Obtiene el presupuesto de la pagina de lista de presupuestos
@@ -1173,7 +1173,9 @@
     {
         if (_newCalcModal == null ) return;
 
-        _ultimoPeriodo = presupuestoService._Budgets.Max(c => c.BudgetDate);
+        _ultimoPeriodo = presupuestoService._Budgets.Count > 0
+    ? presupuestoService._Budgets.Max(c => c.BudgetDate)
+    : _periods.FirstOrDefault()!.StartDate;
 
         //NOTE: Deberia validar que el presupuesto que se quiere crear no exista 
         if (_ultimoPeriodo >= _periods.Max(p => p.StartDate) )
@@ -1349,8 +1351,10 @@
 
     private void LoadTotalConsumtion(List<ServiceReadingDetail> WaterReadings)
     {
-        _BudgetState.WaterReadings = WaterReadings;
-    }
+        var newitem = WaterReadings.Select(b => b.Clone()).ToList();
+        _BudgetState.WaterReadings = newitem;
+        _ = CalculateTotals();
+    }  
 
     private async Task PublishBudget(MouseEventArgs args)
     {
@@ -1433,7 +1437,7 @@
                             readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Lectura actual debe ser mayor a la anterior");
                             }*/
 
-            if (reading.Consumption <= 0)
+    if (reading.Consumption <= 0)
                         {
                             readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Consumo inválido");
                         }
@@ -1525,24 +1529,7 @@
                 var message = $"Se encontraron los siguientes problemas:\n\n• {errorDetails}\n\n¿Desea continuar de todos modos?";
 
                 await util.ExecuteWithConfirmation(Sample, "actionName", _confirmationModal, message, "danger", true);
-
-                /*var confirmed = await ShowConfirmationDialog(
-                "Validaciones Pendientes",
-                        $"Se encontraron los siguientes problemas:\n\n• {errorDetails}\n\n¿Desea continuar de todos modos?",
-                        "Continuar",
-                        "Cancelar"
-                    );
-
-                if (confirmed)
-                {
-                    await ProceedWithPublish();
-                    }
-                else
-                {
-                    await ShowToast("Cancelado", "La publicación fue cancelada por el usuario.", "warning");
-                    }
-                return;*/
-    }
+            }
             else
             {
                 //8. Proceder con la publicación si todo está válido
@@ -1583,7 +1570,7 @@
 
             // 6. Mostrar éxito
             await HideLoading();
-            await ShowToast("Éxito", "Presupuesto publicado correctamente", "success");
+            await ShowToast("Éxito", $"Presupuesto {getStatusNameMessage(_Status)} correctamente", "success");
 
             // 7. Actualizar UI
             StateHasChanged();
@@ -1597,6 +1584,32 @@
             await ShowToast("Error", $"Error al procesar la publicación: {ex.Message}", "danger");
         }
     }
+
+    private string getStatusNameMessage(BudgetStatus status)
+    {
+        string _mensaje = "guardado";
+
+        switch (status){
+            case BudgetStatus.Check: 
+                _mensaje = " enviardo a aprobacion";
+                break;
+            case BudgetStatus.Rejected:
+                _mensaje = " rechazado";
+                break;
+            case BudgetStatus.Approved:
+                _mensaje = " aprobado";
+                break;
+            case BudgetStatus.Active:
+                _mensaje = " publicado";
+                break;
+            case BudgetStatus.Closed:
+                _mensaje = " cerrado";
+                break;
+        }
+        return _mensaje;
+    }
+
+
 
     private decimal GetCategoryWeight(Guid categoryId)
     {

@@ -1,13 +1,16 @@
 ﻿using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.InkML;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 using System;
-using System.Net.NetworkInformation;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
 
 namespace SpiderHood.Services
 {
-
     // Services/IPresupuestoService.cs
     public interface IPresupuestoService
     {
@@ -41,8 +44,6 @@ namespace SpiderHood.Services
         Task<List<PresupuestoCategoria>> GetCategoriasByPresupuestoAsync(Guid presupuestoId);
         Task UpdateCategoriaPresupuestoAsync(PresupuestoCategoria presupuestoCategoria);
     }
-
-
     public class BudgetService : IPresupuestoService
     {
 
@@ -388,10 +389,13 @@ namespace SpiderHood.Services
                 }
                 else
                 {
-                    if ( state.Status < BudgetStatus.Check || state.Status == BudgetStatus.Rejected)
+                    if (state.Status < BudgetStatus.Check || state.Status == BudgetStatus.Rejected)
                         await UpdateExistingBudgetAsync(state);
                     else
+                    {
                         await ec.UpdateRecordAsync(state.Budget);
+                        await ec.UpdateRecordAsync(state.Budget.IdBuilding, state.Budget.BudgetDate);
+                    }
                 }
 
                 await transaction.CommitAsync();
@@ -976,6 +980,220 @@ namespace SpiderHood.Services
 
         #endregion
     }
+
+    // Services/IPeriodService.cs
+    public interface IPeriodService
+    {
+        Task<IEnumerable<Models.Period>> GetPeriodsByBuildingAsync(Guid IdBuilding);
+        Task<Models.Period> GetPeriodByIdAsync(Guid id);
+        Task<Models.Period> GetCurrentPeriodAsync(Guid buildingId);
+        Task<bool> CreatePeriodAsync(Models.Period period);
+        Task<bool> UpdatePeriodAsync(Models.Period period);
+        Task<bool> DeletePeriodAsync(Guid id);
+        Task<bool> SetAsCurrentPeriodAsync(Guid periodId, Guid buildingId);
+        Task<bool> ValidatePeriodDatesAsync(Guid buildingId, DateTime startDate, DateTime endDate, Guid? excludeId = null);
+    }
+
+    public class PeriodService : IPeriodService
+    {
+        private readonly SpiderHoodContext _context;
+        private BDLayout ec { get; set; }
+
+        public PeriodService(SpiderHoodContext context)
+        {
+            _context = context;
+            ec = new BDLayout(_context);
+        }
+
+        public async Task<IEnumerable<Models.Period>> GetPeriodsByBuildingAsync(Guid IdBuilding)
+        {
+            return await ec.GetPeriodByBuilding(IdBuilding);
+            /*return await _context.Periods
+                .Where(p => p.IdBuilding == buildingId)
+                .OrderByDescending(p => p.StartDate)
+                .ToListAsync();*/
+        }
+
+        public async Task<Models.Period> GetPeriodByIdAsync(Guid id)
+        {
+            /*return await _context.Periods
+                .FirstOrDefaultAsync(p => p.IdPeriod == id);*/
+            return new Models.Period();
+        }
+
+        public async Task<Models.Period> GetCurrentPeriodAsync(Guid buildingId)
+        {
+            /*return await _context.Periods
+                .FirstOrDefaultAsync(p => p.IdBuilding == buildingId && p.IsCurrentPeriod && p.Status == 1);*/
+            return new Models.Period();
+        }
+
+        public async Task<bool> CreatePeriodAsync(Models.Period period)
+        {
+            /*try
+            {
+                // Validar que no haya superposición de fechas
+                var hasOverlap = await _context.Periods.AnyAsync(p =>
+                    p.IdBuilding == period.IdBuilding &&
+                    p.IdPeriod != period.IdPeriod &&
+                    ((p.StartDate <= period.EndDate && p.EndDate >= period.StartDate) ||
+                     (period.StartDate <= p.EndDate && period.EndDate >= p.StartDate)));
+
+                if (hasOverlap)
+                {
+                    throw new Exception("El periodo se superpone con otro periodo existente");
+                }
+
+                _context.Periods.Add(period);
+
+                // Si este periodo es el actual, desmarcar los demás
+                if (period.IsCurrentPeriod)
+                {
+                    await UnsetOtherCurrentPeriods(period.IdBuilding, period.IdPeriod);
+                }
+
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }*/
+            return true;
+        }
+
+        public async Task<bool> UpdatePeriodAsync(Models.Period period)
+        {
+            /*try
+            {
+                // Validar que no haya superposición de fechas
+                var hasOverlap = await _context.Periods.AnyAsync(p =>
+                    p.IdBuilding == period.IdBuilding &&
+                    p.IdPeriod != period.IdPeriod &&
+                    ((p.StartDate <= period.EndDate && p.EndDate >= period.StartDate) ||
+                     (period.StartDate <= p.EndDate && period.EndDate >= p.StartDate)));
+
+                if (hasOverlap)
+                {
+                    throw new Exception("El periodo se superpone con otro periodo existente");
+                }
+
+                var existingPeriod = await _context.Periods.FindAsync(period.IdPeriod);
+                if (existingPeriod == null)
+                    return false;
+
+                _context.Entry(existingPeriod).CurrentValues.SetValues(period);
+
+                // Si este periodo es el actual, desmarcar los demás
+                if (period.IsCurrentPeriod)
+                {
+                    await UnsetOtherCurrentPeriods(period.IdBuilding, period.IdPeriod);
+                }
+
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }*/
+            return false;
+        }
+
+        public async Task<bool> DeletePeriodAsync(Guid id)
+        {
+            /*try
+            {
+                var period = await _context.Periods.FindAsync(id);
+                if (period == null)
+                    return false;
+
+                // Verificar si tiene datos relacionados
+                var hasReadings = await _context.ServiceReadings
+                    .AnyAsync(r => r.IdPeriod == id);
+
+                var hasBudgets = await _context.BudgetHeaders
+                    .AnyAsync(b => b.IdPeriod == id);
+
+                if (hasReadings || hasBudgets)
+                {
+                    throw new Exception("No se puede eliminar el periodo porque tiene datos relacionados");
+                }
+
+                _context.Periods.Remove(period);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }*/
+            return false;
+        }
+
+        public async Task<bool> SetAsCurrentPeriodAsync(Guid periodId, Guid buildingId)
+        {
+            /*try
+            {
+                // Desmarcar todos los periodos como no actuales
+                var periods = await _context.Periods
+                    .Where(p => p.IdBuilding == buildingId)
+                    .ToListAsync();
+
+                foreach (var period in periods)
+                {
+                    period.IsCurrentPeriod = false;
+                }
+
+                // Marcar el periodo seleccionado como actual
+                var selectedPeriod = await _context.Periods.FindAsync(periodId);
+                if (selectedPeriod != null)
+                {
+                    selectedPeriod.IsCurrentPeriod = true;
+                    selectedPeriod.Status = 1; // Asegurar que esté activo
+                }
+
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }*/
+            return false;
+        }
+
+        public async Task<bool> ValidatePeriodDatesAsync(Guid buildingId, DateTime startDate, DateTime endDate, Guid? excludeId = null)
+        {
+            /*var query = _context.Periods
+                .Where(p => p.IdBuilding == buildingId &&
+                           ((p.StartDate <= endDate && p.EndDate >= startDate) ||
+                            (startDate <= p.EndDate && endDate >= p.StartDate)));
+
+            if (excludeId.HasValue)
+            {
+                query = query.Where(p => p.IdPeriod != excludeId.Value);
+            }
+
+            return !await query.AnyAsync();*/
+            return false;
+        }
+
+        private async Task UnsetOtherCurrentPeriods(Guid buildingId, Guid currentPeriodId)
+        {
+            /*var otherCurrentPeriods = await _context.Periods
+                .Where(p => p.IdBuilding == buildingId &&
+                           p.IdPeriod != currentPeriodId &&
+                           p.IsCurrentPeriod)
+                .ToListAsync();
+
+            foreach (var period in otherCurrentPeriods)
+            {
+                period.IsCurrentPeriod = false;
+            }*/
+        }
+    }
+
 }
 
 

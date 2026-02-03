@@ -627,6 +627,20 @@ namespace SpiderHood.Data
             return ec!;
         }
 
+        public async Task<bool> UpdateRecordAsync(Guid IdBuilding, DateTime Period)
+        {
+            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
+            await _dbcontext!.Database.ExecuteSqlRawAsync(
+                "UPD_ClosePastBudgets {0},{1}",
+                Period!,
+                IdBuilding!
+                
+            );
+
+            await _dbcontext.SaveChangesAsync();
+            return true;
+        }
+
         public async Task<SpiderHood.Models.Category> UpdateRecordAsync(SpiderHood.Models.Category? ec)
         {
             // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica

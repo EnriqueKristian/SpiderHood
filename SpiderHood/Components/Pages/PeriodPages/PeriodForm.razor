@@ -1,0 +1,218 @@
+﻿@using SpiderHood.Models
+@using SpiderHood.Services
+@inject ParameterService ParameterService
+@inject Services.IPeriodService PeriodService
+@inherits LayoutComponentBase
+
+@if (ShowModal)
+{
+<div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header">
+                    <i class="fas fa-water mr-2"></i><h5 class="modal-title">&nbsp;Nuevo / Editar Periodo</h5>
+                <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="period" OnValidSubmit="HandleValidSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="name">Nombre del Periodo *</label>
+                            <InputText id="name" class="form-control" @bind-Value="period.Name" />
+                            <ValidationMessage For="@(() => period.Name)" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="periodType">Tipo de Periodo *</label>
+                            <InputSelect id="periodType" class="form-control" @bind-Value="period.PeriodType">
+                                <option value="">Seleccione...</option>
+                                <option value="1">Mensual</option>
+                                <option value="2">Bimestral</option>
+                                <option value="3">Trimestral</option>
+                                <option value="4">Semestral</option>
+                                <option value="5">Anual</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => period.PeriodType)" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="startDate">Fecha Inicio *</label>
+                            <InputDate id="startDate" class="form-control" @bind-Value="period.StartDate" />
+                            <ValidationMessage For="@(() => period.StartDate)" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="endDate">Fecha Fin *</label>
+                            <InputDate id="endDate" class="form-control" @bind-Value="period.EndDate" />
+                            <ValidationMessage For="@(() => period.EndDate)" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="closingDate">Fecha de Cierre *</label>
+                            <InputDate id="closingDate" class="form-control" @bind-Value="period.ClosingDate" />
+                            <ValidationMessage For="@(() => period.ClosingDate)" />
+                            <small class="form-text text-muted">
+                                Fecha límite para registrar lecturas y gastos
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="status">Estado *</label>
+                            <InputSelect id="status" class="form-control" @bind-Value="period.Status">
+                                <option value="0">Inactivo</option>
+                                <option value="1">Activo</option>
+                                <option value="2">Cerrado</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => period.Status)" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-check mt-4">
+                            <InputCheckbox id="isCurrent" class="form-check-input" @bind-Value="period.IsCurrentPeriod" />
+                            <label for="isCurrent" class="form-check-label">
+                                ¿Es el periodo actual?
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Descripción</label>
+                    <InputTextArea id="description" class="form-control" rows="3"
+                                   @bind-Value="period.Description" />
+                </div>
+
+            </EditForm>
+                </div>
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-outline-secondary" @onclick="CerrarModal">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" @onclick="HandleValidSubmit">
+                        Save
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool ShowModal { get; set; }
+    [Parameter] public bool isNew { get; set; }
+    [Parameter] public Guid IdBuilding { get; set; }
+    [Parameter] public Models.Period? period { get; set; }
+    [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
+    [Parameter] public EventCallback<Models.Period> OnSave { get; set; }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
+
+    private void InitializeNewPeriod()
+    {
+        period = ParameterService.CreateNewPeriod(DateTime.Today).Result;
+    }
+
+    private async Task LoadPeriod()
+    {
+        //period = await PeriodService.GetPeriodByIdAsync(Id);
+        if (period == null)
+        {
+            //await SweetAlert.FireAsync("Error", "Periodo no encontrado", SweetAlertIcon.Error);
+            //Navigation.NavigateTo($"/periods/{IdBuilding}");
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (ParameterService.CurrentBuilding == null)
+            return;
+
+        try
+        {
+            // Validar fechas
+            if (period!.StartDate >= period.EndDate)
+            {
+                //await SweetAlert.FireAsync("Error", "La fecha de inicio debe ser anterior a la fecha de fin", SweetAlertIcon.Error);
+                await ShowToast("Error", "La fecha de inicio debe ser anterior a la fecha de fin", "danger");
+                return;
+            }
+
+            if (period.ClosingDate < period.EndDate)
+            {
+                //await SweetAlert.FireAsync("Error", "La fecha de cierre no puede ser anterior a la fecha de fin", SweetAlertIcon.Error);
+                await ShowToast("Error", "La fecha de cierre no puede ser anterior a la fecha de fin", "danger");
+                return;
+            }
+
+            bool success;
+
+            if (isNew)
+            {
+                success = await PeriodService.CreatePeriodAsync(period); 
+                if (success)
+                {
+                    //await SweetAlert.FireAsync("¡Actualizado!", "El periodo ha sido actualizado correctamente", SweetAlertIcon.Success);
+                    await ShowToast("¡Actualizado!", "El periodo ha sido actualizado correctamente", "success");
+                }
+            }
+            else
+            {
+                success = await PeriodService.UpdatePeriodAsync(period);
+                if (success)
+                {
+                    //await SweetAlert.FireAsync("¡Creado!", "El periodo ha sido creado correctamente", SweetAlertIcon.Success);
+                    await ShowToast("¡Creado!", "El periodo ha sido creado correctamente", "success");
+                }
+            }
+
+            await OnSave.InvokeAsync(period);
+            ShowModal = false;
+        }
+        catch (Exception ex)
+        {
+            //await SweetAlert.FireAsync("Error", $"Ocurrió un error: {ex.Message}", SweetAlertIcon.Error);
+            await ShowToast("Error", $"Ocurrió un error: {ex.Message}", "dange");
+        }
+    }
+
+    private async Task CerrarModal()
+    {
+        ShowModal = false;
+        await ShowModalChanged.InvokeAsync(ShowModal);
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            // Fallback a console
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
+    }
+}

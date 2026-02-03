@@ -51,7 +51,7 @@
                         <div style="padding-left:20px; padding-right:20px;">
                             <div class="form-group">
                                 <label class="form-label"><strong>Período:</strong></label>
-                                <select @bind="_ultimoPeriodo" class="form-select" @bind:event="onchange" @bind:after="() => CargarPeriodo(_ultimoPeriodo)" disabled="@(!_ServiceReadingState.OpenFromModal)">
+                                <select @bind="_ultimoPeriodo" class="form-select" @bind:event="onchange" @bind:after="() => CargarPeriodo(_ultimoPeriodo)" disabled="@_ServiceReadingState.OpenFromModal">
                                     @foreach (var item in _periods.OrderBy(c => c.StartDate))
                                     {
                                         <option value="@item.StartDate">@item.StartDate.ToString("MMM-yy")</option>
@@ -73,47 +73,51 @@
                     </div>
                 </div>
 
-                <!-- Importar Excel -->
-                <div class="col-md-5">
-                    <div class="card" disabled="@(!_ServiceReadingState.OpenFromModal)">
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <!-- InputFile oculto -->
-                                <InputFile id="fileInput"
-                                           OnChange="CargarArchivoExcel"
-                                           accept=".xlsx,.xls,.csv"
-                                           style="display:none;" />
+                @if(_ServiceReadingState.CurrentReading.Status < 2 ){
+                    <!-- Importar Excel -->
+                    <div class="col-md-5">
+                        <div class="card" disabled="@(!_ServiceReadingState.OpenFromModal)">
+                            <div class="card-body">
+                            
+                                <div class="mb-3">
+                                    <!-- InputFile oculto -->
+                                    <InputFile id="fileInput"
+                                                OnChange="CargarArchivoExcel"
+                                                accept=".xlsx,.xls,.csv"
+                                                style="display:none;" />
 
-                                <!-- Botón para abrir el selector de archivos -->
-                                <div class="text-center">
-                                    <button class="btn btn-primary btn-lg" @onclick="AbrirSelectorArchivo">
-                                        <i class="fas fa-cloud-upload-alt mr-2"></i>
-                                        Importar Lecturas de Agua
-                                    </button>
+                                    <!-- Botón para abrir el selector de archivos -->
+                                    <div class="text-center">
+                                        <button class="btn btn-primary btn-lg" @onclick="AbrirSelectorArchivo">
+                                            <i class="fas fa-cloud-upload-alt mr-2"></i>
+                                            Importar Lecturas de Agua
+                                        </button>
 
-                                    <div class="summary">
-                                        <div><i class="fas fa-info-circle"></i> Formatos aceptados: .xlsx, .xls</div>
-                                        <div>
-                                            <i class="fas fa-download"></i>
-                                            <a href="javascript:void(0)" @onclick="ExportarPlantillaVacia">
-                                                Descargar plantilla
-                                            </a>
+                                        <div class="summary">
+                                            <div><i class="fas fa-info-circle"></i> Formatos aceptados: .xlsx, .xls</div>
+                                            <div>
+                                                <i class="fas fa-download"></i>
+                                                <a href="javascript:void(0)" @onclick="ExportarPlantillaVacia">
+                                                    Descargar plantilla
+                                                </a>
 
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                            
+                            
+                                @if (!string.IsNullOrEmpty(_archivoNombre))
+                                {
+                                    <div class="alert alert-success">
+                                        <i class="fas fa-check-circle mr-2"></i>
+                                        @_archivoNombre (@_lecturasCargadas.Count registros)
+                                    </div>
+                                }
                             </div>
-                            @if (!string.IsNullOrEmpty(_archivoNombre))
-                            {
-                                <div class="alert alert-success">
-                                    <i class="fas fa-check-circle mr-2"></i>
-                                    @_archivoNombre (@_lecturasCargadas.Count registros)
-                                </div>
-                            }
                         </div>
                     </div>
-                </div>
-
+                }
                 <!-- Lecturas Procesadas -->
                 <div class="col-md-3">
                     <div class="card">
@@ -322,7 +326,7 @@
 
                 <p></p>
 
-                @if (_ServiceReadingState.OpenFromModal)
+                @if (!_ServiceReadingState.OpenFromModal)
                 {
                     <!-- Botones de acción -->
                     <div class="d-flex justify-content-between">

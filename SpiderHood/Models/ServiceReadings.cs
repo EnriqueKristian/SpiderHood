@@ -53,6 +53,26 @@ namespace SpiderHood.Models
         [NotMapped]
         public CalculoResultado? CalculationDetail { get; set; }
 
+        public ServiceReadingDetail Clone()
+        {
+            return new ServiceReadingDetail
+            {
+                IdServiceReadingDetail = this.IdServiceReadingDetail,
+                IdGroupUnit = this.IdGroupUnit,
+                GroupNumber = this.GroupNumber,
+                Code = this.Code,
+                PreviousReading = this.PreviousReading,
+                CurrentReading = this.CurrentReading,
+                Consumption = this.Consumption,
+                ReadingDate = this.ReadingDate,
+                CalculatedAmount = this.CalculatedAmount,
+                Minimum = this.Minimum,
+                IdServiceReading = this.IdServiceReading,
+                Period = this.Period,
+                Procesed = this.Procesed,
+                CalculationDetail = this.CalculationDetail // Shallow copy; deep copy if needed
+            };
+        }
     }
 
     public class ServiceReading
@@ -119,7 +139,7 @@ namespace SpiderHood.Models
         {
             get
             {
-                return (Period == DateTime.MinValue);
+                return !(Period == DateTime.MinValue);
             }
         }
 

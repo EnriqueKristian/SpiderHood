@@ -515,4 +515,49 @@ namespace SpiderHood.Utilities
         }
 
     }
+
+    public class PeriodPagination : PaginationClass<Models.Period>
+    {
+        public PeriodPagination() : base()
+        {
+            var filterOptions = new Dictionary<string, string>
+        {
+            { "all", "Todos" },
+            { "valid", "Válidos" },
+            { "duplicate", "Duplicados" },
+            { "error", "Con error" }
+        };
+
+            var sortExpressions = new Dictionary<string, Func<Models.Period, object>>
+        {
+            { "Name", x => x.Name },
+            { "PeriodType", x => x.PeriodType.ToString() }
+        };
+
+            InitializeConfiguration(filterOptions, sortExpressions, "Name");
+        }
+
+        protected override List<Models.Period> ApplySearch(List<Models.Period> data, string searchTerm)
+        {
+            var term = searchTerm.ToLower();
+
+            return data
+                .Where(x => x.Name.ToLower().Contains(term) )
+                .ToList();
+
+        }
+
+        public void ApplyStatusFilter(string validationType)
+        {
+            if (validationType == "all")
+            {
+                ClearFilters();
+            }
+            else
+            {
+                ApplyCustomFilter(x => x.Status == int.Parse(validationType));
+            }
+        }
+
+    }
 }

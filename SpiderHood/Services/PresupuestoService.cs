@@ -1008,10 +1008,6 @@ namespace SpiderHood.Services
         public async Task<IEnumerable<Models.Period>> GetPeriodsByBuildingAsync(Guid IdBuilding)
         {
             return await ec.GetPeriodByBuilding(IdBuilding);
-            /*return await _context.Periods
-                .Where(p => p.IdBuilding == buildingId)
-                .OrderByDescending(p => p.StartDate)
-                .ToListAsync();*/
         }
 
         public async Task<Models.Period> GetPeriodByIdAsync(Guid id)
@@ -1030,21 +1026,18 @@ namespace SpiderHood.Services
 
         public async Task<bool> CreatePeriodAsync(Models.Period period)
         {
-            /*try
+            try
             {
                 // Validar que no haya superposición de fechas
-                var hasOverlap = await _context.Periods.AnyAsync(p =>
-                    p.IdBuilding == period.IdBuilding &&
-                    p.IdPeriod != period.IdPeriod &&
-                    ((p.StartDate <= period.EndDate && p.EndDate >= period.StartDate) ||
-                     (period.StartDate <= p.EndDate && period.EndDate >= p.StartDate)));
+                var hasOverlap = await ec.GetHasOverlapPeriod(period);
 
                 if (hasOverlap)
                 {
                     throw new Exception("El periodo se superpone con otro periodo existente");
                 }
 
-                _context.Periods.Add(period);
+                //_context.Periods.Add(period);
+                await ec.AddNewRecordAsync(period);
 
                 // Si este periodo es el actual, desmarcar los demás
                 if (period.IsCurrentPeriod)
@@ -1058,8 +1051,7 @@ namespace SpiderHood.Services
             catch (Exception)
             {
                 return false;
-            }*/
-            return true;
+            }
         }
 
         public async Task<bool> UpdatePeriodAsync(Models.Period period)
@@ -1179,18 +1171,9 @@ namespace SpiderHood.Services
             return false;
         }
 
-        private async Task UnsetOtherCurrentPeriods(Guid buildingId, Guid currentPeriodId)
+        private async Task UnsetOtherCurrentPeriods(Guid IdBuilding, Guid IdcurrentPeriod)
         {
-            /*var otherCurrentPeriods = await _context.Periods
-                .Where(p => p.IdBuilding == buildingId &&
-                           p.IdPeriod != currentPeriodId &&
-                           p.IsCurrentPeriod)
-                .ToListAsync();
-
-            foreach (var period in otherCurrentPeriods)
-            {
-                period.IsCurrentPeriod = false;
-            }*/
+            await ec.UnsetOtherCurrentPeriods(IdBuilding, IdcurrentPeriod);
         }
     }
 

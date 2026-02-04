@@ -2,6 +2,7 @@
 @using SpiderHood.Models
 @inject SpiderHood.Services.ParameterService ParameterService
 @inject SpiderHood.Services.IExceptionService _exceptionService
+@inject IJSRuntime JSRuntime
 
 <div class="card shadow-sm mt-3">
     <div class="card-header bg-light d-flex justify-content-between align-items-center">
@@ -363,7 +364,7 @@
         }
         catch (Exception ex)
         {
-            //await ShowToast("Error", $"Error al guardar excepción: {ex.Message}", "danger");
+            await ShowToast("Error", $"Error al guardar excepción: {ex.Message}", "danger");
         }
     }
 
@@ -406,5 +407,19 @@
 
             await ShowToast("Éxito", "Excepción eliminada correctamente", "success");
         }*/
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            // Fallback a console
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 }

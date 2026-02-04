@@ -7,7 +7,7 @@
 @if (ShowModal)
 {
 <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
-    <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
+    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
         <div class="modal-content shadow-lg">
             <div class="modal-header">
                     <i class="fas fa-water mr-2"></i><h5 class="modal-title">&nbsp;Nuevo / Editar Periodo</h5>
@@ -22,7 +22,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label for="name">Nombre del Periodo *</label>
-                            <InputText id="name" class="form-control" @bind-Value="period.Name" />
+                            <InputText id="name" class="form-control" @bind-Value="period!.Name" />
                             <ValidationMessage For="@(() => period.Name)" />
                         </div>
                     </div>
@@ -47,7 +47,7 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="startDate">Fecha Inicio *</label>
-                            <InputDate id="startDate" class="form-control" @bind-Value="period.StartDate" />
+                                    <InputDate id="startDate" class="form-control" @bind-Value="period.StartDate" @oninput="onChangeValues" />
                             <ValidationMessage For="@(() => period.StartDate)" />
                         </div>
                     </div>
@@ -55,7 +55,7 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="endDate">Fecha Fin *</label>
-                            <InputDate id="endDate" class="form-control" @bind-Value="period.EndDate" />
+                            <InputDate id="endDate" class="form-control" @bind-Value="period.EndDate" readonly="true" />
                             <ValidationMessage For="@(() => period.EndDate)" />
                         </div>
                     </div>
@@ -63,7 +63,7 @@
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="closingDate">Fecha de Cierre *</label>
-                            <InputDate id="closingDate" class="form-control" @bind-Value="period.ClosingDate" />
+                                    <InputDate id="closingDate" class="form-control" @bind-Value="period.ClosingDate" readonly="true" />
                             <ValidationMessage For="@(() => period.ClosingDate)" />
                             <small class="form-text text-muted">
                                 Fecha límite para registrar lecturas y gastos
@@ -173,7 +173,7 @@
                 if (success)
                 {
                     //await SweetAlert.FireAsync("¡Actualizado!", "El periodo ha sido actualizado correctamente", SweetAlertIcon.Success);
-                    await ShowToast("¡Actualizado!", "El periodo ha sido actualizado correctamente", "success");
+                    await ShowToast("¡Creado!", "El periodo ha sido creado correctamente", "success");
                 }
             }
             else
@@ -182,10 +182,10 @@
                 if (success)
                 {
                     //await SweetAlert.FireAsync("¡Creado!", "El periodo ha sido creado correctamente", SweetAlertIcon.Success);
-                    await ShowToast("¡Creado!", "El periodo ha sido creado correctamente", "success");
+                    await ShowToast("¡Actualizado!", "El periodo ha sido actualizado correctamente", "success");
                 }
             }
-
+            period.IsNewPeriod = false;
             await OnSave.InvokeAsync(period);
             ShowModal = false;
         }
@@ -214,5 +214,14 @@
             // Fallback a console
             Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
         }
+    }
+
+    private Task onChangeValues(ChangeEventArgs args)
+    {
+        if (DateTime.TryParse(args.Value?.ToString(), out var date))
+        {
+            period = ParameterService.CreateNewPeriod(date).Result;
+        }
+        return Task.CompletedTask;
     }
 }

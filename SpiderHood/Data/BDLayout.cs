@@ -1,8 +1,4 @@
-﻿using DocumentFormat.OpenXml.Drawing.Charts;
-using DocumentFormat.OpenXml.InkML;
-using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic;
+﻿using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
 
 namespace SpiderHood.Data
@@ -10,13 +6,6 @@ namespace SpiderHood.Data
     public class BDLayout(SpiderHoodContext? _db)
     {
         protected readonly SpiderHoodContext? _dbcontext = _db;
-        public SpiderHood.Models.UnitType AddNewRecord(SpiderHood.Models.UnitType? ec)
-        {
-            //Here define the ExecuteSqlRaw extension method to execute a stored procedure with INS_UnitType 
-            _dbcontext!.Database.ExecuteSqlRaw("INS_UnitType {0},{1},{2},{3}", Guid.NewGuid(), ec?.Type!, ec?.Status!, ec!.Description);
-            _dbcontext.SaveChanges();
-            return ec;
-        }
 
         public async Task<bool> DeleteRecordAsync(Models.Category? ec)
         {
@@ -84,21 +73,6 @@ namespace SpiderHood.Data
             return true;
         }
 
-        public async Task<SpiderHood.Models.UnitType> AddNewRecordAsync(SpiderHood.Models.UnitType? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_UnitType {0},{1},{2},{3}",
-                Guid.NewGuid(),
-                ec?.Type!,
-                ec?.Status!,
-                ec!.Description
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
         public async Task<SpiderHood.Models.Exoneration> AddNewRecordAsync(SpiderHood.Models.Exoneration? ec)
         {
             // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
@@ -122,7 +96,7 @@ namespace SpiderHood.Data
         {
             // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
             await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_Periods {0},{1},{2},{3},{4},{5},{6},{7},{8}",
+                "INS_Periods {0},{1},{2},{3},{4},{5},{6},{7},{8},{9}",
                 ec?.IdPeriod!,
                 ec?.Name!,
                 ec?.PeriodType!,
@@ -131,6 +105,7 @@ namespace SpiderHood.Data
                 ec?.ClosingDate!,
                 ec?.Status!,
                 ec?.IsCurrentPeriod!,
+                ec?.Description!,
                 ec?.IdBuilding!
             );
 
@@ -568,6 +543,20 @@ namespace SpiderHood.Data
             return ec!;
         }
 
+        public async Task<bool> UnsetOtherCurrentPeriods(Guid IdBuilding, Guid IdCurrentPeriod)
+        {
+            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
+            await _dbcontext!.Database.ExecuteSqlRawAsync(
+                "UPD_UnsetOtherCurrentPeriods {0},{1}",
+                IdBuilding!,
+                IdCurrentPeriod!
+            );
+
+            await _dbcontext.SaveChangesAsync();
+            return true;
+        }
+
+
         public async Task<SpiderHood.Models.BankAccount> UpdateRecordAsync(SpiderHood.Models.BankAccount? ec)
         {
             // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
@@ -874,20 +863,6 @@ namespace SpiderHood.Data
             }
         }
 
-        public List<UnitType> GetUniType()
-        {
-            try
-            {
-                return [.._dbcontext!.UnitType
-                    .FromSqlInterpolated($"EXEC GET_UnitType")
-                    ];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching UnitType", ex);
-            }
-        }
         public List<Models.Unit> GetUnitsByBuilding(Guid IdBuilding)
         {
             try
@@ -1442,6 +1417,17 @@ namespace SpiderHood.Data
                 throw new ApplicationException("Error fetching unit", ex);
             }
         }
+
+
+        public async Task<bool> GetHasOverlapPeriod(Models.Period period)
+        {
+            var result = await _dbcontext!.Database
+                .ExecuteSqlInterpolatedAsync(
+                    $"EXEC CHK_Period_CheckOverlap {period.IdBuilding}, {period.IdPeriod}, {period.EndDate}, {period.StartDate}");
+
+            return result > 0;
+        }
+
 
         public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriod(DateTime period)
         {

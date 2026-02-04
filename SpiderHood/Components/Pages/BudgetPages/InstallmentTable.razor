@@ -671,7 +671,7 @@
     private Installment? selectedInstallment = null;
     private Modal viewinstallment = null!;
     private decimal _distr;
-    private decimal _TotalAmount = 0;
+    //private decimal _TotalAmount = 0;
     private decimal _TotalInstallments => Installments!.Sum(x => x.Amount);
     private decimal _totalWaterConsumption => WaterReadings!.Sum(x => x.CalculatedAmount);
     //private Guid _idAgua => Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
@@ -756,7 +756,7 @@
         _distr = _installment.Percent / 100;
         _waterReadingsCount = WaterReadings?.Count ?? 0;
         _inverseNroGroupUnit = 1m / ParameterService.CurrentBuilding.Apartments;
-        _TotalAmount = 0;
+        //_TotalAmount = 0;
         viewinstallment.ShowAsync();
     }
 
@@ -876,7 +876,7 @@
 
     #region Paginación
     private InstallmentPagination _pagination = new InstallmentPagination();
-    private string searchTerm1 = "";
+    //private string searchTerm1 = "";
     private int pageSize = 25;
 
     private void SortColumn(string column)

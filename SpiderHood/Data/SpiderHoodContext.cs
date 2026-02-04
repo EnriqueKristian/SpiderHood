@@ -56,7 +56,6 @@ namespace SpiderHood.Data
 
         public DbSet<SpiderHood.Models.Owner> Owner { get; set; } = default!;
         public DbSet<SpiderHood.Models.Unit> Unit { get; set; } = default!;
-        public DbSet<SpiderHood.Models.UnitType> UnitType { get; set; } = default!;
         public DbSet<SpiderHood.Models.Building> Building { get; set; } = default!;
         public DbSet<SpiderHood.Models.Category> Category { get; set; } = default!;
         public DbSet<SpiderHood.Models.OwnerUnit> OwnerUnit { get; set; } = default!;

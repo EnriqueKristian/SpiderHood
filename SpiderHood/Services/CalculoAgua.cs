@@ -233,6 +233,7 @@ namespace SpiderHood.Services
                         PreviousReading = prev!.CurrentReading,
                         //PreviousReading = prev!.PreviousReading,
                         ReadingDate = readExcel.DateReading,
+                        Period = reading.Period,
                         CalculatedAmount = 0,
                         Procesed = readExcel.Procesed
                     };
@@ -257,6 +258,7 @@ namespace SpiderHood.Services
                         CurrentReading = 0,
                         PreviousReading = item.CurrentReading,
                         ReadingDate = reading.Period,
+                        Period = reading.Period,
                         CalculatedAmount = 0
                     };
                     lecturas.Add(lectura);

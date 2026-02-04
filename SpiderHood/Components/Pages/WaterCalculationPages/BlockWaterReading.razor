@@ -1,4 +1,5 @@
 ﻿@using SpiderHood.Components.Pages.Components
+@using SpiderHood.Components.Pages.PeriodPages
 @using SpiderHood.Models
 @using SpiderHood.Services
 @using SpiderHood.Utilities
@@ -129,18 +130,18 @@
             <!-- Indicador de carga global -->
             @if (util._isLoading)
             {
-                <div class="loading-overlay">
-                    <div class="loading-card shadow">
-                        <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status">
-                            <span class="visually-hidden">Cargando...</span>
-                        </div>
+                        <div class="loading-overlay">
+                            <div class="loading-card shadow">
+                                <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
 
-                        <div class="mt-3 text-center">
-                            <strong>@util._currentOperation</strong>
-                            <p class="text-muted small mb-0">Por favor espere…</p>
+                                <div class="mt-3 text-center">
+                                    <strong>@util._currentOperation</strong>
+                                    <p class="text-muted small mb-0">Por favor espere…</p>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
             }
             
             <!-- Mensajes de estado -->
@@ -223,6 +224,7 @@
                 </div>
 
                 <div class="table-responsive mb-4">
+                    
                     <table class="table table-bordered table-hover table-striped">
                         <thead>
                             <tr>
@@ -237,6 +239,7 @@
                             </tr>
                         </thead>
                         <tbody>
+                            
                             @foreach (var lectura in  _pagination.CurrentPageData ) //_ServiceReadingState.CurrentReadingDetail)
                             {
                                 <!--tr class="@(!lectura.Minimum ? "table-success" : "table-warning")"-->
@@ -326,7 +329,7 @@
 
                 <p></p>
 
-                @if (!_ServiceReadingState.OpenFromModal)
+                @if (!_ServiceReadingState.OpenFromModal && _ServiceReadingState.CurrentReading.Status < 2)
                 {
                     <!-- Botones de acción -->
                     <div class="d-flex justify-content-between">
@@ -432,11 +435,19 @@
     }
 </div>
 
+<PeriodForm ShowModal="ShowModalPeriod" isNew="@isNewPeriod" OnSave="SavePeriod" period="period" />
+
 @code {
 
     private string @GroupNumber = "GroupNumber";
     private string @Consumption = "Consumption";
     private string CalculatedAmount = "CalculatedAmount";
+
+
+    private bool ShowModalPeriod = false;
+    private bool isNewPeriod = false;
+    private Models.Period period = new();
+
 
     [Parameter] public DateTime _period { get; set; }
     [Parameter] public EventCallback<ServiceReadingState> OnSaveReady { get; set; }
@@ -508,19 +519,25 @@
     {
         try
         {
+            _ServiceReadingState.CargoFijo = CARGO_FIJO_DEFAULT;
+
             // Cargar periodos desde BD
             _periods = await ParameterService.GetPeriodsAsync();
 
             // Determinar si es primera carga
-            //_esPrimeraCarga = _periods.Count == 0;
+            if (_periods.Count == 0)
+            {
+                ShowModalPeriod = true;
+                isNewPeriod = true;
+                period = await ParameterService.CreateNewPeriod(DateTime.Today);
+            }
+            else { 
+                // Configurar periodo inicial
+                await ConfigurarPeriodoInicial();
 
-            _ServiceReadingState.CargoFijo = CARGO_FIJO_DEFAULT;
-
-            // Configurar periodo inicial
-            await ConfigurarPeriodoInicial();
-
-            // Cargar lecturas del periodo anterior
-            await CargarPeriodo(_periodoActual);
+                // Cargar lecturas del periodo anterior
+                await CargarPeriodo(_periodoActual);
+            }
         }
         catch (Exception ex)
         {
@@ -540,7 +557,7 @@
         _ServiceReadingState.Period = _period;
 
         if (_period == DateTime.MinValue)
-            _ultimoPeriodo = readings.MaxBy(x => x.Period)?.Period ?? new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            _ultimoPeriodo = (DateTime)_periods.MaxBy(x => x.StartDate)?.StartDate!;
         else
             _ultimoPeriodo = _period;
 
@@ -648,6 +665,7 @@
             await stream.CopyToAsync(memoryStream);
 
             _ServiceReadingState.CurrentReading.FileName = _archivoNombre;
+            _ServiceReadingState.CurrentReading.Period = _periodoActual;
 
             if (_ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any())
             {
@@ -800,7 +818,8 @@
 
             await transaction.CommitAsync();
 
-            await MostrarMensajeExito("Lecturas guardadas exitosamente");
+            //await MostrarMensajeExito("Lecturas guardadas exitosamente");
+            await ShowToast("Info", $"Lecturas guardadas exitosamente.", "success");
 
             LimpiarDatos();
 
@@ -815,7 +834,8 @@
         {
             // TODO: Mostrar mensaje de error
             await transaction.RollbackAsync();
-            await MostrarMensajeError($"Error al guardar lecturas: {ex.Message}");
+            //await MostrarMensajeError($"Error al guardar lecturas: {ex.Message}");
+            await ShowToast("Error", $"Error al guardar lecturas: {ex.Message}", "danger");
         }
         finally
         {
@@ -850,6 +870,21 @@
         Console.WriteLine($"Error: {mensaje}");
         await Task.CompletedTask;
     }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            // Fallback a console
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
+    }
+
 
     // FUNCIONES FALTANTES DESARROLLADAS
 
@@ -1042,7 +1077,7 @@
 
             var unidades = await ObtenerUnidadesDelEdificio();
 
-             MemoryStream memoryStream = new MemoryStream();
+            MemoryStream memoryStream = new MemoryStream();
             string fileName = "";
 
             (fileName, memoryStream) = await excelService.ExportarPlantillaVacia(_ServiceReadingState, unidades);
@@ -1070,7 +1105,7 @@
 
             MemoryStream memoryStream = new MemoryStream();
             string fileName = $"Comparativo_{_periodoActual:yyyyMM}.xlsx";
-            
+
             (fileName, memoryStream) = await excelService.ExportarComparativoConsumo(_ServiceReadingState);
 
             await DescargarArchivo(fileName, memoryStream.ToArray());
@@ -1167,7 +1202,7 @@
         _ => filter
     };
     #endregion
-    
+
     private string GetRowClass(ServiceReadingDetail lectura)
     {
         if (!lectura.Procesed)
@@ -1194,5 +1229,17 @@
             return $"Consumo alto detectado ({lectura.Consumption} m³)";
 
         return $"Consumo: {lectura.Consumption:F2} m³ | Monto: S/ {lectura.CalculatedAmount:F2}";
+    }
+
+    private Task SavePeriod(Models.Period args)
+    {
+        _periods.Add(args);
+        ShowModalPeriod = false;
+        _periodoActual = args.StartDate;
+
+        _ = ConfigurarPeriodoInicial();
+        _ = CargarPeriodo(_periodoActual);
+
+        return Task.CompletedTask;
     }
 }

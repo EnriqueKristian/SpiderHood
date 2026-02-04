@@ -4,16 +4,6 @@ using SpiderHood.Models;
 
 namespace SpiderHood.Models
 {
-    public class UnitType
-    {
-        [Required]
-        public Guid Id { get; set; }
-        [Required]
-        public string Type { get; set; } = null!;
-        public int Status { get; set; } = 0;
-        public string Description { get; set; } = null!;
-    }
-
     public class Workflow
     {
         public int Id { get; set; }
@@ -36,10 +26,10 @@ namespace SpiderHood.Models
         public DateTime? UpdatedDate { get; set; }
 
         // Imagen del workflow (almacenada como base64 o ruta)
-        public byte[] WorkflowImage { get; set; } 
+        public byte[] WorkflowImage { get; set; } = [];
 
         [StringLength(50)]
-        public string ImageContentType { get; set; }
+        public string ImageContentType { get; set; } = string.Empty;
 
         // Nombre del archivo original
         [StringLength(255)]
@@ -62,15 +52,15 @@ namespace SpiderHood.Models
         public string Description { get; set; } = string.Empty;
 
         [StringLength(50)]
-        public string StepType { get; set; } // "Inicio", "Proceso", "Decisión", "Fin"
+        public string StepType { get; set; } = string.Empty;// "Inicio", "Proceso", "Decisión", "Fin"
 
         public int Order { get; set; }
 
         [StringLength(100)]
-        public string NextStepIfYes { get; set; } // Para pasos de decisión
+        public string NextStepIfYes { get; set; } = string.Empty;// Para pasos de decisión
 
         [StringLength(100)]
-        public string NextStepIfNo { get; set; } // Para pasos de decisión
+        public string NextStepIfNo { get; set; } = string.Empty;// Para pasos de decisión
     }
 }
 

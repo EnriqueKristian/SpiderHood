@@ -3,1557 +3,1485 @@ using SpiderHood.Models;
 
 namespace SpiderHood.Data
 {
-    public class BDLayout(SpiderHoodContext? _db)
+    public interface IBDLayout
     {
-        protected readonly SpiderHoodContext? _dbcontext = _db;
+        // Common interface methods could be defined here if needed
+    }
 
-        public async Task<bool> DeleteRecordAsync(Models.Category? ec)
+    public class BDLayout : IBDLayout
+    {
+        private readonly SpiderHoodContext _dbContext;
+        //private readonly ILogger<BDLayout> _logger;
+
+        public BDLayout(SpiderHoodContext dbContext)
         {
-            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("DEL_Category {0}", ec?.IdCategory!);
-            await _dbcontext.SaveChangesAsync();
-            return true;
+            _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+            //_logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-
-        public async Task<bool> DeleteRecordAsync(Models.BudgetHeader? ec)
+        #region Constants and Stored Procedure Names
+        private static class StoredProcedures
         {
-            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("DEL_BudgetHeader {0}", ec?.IdBudgetHeader!);
-            await _dbcontext.SaveChangesAsync();
-            return true;
+            // Insert Procedures
+            public const string INS_Category = "INS_Category";
+            public const string INS_Exoneration = "INS_Exoneration";
+            public const string INS_Periods = "INS_Periods";
+            public const string INS_ServiceReading = "INS_ServiceReading";
+            public const string INS_ServiceReadingDetail = "INS_ServiceReadingDetail";
+            public const string INS_Contact = "INS_Contact";
+            public const string INS_BankAccount = "INS_BankAccount";
+            public const string INS_BuildingConfiguration = "INS_BuildingConfiguration";
+            public const string INS_MovementHeader = "INS_MovementHeader";
+            public const string INS_Expense = "INS_Expense";
+            public const string INS_MovementDetail = "INS_MovementDetail";
+            public const string INS_Owner = "INS_Owner";
+            public const string INS_GroupOwner = "INS_GroupOwner";
+            public const string INS_OwnerGroupOwner = "INS_OwnerGroupOwner";
+            public const string INS_GroupUnitOwner = "INS_GroupUnitOwner";
+            public const string INS_InstallmentExoneration = "INS_InstallmentExoneration";
+            public const string INS_Parameter = "INS_Parameter";
+            public const string INS_Unit = "INS_Unit";
+            public const string INS_BudgetHeader = "INS_BudgetHeader";
+            public const string INS_BudgetDetail = "INS_BudgetDetail";
+            public const string INS_Installment = "INS_Installment";
+            public const string INS_PaidInstallment = "INS_Installment";
+
+            // Update Procedures
+            public const string UPD_Building = "UPD_Building";
+            public const string UPD_BudgetDetail = "UPD_BudgetDetail";
+            public const string UPD_ServiceReading = "UPD_ServiceReading";
+            public const string UPD_Contact = "UPD_Contact";
+            public const string UPD_ExpenseReconcilied = "UPD_ExpenseReconcilied";
+            public const string UPD_Expense = "UPD_Expense";
+            public const string UPD_Parameter = "UPD_Parameter";
+            public const string UPD_GroupOwner = "UPD_GroupOwner";
+            public const string UPD_Unit = "UPD_Unit";
+            public const string UPD_UnsetOtherCurrentPeriods = "UPD_UnsetOtherCurrentPeriods";
+            public const string UPD_BankAccount = "UPD_BankAccount";
+            public const string UPD_BuildingConfiguration = "UPD_BuildingConfiguration";
+            public const string UPD_BudgetHeader = "UPD_BudgetHeader";
+            public const string UPD_ClosePastBudgets = "UPD_ClosePastBudgets";
+            public const string UPD_Category = "UPD_Category";
+            public const string UPD_Owner = "UPD_Owner";
+
+            // Delete Procedures
+            public const string DEL_Category = "DEL_Category";
+            public const string DEL_BudgetHeader = "DEL_BudgetHeader";
+            public const string DEL_BudgetDetail = "DEL_BudgetDetail";
+            public const string DEL_Exoneration = "DEL_Exoneration";
+            public const string DEL_Parameter = "DEL_Parameter";
+            public const string DEL_Owner = "DEL_Owner";
+            public const string DEL_Unit = "DEL_Unit";
+
+            // Get Procedures
+            public const string GET_AllBuildings = "GET_AllBuildings";
+            public const string GET_BuildingById = "GET_BuildingById";
+            public const string GET_Building = "GET_Building";
+            public const string GET_AllMovementDetail = "GET_AllMovementDetail";
+            public const string GET_BankTransactionsNoConcilied = "GET_BankTransactionsNoConcilied";
+            public const string GET_MovementByName = "GET_MovementByName";
+            public const string GET_UnitsByBuilding = "GET_UnitsByBuilding";
+            public const string GET_UnitsByType = "GET_UnitsByType";
+            public const string GET_AllParameters = "GET_AllParameters";
+            public const string GET_ListParameterParent = "GET_ListParameterParent";
+            public const string GET_Budgets = "GET_Budgets";
+            public const string GET_BudgetDetails_Sum = "GET_BudgetDetails_Sum";
+            public const string GET_ExpensesByBuilding = "GET_ExpensesByBuilding";
+            public const string GET_OwnerByBuilding = "GET_OwnerByBuilding";
+            public const string GET_Categories = "GET_Categories";
+            public const string GET_CategoryById = "GET_CategoryById";
+            public const string GET_BudgetById = "GET_BudgetById";
+            public const string GET_Exoneration_All = "GET_Exoneration_All";
+            public const string GET_ExonerationByBudgetHeader = "GET_ExonerationByBudgetHeader";
+            public const string GET_PeriodsByBuilding = "GET_PeriodsByBuilding";
+            public const string GET_BankAccountsByBuilding = "GET_BankAccountsByBuilding";
+            public const string GET_BuildingConfiguration = "GET_BuildingConfiguration";
+            public const string GET_ServiceReadingList = "GET_ServiceReadingList";
+            public const string GET_InstallmentsByBudget = "GET_InstallmentsByBudget";
+            public const string GET_ServiceReading = "GET_ServiceReading";
+            public const string GET_ServiceReadingDetailList = "GET_ServiceReadingDetailList";
+            public const string GET_FirstWaterReadingDetailList = "GET_FirstWaterReadingDetailList";
+            public const string GET_BudgetDetailDefault = "GET_BudgetDetailDefault";
+            public const string GET_List_BudgetDetail = "GET_List_BudgetDetail";
+            public const string GET_AllContacts = "GET_AllContacts";
+            public const string GET_PendingConciliationExpenses = "GET_PendingConciliationExpenses";
+        }
+        #endregion
+
+        #region Helper Methods
+        private async Task<T> ExecuteWithErrorHandlingAsync<T>(
+            Func<Task<T>> operation,
+            string operationName,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await operation();
+            }
+            catch (DbUpdateException ex)
+            {
+                //_logger.LogError(ex, "Database update error during {OperationName}: {Message}", operationName, ex.Message);
+                throw new RepositoryException($"Database update failed for {operationName}", ex);
+            }
+            catch (Exception ex)
+            {
+                //_logger.LogError(ex, "Error during {OperationName}: {Message}", operationName, ex.Message);
+                throw new RepositoryException($"Operation {operationName} failed", ex);
+            }
         }
 
-        public async Task<bool> DelBudgetDetailByHeaderAsync(Guid IdBudgetHeader)
+        private void ValidateEntity<T>(T entity, string entityName) where T : class
         {
-            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("DEL_BudgetDetail {0}", IdBudgetHeader!);
-            await _dbcontext.SaveChangesAsync();
-            return true;
+            if (entity == null)
+            {
+                throw new ArgumentNullException(entityName, $"{entityName} cannot be null");
+            }
         }
 
-        public async Task<bool> DeleteRecordAsync(Models.BudgetDetail? ec)
+        private async Task<int> ExecuteStoredProcedureAsync(
+            string storedProcedureName,
+            CancellationToken cancellationToken = default,
+            params object[] parameters)
         {
-            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("DEL_BudgetDetail {0}", ec?.IdBudgetDetail!);
-            await _dbcontext.SaveChangesAsync();
-            return true;
+            var paramString = string.Join(",", parameters.Select((_, i) => $"{{{i}}}"));
+            var sql = $"{storedProcedureName} {paramString}";
+
+            //_logger.LogDebug("Executing stored procedure: {Sql}", sql);
+
+            return await _dbContext.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
         }
 
-        public async Task<bool> DeleteRecordAsync(Models.Exoneration? ec)
+        private async Task<T?> ExecuteQuerySingleAsync<T>(
+            string storedProcedureName,
+            params object[] parameters) where T : class
         {
-            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("DEL_Exoneration {0},{1}", ec?.IdExoneration!, ec?.UpdatedBy!);
-            await _dbcontext.SaveChangesAsync();
-            return true;
-        }
-
-
-        public async Task<bool> DeleteRecordAsync(SpiderHood.Models.Parameter? ec)
-        {
-            // Ejecuta el procedimiento almacenado DEL_Parameter de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("DEL_Parameter {0}", ec?.IdTabla!);
-            await _dbcontext.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> DeleteRecordAsync(Models.Owner? ec)
-        {
-            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("DEL_Category {0}", ec?.IdOwner!);
-            await _dbcontext.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> DeleteRecordAsync(Models.Unit? ec)
-        {
-            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("DEL_Category {0}", ec?.IdUnit!);
-            await _dbcontext.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<SpiderHood.Models.Exoneration> AddNewRecordAsync(SpiderHood.Models.Exoneration? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_Exoneration {0},{1},{2},{3},{4},{5},{6},{7}",
-                ec?.IdExoneration!,
-                ec?.IdGroupUnit!,
-                ec?.IdCategory!,
-                ec?.Description!,
-                ec?.IsActive!,
-                ec?.CreatedBy!,
-                ec?.UpdatedBy!,
-                ec!.IdBuilding
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.Period> AddNewRecordAsync(SpiderHood.Models.Period? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_Periods {0},{1},{2},{3},{4},{5},{6},{7},{8},{9}",
-                ec?.IdPeriod!,
-                ec?.Name!,
-                ec?.PeriodType!,
-                ec?.StartDate!,
-                ec?.EndDate!,
-                ec?.ClosingDate!,
-                ec?.Status!,
-                ec?.IsCurrentPeriod!,
-                ec?.Description!,
-                ec?.IdBuilding!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.ServiceReading> AddNewRecordAsync(SpiderHood.Models.ServiceReading? ec)
-        {
-                // Ejecuta el procedimiento almacenado INS_WaterReading de forma asincrónica
-                await _dbcontext!.Database.ExecuteSqlRawAsync(
-                        "INS_ServiceReading {0},{1},{2},{3},{4},{5},{6}",
-                        ec?.IdServiceReading!,
-                        ec?.Period!,
-                        ec?.Status!,
-                        ec!.IdBuilding,
-                        ec!.FileName,
-                        ec?.TotalAmount!,
-                        ec?.IdPeriod!
-                    );
+            var paramString = string.Join(",", parameters.Select((_, i) => $"{{{i}}}"));
+            var sql = $"EXEC {storedProcedureName} {paramString}";
             
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
+            var item = await _dbContext.Set<T>()
+                .FromSqlRaw(sql, parameters)
+                .AsNoTracking()
+                .ToListAsync();
+
+            return item.FirstOrDefault();
         }
 
-        public async Task<SpiderHood.Models.ServiceReadingDetail> AddNewRecordAsync(List<SpiderHood.Models.ServiceReadingDetail>? ec)
+        // FIXED: Use FromSqlRaw with EXEC and call AsEnumerable() for client-side evaluation
+        private async Task<List<T>> ExecuteQueryListAsync<T>(
+            string storedProcedureName,
+            params object[] parameters) where T : class
         {
-            foreach (var item in ec!)
+            var paramString = string.Join(",", parameters.Select((_, i) => $"{{{i}}}"));
+            var sql = $"EXEC {storedProcedureName} {paramString}";
+
+            //_logger.LogDebug("Executing query: {Sql}", sql);
+
+            return await _dbContext.Set<T>()
+                .FromSqlRaw(sql, parameters)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
+        #endregion
+
+        #region Delete Operations
+        public async Task<bool> DeleteRecordAsync(Category category, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(category, nameof(category));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_ServiceReadingDetail {0},{1},{2},{3},{4},{5},{6},{7},{8}",
-                item?.IdServiceReadingDetail!,
-                item?.IdGroupUnit!,
-                Math.Round(Convert.ToDecimal(item?.CurrentReading), 4),
-                Math.Round(Convert.ToDecimal(item?.Consumption), 4),
-                item?.ReadingDate!,
-                item?.Code!,
-                item!.CalculatedAmount!,
-                item!.Minimum!,
-                item.IdServiceReading
-                );
-                await _dbcontext.SaveChangesAsync();
-            }
-            return new();
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Category, cancellationToken, category.IdCategory );
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteCategory", cancellationToken);
         }
 
-        public async Task<SpiderHood.Models.Contact> AddNewRecordAsync(SpiderHood.Models.Contact? ec)
+        public async Task<bool> DeleteRecordAsync(BudgetHeader budgetHeader, CancellationToken cancellationToken = default)
         {
-            // Ejecuta el procedimiento almacenado INS_Contact de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_Contact {0},{1},{2},{3},{4},{5},{6},{7},{8}",
-                ec?.IdContact!,
-                ec?.TypeContact!,
-                ec?.Name!,
-                ec!.Phone!,
-                ec!.Email!,
-                ec!.Address!,
-                ec!.OfficePhone!,
-                ec!.MobilePhone!,
-                ec!.IdRelatedEntity
-            );
+            ValidateEntity(budgetHeader, nameof(budgetHeader));
 
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-
-        public async Task<SpiderHood.Models.BankAccount> AddNewRecordAsync(SpiderHood.Models.BankAccount? ec)
-        {
-            //TODO: Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_UnitType {0},{1},{2},{3}, {4},{5},{6}",
-                ec?.IdBankAccount!,
-                ec?.AccountName!,
-                ec?.AccountNumber!,
-                ec!.BankName!,
-                ec!.AccountType!,
-                ec!.IdBuilding!,
-                ec!.Status!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.BuildingConfiguration> AddNewRecordAsync(SpiderHood.Models.BuildingConfiguration? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_BuildingConfiguration de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_BuildingConfiguration {0},{1},{2},{3}, {4},{5},{6},{7},{8},{9},{10}",
-                ec?.IdBuildingConfiguration!,
-                ec?.Currency!,
-                ec?.PaymentMethods!,
-                ec?.PaymentPeriod!,
-                ec?.DueDay!,
-                ec?.FineAmount!,
-                ec?.LateInterestRate!,
-                ec?.InvoiceDay!,
-                ec?.MinWaterConsumtion!,
-                ec?.DefaultFixedCharge!,
-                ec?.IdBuilding!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-
-        public async Task<SpiderHood.Models.MovementHeader> AddNewRecordAsync(SpiderHood.Models.MovementHeader? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_MovementHeader de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_MovementHeader {0},{1},{2},{3},{4},{5}",
-                ec?.IdStatementHeader!,
-                ec?.FileName!,
-                ec?.IdUser!,
-                ec?.TotalRecords!,
-                ec?.UploadState!,
-                ec?.IdBankAccount!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.Expense> AddNewRecordAsync(SpiderHood.Models.Expense? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_Expense de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_Expense {0},{1},{2},{3},{4},{5},{6}",
-                ec?.ExpenseDescription!,
-                ec?.TotalAmount!,
-                0,
-                ec?.DueDate!,
-                ec?.IdDistribution!,
-                ec?.IdBuilding!,
-                ec?.IdSubCategory!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-
-        public async Task<SpiderHood.Models.ViewExpense> AddNewRecordAsync(SpiderHood.Models.ViewExpense? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_Expense de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_Expense {0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12}",
-                ec?.IdExpense!,
-                ec?.Description!,
-                ec?.Amount!,
-                ec?.IncludeInQuota!,
-                ec?.ExpenseDate!,
-                ec?.Distribution!,
-                ec?.Supplier!,
-                ec?.IdBuilding!,
-                ec?.ReconciledTransactionId!,
-                ec?.IdCategory!,
-                ec?.Notes!,
-                ec?.Status!,
-                ec?.PaymentMethod!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-
-        public async Task<SpiderHood.Models.MovementDetail> AddNewRecordAsync(SpiderHood.Models.MovementDetail? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_MovementDetail de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_MovementDetail {0},{1},{2},{3},{4},{5},{6}",
-                ec?.IdMovHeader!,
-                ec?.Description!,
-                ec?.MovDate!,
-                ec?.ITF!,
-                ec?.Currency!,
-                ec?.Amount!,
-                ec?.UploadDetState!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.Category> AddNewRecordAsync(SpiderHood.Models.Category? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_Category de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_Category {0},{1},{2},{3},{4},{5},{6},{7},{8}",
-                ec?.IdCategory!,
-                ec?.Description!,
-                ec?.ShortDescript!,
-                ec?.Icon!,
-                ec?.Color!,
-                ec?.Distribution!,
-                ec?.ParentId! == Guid.Empty ? null! : ec?.ParentId!,
-                ec?.IdBuilding!,
-                ec?.Nivel!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.Owner> AddNewRecordAsync(SpiderHood.Models.Owner? ec)
-        {
-
-            // Ejecuta el procedimiento almacenado INS_Owner de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_Owner {0},{1},{2},{3},{4},{5},{6},{7}",
-                Guid.NewGuid(),
-                ec?.IdNumber!,
-                ec?.Names!,
-                ec?.Surname!,
-                ec?.Address!,
-                ec?.PhoneNumber!,
-                ec?.IdTypeIdNumber!,
-                ec?.IdBuilding!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-        public async Task<SpiderHood.Models.OwnerUnit> AddNewRecordAsync(SpiderHood.Models.OwnerUnit? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_GroupOnwer {0},{1},{2},{3},{4}",
-                ec?.IdGroupOwner!,
-                ec?.IdOwner!,
-                ec?.GroupName!,
-                ec?.AreaTotal!,
-                ec?.TypeOwner!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.OwnerGroupOwner> AddNewRecordAsync(SpiderHood.Models.OwnerGroupOwner? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_OwnerGroupOnwer {0},{1},{2}",
-                ec?.IdGroupOwner!,
-                ec?.IdOwner!,
-                ec?.TypeOwner!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.GroupUnit> AddNewRecordAsync(SpiderHood.Models.GroupUnit? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "INS_GroupUnitOwner {0},{1},{2}",
-                ec?.IdUnit!,
-                ec?.IdGroupOwner!,
-                ec?.TypeGroupUnit!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.Building> UpdateRecordAsync(SpiderHood.Models.Building? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_Building {0},{1},{2},{3}",
-                ec?.IdBuilding!,
-                ec?.Name!,
-                ec?.Location!,
-                ec?.TotalArea!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.BudgetDetail> UpdateRecordAsync(SpiderHood.Models.BudgetDetail? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_BudgetDetail {0},{1},{2},{3},{4},{5},{6},{7},{8}",
-                ec?.IdBudgetDetail!,
-                ec?.IdSection!,
-                ec?.ItemNumber!,
-                ec?.Description!, 
-                ec?.MonthlyAmount!,
-                ec?.AnnualAmount!,
-                ec?.Frequency!,
-                ec?.Type!,
-                ec?.IsHeader!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-
-        public async Task<SpiderHood.Models.ServiceReading> UpdateRecordAsync(SpiderHood.Models.ServiceReading? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_ServiceReading {0},{1}",
-                ec?.IdServiceReading!,
-                ec?.Status!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.Contact> UpdateRecordAsync(SpiderHood.Models.Contact? ec)
-        {
-            try
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-                await _dbcontext!.Database.ExecuteSqlRawAsync(
-                    "UPD_Contact {0},{1},{2},{3},{4},{5},{6},{7}",
-                    ec?.IdContact!,
-                    ec?.TypeContact!,
-                    ec?.Name!,
-                    ec?.Phone!,
-                    ec?.Email!,
-                    ec?.Address!,
-                    ec?.OfficePhone!,
-                    ec?.MobilePhone!
-                );
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_BudgetHeader, cancellationToken, budgetHeader.IdBudgetHeader);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteBudgetHeader", cancellationToken);
+        }
 
-            }
-            catch (Exception ex)
+        public async Task<bool> DeleteRecordAsync(Guid idBudgetHeader, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_BudgetDetail, cancellationToken, idBudgetHeader);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteBudgetDetailByHeader", cancellationToken);
         }
 
-        public async Task<Boolean> UpdateRecordAsync(SpiderHood.Models.TransactionBankView? ec)
+        public async Task<bool> DeleteRecordAsync(BudgetDetail budgetDetail, CancellationToken cancellationToken = default)
         {
+            ValidateEntity(budgetDetail, nameof(budgetDetail));
 
-            try
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-                await _dbcontext!.Database.ExecuteSqlRawAsync(
-                    "UPD_ExpenseReconcilied {0},{1},{2},{3},{4}",
-                    ec?.IdStatementDetail!,
-                    ec?.ReconciliationStatus!,
-                    ec?.ReconciliationDate!,
-                    ec?.GastoConciliado!.IdExpense!,
-                    ec?.GastoConciliado!.AutoReconcile!
-                );
-            }
-            catch (Exception ex)
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_BudgetDetail, cancellationToken, budgetDetail.IdBudgetDetail);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteBudgetDetail", cancellationToken);
+        }
+
+        public async Task<bool> DeleteRecordAsync(Exoneration exoneration, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(exoneration, nameof(exoneration));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
-            
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.DEL_Exoneration,
+                    cancellationToken,
+                    exoneration.IdExoneration,
+                    exoneration.UpdatedBy);
 
-            await _dbcontext.SaveChangesAsync();
-            return true!;
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteExoneration", cancellationToken);
         }
 
-        public async Task<SpiderHood.Models.Expense> UpdateRecordAsync(SpiderHood.Models.Expense? ec)
+        public async Task<bool> DeleteRecordAsync(Parameter parameter, CancellationToken cancellationToken = default)
         {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_Expense {0},{1},{2},{3},{4},{5}",
-                ec?.IdExpense!,
-                ec?.ExpenseDescription!,
-                ec?.TotalAmount!,
-                ec?.IdDistribution!,
-                0,
-                ec?.IdSubCategory!
-            );
+            ValidateEntity(parameter, nameof(parameter));
 
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-
-        public async Task<SpiderHood.Models.Parameter> UpdateRecordAsync(SpiderHood.Models.Parameter? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_Parameter {0},{1},{2},{3},{4},{5},{6}",
-                ec?.IdTabla!,
-                ec?.Description!,
-                ec?.ShortDescription!,
-                ec?.Value!,
-                ec?.Sort!,
-                ec?.IdParent!,
-                ec?.Estado!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-
-
-        public async Task<bool> UpdateRecordAsync(Guid IdGroupUnit, decimal AreaTotal)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_GroupOwner {0},{1}",
-                IdGroupUnit!,
-                AreaTotal!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<SpiderHood.Models.Unit> UpdateRecordAsync(SpiderHood.Models.Unit? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_Unit {0},{1},{2}",
-                ec?.IdUnit!,
-                ec?.UnitNumber!,
-                ec?.Area!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<bool> UnsetOtherCurrentPeriods(Guid IdBuilding, Guid IdCurrentPeriod)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_UnsetOtherCurrentPeriods {0},{1}",
-                IdBuilding!,
-                IdCurrentPeriod!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return true;
-        }
-
-
-        public async Task<SpiderHood.Models.BankAccount> UpdateRecordAsync(SpiderHood.Models.BankAccount? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_BankAccount {0},{1},{2},{3},{4},{5}",
-                ec?.IdBankAccount!,
-                ec?.AccountName!,
-                ec?.AccountNumber!,
-                ec?.BankName!,
-                ec?.AccountType!,
-                ec?.Status!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.BuildingConfiguration> UpdateRecordAsync(SpiderHood.Models.BuildingConfiguration? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_BuildingConfiguration {0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12}",
-                ec?.IdBuildingConfiguration!,
-                ec?.Currency!,
-                ec?.PaymentMethods!,
-                ec?.PaymentPeriod!,
-                ec?.DueDay!,
-                ec?.FineAmount!,
-                ec?.LateInterestRate!,
-                ec?.InvoiceDay!,
-                ec?.MinWaterConsumtion!,
-                ec?.DefaultFixedCharge!,
-                ec?.DefaultCategory!,
-                ec?.WaterReadingDefault!,
-                ec?.IdBuilding!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.BudgetHeader> UpdateRecordAsync(SpiderHood.Models.BudgetHeader? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_BudgetHeader {0},{1},{2},{3},{4},{5},{6}",
-                ec?.IdBudgetHeader!,
-                ec?.BudgetName!,
-                ec?.Amount!,
-                ec?.AnnualAmount!,
-                ec?.BudgetType!,
-                ec?.Status!,
-                ec?.IdPeriod!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<bool> UpdateRecordAsync(Guid IdBuilding, DateTime Period)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_ClosePastBudgets {0},{1}",
-                Period!,
-                IdBuilding!
-                
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<SpiderHood.Models.Category> UpdateRecordAsync(SpiderHood.Models.Category? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_Category {0},{1},{2},{3},{4},{5}",
-                ec?.IdCategory!,
-                ec?.Description!,
-                ec?.ShortDescript!,
-                ec?.Color!,
-                ec?.Icon!,
-                ec?.Distribution!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.Owner> UpdateRecordAsync(SpiderHood.Models.Owner? ec)
-        {
-            // Ejecuta el procedimiento almacenado UPD_Building de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync(
-                "UPD_Owner {0},{1},{2},{3},{4},{5},{6},{7},{8}",
-                ec?.IdOwner!,
-                ec?.IdNumber!,
-                ec?.Names!,
-                ec?.Surname!,
-                ec?.Address!,
-                ec?.PhoneNumber!,
-                ec?.IdTypeIdNumber!
-            );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public SpiderHood.Models.Unit AddNewRecord(SpiderHood.Models.Unit? ec)
-        {
-            //Here define the ExecuteSqlRaw extension method to execute a stored procedure with INS_Unit
-            _dbcontext!.Database.ExecuteSqlRaw("INS_Unit {0},{1},{2},{3},{4},{5},{6}", Guid.NewGuid(), ec?.UnitNumber!, ec!.Area, ec!.Number, ec!.TypeUnit, ec!.IsAvailable, ec!.IdBuilding);
-            _dbcontext.SaveChanges();
-            return ec;
-        }
-
-
-        public async Task<SpiderHood.Models.InstallmentExoneration> AddNewRecordAsync(SpiderHood.Models.InstallmentExoneration? ec)
-        {
-            // Ejecuta el procedimiento almacenado DEL_Category de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("INS_InstallmentExoneration {0},{1}", ec?.IdBuilding!, ec?.IdBudgetHeader!);
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-
-
-
-        public async Task<SpiderHood.Models.Parameter> AddNewRecordAsync(SpiderHood.Models.Parameter? ec)
-        {
-            //Here define the ExecuteSqlRaw extension method to execute a stored procedure with INS_Unit
-            await _dbcontext!.Database.ExecuteSqlRawAsync("INS_Parameter {0},{1},{2},{3},{4},{5},{6}", ec?.Description!, ec?.ShortDescription!, ec?.Value!, ec?.Sort!, ec?.IdParent! == 0 ? null! : ec?.IdParent!, ec?.Estado!, ec!.IdBuilding);
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.Unit> AddNewRecordAsync(SpiderHood.Models.Unit? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_Unit de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("INS_Unit {0},{1},{2},{3},{4},{5},{6}", Guid.NewGuid(), ec?.UnitNumber!, ec!.Area, ec!.Number, ec!.TypeUnit, ec!.IsAvailable, ec!.IdBuilding );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.BudgetHeader> AddNewRecordAsync(SpiderHood.Models.BudgetHeader? ec)
-        {
-            // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-            await _dbcontext!.Database.ExecuteSqlRawAsync("INS_BudgetHeader {0},{1},{2},{3},{4},{5},{6},{7},{8},{9}", ec?.IdBudgetHeader!, ec?.BudgetName!, ec!.BudgetDate, ec!.Amount, ec!.AnnualAmount, ec!.BudgetType, ec!.IdBuilding, ec!.Status, ec!.CreatedBy, ec!.IdPeriod );
-
-            await _dbcontext.SaveChangesAsync();
-            return ec!;
-        }
-
-        public async Task<SpiderHood.Models.BudgetDetail> AddNewRecordAsync(SpiderHood.Models.BudgetDetail? ec)
-        {
-            try {
-                // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-                await _dbcontext!.Database.ExecuteSqlRawAsync("INS_BudgetDetail {0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}", ec?.IdBudgetDetail!, ec?.IdCategory!, ec!.IdSection, ec!.ItemNumber, ec!.Description, ec!.MonthlyAmount, ec!.AnnualAmount, ec!.Frequency, ec!.Type, ec!.IsHeader, ec!.IdBudgetHeader);
-
-                await _dbcontext.SaveChangesAsync();
-            }
-            catch (Exception ex)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
-            return ec!;
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Parameter, cancellationToken, parameter.IdTabla);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteParameter", cancellationToken);
         }
 
-        public async Task<SpiderHood.Models.Installment> AddNewRecordAsync(SpiderHood.Models.Installment? ec)
+        public async Task<bool> DeleteRecordAsync(Owner owner, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-                await _dbcontext!.Database.ExecuteSqlRawAsync("INS_Installment {0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12}", ec?.IdInstallment!, ec?.IdBudgetHeader!, ec!.UnitName, ec!.OwnerName, ec!.CreationDate, ec!.Amount, ec!.Percent, ec!.TotalArea, ec!.CreatedBy, ec!.Status, ec!.IdGroupUnit, ec!.DueDate, ec!.Number);
+            ValidateEntity(owner, nameof(owner));
 
-                await _dbcontext.SaveChangesAsync();
-            }
-            catch (Exception ex)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
-            return ec!;
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Owner, cancellationToken, owner.IdOwner);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteOwner", cancellationToken);
         }
 
-        public async Task<SpiderHood.Models.PaidInstallments> AddNewRecordAsync(SpiderHood.Models.PaidInstallments? ec)
+        public async Task<bool> DeleteRecordAsync(Unit unit, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                // Ejecuta el procedimiento almacenado INS_UnitType de forma asincrónica
-                await _dbcontext!.Database.ExecuteSqlRawAsync("INS_Installment {0},{1},{2},{3},{4}", ec?.IdPaid!, ec?.IdInstallment!, ec!.Amount, ec!.CreatedBy, ec!.Status);
+            ValidateEntity(unit, nameof(unit));
 
-                await _dbcontext.SaveChangesAsync();
-            }
-            catch (Exception ex)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
-            return ec!;
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Unit, cancellationToken, unit.IdUnit);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteUnit", cancellationToken);
+        }
+        #endregion
+
+        #region Add Operations
+        public async Task<Models.InstallmentExoneration> AddNewRecordAsync(Models.InstallmentExoneration exoneration, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(exoneration, nameof(exoneration));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_InstallmentExoneration,
+                    cancellationToken,
+                    exoneration.IdBuilding!,
+                    exoneration.IdBudgetHeader!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return exoneration;
+            }, "AddInstallmentExoneration", cancellationToken);
         }
 
-        public List<Building> GetBuilding(Guid IdOwner)
+        public async Task<Models.Installment> AddNewRecordAsync(Models.Installment installment, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(installment, nameof(installment));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return [.._dbcontext!.Building
-                    .FromSqlInterpolated($"EXEC GET_AllBuildings")
-                    ];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Installment,
+                    cancellationToken,
+                    installment.IdInstallment!,
+                    installment.IdBudgetHeader!,
+                    installment.UnitName,
+                    installment.OwnerName,
+                    installment.CreationDate, 
+                    installment.Amount, 
+                    installment.Percent,
+                    installment.TotalArea,
+                    installment.CreatedBy,
+                    installment.Status,
+                    installment.IdGroupUnit,
+                    installment.DueDate,
+                    installment.Number);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return installment;
+            }, "AddInstallment", cancellationToken);
         }
 
-
-        public async Task<Building?> GetBuildingById(Guid idBuilding)
+        public async Task<Models.ViewExpense> AddNewRecordAsync(Models.ViewExpense viewexpense, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var list = await _dbcontext!.Building
-                    .FromSqlInterpolated($"EXEC GET_BuildingById {idBuilding}")
-                    .ToListAsync();
+            ValidateEntity(viewexpense, nameof(viewexpense));
 
-                return list.FirstOrDefault();
-            }
-            catch (Exception ex)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Log error here
-                throw new ApplicationException("Error fetching building", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Expense,
+                    cancellationToken,
+                    viewexpense.IdExpense!,
+                    viewexpense.Description!,
+                    viewexpense.Amount!,
+                    viewexpense.IncludeInQuota!,
+                    viewexpense.ExpenseDate!,
+                    viewexpense.Distribution!,
+                    viewexpense.Supplier!,
+                    viewexpense.IdBuilding!,
+                    viewexpense.ReconciledTransactionId!,
+                    viewexpense.IdCategory!,
+                    viewexpense.Notes!,
+                    viewexpense.Status!,
+                    viewexpense.PaymentMethod!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return viewexpense;
+            }, "AddViewExpense", cancellationToken);
         }
 
-        public async Task<CuotaViewModel> GetCuotasMensuales(Guid IdBuilding)
+        public async Task<Models.OwnerGroupOwner> AddNewRecordAsync(Models.OwnerGroupOwner ownergroupowner, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(ownergroupowner, nameof(ownergroupowner));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                if (_dbcontext == null)
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_OwnerGroupOwner,
+                    cancellationToken,
+                    ownergroupowner.IdGroupOwner!,
+                    ownergroupowner.IdOwner!,
+                    ownergroupowner.TypeOwner!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return ownergroupowner;
+            }, "AddOwnerUnit", cancellationToken);
+        }
+
+        public async Task<Models.OwnerUnit> AddNewRecordAsync(Models.OwnerUnit ownerunit, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(ownerunit, nameof(ownerunit));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_GroupOwner,
+                    cancellationToken,
+                    ownerunit.IdGroupOwner!,
+                    ownerunit.IdOwner!,
+                    ownerunit.GroupName!,
+                    ownerunit.AreaTotal!,
+                    ownerunit.TypeOwner!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return ownerunit;
+            }, "AddOwnerUnit", cancellationToken);
+        }
+
+        public async Task<Models.GroupUnit> AddNewRecordAsync(Models.GroupUnit groupunit, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(groupunit, nameof(groupunit));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_GroupUnitOwner,
+                    cancellationToken,
+                    groupunit.IdUnit!,
+                    groupunit.IdGroupOwner!,
+                    groupunit.TypeGroupUnit!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return groupunit;
+            }, "AddGroupUnit", cancellationToken);
+        }
+
+        public async Task<Models.Parameter> AddNewRecordAsync(Models.Parameter parameter, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(parameter, nameof(parameter));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Parameter,
+                    cancellationToken,
+                    parameter.IdTabla!,
+                    parameter.Description!,
+                    parameter.ShortDescription!,
+                    parameter.Value!,
+                    parameter.Sort!,
+                    parameter.IdParent!,
+                    parameter.Estado!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return parameter;
+            }, "AddParameter", cancellationToken);
+        }
+
+        public async Task<BuildingConfiguration> AddNewRecordAsync(BuildingConfiguration configuration, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(configuration, nameof(configuration));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_BuildingConfiguration,
+                    cancellationToken,
+                    configuration.IdBuildingConfiguration!,
+                    configuration.Currency!,
+                    configuration.PaymentMethods!,
+                    configuration.PaymentPeriod!,
+                    configuration.DueDay!,
+                    configuration.FineAmount!,
+                    configuration.LateInterestRate!,
+                    configuration.InvoiceDay!,
+                    configuration.MinWaterConsumtion!,
+                    configuration.DefaultFixedCharge!,
+                    configuration.IdBuilding!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return configuration;
+            }, "AddBuildingConfiguration", cancellationToken);
+        }
+
+        public async Task<MovementHeader> AddNewRecordAsync(MovementHeader movementheader, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(movementheader, nameof(movementheader));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_MovementHeader,
+                    cancellationToken,
+                    movementheader.IdStatementHeader!,
+                    movementheader.FileName!,
+                    movementheader.IdUser!,
+                    movementheader.TotalRecords!,
+                    movementheader.UploadState!,
+                    movementheader.IdBankAccount!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return movementheader;
+            }, "AddMovementHeader", cancellationToken);
+        }
+
+        public async Task<MovementDetail> AddNewRecordAsync(MovementDetail movementdetail, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(movementdetail, nameof(movementdetail));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_MovementDetail,
+                    cancellationToken,
+                    movementdetail.IdMovHeader!,
+                    movementdetail.Description!,
+                    movementdetail.MovDate!,
+                    movementdetail.ITF!,
+                    movementdetail.Currency!,
+                    movementdetail.Amount!,
+                    movementdetail.UploadDetState);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return movementdetail;
+            }, "AddMovementDetail", cancellationToken);
+        }
+
+        public async Task<Expense> AddNewRecordAsync(Expense expense, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(expense, nameof(expense));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Expense,
+                    cancellationToken,
+                    expense.ExpenseDescription!,
+                    expense.TotalAmount!,
+                    expense.IsIncludedInQuota!,
+                    expense.DueDate!,
+                    expense.IdDistribution!,
+                    expense.IdBuilding!,
+                    expense.IdSubCategory!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return expense;
+            }, "AddExpense", cancellationToken);
+        }
+
+        public async Task<BankAccount> AddNewRecordAsync(BankAccount bankaccount, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(bankaccount, nameof(bankaccount));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_BankAccount,
+                    cancellationToken,
+                    bankaccount.IdBankAccount!,
+                    bankaccount.AccountName!,
+                    bankaccount.AccountNumber!,
+                    bankaccount.BankName!,
+                    bankaccount.AccountType!,
+                    bankaccount.IdBuilding!,
+                    bankaccount.Status!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return bankaccount;
+            }, "AddExoneration", cancellationToken);
+        }
+
+        public async Task<Exoneration> AddNewRecordAsync(Exoneration exoneration, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(exoneration, nameof(exoneration));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Exoneration,
+                    cancellationToken,
+                    exoneration.IdExoneration,
+                    exoneration.IdGroupUnit,
+                    exoneration.IdCategory,
+                    exoneration.Description,
+                    exoneration.IsActive,
+                    exoneration.CreatedBy,
+                    exoneration.UpdatedBy,
+                    exoneration.IdBuilding);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return exoneration;
+            }, "AddExoneration", cancellationToken);
+        }
+
+        public async Task<Period> AddNewRecordAsync(Period period, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(period, nameof(period));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Periods,
+                    cancellationToken,
+                    period.IdPeriod,
+                    period.Name,
+                    period.PeriodType,
+                    period.StartDate,
+                    period.EndDate,
+                    period.ClosingDate,
+                    period.Status,
+                    period.IsCurrentPeriod,
+                    period.Description,
+                    period.IdBuilding);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return period;
+            }, "AddPeriod", cancellationToken);
+        }
+
+        public async Task<ServiceReading> AddNewRecordAsync(ServiceReading serviceReading, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(serviceReading, nameof(serviceReading));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ServiceReading,
+                    cancellationToken,
+                    serviceReading.IdServiceReading,
+                    serviceReading.Period,
+                    serviceReading.Status,
+                    serviceReading.IdBuilding,
+                    serviceReading.FileName,
+                    serviceReading.TotalAmount,
+                    serviceReading.IdPeriod);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return serviceReading;
+            }, "AddServiceReading", cancellationToken);
+        }
+
+        public async Task AddNewRecordAsync(
+            List<ServiceReadingDetail> serviceReadingDetails,
+            CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(serviceReadingDetails, nameof(serviceReadingDetails));
+
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+                try
                 {
-                    throw new InvalidOperationException("Database context is not initialized.");
+                    foreach (var detail in serviceReadingDetails)
+                    {
+                        ValidateEntity(detail, nameof(detail));
+
+                        await ExecuteStoredProcedureAsync(
+                            StoredProcedures.INS_ServiceReadingDetail,
+                            cancellationToken,
+                            detail.IdServiceReadingDetail,
+                            detail.IdGroupUnit,
+                            Math.Round(Convert.ToDecimal(detail.CurrentReading), 4),
+                            Math.Round(Convert.ToDecimal(detail.Consumption), 4),
+                            detail.ReadingDate,
+                            detail.Code,
+                            detail.CalculatedAmount,
+                            detail.Minimum,
+                            detail.IdServiceReading);
+                    }
+
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                    await transaction.CommitAsync(cancellationToken);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    throw;
                 }
 
-                var cuota = await _dbcontext.CuotaViewModel
-                            .FromSqlInterpolated($"EXEC GET_Building {IdBuilding}")
-                            .FirstOrDefaultAsync();
-
-                return cuota!;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
+                return true;
+            }, "AddServiceReadingDetails", cancellationToken);
         }
 
-        public List<MovDetKey> GetAllMovementDetail(Guid IdBankAccout, DateTime star, DateTime end)
+        public async Task<Contact> AddNewRecordAsync(Contact contact, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(contact, nameof(contact));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return [.._dbcontext!.MovDetKey
-                    .FromSqlInterpolated($"EXEC GET_AllMovementDetail {IdBankAccout}, {star}, {end}")
-                    ];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Contact,
+                    cancellationToken,
+                    contact.IdContact,
+                    contact.TypeContact,
+                    contact.Name,
+                    contact.Phone,
+                    contact.Email,
+                    contact.Address,
+                    contact.OfficePhone,
+                    contact.MobilePhone,
+                    contact.IdRelatedEntity);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return contact;
+            }, "AddContact", cancellationToken);
         }
 
-
-        public List<TransactionBankView> GetBankTransactionsNoConcilied(Guid IdBuilding, DateTime star, DateTime end)
+        public async Task<Category> AddNewRecordAsync(Models.Category category, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(category, nameof(category));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return [.._dbcontext!.TransactionBankView
-                    .FromSqlInterpolated($"GET_BankTransactionsNoConcilied {IdBuilding}, {star}, {end}")
-                    ];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Category,
+                    cancellationToken,
+                    category.IdCategory,
+                    category.Description,
+                    category.ShortDescript,
+                    category.Icon,
+                    category.Color,
+                    category.Distribution,
+                    category.ParentId! == Guid.Empty ? null! : category.ParentId!,
+                    category.IdBuilding,
+                    category.Nivel);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return category;
+            }, "AddCategory", cancellationToken);
         }
 
-
-        public List<MovementHeader> GetMovHeadByFileName(string FileName, Guid IdBuilding)
+        public async Task<Owner> AddNewRecordAsync(Owner owner, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(owner, nameof(owner));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return [.._dbcontext!.MovementHeader
-                    .FromSqlInterpolated($"EXEC GET_MovementByName {FileName}, {IdBuilding}")
-                    ];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching products", ex);
-            }
+                var newId = Guid.NewGuid();
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Owner,
+                    cancellationToken,
+                    newId,
+                    owner.IdNumber,
+                    owner.Names,
+                    owner.Surname!,
+                    owner.Address,
+                    owner.PhoneNumber,
+                    owner.IdTypeIdNumber,
+                    owner.IdBuilding);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                owner.IdOwner = newId;
+                return owner;
+            }, "AddOwner", cancellationToken);
         }
 
-        public List<Models.Unit> GetUnitsByBuilding(Guid IdBuilding)
+        public async Task<Unit> AddNewRecordAsync(Unit unit, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(unit, nameof(unit));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.Unit.FromSqlInterpolated($"EXEC GET_UnitsByBuilding {IdBuilding}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                var newId = Guid.NewGuid();
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Unit,
+                    cancellationToken,
+                    newId,
+                    unit.UnitNumber,
+                    unit.Area,
+                    unit.Number,
+                    unit.TypeUnit,
+                    unit.IsAvailable,
+                    unit.IdBuilding);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                unit.IdUnit = newId;
+                return unit;
+            }, "AddUnit", cancellationToken);
         }
 
-        public List<Models.UnitView> GetGroupUnitsByType(Guid IdBuilding, int _type)
+        public async Task<BudgetHeader> AddNewRecordAsync(BudgetHeader budgetHeader, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(budgetHeader, nameof(budgetHeader));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.UnitView.FromSqlInterpolated($"EXEC GET_UnitsByType {IdBuilding},{_type}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_BudgetHeader,
+                    cancellationToken,
+                    budgetHeader.IdBudgetHeader,
+                    budgetHeader.BudgetName,
+                    budgetHeader.BudgetDate,
+                    budgetHeader.Amount,
+                    budgetHeader.AnnualAmount,
+                    budgetHeader.BudgetType,
+                    budgetHeader.IdBuilding,
+                    budgetHeader.Status,
+                    budgetHeader.CreatedBy,
+                    budgetHeader.IdPeriod);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return budgetHeader;
+            }, "AddBudgetHeader", cancellationToken);
         }
 
-        public async Task<List<Models.Parameter>> GetParametersByBuildingAsync(Guid IdBuilding)
+        public async Task<BudgetDetail> AddNewRecordAsync(BudgetDetail budgetDetail, CancellationToken cancellationToken = default)
         {
-            try
-            {
-                var result = _dbcontext!.Parameter.FromSqlInterpolated($"EXEC GET_AllParameters {IdBuilding}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
-        }
+            ValidateEntity(budgetDetail, nameof(budgetDetail));
 
-        public List<Models.Parameter> GetParametersByBuilding(Guid IdBuilding)
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_BudgetDetail,
+                    cancellationToken,
+                    budgetDetail.IdBudgetDetail,
+                    budgetDetail.IdCategory,
+                    budgetDetail.IdSection,
+                    budgetDetail.ItemNumber,
+                    budgetDetail.Description,
+                    budgetDetail.MonthlyAmount,
+                    budgetDetail.AnnualAmount,
+                    budgetDetail.Frequency,
+                    budgetDetail.Type,
+                    budgetDetail.IsHeader,
+                    budgetDetail.IdBudgetHeader);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return budgetDetail;
+            }, "AddBudgetDetail", cancellationToken);
+        }
+        #endregion
+
+        #region Update Operations
+
+        public async Task<Models.ServiceReading> UpdateRecordAsync(Models.ServiceReading servicereading, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(servicereading, nameof(servicereading));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.Parameter.FromSqlInterpolated($"EXEC GET_AllParameters {IdBuilding}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ServiceReading,
+                    cancellationToken,
+                    servicereading.IdServiceReading!,
+                    servicereading.Status!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return servicereading;
+            }, "UpdateServiceReading", cancellationToken);
         }
 
-
-        public List<Models.Parameter> GetListParametersParentByBuilding(Guid IdBuilding)
+        public async Task<Models.BudgetHeader> UpdateRecordAsync(Models.BudgetHeader budgetheader, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(budgetheader, nameof(budgetheader));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.Parameter.FromSqlInterpolated($"EXEC GET_ListParameterParent {IdBuilding}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_BudgetHeader,
+                    cancellationToken,
+                    budgetheader.IdBudgetHeader!,
+                    budgetheader.BudgetName!,
+                    budgetheader.Amount!,
+                    budgetheader.AnnualAmount!,
+                    budgetheader.BudgetType!,
+                    budgetheader.Status!,
+                    budgetheader.IdPeriod!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return budgetheader;
+            }, "UpdateBudgetHeader", cancellationToken);
         }
 
-
-        public List<Models.BudgetHeader> GetBudgets(Guid IdBuilding)
+        public async Task<Models.Owner> UpdateRecordAsync(Models.Owner owner, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(owner, nameof(owner));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.BudgetHeader.FromSqlInterpolated($"EXEC GET_Budgets {IdBuilding}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Owner,
+                    cancellationToken,
+                    owner.IdOwner!,
+                    owner.IdNumber!,
+                    owner.Names!,
+                    owner.Surname!,
+                    owner.Address!,
+                    owner.PhoneNumber!,
+                    owner.IdTypeIdNumber!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return owner;
+            }, "UpdateOwner", cancellationToken);
         }
 
-        public List<Models.BudgetSumCategory> GetBudgetSum(Guid IdBuilding)
+        public async Task<Models.OwnerUnit> UpdateRecordAsync(Models.OwnerUnit ownerunit, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(ownerunit, nameof(ownerunit));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.BudgetSumCategory.FromSqlInterpolated($"EXEC GET_BudgetDetails_Sum {IdBuilding}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_GroupOwner,
+                    cancellationToken,
+                    ownerunit.IdGroupOwner!,
+                    ownerunit.AreaTotal!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return ownerunit;
+            }, "UpdateOwnerUnit", cancellationToken);
         }
 
-        public List<Models.Presupuesto> GetPresupuestos(Guid IdBuilding)
+        public async Task<Models.BuildingConfiguration> UpdateRecordAsync(Models.BuildingConfiguration configuration, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(configuration, nameof(configuration));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.Presupuestos.FromSqlInterpolated($"EXEC GET_Presupuesto_TEMP").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_BuildingConfiguration,
+                    cancellationToken,
+                    configuration.IdBuildingConfiguration!,
+                    configuration.Currency!,
+                    configuration.PaymentMethods!,
+                    configuration.PaymentPeriod!,
+                    configuration.DueDay!,
+                    configuration.FineAmount!,
+                    configuration.LateInterestRate!,
+                    configuration.InvoiceDay!,
+                    configuration.MinWaterConsumtion!,
+                    configuration.DefaultFixedCharge!,
+                    configuration.DefaultCategory!,
+                    configuration.WaterReadingDefault!,
+                    configuration.IdBuilding!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return configuration;
+            }, "UpdateBuildingConfiguration", cancellationToken);
         }
 
-
-        public List<Models.Categoria> GetCategorias(Guid IdBuilding)
+        public async Task<Models.BankAccount> UpdateRecordAsync(Models.BankAccount bankaccount, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(bankaccount, nameof(bankaccount));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.Categorias.FromSqlInterpolated($"EXEC GET_Categorias_TEMP").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_BankAccount,
+                    cancellationToken,
+                    bankaccount.IdBankAccount!,
+                    bankaccount.AccountName!,
+                    bankaccount.AccountNumber!,
+                    bankaccount.BankName!,
+                    bankaccount.AccountType!,
+                    bankaccount.Status!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return bankaccount;
+            }, "UpdateBankAccount", cancellationToken);
         }
 
-        public List<Models.PresupuestoDetalle> GetPresupuestoDetalles(int presupuestoid)
+        public async Task<Models.Unit> UpdateRecordAsync(Models.Unit unit, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(unit, nameof(unit));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.PresupuestoDetalles.FromSqlInterpolated($"EXEC GET_PresupuestoDetalles_TEMP {presupuestoid}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Unit,
+                    cancellationToken,
+                    unit.IdUnit!,
+                    unit.UnitNumber!,
+                    unit.Area!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return unit;
+            }, "Updateunit", cancellationToken);
         }
 
-        public List<Models.PresupuestoCategoria> GetPresupuestoCategoria(Guid presupuestoid)
+        public async Task<Models.Parameter> UpdateRecordAsync(Models.Parameter parameter, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(parameter, nameof(parameter));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.PresupuestoCategorias.FromSqlInterpolated($"EXEC GET_PresupuestoCategorias_TEMP {presupuestoid}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Parameter,
+                    cancellationToken,
+                    parameter.IdTabla!,
+                    parameter.Description!,
+                    parameter.ShortDescription!,
+                    parameter.Value!,
+                    parameter.Sort!,
+                    parameter.IdParent!,
+                    parameter.Estado!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return parameter;
+            }, "UpdateParameter", cancellationToken);
         }
 
-        public List<Models.Expense> GetExpensesByBuilding(Guid IdBuilding)
+        public async Task<Models.Category> UpdateRecordAsync(Models.Category category, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(category, nameof(category));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.Expense.FromSqlInterpolated($"EXEC GET_ExpensesByBuilding {IdBuilding}, {TypeDistribution.Distribution}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Category,
+                    cancellationToken,
+                    category.IdCategory!,
+                    category.Description!,
+                    category.ShortDescript!,
+                    category.Color!,
+                    category.Icon!,
+                    category.Distribution!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return category;
+            }, "UpdateCategory", cancellationToken);
         }
 
-        public List<Models.OwnerUnitView> GetOwnersByBuilding(Guid IdBuilding)
+        public async Task<Building> UpdateRecordAsync(Building building, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(building, nameof(building));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.OwnerUnitView.FromSqlInterpolated($"EXEC GET_OwnerByBuilding {IdBuilding}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Building,
+                    cancellationToken,
+                    building.IdBuilding,
+                    building.Name,
+                    building.Location,
+                    building.TotalArea);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return building;
+            }, "UpdateBuilding", cancellationToken);
         }
 
-        public List<Models.Category> GetCategories(Guid IdBuilding)
+        public async Task<BudgetDetail> UpdateRecordAsync(BudgetDetail budgetDetail, CancellationToken cancellationToken = default)
         {
-            try
+            ValidateEntity(budgetDetail, nameof(budgetDetail));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = _dbcontext!.Category.FromSqlInterpolated($"EXEC GET_Categories {IdBuilding}").ToList();
-                return result;
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_BudgetDetail,
+                    cancellationToken,
+                    budgetDetail.IdBudgetDetail,
+                    budgetDetail.IdSection,
+                    budgetDetail.ItemNumber,
+                    budgetDetail.Description,
+                    budgetDetail.MonthlyAmount,
+                    budgetDetail.AnnualAmount,
+                    budgetDetail.Frequency,
+                    budgetDetail.Type,
+                    budgetDetail.IsHeader);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return budgetDetail;
+            }, "UpdateBudgetDetail", cancellationToken);
         }
 
-        public Category GetCategoryById(Guid IdCategory)
+        public async Task<Contact> UpdateRecordAsync(Contact contact, CancellationToken cancellationToken = default)
         {
-            try
-            {
+            ValidateEntity(contact, nameof(contact));
 
-                var result = _dbcontext!.Category
-                    .FromSql($"EXEC GET_CategorybyId {IdCategory}")
-                    .AsEnumerable()
-                    .FirstOrDefault();
-
-                return result!;
-            }
-            catch (Exception ex)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Contact,
+                    cancellationToken,
+                    contact.IdContact,
+                    contact.TypeContact,
+                    contact.Name,
+                    contact.Phone,
+                    contact.Email,
+                    contact.Address,
+                    contact.OfficePhone,
+                    contact.MobilePhone);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return contact;
+            }, "UpdateContact", cancellationToken);
         }
 
-
-        public BudgetHeader GetBudgetById(Guid IdBudgetHeader)
+        public async Task<Expense> UpdateRecordAsync(Expense expense, CancellationToken cancellationToken = default)
         {
-            try
-            {
+            ValidateEntity(expense, nameof(expense));
 
-                var result = _dbcontext!.BudgetHeader
-                    .FromSql($"EXEC GET_BudgetById {IdBudgetHeader}")
-                    .AsEnumerable()
-                    .FirstOrDefault();
-
-                return result!;
-            }
-            catch (Exception ex)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Expense,
+                    cancellationToken,
+                    expense.IdExpense!,
+                    expense.ExpenseDescription!,
+                    expense.TotalAmount!,
+                    expense.IdDistribution!,
+                    expense.IsIncludedInQuota,
+                    expense.IdSubCategory!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return expense;
+            }, "UpdateExpense", cancellationToken);
         }
 
-        public async Task<List<Exoneration>> GetExonerationsByBuildingAsync(Guid IdBuilding)
+        public async Task<bool> UpdateRecordAsync(
+            TransactionBankView transaction,
+            CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
-            {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.Exoneration
-                    .FromSql($"EXEC GET_Exoneration_All {IdBuilding}")
-                    .ToListAsync();
+            ValidateEntity(transaction, nameof(transaction));
+            ValidateEntity(transaction.GastoConciliado, nameof(transaction.GastoConciliado));
 
-                return result ?? [];
-            }
-            catch (Exception ex)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ExpenseReconcilied,
+                    cancellationToken,
+                    transaction.IdStatementDetail,
+                    transaction.ReconciliationStatus,
+                    transaction.ReconciliationDate!,
+                    transaction.GastoConciliado!.IdExpense,
+                    transaction.GastoConciliado.AutoReconcile);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "UpdateExpenseReconciliation", cancellationToken);
         }
+        #endregion
 
-        public async Task<List<Exoneration>> GetExonerationByBudgetHeader(Guid IdBudgetHeader)
+        #region Get Operations
+        public async Task<List<BudgetSumCategory>> GetBudgetSumAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.Exoneration
-                    .FromSql($"EXEC GET_ExonerationByBudgetHeader {IdBudgetHeader}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<BudgetSumCategory>(
+                    StoredProcedures.GET_BudgetDetails_Sum,
+                    idBuilding);
+            }, "GetBudgetSum", cancellationToken);
         }
 
-        public async Task<List<Models.Period>> GetPeriodByBuilding(Guid IdBuilding)
+        public async Task<List<BudgetHeader>> GetBudgetsAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.Period
-                    .FromSql($"EXEC GET_PeriodsByBuilding {IdBuilding}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<BudgetHeader>(
+                    StoredProcedures.GET_Budgets,
+                    idBuilding);
+            }, "GetBudgets", cancellationToken);
         }
 
-        public async Task<List<DetalleCuotaViewModel>> GetDetallesCuotaByCuotaId(int cuotaId)
+        public async Task<List<ViewExpense>> GetPendingConciliationExpensesAsync(Guid idBuilding, DateTime from, DateTime to, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.DetalleCuotaViewModel
-                    .FromSql($"EXEC TEMP_GET_DetalleCuota")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<ViewExpense>(
+                    StoredProcedures.GET_PendingConciliationExpenses,
+                    idBuilding, from, to);
+            }, "GetPendingConciliationExpenses", cancellationToken);
         }
 
-        public async Task<List<GastoResumen>> GetGastosPrincipales()
+        public async Task<List<OwnerUnitView>> GetOwnersByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.GastoResumen
-                    .FromSql($"EXEC TEMP_GET_GastosPrincipales")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<OwnerUnitView>(
+                    StoredProcedures.GET_OwnerByBuilding,
+                    idBuilding);
+            }, "GetOwnersByBuilding", cancellationToken);
         }
 
-        public async Task<List<ViewExpense>> GetGastos()
+        public async Task<List<ViewBudgetDetail>> GetBudgetDetailDefaultAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.ViewExpense
-                    .FromSql($"EXEC temp_GetGasto")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<ViewBudgetDetail>(
+                    StoredProcedures.GET_BudgetDetailDefault,
+                    idBuilding);
+            }, "GetBudgetDetailDefault", cancellationToken);
         }
 
-        public async Task<List<Departamento>> GetDptos()
+        public async Task<List<TransactionBankView>> GetBankTransactionsNoConciliedAsync(Guid idBuilding, DateTime star, DateTime end, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.Departamento
-                    .FromSql($"EXEC TEMP_GETDpto")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<TransactionBankView>(
+                    StoredProcedures.GET_BankTransactionsNoConcilied,
+                    idBuilding, star, end);
+            }, "GetBankTransactionsNoConcilied", cancellationToken);
         }
 
-        public async Task<List<CategoriaGasto>> GetCategoriasGasto()
+        public async Task<List<Period>> GetPeriodsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.CategoriaGasto
-                    .FromSql($"EXEC TEMP_GET_Caqtegoria")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<Period>(
+                    StoredProcedures.GET_PeriodsByBuilding,
+                    idBuilding);
+            }, "GetPeriodsByBuilding", cancellationToken);
         }
 
-        public async Task<List<GastoPendienteViewModel>> ObtenerGastosPendientes()
+        public async Task<List<Contact>> GetAllContactsAsync(Guid idBuildingConfiguration, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.GastoPendienteViewModel
-                    .FromSql($"EXEC TEMP_GET_GastosPendientes")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<Contact>(
+                    StoredProcedures.GET_AllContacts,
+                    idBuildingConfiguration);
+            }, "GetAllContacts", cancellationToken);
         }
 
-        public async Task<List<CuotaMensual>> ObtenerCuotaMensuales()
+        public async Task<List<BuildingConfiguration>> GetBuildingConfigurationAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.CuotaMensual
-                    .FromSql($"EXEC TEMP_GET_CuotasMensuales")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<BuildingConfiguration>(
+                    StoredProcedures.GET_BuildingConfiguration,
+                    idBuilding);
+            }, "GetBuildingConfiguration", cancellationToken);
         }
 
-
-
-        public async Task<List<BankAccount>> GetBankAccountsByBuilding(Guid idBuilding)
+        public async Task<List<Building>> GetAllBuildingByOwnerAsync(Guid idOwner, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.BankAccount
-                    .FromSql($"EXEC GET_BankAccountsByBuilding {idBuilding}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<Building>(
+                    StoredProcedures.GET_AllBuildings,
+                    idOwner);
+            }, "GetAllBuildingByOwner", cancellationToken);
         }
 
-        public async Task<List<BuildingConfiguration>> GetBuildingConfiguration(Guid idBuilding)
+        public async Task<List<Unit>> GetUnitsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.BuildingConfiguration
-                    .FromSql($"EXEC GET_BuildingConfiguration {idBuilding}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<Unit>(
+                    StoredProcedures.GET_UnitsByBuilding,
+                    idBuilding);
+            }, "GetUnitsByBuilding", cancellationToken);
         }
 
-        public async Task<List<ServiceReading>> GetWaterReadingList(Guid IdBuilding)
+        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.ServiceReading
-                    .FromSql($"EXEC GET_ServiceReadingList {IdBuilding}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<ServiceReadingDetail>(
+                    StoredProcedures.GET_ServiceReadingDetailList,
+                    period);
+            }, "GetServiceReadingDetailbyPeriod", cancellationToken);
         }
 
-        public async Task<List<Installment>> GetInstallmentsByBudget(Guid IdBudgetHeader)
+        public async Task<List<ServiceReadingDetail>> GetFirstWaterReadingDetailListAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.Installment
-                    .FromSql($"EXEC GET_InstallmentsByBudget {IdBudgetHeader}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<ServiceReadingDetail>(
+                    StoredProcedures.GET_FirstWaterReadingDetailList,
+                    idBuilding);
+            }, "GetFirstWaterReadingDetailList", cancellationToken);
         }
 
-        public async Task<List<ServiceReading>> GetServiceReadingbyPeriod(DateTime period)
+        public async Task<List<Parameter>> GetParametersByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.ServiceReading
-                    .FromSql($"EXEC GET_ServiceReading {period}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<Parameter>(
+                    StoredProcedures.GET_AllParameters,
+                    idBuilding);
+            }, "GetParametersByBuilding", cancellationToken);
         }
 
-
-        public async Task<bool> GetHasOverlapPeriod(Models.Period period)
+        public async Task<List<Expense>> GetExpensesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            var result = await _dbcontext!.Database
-                .ExecuteSqlInterpolatedAsync(
-                    $"EXEC CHK_Period_CheckOverlap {period.IdBuilding}, {period.IdPeriod}, {period.EndDate}, {period.StartDate}");
-
-            return result > 0;
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Expense>(
+                    StoredProcedures.GET_ExpensesByBuilding,
+                    idBuilding);
+            }, "GetExpensesByBuilding", cancellationToken);
         }
 
-
-        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriod(DateTime period)
+        public async Task<List<MovementHeader>> GetMovementByFileNameAsync(string fileName, Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.ServiceReadingDetail
-                    .FromSql($"EXEC GET_ServiceReadingDetailList {period}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<MovementHeader>(
+                    StoredProcedures.GET_MovementByName,
+                    fileName, idBuilding);
+            }, "GetMovementByFileName", cancellationToken);
         }
 
-
-        public async Task<List<ServiceReadingDetail>> GetFirstWaterReadingDetailList(Guid IdBuilding)
+        public async Task<List<MovDetKey>> GetAllMovementDetailAsync(Guid idBankAccout, DateTime star, DateTime end, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.ServiceReadingDetail
-                    .FromSql($"EXEC GET_FirstWaterReadingDetailList {IdBuilding}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<MovDetKey>(
+                    StoredProcedures.GET_AllMovementDetail,
+                    idBankAccout, star, end);
+            }, "GetAllMovementDetail", cancellationToken);
         }
 
-
-
-        public async Task<List<ViewBudgetDetail>> GetBudgetDetailDefault(Guid idBuilding)
+        public async Task<List<Installment>> GetInstallmentsByBudgetAsync(Guid idBudgetHeader, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.ViewBudgetDetail
-                    .FromSql($"EXEC GET_BudgetDetailDefault {idBuilding}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<Installment>(
+                    StoredProcedures.GET_InstallmentsByBudget,
+                    idBudgetHeader);
+            }, "GetInstallmentsByBudget", cancellationToken);
         }
 
-        public async Task<List<BudgetDetail>> GetBudgetDetail(Guid idBudgetHeader)
+        public async Task<List<Exoneration>> GetExonerationByBudgetHeaderAsync(Guid idBudgetHeader, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.BudgetDetail
-                    .FromSql($"EXEC GET_List_BudgetDetail {idBudgetHeader}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching BudgetDetail", ex);
-            }
+                return await ExecuteQueryListAsync<Exoneration>(
+                    StoredProcedures.GET_ExonerationByBudgetHeader,
+                    idBudgetHeader);
+            }, "GetExonerationByBudgetHeader", cancellationToken);
         }
 
-        public async Task<List<Contact>> GetAllContacts(Guid idBuildingConfiguration)
+        public async Task<List<BudgetHeader>> GetBudgetsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            if (_dbcontext == null)
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                throw new InvalidOperationException("Database context is not initialized.");
-            }
-            try
-            {
-                var result = await _dbcontext!.Contact
-                    .FromSql($"EXEC GET_AllContacts {idBuildingConfiguration}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<BudgetHeader>(
+                    StoredProcedures.GET_Budgets,
+                    idBuilding);
+            }, "GetBudgetsByBuilding", cancellationToken);
         }
 
-
-        public async Task<List<ViewExpense>> GetPendingConciliationExpenses(Guid idBuilding, DateTime from, DateTime to)
+        public async Task<List<Models.Category>> GetCategoriesAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            try
+            return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = await _dbcontext!.ViewExpense
-                    .FromSql($"EXEC GET_PendingConciliationExpenses {idBuilding}")
-                    .ToListAsync();
-
-                return result ?? [];
-            }
-            catch (Exception ex)
-            {
-                // Log error here
-                throw new ApplicationException("Error fetching unit", ex);
-            }
+                return await ExecuteQueryListAsync<Models.Category>(
+                    StoredProcedures.GET_Categories,
+                    idBuilding);
+            }, "GetCategories", cancellationToken);
         }
 
+        public async Task<List<Models.UnitView>> GetGroupUnitsByTypeAsync(Guid idBuilding, int _type, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.UnitView>(
+                    StoredProcedures.GET_UnitsByType,
+                    idBuilding, _type) ?? [];
+            }, "GetGroupUnitsByType", cancellationToken);
+        }
+
+        public async Task<List<Exoneration>> GetExonerationsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Exoneration>(
+                    StoredProcedures.GET_Exoneration_All,
+                    idBuilding) ?? new List<Exoneration>();
+            }, "GetExonerationsByBuilding", cancellationToken);
+        }
+
+        public async Task<List<BankAccount>> GetBankAccountsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<BankAccount>(
+                    StoredProcedures.GET_BankAccountsByBuilding,
+                    idBuilding) ?? new List<BankAccount>();
+            }, "GetBankAccountsByBuilding", cancellationToken);
+        }
+
+        public async Task<List<ServiceReading>> GetServiceReadingbyPeriodAsync(DateTime period, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<ServiceReading>(
+                    StoredProcedures.GET_ServiceReading,
+                    period) ?? new List<ServiceReading>();
+            }, "GetServiceReadingbyPeriod", cancellationToken);
+        }
+
+        public async Task<List<ServiceReading>> GetServiceReadingListAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<ServiceReading>(
+                    StoredProcedures.GET_ServiceReadingList,
+                    idBuilding) ?? new List<ServiceReading>();
+            }, "GetServiceReadingList", cancellationToken);
+        }
+
+        public async Task<List<BudgetDetail>> GetBudgetDetailAsync(Guid idBudgetHeader, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<BudgetDetail>(
+                    StoredProcedures.GET_List_BudgetDetail,
+                    idBudgetHeader) ?? new List<BudgetDetail>();
+            }, "GetBudgetDetail", cancellationToken);
+        }
+
+        public async Task<Building> GetBuildingByIdAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<Building>(
+                    StoredProcedures.GET_BuildingById,
+                    idBuilding);
+
+                return result ?? throw new EntityNotFoundException($"Building with ID {idBuilding} not found");
+            }, "GetBuildingById", cancellationToken);
+        }
+
+        public async Task<Category> GetCategoryByIdAsync(Guid idCategory, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<Category>(
+                    StoredProcedures.GET_CategoryById,
+                    idCategory);
+
+                return result ?? throw new EntityNotFoundException($"Category with ID {idCategory} not found");
+            }, "GetCategoryById", cancellationToken);
+        }
+
+        public async Task<BudgetHeader> GetBudgetByIdAsync(Guid idBudgetHeader, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<BudgetHeader>(
+                    StoredProcedures.GET_BudgetById,
+                    idBudgetHeader);
+
+                return result ?? throw new EntityNotFoundException($"BudgetHeader with ID {idBudgetHeader} not found");
+            }, "GetBudgetById", cancellationToken);
+        }
+
+
+        #endregion
+
+        #region Additional Operations
+        public async Task<bool> UnsetOtherCurrentPeriodsAsync(Guid idBuilding, Guid idCurrentPeriod, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_UnsetOtherCurrentPeriods,
+                    cancellationToken,
+                    idBuilding,
+                    idCurrentPeriod);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "UnsetOtherCurrentPeriods", cancellationToken);
+        }
+
+        public async Task<bool> ClosePastBudgetsAsync(Guid idBuilding, DateTime period, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ClosePastBudgets,
+                    cancellationToken,
+                    period,
+                    idBuilding);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "ClosePastBudgets", cancellationToken);
+        }
+
+        public async Task<bool> CheckPeriodOverlapAsync(Period period, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(period, nameof(period));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                    $"EXEC CHK_Period_CheckOverlap {period.IdBuilding}, {period.IdPeriod}, {period.EndDate}, {period.StartDate}",
+                    cancellationToken);
+
+                return result > 0;
+            }, "CheckPeriodOverlap", cancellationToken);
+        }
+
+        #endregion
     }
+
+    #region Custom Exceptions
+    public class RepositoryException : Exception
+    {
+        public RepositoryException(string message) : base(message) { }
+        public RepositoryException(string message, Exception innerException) : base(message, innerException) { }
+    }
+
+    public class EntityNotFoundException : Exception
+    {
+        public EntityNotFoundException(string message) : base(message) { }
+        public EntityNotFoundException(string message, Exception innerException) : base(message, innerException) { }
+    }
+    #endregion
 }

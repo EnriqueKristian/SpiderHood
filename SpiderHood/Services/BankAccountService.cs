@@ -35,7 +35,7 @@ namespace SpiderHood.Services
             try
             {
                 // En una app real, esto vendría de una API
-                return await ec.GetBankAccountsByBuilding(IdBulding);
+                return await ec.GetBankAccountsByBuildingAsync(IdBulding);
             }
             catch (Exception ex)
             {
@@ -49,7 +49,7 @@ namespace SpiderHood.Services
             try
             {
                 // Generar transacciones de ejemplo
-                return ec.GetBankTransactionsNoConcilied(cuentaId, desde, hasta);
+                return ec.GetBankTransactionsNoConciliedAsync(cuentaId, desde, hasta).Result;
             }
             catch (Exception ex)
             {

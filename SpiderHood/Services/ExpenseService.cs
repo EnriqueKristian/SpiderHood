@@ -103,7 +103,7 @@ namespace SpiderHood.Services
 
         public async Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync(BDLayout ec, Guid IdBuilding, DateTime desde, DateTime hasta)
         {
-            return await ec.GetPendingConciliationExpenses(IdBuilding, desde, hasta);
+            return await ec.GetPendingConciliationExpensesAsync(IdBuilding, desde, hasta);
         }
 
         public async Task<List<CategoriaGasto>> ObtenerCategoriasAsync()

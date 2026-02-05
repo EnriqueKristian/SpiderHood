@@ -62,8 +62,8 @@ else
     protected override async Task OnInitializedAsync()
     {
         using var context = DbFactory.CreateDbContext();
-        Owner ??= await context.Owner.FirstOrDefaultAsync(m => m.IdOwner == Id);
-          
+        //Owner ??= await context.Owner.FirstOrDefaultAsync(m => m.IdOwner == Id);
+
         if (Owner is null)
         {
             NavigationManager.NavigateTo("notfound");
@@ -98,7 +98,8 @@ else
 
     private bool OwnerExists(Guid id)
     {
-        using var context = DbFactory.CreateDbContext();
-        return context.Owner.Any(e => e.IdOwner == id);
+        return false;
+        /*using var context = DbFactory.CreateDbContext();
+        return context.Owner.Any(e => e.IdOwner == id);*/
     }
 }

@@ -113,8 +113,8 @@
         if (ParameterService.CurrentBuilding == null) return;
         try
         {
-            _categories = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding);
-            
+            _categories = await ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
+
             _catParent = _categories
                 .Where(c => c.Nivel == 0)
                 .ToList();
@@ -178,7 +178,7 @@
         }
     }
 
-    private async Task AddItem(Category item)
+    private async Task AddItem(Models.Category item)
     {
         item.IdCategory = Guid.NewGuid();
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
@@ -228,8 +228,9 @@
 
     private async Task<bool> ItemExists(Guid id)
     {
-        return await Task.Run(() => 
-            ParameterService.Context.Building.Any(e => e.IdBuilding == id));
+        return false;
+        /*return await Task.Run(() => 
+            ParameterService.Context.Building.Any(e => e.IdBuilding == id));*/
     }
 
     private string GetDistributionClass(TypeDistribution tipo)

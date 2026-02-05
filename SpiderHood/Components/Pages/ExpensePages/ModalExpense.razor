@@ -94,7 +94,7 @@
     [Parameter] public Models.Expense ExpenseView { get; set; }
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
     [Parameter] public EventCallback<Models.Expense> OnSaveItem{ get; set; }
-    [Parameter] public IQueryable<Models.Category> FilteredCategory { get; set; }
+    [Parameter] public List<Models.Category> FilteredCategory { get; set; }
 
     private async Task Guardar()
     {

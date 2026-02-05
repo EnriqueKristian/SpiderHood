@@ -73,12 +73,12 @@ namespace SpiderHood.Services
             try
             {
                 var parameters = await ec.GetParametersByBuildingAsync(IdBuilding);
-                var periodos =  await ec.GetPeriodByBuilding(IdBuilding);
-                var building = await ec.GetBuildingById(IdBuilding);
+                var periodos =  await ec.GetPeriodsByBuildingAsync(IdBuilding);
+                Building building = await ec.GetBuildingByIdAsync(IdBuilding);
                 if (building is null)
                     throw new InvalidOperationException($"Building with Id {IdBuilding} not found.");
                 CurrentBuilding = building;
-                var listconfig = await ec.GetBuildingConfiguration(IdBuilding);
+                var listconfig = await ec.GetBuildingConfigurationAsync(IdBuilding);
                 CurrentBuilding!.Configuration = listconfig.FirstOrDefault()!;
 
                 _listParameters = parameters ?? [];
@@ -110,7 +110,7 @@ namespace SpiderHood.Services
         /// </summary>
         public async Task<OperationResult> SaveParameterAsync(Parameter parameter)
         {
-            if (parameter == null)
+            /*if (parameter == null)
                 throw new ArgumentNullException(nameof(parameter));
 
             if (parameter.IdBuilding != CurrentBuilding.IdBuilding)
@@ -164,7 +164,8 @@ namespace SpiderHood.Services
             {
                 // Log error
                 return OperationResult.Failure($"Unexpected error: {ex.Message}");
-            }
+            }*/
+            return OperationResult.Failure("Not implemented");
         }
 
         /// <summary>
@@ -172,7 +173,7 @@ namespace SpiderHood.Services
         /// </summary>
         public async Task<OperationResult> SaveParametersAsync(IEnumerable<Parameter> parameters)
         {
-            if (parameters == null)
+            /*if (parameters == null)
                 throw new ArgumentNullException(nameof(parameters));
 
             var parameterList = parameters.ToList();
@@ -217,23 +218,26 @@ namespace SpiderHood.Services
             {
                 // Log error
                 return OperationResult.Failure($"Error saving multiple parameters: {ex.Message}");
-            }
+            }*/
+            return OperationResult.Failure("Not implemented");
         }
 
         public async Task<List<Parameter>> GetParametersByParentAsync(int idParent)
         {
-            return await Context.Parameter
+            return new List<Parameter>();
+            /*return await Context.Parameter
                 .AsNoTracking()
                 .Where(p => p.IdParent == idParent)
-                .ToListAsync();
+                .ToListAsync();*/
         }
 
         public async Task<List<Parameter>> GetParametersByBuildingAsync(Guid idBuilding)
         {
-            return await Context.Parameter
+            return new List<Parameter>();
+            /*return await Context.Parameter
                 .AsNoTracking()
                 .Where(p => p.IdBuilding == idBuilding)
-                .ToListAsync();
+                .ToListAsync();*/
         }
 
         public async Task<List<SelectListItem>> GetMonthList(string _culture)
@@ -267,7 +271,7 @@ namespace SpiderHood.Services
 
         public async Task<List<Period>> GetPeriodsAsync()
         {
-            return await ec.GetPeriodByBuilding(CurrentBuilding!.IdBuilding);
+            return await ec.GetPeriodsByBuildingAsync(CurrentBuilding!.IdBuilding);
         }
 
         public async Task<Models.Period> CreateNewPeriod(DateTime lastPeriod)
@@ -295,9 +299,10 @@ namespace SpiderHood.Services
         /// </summary>
         public async Task<Parameter?> GetParameterAsync(int idTabla)
         {
-            return await Context.Parameter
+            return _listParameters.FirstOrDefault(p => p.IdTabla == idTabla);
+            /*return await Context.Parameter
                 .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.IdTabla == idTabla);
+                .FirstOrDefaultAsync(p => p.IdTabla == idTabla);*/
         }
 
         /// <summary>
@@ -305,7 +310,7 @@ namespace SpiderHood.Services
         /// </summary>
         public async Task<OperationResult> DeleteParameterAsync(int idTabla)
         {
-            try
+            /*try
             {
                 var parameter = await Context.Parameter
                     .FirstOrDefaultAsync(p => p.IdTabla == idTabla);
@@ -327,7 +332,8 @@ namespace SpiderHood.Services
             {
                 // Log error
                 return OperationResult.Failure($"Error deleting parameter: {ex.Message}");
-            }
+            }*/
+            return OperationResult.Failure("Not implemented");
         }
 
         /// <summary>

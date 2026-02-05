@@ -94,7 +94,7 @@
                         }
                         else
                         {
-                            FilteredExpensesByCat = FilteredExpenses.Where(c => (SelectedCategory == "all" || c.IdCategory.ToString() == SelectedCategory) && (SelectedMonth == "2025-01" || c.FilterbyMonth == SelectedMonth));
+                            FilteredExpensesByCat = FilteredExpenses.Where(c => (SelectedCategory == "all" || c.IdCategory.ToString() == SelectedCategory) && (SelectedMonth == "2025-01" || c.FilterbyMonth == SelectedMonth)).ToList();
 
                             @foreach (var x in FilteredExpenses.Select(e => e.Category).Distinct())
                             {
@@ -151,9 +151,9 @@
 
 @code {
     private Models.Expense _newExpense = new Models.Expense();
-    private IQueryable<Models.Expense> FilteredExpenses = Enumerable.Empty<Models.Expense>().AsQueryable();
-    private IQueryable<Models.Expense> FilteredExpensesByCat = Enumerable.Empty<Models.Expense>().AsQueryable();
-    private IQueryable<Models.Category> FilteredCategory = Enumerable.Empty<Models.Category>().AsQueryable();
+    private List<Models.Expense> FilteredExpenses = new();
+    private List<Models.Expense> FilteredExpensesByCat = new();
+    private List<Models.Category> FilteredCategory = new();
 
     private bool MostrarModal = false;
     private Models.OpenType OpenMode = OpenType.ReadOnly;
@@ -187,8 +187,8 @@
         if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
             return;
         // Aquí cargarías los parámetros desde tu API o servicio
-        FilteredExpenses = ParameterService.ec.GetExpensesByBuilding(ParameterService.CurrentBuilding.IdBuilding).AsQueryable();
-        FilteredCategory = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding).AsQueryable();
+        FilteredExpenses = ParameterService.ec.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        FilteredCategory = ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
     }
 
     private void AbrirModal(Models.Expense item, OpenType mode)
@@ -212,7 +212,7 @@
                 throw new ArgumentOutOfRangeException(nameof(mode), $"Valor inesperado: {mode}");
         }
     }
-    
+
     private async Task SaveItem(SpiderHood.Models.Expense item)
     {
         switch (OpenMode)
@@ -265,7 +265,8 @@
 
     private bool ItemExists(Guid id)
     {
-        return ParameterService.Context.Expense.Any(e => e.IdExpense == id);
+        return false;
+        //return ParameterService.Context.Expense.Any(e => e.IdExpense == id);
     }
 
     private void DeleteItem(Models.Expense item)

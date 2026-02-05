@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
+using System.Collections.Generic;
 using System.Globalization;
 
 
@@ -29,7 +30,7 @@ namespace SpiderHood.Services
             List<Guid> gastosIds)
         {
             var resultado = new ResultadoGeneracion();
-
+            /*
             try
             {
                 // Validar que no exista cuota para el mismo periodo
@@ -37,7 +38,7 @@ namespace SpiderHood.Services
                 //var cuotasMensuales = await ec.GetCuotasMensuales(ParameterService.IdBuilding);
                 // If cuotasMensuales is a single CuotaViewModel, check its properties directly
                 // If it's a collection, use .Any(...) as below
-                /*
+                
 
                 bool existeCuota = false;
                 if (cuotasMensuales is IEnumerable<CuotaViewModel> collection)
@@ -48,7 +49,7 @@ namespace SpiderHood.Services
                 {
                     existeCuota = cuotasMensuales.Mes == mes && cuotasMensuales.Anio == anio && !cuotasMensuales.Procesada;
                 }
-                */
+                
                 var existeCuota = await _context.CuotasMensuales
                 .AnyAsync(c => c.Mes == mes && c.Anio == anio && !c.Procesada);
 
@@ -62,9 +63,9 @@ namespace SpiderHood.Services
                 // Obtener departamentos activos
                 /*var departamentos = await _context.Departamentos
                     .Where(d => d.Activo)
-                    .ToListAsync();*/
+                    .ToListAsync();
 
-                var departamentos = await ParameterService.ec.GetDptos();
+                var departamentos = new List<Departamento>(); //await ParameterService.ec.GetDptos();
 
                 if (!departamentos.Any())
                 {
@@ -136,7 +137,7 @@ namespace SpiderHood.Services
                 resultado.Exito = false;
                 resultado.Mensaje = $"Error al generar cuota: {ex.Message}";
             }
-
+            */
             return resultado;
         }
 
@@ -146,7 +147,7 @@ namespace SpiderHood.Services
             List<Departamento> departamentos,
             DateTime fechaVencimiento)
         {
-            if (gasto.Category == TipoDistribucion.Fija.ToString())
+            /*if (gasto.Category == TipoDistribucion.Fija.ToString())
             {
                 // Distribución igualitaria
                 var montoPorDepto = Math.Round(gasto.Amount / departamentos.Count, 2);
@@ -218,18 +219,18 @@ namespace SpiderHood.Services
                 await _context.DetallesCuota.AddRangeAsync(detalles);
             }
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();*/
         }
 
         public async Task<CuotaMensual> ObtenerCuotaAsync(int cuotaId)
         {
-            var cuotas = await ParameterService.ec.ObtenerCuotaMensuales();
+            var cuotas = new List<CuotaMensual>(); // await ParameterService.ec.ObtenerCuotaMensuales();
             return cuotas.FirstOrDefault(c => c.Id == cuotaId)!;
         }
 
         public async Task<List<CuotaMensual>> ObtenerCuotasAsync(int? anio = null, int? mes = null)
         {
-            var query = _context.CuotasMensuales.AsQueryable();
+            /*var query = _context.CuotasMensuales.AsQueryable();
 
             if (anio.HasValue && anio > 0)
             {
@@ -239,9 +240,9 @@ namespace SpiderHood.Services
             if (mes.HasValue && mes > 0)
             {
                 query = query.Where(c => c.Mes == mes.Value);
-            }
+            }*/
 
-            return await ParameterService.ec.ObtenerCuotaMensuales();
+            return new List<CuotaMensual>(); // await ParameterService.ec.ObtenerCuotaMensuales();
 
             /*return await query
                 .OrderByDescending(c => c.Anio)
@@ -251,7 +252,7 @@ namespace SpiderHood.Services
 
         public async Task<List<DetalleCuotaViewModel>> ObtenerDetallesCuotaAsync(int cuotaId)
         {
-            return await ParameterService.ec.GetDetallesCuotaByCuotaId(cuotaId);
+            return new List<DetalleCuotaViewModel>(); // await ParameterService.ec.GetDetallesCuotaByCuotaId(cuotaId);
             /*
             return await _context.DetallesCuota
                 .Include(d => d.Departamentos)
@@ -321,7 +322,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                var cuota = await _context.CuotasMensuales
+                /*var cuota = await _context.CuotasMensuales
                     .FirstOrDefaultAsync(c => c.Id == cuotaId);
 
                 if (cuota == null || cuota.Procesada)
@@ -346,7 +347,7 @@ namespace SpiderHood.Services
                     gasto.ExpenseDate = DateTime.Now;
                 }
 
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();*/
                 return true;
             }
             catch (Exception ex)
@@ -360,7 +361,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                var cuota = await _context.CuotasMensuales
+                /*var cuota = await _context.CuotasMensuales
                     .FirstOrDefaultAsync(c => c.Id == cuotaId);
 
                 if (cuota == null || cuota.Procesada)
@@ -393,7 +394,7 @@ namespace SpiderHood.Services
                 // Eliminar la cuota
                 _context.CuotasMensuales.Remove(cuota);
 
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();*/
                 return true;
             }
             catch (Exception ex)
@@ -442,7 +443,7 @@ namespace SpiderHood.Services
                     g => g.Sum(d => d.Monto)
                 );
 
-            var gastosPrincipales = await ParameterService.ec.GetGastosPrincipales();
+            var gastosPrincipales = new List<GastoResumen>(); // await ParameterService.ec.GetGastosPrincipales();
 
             /*var gastosPrincipales = await _context.DetallesCuota
                 .Where(d => d.CuotaId == cuotaId)

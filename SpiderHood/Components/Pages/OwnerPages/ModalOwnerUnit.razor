@@ -43,11 +43,12 @@
                             <tr>
                                 <td colspan="4"><hr /></td>
                             </tr>
-                            <tr>
+                            <!--
+                                <tr>
                                 <td colspan="2" align="center" width="40%" style="border:solid">
                                     <label class="form-label"><strong>Estacionamientos:</strong></label>
                                     <div class="gridModal" style="width:50%">
-                                        <Microsoft.AspNetCore.Components.QuickGrid.QuickGrid Items="@FreeUnits.Where(c => c.IdGroupOwner == Guid.Empty && c.TypeUnit == 2)" class="gridCustom table-hover">
+                                        <Microsoft.AspNetCore.Components.QuickGrid.QuickGrid Items="@FreeUnits.Where(c => c.IdGroupOwner == Guid.Empty && c.TypeUnit == 2).ToList()" class="gridCustom table-hover">
                                             <Microsoft.AspNetCore.Components.QuickGrid.TemplateColumn Title="Actions">
                                                 <input type="checkbox" @onclick="@(() => OnClickCheck(context))"></input>
                                             </Microsoft.AspNetCore.Components.QuickGrid.TemplateColumn>
@@ -60,7 +61,7 @@
                                     <label class="form-label"><strong>Depositos:</strong></label>
                                     <div class="gridModal" style="width:50%">
                                         
-                                        <Microsoft.AspNetCore.Components.QuickGrid.QuickGrid Items="@FreeUnits.Where(c => c.IdGroupOwner == Guid.Empty && c.TypeUnit == 3)" class="gridCustom table-sm table-hover">
+                                        <Microsoft.AspNetCore.Components.QuickGrid.QuickGrid Items="@FreeUnits.Where(c => c.IdGroupOwner == Guid.Empty && c.TypeUnit == 3).ToList()" class="gridCustom table-sm table-hover">
                                             <Microsoft.AspNetCore.Components.QuickGrid.TemplateColumn Title="Actions">
                                                 <input type="checkbox" @onclick="@(() => OnClickCheck(context))"></input>
                                             </Microsoft.AspNetCore.Components.QuickGrid.TemplateColumn>
@@ -69,6 +70,7 @@
                                     </div>
                                 </td>
                             </tr>
+         -->
                     }
                     else{
                             <tr>
@@ -102,7 +104,7 @@
     [Parameter] public int TypeOwner { get; set; }
     [Parameter] public Models.OpenType OpenMode { get; set; }
     [Parameter] public Models.OwnerUnit ViewOwner { get; set; }
-    [Parameter] public IQueryable<Models.Unit> FreeUnits { get; set; }
+    [Parameter] public List<Models.Unit> FreeUnits { get; set; }
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
     [Parameter] public EventCallback<List<Models.Unit>> OnSaveGroupUnit { get; set; }
 

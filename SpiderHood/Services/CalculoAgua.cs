@@ -293,24 +293,24 @@ namespace SpiderHood.Services
 
         public async Task<ServiceReading> ObtenerLecturaPorPeriodoAsync(BDLayout ec, DateTime period)
         {
-            var lista = await ec.GetServiceReadingbyPeriod(period); // Espera la tarea para obtener la lista
+            var lista = await ec.GetServiceReadingbyPeriodAsync(period); // Espera la tarea para obtener la lista
             return lista.FirstOrDefault()!; // Ahora sí puedes usar FirstOrDefault()
         }
 
 
         public Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(BDLayout ec, DateTime period)
         {
-            return ec.GetServiceReadingDetailbyPeriod(period);
+            return ec.GetServiceReadingDetailbyPeriodAsync(period);
         }
 
         public Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(BDLayout ec, Guid IdBuilding)
         {
-            return ec.GetFirstWaterReadingDetailList(IdBuilding);
+            return ec.GetFirstWaterReadingDetailListAsync(IdBuilding);
         }
 
         public Task<List<Models.ServiceReading>> GetServiceReadingsAsync(BDLayout ec, Guid IdBuilding)
         {
-            return ec.GetWaterReadingList(IdBuilding);
+            return ec.GetServiceReadingListAsync(IdBuilding);
         }
     }
 

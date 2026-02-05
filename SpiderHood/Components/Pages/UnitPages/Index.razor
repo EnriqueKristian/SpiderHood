@@ -548,7 +548,7 @@
                     string cad1 = _formCreateUnit.formatUnit.Substring(0, _formCreateUnit.formatUnit.Length - 1);
                     _blockunit.UnitNumber = _formCreateUnit.StarFloor.ToString() + cad1 + StarUnitLocal.ToString();
 
-                    ParameterService.ec.AddNewRecord(_blockunit);
+                    await ParameterService.ec.AddNewRecordAsync(_blockunit);
 
                     StarUnitLocal += 1;
                 }
@@ -575,8 +575,8 @@
         //await Task.CompletedTask;
     }
 
-    private IQueryable<Models.Unit> units = Enumerable.Empty<Models.Unit>().AsQueryable();
-    private IQueryable<Models.Unit> list_units = Enumerable.Empty<Models.Unit>().AsQueryable();
+    private List<Models.Unit> units = new();
+    private List<Models.Unit> list_units = new();
     public async ValueTask DisposeAsync() => await ParameterService.Context.DisposeAsync();
 
     /*  === Parametros de la Ventana Modal  === */
@@ -616,8 +616,8 @@
     protected override void OnInitialized()
     {
         if (ParameterService.CurrentBuilding == null) return;
-        units = ParameterService.ec.GetUnitsByBuilding(ParameterService.CurrentBuilding.IdBuilding).AsQueryable();
-        list_units = units.Where(c => c.TypeUnit == 1);
+        units = ParameterService.ec.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        list_units = units.Where(c => c.TypeUnit == 1).ToList();
     }
 
     private void AbrirModal(Models.Unit _cat, int type, Models.OpenType mode)
@@ -685,6 +685,7 @@
 
     private bool ItemExists(Guid id)
     {
-        return ParameterService.Context.Unit.Any(e => e.IdUnit == id);
+        return false;
+        //return ParameterService.Context.Unit.Any(e => e.IdUnit == id);
     }
 }

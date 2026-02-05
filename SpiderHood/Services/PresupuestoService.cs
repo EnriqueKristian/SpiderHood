@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 namespace SpiderHood.Services
 {
     // Services/IPresupuestoService.cs
-    public interface IPresupuestoService
+    public interface IBudgetService
     {
         public List<BudgetHeader> _Budgets { get; set; }
         public BudgetHeader _SelectedBudget { get; set; }
@@ -44,7 +44,8 @@ namespace SpiderHood.Services
         Task<List<PresupuestoCategoria>> GetCategoriasByPresupuestoAsync(Guid presupuestoId);
         Task UpdateCategoriaPresupuestoAsync(PresupuestoCategoria presupuestoCategoria);
     }
-    public class BudgetService : IPresupuestoService
+
+    public class BudgetService : IBudgetService
     {
 
         public List<BudgetHeader> _Budgets { get; set; } = new List<BudgetHeader>();
@@ -67,7 +68,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                var query = ec.GetBudgets(IdBuilding);
+                List<BudgetHeader> query = await ec.GetBudgetsAsync(IdBuilding);
 
                 // Aplicar filtros
                 if (!string.IsNullOrWhiteSpace(search))
@@ -119,7 +120,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                return  ec.GetBudgetSum(IdBuilding);
+                return  await ec.GetBudgetSumAsync(IdBuilding);
             }
             catch (Exception ex)
             {
@@ -132,8 +133,8 @@ namespace SpiderHood.Services
         {
             try
             {
-                var presupuesto = ec.GetBudgetById(id);
-                var detail = await ec.GetBudgetDetail(id);
+                var presupuesto = ec.GetBudgetByIdAsync(id).Result;
+                var detail = await ec.GetBudgetDetailAsync(id);
                 presupuesto.Details = detail;
 
                 if (presupuesto != null)
@@ -257,8 +258,9 @@ namespace SpiderHood.Services
             try
             {
                 // Verificar si existe
-                var presupuesto = await _context.BudgetHeader
-                    .FirstOrDefaultAsync(p => p.IdBudgetHeader == id);
+                /*var presupuesto = await _context.BudgetHeader
+                    .FirstOrDefaultAsync(p => p.IdBudgetHeader == id);*/
+                BudgetHeader presupuesto = await ec.GetBudgetByIdAsync(id);
 
                 if (presupuesto == null)
                 {
@@ -311,20 +313,20 @@ namespace SpiderHood.Services
 
         public async Task LoadBudgetDetailsAsync(BudgetState state)
         {
-            state.Budget.Details = await ec.GetBudgetDetail(state.Budget.IdBudgetHeader);
+            state.Budget.Details = await ec.GetBudgetDetailAsync(state.Budget.IdBudgetHeader);
         }
 
         public async Task LoadDataDefaultAsync(BudgetState state)
         {
-            state.ExpensesList  = await ec.GetPendingConciliationExpenses(state.Budget.IdBuilding, state.Budget.BudgetDate, state.Budget.BudgetDate);
-            state.Owners = ec.GetOwnersByBuilding(state.Budget.IdBuilding);
+            state.ExpensesList  = await ec.GetPendingConciliationExpensesAsync(state.Budget.IdBuilding, state.Budget.BudgetDate, state.Budget.BudgetDate);
+            state.Owners = await ec.GetOwnersByBuildingAsync(state.Budget.IdBuilding);
             state.Owners = state.Owners.Where(c => c.Role == 1 && c.TypeUnit == 1).ToList();
         }
 
         public async Task LoadDefaultBudgetDetailsAsync(BudgetState state)
         {
             //Cargar Template Default
-            state.ListDefault = await ec.GetBudgetDetailDefault(state.Budget.IdBuilding);
+            state.ListDefault = await ec.GetBudgetDetailDefaultAsync(state.Budget.IdBuilding);
             
 
             var sequentialNumber = 0.0m;
@@ -394,7 +396,7 @@ namespace SpiderHood.Services
                     else
                     {
                         await ec.UpdateRecordAsync(state.Budget);
-                        await ec.UpdateRecordAsync(state.Budget.IdBuilding, state.Budget.BudgetDate);
+                        await ec.ClosePastBudgetsAsync(state.Budget.IdBuilding, state.Budget.BudgetDate);
                     }
                 }
 
@@ -454,7 +456,7 @@ namespace SpiderHood.Services
 
         private async Task UpdateExistingBudgetAsync(BudgetState state)
         {
-            await ec.DelBudgetDetailByHeaderAsync(state.Budget.IdBudgetHeader);
+            await ec.DeleteRecordAsync(state.Budget.IdBudgetHeader);
 
             foreach (var item in state.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
             {
@@ -496,17 +498,14 @@ namespace SpiderHood.Services
         {
             try
             {
-
-                //var query = _context.Categorias.AsQueryable(); 
-                //var query = ec.GetCategorias(Guid.NewGuid()).AsQueryable();
-                var query = ec.GetCategories(IdBuilding).AsQueryable();
+                List<Category> query = await ec.GetCategoriesAsync(IdBuilding);
 
                 if (activas.HasValue)
                 {
-                    query = query.Where(c => c.Nivel == 0);
+                    query = query.Where(c => c.Nivel == 0).ToList();
                 }
 
-                query = query.OrderBy(c => c.Nivel).ThenBy(c => c.ShortDescript);
+                query = query.OrderBy(c => c.Nivel).ThenBy(c => c.ShortDescript).ToList();
 
                 return query.ToList();
             }
@@ -521,8 +520,9 @@ namespace SpiderHood.Services
         {
             try
             {
-                return await _context.Category
-                    .FirstOrDefaultAsync(c => c.IdCategory == id);
+                return await ec.GetCategoryByIdAsync(id);
+                /*return await _context.Category
+                    .FirstOrDefaultAsync(c => c.IdCategory == id);*/
             }
             catch (Exception ex)
             {
@@ -638,7 +638,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                return await ec.GetBudgetDetail(presupuestoId);
+                return await ec.GetBudgetDetailAsync(presupuestoId);
             }
             catch (Exception ex)
             {
@@ -835,7 +835,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                return ec.GetPresupuestoCategoria(presupuestoId).ToList();
+                return new List<Models.PresupuestoCategoria>();// ec.GetPresupuestoCategoria(presupuestoId).ToList();
                 /*return await _context.PresupuestoCategorias
                     .Include(pc => pc.Categoria)
                     .Where(pc => pc.PresupuestoId == presupuestoId)
@@ -851,7 +851,7 @@ namespace SpiderHood.Services
 
         public async Task UpdateCategoriaPresupuestoAsync(PresupuestoCategoria presupuestoCategoria)
         {
-            try
+            /*try
             {
                 // Verificar si existe
                 var existente = await _context.PresupuestoCategorias
@@ -878,7 +878,7 @@ namespace SpiderHood.Services
             {
                 _logger.LogError(ex, "Error al actualizar categoría de presupuesto");
                 throw;
-            }
+            }*/
         }
 
         #endregion
@@ -887,7 +887,7 @@ namespace SpiderHood.Services
 
         private async Task CrearRelacionesCategoriasAsync(Guid presupuestoId, Guid IdBuilding)
         {
-            try
+            /*try
             {
                 var categoriasActivas = await GetCategoriasAsync(IdBuilding, true);
 
@@ -910,12 +910,12 @@ namespace SpiderHood.Services
             {
                 _logger.LogError(ex, "Error al crear relaciones de categorías para el presupuesto ID: {Id}", presupuestoId);
                 throw;
-            }
+            }*/
         }
 
         private async Task ActualizarRelacionCategoriaAsync(Guid presupuestoId, Guid categoriaId, decimal monto)
         {
-            try
+            /*try
             {
                 var relacion = await _context.PresupuestoCategorias
                     .FirstOrDefaultAsync(pc =>
@@ -946,13 +946,13 @@ namespace SpiderHood.Services
             {
                 _logger.LogError(ex, "Error al actualizar relación de categoría");
                 throw;
-            }
+            }*/
         }
 
         private async Task AjustarRelacionesCategoriasAsync(Guid presupuestoId, Guid nuevaCategoriaId,
                                                            decimal montoViejo, decimal montoNuevo)
         {
-            try
+            /*try
             {
                 // Restar de categoría anterior
                 var relacionVieja = await _context.PresupuestoCategorias
@@ -975,7 +975,7 @@ namespace SpiderHood.Services
             {
                 _logger.LogError(ex, "Error al ajustar relaciones de categorías");
                 throw;
-            }
+            }*/
         }
 
         #endregion
@@ -1007,7 +1007,7 @@ namespace SpiderHood.Services
 
         public async Task<IEnumerable<Models.Period>> GetPeriodsByBuildingAsync(Guid IdBuilding)
         {
-            return await ec.GetPeriodByBuilding(IdBuilding);
+            return await ec.GetPeriodsByBuildingAsync(IdBuilding);
         }
 
         public async Task<Models.Period> GetPeriodByIdAsync(Guid id)
@@ -1029,7 +1029,7 @@ namespace SpiderHood.Services
             try
             {
                 // Validar que no haya superposición de fechas
-                var hasOverlap = await ec.GetHasOverlapPeriod(period);
+                var hasOverlap = await ec.CheckPeriodOverlapAsync(period);
 
                 if (hasOverlap)
                 {
@@ -1173,7 +1173,7 @@ namespace SpiderHood.Services
 
         private async Task UnsetOtherCurrentPeriods(Guid IdBuilding, Guid IdcurrentPeriod)
         {
-            await ec.UnsetOtherCurrentPeriods(IdBuilding, IdcurrentPeriod);
+            await ec.UnsetOtherCurrentPeriodsAsync(IdBuilding, IdcurrentPeriod);
         }
     }
 

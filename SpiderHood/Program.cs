@@ -33,7 +33,7 @@ builder.Services.AddScoped<BankAccountService>();
 builder.Services.AddScoped<ExpenseService>();
 
 // Register services
-builder.Services.AddScoped<IPresupuestoService, BudgetService>();
+builder.Services.AddScoped<IBudgetService, BudgetService>();
 
 // Add other services
 //builder.Services.AddScoped<SpiderHood.Services.ToastService>();

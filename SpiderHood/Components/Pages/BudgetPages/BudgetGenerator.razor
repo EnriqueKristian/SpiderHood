@@ -662,7 +662,7 @@
 
 @code {
 
-    [Inject] private IPresupuestoService presupuestoService { get; set; } = null!;
+    [Inject] private IBudgetService presupuestoService { get; set; } = null!;
 
     private BudgetStatus _Status = BudgetStatus.Created;
 
@@ -752,14 +752,14 @@
         {
             _textCabecera = _BudgetState.Budget.BudgetName;
             //Cargar Lectura de Agua
-            _BudgetState.WaterReadings = await ParameterService.ec.GetServiceReadingDetailbyPeriod(_BudgetState.Budget.BudgetDate);
+            _BudgetState.WaterReadings = await ParameterService.ec.GetServiceReadingDetailbyPeriodAsync(_BudgetState.Budget.BudgetDate);
             bool isActiveOrClosed =  _BudgetState.Status == BudgetStatus.Active ||  _BudgetState.Status == BudgetStatus.Closed;
 
             _BudgetState.Exonerations = isActiveOrClosed
-                ? await ParameterService.ec.GetExonerationByBudgetHeader(_BudgetState.Budget.IdBudgetHeader)
+                ? await ParameterService.ec.GetExonerationByBudgetHeaderAsync(_BudgetState.Budget.IdBudgetHeader)
                 : await ParameterService.ec.GetExonerationsByBuildingAsync(_BudgetState.Budget.IdBuilding);
 
-            _BudgetState.Installments = await ParameterService.ec.GetInstallmentsByBudget(_BudgetState.Budget.IdBudgetHeader);
+            _BudgetState.Installments = await ParameterService.ec.GetInstallmentsByBudgetAsync(_BudgetState.Budget.IdBudgetHeader);
             _BudgetState.CalculateTotals();
         }
     }
@@ -777,7 +777,7 @@
         // Cargar periodos desde BD
         _periods = await ParameterService.GetPeriodsAsync();
         //Cargar Categoria
-        filteredCategories = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding);
+        filteredCategories = await ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
         //Caargar lista de Parametros
         filteredParameters = @ParameterService.ListParameters.ToList();
         //Cargar Meses por Culura
@@ -1234,7 +1234,7 @@
     {
         _BudgetState.IsNewBudget = false;
         _BudgetState.Budget.Details.Clear();
-        _BudgetState.Budget.Details = await ParameterService.ec.GetBudgetDetail(_BudgetState.Budget.IdBudgetHeader);
+        _BudgetState.Budget.Details = ParameterService.ec.GetBudgetDetailAsync(_BudgetState.Budget.IdBudgetHeader).Result;
         _periods.Clear();
         _periods = await ParameterService.GetPeriodsAsync();
     }

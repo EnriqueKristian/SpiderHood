@@ -1539,10 +1539,10 @@
     {
         if (ParameterService.CurrentBuilding == null) return;
 
-        Buildings = ParameterService.ec.GetBuilding(Guid.NewGuid());
+        Buildings = await ParameterService.ec.GetAllBuildingByOwnerAsync(Guid.NewGuid());
         filteredParameters = ParameterService.ListParameters;
-        filteredCategory = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding);
-        filteredUnits =  ParameterService.ec.GetGroupUnitsByType(ParameterService.CurrentBuilding.IdBuilding, 1);
+        filteredCategory = await ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
+        filteredUnits = await ParameterService.ec.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1);
         //<!--    PARAMETRO_PADRE     -->
         _paymentMethods = filteredParameters
             .Where(c => c.IdParent == 16)
@@ -1564,20 +1564,20 @@
         {
             return new BuildingConfiguration();
         }
-        var configs = await ParameterService.ec.GetBuildingConfiguration(ParameterService.CurrentBuilding.IdBuilding);
+        var configs = await ParameterService.ec.GetBuildingConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         if (configs != null && configs.Count > 0 )
         {
             BuildingConfiguration config = configs[0];
 
-            List<BankAccount> bankAccounts = await ParameterService.ec.GetBankAccountsByBuilding(ParameterService.CurrentBuilding.IdBuilding);
+            List<BankAccount> bankAccounts = await ParameterService.ec.GetBankAccountsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             foreach (var bank in bankAccounts)
             {
                 config.BankAccounts.Add(bank);
             }
 
-            List<Contact> contacts = await ParameterService.ec.GetAllContacts(config.IdBuildingConfiguration);
+            List<Contact> contacts = await ParameterService.ec.GetAllContactsAsync(config.IdBuildingConfiguration);
 
             config.AdminContact = contacts.FirstOrDefault(c => c.TypeContact == 1) ?? new Contact();
             config.RealEstateCompany = contacts.FirstOrDefault(c => c.TypeContact == 2) ?? new Contact();

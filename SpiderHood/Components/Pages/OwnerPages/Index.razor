@@ -595,7 +595,7 @@
     /*  === DECLARACION DE VARIABLES    === */
     private Models.OwnerUnit _OwnerUnit = new Models.OwnerUnit();
     private Models.Owner _Owner = new Models.Owner();
-    private IQueryable<Models.Unit> FreeUnits = Enumerable.Empty<Models.Unit>().AsQueryable();
+    private List<Models.Unit> FreeUnits = new();
 
     //public async ValueTask DisposeAsync() => await ParameterService.context.DisposeAsync();
 
@@ -657,11 +657,11 @@
 
     private List<GroupUnit1> currentPageData = new();
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (ParameterService.CurrentBuilding == null) return;
 
-        var ownerUnits = ParameterService.ec.GetOwnersByBuilding(ParameterService.CurrentBuilding.IdBuilding);
+        List<OwnerUnitView> ownerUnits = await ParameterService.ec.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         // Diccionarios para lookup eficiente
         var unitsByGroup = new Dictionary<Guid, List<RealEstateUnit>>();
@@ -1107,7 +1107,7 @@
         try
         {
             //SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
-            FreeUnits = ParameterService.ec.GetUnitsByBuilding(ParameterService.CurrentBuilding.IdBuilding).AsQueryable();
+            FreeUnits = ParameterService.ec.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
 
             switch (_mode)
             {
@@ -1204,7 +1204,8 @@
 
     private bool ItemExists(Guid id)
     {
-        return ParameterService.Context.Owner.Any(e => e.IdOwner == id);
+        return false;
+        //return ParameterService.Context.Owner.Any(e => e.IdOwner == id);
     }
 
     private void AbrirModalProp(Models.OwnerUnit _own, Models.OpenType _mode)
@@ -1212,7 +1213,7 @@
         //throw new NotImplementedException();
         MostrarModalUnit = true;
         OpenMode = _mode;
-        FreeUnits = ParameterService.ec.GetUnitsByBuilding(ParameterService.CurrentBuilding.IdBuilding).AsQueryable();
+        FreeUnits = ParameterService.ec.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
 
         _OwnerUnit.IdOwner = _own.IdOwner;
         _OwnerUnit.Names = _own.Names;
@@ -1262,7 +1263,8 @@
                 await ParameterService.ec.AddNewRecordAsync(x2);
             }
 
-            await ParameterService.ec.UpdateRecordAsync(_GroupUnit.IdGroupOwner, _AreaTotal);
+            _GroupUnit.AreaTotal = _AreaTotal;
+            await ParameterService.ec.UpdateRecordAsync(_GroupUnit);
         }
         else
         {

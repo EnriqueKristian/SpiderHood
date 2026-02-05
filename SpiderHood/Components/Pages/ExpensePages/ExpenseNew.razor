@@ -649,12 +649,14 @@
         // Expandir todas las categorías al inicio
         if (ParameterService.CurrentBuilding == null) return;
 
-        categories = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding)
-                .Where(c => c.Nivel == 0)
-                .Select(c => c.ShortDescript).ToList();
+        var _categories = ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+
+        categories = _categories
+                        .Where(c => c.Nivel == 0)
+                        .Select(c => c.ShortDescript).ToList();
 
         expandedCategories = new HashSet<string>(categories);
-        expenses = ParameterService.ec.GetExpensesByBuilding(ParameterService.CurrentBuilding.IdBuilding).ToList();
+        expenses = ParameterService.ec.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
 
         FilterExpenses();
     }

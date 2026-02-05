@@ -76,9 +76,9 @@
         Category.ParentId = type == 0 ? Guid.Empty : parent_id;
         Category.IdBuilding = new Guid("C574A553-1573-48C8-F85E-08DE3426C28E");
 
-        SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
+        //SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
 
-        await ec.AddNewRecordAsync(Category);
+        //await ec.AddNewRecordAsync(Category);
         await context.SaveChangesAsync();
         NavigationManager.NavigateTo("/Category");
     }

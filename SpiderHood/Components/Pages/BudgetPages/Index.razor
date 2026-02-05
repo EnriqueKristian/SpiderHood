@@ -1284,7 +1284,7 @@ td {
 @code {
 
     // Servicios inyectados
-    [Inject] private IPresupuestoService presupuestoService { get; set; } = null!;
+    [Inject] private IBudgetService presupuestoService { get; set; } = null!;
     //[Inject] private NavigationManager navigation { get; set; } = null!;
 
     // Variables de estado
@@ -1354,12 +1354,13 @@ td {
         {
             presupuestoService._SelectedBudget = new();
 
-            // Cargar presupuestos
-            presupuestoService._Budgets = await presupuestoService.GetPresupuestosAsync(ParameterService.CurrentBuilding.IdBuilding);
-
             // Cargar categorías activas
             categoriasActivas = await presupuestoService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding, true);
 
+            // Cargar presupuestos
+            presupuestoService._Budgets = await presupuestoService.GetPresupuestosAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+            
             // Calcular totales por categoría para cada presupuesto
             SumCategory = await presupuestoService.GetPresupuestosSumAsync(ParameterService.CurrentBuilding.IdBuilding);
 

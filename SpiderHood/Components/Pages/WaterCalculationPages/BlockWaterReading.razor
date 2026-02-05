@@ -1121,7 +1121,7 @@
     private async Task<List<Models.UnitView>> ObtenerUnidadesDelEdificio()
     {
         // Implementación para obtener las unidades del edificio: TODO PADRE
-        return ParameterService.ec.GetGroupUnitsByType(ParameterService.CurrentBuilding.IdBuilding, 1);
+        return ParameterService.ec.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1).Result;
     }
 
     #endregion

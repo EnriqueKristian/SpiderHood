@@ -533,9 +533,9 @@
         await InvokeAsync(StateHasChanged);
 
         // Verificar si el archivo ya fue procesado
-        var existingHeaders = ParameterService.ec.GetMovHeadByFileName(file.Name, ParameterService.CurrentBuilding.IdBuilding);
+        var existingHeaders = ParameterService.ec.GetMovementByFileNameAsync(file.Name, ParameterService.CurrentBuilding.IdBuilding).Result;
 
-        if (existingHeaders?.Count > 0)
+        if (existingHeaders.Count > 0)
         {
             mensaje = $"El archivo '{file.Name}' ya fue cargado anteriormente. Por favor seleccione otro archivo.";
             isLoading = false;
@@ -553,8 +553,8 @@
         DateTime maxValue = datos.Max(d => d.MovDate);
 
         // Traer claves existentes en BD
-        var clavesBD = ParameterService.ec.GetAllMovementDetail(IdBankAccount, minValue, maxValue)
-                        .Select(md => $"{md.StatementDate:yyyyMMdd}|{md.Description}|{md.Amount}").ToList(); // Para búsqueda rápida
+        var Movements = ParameterService.ec.GetAllMovementDetailAsync(IdBankAccount, minValue, maxValue).Result;
+        var clavesBD = Movements.Select(md => $"{md.StatementDate:yyyyMMdd}|{md.Description}|{md.Amount}"); // Para búsqueda rápida
 
         int iCont = 0;
 

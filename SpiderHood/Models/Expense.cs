@@ -18,6 +18,8 @@ namespace SpiderHood.Models
         public Guid IdBuilding { get; set; }
         public Guid IdCategory { get; set; }
         public Guid IdSubCategory { get; set; }
+        [NotMapped]
+        public bool IsIncludedInQuota { get; set; } = false;
 
         public int Month => DueDate.Month;
         public int Year => DueDate.Year;

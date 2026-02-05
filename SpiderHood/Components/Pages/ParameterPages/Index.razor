@@ -681,6 +681,7 @@
 
     private bool ItemExists(int id)
     {
-        return ParameterService.Context.Parameter.Any(e => e.IdTabla == id);
+        return false;
+        //return ParameterService.Context.Parameter.Any(e => e.IdTabla == id);
     }
 }

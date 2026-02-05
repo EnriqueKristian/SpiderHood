@@ -56,8 +56,8 @@
         //view_category = await context.Category.FirstOrDefaultAsync(m => m.Id == Id);
         //view_category.IdBuilding = new Guid("C574A553-1573-48C8-F85E-08DE3426C28E");
 
-        SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
-        view_category = ec.GetCategoryById(Id);
+        //SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
+        //view_category = ec.GetCategoryById(Id);
 
         if (view_category is null)
         {

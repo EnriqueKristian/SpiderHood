@@ -2,6 +2,7 @@
 using SpiderHood.Data;
 using SpiderHood.Models;
 using SpiderHood.Services;
+using System.Collections.Generic;
 using static SpiderHood.Components.Pages.BudgetPages.GeneracionCuota;
 
 namespace SpiderHood.Services
@@ -19,7 +20,7 @@ namespace SpiderHood.Services
 
         public async Task<List<GastoPendienteViewModel>> ObtenerGastosPendientesAsync()
         {
-            return await ParameterService.ec.ObtenerGastosPendientes();
+            return new List<GastoPendienteViewModel>(); // await ParameterService.ec.ObtenerGastosPendientes();
             /*return await _context.Gasto
                 .Include(g => g.Categoria)
                 .Where(g => !g.Pagado && !g.ConsiderarEnCuota)
@@ -40,7 +41,7 @@ namespace SpiderHood.Services
 
         public async Task<ViewExpense> ObtenerGastoPorIdAsync(Guid id)
         {
-            var gastos = await ParameterService.ec.GetGastos();
+            var gastos = new List<ViewExpense>();// await ParameterService.ec.GetGastos();
             return gastos.FirstOrDefault(g => g.IdExpense == id)!;
             /*return await _context.Gasto
                 .Include(g => g.Categoria)
@@ -49,7 +50,7 @@ namespace SpiderHood.Services
 
         public async Task<List<ViewExpense>> ObtenerGastosPorPeriodoAsync(DateTime fechaInicio, DateTime fechaFin)
         {
-            return await ParameterService.ec.GetGastos();
+            return new List<ViewExpense>();//await ParameterService.ec.GetGastos();
             /*return await _context.Gasto
                 .Include(g => g.Categoria)
                 .Where(g => g.FechaGasto >= fechaInicio && g.FechaGasto <= fechaFin)
@@ -88,7 +89,7 @@ namespace SpiderHood.Services
 
         public async Task<List<CategoriaGasto>> ObtenerCategoriasAsync()
         {
-            return await ParameterService.ec.GetCategoriasGasto();
+            return new List<CategoriaGasto>();// await ParameterService.ec.GetCategoriasGasto();
             /*return await _context.CategoriasGasto
                 .Where(c => c.Activo)
                 .OrderBy(c => c.Nombre)

@@ -54,7 +54,7 @@ namespace SpiderHood.Data
             base.OnModelCreating(modelBuilder);
         }
 
-        public DbSet<SpiderHood.Models.Owner> Owner { get; set; } = default!;
+        /*public DbSet<SpiderHood.Models.Owner> Owner { get; set; } = default!;
         public DbSet<SpiderHood.Models.Unit> Unit { get; set; } = default!;
         public DbSet<SpiderHood.Models.Building> Building { get; set; } = default!;
         public DbSet<SpiderHood.Models.Category> Category { get; set; } = default!;
@@ -93,7 +93,7 @@ namespace SpiderHood.Data
         public DbSet<SpiderHood.Models.Period> Period { get; set; } = null!;
         public DbSet<SpiderHood.Models.Exoneration> Exoneration { get; set; } = null!;
         public DbSet<SpiderHood.Models.InstallmentException> InstallmentException { get; set; } = null!;
-        public DbSet<SpiderHood.Models.Installment> Installment { get; set; } = null!;
+        public DbSet<SpiderHood.Models.Installment> Installment { get; set; } = null!;*/
 
     }
 }

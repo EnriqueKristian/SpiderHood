@@ -781,11 +781,6 @@
     private List<TransactionBankView> transaccionesNoConciliadas =>
         transacciones.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada).ToList();
 
-
-
-
-
-
     protected override async Task OnInitializedAsync()
     {
         await CargarDatosIniciales();
@@ -813,7 +808,7 @@
             // Cargar última conciliación
             ultimaConciliacion = await BankService.ObtenerUltimaConciliacionAsync();
 
-            FilteredCategory = ParameterService.ec.GetCategories(ParameterService.CurrentBuilding.IdBuilding);
+            FilteredCategory = await ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
         }
         catch (Exception ex)
         {
@@ -991,7 +986,7 @@
     private async Task GastoCreadoExitosamente(ViewExpense nuevoGasto)
     {
         nuevoGasto.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-        await ParameterService.ec.AddNewRecordAsync(nuevoGasto);
+        //await ParameterService.ec.AddNewRecordAsync(nuevoGasto);
 
         // Conciliar automáticamente con la transacción
         if (transaccionParaGasto != null)

@@ -1,0 +1,60 @@
+﻿@page "/conciliarcuota/"
+@rendermode InteractiveServer
+@inject SpiderHood.Services.ParameterService ParameterService
+@inject IJSRuntime JSRuntime
+@using SpiderHood.Components.Pages.Components
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+
+<div class="expense-calculation">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-1"><i class="bi bi-calculator-fill"></i>Concilacion de Cuotas </h1>
+            <p class="text-muted mb-0">Calcule los gastos mensuales y determine la cuota por departamento</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="LoadNewAccountState">
+                <i class="bi bi-plus-circle me-2"></i>Cargar Est. Cuenta
+            </button>
+        </div>
+    </div>
+
+    @if (_HasInstallments ){
+    <InstallmentTable Installments="@Installments"
+                      Budget="@Budget"
+                      WaterReadings="@WaterReadings"
+                      TotalBudget="TotalMonthly"
+                      Exonerations="@Exonerations"
+                      Conciliar="true"/>
+    }
+</div>
+
+@code {
+
+    private List<Installment> Installments = new();
+    private BudgetHeader Budget = new();
+    private List<ServiceReadingDetail> WaterReadings = new();
+    private List<Exoneration> Exonerations = new();
+    private decimal TotalMonthly = 0;
+
+    private bool _HasInstallments => Installments!.Count() > 0;
+
+    [Inject]
+    public IInstallmentService InstallmentService { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ParameterService.CurrentBuilding == null)
+            return;
+
+        // Cargar Cuotas pendientes del mismo período
+        Installments = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+    }
+    private Task LoadNewAccountState(MouseEventArgs args)
+    {
+        throw new NotImplementedException();
+    }    
+}

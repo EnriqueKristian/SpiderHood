@@ -1086,7 +1086,7 @@ td {
                         @foreach (var presupuesto in presupuestosPaginados)
                         {
                             <tr @onclick="() => SeleccionarPresupuesto(presupuesto)" 
-                                class="@(presupuestoSeleccionado?.IdBudgetHeader == presupuesto.IdBudgetHeader ? "selected" : "")">
+                                class="@(selectedBudget?.IdBudgetHeader == presupuesto.IdBudgetHeader ? "selected" : "")">
                                 <!--<td class="col-codigo">
                                     <strong>@presupuesto.Codigo</strong>
                                 </td>-->
@@ -1175,7 +1175,7 @@ td {
                             <!-- Información de página -->
                             <div class="text-muted">
                                 Página @currentPage de @totalPages •
-                                @presupuestoService._Budgets.Count presupuestos encontrados
+                                @budgetService._Budgets.Count presupuestos encontrados
                             </div>
 
                             <!-- Controles de paginación -->
@@ -1261,8 +1261,7 @@ td {
 <!-- Modal de Detalle de Presupuesto -->
 @if (mostrarModalDetalle )
 {
-    <PresupuestoDetalleModal 
-        Presupuesto="presupuestoDetalle"
+    <PresupuestoDetalleModal Presupuesto="budgetDetail"
         Categorias="categoriasActivas"
         OnClose="CerrarModalDetalle"
         OnSave="GuardarCambiosDetalle" />
@@ -1284,14 +1283,13 @@ td {
 @code {
 
     // Servicios inyectados
-    [Inject] private IBudgetService presupuestoService { get; set; } = null!;
-    //[Inject] private NavigationManager navigation { get; set; } = null!;
+    [Inject] private IBudgetService budgetService { get; set; } = null!;
 
     // Variables de estado
     private bool isLoading = true;
     private List<Category> categoriasActivas = new();
-    private BudgetHeader? presupuestoSeleccionado = null;
-    private BudgetHeader? presupuestoDetalle = null;
+    private BudgetHeader? selectedBudget = null;
+    private BudgetHeader? budgetDetail = null;
     private List<SelectListItem> _availableMonths = new();
     private int _selectedMonth = DateTime.Now.Month; // Mes actual
     private int _selectedYear = DateTime.Now.Year;   // Año actual
@@ -1352,17 +1350,17 @@ td {
 
         try
         {
-            presupuestoService._SelectedBudget = new();
+            budgetService._SelectedBudget = new();
 
             // Cargar categorías activas
-            categoriasActivas = await presupuestoService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding, true);
+            categoriasActivas = await budgetService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding, true);
 
             // Cargar presupuestos
-            presupuestoService._Budgets = await presupuestoService.GetPresupuestosAsync(ParameterService.CurrentBuilding.IdBuilding);
+            budgetService._Budgets = await budgetService.GetPresupuestosAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             
             // Calcular totales por categoría para cada presupuesto
-            SumCategory = await presupuestoService.GetPresupuestosSumAsync(ParameterService.CurrentBuilding.IdBuilding);
+            SumCategory = await budgetService.GetPresupuestosSumAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             //Aplicar Filtros
             await FiltrarPresupuestos();
@@ -1394,9 +1392,9 @@ td {
         }
     }
 
-    private decimal GetMontoCategoria(BudgetHeader presupuesto, Guid categoriaId)
+    private decimal GetMontoCategoria(BudgetHeader _budget, Guid categoriaId)
     {
-        var detallesCategoria = SumCategory.Where(c => c.IdBudgetHeader == presupuesto.IdBudgetHeader && c.IdParent == categoriaId);
+        var detallesCategoria = SumCategory.Where(c => c.IdBudgetHeader == _budget.IdBudgetHeader && c.IdParent == categoriaId);
         return detallesCategoria.Sum(d => d.SumCategory);
     }
 
@@ -1526,12 +1524,12 @@ td {
         Navigation.NavigateTo($"/budgetgenerator");
     }
 
-    private async void VerDetalle(BudgetHeader presupuesto)
+    private async void VerDetalle(BudgetHeader _budget)
     {
         try
         {
             // Cargar presupuesto completo con detalles
-            presupuestoDetalle = await presupuestoService.GetPresupuestoByIdAsync(presupuesto.IdBudgetHeader);
+            budgetDetail = await budgetService.GetPresupuestoByIdAsync(_budget.IdBudgetHeader);
             //if (presupuestoDetalle != null)
             //{
             mostrarModalDetalle = true;
@@ -1546,9 +1544,9 @@ td {
         }
     }
 
-    private void EditarPresupuesto(BudgetHeader presupuesto)
+    private void EditarPresupuesto(BudgetHeader _budget)
     {
-        presupuestoService._SelectedBudget = presupuesto;
+        budgetService._SelectedBudget = _budget;
         Navigation.NavigateTo($"/budgetgenerator");
     }
 
@@ -1557,7 +1555,7 @@ td {
         // Lógica adicional después de cerrar el modal, si es necesario
         try
         {
-            await presupuestoService.DeletePresupuestoAsync(presupuestoSeleccionado!.IdBudgetHeader);
+            await budgetService.DeletePresupuestoAsync(selectedBudget!.IdBudgetHeader);
             //await toastService.ShowSuccessAsync("Presupuesto eliminado correctamente");
             await CargarDatos();
         }
@@ -1572,33 +1570,29 @@ td {
         return;
     }
 
-    private async void EliminarPresupuesto(BudgetHeader presupuesto)
+    private async void EliminarPresupuesto(BudgetHeader _budget)
     {
-        presupuestoSeleccionado = presupuesto;
+        selectedBudget = _budget;
         await modal.ShowAsync();
     }
 
-    private async void ClonarPresupuesto(BudgetHeader presupuesto)
+    private async void ClonarPresupuesto(BudgetHeader _budget)
     {
         try
         {
             // Crear nuevo presupuesto basado en el existente
             var nuevoPresupuesto = new BudgetHeader
             {
-                //Codigo = $"{presupuesto.Codigo}-COPIA",
-                //Mes = DateTime.Now.ToString("MMMM yyyy"),
-                //Month = presupuesto.Month,
-                //Year = presupuesto.Year,
-                BudgetDate = presupuesto.BudgetDate,
-                BudgetName = $"{presupuesto.BudgetName} (Copia)",
+                BudgetDate = _budget.BudgetDate,
+                BudgetName = $"{_budget.BudgetName} (Copia)",
                 Status = BudgetStatus.Created,//"Activo",
                 CreatedBy = "UsuarioActual" // Obtener del sistema de autenticación
             };
 
-            var creado = await presupuestoService.CreatePresupuestoAsync(nuevoPresupuesto);
+            var creado = await budgetService.CreatePresupuestoAsync(nuevoPresupuesto);
 
             // Clonar detalles
-            foreach (var detalle in presupuesto.Details)
+            foreach (var detalle in _budget.Details)
             {
                 var nuevoDetalle = new BudgetDetail
                 {
@@ -1608,7 +1602,7 @@ td {
                     MonthlyAmount = detalle.MonthlyAmount
                     //No = detalle.Notas
                 };
-                await presupuestoService.AddDetalleToPresupuestoAsync(nuevoDetalle);
+                await budgetService.AddDetalleToPresupuestoAsync(nuevoDetalle);
             }
 
             //await toastService.ShowSuccessAsync("Presupuesto clonado correctamente");
@@ -1621,9 +1615,9 @@ td {
         }
     }
 
-    private void SeleccionarPresupuesto(BudgetHeader presupuesto)
+    private void SeleccionarPresupuesto(BudgetHeader _budget)
     {
-        presupuestoSeleccionado = presupuesto;
+        selectedBudget = _budget;
     }
 
     // Métodos de modales
@@ -1631,16 +1625,16 @@ td {
     private void CerrarModalDetalle()
     {
         mostrarModalDetalle = false;
-        presupuestoDetalle = null;
+        budgetDetail = null;
     }
 
     private async Task GuardarCambiosDetalle()
     {
-        if (presupuestoDetalle != null)
+        if (budgetDetail != null)
         {
             try
             {
-                await presupuestoService.UpdatePresupuestoAsync(presupuestoDetalle);
+                await budgetService.UpdatePresupuestoAsync(budgetDetail);
                 //await toastService.ShowSuccessAsync("Cambios guardados correctamente");
                 await CargarDatos();
             }
@@ -1679,7 +1673,7 @@ td {
     {
         try
         {
-            filteredbudgets = presupuestoService._Budgets
+            filteredbudgets = budgetService._Budgets
              .Where(p => string.IsNullOrEmpty(searchTerm) ||
                         p.BudgetName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                         p.Mes.Contains(searchTerm, StringComparison.CurrentCultureIgnoreCase))

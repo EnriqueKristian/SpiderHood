@@ -29,12 +29,11 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.Parameter>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Expense>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.MovDetKey>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.MovementHeader>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.MovementDetail>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.TransactionBankHeader>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.GastoResumen>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.BankAccount>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.ViewExpense>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.TransactionBankView>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.TransactionBankDetail>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.BuildingConfiguration>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Contact>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.ViewBudgetDetail>().HasNoKey(); // If SP doesn't return a primary key

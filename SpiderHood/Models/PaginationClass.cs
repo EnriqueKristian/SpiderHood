@@ -302,7 +302,7 @@ namespace SpiderHood.Utilities
         {
             // Registrar factories para tipos específicos
             _typeFactories[typeof(ServiceReadingDetail)] = () => new WaterReadingPagination();
-            _typeFactories[typeof(MovementDetail)] = () => new MovementDetailPagination();
+            _typeFactories[typeof(TransactionBankDetail)] = () => new TransactionBankDetailPagination();
             _typeFactories[typeof(Installment)] = () => new InstallmentPagination();
         }
 
@@ -414,9 +414,9 @@ namespace SpiderHood.Utilities
         }
     }
 
-    public class MovementDetailPagination : PaginationClass<MovementDetail>
+    public class TransactionBankDetailPagination : PaginationClass<TransactionBankDetail>
     {
-        public MovementDetailPagination() : base()
+        public TransactionBankDetailPagination() : base()
         {
             var filterOptions = new Dictionary<string, string>
         {
@@ -426,9 +426,9 @@ namespace SpiderHood.Utilities
             { "error", "Con error" }
         };
 
-            var sortExpressions = new Dictionary<string, Func<MovementDetail, object>>
+            var sortExpressions = new Dictionary<string, Func<TransactionBankDetail, object>>
         {
-            { "MovDate", x => x.MovDate },
+            { "StatementDate", x => x.StatementDate },
             { "Description", x => x.Description },
             { "ITF", x => x.ITF },
             { "Currency", x => x.Currency },
@@ -436,10 +436,10 @@ namespace SpiderHood.Utilities
             { "Validation", x => x.Validation }
         };
 
-            InitializeConfiguration(filterOptions, sortExpressions, "MovDate");
+            InitializeConfiguration(filterOptions, sortExpressions, "StatementDate");
         }
 
-        protected override List<MovementDetail> ApplySearch(List<MovementDetail> data, string searchTerm)
+        protected override List<TransactionBankDetail> ApplySearch(List<TransactionBankDetail> data, string searchTerm)
         {
             return data.Where(item =>
                 (!string.IsNullOrEmpty(item.Description) &&

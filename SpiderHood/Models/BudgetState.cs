@@ -134,7 +134,7 @@ namespace SpiderHood.Models
                     IdGroupUnit = unit.IdGroupUnit,
                     CreatedBy = "eechevarria", //UserName;
                     DueDate = DateTime.Now.AddDays(_state.Configuration.DueDay),//DateTime.Now.AddDays(ParameterService.DueDay);
-                    Status = 1 //Created
+                    Status = ConcilationType.NoConciliada //Created
                 };
 
                 decimal _total = 0;
@@ -175,6 +175,7 @@ namespace SpiderHood.Models
                             _total += item.Type == 1 ? item.MonthlyAmount / (totalApartments - _nroException) : item.MonthlyAmount * _distr;
                         }
                     }
+                    _total = Math.Round(_total,2);
                 }
 
                 _dpto.Amount = _total;
@@ -217,7 +218,7 @@ namespace SpiderHood.Models
                     IdGroupUnit = unit.IdGroupUnit,
                     CreatedBy = "eechevarria", // TODO: Reemplazar con usuario real
                     DueDate = DateTime.Now.AddDays(_state.Configuration.DueDay),
-                    Status = 1 // Created
+                    Status = ConcilationType.NoConciliada // Created
                 };
 
                 decimal _total = 0;

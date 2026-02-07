@@ -6,6 +6,7 @@
 @using SpiderHood.Services
 @inject NavigationManager Navigation
 @inject ParameterService ParameterService
+@inject CategoryService CategoryService
 @implements IDisposable
 
 <link rel="stylesheet" href="@Assets["Category.css"]" />
@@ -113,7 +114,7 @@
         if (ParameterService.CurrentBuilding == null) return;
         try
         {
-            _categories = await ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
+            _categories = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             _catParent = _categories
                 .Where(c => c.Nivel == 0)
@@ -125,7 +126,6 @@
             Console.Error.WriteLine($"Error cargando categorías: {ex.Message}");
         }
     }
-
 
     private async Task ShowModal(Models.Category category)
     {

@@ -26,7 +26,7 @@ namespace SpiderHood.Services
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
         // Exponer BDLayout como público para ser usado en todas las llamadas
-        public BDLayout ec { get; private set; }
+        public BDLayout ec { get; set; }
         public SpiderHoodContext Context { get; private set; }
 
         public IReadOnlyList<Parameter> ListParameters => _listParameters.AsReadOnly();

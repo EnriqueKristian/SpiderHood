@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DocumentFormat.OpenXml.Presentation;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
 
 namespace SpiderHood.Data
@@ -33,7 +35,7 @@ namespace SpiderHood.Data
             public const string INS_BuildingConfiguration = "INS_BuildingConfiguration";
             public const string INS_MovementHeader = "INS_MovementHeader";
             public const string INS_Expense = "INS_Expense";
-            public const string INS_MovementDetail = "INS_MovementDetail";
+            public const string INS_AccountStatementDetail = "INS_AccountStatementDetail";
             public const string INS_Owner = "INS_Owner";
             public const string INS_GroupOwner = "INS_GroupOwner";
             public const string INS_OwnerGroupOwner = "INS_OwnerGroupOwner";
@@ -45,6 +47,7 @@ namespace SpiderHood.Data
             public const string INS_BudgetDetail = "INS_BudgetDetail";
             public const string INS_Installment = "INS_Installment";
             public const string INS_PaidInstallment = "INS_Installment";
+            public const string INS_InstallmentPaid = "INS_InstallmentPaid";
 
             // Update Procedures
             public const string UPD_Building = "UPD_Building";
@@ -63,6 +66,7 @@ namespace SpiderHood.Data
             public const string UPD_ClosePastBudgets = "UPD_ClosePastBudgets";
             public const string UPD_Category = "UPD_Category";
             public const string UPD_Owner = "UPD_Owner";
+            public const string UPD_InstallmentState = "UPD_InstallmentState";
 
             // Delete Procedures
             public const string DEL_Category = "DEL_Category";
@@ -98,6 +102,7 @@ namespace SpiderHood.Data
             public const string GET_BuildingConfiguration = "GET_BuildingConfiguration";
             public const string GET_ServiceReadingList = "GET_ServiceReadingList";
             public const string GET_InstallmentsByBudget = "GET_InstallmentsByBudget";
+            public const string GET_PendingInstallments = "GET_PendingInstallments";
             public const string GET_ServiceReading = "GET_ServiceReading";
             public const string GET_ServiceReadingDetailList = "GET_ServiceReadingDetailList";
             public const string GET_FirstWaterReadingDetailList = "GET_FirstWaterReadingDetailList";
@@ -303,6 +308,30 @@ namespace SpiderHood.Data
             }, "AddInstallmentExoneration", cancellationToken);
         }
 
+        public async Task<Models.InstallmentPaid> AddNewRecordAsync(Models.InstallmentPaid paid, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(paid, nameof(paid));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_InstallmentPaid,
+                    cancellationToken,
+                    paid.IdPaid,
+                    paid.IdInstallment,
+                    paid.Amount,
+                    paid.CreatedBy,
+                    paid.Status,
+                    paid.PaymentDate,
+                    paid.IdTransaction,
+                    paid.IsAutoReconcile,
+                    paid.IsPartialPayment);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return paid;
+            }, "AddInstallmentPaid", cancellationToken);
+        }
+
         public async Task<Models.Installment> AddNewRecordAsync(Models.Installment installment, CancellationToken cancellationToken = default)
         {
             ValidateEntity(installment, nameof(installment));
@@ -463,7 +492,7 @@ namespace SpiderHood.Data
             }, "AddBuildingConfiguration", cancellationToken);
         }
 
-        public async Task<MovementHeader> AddNewRecordAsync(MovementHeader movementheader, CancellationToken cancellationToken = default)
+        public async Task<TransactionBankHeader> AddNewRecordAsync(TransactionBankHeader movementheader, CancellationToken cancellationToken = default)
         {
             ValidateEntity(movementheader, nameof(movementheader));
 
@@ -484,22 +513,27 @@ namespace SpiderHood.Data
             }, "AddMovementHeader", cancellationToken);
         }
 
-        public async Task<MovementDetail> AddNewRecordAsync(MovementDetail movementdetail, CancellationToken cancellationToken = default)
+        public async Task<TransactionBankDetail> AddNewRecordAsync(TransactionBankDetail movementdetail, CancellationToken cancellationToken = default)
         {
             ValidateEntity(movementdetail, nameof(movementdetail));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_MovementDetail,
+                    StoredProcedures.INS_AccountStatementDetail,
                     cancellationToken,
-                    movementdetail.IdMovHeader!,
-                    movementdetail.Description!,
-                    movementdetail.MovDate!,
-                    movementdetail.ITF!,
-                    movementdetail.Currency!,
-                    movementdetail.Amount!,
-                    movementdetail.UploadDetState);
+                    movementdetail.IdStatementDetail,
+                    movementdetail.IdStatementHeader      ,
+                    movementdetail.StatementDate          ,
+                    movementdetail.Description            ,
+                    movementdetail.ITF                    ,
+                    movementdetail.Currency               ,
+                    movementdetail.Amount                 ,
+                    movementdetail.SequenceNumber         ,
+                    movementdetail.ReconciliationStatus   ,
+                    movementdetail.ReconciliationDate!    ,
+                    movementdetail.IdParent               ,
+                    movementdetail.Origen);
 
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 return movementdetail;
@@ -620,15 +654,13 @@ namespace SpiderHood.Data
             }, "AddServiceReading", cancellationToken);
         }
 
-        public async Task AddNewRecordAsync(
-            List<ServiceReadingDetail> serviceReadingDetails,
-            CancellationToken cancellationToken = default)
+        public async Task AddNewRecordAsync(List<ServiceReadingDetail> serviceReadingDetails, CancellationToken cancellationToken = default)
         {
             ValidateEntity(serviceReadingDetails, nameof(serviceReadingDetails));
 
             await ExecuteWithErrorHandlingAsync(async () =>
             {
-                using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+                //using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
                 try
                 {
@@ -651,12 +683,12 @@ namespace SpiderHood.Data
                     }
 
                     await _dbContext.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
+                   // await transaction.CommitAsync(cancellationToken);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
-                    throw;
+                    //await transaction.RollbackAsync(cancellationToken);
+                    throw new Exception (ex.Message);
                 }
 
                 return true;
@@ -1090,7 +1122,7 @@ namespace SpiderHood.Data
         }
 
         public async Task<bool> UpdateRecordAsync(
-            TransactionBankView transaction,
+            TransactionBankDetail transaction,
             CancellationToken cancellationToken = default)
         {
             ValidateEntity(transaction, nameof(transaction));
@@ -1164,11 +1196,11 @@ namespace SpiderHood.Data
             }, "GetBudgetDetailDefault", cancellationToken);
         }
 
-        public async Task<List<TransactionBankView>> GetBankTransactionsNoConciliedAsync(Guid idBuilding, DateTime star, DateTime end, CancellationToken cancellationToken = default)
+        public async Task<List<TransactionBankDetail>> GetBankTransactionsNoConciliedAsync(Guid idBuilding, DateTime star, DateTime end, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<TransactionBankView>(
+                return await ExecuteQueryListAsync<TransactionBankDetail>(
                     StoredProcedures.GET_BankTransactionsNoConcilied,
                     idBuilding, star, end);
             }, "GetBankTransactionsNoConcilied", cancellationToken);
@@ -1264,11 +1296,11 @@ namespace SpiderHood.Data
             }, "GetExpensesByBuilding", cancellationToken);
         }
 
-        public async Task<List<MovementHeader>> GetMovementByFileNameAsync(string fileName, Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<TransactionBankHeader>> GetMovementByFileNameAsync(string fileName, Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<MovementHeader>(
+                return await ExecuteQueryListAsync<TransactionBankHeader>(
                     StoredProcedures.GET_MovementByName,
                     fileName, idBuilding);
             }, "GetMovementByFileName", cancellationToken);
@@ -1292,6 +1324,16 @@ namespace SpiderHood.Data
                     StoredProcedures.GET_InstallmentsByBudget,
                     idBudgetHeader);
             }, "GetInstallmentsByBudget", cancellationToken);
+        }
+
+        public async Task<List<Installment>> GetPendingInstallmentsAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Installment>(
+                    StoredProcedures.GET_PendingInstallments,
+                    idBuilding);
+            }, "GetPendingInstallments", cancellationToken);
         }
 
         public async Task<List<Exoneration>> GetExonerationByBudgetHeaderAsync(Guid idBudgetHeader, CancellationToken cancellationToken = default)
@@ -1468,6 +1510,22 @@ namespace SpiderHood.Data
             }, "CheckPeriodOverlap", cancellationToken);
         }
 
+        public async Task<bool> ConciliarInstallmentAsync(Installment installment, TransactionBankDetail transaction , CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_InstallmentState,
+                    cancellationToken,
+                    installment.IdInstallment,
+                    transaction.IdStatementDetail,
+                    installment.Status,
+                    transaction.ReconciliationStatus);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "ClosePastBudgets", cancellationToken);
+        }
         #endregion
     }
 

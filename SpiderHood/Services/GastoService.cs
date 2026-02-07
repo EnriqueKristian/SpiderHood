@@ -87,13 +87,13 @@ namespace SpiderHood.Services
             return true;
         }
 
-        public async Task<List<CategoriaGasto>> ObtenerCategoriasAsync()
+        /*public async Task<List<CategoriaGasto>> ObtenerCategoriasAsync()
         {
-            return new List<CategoriaGasto>();// await ParameterService.ec.GetCategoriasGasto();
-            /*return await _context.CategoriasGasto
+            //return new List<CategoriaGasto>();// await ParameterService.ec.GetCategoriasGasto();
+            return await _context.CategoriasGasto
                 .Where(c => c.Activo)
                 .OrderBy(c => c.Nombre)
-                .ToListAsync();*/
-        }
+                .ToListAsync();
+        }*/
     }
 }

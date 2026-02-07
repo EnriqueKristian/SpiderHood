@@ -330,7 +330,7 @@
                                 @if (filteredInstallments?.Any() != true)
                                 {
                                     <tr>
-                                        <td colspan="6" class="text-center py-5">
+                                        <td colspan="7" class="text-center py-5">
                                             <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
                                             <p class="text-muted">No se encontraron departamentos</p>
                                         </td>
@@ -377,7 +377,7 @@
                                                              style="width: @item.Percent%;"
                                                              role="progressbar"></div>
                                                     </div>
-                                                    <small class="text-muted">@item.Percent.ToString("N2")%</small>
+                                                    <small class="text-muted">@( Conciliar ? item.Period.ToString("MMMM-yy") :  @item.Percent.ToString("N2") + "%")</small>
                                                 </div>
                                             </td>
                                             <td class="text-end">
@@ -667,20 +667,18 @@
     [Parameter] public List<ServiceReadingDetail>? WaterReadings { get; set; }
     [Parameter] public List<Exoneration>? Exonerations { get; set; }
     [Parameter] public decimal TotalBudget { get; set; }
+    [Parameter] public bool Conciliar { get; set; } = false;
 
     private Installment? selectedInstallment = null;
     private Modal viewinstallment = null!;
     private decimal _distr;
-    //private decimal _TotalAmount = 0;
     private decimal _TotalInstallments => Installments!.Sum(x => x.Amount);
     private decimal _totalWaterConsumption => WaterReadings!.Sum(x => x.CalculatedAmount);
-    //private Guid _idAgua => Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
 
     private int _waterReadingsCount;
     private decimal _inverseNroGroupUnit;
     private string searchTerm = string.Empty;
     private List<Installment> filteredInstallments = new();
-    //private List<CategoryException> categoryExceptions = new();
     private InstallmentExportService? _exportService;
 
     protected override void OnInitialized()
@@ -689,7 +687,6 @@
             // Inicialización de datos si es necesario
             base.OnInitialized();
             filteredInstallments = Installments ?? new List<Installment>();
-            //categoryExceptions = ParameterService.ec.GetExceptionsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
             _pagination.Initialize(filteredInstallments);
             // Suscribirse a cambios en la paginación
             _pagination.OnPaginationChanged += StateHasChanged;
@@ -807,14 +804,7 @@
 
     private decimal CalculateQuote(BudgetDetail item, Installment _selectedInstallment)
     {
-        /*return item.IdCategory == _idAgua && _waterReadingsCount > 0
-            ? Math.Abs(item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit
-            : item.Type == 1
-                ? item.MonthlyAmount * _inverseNroGroupUnit
-                : item.MonthlyAmount * _distr;*/
-
-
-    var _total = 0m;
+        var _total = 0m;
 
         if (item.IdCategory == ParameterService.CurrentBuilding.Configuration.WaterReadingDefault && _waterReadingsCount > 0)
         {
@@ -926,6 +916,7 @@
         // Lógica para mostrar las excepciones relacionadas con la cuota
         Console.WriteLine($"Mostrando excepciones para: {installment.OwnerName}");
     }
+
     private Task ExportarPDF(MouseEventArgs args)
     {
         throw new NotImplementedException();

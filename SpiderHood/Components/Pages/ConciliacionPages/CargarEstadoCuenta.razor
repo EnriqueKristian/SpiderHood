@@ -206,7 +206,7 @@
     public EventCallback OnClose { get; set; }
 
     [Parameter]
-    public EventCallback<List<TransactionBankView>> OnCargado { get; set; }
+    public EventCallback<List<TransactionBankDetail>> OnCargado { get; set; }
 
     // Estados
     private bool estaSobreZona = false;
@@ -226,7 +226,7 @@
     private string columnaReferencia = "";
 
     // Datos procesados
-    private List<TransactionBankView> datosProcesados = new();
+    private List<TransactionBankDetail> datosProcesados = new();
 
     // Plantillas de bancos
     private List<PlantillaBanco> plantillasBancos = new()
@@ -379,9 +379,9 @@
         }
     }
 
-    private List<TransactionBankView> GenerarDatosEjemplo()
+    private List<TransactionBankDetail> GenerarDatosEjemplo()
     {
-        var transacciones = new List<TransactionBankView>();
+        var transacciones = new List<TransactionBankDetail>();
         var random = new Random();
 
         // Generar 10 transacciones de ejemplo
@@ -391,7 +391,7 @@
             var monto = random.Next(100, 5000);
             var esGasto = random.Next(2) == 0;
 
-            transacciones.Add(new TransactionBankView
+            transacciones.Add(new TransactionBankDetail
             {
                 IdStatementDetail = new Guid(),
                 StatementDate = fecha,

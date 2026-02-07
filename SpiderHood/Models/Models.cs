@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
 using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 
@@ -168,37 +169,22 @@ namespace SpiderHood.Models
         public BankAccount Clone() => (BankAccount)this.MemberwiseClone();
     }
 
-    public class TransactionBankView
-    {
-        public Guid IdStatementDetail { get; set; }
-        public Guid IdBankAccount { get; set; }
-        public Guid IdStatementHeader { get; set; }
-        public DateTime StatementDate { get; set; }
-        public string Description { get; set; } = "";
-        [Precision(18, 2)]
-        public decimal Amount { get; set; }
-        public int Sequence { get; set; }
-        public ConcilationType ReconciliationStatus { get; set; }
-        public DateTime? ReconciliationDate { get; set; }
-        public List<ViewExpense> PosiblesMatches { get; set; } = [];
-        public bool Ignored { get; set; } = false;
-        public bool Selected { get; set; } = false;
-        public string Reference => (Amount < 0 ? "G" : "I") + Sequence.ToString("D4");
-        public string Notes => (Amount < 0 ? "Gasto #" : "Ingreso #") + Sequence.ToString("D4");
-        public string Tipo => Amount < 0 ? "Gasto" : "Ingreso";
-        // This navigation must be ignored for keyless types:
-        [NotMapped]
-        public ViewExpense? GastoConciliado { get; set; }
-    }
+    
 
 
     public enum ConcilationType
     { 
         NoConciliada = 0,
         Conciliada = 1,
-        Parcial = 2
+        Parcial = 2,
+        Pendiente = 3
     }
 
+    public enum TransactionOrigen
+    {
+        BankAccountState = 0,
+        ExcessPayment = 1,
+    }
 
     public class ViewExpense
     {
@@ -241,7 +227,7 @@ namespace SpiderHood.Models
         Paid
     }
 
-    public class CategoriaGasto
+    /*public class CategoriaGasto
     {
         public int Id { get; set; }
         public string Nombre { get; set; } = "";
@@ -251,7 +237,7 @@ namespace SpiderHood.Models
         public decimal Presupuesto { get; set; }
         public bool Activa { get; set; } = true;
         public TipoDistribucion TipoDistribucion { get; set; } // Fija o Porcentual
-    }
+    }*/
 
     public class Conciliacion
     {
@@ -318,26 +304,39 @@ namespace SpiderHood.Models
         public decimal Percent { get; set; }
         [Precision(18, 2)]
         public decimal TotalArea { get; set; }
+        public DateTime Period { get; set; }
         public string CreatedBy { get; set; } = string.Empty;
         [NotMapped]
-        public List<PaidInstallments> Paids { get; set; } = [];
-        public int Status { get; set; }
+        public List<InstallmentPaid> Paids { get; set; } = [];
+        public ConcilationType Status { get; set; }
         public Guid IdGroupUnit { get; set; }
         public DateTime DueDate { get; set; }
         [NotMapped]
         public bool IsPaid { get; set; } = false;
+        [NotMapped]
+        public bool Reconciled { get; set; } = false;
+        [NotMapped] 
+        public Guid ReconciledTransactionId { get; set; }
+        [NotMapped]
+        public bool AutoReconcile { get; set; } = false;
+        [NotMapped] 
+        public DateTime LastPartialPaymentDate { get; set; }
     }
 
     // Models/DetalleCuota.cs
-    public class PaidInstallments
+    public class InstallmentPaid
     {
         public Guid IdPaid { get; set; }
         public Guid IdInstallment { get; set; }
+        public DateTime PaymentDate { get; set; }
+        public Guid IdTransaction { get; set; }
 
         [Precision(18, 2)]
         public decimal Amount { get; set; }
         public string CreatedBy { get; set; } = string.Empty;
-        public int Status { get; set; }
+        public ConcilationType Status { get; set; }
+        public bool IsAutoReconcile { get; set; } = false;
+        public bool IsPartialPayment { get; set; } = false;
     }
 
 

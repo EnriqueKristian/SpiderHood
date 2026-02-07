@@ -34,7 +34,7 @@ namespace SpiderHood.Services
         Task<ViewExpense> CrearGastoAsync(ViewExpense gasto);
         Task<bool> ActualizarGastoAsync(ViewExpense gasto);
         Task<bool> EliminarGastoAsync(Guid id);
-        Task<List<CategoriaGasto>> ObtenerCategoriasAsync();
+        //Task<List<CategoriaGasto>> ObtenerCategoriasAsync();
     }
 
     // Interfaces/IDepartamentoService.cs

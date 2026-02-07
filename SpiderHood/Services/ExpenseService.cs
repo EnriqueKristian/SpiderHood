@@ -1,13 +1,15 @@
-﻿using SpiderHood.Data;
+﻿using DocumentFormat.OpenXml.InkML;
+using Microsoft.EntityFrameworkCore;
+using SpiderHood.Data;
 using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
     public interface IExpenseService
     {
-        Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync(BDLayout ec, Guid IdBuilding, DateTime desde, DateTime hasta);
-        Task<List<CategoriaGasto>> ObtenerCategoriasAsync();
-        Task<ViewExpense> CrearGastoAsync(BDLayout ec, ViewExpense gasto);
+        Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync( Guid IdBuilding, DateTime desde, DateTime hasta);
+        //Task<List<CategoriaGasto>> ObtenerCategoriasAsync();
+        Task<ViewExpense> CrearGastoAsync(ViewExpense gasto);
         Task MarcarGastoComoConciliadoAsync(Guid gastoId, Guid transaccionId);
         Task DesconciliarGastoAsync(Guid gastoId);
     }
@@ -15,17 +17,21 @@ namespace SpiderHood.Services
     public class ExpenseService : IExpenseService
     {
         private List<ViewExpense> gastos = new();
-        private List<CategoriaGasto> categorias = new();
+        //private List<CategoriaGasto> categorias = new();
+        public SpiderHoodContext Context { get; private set; }
+        public BDLayout ec = default!;
 
-        public ExpenseService()
+        public ExpenseService(SpiderHoodContext _context)
         {
+            Context = _context ?? throw new ArgumentNullException(nameof(_context));
+            ec = new BDLayout(Context);
             InicializarDatos();
         }
 
         private void InicializarDatos()
         {
             // Inicializar categorías
-            categorias = new List<CategoriaGasto>
+            /*categorias = new List<CategoriaGasto>
             {
                 new CategoriaGasto { Id = 1, Nombre = "Servicios", Descripcion = "Agua, luz, gas, internet" },
                 new CategoriaGasto { Id = 2, Nombre = "Mantenimiento", Descripcion = "Reparaciones y mejoras" },
@@ -36,7 +42,7 @@ namespace SpiderHood.Services
                 new CategoriaGasto { Id = 7, Nombre = "Seguros", Descripcion = "Pólizas de seguro" },
                 new CategoriaGasto { Id = 8, Nombre = "Impuestos", Descripcion = "Impuestos y contribuciones" },
                 new CategoriaGasto { Id = 9, Nombre = "Varios", Descripcion = "Otros gastos no categorizados" }
-            };
+            };*/
 
             // Inicializar gastos de ejemplo
             gastos = new List<ViewExpense>
@@ -101,17 +107,17 @@ namespace SpiderHood.Services
             };
         }
 
-        public async Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync(BDLayout ec, Guid IdBuilding, DateTime desde, DateTime hasta)
+        public async Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync(Guid IdBuilding, DateTime desde, DateTime hasta)
         {
             return await ec.GetPendingConciliationExpensesAsync(IdBuilding, desde, hasta);
         }
 
-        public async Task<List<CategoriaGasto>> ObtenerCategoriasAsync()
+        /*public async Task<List<CategoriaGasto>> ObtenerCategoriasAsync()
         {
             return categorias;
-        }
+        }*/
 
-        public async Task<ViewExpense> CrearGastoAsync(BDLayout ec, ViewExpense gasto)
+        public async Task<ViewExpense> CrearGastoAsync(ViewExpense gasto)
         {
 
             gasto.IdExpense = Guid.NewGuid(); //gastos.Max(g => g.Id) + 1;

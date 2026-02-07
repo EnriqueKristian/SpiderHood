@@ -664,7 +664,7 @@ public class InstallmentExportService
                 worksheet.Cell(row, 7).Value = waterAmount;
                 worksheet.Cell(row, 8).Value = total;
                 worksheet.Cell(row, 9).Value = installment.DueDate.ToString("dd/MM/yyyy");
-                worksheet.Cell(row, 10).Value = GetStatusText(installment.Status);
+                worksheet.Cell(row, 10).Value = GetStatusText((int)installment.Status);
 
                 // Formato numérico
                 worksheet.Cell(row, 6).Style.NumberFormat.Format = "\"S/\" #,##0.00";

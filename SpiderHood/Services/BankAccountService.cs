@@ -2,35 +2,37 @@
 using Microsoft.AspNetCore.Components.Forms;
 using SpiderHood.Data;
 using SpiderHood.Models;
-using System.Net.Http.Json;
 
 namespace SpiderHood.Services
 {
     public interface IBankAccountService
     {
-        Task<List<BankAccount>> ObtenerCuentasBancariasAsync(BDLayout ec ,Guid IdBulding);
-        Task<List<TransactionBankView>> ObtenerTransaccionesAsync(BDLayout ec, Guid cuentaId, DateTime desde, DateTime hasta);
-        Task ConciliarTransaccionAsync(BDLayout ec, TransactionBankView transaccion, ViewExpense gasto);
-        Task DesconciliarTransaccionAsync(BDLayout ec, TransactionBankView transaccion);
-        Task MarcarTransaccionComoIgnoradaAsync(TransactionBankView transaccion);
+        Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding);
+        Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync( Guid cuentaId, DateTime desde, DateTime hasta);
+        Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto);
+        Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion);
+        Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion);
         Task<Conciliacion?> ObtenerUltimaConciliacionAsync();
         Task GuardarConciliacionAsync(Conciliacion conciliacion);
-        Task<List<TransactionBankView>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
+        Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
     }
 
     public class BankAccountService : IBankAccountService
     {
         private readonly HttpClient _httpClient;
         private readonly ILocalStorageService _localStorage;
-        //public BDLayout ec = default!;
+        public BDLayout ec = default!;
+        public SpiderHoodContext Context { get; private set; }
 
-        public BankAccountService(HttpClient httpClient, ILocalStorageService localStorage)
+        public BankAccountService(SpiderHoodContext _context, HttpClient httpClient, ILocalStorageService localStorage)
         {
             _httpClient = httpClient;
             _localStorage = localStorage;
+            Context = _context ?? throw new ArgumentNullException(nameof(_context));
+            ec = new BDLayout(Context);
         }
 
-        public async Task<List<BankAccount>> ObtenerCuentasBancariasAsync(BDLayout ec , Guid IdBulding)
+        public async Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding)
         {
             try
             {
@@ -44,33 +46,47 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<List<TransactionBankView>> ObtenerTransaccionesAsync(BDLayout ec, Guid cuentaId, DateTime desde, DateTime hasta)
+        public async Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync( Guid cuentaId, DateTime desde, DateTime hasta)
         {
             try
             {
                 // Generar transacciones de ejemplo
-                return ec.GetBankTransactionsNoConciliedAsync(cuentaId, desde, hasta).Result;
+                return await ec.GetBankTransactionsNoConciliedAsync(cuentaId, desde, hasta);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al obtener transacciones: {ex.Message}");
-                return new List<TransactionBankView>();
+                return new List<TransactionBankDetail>();
             }
         }
 
-        public async Task ConciliarTransaccionAsync(BDLayout ec, TransactionBankView transaccion, ViewExpense gasto)
+        public async Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto)
         {
             Console.WriteLine($"Transacción {transaccion.IdStatementDetail} conciliada con gasto {gasto.IdExpense}");
             await ec.UpdateRecordAsync(transaccion);
         }
 
-        public async Task DesconciliarTransaccionAsync(BDLayout ec, TransactionBankView transaccion)
+        public async Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, Installment cuota)
+        {
+            try
+            {
+                Console.WriteLine($"Transacción {transaccion.IdStatementDetail} conciliada con cuota {cuota.IdInstallment}");
+                await ec.ConciliarInstallmentAsync(cuota, transaccion);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al Conciliar Transaccion con Cuota: {ex.Message}");
+            }
+            
+        }
+
+        public async Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion)
         {
             await Task.Delay(200);
             Console.WriteLine($"Transacción {transaccion.IdStatementDetail} desconciliada");
         }
 
-        public async Task MarcarTransaccionComoIgnoradaAsync(TransactionBankView transaccion)
+        public async Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion)
         {
             await Task.Delay(200);
             Console.WriteLine($"Transacción {transaccion.IdStatementDetail} marcada como ignorada");
@@ -101,13 +117,27 @@ namespace SpiderHood.Services
             Console.WriteLine($"Conciliación guardada: {conciliacion.Id}");
         }
 
-        public async Task<List<TransactionBankView>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato)
+        public async Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato)
         {
             // En una implementación real, esto procesaría el archivo
             await Task.Delay(1000);
 
             // Retornar transacciones de ejemplo
-            return new List<TransactionBankView>();
+            return new List<TransactionBankDetail>();
         }
+
+        public async Task CrearTransaccionSobranteAsync(TransactionBankDetail paidexcesc) {
+            try
+            {
+                await ec.AddNewRecordAsync(paidexcesc);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al obtener transacciones: {ex.Message}");
+            }
+            
+        }
+
+
     }
 }

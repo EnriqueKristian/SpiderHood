@@ -303,7 +303,8 @@
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                    @if( transaccion.Tipo == "Gasto") { 
+                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
                                                     {
                                                         <div class="d-flex align-items-center">
                                                             <i class="fas fa-link text-primary me-2"></i>
@@ -350,6 +351,58 @@
                                                     else
                                                     {
                                                         <span class="text-muted">No encontrado</span>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                        {
+                                                            <div class="d-flex align-items-center">
+                                                                <i class="fas fa-link text-primary me-2"></i>
+                                                                <div>
+                                                                    <div class="small">@transaccion.GastoConciliado?.Category</div>
+                                                                    <div class="text-muted small">@transaccion.GastoConciliado?.Description</div>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                        else if (transaccion.IPosiblesMatches.Any())
+                                                        {
+                                                            var cuotasIds = new HashSet<Guid>(cuotaspendientes.Select(g => g.IdInstallment));
+
+                                                            @if (transaccion.IPosiblesMatches.Where(c => cuotasIds.Contains(c.IdInstallment)).Count() > 0)
+                                                            {
+                                                                <div class="dropdown">
+                                                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle"
+                                                                            type="button"
+                                                                            data-bs-toggle="dropdown">
+                                                                        @transaccion.IPosiblesMatches.Where(c => cuotasIds.Contains(c.IdInstallment)).Count() posibles matches
+                                                                    </button>
+                                                                    <ul class="dropdown-menu">
+                                                                        @foreach (var match in transaccion.IPosiblesMatches.Where(c => cuotasIds.Contains(c.IdInstallment)))
+                                                                        {
+                                                                            <li>
+                                                                                <a class="dropdown-item"
+                                                                                   @onclick="() => ConciliarConCuota(transaccion, match)">
+                                                                                    <div class="d-flex justify-content-between">
+                                                                                        <span>@match.OwnerName</span>
+                                                                                        <span class="text-muted">@match.Amount.ToString("C")</span>
+                                                                                    </div>
+                                                                                    <small class="text-muted">@match.Number</small>
+                                                                                </a>
+                                                                            </li>
+                                                                        }
+                                                                    </ul>
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="text-muted">No encontrado</span>
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">No encontrado</span>
+                                                        }
                                                     }
                                                 </td>
                                                 <td>
@@ -604,6 +657,7 @@
     </div>
 }
 
+
 <!-- Modal para Conciliar Manualmente -->
 @if (mostrarModalConciliar && transaccionSeleccionada != null)
 {
@@ -711,7 +765,6 @@
                 </div>
                 <div class="modal-body">
                     <CrearGastoDesdeTransaccion Transaccion="transaccionParaGasto"
-                                                Categorias="categoriasGastos"
                                                 OnGastoCreado="GastoCreadoExitosamente"
                                                 OnCancel="CerrarModalCrearGasto"
                                                 FilteredCategory="FilteredCategory" />
@@ -726,11 +779,21 @@
     [Parameter]
     public Guid AccountId { get; set; }
 
+    [Inject]
+    public ICategoryService CategoryService { get; set; } = default!;
+
+    [Inject]
+    public IBudgetService BudgetService { get; set; } = default!;
+
+    [Inject]
+    public IInstallmentService InstallmentService { get; set; } = default!;
+
     // Servicios y datos
     private List<BankAccount> cuentasBancarias = new();
-    private List<TransactionBankView> transacciones = new();
+    private List<TransactionBankDetail> transacciones = new();
     public List<ViewExpense> gastosPendientes = new();
-    private List<CategoriaGasto> categoriasGastos = new();
+    public List<Installment> cuotaspendientes = new();
+    private List<TransactionBankDetail> transaccionesPendientes = new();
     private List<Models.Category> FilteredCategory = new();
 
     // Filtros y estado
@@ -749,8 +812,8 @@
     private bool mostrarModalCargarEstado = false;
     private bool mostrarModalConciliar = false;
     private bool mostrarModalCrearGasto = false;
-    private TransactionBankView? transaccionSeleccionada = null;
-    private TransactionBankView? transaccionParaGasto = null;
+    private TransactionBankDetail? transaccionSeleccionada = null;
+    private TransactionBankDetail? transaccionParaGasto = null;
     private List<ViewExpense> gastosParaConciliar = new();
 
     // Mensajes
@@ -766,6 +829,7 @@
     private decimal totalPendiente = 0;
     private int totalTransacciones = 0;
     private int totalCoincidencias = 0;
+    private int totalCoincidenciasI = 0;
     private Conciliacion? ultimaConciliacion = null;
 
     private string conciliados = "conciliados";
@@ -775,10 +839,10 @@
     private string Ingreso = "Ingreso";
 
     // Propiedades calculadas
-    private List<TransactionBankView> transaccionesFiltradas => GetTransaccionesFiltradas();
-    private List<TransactionBankView> transaccionesConciliadas =>
+    private List<TransactionBankDetail> transaccionesFiltradas => GetTransaccionesFiltradas();
+    private List<TransactionBankDetail> transaccionesConciliadas =>
         transacciones.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada).ToList();
-    private List<TransactionBankView> transaccionesNoConciliadas =>
+    private List<TransactionBankDetail> transaccionesNoConciliadas =>
         transacciones.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada).ToList();
 
     protected override async Task OnInitializedAsync()
@@ -795,20 +859,22 @@
 
     private async Task CargarDatosIniciales()
     {
+        if (ParameterService.CurrentBuilding == null) return;
+
         cargando = true;
 
         try
         {
             // Cargar cuentas bancarias
-            cuentasBancarias = await BankService.ObtenerCuentasBancariasAsync(ParameterService.ec, ParameterService.CurrentBuilding.IdBuilding);
+            cuentasBancarias = await BankService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // Cargar categorías de gastos
-            categoriasGastos = await ExpenseService.ObtenerCategoriasAsync();
+            //categoriasGastos = await ExpenseService.ObtenerCategoriasAsync();
 
             // Cargar última conciliación
             ultimaConciliacion = await BankService.ObtenerUltimaConciliacionAsync();
 
-            FilteredCategory = await ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
+            FilteredCategory = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
         }
         catch (Exception ex)
         {
@@ -828,10 +894,13 @@
         {
             // Cargar transacciones del período seleccionado
             var (fechaInicio, fechaFin) = ObtenerFechasPeriodo();
-            transacciones = await BankService.ObtenerTransaccionesAsync(ParameterService.ec,  cuentaSeleccionadaId, fechaInicio, fechaFin);
+            transacciones = await BankService.ObtenerTransaccionesAsync(cuentaSeleccionadaId, fechaInicio, fechaFin);
 
             // Cargar gastos pendientes del mismo período
-            gastosPendientes = await ExpenseService.ObtenerGastosPendientesConciliacionAsync(ParameterService.ec, ParameterService.CurrentBuilding.IdBuilding, fechaInicio, fechaFin);
+            gastosPendientes = await ExpenseService.ObtenerGastosPendientesConciliacionAsync( ParameterService.CurrentBuilding.IdBuilding, fechaInicio, fechaFin);
+
+            // Cargar Cuotas pendientes del mismo período
+            cuotaspendientes = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // Buscar coincidencias automáticas
             await BuscarCoincidencias();
@@ -854,6 +923,7 @@
     private async Task BuscarCoincidencias()
     {
         totalCoincidencias = 0;
+        totalCoincidenciasI = 0;
 
         foreach (var transaccion in transacciones.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada && t.Amount < 0))
         {
@@ -877,9 +947,32 @@
 
             totalCoincidencias += posiblesMatches.Count;
         }
+
+        foreach (var transaccion in transacciones.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada && t.Amount > 0))
+        {
+            // Buscar gastos con monto similar (±10%)
+            var montoTransaccion = Math.Abs(transaccion.Amount);
+            var posiblesMatches = cuotaspendientes
+                .Where(g => Math.Abs(g.Amount - montoTransaccion) / montoTransaccion <= 0.1m)
+                .OrderBy(g => Math.Abs(g.Amount - montoTransaccion))
+                .Take(3)
+                .ToList();
+
+            transaccion.IPosiblesMatches = posiblesMatches;
+
+            // Si hay coincidencia exacta, conciliar automáticamente
+            //Colocar logica cuando haay mas de 2
+            var matchExacto = posiblesMatches.FirstOrDefault(g => g.Amount == montoTransaccion);
+            if (matchExacto != null)
+            {
+                await ConciliarConCuota(transaccion, matchExacto, automatico: true);
+            }
+
+            totalCoincidenciasI += posiblesMatches.Count;
+        }
     }
 
-    private async Task ConciliarConGasto(TransactionBankView transaccion, ViewExpense gasto, bool automatico = false)
+    private async Task ConciliarConGasto(TransactionBankDetail transaccion, ViewExpense gasto, bool automatico = false)
     {
         try
         {
@@ -917,7 +1010,224 @@
         }
     }
 
-    private async Task DesconciliarTransaccion(TransactionBankView transaccion)
+    private async Task ConciliarConCuota(TransactionBankDetail transaccion, Installment cuota, bool automatico = false)
+    {
+        try
+        {
+            // Validaciones iniciales
+            if (transaccion == null) throw new ArgumentNullException(nameof(transaccion));
+            if (cuota == null) throw new ArgumentNullException(nameof(cuota));
+
+            // Calcular saldo pendiente de la cuota
+            var saldoCuotaPendiente = cuota.Amount - cuota.Paids?.Sum(p => p.Amount) ?? 0;
+            var montoTransaccion = Math.Abs(transaccion.Amount);
+
+            // Caso 1: Montos iguales - Conciliación total
+            if (Math.Abs(montoTransaccion - saldoCuotaPendiente) < 0.01m)
+            {
+                await ConciliarTotalmente(transaccion, cuota, montoTransaccion, automatico);
+            }
+            // Caso 2: Transacción menor a cuota - Conciliación parcial
+            else if (montoTransaccion < saldoCuotaPendiente)
+            {
+                await ConciliarParcialmente(transaccion, cuota, montoTransaccion, automatico);
+            }
+            // Caso 3: Transacción mayor a cuota - Conciliación con sobrante
+            else
+            {
+                await ConciliarConSobrante(transaccion, cuota, saldoCuotaPendiente, automatico);
+            }
+
+            // Actualizar UI y estado
+            await ActualizarEstadoPostConciliacion(automatico);
+        }
+        catch (Exception ex)
+        {
+            await ManejarErrorConciliacion(ex);
+        }
+    }
+
+    private async Task ConciliarTotalmente(TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
+    {
+        // Crear registro de pago
+        var pago = new InstallmentPaid
+        {
+            IdInstallment = cuota.IdInstallment,
+            Amount = monto,
+            PaymentDate = DateTime.Now,
+            IdTransaction = transaccion.IdStatementDetail,
+            IsAutoReconcile = automatico
+        };
+
+        // Actualizar estado de la transacción
+        transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+
+        //transaccion.IdInstallment = cuota.IdInstallment;
+
+        transaccion.ReconciliationDate = DateTime.Now;
+
+        // Actualizar estado de la cuota
+        cuota.Reconciled = true;
+        cuota.ReconciledTransactionId = transaccion.IdStatementDetail;
+        cuota.AutoReconcile = automatico;
+
+        // Guardar en base de datos
+        await InstallmentService.AgregarPagoAsync(pago);
+        await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+    }
+
+    private async Task ConciliarParcialmente(TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
+    {
+        // Crear registro de pago parcial
+        var pagoParcial = new InstallmentPaid
+        {
+            IdPaid = Guid.NewGuid(),
+            IdInstallment = cuota.IdInstallment,
+            Amount = monto,
+            PaymentDate = DateTime.Now,
+            IdTransaction = transaccion.IdStatementDetail,
+            IsAutoReconcile = automatico,
+            IsPartialPayment = true,
+            Status = ConcilationType.Conciliada
+        };
+
+        // Actualizar estado de la transacción (totalmente conciliada)
+        transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+        //transaccion.IdInstallment = cuota.IdInstallment;
+        transaccion.ReconciliationDate = DateTime.Now;
+
+        // Cuota queda parcialmente pagada (no marcamos como Reconciled = true)
+        cuota.LastPartialPaymentDate = DateTime.Now;
+        cuota.AutoReconcile = automatico;
+        cuota.Status = ConcilationType.Parcial;
+
+        // Guardar en base de datos
+        await InstallmentService.AgregarPagoAsync(pagoParcial);
+        await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+    }
+
+    private async Task ConciliarConSobrante(TransactionBankDetail transaccion, Installment cuota, decimal saldoCuota, bool automatico)
+    {
+        // 1. Conciliar el saldo pendiente de la cuota
+        var pagoCompleto = new InstallmentPaid
+        {
+            IdPaid = Guid.NewGuid(),
+            IdInstallment = cuota.IdInstallment,
+            Amount = saldoCuota,
+            PaymentDate = DateTime.Now,
+            IdTransaction = transaccion.IdStatementDetail,
+            IsAutoReconcile = automatico,
+            Status = ConcilationType.Conciliada
+        };
+
+        // 2. Actualizar cuota como totalmente conciliada
+        transaccion.ReconciliationStatus = ConcilationType.Parcial;
+        //transaccion.IdInstallment = cuota.IdInstallment;
+        transaccion.ReconciliationDate = DateTime.Now;
+        cuota.Status = ConcilationType.Conciliada;
+
+        cuota.Reconciled = true;
+        cuota.ReconciledTransactionId = transaccion.IdStatementDetail;
+        cuota.AutoReconcile = automatico;
+
+        // 3. Crear transacción sobrante
+        var montoSobrante = Math.Abs(transaccion.Amount) - saldoCuota;
+        var transaccionSobrante = new TransactionBankDetail
+        {
+            Amount = transaccion.Amount > 0 ? montoSobrante : -montoSobrante,
+            StatementDate = transaccion.StatementDate,
+            Description = $"Sobrante de conciliación: {transaccion.Description}",
+            //OriginalDescription = transaccion.OriginalDescription,
+            ReconciliationStatus = ConcilationType.NoConciliada,
+            IdStatementHeader = transaccion.IdStatementHeader,
+            IdStatementDetail = Guid.NewGuid(), // Nuevo ID para la transacción sobrante
+            IdParent = transaccion.IdStatementDetail,
+            Origen = TransactionOrigen.ExcessPayment,
+            SequenceNumber = transaccion.SequenceNumber + 1,
+            Currency = transaccion.Currency
+            // Copiar otras propiedades relevantes
+        };
+
+        // 4. Guardar en base de datos
+        await InstallmentService.AgregarPagoAsync(pagoCompleto);
+        await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+        await BankService.CrearTransaccionSobranteAsync(transaccionSobrante);
+
+        // 5. Agregar transacción sobrante a la lista pendiente
+        transaccionesPendientes.Add(transaccionSobrante);
+        transacciones.Add(transaccionSobrante);
+    }
+
+    private async Task ActualizarEstadoPostConciliacion(bool automatico)
+    {
+        // Recalcular estadísticas
+        CalcularEstadisticas();
+
+        // Actualizar listas pendientes
+        await ActualizarListasPendientes();
+
+        // Cerrar modal si no es automático
+        if (!automatico)
+        {
+            CerrarModalConciliar();
+            // Mostrar mensaje de éxito
+            MostrarMensajeExito("Transacción conciliada exitosamente");
+        }
+
+        // Forzar actualización de UI
+        StateHasChanged();
+    }
+
+    private async Task ActualizarListasPendientes()
+    {
+        // Remover transacción conciliada de pendientes
+        var transaccionConciliada = transaccionesPendientes
+            .FirstOrDefault(t => t.ReconciliationStatus == ConcilationType.Conciliada);
+
+        if (transaccionConciliada != null)
+        {
+            transaccionesPendientes.Remove(transaccionConciliada);
+        }
+
+        // Opcional: Recargar cuotas pendientes desde el servidor
+        // cuotaspendientes = await InstallmentService.ObtenerCuotasPendientesAsync();
+    }
+
+    private async Task ManejarErrorConciliacion(Exception ex)
+    {
+        // Log del error
+        //logger.LogError(ex, "Error al conciliar transacción con cuota");
+
+        // Mostrar mensaje al usuario
+        mensajeError = $"Error al conciliar: {ex.Message}";
+
+        // Opcional: Revertir cambios si es necesario
+        await RevertirCambiosEnCasoDeError();
+
+        // Forzar actualización de UI
+        StateHasChanged();
+    }
+
+    private async Task RevertirCambiosEnCasoDeError()
+    {
+        try
+        {
+            // Implementar lógica de rollback si es necesario
+            // Esto depende de cómo maneje tu aplicación las transacciones
+        }
+        catch (Exception rollbackEx)
+        {
+            //logger.LogError(rollbackEx, "Error al revertir cambios después de falla en conciliación");
+        }
+    }
+
+    private void MostrarMensajeExito(string mensaje)
+    {
+        // Usar toast, snackbar o modal de éxito según tu UI framework
+        // Ejemplo con Blazor: mostrar componente de notificación
+    }
+
+    private async Task DesconciliarTransaccion(TransactionBankDetail transaccion)
     {
         if (transaccion.GastoConciliado == null) return;
 
@@ -949,7 +1259,7 @@
         }
     }
 
-    private void MostrarModalConciliar(TransactionBankView transaccion)
+    private void MostrarModalConciliar(TransactionBankDetail transaccion)
     {
         transaccionSeleccionada = transaccion;
 
@@ -971,7 +1281,7 @@
         gastosParaConciliar.Clear();
     }
 
-    private void CrearGastoDesdeTransaccion(TransactionBankView transaccion)
+    private void CrearGastoDesdeTransaccion(TransactionBankDetail transaccion)
     {
         transaccionParaGasto = transaccion;
         mostrarModalCrearGasto = true;
@@ -986,7 +1296,7 @@
     private async Task GastoCreadoExitosamente(ViewExpense nuevoGasto)
     {
         nuevoGasto.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-        //await ParameterService.ec.AddNewRecordAsync(nuevoGasto);
+        await ParameterService.ec.AddNewRecordAsync(nuevoGasto);
 
         // Conciliar automáticamente con la transacción
         if (transaccionParaGasto != null)
@@ -1018,7 +1328,7 @@
                 Description = transaccion.Description,
                 Amount = Math.Abs(transaccion.Amount),
                 ExpenseDate = transaccion.StatementDate,
-                IdCategory = new Guid("AF644C38-2C70-4B07-8BCA-F7AE0E834470"),// "Varios", // Categoría por defecto
+                IdCategory = ParameterService.CurrentBuilding.Configuration.DefaultCategory,
                 IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
                 Distribution = TypeDistribution.Fija,
                 Status = StatusExpense.Approved,
@@ -1027,7 +1337,7 @@
             };
 
             // Guardar gasto
-            var gastoCreado = await ExpenseService.CrearGastoAsync(ParameterService.ec, nuevoGasto);
+            var gastoCreado = await ExpenseService.CrearGastoAsync(nuevoGasto);
 
             // Conciliar
             await ConciliarConGasto(transaccion, gastoCreado);
@@ -1124,7 +1434,7 @@
                 Guid Id = transaccion.IdStatementDetail;
 
                 // Actualizar en base de datos
-                await BankService.ConciliarTransaccionAsync(ParameterService.ec, transaccion, gasto);
+                await BankService.ConciliarTransaccionAsync( transaccion, gasto);
                 await ExpenseService.MarcarGastoComoConciliadoAsync(gasto.IdExpense, transaccion.IdStatementDetail);
             }
 
@@ -1135,7 +1445,7 @@
 
 
                 // Actualizar en base de datos
-                await BankService.DesconciliarTransaccionAsync(ParameterService.ec, transaccion);
+                await BankService.DesconciliarTransaccionAsync(transaccion);
                 await ExpenseService.DesconciliarGastoAsync(transaccion.GastoConciliado?.IdExpense ?? Guid.Empty);
             }
 
@@ -1236,9 +1546,9 @@
         totalPendiente = Math.Abs(transaccionesNoConciliadas.Where(t => t.Amount < 0).Sum(t => t.Amount));
     }
 
-    private List<TransactionBankView> GetTransaccionesFiltradas()
+    private List<TransactionBankDetail> GetTransaccionesFiltradas()
     {
-        IEnumerable<TransactionBankView> resultado = transacciones;
+        IEnumerable<TransactionBankDetail> resultado = transacciones;
 
         // Aplicar filtro de tab
         if (tabActiva == "conciliados")
@@ -1310,7 +1620,7 @@
     {
         if (cuentaSeleccionadaId != Guid.Empty)
         {
-    await CargarTransacciones();
+            await CargarTransacciones();
         }
     }
 
@@ -1335,6 +1645,7 @@
     private void MostrarModalCargarEstado()
     {
         mostrarModalCargarEstado = true;
+        StateHasChanged();
     }
 
     private void CerrarModalCargarEstado()
@@ -1342,11 +1653,11 @@
         mostrarModalCargarEstado = false;
     }
 
-    private async Task EstadoCuentaCargado(List<TransactionBankView> nuevasTransacciones)
+    private async Task EstadoCuentaCargado(List<TransactionBankDetail> nuevasTransacciones)
     {
         if (cuentaSeleccionadaId == Guid.Empty && cuentasBancarias.Any())
         {
-    cuentaSeleccionadaId = cuentasBancarias.First().IdBankAccount;
+            cuentaSeleccionadaId = cuentasBancarias.First().IdBankAccount;
         }
 
         // Agregar nuevas transacciones
@@ -1362,7 +1673,7 @@
         CerrarModalCargarEstado();
     }
 
-    private void VerDetallesTransaccion(TransactionBankView transaccion)
+    private void VerDetallesTransaccion(TransactionBankDetail transaccion)
     {
         // Implementar vista de detalles
         var detalles = $"Fecha: {transaccion.StatementDate:dd/MM/yyyy}\n" +

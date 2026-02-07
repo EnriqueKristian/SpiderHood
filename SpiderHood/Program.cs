@@ -36,10 +36,13 @@ builder.Services.AddScoped<ExpenseService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
 
 // Add other services
-//builder.Services.AddScoped<SpiderHood.Services.ToastService>();
 builder.Services.AddSingleton<ICalculoService, CalculoService>();
+
 builder.Services.AddScoped<IExceptionService, ExceptionService>();
 builder.Services.AddScoped<IPeriodService, PeriodService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IOwnerService, OwnerService>();
+builder.Services.AddScoped<IInstallmentService, InstallmentService>();
 
 // Registrar servicios
 builder.Services.AddScoped<AuthenticationService>();

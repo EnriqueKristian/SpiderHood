@@ -1,12 +1,7 @@
-﻿using DocumentFormat.OpenXml.Drawing.Charts;
-using DocumentFormat.OpenXml.InkML;
+﻿using DocumentFormat.OpenXml.Presentation;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 
 namespace SpiderHood.Services
@@ -43,6 +38,7 @@ namespace SpiderHood.Services
         // Categorías del presupuesto
         Task<List<PresupuestoCategoria>> GetCategoriasByPresupuestoAsync(Guid presupuestoId);
         Task UpdateCategoriaPresupuestoAsync(PresupuestoCategoria presupuestoCategoria);
+
     }
 
     public class BudgetService : IBudgetService
@@ -489,6 +485,7 @@ namespace SpiderHood.Services
             //Generar Hist de Excepciones para calculo
             await ec.AddNewRecordAsync(_exoneration);
         }
+
 
         #endregion
 

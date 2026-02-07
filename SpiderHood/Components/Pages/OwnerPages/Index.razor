@@ -6,6 +6,7 @@
 @using SpiderHood.Services
 @inject NavigationManager Navigation // Inyecta el servicio de navegación
 @inject ParameterService ParameterService
+@inject IOwnerService OwnerService
 
 @layout MainLayout
 @using Microsoft.AspNetCore.Components
@@ -1167,7 +1168,7 @@
     private async Task AddItem(SpiderHood.Models.Owner item)
     {
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-        await ParameterService.ec.AddNewRecordAsync(item);
+        await OwnerService.AddOwnerAsync(item);
         await ParameterService.Context.SaveChangesAsync();
     }
 

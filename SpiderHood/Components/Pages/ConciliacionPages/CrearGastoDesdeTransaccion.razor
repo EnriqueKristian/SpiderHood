@@ -198,7 +198,7 @@
             <button type="button"
                     class="btn btn-outline-secondary"
                     @onclick="Cancelar"
-                    :disabled="procesando">
+                    disabled="@procesando">
                 Cancelar
             </button>
             <button type="submit"
@@ -216,10 +216,7 @@
 
 @code {
     [Parameter]
-    public TransactionBankView? Transaccion { get; set; }
-
-    [Parameter]
-    public List<CategoriaGasto> Categorias { get; set; } = new();
+    public TransactionBankDetail? Transaccion { get; set; }
 
     [Parameter]
     public EventCallback<ViewExpense> OnGastoCreado { get; set; }

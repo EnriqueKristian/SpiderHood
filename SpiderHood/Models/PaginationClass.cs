@@ -482,13 +482,14 @@ namespace SpiderHood.Utilities
         {
             { "UnitName", x => x.UnitName },
             { "OwnerName", x => x.OwnerName },
+            { "Period", x => x.Period},
             { "TotalArea", x => x.TotalArea },
             { "Percent", x => x.Percent },
             { "Amount", x => x.Amount },
             { "IsPaid", x => x.IsPaid }
         };
 
-            InitializeConfiguration(filterOptions, sortExpressions, "UnitName");
+            InitializeConfiguration(filterOptions, sortExpressions, "Period");
         }
 
         protected override List<Installment> ApplySearch(List<Installment> data, string searchTerm)

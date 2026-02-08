@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Components.Forms;
 @inject SpiderHood.Services.ParameterService ParameterService
 @inject IJSRuntime JSRuntime
+@inject Services.BankAccountService BankService
 
 <style>
     /* Estilos generales */
@@ -206,25 +207,30 @@
 <div class="row">
     <div class="col-12">
         <div class="card shadow-sm border-0">
-            <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center py-3">
-                <div>
-                    <h5 class="mb-0">
-                        <i class="fas fa-calendar-alt me-2"></i>
-                        Cuota Mensual: @GetNombreMes(Budget!.BudgetDate.Month) @Budget.BudgetDate.Year
-                    </h5>
-                    <small class="opacity-75">Distribución de gastos por departamento</small>
-                </div>
-                <div class="btn-group" role="group">
-                    <button class="btn btn-light btn-sm px-3" @onclick="ExportarPDF" title="Exportar a PDF">
-                        <i class="fas fa-file-pdf text-danger me-1"></i> PDF
-                    </button>
-                    <button class="btn btn-light btn-sm px-3 ms-2" @onclick="ExportarExcel" title="Exportar a Excel">
-                        <i class="fas fa-file-excel text-success me-1"></i> Excel
-                    </button>
-                </div>
-            </div>
+            @if (!Conciliar)
+            {
+               <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center py-3">
+                    <div>
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            Cuota Mensual: @GetNombreMes(Budget!.BudgetDate.Month) @Budget.BudgetDate.Year
+                        </h5>
+                        <small class="opacity-75">Distribución de gastos por departamento</small>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-light btn-sm px-3" @onclick="ExportarPDF" title="Exportar a PDF">
+                            <i class="fas fa-file-pdf text-danger me-1"></i> PDF
+                        </button>
+                        <button class="btn btn-light btn-sm px-3 ms-2" @onclick="ExportarExcel" title="Exportar a Excel">
+                            <i class="fas fa-file-excel text-success me-1"></i> Excel
+                        </button>
+                    </div>
+                </div> 
+            }
 
             <div class="card-body p-0">
+                @if (!Conciliar)
+                {
                 <!-- Resumen Estadístico -->
                 <div class="row g-0 summary-stats">
                     <div class="col-md-3">
@@ -272,17 +278,17 @@
                         </div>
                     </div>
                 </div>
-
+                }
                 <!-- Tabla de Departamentos -->
                 <div class="table-container">
                     <div class="table-header d-flex justify-content-between align-items-center p-3 border-bottom">
                         <h6 class="mb-0 text-muted">
-                            <i class="fas fa-list me-2"></i>Listado de Departamentos
+                            <i class="fas fa-list me-2"></i>Cuotas por Unidad
                         </h6>
                         <div class="search-box">
                             <input type="text"
                                    class="form-control form-control-sm"
-                                   placeholder="Buscar departamento..."
+                                   placeholder="Buscar unidad, dpto..."
                                    @bind="searchTerm"
                                    @oninput="OnSearch" />
                         </div>
@@ -304,7 +310,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th width="12%" class="ps-4">
-                                        <i class="fas fa-door-closed me-1"></i>Departamento
+                                        <i class="fas fa-door-closed me-1"></i>Unidad
                                     </th>
                                     <th>
                                         <i class="fas fa-user me-1"></i>Propietario
@@ -312,10 +318,23 @@
                                     <th width="10%" class="text-end">
                                         <i class="fas fa-ruler-combined me-1"></i>Área (m²)
                                     </th>
-                                    <th width="10%" class="text-end">
-                                        <i class="fas fa-percentage me-1"></i>% Área
-                                    </th>
-                                    <th width="14%" class="text-end">
+                                    @if ( Conciliar) {
+                                        <th width="10%" class="text-end">
+
+                                            <i class="fa-regular fa-calendar"></i>
+                                            Periodo
+                                        </th>
+                                    }
+                                    else
+                                    {
+                                        <th width="10%" class="text-end">
+
+                                            <i class="fas fa-percentage me-1"></i>
+                                            % Área
+                                        </th>
+                                    }
+
+                                        <th width="14%" class="text-end">
                                         <i class="fas fa-money-bill me-1"></i>Total Cuota
                                     </th>
                                     <th width="15%" class="text-center">
@@ -371,14 +390,24 @@
                                                 </span>
                                             </td>
                                             <td class="text-end">
-                                                <div class="progress-wrapper">
+                                                @if (Conciliar)
+                                                {
+                                                    <div class="progress-wrapper">
+                                                        <small class="text-muted">@item.Period.ToString("MMM-yy")</small>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="progress-wrapper">
                                                     <div class="progress" style="height: 6px;">
                                                         <div class="progress-bar bg-info"
                                                              style="width: @item.Percent%;"
                                                              role="progressbar"></div>
                                                     </div>
-                                                    <small class="text-muted">@( Conciliar ? item.Period.ToString("MMMM-yy") :  @item.Percent.ToString("N2") + "%")</small>
-                                                </div>
+                                                    <small class="text-muted">@item.Percent.ToString("N2") %</small>
+                                                </div>                                                    
+                                                }
+
                                             </td>
                                             <td class="text-end">
                                                 <span class="amount-badge">
@@ -386,6 +415,10 @@
                                                 </span>
                                             </td>
                                             <td class="text-center">
+
+                                                @if ( !Conciliar){
+
+
                                                 <div class="btn-group" role="group">
                                                     <button class="btn btn-outline-primary btn-sm px-3"
                                                             title="Ver detalles de la cuota"
@@ -400,6 +433,42 @@
                                                         </span>
                                                     }
                                                 </div>
+                                                }
+                                                else if (item.PosiblesMatches.Any())
+                                                {
+                                                    var cuotasIds = new HashSet<Guid>(transacciones!.Select(g => g.IdStatementHeader));
+
+                                                    @if (item.PosiblesMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)).Count() > 0)
+                                                    {
+                                                        <div class="dropdown">
+                                                            <button class="btn btn-sm btn-outline-primary dropdown-toggle"
+                                                                    type="button"
+                                                                    data-bs-toggle="dropdown">
+                                                                @item.PosiblesMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)).Count() posibles matches
+                                                            </button>
+                                                            <ul class="dropdown-menu">
+                                                                @foreach (var match in item.PosiblesMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)))
+                                                                {
+                                                                    <li>
+                                                                        <a class="dropdown-item"
+                                                                            @onclick="() => ConciliarConCuota(item, match)">
+                                                                            <div class="d-flex justify-content-between">
+                                                                                <span>@match.Description</span>
+                                                                                <span class="text-muted">@match.Amount.ToString("C")</span>
+                                                                            </div>
+                                                                            <small class="text-muted">@match.StatementDate.ToString("MMM-dd-yy")</small>
+                                                                        </a>
+                                                                    </li>
+                                                                }
+                                                            </ul>
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">No encontrado</span>
+                                                    }
+
+                                                }
                                             </td>
                                             <!-- En la tabla de cuotas, agregar una columna para excepciones -->
                                             <td class="text-center">
@@ -668,6 +737,8 @@
     [Parameter] public List<Exoneration>? Exonerations { get; set; }
     [Parameter] public decimal TotalBudget { get; set; }
     [Parameter] public bool Conciliar { get; set; } = false;
+    [Parameter] public Guid cuentaSeleccionadaId { get; set; }
+    [Parameter] public List<TransactionBankDetail>? transacciones { get; set; }
 
     private Installment? selectedInstallment = null;
     private Modal viewinstallment = null!;
@@ -681,7 +752,10 @@
     private List<Installment> filteredInstallments = new();
     private InstallmentExportService? _exportService;
 
-    protected override void OnInitialized()
+
+    private int totalCoincidencias = 0;
+
+    protected override async Task OnInitializedAsync()
     {
         try{
             // Inicialización de datos si es necesario
@@ -690,6 +764,8 @@
             _pagination.Initialize(filteredInstallments);
             // Suscribirse a cambios en la paginación
             _pagination.OnPaginationChanged += StateHasChanged;
+
+            if (Conciliar) await BuscarCoincidencias();
 
             // Inicializar servicio de exportación
             _exportService = new InstallmentExportService(
@@ -858,13 +934,78 @@
         public Guid IdCategory { get; set; }
     }
 
-
     private string GetDistributionType(int value){
         //PADRE
         return ParameterService.GetChildParameterDescription(8, value);
     }
 
+    private async Task BuscarCoincidencias()
+    {
+        totalCoincidencias = 0;
+
+        foreach (var installment in Installments!.Where(t => !t.Reconciled))
+        {
+            // Buscar pagos con monto similar (±10%)
+            var montoTransaccion = Math.Abs(installment.Amount);
+            var posiblesMatches = transacciones!
+                .Where(g => Math.Abs(g.Amount - montoTransaccion) / montoTransaccion <= 0.1m)
+                .OrderBy(g => Math.Abs(g.Amount - montoTransaccion))
+                .Take(3)
+                .ToList();
+
+            installment.PosiblesMatches = posiblesMatches;
+
+            // Si hay coincidencia exacta, conciliar automáticamente
+            //Colocar logica cuando haay mas de 2
+            /*var matchExacto = posiblesMatches.FirstOrDefault(g => g.Amount == montoTransaccion);
+            if (matchExacto != null)
+            {
+                await ConciliarConPago(installment, matchExacto, automatico: true);
+            }*/
+
+            totalCoincidencias += posiblesMatches.Count;
+        }
+    }
+
+    private async Task ConciliarConCuota(Installment item, TransactionBankDetail cuota, bool automatico = false)
+    {
+        /*try
+        {
+            // Validaciones iniciales
+            if (transaccion == null) throw new ArgumentNullException(nameof(transaccion));
+            if (cuota == null) throw new ArgumentNullException(nameof(cuota));
+
+            // Calcular saldo pendiente de la cuota
+            var saldoCuotaPendiente = cuota.Amount - cuota.Paids?.Sum(p => p.Amount) ?? 0;
+            var montoTransaccion = Math.Abs(transaccion.Amount);
+
+            // Caso 1: Montos iguales - Conciliación total
+            if (Math.Abs(montoTransaccion - saldoCuotaPendiente) < 0.01m)
+            {
+                await ConciliarTotalmente(transaccion, cuota, montoTransaccion, automatico);
+            }
+            // Caso 2: Transacción menor a cuota - Conciliación parcial
+            else if (montoTransaccion < saldoCuotaPendiente)
+            {
+                await ConciliarParcialmente(transaccion, cuota, montoTransaccion, automatico);
+            }
+            // Caso 3: Transacción mayor a cuota - Conciliación con sobrante
+            else
+            {
+                await ConciliarConSobrante(transaccion, cuota, saldoCuotaPendiente, automatico);
+            }
+
+            // Actualizar UI y estado
+            await ActualizarEstadoPostConciliacion(automatico);
+        }
+        catch (Exception ex)
+        {
+            await ManejarErrorConciliacion(ex);
+        }*/
+    }
+
     #region Paginación
+
     private InstallmentPagination _pagination = new InstallmentPagination();
     //private string searchTerm1 = "";
     private int pageSize = 25;

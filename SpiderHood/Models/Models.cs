@@ -321,6 +321,8 @@ namespace SpiderHood.Models
         public bool AutoReconcile { get; set; } = false;
         [NotMapped] 
         public DateTime LastPartialPaymentDate { get; set; }
+        [NotMapped]
+        public List<TransactionBankDetail> PosiblesMatches { get; set; } = [];
     }
 
     // Models/DetalleCuota.cs

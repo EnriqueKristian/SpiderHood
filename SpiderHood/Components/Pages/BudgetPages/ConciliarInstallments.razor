@@ -6,6 +6,7 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @using SpiderHood.Utilities
+@inject BankAccountService BankService
 
 <div class="expense-calculation">
     <!-- Header -->
@@ -21,13 +22,58 @@
         </div>
     </div>
 
-    @if (_HasInstallments ){
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Cuenta Bancaria</label>
+                        <select class="form-select" @onchange="CambiarCuenta">
+                            <option value="">Seleccionar cuenta...</option>
+                            @foreach (var cuenta in cuentasBancarias)
+                            {
+                                <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Período</label>
+                        <select class="form-select" @bind="periodoSeleccionado">
+                            <!-- @onchange="CambiarPeriodo"-->
+                            <option value="mesActual">Mes Actual</option>
+                            <option value="mesAnterior">Mes Anterior</option>
+                            <option value="trimestreActual">Trimestre Actual</option>
+                            <option value="personalizado">Personalizado</option>
+                        </select>
+                    </div>
+
+                    @if (periodoSeleccionado == "personalizado")
+                    {
+                        <div class="col-md-2">
+                            <label class="form-label">Desde</label>
+                            <input type="date" class="form-control" @bind="fechaDesde" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Hasta</label>
+                            <input type="date" class="form-control" @bind="fechaHasta" />
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_HasInstallments && _HasTransactions)
+    {
     <InstallmentTable Installments="@Installments"
                       Budget="@Budget"
                       WaterReadings="@WaterReadings"
                       TotalBudget="TotalMonthly"
                       Exonerations="@Exonerations"
-                      Conciliar="true"/>
+                      Conciliar="true"
+                      cuentaSeleccionadaId="@cuentaSeleccionadaId"
+                          transacciones="@transacciones" />
     }
 </div>
 
@@ -38,8 +84,15 @@
     private List<ServiceReadingDetail> WaterReadings = new();
     private List<Exoneration> Exonerations = new();
     private decimal TotalMonthly = 0;
-
+    private List<BankAccount> cuentasBancarias = new();
+    private string periodoSeleccionado = "mesActual";
+    private DateTime fechaDesde = DateTime.Now.AddMonths(-1);
+    private DateTime fechaHasta = DateTime.Now;
+    private Guid cuentaSeleccionadaId = Guid.Empty;
+    private bool cargando = false;
+    private List<TransactionBankDetail> transacciones = new();
     private bool _HasInstallments => Installments!.Count() > 0;
+    private bool _HasTransactions => transacciones!.Count() > 0;
 
     [Inject]
     public IInstallmentService InstallmentService { get; set; } = default!;
@@ -52,9 +105,68 @@
         // Cargar Cuotas pendientes del mismo período
         Installments = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
+        // Cargar cuentas bancarias
+        cuentasBancarias = await BankService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+
     }
     private Task LoadNewAccountState(MouseEventArgs args)
     {
         throw new NotImplementedException();
     }    
+
+    private async Task CambiarCuenta(ChangeEventArgs args)
+    {
+        cuentaSeleccionadaId = Guid.Parse(args.Value?.ToString() ?? Guid.Empty.ToString());
+        if (cuentaSeleccionadaId != Guid.Empty)
+        {
+            await CargarTransacciones();
+        }
+    }
+
+    private async Task CargarTransacciones()
+    {
+        cargando = true;
+
+        try
+        {
+            // Cargar transacciones del período seleccionado
+            var (fechaInicio, fechaFin) = ObtenerFechasPeriodo();
+            transacciones = await BankService.ObtenerTransaccionesAsync(cuentaSeleccionadaId, fechaInicio, fechaFin);
+
+            // Buscar coincidencias automáticas
+            //await BuscarCoincidencias();
+
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine ($"Error al cargar transacciones: {ex.Message}");
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private (DateTime inicio, DateTime fin) ObtenerFechasPeriodo()
+    {
+        var hoy = DateTime.Today;
+
+        return periodoSeleccionado switch
+        {
+            "mesAnterior" => (
+                new DateTime(hoy.Year, hoy.Month, 1).AddMonths(-1),
+                new DateTime(hoy.Year, hoy.Month, 1).AddDays(-1)
+            ),
+            "trimestreActual" => (
+                new DateTime(hoy.Year, ((hoy.Month - 1) / 3) * 3 + 1, 1),
+                new DateTime(hoy.Year, ((hoy.Month - 1) / 3) * 3 + 4, 1).AddDays(-1)
+            ),
+            "personalizado" => (fechaDesde, fechaHasta),
+            _ => ( // mesActual
+                new DateTime(hoy.Year, hoy.Month, 1),
+                new DateTime(hoy.Year, hoy.Month, DateTime.DaysInMonth(hoy.Year, hoy.Month))
+            )
+        };
+    }
+
 }

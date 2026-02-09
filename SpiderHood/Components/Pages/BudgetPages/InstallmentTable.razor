@@ -315,28 +315,33 @@
                                     <th>
                                         <i class="fas fa-user me-1"></i>Propietario
                                     </th>
-                                    <th width="10%" class="text-end">
-                                        <i class="fas fa-ruler-combined me-1"></i>Área (m²)
-                                    </th>
-                                    @if ( Conciliar) {
+                                    @if (Conciliar)
+                                    {
                                         <th width="10%" class="text-end">
-
                                             <i class="fa-regular fa-calendar"></i>
                                             Periodo
+                                        </th>
+                                        <th width="14%" class="text-end">
+                                            <i class="fas fa-money-bill me-1"></i>Total Cuota
+                                        </th>
+                                        <th width="14%" class="text-end">
+                                            <i class="fas fa-money-bill me-1"></i>Deuda
                                         </th>
                                     }
                                     else
                                     {
                                         <th width="10%" class="text-end">
+                                            <i class="fas fa-ruler-combined me-1"></i>Área (m²)
+                                        </th>
+                                        <th width="10%" class="text-end">
 
                                             <i class="fas fa-percentage me-1"></i>
                                             % Área
                                         </th>
-                                    }
-
                                         <th width="14%" class="text-end">
-                                        <i class="fas fa-money-bill me-1"></i>Total Cuota
-                                    </th>
+                                            <i class="fas fa-money-bill me-1"></i>Total Cuota
+                                        </th>
+                                    }
                                     <th width="15%" class="text-center">
                                         <i class="fas fa-cogs me-1"></i>Acciones
                                     </th>
@@ -384,40 +389,52 @@
                                                     }*@
                                                 </div>
                                             </td>
-                                            <td class="text-end">
-                                                <span class="badge bg-light text-dark fs-6">
-                                                    @item.TotalArea.ToString("N2")
-                                                </span>
-                                            </td>
-                                            <td class="text-end">
-                                                @if (Conciliar)
-                                                {
-                                                    <div class="progress-wrapper">
-                                                        <small class="text-muted">@item.Period.ToString("MMM-yy")</small>
-                                                    </div>
-                                                }
-                                                else
-                                                {
-                                                    <div class="progress-wrapper">
-                                                    <div class="progress" style="height: 6px;">
-                                                        <div class="progress-bar bg-info"
-                                                             style="width: @item.Percent%;"
-                                                             role="progressbar"></div>
-                                                    </div>
-                                                    <small class="text-muted">@item.Percent.ToString("N2") %</small>
-                                                </div>                                                    
-                                                }
 
-                                            </td>
-                                            <td class="text-end">
-                                                <span class="amount-badge">
-                                                    S/ @item.Amount.ToString("N2")
-                                                </span>
-                                            </td>
+                                            @if (Conciliar)
+                                            {
+                                                <td class="text-end">
+                                                        <div class="progress-wrapper">
+                                                            <small class="text-muted">@item.Period.ToString("MMM-yy")</small>
+                                                        </div>
+                                                </td>
+                                                <td class="text-end">
+                                                    <span >
+                                                        S/ @item.Amount.ToString("N2")
+                                                    </span>
+                                                </td>
+                                                <td class="text-end">
+                                                    <span class="amount-badge">
+                                                        S/ @item.Debt.ToString("N2")
+                                                    </span>
+                                                </td>
+                                            }
+                                            else
+                                            {
+                                                <td class="text-end">
+                                                    <span class="badge bg-light text-dark fs-6">
+                                                        @item.TotalArea.ToString("N2")
+                                                    </span>
+                                                </td>
+                                                <td class="text-end">
+                                                    <div class="progress-wrapper">
+                                                        <div class="progress" style="height: 18px;">
+                                                            <div class="progress-bar bg-info"
+                                                                 style="width: @item.Percent%;"
+                                                                 role="progressbar">
+                                                            </div>
+                                                            <small class="text-muted">@item.Percent.ToString("N2") %</small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="text-end">
+                                                    <span class="amount-badge">
+                                                        S/ @item.Amount.ToString("N2")
+                                                    </span>
+                                                </td>
+                                            }
                                             <td class="text-center">
 
                                                 @if ( !Conciliar){
-
 
                                                 <div class="btn-group" role="group">
                                                     <button class="btn btn-outline-primary btn-sm px-3"
@@ -447,6 +464,21 @@
                                                                 @item.PosiblesMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)).Count() posibles matches
                                                             </button>
                                                             <ul class="dropdown-menu">
+                                                                @foreach (var paid in item.PreviousPaid)
+                                                                {
+                                                                    <a class="dropdown-item"
+                                                                       @onclick="() => ConciliarConCuota(item, paid)">
+                                                                        <div class="d-flex justify-content-between">
+                                                                            <span>@paid.Description</span>
+                                                                            <span class="text-muted">@paid.Balance.ToString("C")</span>
+                                                                        </div>
+                                                                        <small class="text-muted">@paid.StatementDate.ToString("MMM-dd-yy")</small>
+                                                                    </a>
+                                                                }
+                                                                @if (item.PreviousPaid.Count > 0)
+                                                                {
+                                                                    <li><hr class="dropdown-divider"></li>
+                                                                }
                                                                 @foreach (var match in item.PosiblesMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)))
                                                                 {
                                                                     <li>
@@ -454,7 +486,7 @@
                                                                             @onclick="() => ConciliarConCuota(item, match)">
                                                                             <div class="d-flex justify-content-between">
                                                                                 <span>@match.Description</span>
-                                                                                <span class="text-muted">@match.Amount.ToString("C")</span>
+                                                                                <span class="text-muted">@match.Balance.ToString("C")</span>
                                                                             </div>
                                                                             <small class="text-muted">@match.StatementDate.ToString("MMM-dd-yy")</small>
                                                                         </a>
@@ -732,6 +764,7 @@
 
 @code {
     [Parameter] public List<Installment>? Installments { get; set; }
+    [Parameter] public List<InstallmentPaid>? InstallmentsPaid { get; set; }
     [Parameter] public BudgetHeader? Budget { get; set; }
     [Parameter] public List<ServiceReadingDetail>? WaterReadings { get; set; }
     [Parameter] public List<Exoneration>? Exonerations { get; set; }
@@ -739,6 +772,9 @@
     [Parameter] public bool Conciliar { get; set; } = false;
     [Parameter] public Guid cuentaSeleccionadaId { get; set; }
     [Parameter] public List<TransactionBankDetail>? transacciones { get; set; }
+
+    [Inject]
+    public Services.IInstallmentService InstallmentService { get; set; } = default!;
 
     private Installment? selectedInstallment = null;
     private Modal viewinstallment = null!;
@@ -805,7 +841,7 @@
             // Crear PDF resumen
             //var pdfBytes = _exportService!.GenerateSinglePdf(Installments!.First());
             var pdfBytes = _exportService!.GenerateReceipt(Installments!.First());
-            
+
             await JSRuntime.InvokeVoidAsync("downloadFile", 
                 Convert.ToBase64String(pdfBytes),
                 $"Resumen_Cuotas_{DateTime.Now:yyyyMMdd}.pdf",
@@ -943,40 +979,89 @@
     {
         totalCoincidencias = 0;
 
-        foreach (var installment in Installments!.Where(t => !t.Reconciled))
+        // Validate collections first to avoid null reference issues
+        if (Installments == null || transacciones == null)
         {
-            // Buscar pagos con monto similar (±10%)
-            var montoTransaccion = Math.Abs(installment.Amount);
-            var posiblesMatches = transacciones!
-                .Where(g => Math.Abs(g.Amount - montoTransaccion) / montoTransaccion <= 0.1m)
-                .OrderBy(g => Math.Abs(g.Amount - montoTransaccion))
+            // Log or handle null collections appropriately
+            return;
+        }
+
+        // Filter once to avoid repeated Where calls
+        var unreconciledInstallments = Installments.Where(t => !t.Reconciled).ToList();
+
+        // Get all paid transaction IDs in one query for better performance
+        var allPaidIds = unreconciledInstallments
+            .SelectMany(i => i.Paids?.Select(p => p.IdTransaction) ?? Enumerable.Empty<Guid>())
+            .Where(id => id != Guid.Empty) // Assuming IDs are positive
+            .Distinct()
+            .ToList();
+
+        foreach (var installment in unreconciledInstallments)
+        {
+            // Clear previous matches to avoid duplicates
+            installment.PosiblesMatches.Clear();
+
+            var montoDeuda = Math.Abs(installment.Debt);
+
+            // 1. Add previously associated payments
+            var paidIds = installment.Paids.Select(x => x.IdTransaction).ToList();
+            var previosPaid = transacciones!
+                .Where(g => g.IdGroupUnit ==installment.IdGroupUnit )
                 .Take(3)
                 .ToList();
 
-            installment.PosiblesMatches = posiblesMatches;
-
-            // Si hay coincidencia exacta, conciliar automáticamente
-            //Colocar logica cuando haay mas de 2
-            /*var matchExacto = posiblesMatches.FirstOrDefault(g => g.Amount == montoTransaccion);
-            if (matchExacto != null)
+            if (previosPaid.Any())
             {
-                await ConciliarConPago(installment, matchExacto, automatico: true);
-            }*/
+                installment.PreviousPaid =previosPaid;
+            }
+
+            // 2. Find payments with similar amount (±10%)
+            // Using decimal for monetary calculations
+            decimal tolerance = 0.1m;
+            decimal lowerBound = montoDeuda * (1 - tolerance);
+            decimal upperBound = montoDeuda * (1 + tolerance);
+
+            var posiblesMatches = transacciones!
+                .Where(g => g.Balance >= lowerBound && g.Amount <= upperBound)
+                .Select(g => new
+                {
+                    Transaction = g,
+                    Difference = Math.Abs(g.Amount - montoDeuda)
+                })
+                .OrderBy(x => x.Difference)
+                .Take(3)
+                .Select(x => x.Transaction)
+                .ToList();
+
+            if (posiblesMatches.Any())
+            {
+                installment.PosiblesMatches = posiblesMatches;
+
+                // 3. Check for exact match (with tolerance for floating point)
+                var exactMatch = posiblesMatches
+                    .FirstOrDefault(g => Math.Abs(g.Amount - montoDeuda) < 0.01m); // 0.01 tolerance for exact match
+
+                if (exactMatch != null)
+                {
+                    // Uncomment if you want automatic reconciliation
+                    // await ConciliarConPago(installment, exactMatch, automatico: true);
+                }
+            }
 
             totalCoincidencias += posiblesMatches.Count;
         }
     }
 
-    private async Task ConciliarConCuota(Installment item, TransactionBankDetail cuota, bool automatico = false)
+    private async Task ConciliarConCuota(Installment cuota, TransactionBankDetail transaccion, bool automatico = false)
     {
-        /*try
+        try
         {
             // Validaciones iniciales
             if (transaccion == null) throw new ArgumentNullException(nameof(transaccion));
             if (cuota == null) throw new ArgumentNullException(nameof(cuota));
 
             // Calcular saldo pendiente de la cuota
-            var saldoCuotaPendiente = cuota.Amount - cuota.Paids?.Sum(p => p.Amount) ?? 0;
+            var saldoCuotaPendiente = cuota.Debt;
             var montoTransaccion = Math.Abs(transaccion.Amount);
 
             // Caso 1: Montos iguales - Conciliación total
@@ -1000,8 +1085,132 @@
         }
         catch (Exception ex)
         {
-            await ManejarErrorConciliacion(ex);
+            //await ManejarErrorConciliacion(ex);
+            throw new Exception(ex.Message);
+        }
+    }
+
+    private async Task ConciliarTotalmente(TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
+    {
+        // Crear registro de pago
+        var pago = new InstallmentPaid
+        {
+            IdInstallment = cuota.IdInstallment,
+            Amount = monto,
+            PaymentDate = DateTime.Now,
+            IdTransaction = transaccion.IdStatementDetail,
+            IsAutoReconcile = automatico
+        };
+
+        // Actualizar estado de la transacción
+        transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+        transaccion.ReconciliationDate = DateTime.Now;
+
+        // Actualizar estado de la cuota
+        cuota.Reconciled = true;
+        cuota.ReconciledTransactionId = transaccion.IdStatementDetail;
+        cuota.AutoReconcile = automatico;
+        cuota.Status = ConcilationType.Conciliada;
+
+        // Guardar en base de datos
+        await InstallmentService.AgregarPagoAsync(pago);
+        await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+    }
+
+    private async Task ConciliarParcialmente(TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
+    {
+        // Crear registro de pago parcial
+        var pagoParcial = new InstallmentPaid
+        {
+            IdPaid = Guid.NewGuid(),
+            IdInstallment = cuota.IdInstallment,
+            Amount = monto,
+            PaymentDate = DateTime.Now,
+            IdTransaction = transaccion.IdStatementDetail,
+            IsAutoReconcile = automatico,
+            IsPartialPayment = true,
+            Status = ConcilationType.Conciliada
+        };
+
+        // Actualizar estado de la transacción (totalmente conciliada)
+        transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+        transaccion.ReconciliationDate = DateTime.Now;
+
+        // Cuota queda parcialmente pagada (no marcamos como Reconciled = true)
+        cuota.LastPartialPaymentDate = DateTime.Now;
+        cuota.AutoReconcile = automatico;
+        cuota.Status = ConcilationType.Parcial;
+
+        // Guardar en base de datos
+        await InstallmentService.AgregarPagoAsync(pagoParcial);
+        await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+    }
+
+    private async Task ConciliarConSobrante(TransactionBankDetail transaccion, Installment cuota, decimal saldoCuota, bool automatico)
+    {
+        // 1. Conciliar el saldo pendiente de la cuota
+        var pagoCompleto = new InstallmentPaid
+        {
+            IdPaid = Guid.NewGuid(),
+            IdInstallment = cuota.IdInstallment,
+            Amount = saldoCuota,
+            PaymentDate = DateTime.Now,
+            IdTransaction = transaccion.IdStatementDetail,
+            IsAutoReconcile = automatico,
+            Status = ConcilationType.Conciliada
+        };
+
+        // 2. Actualizar cuota como totalmente conciliada
+        transaccion.ReconciliationStatus = ConcilationType.Parcial;
+        transaccion.ReconciliationDate = DateTime.Now;
+        
+        cuota.Reconciled = true;
+        cuota.ReconciledTransactionId = transaccion.IdStatementDetail;
+        cuota.AutoReconcile = automatico;
+        cuota.Status = ConcilationType.Conciliada;
+
+        // 3. Guardar en base de datos
+        await InstallmentService.AgregarPagoAsync(pagoCompleto);
+        await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+
+        // 5. Agregar transacción sobrante a la lista pendiente
+        //transaccionesPendientes.Add(transaccionSobrante);
+        //transacciones.Add(transaccionSobrante);
+    }
+
+    private async Task ActualizarEstadoPostConciliacion(bool automatico)
+    {
+        // Recalcular estadísticas
+        //CalcularEstadisticas();
+
+        // Actualizar listas pendientes
+        await ActualizarListasPendientes();
+
+        // Cerrar modal si no es automático
+        if (!automatico)
+        {
+            //CerrarModalConciliar();
+            // Mostrar mensaje de éxito
+            //MostrarMensajeExito("Transacción conciliada exitosamente");
+        }
+
+        // Forzar actualización de UI
+        StateHasChanged();
+    }
+
+    private async Task ActualizarListasPendientes()
+    {
+        // Remover transacción conciliada de pendientes
+        /*var transaccionConciliada = transaccionesPendientes
+            .FirstOrDefault(t => t.ReconciliationStatus == ConcilationType.Conciliada);
+
+        if (transaccionConciliada != null)
+        {
+            transaccionesPendientes.Remove(transaccionConciliada);
         }*/
+
+        // Opcional: Recargar cuotas pendientes desde el servidor
+        // cuotaspendientes = await InstallmentService.ObtenerCuotasPendientesAsync();
     }
 
     #region Paginación

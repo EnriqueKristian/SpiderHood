@@ -8,9 +8,10 @@ namespace SpiderHood.Services
     {
 
         //Installments
-        Task<List<Installment>> GetInstallmentsByBudgetAsync(Guid IdBudgetHeader);
-        Task<List<Installment>> GetPendingInstallmentsAsync(Guid IdBuilding);
+        Task<List<Models.Installment>> GetInstallmentsByBudgetAsync(Guid IdBudgetHeader);
+        Task<List<Models.Installment>> GetPendingInstallmentsAsync(Guid IdBuilding);
         Task<Models.InstallmentPaid> AgregarPagoAsync(InstallmentPaid paid);
+        Task<List<Models.InstallmentPaid>> GetInstallmentsPaidAsync(Guid IdBuilding);
     }
 
     public class InstallmentService : IInstallmentService
@@ -68,6 +69,19 @@ namespace SpiderHood.Services
             {
                 Console.WriteLine($"Error al guardar Pago de Cuota: {ex.Message}");
                 return new Models.InstallmentPaid();
+            }
+        }
+
+        public async Task<List<InstallmentPaid>> GetInstallmentsPaidAsync(Guid IdBuilding)
+        {
+            try
+            {
+                return await ec.GetInstallmentsPaidAsync(IdBuilding);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error obtener los pagos de cuotas: {ex.Message}");
+                return [];
             }
         }
     }

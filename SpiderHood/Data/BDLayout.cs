@@ -110,6 +110,7 @@ namespace SpiderHood.Data
             public const string GET_List_BudgetDetail = "GET_List_BudgetDetail";
             public const string GET_AllContacts = "GET_AllContacts";
             public const string GET_PendingConciliationExpenses = "GET_PendingConciliationExpenses";
+            public const string GET_InstallmentPaid = "GET_InstallmentPaid";
         }
         #endregion
 
@@ -1424,6 +1425,16 @@ namespace SpiderHood.Data
                     StoredProcedures.GET_List_BudgetDetail,
                     idBudgetHeader) ?? new List<BudgetDetail>();
             }, "GetBudgetDetail", cancellationToken);
+        }
+
+        public async Task<List<InstallmentPaid>> GetInstallmentsPaidAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<InstallmentPaid>(
+                    StoredProcedures.GET_InstallmentPaid,
+                    idBuilding) ?? new List<InstallmentPaid>();
+            }, "GetInstallmentsPaid", cancellationToken);
         }
 
         public async Task<Building> GetBuildingByIdAsync(Guid idBuilding, CancellationToken cancellationToken = default)

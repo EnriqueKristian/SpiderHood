@@ -30,6 +30,7 @@ namespace SpiderHood.Models
         public Guid IdBankAccount { get; set; }
         public Guid IdStatementHeader { get; set; }
         public Guid IdParent { get; set; }
+        public Guid IdGroupUnit { get; set; } = Guid.Empty;
 
         [Required(ErrorMessage = "La fecha es obligatoria")]
         public DateTime StatementDate { get; set; }
@@ -50,10 +51,17 @@ namespace SpiderHood.Models
 
         [Required(ErrorMessage = "La moneda es obligatoria")]
         public string Currency { get; set; } = string.Empty;
+        [NotMapped]
+        public Guid IdEntityRef { get; set; }
 
         public TransactionOrigen Origen { get; set; }
         public ConcilationType ReconciliationStatus { get; set; }
         public DateTime? ReconciliationDate { get; set; }
+
+        [Precision(18, 2)]
+        public decimal AmountPaid { get; set; }
+        [Precision(18, 2)]
+        public decimal Balance { get; set; }
 
         public List<ViewExpense> PosiblesMatches { get; set; } = [];
         public List<Installment> IPosiblesMatches { get; set; } = [];

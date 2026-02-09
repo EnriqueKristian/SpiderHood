@@ -73,13 +73,15 @@
                       Exonerations="@Exonerations"
                       Conciliar="true"
                       cuentaSeleccionadaId="@cuentaSeleccionadaId"
-                          transacciones="@transacciones" />
+                          transacciones="@transacciones"
+                          InstallmentsPaid="@InstallmentsPaid"/>
     }
 </div>
 
 @code {
 
     private List<Installment> Installments = new();
+    private List<InstallmentPaid> InstallmentsPaid = new();
     private BudgetHeader Budget = new();
     private List<ServiceReadingDetail> WaterReadings = new();
     private List<Exoneration> Exonerations = new();
@@ -104,6 +106,16 @@
 
         // Cargar Cuotas pendientes del mismo período
         Installments = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+        // Cargar Pagos de Cuotas del mismo período
+        InstallmentsPaid = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+        //Asociar cada pago a cada Installment
+        foreach (var cuota in Installments)
+        {
+            var paid = InstallmentsPaid.Where(c => c.IdInstallment == cuota.IdInstallment).ToList();
+            cuota.Paids = paid;
+        }
 
         // Cargar cuentas bancarias
         cuentasBancarias = await BankService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);

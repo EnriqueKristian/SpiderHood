@@ -297,18 +297,14 @@ namespace SpiderHood.Models
         public string UnitName { get; set; } = string.Empty;
         public string OwnerName { get; set; } = string.Empty;
         public DateTime CreationDate { get; set; }
-
-        [Precision(18, 2)]
-        public decimal Amount { get; set; }
-        [Precision(18, 2)]
-        public decimal Percent { get; set; }
-        [Precision(18, 2)]
-        public decimal TotalArea { get; set; }
+        [Precision(18, 2)] public decimal Amount { get; set; }
+        [Precision(18, 2)] public decimal Percent { get; set; }
+        [Precision(18, 2)] public decimal TotalArea { get; set; }
         public DateTime Period { get; set; }
         public string CreatedBy { get; set; } = string.Empty;
-        [NotMapped]
-        public List<InstallmentPaid> Paids { get; set; } = [];
         public ConcilationType Status { get; set; }
+        [Precision(18, 2)] public decimal AmountPaid { get; set; }
+        [Precision(18, 2)] public decimal Debt { get; set; }
         public Guid IdGroupUnit { get; set; }
         public DateTime DueDate { get; set; }
         [NotMapped]
@@ -323,6 +319,10 @@ namespace SpiderHood.Models
         public DateTime LastPartialPaymentDate { get; set; }
         [NotMapped]
         public List<TransactionBankDetail> PosiblesMatches { get; set; } = [];
+        [NotMapped]
+        public List<InstallmentPaid> Paids { get; set; } = [];
+        [NotMapped]
+        public List<TransactionBankDetail> PreviousPaid { get; set; } = [];
     }
 
     // Models/DetalleCuota.cs

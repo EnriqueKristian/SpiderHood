@@ -227,7 +227,6 @@
                     </div>
                 </div> 
             }
-
             <div class="card-body p-0">
                 @if (!Conciliar)
                 {
@@ -279,8 +278,10 @@
                     </div>
                 </div>
                 }
-                <!-- Tabla de Departamentos -->
+
+                
                 <div class="table-container">
+                    <!-- Tabla de Filtros -->
                     <div class="table-header d-flex justify-content-between align-items-center p-3 border-bottom">
                         <h6 class="mb-0 text-muted">
                             <i class="fas fa-list me-2"></i>Cuotas por Unidad
@@ -304,7 +305,7 @@
                             </select>
                         </div>
                     </div>
-
+                    <!-- Tabla de Cuotas -->
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
@@ -351,107 +352,117 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @if (filteredInstallments?.Any() != true)
+                            @if (filteredInstallments?.Any() != true)
+                            {
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted">No se encontraron departamentos</p>
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var item in _pagination.CurrentPageData!)
                                 {
-                                    <tr>
-                                        <td colspan="7" class="text-center py-5">
-                                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                                            <p class="text-muted">No se encontraron departamentos</p>
+                                    <tr @onclick="() => installementSelected(item)"
+                                        class="@GetRowClass(item)"
+                                        style="cursor: pointer;">
+                                        <td class="ps-4">
+                                            <div class="d-flex align-items-center">
+                                                <div class="apartment-badge bg-primary-subtle text-primary rounded-circle me-3">
+                                                    DPTO
+                                                </div>
+                                                <div>
+                                                    <strong>@item.UnitName</strong>
+                                                    <!--<small class="d-block text-muted">Unidad @item.UnitName</small>-->
+                                                </div>
+                                            </div>
                                         </td>
-                                    </tr>
-                                }
-                                else
-                                {
-                                    @foreach (var item in _pagination.CurrentPageData!)
-                                    {
-                                        <tr @onclick="() => installementSelected(item)"
-                                            class="@GetRowClass(item)"
-                                            style="cursor: pointer;">
-                                            <td class="ps-4">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="apartment-badge bg-primary-subtle text-primary rounded-circle me-3">
-                                                        DPTO
-                                                    </div>
-                                                    <div>
-                                                        <strong>@item.UnitName</strong>
-                                                        <!--<small class="d-block text-muted">Unidad @item.UnitName</small>-->
-                                                    </div>
-                                                </div>
+                                        <td>
+                                            <div class="owner-info">
+                                                <strong>@item.OwnerName</strong>
+                                                @*if (!string.IsNullOrEmpty(item.OwnerEmail))
+                                                {
+                                                    <small class="d-block text-muted">
+                                                        <i class="fas fa-envelope me-1"></i>@item.OwnerEmail
+                                                    </small>
+                                                }*@
+                                            </div>
+                                        </td>
+			                            @if (!Conciliar)
+                                        {
+				                            <td class="text-end">
+                                                <span class="badge bg-light text-dark fs-6">
+                                                    @item.TotalArea.ToString("N2")
+                                                </span>
                                             </td>
-                                            <td>
-                                                <div class="owner-info">
-                                                    <strong>@item.OwnerName</strong>
-                                                    @*if (!string.IsNullOrEmpty(item.OwnerEmail))
-                                                    {
-                                                        <small class="d-block text-muted">
-                                                            <i class="fas fa-envelope me-1"></i>@item.OwnerEmail
-                                                        </small>
-                                                    }*@
-                                                </div>
-                                            </td>
-
-                                            @if (Conciliar)
-                                            {
-                                                <td class="text-end">
-                                                        <div class="progress-wrapper">
-                                                            <small class="text-muted">@item.Period.ToString("MMM-yy")</small>
+                                            <td class="text-end">
+                                                <div class="progress-wrapper">
+                                                    <div class="progress" style="height: 18px;">
+                                                        <div class="progress-bar bg-info"
+                                                                style="width: @item.Percent%;"
+                                                                role="progressbar">
                                                         </div>
-                                                </td>
-                                                <td class="text-end">
-                                                    <span >
-                                                        S/ @item.Amount.ToString("N2")
-                                                    </span>
-                                                </td>
-                                                <td class="text-end">
-                                                    <span class="amount-badge">
-                                                        S/ @item.Debt.ToString("N2")
-                                                    </span>
-                                                </td>
-                                            }
-                                            else
-                                            {
-                                                <td class="text-end">
-                                                    <span class="badge bg-light text-dark fs-6">
-                                                        @item.TotalArea.ToString("N2")
-                                                    </span>
-                                                </td>
-                                                <td class="text-end">
+                                                        <small class="text-muted">@item.Percent.ToString("N2") %</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <span class="amount-badge">
+                                                    S/ @item.Amount.ToString("N2")
+                                                </span>
+                                            </td>
+				                            <td class="text-center">
+					                            <div class="btn-group" role="group">
+						                            <button class="btn btn-outline-primary btn-sm px-3"
+								                            title="Ver detalles de la cuota"
+								                            @onclick:stopPropagation
+								                            @onclick="() => VerDetalle(item)">
+							                            <i class="fas fa-eye me-1"></i>Detalles
+						                            </button>
+						                            @if (item.IsPaid)
+						                            {
+							                            <span class="badge bg-success ms-2">
+								                            <i class="fas fa-check me-1"></i>Pagado
+							                            </span>
+						                            }
+					                            </div>
+				                            </td>
+				                            <td class="text-center">
+					                            @if (HasExceptions(item.IdGroupUnit))
+					                            {
+						                            <button class="btn btn-sm btn-outline-warning"
+								                            title="Ver excepciones"
+								                            @onclick:stopPropagation
+								                            @onclick="() => ShowExceptions(item)">
+							                            <i class="fas fa-exclamation-triangle"></i>
+							                            <span class="badge bg-warning ms-1">
+								                            @GetExceptionCount(item.IdGroupUnit)
+							                            </span>
+						                            </button>
+					                            }
+				                            </td>
+                                        }
+                                        else
+                                        {
+                                            <td class="text-end">
                                                     <div class="progress-wrapper">
-                                                        <div class="progress" style="height: 18px;">
-                                                            <div class="progress-bar bg-info"
-                                                                 style="width: @item.Percent%;"
-                                                                 role="progressbar">
-                                                            </div>
-                                                            <small class="text-muted">@item.Percent.ToString("N2") %</small>
-                                                        </div>
+                                                        <small class="text-muted">@item.Period.ToString("MMM-yy")</small>
                                                     </div>
-                                                </td>
-                                                <td class="text-end">
-                                                    <span class="amount-badge">
-                                                        S/ @item.Amount.ToString("N2")
-                                                    </span>
-                                                </td>
-                                            }
+                                            </td>
+                                            <td class="text-end">
+                                                <span >
+                                                    S/ @item.Amount.ToString("N2")
+                                                </span>
+                                            </td>
+                                            <td class="text-end">
+                                                <span class="amount-badge">
+                                                    S/ @item.Debt.ToString("N2")
+                                                </span>
+                                            </td>
                                             <td class="text-center">
-
-                                                @if ( !Conciliar){
-
-                                                <div class="btn-group" role="group">
-                                                    <button class="btn btn-outline-primary btn-sm px-3"
-                                                            title="Ver detalles de la cuota"
-                                                            @onclick:stopPropagation
-                                                            @onclick="() => VerDetalle(item)">
-                                                        <i class="fas fa-eye me-1"></i>Detalles
-                                                    </button>
-                                                    @if (item.IsPaid)
-                                                    {
-                                                        <span class="badge bg-success ms-2">
-                                                            <i class="fas fa-check me-1"></i>Pagado
-                                                        </span>
-                                                    }
-                                                </div>
-                                                }
-                                                else if (item.PosiblesMatches.Any())
+                                                @if (item.PosiblesMatches.Any())
                                                 {
                                                     var cuotasIds = new HashSet<Guid>(transacciones!.Select(g => g.IdStatementHeader));
 
@@ -467,7 +478,7 @@
                                                                 @foreach (var paid in item.PreviousPaid)
                                                                 {
                                                                     <a class="dropdown-item"
-                                                                       @onclick="() => ConciliarConCuota(item, paid)">
+                                                                        @onclick="() => ConciliarConCuota(item, paid)">
                                                                         <div class="d-flex justify-content-between">
                                                                             <span>@paid.Description</span>
                                                                             <span class="text-muted">@paid.Balance.ToString("C")</span>
@@ -499,27 +510,40 @@
                                                     {
                                                         <span class="text-muted">No encontrado</span>
                                                     }
-
                                                 }
                                             </td>
-                                            <!-- En la tabla de cuotas, agregar una columna para excepciones -->
                                             <td class="text-center">
-                                                @if (HasExceptions(item.IdGroupUnit))
-                                                {
-                                                    <button class="btn btn-sm btn-outline-warning"
-                                                            title="Ver excepciones"
-                                                            @onclick:stopPropagation
-                                                            @onclick="() => ShowExceptions(item)">
-                                                        <i class="fas fa-exclamation-triangle"></i>
-                                                        <span class="badge bg-warning ms-1">
-                                                            @GetExceptionCount(item.IdGroupUnit)
-                                                        </span>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    @if (item.Status == ConcilationType.NoConciliada )
+                                                    {
+                                                        <button class="btn btn-outline-primary"
+                                                                title="Conciliar manualmente"
+                                                                    disabled="@isDisableSelected"
+                                                                @onclick="() => ShowConciliationModal(item)">
+                                                            <i class="fas fa-link"></i>
+                                                        </button>
+                                                    }
+                                                    <button class="btn btn-outline-info"
+                                                            title="Ver detalles"
+                                                                disabled="@isDisableSelected"
+                                                            @onclick="() => InstallmentViewDetails(item)">
+                                                        <i class="fas fa-eye"></i>
                                                     </button>
-                                                }
+                                                        @if (item.Status == ConcilationType.Parcial )
+                                                    {
+                                                        <button class="btn btn-outline-danger"
+                                                                title="Desconciliar"
+                                                                    disabled="@isDisableSelected"
+                                                                @onclick="() => UnConciliationModal(item)">
+                                                            <i class="fas fa-unlink"></i>
+                                                        </button>
+                                                    }
+                                                </div>
                                             </td>
-                                        </tr>
-                                    }
+                                        }
+                                    </tr>
                                 }
+                            }
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
@@ -556,7 +580,6 @@
                     aria-label="Close"></button>
         </div>
     </HeaderTemplate>
-
     <BodyTemplate>
         <div class="modal-body p-0">
             <!-- Información del Propietario -->
@@ -733,7 +756,6 @@
             </div>
         </div>
     </BodyTemplate>
-
     <FooterTemplate>
         <div class="modal-footer bg-light">
             <button class="btn btn-secondary" @onclick="() => viewinstallment.HideAsync()">
@@ -749,6 +771,10 @@
     </FooterTemplate>
 </Modal>
 
+@if ( ShowModalManual){
+    <ManualIntalmentConciliation cuota="selectedInstallment" transacciones="transacciones!.Where(x => x.Balance > 0).ToList()" ShowModalChanged="CloseModalManual" />
+}
+
 <script language="javascript">
         // En tu archivo .js o en línea
     function downloadFile(base64String, fileName, contentType) {
@@ -763,6 +789,30 @@
 
 
 @code {
+
+    private void CloseModalManual()
+    {
+        ShowModalManual = false;
+        StateHasChanged();
+    }
+
+    private void ShowConciliationModal(Installment item)
+    {
+        ShowModalManual = true;
+        StateHasChanged();
+    }
+
+    private void InstallmentViewDetails(Installment item)
+    {
+    }
+
+    private void UnConciliationModal(Installment item)
+    {
+    }
+
+    private bool isDisableSelected => selectedInstallment == null ? true : false;
+
+
     [Parameter] public List<Installment>? Installments { get; set; }
     [Parameter] public List<InstallmentPaid>? InstallmentsPaid { get; set; }
     [Parameter] public BudgetHeader? Budget { get; set; }
@@ -787,9 +837,10 @@
     private string searchTerm = string.Empty;
     private List<Installment> filteredInstallments = new();
     private InstallmentExportService? _exportService;
-
-
     private int totalCoincidencias = 0;
+
+    private bool ShowModalManual = false;
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -877,7 +928,8 @@
 
     private string GetRowClass(Installment item)
     {
-        var classes = new List<string> { "table-row-hover" };
+        //var classes = new List<string> { "table-row-hover" };
+        var classes = new List<string> { "" };
 
         if (selectedInstallment?.IdInstallment == item.IdInstallment)
         {
@@ -1115,6 +1167,14 @@
         // Guardar en base de datos
         await InstallmentService.AgregarPagoAsync(pago);
         await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+
+        var x = filteredInstallments!.Where(c => c.IdInstallment == cuota.IdInstallment).FirstOrDefault();
+        x!.Status = cuota.Status;
+        x!.Debt = cuota.Debt - monto;
+
+        var y = transacciones!.Where(c => c.IdStatementDetail == transaccion.IdStatementDetail).FirstOrDefault();
+        y!.Balance = y!.Amount - monto;
+        y!.ReconciliationStatus = transaccion.ReconciliationStatus;
     }
 
     private async Task ConciliarParcialmente(TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
@@ -1144,6 +1204,14 @@
         // Guardar en base de datos
         await InstallmentService.AgregarPagoAsync(pagoParcial);
         await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+
+        var x = filteredInstallments!.Where(c => c.IdInstallment == cuota.IdInstallment).FirstOrDefault();
+        x!.Status = cuota.Status;
+        x!.Debt = cuota.Debt - monto;
+
+        var y = transacciones!.Where(c => c.IdStatementDetail == transaccion.IdStatementDetail).FirstOrDefault();
+        y!.Balance = y!.Amount - monto;
+        y!.ReconciliationStatus = transaccion.ReconciliationStatus;
     }
 
     private async Task ConciliarConSobrante(TransactionBankDetail transaccion, Installment cuota, decimal saldoCuota, bool automatico)
@@ -1163,7 +1231,7 @@
         // 2. Actualizar cuota como totalmente conciliada
         transaccion.ReconciliationStatus = ConcilationType.Parcial;
         transaccion.ReconciliationDate = DateTime.Now;
-        
+
         cuota.Reconciled = true;
         cuota.ReconciledTransactionId = transaccion.IdStatementDetail;
         cuota.AutoReconcile = automatico;
@@ -1174,6 +1242,13 @@
         await BankService.ConciliarTransaccionAsync(transaccion, cuota);
 
         // 5. Agregar transacción sobrante a la lista pendiente
+        var x = filteredInstallments!.Where(c => c.IdInstallment == cuota.IdInstallment).FirstOrDefault();
+        x!.Status = cuota.Status;
+        x!.Debt = cuota.Debt - saldoCuota;
+
+        var y = transacciones!.Where(c => c.IdStatementDetail == transaccion.IdStatementDetail).FirstOrDefault();
+        y!.Balance = y!.Amount - saldoCuota;
+        y!.ReconciliationStatus = transaccion.ReconciliationStatus;
         //transaccionesPendientes.Add(transaccionSobrante);
         //transacciones.Add(transaccionSobrante);
     }
@@ -1201,17 +1276,32 @@
     private async Task ActualizarListasPendientes()
     {
         // Remover transacción conciliada de pendientes
-        /*var transaccionConciliada = transaccionesPendientes
+        var cuotaConciliada = filteredInstallments!
+                    .FirstOrDefault(t => t.Status == ConcilationType.Conciliada);
+
+        if (cuotaConciliada != null)
+        {
+            filteredInstallments!.Remove(cuotaConciliada);
+        }
+
+        var transacionConciliada = transacciones!
             .FirstOrDefault(t => t.ReconciliationStatus == ConcilationType.Conciliada);
 
-        if (transaccionConciliada != null)
+        if (transacionConciliada != null)
         {
-            transaccionesPendientes.Remove(transaccionConciliada);
-        }*/
+            transacciones!.Remove(transacionConciliada);
+        }
+
+        _pagination.Initialize(filteredInstallments);
+        // Suscribirse a cambios en la paginación
+        _pagination.OnPaginationChanged += StateHasChanged;
+
+        await BuscarCoincidencias();
 
         // Opcional: Recargar cuotas pendientes desde el servidor
         // cuotaspendientes = await InstallmentService.ObtenerCuotasPendientesAsync();
     }
+
 
     #region Paginación
 

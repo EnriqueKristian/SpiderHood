@@ -1,0 +1,142 @@
+﻿@using SpiderHood.Components.Pages.Components
+@using SpiderHood.Models
+@inherits LayoutComponentBase
+
+<div class="modal-backdrop show"></div>
+<div class="modal show d-block" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-link me-2"></i>Conciliar Cuota / Transacción
+                </h5>
+                <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <h6>Cuota : @cuota!.Number - @cuota.OwnerName</h6>
+                    <div class="card">
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Fecha:</dt>
+                                <dd class="col-sm-8">@cuota!.Period.ToString("dd/MM/yyyy")</dd>
+                                <dt class="col-sm-4">Monto:</dt>
+                                <dd class="col-sm-8 fw-bold @(cuota.Debt < 0 ? "text-danger" : "text-success")">
+                                    @Math.Abs(cuota.Debt).ToString("C")
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h6 class="mb-3">Seleccionar Pago para Conciliar (@transacciones!.Count)</h6>
+
+                    @if (transacciones!.Any())
+                    {
+                        <div class="list-group" style="max-height: 200px; overflow-y: auto;">
+                            @foreach (var transaccion in transacciones!)
+                            {
+                                <button class="list-group-item list-group-item-action"
+                                        @onclick="() => ConciliarConCuota(cuota, transaccion)">
+                                    <div class="d-flex w-100 justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">@transaccion.Description</h6>
+                                            <small class="text-muted">
+                                                <span class="badge bg-info">@transaccion.Amount</span>
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="fw-bold @(transaccion.Balance < 0 ? "text-danger" : "text-success")">
+                                                @Math.Abs(transaccion.Balance).ToString("C")
+                                            </div>
+                                            <small class="text-muted">
+                                                @transaccion.StatementDate.ToString("dd/MM/yy")
+                                            </small>
+                                        </div>
+                                    </div>
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            No se encontraron gastos pendientes de conciliar
+                        </div>
+                    }
+
+                    <div class="text-center mt-3">
+                        <button class="btn btn-outline-primary" @onclick="() => CerrarModal()">
+                            <i class="fas fa-plus-circle me-2"></i>Cancelar
+                        </button>
+                        &nbsp;
+                        <button class="btn btn-outline-primary" disabled="@DisabledConcilicar" @onclick='() => ExecuteWithConfirmation(SaveData, "Asociar Pago", "¿Seguro que desea asiociar el pago?", "info")'>
+                                <i class="fas fa-plus-circle me-2"></i>Conciliar
+                            </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Agregar al final del componente -->
+<ConfirmationModal @ref="_confirmationModal" 
+                   OnClose="OnConfirmationResult" />
+
+@code {
+
+    [Parameter] public DateTime _period { get; set; }
+    [Parameter] public Installment? cuota { get; set; }
+    [Parameter] public List<TransactionBankDetail>? transacciones { get; set; }
+    [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
+    [Parameter] public EventCallback<List<ServiceReadingDetail>> OnSaveReading { get; set; }
+
+    private bool IsDisabledToSave = true;
+    private WaterCalculationPages.BlockWaterReading? LecturaBloqueRef;
+    private ConfirmationModal? _confirmationModal;
+    private ConfirmationUtil util = new ConfirmationUtil();
+    private bool DisabledConcilicar = true;
+
+    private async Task CerrarModal()
+    {
+        //ShowModal = false;
+        await ShowModalChanged.InvokeAsync(true);
+    }
+
+    private Task SaveData()
+    {
+        // Aquí procesas lo que el modal envió
+        //LecturaBloqueRef?.GuardarLectura();
+        //ShowModal = false;
+        return Task.CompletedTask;
+    }
+
+    private Task UpdateStatus(Models.ServiceReadingState value)
+    {
+        IsDisabledToSave = !value.ShowSaveReadings;
+        return Task.CompletedTask;
+    }
+
+    private async Task ExecuteWithConfirmation(Func<Task> action, string actionName, string message = "", string type = "warning")
+    {
+        await util.ExecuteWithConfirmation(action, actionName, _confirmationModal, message, type);
+    }
+
+    private async Task OnConfirmationResult(bool confirmed)
+    {
+        DisabledConcilicar = !confirmed;
+        await util.OnConfirmationResult(confirmed);
+    }
+
+    private void ConciliarConCuota(Installment _cuota, TransactionBankDetail _transaccion)
+    {
+        DisabledConcilicar = false;    
+    }
+
+    private async Task CrearPagoDesdeTransaccion(Installment _cuota)
+    {
+        await util.OnConfirmationResult(true);
+    }
+}

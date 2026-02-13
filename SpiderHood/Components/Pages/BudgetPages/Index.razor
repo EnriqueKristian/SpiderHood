@@ -9,7 +9,7 @@
 
 <style>
 
-    /* Estilos específicos para el sistema de presupuestos */
+/* Estilos específicos para el sistema de presupuestos */
 .presupuestos-container {
     /*background: #f8f9fa;*/
     min-height: 100vh;
@@ -226,47 +226,6 @@
         color: #1e3c72;
     }
 
-    /*
-.category-card {
-    border: 1px solid #dee2e6;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.category-header {
-    padding: 10px;
-    color: white;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.category-body {
-    padding: 15px;
-    text-align: center;
-}
-
-.category-amount {
-    font-size: 20px;
-    font-weight: 700;
-    color: #2c3e50;
-}
-
-.category-percentage {
-    font-size: 14px;
-    color: #7f8c8d;
-}
-
-.category-badge {
-    padding: 4px 10px;
-    border-radius: 4px;
-    color: white;
-    font-size: 12px;
-    font-weight: 600;
-}
-*/
-
 /* Preview de color */
 .color-preview {
     width: 30px;
@@ -403,38 +362,11 @@
     gap: 15px;
 }
 
-.logo-section {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.logo-icon {
-    color: var(--secondary-color);
-    font-size: 28px;
-}
-
-.logo-text {
-    font-size: 24px;
-    font-weight: 700;
-}
-
-.logo-text span {
-    color: var(--secondary-color);
-}
 
 .header-controls {
     display: flex;
     align-items: center;
     gap: 20px;
-}
-
-.current-month {
-    font-size: 18px;
-    font-weight: 600;
-    background-color: rgba(255, 255, 255, 0.1);
-    padding: 8px 16px;
-    border-radius: var(--radius);
 }
 
 .top-filters {
@@ -448,61 +380,49 @@
     gap: 15px;
 }
 
-.page-title {
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--primary-color);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.page-title i {
-    color: var(--secondary-color);
-}
-
 .filter-container {
     display: flex;
     gap: 15px;
     flex-wrap: wrap;
 }
 
-.search-box {
-    position: relative;
-    min-width: 300px;
-}
 
-.search-input {
-    width: 100%;
-    padding: 10px 15px 10px 40px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    font-size: 14px;
-    transition: all 0.3s;
-}
+    .search-box {
+        position: relative;
+        min-width: 300px;
+    }
 
-.search-input:focus {
-    outline: none;
-    border-color: var(--secondary-color);
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-}
+    .search-input {
+        width: 100%;
+        padding: 10px 15px 10px 40px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        font-size: 14px;
+        transition: all 0.3s;
+    }
 
-.search-icon {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #999;
-}
+        .search-input:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
 
-.year-select {
-    padding: 10px 15px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    font-size: 14px;
-    background-color: white;
-    min-width: 120px;
-}
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+    }
+
+    .year-select {
+        padding: 10px 15px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        font-size: 14px;
+        background-color: white;
+        min-width: 120px;
+    }
 
 .btn-group {
     display: flex;
@@ -520,36 +440,6 @@
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.btn-primary {
-    background-color: var(--secondary-color);
-    color: white;
-}
-
-.btn-primary:hover {
-    background-color: #2980b9;
-    transform: translateY(-2px);
-}
-
-.btn-success {
-    background-color: var(--success-color);
-    color: white;
-}
-
-.btn-success:hover {
-    background-color: #219653;
-}
-
-.btn-outline {
-    background-color: white;
-    color: var(--primary-color);
-    border: 1px solid var(--border-color);
-}
-
-.btn-outline:hover {
-    background-color: #f8f9fa;
-    border-color: var(--secondary-color);
 }
 
 .stats-container {
@@ -720,72 +610,72 @@ td {
     background-color: rgba(231, 76, 60, 0.2);
 }
 
-.pagination-container {
-    padding: 20px 30px;
-    background-color: white;
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 15px;
-}
+    .pagination-container {
+        padding: 20px 30px;
+        background-color: white;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
 
-.pagination-info {
-    font-size: 14px;
-    color: #666;
-}
+    .pagination-info {
+        font-size: 14px;
+        color: #666;
+    }
 
-.pagination-controls {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
 
-.pagination-btn {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius);
-    border: 1px solid var(--border-color);
-    background-color: white;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-weight: 600;
-}
+    .pagination-btn {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius);
+        border: 1px solid var(--border-color);
+        background-color: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+    }
 
-.pagination-btn:hover:not(:disabled) {
-    background-color: #f0f0f0;
-    border-color: var(--secondary-color);
-}
+        .pagination-btn:hover:not(:disabled) {
+            background-color: #f0f0f0;
+            border-color: var(--secondary-color);
+        }
 
-.pagination-btn.active {
-    background-color: var(--secondary-color);
-    color: white;
-    border-color: var(--secondary-color);
-}
+        .pagination-btn.active {
+            background-color: var(--secondary-color);
+            color: white;
+            border-color: var(--secondary-color);
+        }
 
-.pagination-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
-.page-size-selector {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-left: 20px;
-}
+    .page-size-selector {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: 20px;
+    }
 
-.page-size-select {
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    font-size: 14px;
-    background-color: white;
-}
+    .page-size-select {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius);
+        font-size: 14px;
+        background-color: white;
+    }
 
 .summary-footer {
     padding: 15px 30px;
@@ -907,13 +797,6 @@ td {
     height: 40px;
     animation: spin 1s linear infinite;
 }
-
-/* Colores para las categorías */
-.category-servicios { color: #3498db; }
-.category-mantenimiento { color: #e74c3c; }
-.category-administracion { color: #f39c12; }
-.category-diversos { color: #9b59b6; }
-.category-reservas { color: #1abc9c; }
 
 </style>
 

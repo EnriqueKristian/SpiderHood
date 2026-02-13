@@ -1,0 +1,288 @@
+﻿using SpiderHood.Data;
+using SpiderHood.Models;
+
+
+namespace SpiderHood.Services
+{
+    // Interfaces/IBuildingService.cs
+    public interface IBuildingService
+    {
+        Task CreateConfigurationAsync(Models.BuildingConfiguration newconfiguration);
+        Task AddContactAsync(Models.Contact newcontact);
+        Task UpdateContactAsync(Models.Contact contact);
+        Task AddExonerationAsync(Models.Exoneration newexoneartion);
+        Task DeleteExonerationAsync(Models.Exoneration newexoneartion);
+        Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner);
+        /*Task<List<Models.BuildingConfiguration>> GetBuildingConfigurationAsync(Guid IdBuilding);
+        Task<List<Models.BankAccount>> GetBankAccountsByBuildingAsync(Guid IdBuilding);
+        Task<List<Models.Contact>> GetAllContactsAsync(Guid IdBuildingConfiguration);
+        Task<List<Models.Exoneration>> GetExonerationsByBuildingAsync(Guid IdBuilding);*/
+        Task<BuildingConfiguration> GetConfigurationAsync(Guid IdBuilding);
+        BuildingConfiguration CreateDefaultConfigurationAsync(Guid IdBuilding);
+
+        /*  UNITS SECTIONS  */
+        Task<List<Models.UnitView>> GetGroupUnitsByTypeAsync(Guid IdBuilding, int type);
+
+        
+        Task<List<Departamento>> ObtenerDepartamentosActivosAsync();
+        Task<Departamento> ObtenerDepartamentoPorIdAsync(int id);
+        Task<Departamento> CrearDepartamentoAsync(Departamento departamento);
+        Task<bool> ActualizarDepartamentoAsync(Departamento departamento);
+        Task<bool> EliminarDepartamentoAsync(int id);
+        Task<Dictionary<int, decimal>> CalcularPorcentajesAreaAsync();
+        Task<decimal> ObtenerAreaTotalAsync();
+    }
+
+    public class BuildingService : IBuildingService
+    {
+        public SpiderHoodContext _context = default!;
+        private BDLayout ec { get; set; }
+        private ParameterService ParameterService { get; set; } = default!;
+
+        public BuildingService(SpiderHoodContext context)
+        {
+            _context = context;
+            ec = new BDLayout(context);
+        }
+
+        public async Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner) {
+            return await ec.GetAllBuildingByOwnerAsync(Guid.NewGuid());
+        }
+
+        private async Task<List<Models.BuildingConfiguration>> GetBuildingConfigurationAsync(Guid IdBuilding)
+        {
+            return await ec.GetBuildingConfigurationAsync(IdBuilding);
+        }
+
+        private async Task<List<Models.BankAccount>> GetBankAccountsByBuildingAsync(Guid IdBuilding)
+        {
+            return await ec.GetBankAccountsByBuildingAsync(IdBuilding);
+        }
+
+        private async Task<List<Models.Contact>> GetAllContactsAsync(Guid IdBuildingConfiguration)
+        {
+            return await ec.GetAllContactsAsync(IdBuildingConfiguration);
+        }
+
+        private async Task<List<Models.Exoneration>> GetExonerationsByBuildingAsync(Guid IdBuilding)
+        {
+            return await ec.GetExonerationsByBuildingAsync(IdBuilding);
+        }
+
+        public async Task<List<Models.UnitView>> GetGroupUnitsByTypeAsync(Guid IdBuilding, int type)
+        {
+            return await ec.GetGroupUnitsByTypeAsync(IdBuilding, type);
+        }
+
+        public async Task<BuildingConfiguration> GetConfigurationAsync(Guid IdBuilding)
+        {
+            if (IdBuilding == Guid.Empty)
+            {
+                return new BuildingConfiguration();
+            }
+            var configs = await GetBuildingConfigurationAsync(IdBuilding);
+
+            if (configs != null && configs.Count > 0)
+            {
+                BuildingConfiguration config = configs[0];
+
+                List<BankAccount> bankAccounts = await GetBankAccountsByBuildingAsync(IdBuilding);
+
+                foreach (var bank in bankAccounts)
+                {
+                    config.BankAccounts.Add(bank);
+                }
+
+                List<Contact> contacts = await GetAllContactsAsync(config.IdBuildingConfiguration);
+
+                config.AdminContact = contacts.FirstOrDefault(c => c.TypeContact == 1) ?? new Contact();
+                config.RealEstateCompany = contacts.FirstOrDefault(c => c.TypeContact == 2) ?? new Contact();
+                config.MaintenanceCompany = contacts.FirstOrDefault(c => c.TypeContact == 3) ?? new Contact();
+
+                List<Exoneration> exonerations = await GetExonerationsByBuildingAsync(IdBuilding);
+
+                foreach (var item in exonerations)
+                {
+                    config.Exonerations.Add(item);
+                }
+
+                return config;
+            }
+            else
+            {
+                return CreateDefaultConfigurationAsync(IdBuilding);
+            }
+        }
+
+        public BuildingConfiguration CreateDefaultConfigurationAsync(Guid IdBuilding)
+        {
+            return new BuildingConfiguration
+            {
+                Currency = "PEN",
+                BankAccounts = new List<BankAccount>
+            {
+                new BankAccount { BankName = "Banco A", AccountNumber = "123456789" }
+            },
+                PaymentMethods = new List<string> { "Transferencia Bancaria", "Pago en Efectivo" },
+                PaymentPeriod = 1,
+                DueDay = 5,
+                FineAmount = 10.00m,
+                LateInterestRate = 2.00m,
+                InvoiceDay = 1,
+                AdminContact = new Contact
+                {
+                    Name = "Pepito Perez",
+                    Phone = "987654321",
+                    Email = "algo@algo.com",
+                    Address = "Av. Siempre Viva 123"
+                },
+                RealEstateCompany = new Contact
+                {
+                    Name = "Mattins",
+                    Phone = "123456789",
+                    Email = "algo@algo.com",
+                    Address = "Av. Los Olivos 456"
+                },
+                MaintenanceCompany = new Contact
+                {
+                    Name = "Mantenciones S.A.",
+                    OfficePhone = "961651893",
+                    MobilePhone = "961893518",
+                    Email = "algo@algo.com",
+                    Address = "Dirección de la Empresa de Mantenimiento 789"
+                }
+            };
+        }
+
+
+        public async Task CreateConfigurationAsync(Models.BuildingConfiguration newconfiguration)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newconfiguration);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+        public async Task AddContactAsync(Models.Contact newcontact)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newcontact);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+        public async Task UpdateContactAsync(Models.Contact contact)
+        {
+            try
+            {
+                await ec.UpdateRecordAsync(contact);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al actualizar el contacto: {ex.Message}");
+            }
+
+        }
+
+        public async Task AddExonerationAsync(Models.Exoneration newexoneartion)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newexoneartion);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+        public async Task DeleteExonerationAsync(Models.Exoneration exoneration)
+        {
+            try
+            {
+                await ec.DeleteRecordAsync(exoneration);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+
+        public async Task<List<Departamento>> ObtenerDepartamentosActivosAsync()
+        {
+            return new List<Departamento>(); // await ParameterService.ec.GetDptos();
+            /*return await _context.Departamentos
+                .Where(d => d.Activo)
+                .OrderBy(d => d.Nombre)
+                .ToListAsync();*/
+        }
+
+        public async Task<Departamento> ObtenerDepartamentoPorIdAsync(int id)
+        {
+            // The original code was returning a List<Departamento> from getDptos(), but the method expects a single Departamento.
+            // To fix CS0029, fetch the list and return the Departamento with the matching id.
+            var departamentos = new List<Departamento>(); // await ParameterService.ec.GetDptos();
+            return departamentos.FirstOrDefault(d => d.Id == id)!;
+        }
+
+        public async Task<Departamento> CrearDepartamentoAsync(Departamento departamento)
+        {
+            //_context.Departamentos.Add(departamento);
+            await _context.SaveChangesAsync();
+            return departamento;
+        }
+
+        public async Task<bool> ActualizarDepartamentoAsync(Departamento departamento)
+        {
+            /*var deptoExistente = await _context.Departamentos.FindAsync(departamento.Id);
+            if (deptoExistente == null)
+                return false;
+
+            _context.Entry(deptoExistente).CurrentValues.SetValues(departamento);*/
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> EliminarDepartamentoAsync(int id)
+        {
+            /*var departamento = await _context.Departamentos.FindAsync(id);
+            if (departamento == null)
+                return false;
+
+            // Soft delete
+            departamento.Activo = false;*/
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<Dictionary<int, decimal>> CalcularPorcentajesAreaAsync()
+        {
+            var departamentos = await ObtenerDepartamentosActivosAsync();
+            var totalArea = departamentos.Sum(d => d.AreaM2);
+
+            var porcentajes = new Dictionary<int, decimal>();
+
+            foreach (var depto in departamentos)
+            {
+                var porcentaje = totalArea > 0 ? (depto.AreaM2 / totalArea) * 100 : 0;
+                porcentajes.Add(depto.Id, Math.Round(porcentaje, 2));
+            }
+
+            return porcentajes;
+        }
+
+        public async Task<decimal> ObtenerAreaTotalAsync()
+        {
+            var departamentos = await ObtenerDepartamentosActivosAsync();
+            return departamentos.Sum(d => d.AreaM2);
+        }
+    }
+}

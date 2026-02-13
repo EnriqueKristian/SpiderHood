@@ -11,7 +11,7 @@ namespace SpiderHood.Services
         Task<Models.InstallmentPaid> AgregarPagoAsync(InstallmentPaid paid);
         Task<List<Models.InstallmentPaid>> GetInstallmentsPaidAsync(Guid IdBuilding);
         Task<int> BuscarCoincidencias(List<Installment> Installments, List<TransactionBankDetail> transacciones);
-        Task ConciliarConCuota(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.BankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, bool automatico = false);
+        Task ConciliarConCuota(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, bool automatico = false);
     }
 
     public class InstallmentService : IInstallmentService
@@ -166,7 +166,7 @@ namespace SpiderHood.Services
             return totalCoincidencias;
         }
 
-        public async Task ConciliarConCuota(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.BankAccountService BankService, TransactionBankDetail transaccion, Installment cuota,  bool automatico = false)
+        public async Task ConciliarConCuota(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota,  bool automatico = false)
         {
             try
             {
@@ -202,7 +202,7 @@ namespace SpiderHood.Services
             }
         }
 
-        private async Task ConciliarTotalmente(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.BankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
+        private async Task ConciliarTotalmente(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
         {
             // Crear registro de pago
             var pago = new InstallmentPaid
@@ -226,7 +226,7 @@ namespace SpiderHood.Services
 
             // Guardar en base de datos
             await AgregarPagoAsync(pago);
-            await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+            await BankService.InstallmentConciliationAsync(transaccion, cuota);
 
             var x = filteredInstallments!.Where(c => c.IdInstallment == cuota.IdInstallment).FirstOrDefault();
             x!.Status = cuota.Status;
@@ -238,7 +238,7 @@ namespace SpiderHood.Services
             y!.ReconciliationStatus = transaccion.ReconciliationStatus;
         }
 
-        private async Task ConciliarParcialmente(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.BankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
+        private async Task ConciliarParcialmente(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
         {
             // Crear registro de pago parcial
             var pagoParcial = new InstallmentPaid
@@ -264,7 +264,7 @@ namespace SpiderHood.Services
 
             // Guardar en base de datos
             await AgregarPagoAsync(pagoParcial);
-            await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+            await BankService.InstallmentConciliationAsync(transaccion, cuota);
 
             var x = filteredInstallments!.Where(c => c.IdInstallment == cuota.IdInstallment).FirstOrDefault();
             x!.Status = cuota.Status;
@@ -276,7 +276,7 @@ namespace SpiderHood.Services
             y!.ReconciliationStatus = transaccion.ReconciliationStatus;
         }
 
-        private async Task ConciliarConSobrante(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.BankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, decimal saldoCuota, bool automatico)
+        private async Task ConciliarConSobrante(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, decimal saldoCuota, bool automatico)
         {
             // 1. Conciliar el saldo pendiente de la cuota
             var pagoCompleto = new InstallmentPaid
@@ -301,7 +301,7 @@ namespace SpiderHood.Services
 
             // 3. Guardar en base de datos
             await AgregarPagoAsync(pagoCompleto);
-            await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+            await BankService.InstallmentConciliationAsync(transaccion, cuota);
 
             // 5. Agregar transacción sobrante a la lista pendiente
             var x = filteredInstallments!.Where(c => c.IdInstallment == cuota.IdInstallment).FirstOrDefault();

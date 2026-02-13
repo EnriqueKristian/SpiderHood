@@ -329,7 +329,8 @@
 
                 <!-- Título de página opcional -->
                 <h5 class="page-title ms-3 mb-0 d-none d-md-block">
-                    @GetPageTitle()
+                    @*GetPageTitle()*@
+                    @(ParameterService.CurrentBuilding?.Name ?? "Vacio");
                 </h5>
             </div>
             <div class=" col-md-2"></div>
@@ -359,11 +360,11 @@
                     @foreach (var building in GetBuildings())
                     {
                         <li>
-                            <a class="dropdown-item @(building.Id == ParameterService.CurrentBuilding?.IdBuilding ? "active" : "")"
-                               href="@($"building/{building.Id}")">
+                            <a class="dropdown-item @(building.IdBuilding == ParameterService.CurrentBuilding?.IdBuilding ? "active" : "")"
+                               href="@($"building/{building.IdBuilding}")">
                                 <i class="fas fa-building me-2"></i>
                                 @building.Name
-                                <span class="badge bg-success ms-2">@building.UnitsCount</span>
+                                <span class="badge bg-success ms-2">@building.Apartments</span>
                             </a>
                         </li>
                     }
@@ -452,6 +453,14 @@
 </div>
 
 @code {
+    //private Guid IdBuilding = new Guid("C574A553-1573-48C8-F85E-08DE3426C28E");
+
+    protected override async Task OnInitializedAsync()
+    {
+        //await ParameterService.LoadParametersAsync(IdBuilding);
+    }
+
+
     // Obtener nombre de la página actual
     private string GetCurrentPageName()
     {
@@ -495,17 +504,10 @@
     }
 
     // Obtener lista de edificios (implementar según tu lógica)
-    private List<Building> GetBuildings()
+    private List<Models.Building> GetBuildings()
     {
         // Aquí deberías obtener los edificios de tu servicio
-        return new List<Building>();
+        return ParameterService.Buildings.ToList();
     }
 
-    // Modelo de ejemplo
-    private class Building
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public int UnitsCount { get; set; }
-    }
 }

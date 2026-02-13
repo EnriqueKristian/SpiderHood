@@ -7,6 +7,8 @@ namespace SpiderHood.Services
 {
     public interface IBankAccountService
     {
+        Task AddBankAccount(BankAccount newbank);
+        Task UpdateBankAccount(BankAccount bankaccount);
         Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding);
         Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync( Guid cuentaId, DateTime desde, DateTime hasta);
         Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto);
@@ -15,6 +17,9 @@ namespace SpiderHood.Services
         Task<Conciliacion?> ObtenerUltimaConciliacionAsync();
         Task GuardarConciliacionAsync(Conciliacion conciliacion);
         Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
+
+
+        Task InstallmentConciliationAsync(TransactionBankDetail transaccion, Installment cuota);
     }
 
     public class BankAccountService : IBankAccountService
@@ -30,6 +35,33 @@ namespace SpiderHood.Services
             _localStorage = localStorage;
             Context = _context ?? throw new ArgumentNullException(nameof(_context));
             ec = new BDLayout(Context);
+        }
+
+
+        public async Task AddBankAccount(BankAccount newbankaccount)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newbankaccount);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear la cuenta bancaria: {ex.Message}");
+            }
+
+        }
+
+        public async Task UpdateBankAccount(BankAccount bankaccount)
+        {
+            try
+            {
+                await ec.UpdateRecordAsync(bankaccount);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear la cuenta bancaria: {ex.Message}");
+            }
+
         }
 
         public async Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding)
@@ -66,7 +98,7 @@ namespace SpiderHood.Services
             await ec.UpdateRecordAsync(transaccion);
         }
 
-        public async Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, Installment cuota)
+        public async Task InstallmentConciliationAsync(TransactionBankDetail transaccion, Installment cuota)
         {
             try
             {

@@ -37,17 +37,7 @@ namespace SpiderHood.Services
         //Task<List<CategoriaGasto>> ObtenerCategoriasAsync();
     }
 
-    // Interfaces/IDepartamentoService.cs
-    public interface IDepartamentoService
-    {
-        Task<List<Departamento>> ObtenerDepartamentosActivosAsync();
-        Task<Departamento> ObtenerDepartamentoPorIdAsync(int id);
-        Task<Departamento> CrearDepartamentoAsync(Departamento departamento);
-        Task<bool> ActualizarDepartamentoAsync(Departamento departamento);
-        Task<bool> EliminarDepartamentoAsync(int id);
-        Task<Dictionary<int, decimal>> CalcularPorcentajesAreaAsync();
-        Task<decimal> ObtenerAreaTotalAsync();
-    }
+    
 
     
 }

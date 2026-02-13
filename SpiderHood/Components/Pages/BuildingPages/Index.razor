@@ -1497,6 +1497,15 @@
 </Modal>
 
 @code {
+
+    [Inject]
+    public Services.ICategoryService CategoryService { get; set; } = default!;
+
+    [Inject]
+    public Services.IBuildingService BuildingService { get; set; } = default!;
+    [Inject]
+    public Services.IBankAccountService BankAccountService { get; set; } = default!;
+
     private List<Building> Buildings = new();
     private Building? SelectedBuilding = null;
     private Building _editingBuilding = new();
@@ -1540,10 +1549,10 @@
     {
         if (ParameterService.CurrentBuilding == null) return;
 
-        Buildings = await ParameterService.ec.GetAllBuildingByOwnerAsync(Guid.NewGuid());
+        Buildings = await BuildingService.GetAllBuildingByOwnerAsync(Guid.NewGuid());
         filteredParameters = ParameterService.ListParameters;
-        filteredCategory = await ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
-        filteredUnits = await ParameterService.ec.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1);
+        filteredCategory = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
+        filteredUnits = await BuildingService.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1);
         //<!--    PARAMETRO_PADRE     -->
         _paymentMethods = filteredParameters
             .Where(c => c.IdParent == 16)
@@ -1555,88 +1564,13 @@
         if (Buildings.Any())
         {
             SelectedBuilding = Buildings.First();
-            SelectedBuilding.Configuration = await GetConfiguration(SelectedBuilding.Name);
+            SelectedBuilding.Configuration = await GetConfigurationAsync(SelectedBuilding.Name);
         }
     }
 
-    private async Task<BuildingConfiguration> GetConfiguration(string buildingName)
+    private async Task<BuildingConfiguration> GetConfigurationAsync(string buildingName)
     {
-        if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
-        {
-            return new BuildingConfiguration();
-        }
-        var configs = await ParameterService.ec.GetBuildingConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
-
-        if (configs != null && configs.Count > 0 )
-        {
-            BuildingConfiguration config = configs[0];
-
-            List<BankAccount> bankAccounts = await ParameterService.ec.GetBankAccountsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
-
-            foreach (var bank in bankAccounts)
-            {
-                config.BankAccounts.Add(bank);
-            }
-
-            List<Contact> contacts = await ParameterService.ec.GetAllContactsAsync(config.IdBuildingConfiguration);
-
-            config.AdminContact = contacts.FirstOrDefault(c => c.TypeContact == 1) ?? new Contact();
-            config.RealEstateCompany = contacts.FirstOrDefault(c => c.TypeContact == 2) ?? new Contact();
-            config.MaintenanceCompany = contacts.FirstOrDefault(c => c.TypeContact == 3) ?? new Contact();
-
-            List<Exoneration> exonerations = await ParameterService.ec.GetExonerationsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
-
-            foreach (var item in exonerations)
-            {
-                config.Exonerations.Add(item);
-            }
-
-            return config;            
-        }
-        else
-        {
-            return CreateDefaultConfiguration(buildingName);
-        }
-    }
-
-    private BuildingConfiguration CreateDefaultConfiguration(string buildingName)
-    {
-        return new BuildingConfiguration
-        {
-            Currency = "PEN",
-            BankAccounts = new List<BankAccount>
-            {
-                new BankAccount { BankName = "Banco A", AccountNumber = "123456789" }
-            },
-            PaymentMethods = new List<string> { "Transferencia Bancaria", "Pago en Efectivo" },
-            PaymentPeriod = 1,
-            DueDay = 5,
-            FineAmount = 10.00m,
-            LateInterestRate = 2.00m,
-            InvoiceDay = 1,
-            AdminContact = new Contact
-            {
-                Name = "Pepito Perez",
-                Phone = "987654321",
-                Email = "algo@algo.com",
-                Address = "Av. Siempre Viva 123"
-            },
-            RealEstateCompany = new Contact
-            {
-                Name = "Mattins",
-                Phone = "123456789",
-                Email = "algo@algo.com",
-                Address = "Av. Los Olivos 456"
-            },
-            MaintenanceCompany = new Contact
-            {
-                Name = "Mantenciones S.A.",
-                OfficePhone = "961651893",
-                MobilePhone = "961893518",
-                Email = "algo@algo.com",
-                Address = "Dirección de la Empresa de Mantenimiento 789"
-            }
-        };
+        return await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
     }
 
     private void SelectBuilding(Building building)
@@ -1659,7 +1593,7 @@
             IdBuilding = Guid.NewGuid(),
             Number = Buildings.Count + 1,
             IsActive = true,
-            Configuration = CreateDefaultConfiguration("Nuevo Edificio")
+            Configuration = BuildingService.CreateDefaultConfigurationAsync(Guid.NewGuid())
         };
         _isEditingBuilding = false;
         await _buildingModal.ShowAsync();
@@ -1805,7 +1739,7 @@
             {
                 interno.IdBuildingConfiguration = Guid.NewGuid();
                 interno.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-                await ParameterService.ec.AddNewRecordAsync(interno);
+                await BuildingService.CreateConfigurationAsync(interno);
             }
 
             switch (section)
@@ -1822,29 +1756,29 @@
                     //Actualizar Bank Account
                     if (interno.BankAccounts.Count > 0)
                     {
-                        foreach (var bank in interno.BankAccounts)
+                        foreach (var bankaccount in interno.BankAccounts)
                         {
-                            if (bank.IdBankAccount == Guid.Empty)
+                            if (bankaccount.IdBankAccount == Guid.Empty)
                             {
                                 //add BankAccount
 
                                 // Busca el primer elemento que cumpla las condiciones
                                 //<!--    PARAMETRO_PADRE     -->
                                 var match = filteredParameters!
-                                    .FirstOrDefault(c => c.IdParent == 31 && c.Value == bank.AccountType);
+                                    .FirstOrDefault(c => c.IdParent == 31 && c.Value == bankaccount.AccountType);
 
                                 // Asigna el nombre si se encontró coincidencia, de lo contrario usa un valor por defecto
-                                bank.AccountName = match?.ShortDescription ?? "Nombre no disponible";
+                                bankaccount.AccountName = match?.ShortDescription ?? "Nombre no disponible";
 
-                                bank.IdBankAccount = Guid.NewGuid();
-                                bank.IdBuilding = interno.IdBuilding;
+                                bankaccount.IdBankAccount = Guid.NewGuid();
+                                bankaccount.IdBuilding = interno.IdBuilding;
 
-                                await ParameterService.ec.AddNewRecordAsync(bank);
+                                await BankAccountService.AddBankAccount(bankaccount);
                             }
                             else
                             {
                                 //Update BankAccount
-                                await ParameterService.ec.UpdateRecordAsync(bank);
+                                await BankAccountService.UpdateBankAccount(bankaccount);
                             }
                         }
                     }
@@ -1861,11 +1795,11 @@
                         SelectedBuilding.Configuration.AdminContact.IdContact = Guid.NewGuid();
                         SelectedBuilding.Configuration.AdminContact.IdRelatedEntity = interno.IdBuildingConfiguration;
                         SelectedBuilding.Configuration.AdminContact.TypeContact = 1;
-                        await ParameterService.ec.AddNewRecordAsync(SelectedBuilding.Configuration.AdminContact);
+                        await BuildingService.AddContactAsync(SelectedBuilding.Configuration.AdminContact);
                     }
                     else
                     {
-                        await ParameterService.ec.UpdateRecordAsync(SelectedBuilding.Configuration.AdminContact);
+                        await BuildingService.UpdateContactAsync(SelectedBuilding.Configuration.AdminContact);
                     }
                     break;
 
@@ -1875,11 +1809,11 @@
                         SelectedBuilding.Configuration.RealEstateCompany.IdContact = Guid.NewGuid();
                         SelectedBuilding.Configuration.RealEstateCompany.IdRelatedEntity = interno.IdBuildingConfiguration;
                         SelectedBuilding.Configuration.RealEstateCompany.TypeContact = 2;
-                        await ParameterService.ec.AddNewRecordAsync(SelectedBuilding.Configuration.RealEstateCompany);
+                        await BuildingService.AddContactAsync(SelectedBuilding.Configuration.RealEstateCompany);
                     }
                     else
                     {
-                        await ParameterService.ec.UpdateRecordAsync(SelectedBuilding.Configuration.RealEstateCompany);
+                        await BuildingService.UpdateContactAsync(SelectedBuilding.Configuration.RealEstateCompany);
                     }
                     break;
 
@@ -1889,11 +1823,11 @@
                         SelectedBuilding.Configuration.MaintenanceCompany.IdContact = Guid.NewGuid();
                         SelectedBuilding.Configuration.MaintenanceCompany.IdRelatedEntity = interno.IdBuildingConfiguration;
                         SelectedBuilding.Configuration.MaintenanceCompany.TypeContact = 3;
-                        await ParameterService.ec.AddNewRecordAsync(SelectedBuilding.Configuration.MaintenanceCompany);
+                        await BuildingService.AddContactAsync(SelectedBuilding.Configuration.MaintenanceCompany);
                     }
                     else
                     {
-                        await ParameterService.ec.UpdateRecordAsync(SelectedBuilding.Configuration.MaintenanceCompany);
+                        await BuildingService.UpdateContactAsync(SelectedBuilding.Configuration.MaintenanceCompany);
                     }
                     break;
                 case "category":
@@ -1911,13 +1845,13 @@
                                 _exception.IdExoneration = Guid.NewGuid();
                                 _exception.IdBuilding = interno.IdBuilding;
 
-                                await ParameterService.ec.AddNewRecordAsync(_exception);
+                                await BuildingService.AddExonerationAsync(_exception);
                             }
                             else
                             {
-                                //Update BankAccount
+                                //Delete Exoneration
                                 if( _exception.IsDeleted)
-                                    await ParameterService.ec.DeleteRecordAsync(_exception);
+                                    await BuildingService.DeleteExonerationAsync(_exception);
                             }
                         }
                     }

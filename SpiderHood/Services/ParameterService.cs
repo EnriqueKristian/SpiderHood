@@ -32,6 +32,7 @@ namespace SpiderHood.Services
         public IReadOnlyList<Parameter> ListParameters => _listParameters.AsReadOnly();
 
         public Building CurrentBuilding { get; set; } = null!;
+        public List<Building> Buildings { get; set; } = [];
 
 
         public Guid IdUser => _idUser;
@@ -74,6 +75,7 @@ namespace SpiderHood.Services
             {
                 var parameters = await ec.GetParametersByBuildingAsync(IdBuilding);
                 var periodos =  await ec.GetPeriodsByBuildingAsync(IdBuilding);
+                Buildings = await ec.GetAllBuildingByOwnerAsync(IdUser);
                 Building building = await ec.GetBuildingByIdAsync(IdBuilding);
                 if (building is null)
                     throw new InvalidOperationException($"Building with Id {IdBuilding} not found.");

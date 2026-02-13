@@ -8,34 +8,9 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
-
-<!--
-<header class="header-design">
-    <div class="listar-map-button">
-        <div class="listar-map-button-text" style="display: inline-block; opacity: 1;">
-            <span class="icon-map2">
-                How it Works?
-            </span>
-        </div>
-    </div>
-
-    <div class="footer-wave"></div>
-
-</header>
-
-<h1>Hello, world!</h1>
--->
-@code{
-    /*  === DECLARACION DE VARIABLES EN DURO   === */
-    private Guid IdBuilding = new Guid("C574A553-1573-48C8-F85E-08DE3426C28E");
-
-    [Inject]
-    private ParameterService ParameterService { get; set; } = default!;
-
-}
-
-
 <PageTitle>Dashboard - AdminEdificios</PageTitle>
+
+<link href="/dashboard.css" rel="stylesheet" />
 
 <div class="dashboard-container">
     <!-- Header principal -->
@@ -381,6 +356,12 @@
 </div>
 
 @code {
+    /*  === DECLARACION DE VARIABLES EN DURO   === */
+    private Guid IdBuilding = new Guid("C574A553-1573-48C8-F85E-08DE3426C28E");
+
+    [Inject]
+    private ParameterService ParameterService { get; set; } = default!;
+
     // Modelos de datos
     public class ActivityItem
     {

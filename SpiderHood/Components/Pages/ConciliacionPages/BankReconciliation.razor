@@ -3,7 +3,7 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject IExpenseService ExpenseService
-@inject BankAccountService BankService
+@inject IBankAccountService BankService
 @inject IJSRuntime JSRuntime
 @implements IDisposable
 @rendermode InteractiveServer
@@ -1073,7 +1073,7 @@
 
         // Guardar en base de datos
         await InstallmentService.AgregarPagoAsync(pago);
-        await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+        //await BankService.ConciliarTransaccionAsync(transaccion, cuota);
     }
 
     private async Task ConciliarParcialmente(TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
@@ -1103,7 +1103,7 @@
 
         // Guardar en base de datos
         await InstallmentService.AgregarPagoAsync(pagoParcial);
-        await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+        //await BankService.ConciliarTransaccionAsync(transaccion, cuota);
     }
 
     private async Task ConciliarConSobrante(TransactionBankDetail transaccion, Installment cuota, decimal saldoCuota, bool automatico)
@@ -1150,8 +1150,8 @@
 
         // 4. Guardar en base de datos
         await InstallmentService.AgregarPagoAsync(pagoCompleto);
-        await BankService.ConciliarTransaccionAsync(transaccion, cuota);
-        await BankService.CrearTransaccionSobranteAsync(transaccionSobrante);
+        //await BankService.ConciliarTransaccionAsync(transaccion, cuota);
+        //await BankService.CrearTransaccionSobranteAsync(transaccionSobrante);
 
         // 5. Agregar transacción sobrante a la lista pendiente
         transaccionesPendientes.Add(transaccionSobrante);

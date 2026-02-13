@@ -28,7 +28,7 @@ builder.Services.AddScoped<ParameterService>();
 // Singleton para usuarios
 builder.Services.AddScoped<UsuarioService>();
 
-builder.Services.AddScoped<BankAccountService>();
+builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 
 // Register services
 builder.Services.AddScoped<IBudgetService, BudgetService>();
@@ -48,7 +48,7 @@ builder.Services.AddBlazoredLocalStorage(); // register ILocalStorageService
 
 builder.Services.AddScoped<ICuotaService, CuotaService>();
 builder.Services.AddScoped<IGastoService, GastoService>();
-builder.Services.AddScoped<IDepartamentoService, DepartamentoService>();
+builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 
 

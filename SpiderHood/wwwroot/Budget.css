@@ -1,0 +1,206 @@
+﻿.expense-calculation {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --primary-color: #3b82f6;
+    --secondary-color: #6b7280;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+    --warning-color: #f59e0b;
+    --info-color: #8b5cf6;
+    --light-bg: #f9fafb;
+    --border-color: #e5e7eb;
+    --card-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Cards */
+.card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid var(--border-color);
+}
+
+    .card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+/* Tables */
+.expense-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+    .expense-table th {
+        background-color: var(--light-bg);
+        color: #374151;
+        font-weight: 600;
+        text-align: left;
+        padding: 0.75rem 1rem;
+        border-bottom: 2px solid var(--border-color);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .expense-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+        transition: background-color 0.2s ease;
+    }
+
+    .expense-table tr:hover:not(.section-header-row):not(.section-total):not(.grand-total) {
+        background-color: #f8fafc;
+    }
+
+/* Section Styles */
+.section-header-row {
+    background-color: #e5e7eb !important;
+    position: relative;
+}
+
+.section-total {
+    background-color: #f3f4f6;
+    font-weight: 600;
+}
+
+.grand-total {
+    background-color: var(--primary-color);
+    color: white;
+    font-weight: 700;
+}
+
+/* Currency Input */
+.currency-input {
+    position: relative;
+}
+
+.currency-symbol {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6b7280;
+    font-weight: 500;
+    z-index: 1;
+    pointer-events: none;
+    font-size: 0.75rem;
+}
+
+.currency-input .form-control {
+    padding-left: 2rem;
+    position: relative;
+    z-index: 0;
+}
+
+/* Apartment Distribution */
+.apartment-distribution {
+    background-color: #f0f9ff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Calculation Formula */
+.calculation-formula {
+    background-color: #f8fafc;
+    border-left: 4px solid var(--primary-color);
+    padding: 1rem;
+    border-radius: 0 4px 4px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-top: 1rem;
+}
+
+/* Empty States */
+.no-data {
+    text-align: center;
+    padding: 3rem;
+    color: #6b7280;
+}
+
+    .no-data i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: #d1d5db;
+        opacity: 0.7;
+    }
+
+/* Add Item Button */
+.add-item-btn {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+}
+
+/* Empty Section */
+.empty-section {
+    text-align: center;
+    padding: 1rem;
+    color: #6b7280;
+    font-style: italic;
+    background-color: var(--light-bg);
+    border-radius: 4px;
+    margin: 0.5rem 0;
+    border: 1px dashed var(--border-color);
+}
+
+/* Transitions */
+.transition-all {
+    transition: all 0.3s ease-in-out;
+}
+
+.card {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Utility Classes */
+.d-none {
+    display: none !important;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .expense-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+        .expense-table th,
+        .expense-table td {
+            padding: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+    .currency-symbol {
+        font-size: 0.6rem;
+        left: 0.5rem;
+    }
+
+    .currency-input .form-control {
+        padding-left: 1.5rem;
+    }
+
+    .action-buttons {
+        flex-wrap: wrap;
+    }
+}
+
+
+/* Focus States */
+.form-control:focus,
+.form-select:focus,
+.btn:focus {
+    box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.25);
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+/* Button Styles */
+.btn {
+    transition: all 0.2s ease;
+}

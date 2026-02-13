@@ -664,7 +664,7 @@
 
     [Inject] private IBudgetService presupuestoService { get; set; } = null!;
     [Inject]
-    public InstallmentService InstallmentService { get; set; } = default!;
+    public IInstallmentService InstallmentService { get; set; } = default!;
 
     private BudgetStatus _Status = BudgetStatus.Created;
 

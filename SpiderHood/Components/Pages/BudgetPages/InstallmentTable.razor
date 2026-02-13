@@ -823,7 +823,7 @@
     [Parameter] public List<TransactionBankDetail>? transacciones { get; set; }
 
     [Inject]
-    public Services.InstallmentService InstallmentService { get; set; } = default!;
+    public Services.IInstallmentService InstallmentService { get; set; } = default!;
 
     private Installment? selectedInstallment = null;
     private Modal viewinstallment = null!;

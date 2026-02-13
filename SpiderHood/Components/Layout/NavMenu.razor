@@ -1,4 +1,4 @@
-﻿<div class="top-row ps-3 navbar navbar-dark bg-primary">
+﻿<div class="top-row ps-3 navbar navbar-dark bg-dark">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="">
             <i class="fas fa-building me-2"></i>SpiderHood
@@ -21,54 +21,18 @@
         </div>
 
         <!-- ============ MÓDULO 1: ESTRUCTURA DEL EDIFICIO ============ -->
-        <!--<div class="nav-section-header">
-            <span>ESTRUCTURA</span>
-        </div>-->
-
         <div class="nav-item px-1">
             <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-edificio" role="button" aria-expanded="false">
-                <i class="fas fa-building  me-2"></i>Edificio y Unidades
+                <i class="fas fa-building  me-2"></i>Adm. Edificio
                 <i class="fas fa-chevron-down ms-auto toggle-icon"></i>
             </a>
             <div class="collapse" id="menu-edificio" data-bs-parent="#nav-collapse">
                 <div class="submenu-wrapper">
                     <NavLink class="nav-link ps-3" href="Buildings">
-                        <i class="fas fa-pen-to-square me-2"></i>Registrar/Editar Edificio
+                        <i class="fas fa-pen-to-square me-2"></i>Edificio
                     </NavLink>
                     <NavLink class="nav-link ps-3" href="UnitGroups">
                         <i class="fas fa-layer-group me-2"></i>Grupos de Unidades
-                    </NavLink>
-                    <div class="submenu-indent ps-3">
-                        <NavLink class="nav-link" href="Units?type=apartment">
-                            <i class="fas fa-door-open me-2"></i>Dptos/Ofic.
-                        </NavLink>
-                        <NavLink class="nav-link" href="Units?type=parking">
-                            <i class="fas fa-warehouse me-2"></i>Estacionamientos
-                        </NavLink>
-                        <NavLink class="nav-link" href="Units?type=storage">
-                            <i class="fas fa-box me-2"></i>Depósitos
-                        </NavLink>
-                    </div>
-                    <NavLink class="nav-link ps-3" href="Ownership">
-                        <i class="fas fa-percent me-2"></i>% de participación
-                    </NavLink>
-                </div>
-            </div>
-        </div>
-
-        <div class="nav-item px-1">
-            <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-roles" role="button">
-                <i class="fas fa-users-gear  me-2"></i>Roles y Propietarios
-                <i class="fas fa-chevron-down ms-auto toggle-icon"></i>
-            </a>
-            <div class="collapse" id="menu-roles" data-bs-parent="#nav-collapse">
-                <div class="submenu-wrapper">
-                    <NavLink class="nav-link ps-3" href="Admins">
-                        <i class="fas fa-user-tie me-2"></i>Administradores
-                    </NavLink>
-                    <NavLink class="nav-link ps-3" href="BoardMembers">
-                        <i class="fas fa-users-between-lines me-2"></i>Junta Prop.
-                        <!--<span class="badge bg-warning ms-2">Aprueba</span>-->
                     </NavLink>
                     <NavLink class="nav-link ps-3" href="Owners">
                         <i class="fas fa-user-group me-2"></i>Prop./Residentes
@@ -80,47 +44,10 @@
             </div>
         </div>
 
-        <!-- ============ MÓDULO 2: CONFIGURACIÓN FINANCIERA ============ -->
-        <!--<div class="nav-section-header">
-            <span>FINANZAS</span>
-        </div>-->
-
-        <div class="nav-item px-1">
-            <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-config-fin" role="button">
-                <i class="fas fa-coins  me-2"></i>Configuración 
-                <i class="fas fa-chevron-down ms-auto toggle-icon"></i>
-            </a>
-            <div class="collapse" id="menu-config-fin" data-bs-parent="#nav-collapse">
-                <div class="submenu-wrapper">
-                    <NavLink class="nav-link ps-3" href="BankAccounts">
-                        <i class="fas fa-wallet me-2"></i>Cuentas bancarias
-                    </NavLink>
-                    <NavLink class="nav-link ps-3" href="Category">
-                        <i class="fa-solid fa-tags me-2"></i>Categorías
-                    </NavLink>
-                    <!--
-                    <NavLink class="nav-link ps-3" href="CalculationMethods">
-                        <i class="fas fa-calculator me-2"></i>Métodos de cálculo
-                        <span class="badge bg-info ms-2">Flat/%</span>
-                    </NavLink>-->
-                    <NavLink class="nav-link ps-3" href="Parameter">
-                        <i class="fas fa-sliders-h me-2"></i>Parámetros
-                    </NavLink>
-                    <NavLink class="nav-link ps-3" href="periods">
-                        <i class="fas fa-sliders-h me-2"></i>Confg. Periodo
-                    </NavLink>
-                </div>
-            </div>
-        </div>
-
-        <!-- ============ MÓDULO 3: CICLO DE PRESUPUESTO ============ -->
-        <!--<div class="nav-section-header">
-            <span>PRESUPUESTO</span>
-        </div>-->
-
+        <!-- ============ MÓDULO 2: CICLO DE PRESUPUESTO ============ -->
         <div class="nav-item px-1">
             <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-presupuesto" role="button">
-                <i class="fas fa-file-invoice-dollar  me-2"></i>Ciclo Presupuestario
+                <i class="fas fa-file-invoice-dollar  me-2"></i>Presupuesto
                 <i class="fas fa-chevron-down ms-auto toggle-icon"></i>
             </a>
             <div class="collapse" id="menu-presupuesto" data-bs-parent="#nav-collapse">
@@ -129,62 +56,44 @@
                         <i class="fas fa-water me-2"></i>Lecturas de agua
                         <!--<span class="badge bg-danger ms-2">Pendiente</span>-->
                     </NavLink>
-                    <NavLink class="nav-link ps-3" href="ConsumptionCalculation">
+                    <!--<NavLink class="nav-link ps-3" href="ConsumptionCalculation">
                         <i class="fas fa-calculator me-2"></i>Calcular consumo
-                    </NavLink>
-                    <NavLink class="nav-link ps-3" href="CreateBudget">
+                    </NavLink>-->
+                    <NavLink class="nav-link ps-3" href="budgetlist">
                         <i class="fas fa-file-signature me-2"></i>Presupuestos
                     </NavLink>
-                    <NavLink class="nav-link ps-3" href="ApproveBudget">
+                    <!--<NavLink class="nav-link ps-3" href="ApproveBudget">
                         <i class="fas fa-check-circle me-2"></i>Aprobar presupuesto
-                        <!--<span class="badge bg-warning ms-2">Junta</span>-->
-                    </NavLink>
-                    <NavLink class="nav-link ps-3" href="GenerateFees">
+                        <span class="badge bg-warning ms-2">Junta</span>
+                    </NavLink>-->
+                    <!--<NavLink class="nav-link ps-3" href="GenerateFees">
                         <i class="fas fa-receipt me-2"></i>Generar cuotas
-                    </NavLink>
+                    </NavLink>-->
                     <NavLink class="nav-link ps-3" href="EmitReceipts">
                         <i class="fas fa-file-pdf me-2"></i>Emitir recibos PDF
                     </NavLink>
-                </div>
-            </div>
-        </div>
-
-        <!-- ============ MÓDULO 4: CONCILIACIÓN BANCARIA ============ -->
-        <!--<div class="nav-section-header">
-            <span>CONCILIACIÓN</span>
-        </div>-->
-
-        <div class="nav-item px-1">
-            <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-conciliacion" role="button">
-                <i class="fas fa-scale-balanced  me-2"></i>Conciliación Bancaria
-                <i class="fas fa-chevron-down ms-auto toggle-icon"></i>
-            </a>
-            <div class="collapse" id="menu-conciliacion" data-bs-parent="#nav-collapse">
-                <div class="submenu-wrapper">
                     <NavLink class="nav-link ps-3" href="UploadStatement">
                         <i class="fas fa-file-import me-2"></i>Estado de cuenta
                     </NavLink>
                     <NavLink class="nav-link ps-3" href="Reconciliation">
                         <i class="fas fa-arrow-right-arrow-left me-2"></i>Conciliación
                     </NavLink>
-                    <NavLink class="nav-link ps-3" href="ReconcileExpenses">
-                        <i class="fas fa-receipt me-2"></i>Conciliar gastos
-                    </NavLink>
-                    <NavLink class="nav-link ps-3" href="ReconcileInstallments">
-                        <i class="fas fa-hand-holding-usd me-2"></i>Conciliar cuotas
-                    </NavLink>
-                    <NavLink class="nav-link ps-3" href="ReconciliationHistory">
-                        <i class="fas fa-clock-rotate-left me-2"></i>Historial
-                    </NavLink>
+                    <div class="submenu-wrapper">
+                        <NavLink class="nav-link ps-3" href="ReconcileExpenses">
+                            <i class="fas fa-receipt me-2"></i>Conciliar gastos
+                        </NavLink>
+                        <NavLink class="nav-link ps-3" href="ReconcileInstallments">
+                            <i class="fas fa-hand-holding-usd me-2"></i>Conciliar cuotas
+                        </NavLink>
+                        <NavLink class="nav-link ps-3" href="ReconciliationHistory">
+                            <i class="fas fa-clock-rotate-left me-2"></i>Historial
+                        </NavLink>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- ============ MÓDULO 5: PORTALES ============ -->
-        <!--<div class="nav-section-header">
-            <span>PORTALES</span>
-        </div>-->
-
+        <!-- ============ MÓDULO 3: PORTAL DEL RESIDENTE ============ -->
         <div class="nav-item px-1">
             <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-residente" role="button">
                 <i class="fas fa-house-user  me-2"></i>Portal del Residente
@@ -211,6 +120,7 @@
             </div>
         </div>
 
+        <!-- ============ MÓDULO 4: JUNTA DE PROPIETARIOS ============ -->
         <div class="nav-item px-1">
             <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-junta" role="button">
                 <i class="fas fa-user-tie  me-2"></i>Junta de Propietarios
@@ -237,11 +147,7 @@
             </div>
         </div>
 
-        <!-- ============ MÓDULO 6: INCIDENCIAS Y COMUNICADOS ============ -->
-        <!--<div class="nav-section-header">
-            <span>COMUNICACIONES</span>
-        </div>-->
-
+        <!-- ============ MÓDULO 5: INCIDENCIAS Y COMUNICADOS ============ -->
         <div class="nav-item px-1">
             <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-incidencias" role="button">
                 <i class="fas fa-message  me-2"></i>Incidencias y Comun.
@@ -266,14 +172,10 @@
             </div>
         </div>
 
-        <!-- ============ MÓDULO 7: REPORTES ============ -->
-        <!-- <div class="nav-section-header">
-            <span>REPORTES</span>
-        </div>-->
-
+        <!-- ============ MÓDULO 6: REPORTES ============ -->
         <div class="nav-item px-1">
             <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-reportes" role="button">
-                <i class="fa-solid fa-chart-pie me-2"></i>Rep. y Estadísticas
+                <i class="fa-solid fa-chart-pie me-2"></i>Reportes
                 <i class="fas fa-chevron-down ms-auto toggle-icon"></i>
             </a>
             <div class="collapse" id="menu-reportes" data-bs-parent="#nav-collapse">
@@ -298,10 +200,6 @@
         </div>
 
         <!-- ============ CONFIGURACIÓN DEL SISTEMA ============ -->
-        <!--<div class="nav-section-header">
-            <span>SISTEMA</span>
-        </div>-->
-
         <div class="nav-item px-1">
             <a class="nav-link collapsed" data-bs-toggle="collapse" href="#menu-settings" role="button">
                 <i class="fas fa-gear  me-2"></i>Configuración
@@ -317,6 +215,15 @@
                     </NavLink>
                     <NavLink class="nav-link ps-3" href="Usuarios">
                         <i class="fa-solid fa-users me-2"></i>Usuarios
+                    </NavLink>
+                    <NavLink class="nav-link ps-3" href="Category">
+                        <i class="fa-solid fa-tags me-2"></i>Categorías
+                    </NavLink>
+                    <NavLink class="nav-link ps-3" href="Parameter">
+                        <i class="fas fa-sliders-h me-2"></i>Parámetros
+                    </NavLink>
+                    <NavLink class="nav-link ps-3" href="periods">
+                        <i class="fas fa-sliders-h me-2"></i>Confg. Periodo
                     </NavLink>
                     <NavLink class="nav-link ps-3" href="About">
                         <i class="fas fa-info-circle me-2"></i>Acerca de
@@ -498,40 +405,3 @@
         });
     });
 </script>
-
-@*    
-
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">SpiderHood</a>
-    </div>
-</div>
-
-
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="login">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Login
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="workflow">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Workflows
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="Settings">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Settings
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
-*@

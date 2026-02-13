@@ -42,7 +42,7 @@ builder.Services.AddScoped<IExceptionService, ExceptionService>();
 builder.Services.AddScoped<IPeriodService, PeriodService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IOwnerService, OwnerService>();
-builder.Services.AddScoped<IInstallmentService, InstallmentService>();
+builder.Services.AddScoped<InstallmentService, InstallmentService>();
 
 // Registrar servicios
 builder.Services.AddScoped<AuthenticationService>();

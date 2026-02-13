@@ -99,7 +99,7 @@
     private bool _HasTransactions => transacciones!.Count() > 0;
 
     [Inject]
-    public IInstallmentService InstallmentService { get; set; } = default!;
+    public InstallmentService InstallmentService { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {

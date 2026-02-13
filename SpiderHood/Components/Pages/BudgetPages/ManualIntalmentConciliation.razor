@@ -91,13 +91,14 @@
     [Parameter] public Installment? cuota { get; set; }
     [Parameter] public List<TransactionBankDetail>? transacciones { get; set; }
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
-    [Parameter] public EventCallback<List<ServiceReadingDetail>> OnSaveReading { get; set; }
+    [Parameter] public EventCallback<TransactionBankDetail> OnSaveReading { get; set; }
 
     private bool IsDisabledToSave = true;
     private WaterCalculationPages.BlockWaterReading? LecturaBloqueRef;
     private ConfirmationModal? _confirmationModal;
     private ConfirmationUtil util = new ConfirmationUtil();
     private bool DisabledConcilicar = true;
+    private TransactionBankDetail Transaction = new();
 
     private async Task CerrarModal()
     {
@@ -105,12 +106,11 @@
         await ShowModalChanged.InvokeAsync(true);
     }
 
-    private Task SaveData()
+    private async Task SaveData()
     {
         // Aquí procesas lo que el modal envió
-        //LecturaBloqueRef?.GuardarLectura();
-        //ShowModal = false;
-        return Task.CompletedTask;
+        await OnSaveReading.InvokeAsync(Transaction);
+        await ShowModalChanged.InvokeAsync(true);
     }
 
     private Task UpdateStatus(Models.ServiceReadingState value)
@@ -132,7 +132,8 @@
 
     private void ConciliarConCuota(Installment _cuota, TransactionBankDetail _transaccion)
     {
-        DisabledConcilicar = false;    
+        DisabledConcilicar = false;
+        Transaction = _transaccion;
     }
 
     private async Task CrearPagoDesdeTransaccion(Installment _cuota)

@@ -48,10 +48,10 @@ namespace SpiderHood.Services
         public BudgetHeader _SelectedBudget { get; set; } = new BudgetHeader();
 
         public SpiderHoodContext _context = default!;
-        private readonly ILogger<BudgetService> _logger;
+        private readonly ILogger<IBudgetService> _logger;
         private BDLayout ec { get; set; }
 
-        public BudgetService(SpiderHoodContext context, ILogger<BudgetService> logger)
+        public BudgetService(SpiderHoodContext context, ILogger<IBudgetService> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));

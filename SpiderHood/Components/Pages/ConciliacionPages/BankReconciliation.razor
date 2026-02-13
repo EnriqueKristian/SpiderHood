@@ -2,7 +2,7 @@
 @page "/conciliacion/{accountId:int}"
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject ExpenseService ExpenseService
+@inject IExpenseService ExpenseService
 @inject BankAccountService BankService
 @inject IJSRuntime JSRuntime
 @implements IDisposable

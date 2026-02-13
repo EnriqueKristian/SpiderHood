@@ -22,10 +22,10 @@ namespace SpiderHood.Services
         public InstallmentPaid InstallmentPaid { get; set; } = new();
 
         public SpiderHoodContext _context = default!;
-        private readonly ILogger<BudgetService> _logger;
+        private readonly ILogger<IBudgetService> _logger;
         private BDLayout ec { get; set; }
 
-        public InstallmentService(SpiderHoodContext context, ILogger<BudgetService> logger)
+        public InstallmentService(SpiderHoodContext context, ILogger<IBudgetService> logger)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));

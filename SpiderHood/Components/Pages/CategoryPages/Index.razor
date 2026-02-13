@@ -6,7 +6,7 @@
 @using SpiderHood.Services
 @inject NavigationManager Navigation
 @inject ParameterService ParameterService
-@inject CategoryService CategoryService
+
 @implements IDisposable
 
 <link rel="stylesheet" href="@Assets["Category.css"]" />
@@ -99,6 +99,9 @@
     private int _typeCategory = 0; // 0 Categoria | 1 Sub Categoria
     private OpenType _openMode;
     private Modal _deleteModal = null!;
+
+    [Inject]
+    public Services.ICategoryService CategoryService { get; set; } = default!;
 
     // Propiedades calculadas
     private List<Category> Categories => _categories;

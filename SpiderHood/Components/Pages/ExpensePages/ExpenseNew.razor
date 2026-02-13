@@ -353,7 +353,7 @@
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="ps-4" style="width: 200px;">CATEGORÍA</th>
+                                        <th class="ps-3" style="width: 200px;">CATEGORÍA</th>
                                         <th>DESCRIPCIÓN</th>
                                         <th style="width: 120px;">FECHA</th>
                                         <th style="width: 150px;">DISTRIBUCIÓN</th>
@@ -368,7 +368,7 @@
                                         <tr class="category-header"
                                             style="background-color: #f8f9fa; cursor: pointer;"
                                             @onclick="() => ToggleCategory(categoryGroup.Key)">
-                                            <td class="ps-4 fw-bold">
+                                            <td class="ps-3 fw-bold">
                                                 <div class="d-flex align-items-center">
                                                     <i class="bi @(expandedCategories.Contains(categoryGroup.Key) ? "bi-folder-minus" : "bi-folder-plus") me-2"></i>
                                                     <span>@categoryGroup.Key</span>

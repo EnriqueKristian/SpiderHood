@@ -29,7 +29,7 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al obtener las categorias: {ex.Message}");
-                return new List<Models.Category>();
+                return [];
             }
         }
 

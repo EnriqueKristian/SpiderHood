@@ -22,6 +22,9 @@ namespace SpiderHood.Services
         Task LoadDefaultBudgetDetailsAsync(BudgetState state);
         Task LoadDataDefaultAsync(BudgetState state);
         Task SaveBudgetAsync(BudgetState state, List<Models.Period> _periods);
+        Task<List<Exoneration>> GetExonerationByBudgetHeaderAsync(Guid presupuestoId);
+        Task<List<Exoneration>> GetExonerationsByBuildingAsync(Guid IdBuilding);
+        Task<List<BudgetDetail>> GetBudgetDetailAsync(Guid presupuestoId);
 
         // Categorías
         Task<List<Category>> GetCategoriasAsync(Guid IdBuilding, bool? activas = true);
@@ -30,7 +33,7 @@ namespace SpiderHood.Services
         Task UpdateCategoriaAsync(Category categoria);
 
         // Detalles
-        Task<List<BudgetDetail>> GetDetallesByPresupuestoAsync(Guid presupuestoId);
+        //Task<List<BudgetDetail>> GetDetallesByPresupuestoAsync(Guid presupuestoId);
         Task AddDetalleToPresupuestoAsync(BudgetDetail detalle);
         Task UpdateDetalleAsync(BudgetDetail detalle);
         Task DeleteDetalleAsync(Guid detalleId);
@@ -631,7 +634,7 @@ namespace SpiderHood.Services
 
         #region Detalles
 
-        public async Task<List<BudgetDetail>> GetDetallesByPresupuestoAsync(Guid presupuestoId)
+        public async Task<List<BudgetDetail>> GetBudgetDetailAsync(Guid presupuestoId)
         {
             try
             {
@@ -640,6 +643,45 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener detalles del presupuesto ID: {Id}", presupuestoId);
+                throw;
+            }
+        }
+
+        /*public async Task<List<BudgetDetail>> GetDetallesByPresupuestoAsync(Guid presupuestoId)
+        {
+            try
+            {
+                return await ec.GetBudgetDetailAsync(presupuestoId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener detalles del presupuesto ID: {Id}", presupuestoId);
+                throw;
+            }
+        }*/
+
+        public async Task<List<Exoneration>> GetExonerationByBudgetHeaderAsync(Guid presupuestoId)
+        {
+            try
+            {
+                return await ec.GetExonerationByBudgetHeaderAsync(presupuestoId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener detalles del presupuesto ID: {Id}", presupuestoId);
+                throw;
+            }
+        }
+
+        public async Task<List<Exoneration>> GetExonerationsByBuildingAsync(Guid IdBuilding)
+        {
+            try
+            {
+                return await ec.GetExonerationsByBuildingAsync(IdBuilding);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al obtener detalles del presupuesto ID: {Id}", IdBuilding);
                 throw;
             }
         }

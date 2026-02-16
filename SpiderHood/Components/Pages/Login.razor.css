@@ -1,0 +1,92 @@
+.login-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 20px;
+    }
+
+    .login-card {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        width: 100%;
+        max-width: 450px;
+        overflow: hidden;
+    }
+
+    .login-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 30px;
+        text-align: center;
+    }
+
+        .login-header .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+            .login-header .logo i {
+                font-size: 3rem;
+            }
+
+        .login-header h2 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+    .login-body {
+        padding: 40px 30px;
+    }
+
+    .login-footer {
+        text-align: center;
+        border-top: 1px solid #eee;
+        padding-top: 20px;
+    }
+
+    .login-demo {
+        background: #f8f9fa;
+        padding: 15px;
+        text-align: center;
+        border-top: 1px solid #dee2e6;
+        color: #6c757d;
+    }
+
+    /* Estilos para validación */
+    .validation-summary-errors ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .validation-summary-errors li {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 5px;
+        font-size: 0.9rem;
+    }
+
+    .validation-message {
+        color: #dc3545;
+        font-size: 0.85rem;
+        margin-top: 5px;
+        display: block;
+    }
+
+    .is-invalid {
+        border-color: #dc3545;
+    }
+
+        .is-invalid:focus {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220,53,69,0.25);
+        }

@@ -613,8 +613,11 @@
     <div class="modal-backdrop fade show"></div>
 }
 
+
 @code {
 
+    [Inject] private ICategoryService CategoryService { get; set; } = default!;
+    [Inject] private IExpenseService ExpenseService { get; set; } = default!;
     // Datos de ejemplo
     private List<Models.Expense> expenses = new();
 
@@ -649,14 +652,14 @@
         // Expandir todas las categorías al inicio
         if (ParameterService.CurrentBuilding == null) return;
 
-        var _categories = ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        var _categories = CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
 
         categories = _categories
                         .Where(c => c.Nivel == 0)
                         .Select(c => c.ShortDescript).ToList();
 
         expandedCategories = new HashSet<string>(categories);
-        expenses = ParameterService.ec.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        expenses = ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
 
         FilterExpenses();
     }

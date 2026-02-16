@@ -21,13 +21,12 @@ namespace SpiderHood.Services
 
         // Cache para evitar cargas innecesarias
         private readonly Dictionary<Guid, (List<Parameter> Parameters, DateTime LastUpdated, List<Period> Periodos)> _cache
-            = [];
+            = [];  
 
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
-        // Exponer BDLayout como público para ser usado en todas las llamadas
-        public BDLayout ec { get; set; }
-        public SpiderHoodContext Context { get; private set; }
+        // Use a context factory to create short-lived DbContext instances per operation
+        private readonly IDbContextFactory<SpiderHoodContext> _contextFactory;
 
         public IReadOnlyList<Parameter> ListParameters => _listParameters.AsReadOnly();
 
@@ -41,13 +40,18 @@ namespace SpiderHood.Services
         
         public event Action? OnChange;
 
-        public ParameterService(SpiderHoodContext _context)
+        public ParameterService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
-            Context = _context ?? throw new ArgumentNullException(nameof(_context));
-            ec = new BDLayout(Context);
+            _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
             _role = "Admin";
             _username = "eechevarria";
         }
+
+
+        public IDbContextFactory<SpiderHoodContext>  ContextFactory()  {
+            return _contextFactory;
+        }
+
 
         /// <summary>
         /// Carga inicial desde la base de datos con caché
@@ -70,17 +74,20 @@ namespace SpiderHood.Services
                 return;
             }
 
-            // Carga desde base de datos usando el EC público
+            // Carga desde base de datos usando un DbContext creado por la factory
             try
             {
-                var parameters = await ec.GetParametersByBuildingAsync(IdBuilding);
-                var periodos =  await ec.GetPeriodsByBuildingAsync(IdBuilding);
-                Buildings = await ec.GetAllBuildingByOwnerAsync(IdUser);
-                Building building = await ec.GetBuildingByIdAsync(IdBuilding);
+                using var ctx = _contextFactory.CreateDbContext();
+                var ecLocal = new BDLayout(ctx);
+
+                var parameters = await ecLocal.GetParametersByBuildingAsync(IdBuilding);
+                var periodos = await ecLocal.GetPeriodsByBuildingAsync(IdBuilding);
+                Buildings = await ecLocal.GetAllBuildingByOwnerAsync(IdUser);
+                Building building = await ecLocal.GetBuildingByIdAsync(IdBuilding);
                 if (building is null)
                     throw new InvalidOperationException($"Building with Id {IdBuilding} not found.");
                 CurrentBuilding = building;
-                var listconfig = await ec.GetBuildingConfigurationAsync(IdBuilding);
+                var listconfig = await ecLocal.GetBuildingConfigurationAsync(IdBuilding);
                 CurrentBuilding!.Configuration = listconfig.FirstOrDefault()!;
 
                 _listParameters = parameters ?? [];
@@ -88,7 +95,7 @@ namespace SpiderHood.Services
                 await SetDefaultUserIdAsync();
 
                 // Actualizar caché
-                UpdateCache(IdBuilding, _listParameters,_periods);
+                UpdateCache(IdBuilding, _listParameters, _periods);
 
                 NotifyStateChanged();
             }
@@ -106,6 +113,54 @@ namespace SpiderHood.Services
         {
             await LoadParametersAsync(idBuilding, forceReload: true);
         }
+
+
+
+        public async Task<OperationResult> AddParameterAsync(Parameter parameter) {
+            try
+            {
+                using var ctx = _contextFactory.CreateDbContext();
+                var ecLocal = new BDLayout(ctx);
+                await ecLocal.AddNewRecordAsync(parameter);
+                return OperationResult.Success(parameter);
+
+            }
+            catch (DbUpdateException ex)
+            {
+                // Log error
+                return OperationResult.Failure($"Database error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                return OperationResult.Failure($"Unexpected error: {ex.Message}");
+            }
+        }
+
+        public async Task<OperationResult> UpdateParameterAsync(Parameter parameter)
+        {
+            try
+            {
+                using var ctx = _contextFactory.CreateDbContext();
+                var ecLocal = new BDLayout(ctx);
+                await ecLocal.UpdateRecordAsync(parameter);
+                return OperationResult.Success(parameter);
+
+            }
+            catch (DbUpdateException ex)
+            {
+                // Log error
+                return OperationResult.Failure($"Database error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                // Log error
+                return OperationResult.Failure($"Unexpected error: {ex.Message}");
+            }
+        }
+
+
+
 
         /// <summary>
         /// Guarda un parámetro (crea o actualiza)
@@ -273,7 +328,9 @@ namespace SpiderHood.Services
 
         public async Task<List<Period>> GetPeriodsAsync()
         {
-            return await ec.GetPeriodsByBuildingAsync(CurrentBuilding!.IdBuilding);
+            using var ctx = _contextFactory.CreateDbContext();
+            var ecLocal = new BDLayout(ctx);
+            return await ecLocal.GetPeriodsByBuildingAsync(CurrentBuilding!.IdBuilding);
         }
 
         public async Task<Models.Period> CreateNewPeriod(DateTime lastPeriod)
@@ -348,7 +405,9 @@ namespace SpiderHood.Services
 
             try
             {
-                return await operation(ec);
+                using var ctx = _contextFactory.CreateDbContext();
+                var ecLocal = new BDLayout(ctx);
+                return await operation(ecLocal);
             }
             catch (Exception ex)
             {
@@ -362,7 +421,8 @@ namespace SpiderHood.Services
         /// </summary>
         public void ResetEC()
         {
-            ec = new BDLayout(Context);
+            // No-op when using a DbContext factory; callers will get a fresh BDLayout per operation
+            return;
         }
 
         /// <summary>
@@ -428,12 +488,7 @@ namespace SpiderHood.Services
                     // Liberar recursos manejados
                     _cache.Clear();
                     _listParameters.Clear();
-
-                    // Si BDLayout implementa IDisposable
-                    if (ec is IDisposable disposableEC)
-                    {
-                        disposableEC.Dispose();
-                    }
+                    // Nothing to dispose for BDLayout since we create contexts per operation
                 }
                 _disposed = true;
             }

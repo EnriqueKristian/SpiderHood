@@ -1,277 +1,175 @@
 ﻿@page "/login"
 @using SpiderHood.Models
-@using SpiderHood.Services
-@inject AuthenticationService AuthService
+@using System.ComponentModel.DataAnnotations
+@using System.ComponentModel
+@inject Services.AuthService AuthService
 @inject NavigationManager Navigation
-@inject IJSRuntime JSRuntime
-@rendermode InteractiveServer
-
-<PageTitle>SpiderHood - Login</PageTitle>
 
 <div class="login-container">
-    <div class="row g-0 min-vh-100">
-        <!-- Left Panel - Branding -->
-        <div class="col-lg-6 d-none d-lg-block">
-            <div class="brand-panel">
-                <div class="brand-content">
-                    <div class="logo-container">
-                        <i class="fas fa-spider logo-icon"></i>
-                        <h1 class="brand-title">Spider<span class="text-primary">Hood</span></h1>
-                    </div>
-                    
-                    <div class="features">
-                        <div class="feature-item">
-                            <i class="fas fa-building feature-icon"></i>
-                            <div>
-                                <h5>Gestión de Edificios</h5>
-                                <p class="text-muted">Administra múltiples propiedades</p>
-                            </div>
-                        </div>
-                        <div class="feature-item">
-                            <i class="fas fa-users feature-icon"></i>
-                            <div>
-                                <h5>Comunidad Conectada</h5>
-                                <p class="text-muted">Comunica y colabora con residentes</p>
-                            </div>
-                        </div>
-                        <div class="feature-item">
-                            <i class="fas fa-shield-alt feature-icon"></i>
-                            <div>
-                                <h5>Seguridad Total</h5>
-                                <p class="text-muted">Control de accesos y permisos</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="testimonials">
-                        <blockquote class="blockquote">
-                            <p>"SpiderHood ha transformado la forma en que administramos nuestro edificio."</p>
-                            <footer class="blockquote-footer">Administrador de Edificio</footer>
-                        </blockquote>
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo">
+                <i class="fas fa-building"></i>
+                <h2>SpiderHood</h2>
+            </div>
+            <p class="text-muted">Sistema de Administración de Edificios</p>
+        </div>
+
+        <div class="login-body">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i>@errorMessage
+                    <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+                </div>
+            }
+
+            @if (successMessage != null)
+            {
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>@successMessage
+                </div>
+            }
+
+            <EditForm Model="@loginModel"
+                      OnValidSubmit="@HandleLogin"
+                      OnInvalidSubmit="@HandleInvalidSubmit"
+                      Formname="loginForm">
+                <!-- ← IMPORTANTE -->
+                <!-- Mensajes de validación resumidos -->
+                <div class="validation-summary-errors text-danger mb-3">
+                    <ValidationSummary />
+                </div>
+
+                <!-- Campo Email -->
+                <div class="form-group mb-3">
+                    <label for="email" class="form-label">
+                        <i class="fas fa-envelope me-2"></i>Email
+                    </label>
+
+                    <InputText id="email"
+                               class="@(isEmailValid ? "form-control" : "form-control is-invalid")"
+                               @bind-Value="loginModel.Email"
+                               placeholder="admin@spiderhood.com" />
+
+
+                    <!-- Mensaje de error individual -->
+                    <ValidationMessage For="@(() => loginModel.Email)" />
+                </div>
+
+                <!-- Campo Contraseña -->
+                <div class="form-group mb-3">
+                    <label for="password" class="form-label">
+                        <i class="fas fa-lock me-2"></i>Contraseña
+                    </label>
+                    <InputText id="password"
+                               type="password"
+                               class="@(isPasswordValid ? "form-control" : "form-control is-invalid")"
+                               @bind-Value="loginModel.Password"
+                               placeholder="••••••••" />
+
+                    <!-- Mensaje de error individual -->
+                    <ValidationMessage For="@(() => loginModel.Password)" />
+                </div>
+
+                <!-- Checkbox Recordar sesión -->
+                <div class="form-group mb-4">
+                    <div class="form-check">
+                        <InputCheckbox id="remember"
+                                       class="form-check-input"
+                                       @bind-Value="loginModel.RememberMe" />
+                        <label for="remember" class="form-check-label">
+                            Recordar sesión
+                        </label>
                     </div>
                 </div>
+
+                <!-- Botón de envío -->
+                <button type="submit"
+                        class="btn btn-primary w-100 py-2"
+                        disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span>Iniciando sesión...</span>
+                    }
+                    else
+                    {
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        <span>Iniciar Sesión</span>
+                    }
+                </button>
+            </EditForm>
+
+            <!-- Enlaces adicionales -->
+            <div class="login-footer mt-4">
+                <p class="mb-2">
+                    <a href="/register" class="text-decoration-none">
+                        <i class="fas fa-user-plus me-1"></i>¿No tienes cuenta? Regístrate
+                    </a>
+                </p>
+                <p>
+                    <a href="/forgot-password" class="text-decoration-none small">
+                        <i class="fas fa-key me-1"></i>¿Olvidaste tu contraseña?
+                    </a>
+                </p>
             </div>
         </div>
-        
-        <!-- Right Panel - Login Form -->
-        <div class="col-lg-6">
-            <div class="login-form-container">
-                <div class="login-form-wrapper">
-                    <!-- Encabezado Mobile -->
-                    <div class="d-lg-none text-center mb-5">
-                        <i class="fas fa-spider logo-icon-mobile text-primary"></i>
-                        <h1 class="brand-title">Spider<span class="text-primary">Hood</span></h1>
-                        <p class="text-muted">Sistema de Gestión de Edificios</p>
-                    </div>
-                    
-                    <!-- Formulario de Login -->
-                    <div class="login-card">
-                        <h2 class="mb-4">Iniciar Sesión</h2>
-                        <p class="text-muted mb-4">Accede a tu cuenta para gestionar tu edificio</p>
-                        
-                        @if (!string.IsNullOrEmpty(errorMessage))
-                        {
-                            <div class="alert alert-danger" role="alert">
-                                <i class="fas fa-exclamation-circle me-2"></i>
-                                @errorMessage
-                            </div>
-                        }
-                        
-                        <form @onsubmit="HandleLogin" @formname="loginForm">
-                            <div class="mb-3">
-                                <label for="email" class="form-label">Correo Electrónico</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">
-                                        <i class="fas fa-envelope"></i>
-                                    </span>
-                                    <input type="email" 
-                                           class="form-control @(validationErrors.ContainsKey("Email") ? "is-invalid" : "")" 
-                                           id="email" 
-                                           placeholder="usuario@ejemplo.com"
-                                           @bind="loginModel.Email"
-                                           @bind:event="oninput" />
-                                    @if (validationErrors.ContainsKey("Email"))
-                                    {
-                                        <div class="invalid-feedback">
-                                            @validationErrors["Email"]
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="password" class="form-label">Contraseña</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">
-                                        <i class="fas fa-lock"></i>
-                                    </span>
-                                    <input type="@((showPassword ? "text" : "password"))" 
-                                           class="form-control @(validationErrors.ContainsKey("Password") ? "is-invalid" : "")" 
-                                           id="password" 
-                                           placeholder="Tu contraseña"
-                                           @bind="loginModel.Password"
-                                           @bind:event="oninput" />
-                                    <button class="btn btn-outline-secondary" 
-                                            type="button" 
-                                            @onclick="TogglePasswordVisibility">
-                                        <i class="fas @(showPassword ? "fa-eye-slash" : "fa-eye")"></i>
-                                    </button>
-                                    @if (validationErrors.ContainsKey("Password"))
-                                    {
-                                        <div class="invalid-feedback">
-                                            @validationErrors["Password"]
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3 form-check">
-                                <input type="checkbox" 
-                                       class="form-check-input" 
-                                       id="rememberMe"
-                                       @bind="loginModel.RememberMe" />
-                                <label class="form-check-label" for="rememberMe">
-                                    Recordar mi sesión
-                                </label>
-                            </div>
-                            
-                            <div class="d-grid gap-2 mb-4">
-                                <button type="submit" 
-                                        class="btn btn-primary btn-lg" 
-                                        disabled="@isLoading">
-                                    @if (isLoading)
-                                    {
-                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                    }
-                                    <i class="fas fa-sign-in-alt me-2"></i>
-                                    Iniciar Sesión
-                                </button>
-                            </div>
-                            
-                            <div class="text-center mb-4">
-                                <a href="#" @onclick="ShowForgotPassword">¿Olvidaste tu contraseña?</a>
-                            </div>
-                        </form>
-                        
-                        <!-- Separador -->
-                        <div class="separator">
-                            <span class="separator-text">o inicia sesión con</span>
-                        </div>
-                        
-                        <!-- Social Login -->
-                        <div class="social-login">
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <button class="btn btn-outline-danger w-100" 
-                                            @onclick="LoginWithGoogle"
-                                            disabled="@isLoading">
-                                        <i class="fab fa-google me-2"></i> Google
-                                    </button>
-                                </div>
-                                <div class="col-6">
-                                    <button class="btn btn-outline-primary w-100" 
-                                            @onclick="LoginWithFacebook"
-                                            disabled="@isLoading">
-                                        <i class="fab fa-facebook-f me-2"></i> Facebook
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Registro -->
-                        <div class="text-center mt-4">
-                            <p class="text-muted">
-                                ¿No tienes una cuenta? 
-                                <a href="#" @onclick="ShowRegistration">Regístrate aquí</a>
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div class="login-footer">
-                        <p class="text-muted small">
-                            &copy; @DateTime.Now.Year SpiderHood. Todos los derechos reservados.
-                            <a href="#" class="text-muted">Términos y Condiciones</a> | 
-                            <a href="#" class="text-muted">Política de Privacidad</a>
-                        </p>
-                    </div>
-                </div>
-            </div>
+
+        <div class="login-demo">
+            <small class="text-muted">Demo: admin@spiderhood.com / Admin123!</small>
         </div>
     </div>
 </div>
 
-<!-- Modal de Registro -->
-@if (showRegistrationModal)
-{
-    <!--<RegistrationModal OnClose="CloseRegistrationModal" 
-                       OnRegistrationComplete="HandleRegistrationComplete" />-->
-}
-
-<!-- Modal de Recuperación de Contraseña -->
-@if (showForgotPasswordModal)
-{
-    <!--<ForgotPasswordModal OnClose="CloseForgotPasswordModal" />-->
-}
-
 @code {
     private LoginModel loginModel = new();
-    private bool showPassword = false;
-    private bool isLoading = false;
-    private string errorMessage = "";
-    private Dictionary<string, string> validationErrors = new();
-    
-    private bool showRegistrationModal = false;
-    private bool showForgotPasswordModal = false;
-    
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+    private bool isLoading;
+
+    // Flags para validación visual
+    private bool isEmailValid => string.IsNullOrEmpty(loginModel.Email) ||
+                                 new EmailAddressAttribute().IsValid(loginModel.Email);
+
+    private bool isPasswordValid => string.IsNullOrEmpty(loginModel.Password) ||
+                                     loginModel.Password.Length >= 6;
+
+    protected override void OnInitialized()
+    {
+        var currentUser = AuthService.GetCurrentUserAsync();
+
+        // Verificar si ya hay sesión activa
+        if (currentUser.Result != null)
+        {
+            Navigation.NavigateTo("/dashboard");
+        }
+
+        // Limpiar modelo
+        //loginModel = new LoginModel();
+        loginModel.Email = "admin@spiderhood.com";
+        loginModel.Password = "Admin123!";
+        loginModel.RememberMe = true;
+    }
+
     private async Task HandleLogin()
     {
-        isLoading = true;
-        errorMessage = "";
-        validationErrors.Clear();
-        
-        // Validación
-        if (string.IsNullOrWhiteSpace(loginModel.Email))
-        {
-            validationErrors["Email"] = "El correo electrónico es requerido";
-        }
-        else if (!IsValidEmail(loginModel.Email))
-        {
-            validationErrors["Email"] = "Ingresa un correo electrónico válido";
-        }
-        
-        if (string.IsNullOrWhiteSpace(loginModel.Password))
-        {
-            validationErrors["Password"] = "La contraseña es requerida";
-        }
-        
-        if (validationErrors.Any())
-        {
-            isLoading = false;
-            StateHasChanged();
-            return;
-        }
-        
         try
         {
-            // Autenticación con el servicio
-            var result = await AuthService.LoginAsync(loginModel.Email, loginModel.Password);
-            
+            isLoading = true;
+            errorMessage = string.Empty;
+
+            var result = await AuthService.LoginAsync(loginModel);
+
             if (result.Success)
             {
-                // Verificar si el usuario tiene edificios
-                var user = result.User;
-                
-                if (user!.Buildings.Any())
-                {
-                    // Si tiene edificios, redirigir al dashboard
-                    Navigation.NavigateTo("/dashboard");
-                }
-                else
-                {
-                    // Si no tiene edificios, mostrar pantalla de selección/registro
-                    Navigation.NavigateTo("/building-setup");
-                }
+                successMessage = "¡Login exitoso! Redirigiendo...";
+                StateHasChanged();
+
+                //await Task.Delay(1000);
+
+                // 🔴 FORZAR RECARGA COMPLETA Y LIMPIAR PRERENDERING
+                Navigation.NavigateTo("/dashboard", true);
             }
             else
             {
@@ -280,7 +178,7 @@
         }
         catch (Exception ex)
         {
-            errorMessage = "Error al iniciar sesión. Por favor, intenta nuevamente.";
+            errorMessage = "Error al iniciar sesión. Intenta nuevamente.";
             Console.WriteLine($"Login error: {ex.Message}");
         }
         finally
@@ -288,93 +186,28 @@
             isLoading = false;
         }
     }
-    
-    private async Task LoginWithGoogle()
+
+    private void HandleInvalidSubmit()
     {
-        isLoading = true;
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("loginWithGoogle");
-        }
-        catch (Exception ex)
-        {
-            errorMessage = "Error al iniciar sesión con Google";
-            Console.WriteLine($"Google login error: {ex.Message}");
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        errorMessage = "Por favor, corrige los errores del formulario.";
     }
-    
-    private async Task LoginWithFacebook()
+
+    private async Task HandlePostLogin(UserSession session)
     {
-        isLoading = true;
-        try
+        var approvedBuildings = session.Buildings.Where(b => b.IsApproved).ToList();
+
+        if (!approvedBuildings.Any())
         {
-            await JSRuntime.InvokeVoidAsync("loginWithFacebook");
+            Navigation.NavigateTo("/building-request");
         }
-        catch (Exception ex)
+        else if (approvedBuildings.Count == 1)
         {
-            errorMessage = "Error al iniciar sesión con Facebook";
-            Console.WriteLine($"Facebook login error: {ex.Message}");
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-    
-    private void TogglePasswordVisibility()
-    {
-        showPassword = !showPassword;
-    }
-    
-    private void ShowRegistration()
-    {
-        showRegistrationModal = true;
-    }
-    
-    private void CloseRegistrationModal()
-    {
-        showRegistrationModal = false;
-    }
-    
-    private async Task HandleRegistrationComplete(RegistrationResult result)
-    {
-        if (result.Success)
-        {
-            // Auto-login después del registro
-            loginModel.Email = result.Email;
-            loginModel.Password = result.Password;
-            await HandleLogin();
+            await AuthService.SetCurrentBuilding(approvedBuildings.First().BuildingId);
+            Navigation.NavigateTo("/dashboard", true);
         }
         else
         {
-            errorMessage = result.Message;
-        }
-    }
-    
-    private void ShowForgotPassword()
-    {
-        showForgotPasswordModal = true;
-    }
-    
-    private void CloseForgotPasswordModal()
-    {
-        showForgotPasswordModal = false;
-    }
-    
-    private bool IsValidEmail(string email)
-    {
-        try
-        {
-            var addr = new System.Net.Mail.MailAddress(email);
-            return addr.Address == email;
-        }
-        catch
-        {
-            return false;
+            Navigation.NavigateTo("/select-building");
         }
     }
 }

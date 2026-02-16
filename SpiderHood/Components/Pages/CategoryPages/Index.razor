@@ -185,16 +185,16 @@
     {
         item.IdCategory = Guid.NewGuid();
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-        await ParameterService.ec.AddNewRecordAsync(item);
-        await ParameterService.Context.SaveChangesAsync();
+        await CategoryService.AddCategoryAsync(item);
+        //await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(Category item)
     {
         try
         {
-            await ParameterService.ec.UpdateRecordAsync(item);
-            await ParameterService.Context.SaveChangesAsync();
+            await CategoryService.UpdateCategoryAsync(item);
+            //await ParameterService.Context.SaveChangesAsync();
         }
         catch (Exception ex)
         {
@@ -214,8 +214,8 @@
     {
         try
         {
-            await ParameterService.ec.DeleteRecordAsync(_currentCategory);
-            await ParameterService.Context.SaveChangesAsync();
+            await CategoryService.DeleteCategoryAsync(_currentCategory);
+            //await ParameterService.Context.SaveChangesAsync();
             await LoadCategories();
         }
         catch (Exception ex)

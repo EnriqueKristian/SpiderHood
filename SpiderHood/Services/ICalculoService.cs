@@ -1,4 +1,5 @@
 ﻿using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.InkML;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,71 @@ using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
+    public interface IServiceReadingService {
+        Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period);
+        Task AddServiceReadingAsync(Models.ServiceReading newservice);
+
+        Task AddPeriodAsync(Models.Period newperiod);
+        Task AddServiceReadingDetailAsync(List<Models.ServiceReadingDetail> newdetails);
+    }
+
+    public class ServiceReadingService : IServiceReadingService
+    {
+
+        public SpiderHoodContext _context = default!;
+        private readonly ILogger<IBudgetService> _logger;
+        private BDLayout ec { get; set; }
+
+        public ServiceReadingService(SpiderHoodContext context, ILogger<IBudgetService> logger)
+        {
+            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            ec = new BDLayout(context);
+        }
+
+        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period) {
+            return await ec.GetServiceReadingDetailbyPeriodAsync(period);
+        }
+
+
+
+        public async Task AddServiceReadingDetailAsync(List<Models.ServiceReadingDetail> newdetails)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newdetails);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el detail: {ex.Message}");
+            }
+        }
+        public async Task AddServiceReadingAsync(Models.ServiceReading newservice)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newservice);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+        public async Task AddPeriodAsync(Models.Period newperiod)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newperiod);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el periodo: {ex.Message}");
+            }
+        }
+
+    }
+
     public class TarifaAgua
     {
         public int Id { get; set; }
@@ -38,12 +104,12 @@ namespace SpiderHood.Services
         Task<CalculoResultado> CalcularConsumoAsync(double consumo, decimal cargoFijo);
         Task<List<ConsumoHistorico>> ObtenerHistoricoAsync(int departamentoId);
         Task GuardarLecturaAsync(Departamento departamento);
-        Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous, BDLayout ec);
+        Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous);
         Task<List<Models.ServiceReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.ServiceReadingDetail> lecturas, decimal cargoFijo);
-        Task<Models.ServiceReading> ObtenerLecturaPorPeriodoAsync(BDLayout ec, DateTime period);
-        Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(BDLayout ec, DateTime period);
-        Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(BDLayout ec, Guid IdBuilding);
-        Task<List<Models.ServiceReading>> GetServiceReadingsAsync(BDLayout ec, Guid IdBuilding);
+        Task<Models.ServiceReading> ObtenerLecturaPorPeriodoAsync(DateTime period);
+        Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(DateTime period);
+        Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(Guid IdBuilding);
+        Task<List<Models.ServiceReading>> GetServiceReadingsAsync(Guid IdBuilding);
 
     }
 
@@ -70,8 +136,10 @@ namespace SpiderHood.Services
     {
         private List<TarifaAgua> _tarifas = [];
         private List<ConsumoHistorico> _historicos = [];
+        public SpiderHoodContext _context = default!;
+        private BDLayout ec { get; set; }
 
-        public CalculoService()
+        public CalculoService(SpiderHoodContext context)
         {
             // Tarifas por defecto según la tabla proporcionada
             _tarifas = [
@@ -87,6 +155,8 @@ namespace SpiderHood.Services
                 new() { Id = 1, DepartamentoId = 1, Anio = 2023, Consumo = 1338.99 },
                 new() { Id = 2, DepartamentoId = 1, Anio = 2022, Consumo = 14865.86 }
             ];
+            _context = context;
+            ec = new BDLayout(context);
         }
 
         public Task<List<TarifaAgua>> ObtenerTarifasAsync()
@@ -187,7 +257,7 @@ namespace SpiderHood.Services
             return Task.CompletedTask;
         }
 
-        public Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous, BDLayout ec)
+        public Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous)
         {
 
             //ServiceReading reading = new();
@@ -291,24 +361,24 @@ namespace SpiderHood.Services
             return Task.FromResult(lecturas);
         }
 
-        public async Task<ServiceReading> ObtenerLecturaPorPeriodoAsync(BDLayout ec, DateTime period)
+        public async Task<ServiceReading> ObtenerLecturaPorPeriodoAsync(DateTime period)
         {
             var lista = await ec.GetServiceReadingbyPeriodAsync(period); // Espera la tarea para obtener la lista
             return lista.FirstOrDefault()!; // Ahora sí puedes usar FirstOrDefault()
         }
 
 
-        public Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(BDLayout ec, DateTime period)
+        public Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(DateTime period)
         {
             return ec.GetServiceReadingDetailbyPeriodAsync(period);
         }
 
-        public Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(BDLayout ec, Guid IdBuilding)
+        public Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(Guid IdBuilding)
         {
             return ec.GetFirstWaterReadingDetailListAsync(IdBuilding);
         }
 
-        public Task<List<Models.ServiceReading>> GetServiceReadingsAsync(BDLayout ec, Guid IdBuilding)
+        public Task<List<Models.ServiceReading>> GetServiceReadingsAsync(Guid IdBuilding)
         {
             return ec.GetServiceReadingListAsync(IdBuilding);
         }

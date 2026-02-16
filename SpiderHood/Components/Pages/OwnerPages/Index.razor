@@ -558,6 +558,8 @@
 
 @code {
 
+    [Inject] private IBuildingService BuildingService { get; set; } = default!;
+
     // Variables de paginación
     private List<Models.OwnerUnitView> filteredOwners = new();
     private List<OwnerUnitView> currentPageData1 = new();
@@ -662,7 +664,7 @@
     {
         if (ParameterService.CurrentBuilding == null) return;
 
-        List<OwnerUnitView> ownerUnits = await ParameterService.ec.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+        List<OwnerUnitView> ownerUnits = await BuildingService.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         // Diccionarios para lookup eficiente
         var unitsByGroup = new Dictionary<Guid, List<RealEstateUnit>>();
@@ -1108,7 +1110,7 @@
         try
         {
             //SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
-            FreeUnits = ParameterService.ec.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+            FreeUnits = BuildingService.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
 
             switch (_mode)
             {
@@ -1169,35 +1171,18 @@
     {
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
         await OwnerService.AddOwnerAsync(item);
-        await ParameterService.Context.SaveChangesAsync();
+        //await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(SpiderHood.Models.Owner item)
     {
-        await ParameterService.ec.UpdateRecordAsync(item);
-
-        try
-        {
-            await ParameterService.Context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!ItemExists(item!.IdOwner))
-            {
-                Navigation.NavigateTo("notfound");
-            }
-            else
-            {
-                throw;
-            }
-        }
+        await OwnerService.UpdateOwnerAsync(item);
     }
 
     private async Task DeleteItem()
     {
         // Lógica adicional después de cerrar el modal, si es necesario
-        await ParameterService.ec.DeleteRecordAsync(_Owner);
-        await ParameterService.Context.SaveChangesAsync();
+        await OwnerService.DeleteOwnerAsync(_Owner);
         await modal.HideAsync();
         OnInitialized();
         return;
@@ -1214,7 +1199,7 @@
         //throw new NotImplementedException();
         MostrarModalUnit = true;
         OpenMode = _mode;
-        FreeUnits = ParameterService.ec.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        FreeUnits = BuildingService.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
 
         _OwnerUnit.IdOwner = _own.IdOwner;
         _OwnerUnit.Names = _own.Names;
@@ -1249,7 +1234,7 @@
             _GroupUnit.TypeOwner =1;            //Titular
             _GroupUnit.AreaTotal = _cUnit.Area;
             
-            await ParameterService.ec.AddNewRecordAsync(_GroupUnit);
+            await BuildingService.AddOwnerUnitAsync(_GroupUnit);
 
             //Crear las unidades asignadas al propietario
             foreach (Models.Unit x1 in _Units)
@@ -1261,11 +1246,11 @@
                 x2.TypeGroupUnit = x1.TypeUnit ==1 ? GroupUnitType.Individual : GroupUnitType.Shared;
                     _AreaTotal += x1.Area;
 
-                await ParameterService.ec.AddNewRecordAsync(x2);
+                await BuildingService.AddGroupUnitAsync(x2);
             }
 
             _GroupUnit.AreaTotal = _AreaTotal;
-            await ParameterService.ec.UpdateRecordAsync(_GroupUnit);
+            await BuildingService.UpdateOwnerUnitAsync(_GroupUnit);
         }
         else
         {
@@ -1277,7 +1262,7 @@
             _existingGroupOwner.IdOwner = _cUnit.IdOwner;
             _existingGroupOwner.TypeOwner = 2; //Adicional
 
-            await ParameterService.ec.AddNewRecordAsync(_existingGroupOwner);
+            await BuildingService.AddOwnerGroupOwnerAsync(_existingGroupOwner);
         }
         //}
         //else

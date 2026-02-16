@@ -1,0 +1,143 @@
+﻿@page "/building-request"
+@using System.ComponentModel.DataAnnotations
+@using SpiderHood.Services
+@inject Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-door-open me-2"></i>
+                        Solicitar Acceso a Edificio
+                    </h4>
+                </div>
+
+                <div class="card-body">
+                    @*if (AuthService.CurrentUser?.Buildings.Any(b => !b.IsApproved) == true)
+                    {
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Tienes @AuthService.CurrentUser.Buildings.Count(b => !b.IsApproved)
+                            solicitud(es) pendiente(s) de aprobación.
+                        </div>
+                    }*@
+
+                    <EditForm Model="@request" OnValidSubmit="@SubmitRequest" Formname="buildingRequestForm">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label">Edificio</label>
+                            <InputSelect class="form-control" @bind-Value="request.BuildingId">
+                                <option value="">-- Seleccionar edificio --</option>
+                                @foreach (var building in availableBuildings)
+                                {
+                                    <option value="@building.Id">@building.Name</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => request.BuildingId)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Rol solicitado</label>
+                            <InputSelect class="form-control" @bind-Value="request.Role">
+                                <option value="Residente">Residente</option>
+                                <option value="Junta de Propietarios">Junta de Propietarios</option>
+                                <option value="Administrador">Administrador</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Mensaje (opcional)</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="request.Message"
+                                           placeholder="Explica por qué necesitas acceso..." />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                            @if (isLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Enviando...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-paper-plane me-2"></i>
+                                <span>Enviar Solicitud</span>
+                            }
+                        </button>
+                    </EditForm>
+
+                    @if (successMessage != null)
+                    {
+                        <div class="alert alert-success mt-3">
+                            <i class="fas fa-check-circle me-2"></i>
+                            @successMessage
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private BuildingRequestModel request = new();
+    private List<BuildingInfo> availableBuildings = new();
+    private bool isLoading;
+    private string successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableBuildings();
+    }
+
+    private async Task LoadAvailableBuildings()
+    {
+        // Cargar edificios disponibles (no asociados al usuario)
+        // Implementar según tu lógica de negocio
+        availableBuildings = new List<BuildingInfo>
+        {
+            new() { Id = Guid.NewGuid(), Name = "Torre del Sol" },
+            new() { Id = Guid.NewGuid(), Name = "Edificio Marina" },
+            new() { Id = Guid.NewGuid(), Name = "Complejo Panorama" }
+        };
+    }
+
+    private async Task SubmitRequest()
+    {
+        try
+        {
+            isLoading = true;
+            var result = await AuthService.RequestBuildingAccess(request.BuildingId, request.Role);
+
+            if (result)
+            {
+                successMessage = "Solicitud enviada correctamente. Espera la aprobación del administrador.";
+                request = new();
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private class BuildingRequestModel
+    {
+        [Required(ErrorMessage = "Selecciona un edificio")]
+        public Guid BuildingId { get; set; }
+
+        [Required(ErrorMessage = "Selecciona un rol")]
+        public string Role { get; set; } = "Residente";
+
+        public string Message { get; set; } = string.Empty;
+    }
+
+    private class BuildingInfo
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+}

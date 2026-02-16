@@ -17,9 +17,11 @@ namespace SpiderHood.Services
         Task<Conciliacion?> ObtenerUltimaConciliacionAsync();
         Task GuardarConciliacionAsync(Conciliacion conciliacion);
         Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
-
-
         Task InstallmentConciliationAsync(TransactionBankDetail transaccion, Installment cuota);
+        Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBuilding);
+        Task<List<MovDetKey>> GetTransactionsDetailsAsync(Guid IdBankAccount, DateTime minValue, DateTime maxValue);
+        Task AddTransactionFromEECCAsync(TransactionBankDetail newtransaction);
+        Task AddTransactionBankHeaderAsync(TransactionBankHeader newtransaction);
     }
 
     public class BankAccountService : IBankAccountService
@@ -35,6 +37,61 @@ namespace SpiderHood.Services
             _localStorage = localStorage;
             Context = _context ?? throw new ArgumentNullException(nameof(_context));
             ec = new BDLayout(Context);
+        }
+
+
+        public async Task AddTransactionFromEECCAsync(TransactionBankDetail newtransaction)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newtransaction);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear la cuenta bancaria: {ex.Message}");
+            }
+        }
+
+        public async Task<List<MovDetKey>> GetTransactionsDetailsAsync(Guid IdBankAccount, DateTime minValue, DateTime maxValue)
+        {
+            try
+            {
+                return await ec.GetAllMovementDetailAsync(IdBankAccount, minValue, maxValue);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear la obtener deatlle transacciones por cuenta : {ex.Message}");
+                return [];
+            }
+
+        }
+
+        public async Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBuilding)
+        {
+            try
+            {
+                return await ec.GetMovementByFileNameAsync(filename, IdBuilding);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al obtener lista de cargas de transacciones : {ex.Message}");
+                return [];
+            }
+
+        }
+
+
+        public async Task AddTransactionBankHeaderAsync(TransactionBankHeader newtransaction)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newtransaction);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear la cabecera de la transaccion : {ex.Message}");
+            }
+
         }
 
 

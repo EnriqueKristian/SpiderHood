@@ -440,6 +440,9 @@
 
 @code {
 
+    [Inject] private IServiceReadingService ServiceReadingService { get; set; } = default!;
+    [Inject] private IBuildingService BuildingService { get; set; } = default!;
+
     private string @GroupNumber = "GroupNumber";
     private string @Consumption = "Consumption";
     private string CalculatedAmount = "CalculatedAmount";
@@ -550,10 +553,7 @@
     private async Task ConfigurarPeriodoInicial()
     {
         //Obtener el último período registrado
-        readings = await CalculoService.GetServiceReadingsAsync(
-            ParameterService.ec,
-            ParameterService.CurrentBuilding.IdBuilding
-        );
+        readings = await CalculoService.GetServiceReadingsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         _ServiceReadingState.Period = _period;
 
@@ -606,10 +606,7 @@
                     _ServiceReadingState.CurrentReading = nuevoPeriodo;
                 }
 
-                _ServiceReadingState.CurrentReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(
-                        ParameterService.ec,
-                        periodo
-                    );
+                _ServiceReadingState.CurrentReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(periodo);
 
                 if (_ServiceReadingState.CurrentReadingDetail.Count > 0)
                 {
@@ -619,7 +616,7 @@
                 else
                 {
                     var periodoAnterior = periodo.AddMonths(-1);
-                    _ServiceReadingState.PreviousReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(ParameterService.ec, periodoAnterior);
+                    _ServiceReadingState.PreviousReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(periodoAnterior);
                 }
 
                 await OnSaveReady.InvokeAsync(_ServiceReadingState);
@@ -670,14 +667,13 @@
 
             if (_ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any())
             {
-                _ServiceReadingState.PreviousReadingDetail = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.ec, ParameterService.CurrentBuilding.IdBuilding);
+                _ServiceReadingState.PreviousReadingDetail = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.CurrentBuilding.IdBuilding);
             } 
 
             _ServiceReadingState.CurrentReading = await CalculoService.ImportarDesdeExcelAsync(
                 memoryStream,
                 _ServiceReadingState.CurrentReading,
-                _ServiceReadingState.PreviousReadingDetail, ParameterService.ec 
-            );
+                _ServiceReadingState.PreviousReadingDetail);
 
             _lecturasCargadas = _ServiceReadingState.CurrentReading.WaterReadingDetail ?? new List<ServiceReadingDetail>();
 
@@ -793,7 +789,11 @@
 
     private async Task GuardarLecturas()
     {
-        using var transaction = await ParameterService.Context.Database.BeginTransactionAsync();
+        using var context = await ParameterService.ContextFactory().CreateDbContextAsync();
+
+        using var transaction = await context.Database.BeginTransactionAsync();
+
+        using (transaction);
         try
         {
             if (!PuedeGuardar)
@@ -805,17 +805,17 @@
             //agregar periodo
             if (_periods.Where(c => c.IsNewPeriod).Count() > 0)
             {
-                await ParameterService.ec.AddNewRecordAsync(_currentPeriod);
+                await ServiceReadingService.AddPeriodAsync(_currentPeriod);
             }
 
             // Asignar detalles procesados a la lectura actual
             _ServiceReadingState.CurrentReading.TotalAmount = TotalGeneral;
 
             // Guardar en base de datos
-            await ParameterService.ec.AddNewRecordAsync(_ServiceReadingState.CurrentReading);
+            await ServiceReadingService.AddServiceReadingAsync(_ServiceReadingState.CurrentReading);
 
             // Guardar en base de datos
-            await ParameterService.ec.AddNewRecordAsync(_ServiceReadingState.CurrentReading.WaterReadingDetail);
+            await ServiceReadingService.AddServiceReadingDetailAsync(_ServiceReadingState.CurrentReading.WaterReadingDetail!);
 
             await transaction.CommitAsync();
 
@@ -1122,7 +1122,7 @@
     private async Task<List<Models.UnitView>> ObtenerUnidadesDelEdificio()
     {
         // Implementación para obtener las unidades del edificio: TODO PADRE
-        return ParameterService.ec.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1).Result;
+        return BuildingService.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1).Result;
     }
 
     #endregion

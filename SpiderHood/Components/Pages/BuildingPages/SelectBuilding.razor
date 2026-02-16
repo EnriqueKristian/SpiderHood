@@ -1,0 +1,178 @@
+﻿@page "/select-building"
+@inject Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-building me-2"></i>
+                        Seleccionar Edificio
+                    </h4>
+                </div>
+
+                <div class="card-body">
+                    @if (isLoading)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p>Cargando tus edificios...</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-4">
+                            Tienes acceso a múltiples edificios. Selecciona uno para continuar:
+                        </p>
+
+                        <div class="building-list">
+                            @foreach (var building in approvedBuildings)
+                            {
+                                <div class="building-item @(selectedBuilding == building.BuildingId ? "selected" : "")"
+                                     @onclick="() => selectedBuilding = building.BuildingId">
+                                    <div class="building-info">
+                                        <div class="building-icon">
+                                            <i class="fas fa-building"></i>
+                                        </div>
+                                        <div class="building-details">
+                                            <h5>@building.BuildingName</h5>
+                                            <span class="badge bg-info">@building.Role</span>
+                                        </div>
+                                    </div>
+                                    <div class="building-check">
+                                        @if (selectedBuilding == building.BuildingId)
+                                        {
+                                            <i class="fas fa-check-circle text-primary"></i>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        @if (pendingBuildings.Any())
+                        {
+                            <div class="pending-buildings mt-4">
+                                <hr />
+                                <h6 class="text-warning">
+                                    <i class="fas fa-clock me-2"></i>
+                                    Edificios pendientes de aprobación
+                                </h6>
+
+                                @foreach (var building in pendingBuildings)
+                                {
+                                    <div class="pending-item">
+                                        <span>@building.BuildingName</span>
+                                        <span class="badge bg-warning">Pendiente</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <div class="mt-4">
+                            <button class="btn btn-primary w-100"
+                                    disabled="@(selectedBuilding == null || isSelecting)"
+                                    @onclick="SelectBuildingAsync">
+                                @if (isSelecting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Seleccionando...</span>
+                                }
+                                else
+                                {
+                                    <i class="fas fa-arrow-right me-2"></i>
+                                    <span>Continuar</span>
+                                }
+                            </button>
+                        </div>
+
+                        <div class="mt-3 text-center">
+                            <a href="/building-request" class="text-decoration-none">
+                                <i class="fas fa-plus me-1"></i>Solicitar acceso a otro edificio
+                            </a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Models.UserBuilding> approvedBuildings = new();
+    private List<Models.UserBuilding> pendingBuildings = new();
+    private Guid? selectedBuilding;
+    private bool isLoading = true;
+    private bool isSelecting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserDataAsync();
+    }
+
+    private async Task LoadUserDataAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            var currentUser = await AuthService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                var returnUrl = Navigation.Uri;
+                var encoded = Uri.EscapeDataString(returnUrl);
+                Navigation.NavigateTo($"/login?returnUrl={encoded}", true);
+                return;
+            }
+
+            approvedBuildings = currentUser.Buildings
+                .Where(b => b.IsApproved).ToList();
+
+            pendingBuildings = currentUser.Buildings
+                .Where(b => !b.IsApproved).ToList();
+
+            if (approvedBuildings.Count == 1)
+            {
+                selectedBuilding = approvedBuildings.First().BuildingId;
+                await SelectBuildingAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando datos: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelectBuildingAsync()
+    {
+        if (!selectedBuilding.HasValue || isSelecting) return;
+
+        try
+        {
+            isSelecting = true;
+
+            await AuthService.SetCurrentBuilding(selectedBuilding);
+
+            await Task.Delay(500);
+
+            Navigation.NavigateTo("/dashboard", true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error seleccionando edificio: {ex.Message}");
+        }
+        finally
+        {
+            isSelecting = false;
+            StateHasChanged();
+        }
+    }
+}

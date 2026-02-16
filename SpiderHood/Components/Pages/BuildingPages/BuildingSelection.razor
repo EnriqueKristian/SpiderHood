@@ -1,7 +1,7 @@
-﻿@page "/building-invitation/{invitationCode}"
+﻿@*page "/building-invitation/{invitationCode}"
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject AuthenticationService AuthService
+@inject IAuthenticationService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
@@ -459,4 +459,4 @@
             _ => new List<string> { "Acceso básico al sistema" }
         };
     }
-}
+}*@

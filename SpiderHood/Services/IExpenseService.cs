@@ -12,6 +12,10 @@ namespace SpiderHood.Services
         Task<ViewExpense> CrearGastoAsync(ViewExpense gasto);
         Task MarcarGastoComoConciliadoAsync(Guid gastoId, Guid transaccionId);
         Task DesconciliarGastoAsync(Guid gastoId);
+        Task AddExpenseAsync(ViewExpense expense);
+        Task AddExpenseAsync(Expense expense);
+        Task UpdateExpenseAsync(Expense expense);
+        Task<List<Expense>> GetExpensesByBuildingAsync(Guid IdBuilding);
     }
 
     public class ExpenseService : IExpenseService
@@ -112,10 +116,25 @@ namespace SpiderHood.Services
             return await ec.GetPendingConciliationExpensesAsync(IdBuilding, desde, hasta);
         }
 
-        /*public async Task<List<CategoriaGasto>> ObtenerCategoriasAsync()
+
+        public async Task AddExpenseAsync(ViewExpense expense)
         {
-            return categorias;
-        }*/
+            await ec.AddNewRecordAsync(expense);
+        }
+
+        public async Task AddExpenseAsync(Expense expense)
+        {
+            await ec.AddNewRecordAsync(expense);
+        }
+
+        public async Task UpdateExpenseAsync(Expense expense)
+        {
+            await ec.AddNewRecordAsync(expense);
+        }
+        public async Task<List<Expense>> GetExpensesByBuildingAsync(Guid IdBuilding)
+        {
+            return await ec.GetExpensesByBuildingAsync(IdBuilding);
+        }
 
         public async Task<ViewExpense> CrearGastoAsync(ViewExpense gasto)
         {

@@ -150,6 +150,10 @@
                                                        OnSaveItem="@((item) => SaveItem(item))" />
 
 @code {
+
+    [Inject] private IExpenseService ExpenseService { get; set; } = default!;
+    [Inject] private ICategoryService CategoryService { get; set; } = default!;
+
     private Models.Expense _newExpense = new Models.Expense();
     private List<Models.Expense> FilteredExpenses = new();
     private List<Models.Expense> FilteredExpensesByCat = new();
@@ -187,8 +191,8 @@
         if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
             return;
         // Aquí cargarías los parámetros desde tu API o servicio
-        FilteredExpenses = ParameterService.ec.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
-        FilteredCategory = ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        FilteredExpenses = ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        FilteredCategory = CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
     }
 
     private void AbrirModal(Models.Expense item, OpenType mode)
@@ -238,29 +242,13 @@
         //Usuarios.Add(nuevo);
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
 
-        await ParameterService.ec.AddNewRecordAsync(item);
-        await ParameterService.Context.SaveChangesAsync();
+        await ExpenseService.AddExpenseAsync(item);
+        //await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(SpiderHood.Models.Expense item)
     {
-        await ParameterService.ec.UpdateRecordAsync(item);
-
-        try
-        {
-            await ParameterService.Context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!ItemExists(item!.IdExpense))
-            {
-                Navigation.NavigateTo("notfound");
-            }
-            else
-            {
-                throw;
-            }
-        }
+        await ExpenseService.UpdateExpenseAsync(item);
     }
 
     private bool ItemExists(Guid id)

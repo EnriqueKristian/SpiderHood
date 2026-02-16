@@ -1296,7 +1296,7 @@
     private async Task GastoCreadoExitosamente(ViewExpense nuevoGasto)
     {
         nuevoGasto.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-        await ParameterService.ec.AddNewRecordAsync(nuevoGasto);
+        await ExpenseService.AddExpenseAsync(nuevoGasto);
 
         // Conciliar automáticamente con la transacción
         if (transaccionParaGasto != null)

@@ -406,8 +406,9 @@
 @code {
 
     [Inject] private IBudgetService presupuestoService { get; set; } = null!;
-    [Inject]
-    public IInstallmentService InstallmentService { get; set; } = default!;
+    [Inject] private IInstallmentService InstallmentService { get; set; } = default!;
+    [Inject] private IServiceReadingService ServiceReadingService { get; set; } = default!;
+    [Inject] private ICategoryService CategoryService { get; set; } = default!;
 
     private BudgetStatus _Status = BudgetStatus.Created;
 
@@ -497,12 +498,12 @@
         {
             _textCabecera = _BudgetState.Budget.BudgetName;
             //Cargar Lectura de Agua
-            _BudgetState.WaterReadings = await ParameterService.ec.GetServiceReadingDetailbyPeriodAsync(_BudgetState.Budget.BudgetDate);
+            _BudgetState.WaterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(_BudgetState.Budget.BudgetDate);
             bool isActiveOrClosed =  _BudgetState.Status == BudgetStatus.Active ||  _BudgetState.Status == BudgetStatus.Closed;
 
             _BudgetState.Exonerations = isActiveOrClosed
-                ? await ParameterService.ec.GetExonerationByBudgetHeaderAsync(_BudgetState.Budget.IdBudgetHeader)
-                : await ParameterService.ec.GetExonerationsByBuildingAsync(_BudgetState.Budget.IdBuilding);
+                ? await presupuestoService.GetExonerationByBudgetHeaderAsync(_BudgetState.Budget.IdBudgetHeader)
+                : await presupuestoService.GetExonerationsByBuildingAsync(_BudgetState.Budget.IdBuilding);
 
             _BudgetState.Installments = await InstallmentService.GetInstallmentsByBudgetAsync(_BudgetState.Budget.IdBudgetHeader);
             _BudgetState.CalculateTotals();
@@ -522,7 +523,7 @@
         // Cargar periodos desde BD
         _periods = await ParameterService.GetPeriodsAsync();
         //Cargar Categoria
-        filteredCategories = await ParameterService.ec.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
+        filteredCategories = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
         //Caargar lista de Parametros
         filteredParameters = @ParameterService.ListParameters.ToList();
         //Cargar Meses por Culura
@@ -979,7 +980,7 @@
     {
         _BudgetState.IsNewBudget = false;
         _BudgetState.Budget.Details.Clear();
-        _BudgetState.Budget.Details = await ParameterService.ec.GetBudgetDetailAsync(_BudgetState.Budget.IdBudgetHeader);
+        _BudgetState.Budget.Details = await presupuestoService.GetBudgetDetailAsync(_BudgetState.Budget.IdBudgetHeader);
         _periods.Clear();
         _periods = await ParameterService.GetPeriodsAsync();
     }

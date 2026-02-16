@@ -1,0 +1,51 @@
+﻿@* Pseudocode / Plan (detailed):
+   - This component currently calls `AuthService.CheckAuthAsync()` which doesn't exist on `AuthService`.
+   - Use the already-accessed `AuthService.CurrentUser?.IsAuthenticated` property (used elsewhere in this file)
+     to determine authorization state instead of calling the missing method.
+   - Initialize `isAuthorized` from the existing `CurrentUser` property.
+   - Keep `isChecking` logic so redirect won't happen until initial check is done.
+   - Subscribe to `AuthService.OnAuthStateChanged` to update `isAuthorized` on changes.
+   - Implement `IDisposable` so the `Dispose` method is recognized and the event is unsubscribed.
+   - Avoid adding or assuming new AuthService members; rely only on members already used in this file.
+*@
+
+@inject Services.AuthService AuthService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+@if (isAuthorized)
+{
+    @ChildContent
+}
+else if (!isChecking)
+{
+    <RedirectToLogin />
+}
+
+@code {
+    [Parameter] public RenderFragment ChildContent { get; set; }
+    
+    private bool isAuthorized = false;
+    private bool isChecking = true;
+
+    // Use the existing CurrentUser property instead of calling a missing CheckAuthAsync method.
+    protected override Task OnInitializedAsync()
+    {
+        //isAuthorized = AuthService.CurrentUser?.IsAuthenticated ?? false;
+        isChecking = false;
+        
+        AuthService.OnAuthStateChanged += OnAuthStateChanged;
+        return Task.CompletedTask;
+    }
+
+    private async void OnAuthStateChanged()
+    {
+        //isAuthorized = AuthService.CurrentUser?.IsAuthenticated ?? false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        AuthService.OnAuthStateChanged -= OnAuthStateChanged;
+    }
+}

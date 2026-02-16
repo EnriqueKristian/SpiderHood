@@ -20,7 +20,7 @@ namespace SpiderHood.Services
         {
             _context = context;
             _logger = logger;
-            ParameterService = new ParameterService(_context);
+//            ParameterService = new ParameterService(_context);
         }
 
         public async Task<ResultadoGeneracion> GenerarCuotaMensualAsync(

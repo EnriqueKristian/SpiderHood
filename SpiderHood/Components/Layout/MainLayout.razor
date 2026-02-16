@@ -1,6 +1,8 @@
 ﻿@inherits LayoutComponentBase
 @inject Services.ParameterService ParameterService
+@inject Services.CustomAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
+@inject ILogger<MainLayout> Logger
 
 <style>
     /* Estilos adicionales para el header mejorado */
@@ -453,13 +455,37 @@
 </div>
 
 @code {
-    //private Guid IdBuilding = new Guid("C574A553-1573-48C8-F85E-08DE3426C28E");
+    private bool _initialized = false;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        //await ParameterService.LoadParametersAsync(IdBuilding);
-    }
+        if (firstRender && !_initialized)
+        {
+            Logger.LogWarning("🟢 MainLayout.OnAfterRenderAsync - Inicializando cliente");
 
+            try
+            {
+                // Esperar un momento para que todo esté listo
+                //await Task.Delay(100);
+
+                await AuthStateProvider.InitializeClientAsync();
+                _initialized = true;
+
+                // Verificar si hay usuario después de inicializar
+                var user = await AuthStateProvider.GetCurrentUserAsync();
+                if (user != null)
+                {
+                    Logger.LogWarning($"✅ Usuario encontrado después de inicializar: {user.Email}");
+                }
+
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "❌ Error en MainLayout.OnAfterRenderAsync");
+            }
+        }
+    }
 
     // Obtener nombre de la página actual
     private string GetCurrentPageName()

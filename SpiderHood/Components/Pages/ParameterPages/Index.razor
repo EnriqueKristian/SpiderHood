@@ -644,36 +644,20 @@
     private async Task AddItem(SpiderHood.Models.Parameter item)
     {
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-        await ParameterService.ec.AddNewRecordAsync(item);
-        await ParameterService.Context.SaveChangesAsync();
+        await ParameterService.AddParameterAsync(item);
+        //await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(SpiderHood.Models.Parameter _param)
     {
-        await ParameterService.ec.UpdateRecordAsync(_param);
-
-        try
-        {
-            await ParameterService.Context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!ItemExists(_param!.IdTabla))
-            {
-                Navigation.NavigateTo("notfound");
-            }
-            else
-            {
-                throw;
-            }
-        }
+        await ParameterService.UpdateParameterAsync(_param);
     }
 
     private async Task DeleteItem()
     {
         // Lógica adicional después de cerrar el modal, si es necesario
         //await ParameterService.ec.DeleteRecordAsync(_Parameter);
-        await ParameterService.Context.SaveChangesAsync();
+        //await ParameterService.Context.SaveChangesAsync();
         //await modal.HideAsync();
         OnInitialized();
         return;

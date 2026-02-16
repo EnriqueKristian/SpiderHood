@@ -1,75 +1,63 @@
 ﻿using Blazored.LocalStorage;
-using Blazored.Toast;
-using Blazored.Toast.Services;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Components;
 using SpiderHood.Data;
-using SpiderHood.Models;
 using SpiderHood.Services;
-
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContextFactory<SpiderHoodContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("SpiderHoodContext") ?? throw new InvalidOperationException("Connection string 'SpiderHoodContext' not found.")));
 
 builder.Services.AddQuickGridEntityFrameworkAdapter();
-
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-// Add services to the container.
+// Blazor
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddBlazorBootstrap();
 
-// Singleton para mantener el estado global
-builder.Services.AddScoped<ParameterService>();
+// ✅ Blazored LocalStorage (ESTO ES LO IMPORTANTE)
+builder.Services.AddBlazoredLocalStorage();
 
-// Singleton para usuarios
+// Authentication
+builder.Services.AddScoped<CustomAuthenticationStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
+    sp.GetRequiredService<CustomAuthenticationStateProvider>());
+
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddAuthorizationCore();
+
+// Otros servicios
 builder.Services.AddScoped<UsuarioService>();
-
+builder.Services.AddScoped<ParameterService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
-
-// Register services
 builder.Services.AddScoped<IBudgetService, BudgetService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
-builder.Services.AddSingleton<ICalculoService, CalculoService>();
+builder.Services.AddScoped<ICalculoService, CalculoService>();
 builder.Services.AddScoped<IExceptionService, ExceptionService>();
 builder.Services.AddScoped<IPeriodService, PeriodService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IOwnerService, OwnerService>();
 builder.Services.AddScoped<IInstallmentService, InstallmentService>();
-
-// Registrar servicios
-builder.Services.AddScoped<AuthenticationService>();
-builder.Services.AddHttpClient(); // registers HttpClient via IHttpClientFactory
-builder.Services.AddBlazoredLocalStorage(); // register ILocalStorageService
-
-
 builder.Services.AddScoped<ICuotaService, CuotaService>();
 builder.Services.AddScoped<IGastoService, GastoService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
-
-
-// Configurar autenticación
-builder.Services.AddAuthorizationCore();
+builder.Services.AddHttpClient();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseExceptionHandler("/Error");
     app.UseHsts();
-    app.UseMigrationsEndPoint();
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+
 app.UseHttpsRedirection();
-
 app.UseAntiforgery();
-
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

@@ -437,6 +437,10 @@
 </div>
 
 @code {
+
+    [Inject]
+    private IBankAccountService BankAccountService { get; set; } = default!;
+
     private InputFile? fileInput;
     private string fileName = string.Empty;
     private long fileSize = 0;
@@ -533,7 +537,7 @@
         await InvokeAsync(StateHasChanged);
 
         // Verificar si el archivo ya fue procesado
-        var existingHeaders = ParameterService.ec.GetMovementByFileNameAsync(file.Name, ParameterService.CurrentBuilding.IdBuilding).Result;
+        var existingHeaders = await BankAccountService.GetTransactionsByFileNameAsync(file.Name, ParameterService.CurrentBuilding.IdBuilding);
 
         if (existingHeaders.Count > 0)
         {
@@ -553,7 +557,7 @@
         DateTime maxValue = datos.Max(d => d.StatementDate);
 
         // Traer claves existentes en BD
-        var Movements = ParameterService.ec.GetAllMovementDetailAsync(IdBankAccount, minValue, maxValue).Result;
+        var Movements = BankAccountService.GetTransactionsDetailsAsync(IdBankAccount, minValue, maxValue).Result;
         var clavesBD = Movements.Select(md => $"{md.StatementDate:yyyyMMdd}|{md.Description}|{md.Amount}"); // Para búsqueda rápida
 
         int iCont = 0;
@@ -660,8 +664,8 @@
 
     private async Task AddItem(Models.TransactionBankDetail item)
     {
-        await ParameterService.ec.AddNewRecordAsync(item);
-        await ParameterService.Context.SaveChangesAsync();
+        await BankAccountService.AddTransactionFromEECCAsync(item);
+        //await ParameterService.Context.SaveChangesAsync();
     }
 
     private void DeleteItem(Models.TransactionBankDetail item)
@@ -672,13 +676,17 @@
     // En tu método SaveItemAsync, usa esto en lugar de AddRangeAsync genérico:
     private async Task<bool> SaveItemAsync(TransactionBankHeader item)
     {
-        using (var transaction = await ParameterService.Context.Database.BeginTransactionAsync())
+
+        using var context = await ParameterService.ContextFactory().CreateDbContextAsync();
+        using var transaction = await context.Database.BeginTransactionAsync();
+
+        using (transaction)
         {
             try
             {
                 // 1. Guardar header
-                await ParameterService.ec.AddNewRecordAsync(item);
-                await ParameterService.Context.SaveChangesAsync();
+                await BankAccountService.AddTransactionBankHeaderAsync(item);
+                //await ParameterService.Context.SaveChangesAsync();
 
                 // 2. Guardar detalles - USAR EL DBSET ESPECÍFICO
                 var validDetails = item.Details?
@@ -694,7 +702,7 @@
                         await AddItem(detail);
                     }
 
-                    await ParameterService.Context.SaveChangesAsync();
+                    //await ParameterService.Context.SaveChangesAsync();
                 }
 
                 await transaction.CommitAsync();

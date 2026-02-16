@@ -15,7 +15,7 @@ namespace SpiderHood.Services
         public GastoService(SpiderHoodContext context)
         {
             _context = context;
-            ParameterService = new ParameterService(_context);
+            //ParameterService = new ParameterService(_context);
         }
 
         public async Task<List<GastoPendienteViewModel>> ObtenerGastosPendientesAsync()

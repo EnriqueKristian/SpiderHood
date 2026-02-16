@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using SpiderHood.Models
+@inject Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject Services.ParameterService ParameterService
 
@@ -1540,25 +1541,108 @@
         new Currency { Code = "EUR", Symbol = "€", Name = "Euros" }
     };
 
+
+    private bool _isLoading = true;
+    private Guid IdBuilding = Guid.Empty;
+
     protected override async Task OnInitializedAsync()
     {
-        await LoadBuildings();
+        Console.WriteLine($"🏢 Buildings.OnInitializedAsync - Iniciando");
+
+        try
+        {
+            // 1. VERIFICAR USUARIO AUTENTICADO
+            var currentUser = await VerificarUsuarioAutenticado();
+            if (currentUser == null) return; // Ya redirigió a login
+
+            // 2. VERIFICAR EDIFICIO SELECCIONADO
+            if (!await VerificarEdificioSeleccionado(currentUser)) return; // Ya redirigió a select-building
+
+            // 3. AHORA SÍ, VERIFICAR PARAMETER SERVICE
+            if (ParameterService.CurrentBuilding == null)
+            {
+                Console.WriteLine("⚠️ ParameterService.CurrentBuilding es null después de verificación");
+                return;
+            }
+
+            // 4. CARGAR DATOS DE LA PÁGINA
+            await CargarDatosPagina();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error en OnInitializedAsync: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
     }
 
-    private async Task LoadBuildings()
-    {
-        if (ParameterService.CurrentBuilding == null) return;
 
+    private async Task<UserSession?> VerificarUsuarioAutenticado()
+    {
+        UserSession? currentUser = null;
+        int intentos = 0;
+        const int maxIntentos = 5;
+
+        while (currentUser == null && intentos < maxIntentos)
+        {
+            currentUser = await AuthService.GetCurrentUserAsync();
+
+            if (currentUser == null)
+            {
+                intentos++;
+                Console.WriteLine($"⚠️ Intento {intentos}/{maxIntentos} - Usuario no autenticado, esperando 500ms...");
+                await Task.Delay(500);
+            }
+            else
+            {
+                Console.WriteLine($"✅ Usuario encontrado: {currentUser.Email}");
+                return currentUser;
+            }
+        }
+
+        Console.WriteLine($"❌ Usuario no autenticado después de {maxIntentos} intentos - Redirigiendo a login");
+        Navigation.NavigateTo("/login", true);
+        return null;
+    }
+
+    private async Task<bool> VerificarEdificioSeleccionado(UserSession currentUser)
+    {
+        if (!currentUser.CurrentBuildingId.HasValue)
+        {
+            Console.WriteLine("⚠️ No hay edificio seleccionado - Redirigiendo a select-building");
+            Navigation.NavigateTo("/select-building", true);
+            return false;
+        }
+
+        IdBuilding = currentUser.CurrentBuildingId.Value;
+        Console.WriteLine($"🏢 Edificio seleccionado: {IdBuilding}");
+        return true;
+    }
+
+    private async Task CargarDatosPagina()
+    {
+        Console.WriteLine($"📦 Cargando datos para edificio: {IdBuilding}");
+
+        // Cargar edificios del propietario
         Buildings = await BuildingService.GetAllBuildingByOwnerAsync(Guid.NewGuid());
+
+        // Cargar parámetros
         filteredParameters = ParameterService.ListParameters;
-        filteredCategory = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
-        filteredUnits = await BuildingService.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1);
-        //<!--    PARAMETRO_PADRE     -->
+
+        // Cargar categorías
+        filteredCategory = await CategoryService.GetCategoriesAsync(IdBuilding);
+
+        // Cargar unidades
+        filteredUnits = await BuildingService.GetGroupUnitsByTypeAsync(IdBuilding, 1);
+
+        // Cargar métodos de pago (PARAMETRO_PADRE = 16)
         _paymentMethods = filteredParameters
             .Where(c => c.IdParent == 16)
-            .Select(c => c.ShortDescription) // o c.Name, según tu modelo
+            .Select(c => c.ShortDescription)
             .ToList();
-
 
         // Seleccionar el primer edificio por defecto
         if (Buildings.Any())
@@ -1566,6 +1650,8 @@
             SelectedBuilding = Buildings.First();
             SelectedBuilding.Configuration = await GetConfigurationAsync(SelectedBuilding.Name);
         }
+
+        Console.WriteLine("✅ Datos cargados correctamente");
     }
 
     private async Task<BuildingConfiguration> GetConfigurationAsync(string buildingName)
@@ -1861,7 +1947,7 @@
                     break;
             }
 
-            await ParameterService.ec.UpdateRecordAsync(SelectedBuilding.Configuration);
+            await BuildingService.UpdateConfigurationAsync(SelectedBuilding.Configuration);
 
             _editingSection = "";
             StateHasChanged();

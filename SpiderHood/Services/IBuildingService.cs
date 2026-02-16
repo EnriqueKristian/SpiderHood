@@ -19,11 +19,31 @@ namespace SpiderHood.Services
         Task<List<Models.Exoneration>> GetExonerationsByBuildingAsync(Guid IdBuilding);*/
         Task<BuildingConfiguration> GetConfigurationAsync(Guid IdBuilding);
         BuildingConfiguration CreateDefaultConfigurationAsync(Guid IdBuilding);
+        Task UpdateConfigurationAsync(Models.BuildingConfiguration configuration);
+
+        Task<List<Models.OwnerUnitView>> GetOwnersByBuildingAsync(Guid IdBuilding);
+
+        Task<List<Models.Unit>> GetUnitsByBuildingAsync(Guid IdBuilding);
 
         /*  UNITS SECTIONS  */
         Task<List<Models.UnitView>> GetGroupUnitsByTypeAsync(Guid IdBuilding, int type);
 
-        
+        Task AddOwnerUnitAsync(Models.OwnerUnit ownerunit);
+
+        Task AddGroupUnitAsync(Models.GroupUnit newgroupunit);
+
+        Task UpdateOwnerUnitAsync(Models.OwnerUnit ownerunit);
+
+        Task AddOwnerGroupOwnerAsync(Models.OwnerGroupOwner newgroup);
+
+        Task AddUnitAsync(Models.Unit newunit);
+
+
+        Task DeleteUnitAsync(Models.Unit unit);
+
+        Task UpdateUnitAsync(Models.Unit unit);
+
+
         Task<List<Departamento>> ObtenerDepartamentosActivosAsync();
         Task<Departamento> ObtenerDepartamentoPorIdAsync(int id);
         Task<Departamento> CrearDepartamentoAsync(Departamento departamento);
@@ -154,7 +174,6 @@ namespace SpiderHood.Services
             };
         }
 
-
         public async Task CreateConfigurationAsync(Models.BuildingConfiguration newconfiguration)
         {
             try
@@ -166,6 +185,19 @@ namespace SpiderHood.Services
                 Console.WriteLine($"Error al crear el contacto: {ex.Message}");
             }
         }
+
+        public async Task UpdateConfigurationAsync(Models.BuildingConfiguration configuration)
+        {
+            try
+            {
+                await ec.UpdateRecordAsync(configuration);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
         public async Task AddContactAsync(Models.Contact newcontact)
         {
             try
@@ -208,6 +240,103 @@ namespace SpiderHood.Services
             try
             {
                 await ec.DeleteRecordAsync(exoneration);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+
+        public async Task UpdateUnitAsync(Models.Unit unit)
+        {
+            try
+            {
+                await ec.UpdateRecordAsync(unit);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+        public async Task AddUnitAsync(Models.Unit newunit)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newunit);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+        public async Task<List<Models.OwnerUnitView>> GetOwnersByBuildingAsync(Guid IdBuilding)
+        {
+            return await ec.GetOwnersByBuildingAsync(IdBuilding);
+        }
+
+        public async Task<List<Models.Unit>> GetUnitsByBuildingAsync(Guid IdBuilding)
+        {
+            return await ec.GetUnitsByBuildingAsync(IdBuilding);
+        }
+
+        public async Task AddOwnerGroupOwnerAsync(Models.OwnerGroupOwner newgroup)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newgroup);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+
+        public async Task AddGroupUnitAsync(Models.GroupUnit newgroupunit)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(newgroupunit);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+        public async Task AddOwnerUnitAsync(Models.OwnerUnit ownerunit)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(ownerunit);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+
+        public async Task UpdateOwnerUnitAsync(Models.OwnerUnit ownerunit)
+        {
+            try
+            {
+                await ec.UpdateRecordAsync(ownerunit);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+            }
+        }
+
+        public async Task DeleteUnitAsync(Models.Unit unit)
+        {
+            try
+            {
+                await ec.DeleteRecordAsync(unit);
             }
             catch (Exception ex)
             {

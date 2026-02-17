@@ -93,7 +93,6 @@
     private DateTime fechaDesde = DateTime.Now.AddMonths(-1);
     private DateTime fechaHasta = DateTime.Now;
     private Guid cuentaSeleccionadaId = Guid.Empty;
-    private bool cargando = false;
     private List<TransactionBankDetail> transacciones = new();
     private bool _HasInstallments => Installments!.Count() > 0;
     private bool _HasTransactions => transacciones!.Count() > 0;
@@ -139,7 +138,7 @@
 
     private async Task CargarTransacciones()
     {
-        cargando = true;
+        //cargando = true;
 
         try
         {
@@ -157,7 +156,7 @@
         }
         finally
         {
-            cargando = false;
+            //cargando = false;
         }
     }
 

@@ -1,6 +1,8 @@
 ﻿@page "/select-building"
 @inject Services.AuthService AuthService
 @inject NavigationManager Navigation
+@inject ILogger<SelectBuilding> Logger
+@rendermode InteractiveServer
 
 <div class="container py-5">
     <div class="row justify-content-center">
@@ -23,40 +25,60 @@
                             <p>Cargando tus edificios...</p>
                         </div>
                     }
+                    else if (!approvedBuildings.Any() && !pendingBuildings.Any())
+                    {
+                        <div class="text-center py-4">
+                            <i class="fas fa-building-circle-exclamation fa-3x text-muted mb-3"></i>
+                            <p class="mb-3">No tienes acceso a ningún edificio</p>
+                            <a href="/building-request" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Solicitar acceso
+                            </a>
+                        </div>
+                    }
                     else
                     {
-                        <p class="text-muted mb-4">
-                            Tienes acceso a múltiples edificios. Selecciona uno para continuar:
-                        </p>
+                        @if (approvedBuildings.Any())
+                        {
+                            <p class="text-muted mb-4">
+                                Tienes acceso a múltiples edificios. Selecciona uno para continuar:
+                            </p>
 
-                        <div class="building-list">
-                            @foreach (var building in approvedBuildings)
-                            {
-                                <div class="building-item @(selectedBuilding == building.BuildingId ? "selected" : "")"
-                                     @onclick="() => selectedBuilding = building.BuildingId">
-                                    <div class="building-info">
-                                        <div class="building-icon">
-                                            <i class="fas fa-building"></i>
+                            <div class="building-list mb-4">
+                                @foreach (var building in approvedBuildings)
+                                {
+                                    <div class="building-item @(selectedBuilding == building.Building!.IdBuilding ? "selected" : "")"
+                                         @onclick="() => SelectBuilding1(building.Building!.IdBuilding)">
+                                        <div class="building-info">
+                                            <div class="building-icon">
+                                                <i class="fas fa-building"></i>
+                                            </div>
+                                            <div class="building-details">
+                                                <h5 class="mb-1">@building.Building!.Name</h5>
+                                                <span class="badge bg-@GetRoleBadgeColor(building.Role)">@building.Role</span>
+                                                @if (building.Building.Location != null)
+                                                {
+                                                    <small class="text-muted d-block mt-1">
+                                                        <i class="fas fa-map-marker-alt me-1"></i>@building.Building.Location
+                                                    </small>
+                                                }
+                                            </div>
                                         </div>
-                                        <div class="building-details">
-                                            <h5>@building.BuildingName</h5>
-                                            <span class="badge bg-info">@building.Role</span>
+                                        <div class="building-check">
+                                            @if (selectedBuilding == building.Building!.IdBuilding)
+                                            {
+                                                <i class="fas fa-check-circle text-primary fa-lg"></i>
+                                            }
                                         </div>
                                     </div>
-                                    <div class="building-check">
-                                        @if (selectedBuilding == building.BuildingId)
-                                        {
-                                            <i class="fas fa-check-circle text-primary"></i>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        </div>
+                                }
+                            </div>
+                        }
+
                         @if (pendingBuildings.Any())
                         {
-                            <div class="pending-buildings mt-4">
+                            <div class="pending-buildings mt-3">
                                 <hr />
-                                <h6 class="text-warning">
+                                <h6 class="text-warning mb-3">
                                     <i class="fas fa-clock me-2"></i>
                                     Edificios pendientes de aprobación
                                 </h6>
@@ -64,17 +86,25 @@
                                 @foreach (var building in pendingBuildings)
                                 {
                                     <div class="pending-item">
-                                        <span>@building.BuildingName</span>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-building text-muted me-2"></i>
+                                            <span>@building.Building!.Name</span>
+                                        </div>
                                         <span class="badge bg-warning">Pendiente</span>
                                     </div>
                                 }
+
+                                <div class="alert alert-info mt-3 mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Los administradores revisarán tu solicitud de acceso.
+                                </div>
                             </div>
                         }
 
                         <div class="mt-4">
                             <button class="btn btn-primary w-100"
-                                    disabled="@(selectedBuilding == null || isSelecting)"
-                                    @onclick="SelectBuildingAsync">
+                                    disabled="@(selectedBuilding == null)"
+                                    @onclick="ConfirmSelectionAsync">
                                 @if (isSelecting)
                                 {
                                     <span class="spinner-border spinner-border-sm me-2"></span>
@@ -106,6 +136,7 @@
     private Guid? selectedBuilding;
     private bool isLoading = true;
     private bool isSelecting = false;
+    private Models.UserSession? currentUser;
 
     protected override async Task OnInitializedAsync()
     {
@@ -117,32 +148,49 @@
         try
         {
             isLoading = true;
+            StateHasChanged();
 
-            var currentUser = await AuthService.GetCurrentUserAsync();
+            currentUser = await AuthService.GetCurrentUserAsync();
 
             if (currentUser == null)
             {
-                var returnUrl = Navigation.Uri;
-                var encoded = Uri.EscapeDataString(returnUrl);
-                Navigation.NavigateTo($"/login?returnUrl={encoded}", true);
+                Logger.LogWarning("Usuario no autenticado, redirigiendo a login");
+                var returnUrl = Uri.EscapeDataString(Navigation.Uri);
+                Navigation.NavigateTo($"/login?returnUrl={returnUrl}", true);
                 return;
             }
 
-            approvedBuildings = currentUser.Buildings
-                .Where(b => b.IsApproved).ToList();
+            // Separar edificios aprobados y pendientes
+            approvedBuildings = currentUser.Buildings?
+                .Where(b => b.IsApproved && b.Building != null)
+                .ToList() ?? new();
 
-            pendingBuildings = currentUser.Buildings
-                .Where(b => !b.IsApproved).ToList();
+            pendingBuildings = currentUser.Buildings?
+                .Where(b => !b.IsApproved && b.Building != null)
+                .ToList() ?? new();
 
-            if (approvedBuildings.Count == 1)
+            // Si hay un edificio actual en la sesión, preseleccionarlo
+            if (currentUser.CurrentBuildingId.HasValue)
             {
-                selectedBuilding = approvedBuildings.First().BuildingId;
-                await SelectBuildingAsync();
+                var currentBuilding = approvedBuildings
+                    .FirstOrDefault(b => b.Building!.IdBuilding == currentUser.CurrentBuildingId.Value);
+
+                if (currentBuilding != null)
+                {
+                    selectedBuilding = currentBuilding.Building!.IdBuilding;
+                }
+            }
+
+            // Si solo hay un edificio aprobado, seleccionarlo automáticamente
+            if (approvedBuildings.Count == 1 && selectedBuilding == null)
+            {
+                selectedBuilding = approvedBuildings.First().Building!.IdBuilding;
+                await ConfirmSelectionAsync();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error cargando datos: {ex.Message}");
+            Logger.LogError(ex, "Error cargando datos de edificios");
         }
         finally
         {
@@ -151,28 +199,52 @@
         }
     }
 
-    private async Task SelectBuildingAsync()
+    private void SelectBuilding1(Guid buildingId)
+    {
+        selectedBuilding = buildingId;
+        //StateHasChanged();
+    }
+
+    private async Task ConfirmSelectionAsync()
     {
         if (!selectedBuilding.HasValue || isSelecting) return;
 
         try
         {
             isSelecting = true;
+            StateHasChanged();
 
-            await AuthService.SetCurrentBuilding(selectedBuilding);
+            Logger.LogInformation($"Seleccionando edificio: {selectedBuilding.Value}");
 
-            await Task.Delay(500);
+            // Establecer el edificio actual
+            await AuthService.SetCurrentBuilding(selectedBuilding.Value);
 
+            // Pequeña pausa para dar feedback visual
+            await Task.Delay(300);
+
+            // Redirigir al dashboard
             Navigation.NavigateTo("/dashboard", true);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error seleccionando edificio: {ex.Message}");
-        }
-        finally
-        {
+            Logger.LogError(ex, "Error seleccionando edificio");
+
+            // Mostrar error al usuario (podrías agregar una variable de error)
             isSelecting = false;
             StateHasChanged();
         }
+    }
+
+    private string GetRoleBadgeColor(string role)
+    {
+        return role?.ToLower() switch
+        {
+            "admin" or "administrador" => "danger",
+            "owner" or "propietario" => "warning",
+            "tenant" or "inquilino" => "info",
+            "security" or "seguridad" => "secondary",
+            "maintenance" or "mantenimiento" => "primary",
+            _ => "secondary"
+        };
     }
 }

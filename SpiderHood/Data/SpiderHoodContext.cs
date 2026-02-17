@@ -50,6 +50,8 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.InstallmentException>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Installment>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.InstallmentPaid>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.User>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.UserBuildingAssociation>().HasNoKey(); // If SP doesn't return a primary key
 
             base.OnModelCreating(modelBuilder);
         }

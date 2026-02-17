@@ -238,7 +238,7 @@ namespace SpiderHood.Services
         {
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, session.UserId.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, session.IdUser.ToString()),
                 new Claim(ClaimTypes.Name, session.FullName),
                 new Claim(ClaimTypes.Email, session.Email),
                 new Claim("SessionStart", session.SessionStart.ToString()),

@@ -62,10 +62,10 @@
                     @foreach (var building in GetBuildings())
                     {
                         <li>
-                            <a class="dropdown-item @(building.BuildingId == currentUser!.Buildings[0].BuildingId ? "active" : "")"
+                            <a class="dropdown-item @(building.Building!.IdBuilding! == currentUser!.Buildings[0].Building!.IdBuilding! ? "active" : "")"
                                href="/Buildings" )>
                                 <i class="fas fa-building me-2"></i>
-                                @building.BuildingName
+                                @building.Building.Name
                                 <span class="badge bg-success ms-2">@building.Role</span>
                             </a>
                         </li>
@@ -241,20 +241,20 @@
     private async Task OnBuildingSelected(Models.UserBuilding building)
     {
         await SetCurrentBuilding(building);
-        NavigationManager.NavigateTo($"/building/{building.BuildingId}");
+        NavigationManager.NavigateTo($"/building/{building.Building!.IdBuilding}");
     }
 
     // En MainLayout.razor
     private async Task SetCurrentBuilding(Models.UserBuilding building)
     {
-        CurrentBuildingId = building.BuildingId; // Convertir Guid a string
-        BuildingName = building.BuildingName;
+        CurrentBuildingId = building.Building!.IdBuilding; // Convertir Guid a string
+        BuildingName = building.Building.Name;
 
         // Actualizar ParameterService
-        //ParameterService.CurrentBuilding = building;
+        ParameterService.CurrentBuilding = building.Building;
 
         // Guardar preferencia en AuthService
-        await AuthService.SetDefaultBuildingAsync(building.BuildingId);
+        await AuthService.SetDefaultBuildingAsync(building.Building.IdBuilding);
 
         StateHasChanged();
     }
@@ -270,12 +270,12 @@
         {
             // Intentar obtener de la URL
             var uri = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-            /*if (uri.StartsWith("building/"))
+            if (uri.StartsWith("building/"))
             {
                 var buildingIdString = uri.Split('/').LastOrDefault();
                 if (Guid.TryParse(buildingIdString, out Guid buildingId))
                 {
-                    var building = Buildings.FirstOrDefault(b => b.BuildingId == buildingId);
+                    var building = Buildings.FirstOrDefault(b => b.Building!.IdBuilding == buildingId);
                     if (building != null)
                     {
                         await SetCurrentBuilding(building);
@@ -288,13 +288,13 @@
                 var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
                 if (defaultBuildingId.HasValue)
                 {
-                    var building = Buildings.FirstOrDefault(b => b.BuildingId == defaultBuildingId.Value);
+                    var building = Buildings.FirstOrDefault(b => b.Building!.IdBuilding == defaultBuildingId.Value);
                     if (building != null)
                     {
                         await SetCurrentBuilding(building);
                         }
                     }
-                }*/
+                }
         }
     }
 
@@ -312,12 +312,12 @@
 
     private Guid GetCurrentBuildingId(Guid BuildingId)
     {
-        var x = CurrentBuildingId ?? Buildings.FirstOrDefault()?.BuildingId ?? Guid.Empty;
+        var x = CurrentBuildingId ?? Buildings.FirstOrDefault()?.Building!.IdBuilding ?? Guid.Empty;
         if (BuildingId == x){
 
             if (BuildingName != "Seleccionar Edificio") return x;
             _isLoadingBuildings = false;
-            BuildingName = Buildings.FirstOrDefault()?.BuildingName!;
+            BuildingName = Buildings.FirstOrDefault()?.Building!.Name!;
             StateHasChanged();
         }
         return x;
@@ -405,7 +405,7 @@
             return currentUser?.Buildings!;
         else
         {
-            BuildingName = currentUser?.Buildings?.FirstOrDefault()?.BuildingName!;
+            BuildingName = currentUser?.Buildings?.FirstOrDefault()?.Building!.Name!;
             StateHasChanged();
         }
         return currentUser?.Buildings ?? new List<Models.UserBuilding>();

@@ -1,7 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
+using SpiderHood.Data;
 using SpiderHood.Models;
 using System.Text;
-using Microsoft.JSInterop;
 
 namespace SpiderHood.Services
 {
@@ -24,32 +25,37 @@ namespace SpiderHood.Services
         private readonly ILogger<AuthService> _logger;
         private readonly CustomAuthenticationStateProvider _authStateProvider;
 
-        private static readonly List<User> _users = new();
-        private static readonly List<UserBuildingAssociation> _userBuildings = new();
+        private List<Models.User> _users = new();
+        private List<UserBuildingAssociation> _userBuildings = new();
 
         private const string DEFAULT_BUILDING_KEY = "defaultBuildingId";
         private readonly IJSRuntime _jsRuntime;
 
         public event Action? OnAuthStateChanged;
+        private BDLayout ec { get; set; }
+        public SpiderHoodContext _context = default!;
 
-        public AuthService(
-            ILogger<AuthService> logger,
-            CustomAuthenticationStateProvider authStateProvider)
+        public AuthService(SpiderHoodContext context,
+           ILogger<AuthService> logger,
+           CustomAuthenticationStateProvider authStateProvider,
+           IJSRuntime jsRuntime) // Added parameter to satisfy readonly field assignment
         {
             _logger = logger;
             _authStateProvider = authStateProvider;
-            InitializeSampleData();
+            _jsRuntime = jsRuntime; // Assign the non-nullable readonly field
+            ec = new BDLayout(context);
+            //InitializeSampleData();
         }
 
         private void InitializeSampleData()
         {
             if (_users.Any()) return;
 
-            var adminId = Guid.NewGuid();
+            var adminId = Guid.Parse("BCD5E9DE-0FD2-431D-AB16-B4B9BB19DDC7"); //Guid.NewGuid();
 
-            _users.Add(new User
+            _users.Add(new Models.User
             {
-                Id = adminId,
+                IdUser = adminId,
                 // 🔴 Usar minúsculas para consistencia
                 Email = "admin@spiderhood.com",
                 PasswordHash = HashPassword("Admin123!"),
@@ -61,8 +67,8 @@ namespace SpiderHood.Services
 
             _userBuildings.Add(new UserBuildingAssociation
             {
-                UserId = adminId,
-                BuildingId = Guid.Parse("C574A553-1573-48C8-F85E-08DE3426C28E"),
+                IdUser = adminId,
+                IdBuilding = Guid.Parse("C574A553-1573-48C8-F85E-08DE3426C28E"),
                 Role = "Administrador",
                 IsApproved = true,
                 ApprovedAt = DateTime.UtcNow
@@ -80,6 +86,9 @@ namespace SpiderHood.Services
 
                 // 🔴 NORMALIZAR EMAIL: convertir a minúsculas para comparación
                 var normalizedEmail = model.Email?.Trim().ToLowerInvariant();
+
+
+                _users = await ec.GetUsersByEmailAsync(normalizedEmail!);
 
                 // Buscar usuario con email normalizado
                 var user = _users.FirstOrDefault(u =>
@@ -103,22 +112,32 @@ namespace SpiderHood.Services
                     return AuthFail("Email o contraseña incorrectos");
                 }
 
+
+                _userBuildings = await ec.GetUserBuildingAssociationAsync(user.IdUser);
+                List<Building> builds = await ec.GetAllBuildingByOwnerAsync(user.IdUser);
+                List<BuildingConfiguration> configurations = await ec.GetAllBuildingsConfigAsync(user.IdUser);
+
                 // Obtener edificios
+                foreach (var item in builds)
+                {
+                    item.Configuration = configurations.Where(c => c.IdBuilding == item.IdBuilding).FirstOrDefault()!;
+                }
+
                 var buildings = _userBuildings
-                    .Where(ub => ub.UserId == user.Id)
+                    .Where(ub => ub.IdUser == user.IdUser)
                     .Select(ub => new UserBuilding
                     {
-                        BuildingId = ub.BuildingId,
-                        BuildingName = GetBuildingName(ub.BuildingId),
+                        Building = builds.FirstOrDefault(b => b.IdBuilding == ub.IdBuilding),
+
                         Role = ub.Role,
                         IsApproved = ub.IsApproved,
                         ApprovedAt = ub.ApprovedAt
                     }).ToList();
 
                 // Crear sesión
-                var session = new UserSession
+                var session =  (new UserSession
                 {
-                    UserId = user.Id,
+                    IdUser = user.IdUser,
                     Email = user.Email,
                     FullName = $"{user.FirstName} {user.LastName}",
                     Roles = buildings.Select(b => b.Role).Distinct().ToList(),
@@ -127,7 +146,7 @@ namespace SpiderHood.Services
                     RememberMe = model.RememberMe,
                     SessionStart = DateTime.UtcNow,
                     SessionExpiry = DateTime.UtcNow.AddHours(8)
-                };
+                });
 
                 _logger.LogWarning($"✅ Usuario autenticado: {model.Email}");
                 _logger.LogWarning($"🔵 Llamando a MarkUserAsAuthenticated...");
@@ -165,7 +184,7 @@ namespace SpiderHood.Services
 
             if (buildingId.HasValue)
             {
-                var building = user.Buildings.FirstOrDefault(b => b.BuildingId == buildingId.Value);
+                var building = user.Buildings.FirstOrDefault(b => b.Building!.IdBuilding == buildingId.Value);
                 if (building != null)
                 {
                     user.CurrentBuildingId = buildingId.Value;
@@ -219,7 +238,7 @@ namespace SpiderHood.Services
         {
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)
-                return approved[0].BuildingId;
+                return approved[0].Building!.IdBuilding;
 
             return null;
         }
@@ -249,7 +268,7 @@ namespace SpiderHood.Services
             _logger.LogWarning("=== EDIFICIOS ASIGNADOS ===");
             foreach (var ub in _userBuildings)
             {
-                _logger.LogWarning($"Usuario: {ub.UserId} -> Edificio: {ub.BuildingId} - {ub.Role} - Aprobado: {ub.IsApproved}");
+                _logger.LogWarning($"Usuario: {ub.IdUser} -> Edificio: {ub.IdBuilding} - {ub.Role} - Aprobado: {ub.IsApproved}");
             }
         }
 
@@ -267,13 +286,13 @@ namespace SpiderHood.Services
                     return;
                 }
 
-                var key = $"defaultBuilding_{user.UserId}"; // Asumiendo que UserSession tiene UserId
+                var key = $"defaultBuilding_{user.IdUser}"; // Asumiendo que UserSession tiene UserId
                 await _jsRuntime.InvokeVoidAsync("localStorage.setItem", key, buildingId.ToString());
 
                 // También guardar el último edificio usado (para sesión actual)
                 await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "lastBuildingId", buildingId.ToString());
 
-                _logger.LogInformation($"✅ Edificio por defecto guardado para usuario {user.UserId}: {buildingId}");
+                _logger.LogInformation($"✅ Edificio por defecto guardado para usuario {user.IdUser}: {buildingId}");
             }
             catch (Exception ex)
             {
@@ -293,7 +312,7 @@ namespace SpiderHood.Services
                     return null;
 
                 // Primero intentar con el específico del usuario
-                var userKey = $"defaultBuilding_{user.UserId}";
+                var userKey = $"defaultBuilding_{user.IdUser}";
                 var buildingIdString = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", userKey);
 
                 if (Guid.TryParse(buildingIdString, out Guid buildingId))
@@ -322,7 +341,7 @@ namespace SpiderHood.Services
                 var user = await GetCurrentUserAsync();
                 if (user != null)
                 {
-                    var userKey = $"defaultBuilding_{user.UserId}";
+                    var userKey = $"defaultBuilding_{user.IdUser}";
                     await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", userKey);
                 }
 
@@ -334,37 +353,6 @@ namespace SpiderHood.Services
                 _logger.LogError(ex, "❌ Error limpiando preferencias");
             }
         }
-
     }
 
 }
-
-// Modelos internos
-    public class User
-    {
-        public Guid Id { get; set; }
-        public string Email { get; set; } = string.Empty;
-        public string PasswordHash { get; set; } = string.Empty;
-        public string FirstName { get; set; } = string.Empty;
-        public string LastName { get; set; } = string.Empty;
-        public string PhoneNumber { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
-        public DateTime CreatedAt { get; set; }
-    }
-
-    public class UserBuildingAssociation
-    {
-        public Guid UserId { get; set; }
-        public Guid BuildingId { get; set; }
-        public string Role { get; set; } = string.Empty;
-        public bool IsApproved { get; set; }
-        public DateTime? RequestedAt { get; set; }
-        public DateTime? ApprovedAt { get; set; }
-        public Guid? ApprovedBy { get; set; }
-    }
-
-    public class RegisterResult
-    {
-        public bool Success { get; set; }
-        public string[] Errors { get; set; } = new string[0];
-    }

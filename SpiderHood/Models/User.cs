@@ -2,6 +2,18 @@
 
 namespace SpiderHood.Models
 {
+    public class User
+    {
+        public Guid IdUser { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string PasswordHash { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
     public class LoginModel
     {
         [Required(ErrorMessage = "El email es requerido")]
@@ -42,7 +54,7 @@ namespace SpiderHood.Models
 
     public class UserSession
     {
-        public Guid UserId { get; set; }
+        public Guid IdUser { get; set; }
         public string Email { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
         public List<string> Roles { get; set; } = [];
@@ -57,11 +69,21 @@ namespace SpiderHood.Models
 
     public class UserBuilding
     {
-        public Guid BuildingId { get; set; }
-        public string BuildingName { get; set; } = string.Empty;
+        public Models.Building? Building { get; set; } 
         public string Role { get; set; } = string.Empty; // Admin, Junta, Residente
         public bool IsApproved { get; set; }
         public DateTime? ApprovedAt { get; set; }
+    }
+
+    public class UserBuildingAssociation
+    {
+        public Guid IdUser { get; set; }
+        public Guid IdBuilding { get; set; }
+        public string Role { get; set; } = string.Empty;
+        public bool IsApproved { get; set; }
+        public DateTime? RequestedAt { get; set; }
+        public DateTime? ApprovedAt { get; set; }
+        public Guid? ApprovedBy { get; set; }
     }
 
     public class AuthResponse
@@ -78,7 +100,7 @@ namespace SpiderHood.Models
     {
         public static bool BelongsToUser(this Models.UserBuilding building, Models.UserSession user)
         {
-            return user?.Buildings?.Any(b => b.BuildingId == building.BuildingId) ?? false;
+            return user?.Buildings?.Any(b => b.Building!.IdBuilding == building.Building!.IdBuilding) ?? false;
         }
 
         public static Models.UserBuilding? GetValidDefaultBuilding(
@@ -88,7 +110,7 @@ namespace SpiderHood.Models
             if (!preferredBuildingId.HasValue)
                 return buildings.FirstOrDefault();
 
-            return buildings.FirstOrDefault(b => b.BuildingId == preferredBuildingId.Value)
+            return buildings.FirstOrDefault(b => b.Building!.IdBuilding == preferredBuildingId.Value)
                    ?? buildings.FirstOrDefault();
         }
     }

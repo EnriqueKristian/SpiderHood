@@ -1,0 +1,55 @@
+/* En wwwroot/css/app.css o similar */
+    .building-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        margin-bottom: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+        .building-item:hover {
+            background-color: #f8f9fa;
+            border-color: #0d6efd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .building-item.selected {
+            border-color: #0d6efd;
+            background-color: #e7f1ff;
+        }
+
+    .building-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .building-icon {
+        width: 40px;
+        height: 40px;
+        background-color: #e7f1ff;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #0d6efd;
+    }
+
+    .pending-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem;
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+        .pending-item:last-child {
+            margin-bottom: 0;
+        }

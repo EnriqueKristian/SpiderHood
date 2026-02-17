@@ -111,6 +111,9 @@ namespace SpiderHood.Data
             public const string GET_AllContacts = "GET_AllContacts";
             public const string GET_PendingConciliationExpenses = "GET_PendingConciliationExpenses";
             public const string GET_InstallmentPaid = "GET_InstallmentPaid";
+            public const string GET_UsersByEmail = "GET_UsersByEmail";
+            public const string GET_UserBuildingAssociation = "GET_UserBuildingAssociation";
+            public const string GET_AllBuildingsConfig = "GET_AllBuildingsConfig";
         }
         #endregion
 
@@ -1147,6 +1150,37 @@ namespace SpiderHood.Data
         #endregion
 
         #region Get Operations
+
+        public async Task<List<Models.BuildingConfiguration>> GetAllBuildingsConfigAsync(Guid IdUser, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.BuildingConfiguration>(
+                    StoredProcedures.GET_AllBuildingsConfig,
+                    IdUser);
+            }, "GetAllBuildingsConfig", cancellationToken);
+        }
+
+        public async Task<List<Models.UserBuildingAssociation>> GetUserBuildingAssociationAsync(Guid IdUser, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.UserBuildingAssociation>(
+                    StoredProcedures.GET_UserBuildingAssociation,
+                    IdUser);
+            }, "GetUserBuildingAssociation", cancellationToken);
+        }
+
+        public async Task<List<Models.User>> GetUsersByEmailAsync(string email, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.User>(
+                    StoredProcedures.GET_UsersByEmail,
+                    email);
+            }, "GetUsersByEmail", cancellationToken);
+        }
+
         public async Task<List<BudgetSumCategory>> GetBudgetSumAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

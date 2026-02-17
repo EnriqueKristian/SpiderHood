@@ -202,7 +202,7 @@
         }
         else if (approvedBuildings.Count == 1)
         {
-            await AuthService.SetCurrentBuilding(approvedBuildings.First().BuildingId);
+            await AuthService.SetCurrentBuilding(approvedBuildings.First().Building!.IdBuilding);
             Navigation.NavigateTo("/dashboard", true);
         }
         else

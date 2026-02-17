@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using SpiderHood.Models;
 using System.Text;
+using Microsoft.JSInterop;
 
 namespace SpiderHood.Services
 {
@@ -25,6 +26,9 @@ namespace SpiderHood.Services
 
         private static readonly List<User> _users = new();
         private static readonly List<UserBuildingAssociation> _userBuildings = new();
+
+        private const string DEFAULT_BUILDING_KEY = "defaultBuildingId";
+        private readonly IJSRuntime _jsRuntime;
 
         public event Action? OnAuthStateChanged;
 
@@ -249,12 +253,94 @@ namespace SpiderHood.Services
             }
         }
 
+        /// <summary>
+        /// Guarda el edificio por defecto del usuario actual
+        /// </summary>
+        public async Task SetDefaultBuildingAsync(Guid buildingId)
+        {
+            try
+            {
+                var user = await GetCurrentUserAsync();
+                if (user == null)
+                {
+                    _logger.LogWarning("⚠️ No hay usuario autenticado para guardar preferencia");
+                    return;
+                }
+
+                var key = $"defaultBuilding_{user.UserId}"; // Asumiendo que UserSession tiene UserId
+                await _jsRuntime.InvokeVoidAsync("localStorage.setItem", key, buildingId.ToString());
+
+                // También guardar el último edificio usado (para sesión actual)
+                await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "lastBuildingId", buildingId.ToString());
+
+                _logger.LogInformation($"✅ Edificio por defecto guardado para usuario {user.UserId}: {buildingId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"❌ Error guardando edificio por defecto: {buildingId}");
+            }
+        }
+
+        /// <summary>
+        /// Obtiene el edificio por defecto del usuario actual
+        /// </summary>
+        public async Task<Guid?> GetDefaultBuildingAsync()
+        {
+            try
+            {
+                var user = await GetCurrentUserAsync();
+                if (user == null)
+                    return null;
+
+                // Primero intentar con el específico del usuario
+                var userKey = $"defaultBuilding_{user.UserId}";
+                var buildingIdString = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", userKey);
+
+                if (Guid.TryParse(buildingIdString, out Guid buildingId))
+                    return buildingId;
+
+                // Si no, intentar con el último usado (compatibilidad hacia atrás)
+                var lastUsed = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "lastBuildingId");
+                if (Guid.TryParse(lastUsed, out Guid lastUsedId))
+                    return lastUsedId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error obteniendo edificio por defecto");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Limpia las preferencias del usuario al hacer logout
+        /// </summary>
+        public async Task ClearUserPreferencesAsync()
+        {
+            try
+            {
+                var user = await GetCurrentUserAsync();
+                if (user != null)
+                {
+                    var userKey = $"defaultBuilding_{user.UserId}";
+                    await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", userKey);
+                }
+
+                // No limpiar lastBuildingId porque podría ser útil para el próximo login
+                _logger.LogInformation("✅ Preferencias de usuario limpiadas");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error limpiando preferencias");
+            }
+        }
+
     }
 
 }
 
 // Modelos internos
-public class User
+    public class User
     {
         public Guid Id { get; set; }
         public string Email { get; set; } = string.Empty;

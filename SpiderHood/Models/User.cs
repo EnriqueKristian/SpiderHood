@@ -71,4 +71,25 @@ namespace SpiderHood.Models
         public UserSession UserSession { get; set; }= new();
         public string Token { get; set; }= string.Empty;
     }
+
+
+    // Extensión útil para validar que el edificio pertenece al usuario
+    public static class BuildingExtensions
+    {
+        public static bool BelongsToUser(this Models.UserBuilding building, Models.UserSession user)
+        {
+            return user?.Buildings?.Any(b => b.BuildingId == building.BuildingId) ?? false;
+        }
+
+        public static Models.UserBuilding? GetValidDefaultBuilding(
+            this IEnumerable<Models.UserBuilding> buildings,
+            Guid? preferredBuildingId)
+        {
+            if (!preferredBuildingId.HasValue)
+                return buildings.FirstOrDefault();
+
+            return buildings.FirstOrDefault(b => b.BuildingId == preferredBuildingId.Value)
+                   ?? buildings.FirstOrDefault();
+        }
+    }
 }

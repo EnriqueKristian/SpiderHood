@@ -10,13 +10,13 @@ namespace SpiderHood.Services
     {
         private readonly ILocalStorageService _localStorage;
         private readonly ILogger<CustomAuthenticationStateProvider> _logger;
-
+        
         // 🔴 DATOS ESTÁTICOS - Compartidos entre todas las instancias
         private static UserSession? _staticCurrentUser;
         private static bool _staticIsClientInitialized = false;
-
+        
         private readonly ClaimsPrincipal _anonymous = new(new ClaimsIdentity());
-
+        
         private bool _isPrerendering = true;
 
         public CustomAuthenticationStateProvider(
@@ -31,7 +31,7 @@ namespace SpiderHood.Services
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
             _logger.LogWarning($"📌 GetAuthenticationStateAsync - Instancia: {this.GetHashCode()}, _isPrerendering: {_isPrerendering}, _staticIsClientInitialized: {_staticIsClientInitialized}");
-
+            
             try
             {
                 // 1. Si hay usuario estático, usarlo
@@ -57,17 +57,17 @@ namespace SpiderHood.Services
 
                 // 4. Intentar cargar desde localStorage
                 _logger.LogWarning("📦 Intentando cargar desde localStorage...");
-
+                
                 try
                 {
                     var sessionJson = await _localStorage.GetItemAsync<string>("userSession");
-
+                    
                     _logger.LogWarning($"📦 localStorage.GetItemAsync: {(string.IsNullOrEmpty(sessionJson) ? "null" : "tiene datos")}");
-
+                    
                     if (!string.IsNullOrEmpty(sessionJson))
                     {
                         var session = JsonSerializer.Deserialize<UserSession>(sessionJson);
-
+                        
                         if (session?.IsAuthenticated == true)
                         {
                             _logger.LogWarning($"✅ Sesión cargada para: {session.Email}");
@@ -103,32 +103,32 @@ namespace SpiderHood.Services
             }
 
             _logger.LogWarning($"🔄 InitializeClientAsync INICIADO - Instancia: {this.GetHashCode()}");
-
+            
             try
             {
                 _isPrerendering = false;
-
+                
                 _logger.LogWarning("📦 Cargando desde localStorage en InitializeClientAsync...");
-
+                
                 var sessionJson = await _localStorage.GetItemAsync<string>("userSession");
-
+                
                 _logger.LogWarning($"📦 Resultado: {(string.IsNullOrEmpty(sessionJson) ? "vacío" : "tiene datos")}");
-
+                
                 if (!string.IsNullOrEmpty(sessionJson))
                 {
                     var session = JsonSerializer.Deserialize<UserSession>(sessionJson);
-
+                    
                     if (session?.IsAuthenticated == true)
                     {
                         _logger.LogWarning($"✅ Sesión restaurada: {session.Email}");
                         _staticCurrentUser = session;
-
+                        
                         _logger.LogWarning("📢 Notificando cambio de estado...");
                         NotifyAuthenticationStateChanged(
                             Task.FromResult(CreateAuthenticationState(session)));
                     }
                 }
-
+                
                 _staticIsClientInitialized = true;
             }
             catch (Exception ex)
@@ -136,20 +136,20 @@ namespace SpiderHood.Services
                 _logger.LogError(ex, "❌ Error en InitializeClientAsync");
                 _staticIsClientInitialized = true;
             }
-
+            
             _logger.LogWarning($"🔄 InitializeClientAsync FINALIZADO - Instancia: {this.GetHashCode()}");
         }
 
         public async Task MarkUserAsAuthenticated(UserSession session)
         {
             _logger.LogWarning($"🔐 MarkUserAsAuthenticated INICIADO para: {session.Email} - Instancia: {this.GetHashCode()}");
-
+            
             try
             {
                 // Guardar en memoria estática (compartida entre instancias)
                 _staticCurrentUser = session;
                 _isPrerendering = false;
-
+                
                 // Intentar guardar en localStorage
                 try
                 {
@@ -168,12 +168,12 @@ namespace SpiderHood.Services
                 {
                     _logger.LogError(ex, "❌ Error guardando en localStorage");
                 }
-
+                
                 // Notificar cambio de estado
                 _logger.LogWarning("📢 Notificando cambio de estado...");
                 var authState = CreateAuthenticationState(session);
                 NotifyAuthenticationStateChanged(Task.FromResult(authState));
-
+                
                 _logger.LogWarning($"✅ MarkUserAsAuthenticated COMPLETADO - Instancia: {this.GetHashCode()}");
             }
             catch (Exception ex)
@@ -186,11 +186,11 @@ namespace SpiderHood.Services
         public async Task MarkUserAsLoggedOut()
         {
             _logger.LogWarning($"🚪 MarkUserAsLoggedOut INICIADO - Instancia: {this.GetHashCode()}");
-
+            
             try
             {
                 _staticCurrentUser = null;
-
+                
                 try
                 {
                     _logger.LogWarning("🗑️ Eliminando de localStorage...");
@@ -201,7 +201,7 @@ namespace SpiderHood.Services
                 {
                     _logger.LogError(ex, "❌ Error eliminando de localStorage");
                 }
-
+                
                 NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_anonymous)));
             }
             catch (Exception ex)
@@ -213,23 +213,23 @@ namespace SpiderHood.Services
         public async Task<UserSession?> GetCurrentUserAsync()
         {
             _logger.LogWarning($"👤 GetCurrentUserAsync llamado - Instancia: {this.GetHashCode()}, Memoria estática: {_staticCurrentUser?.IsAuthenticated}");
-
+            
             // PRIMERO: Verificar memoria estática
             if (_staticCurrentUser?.IsAuthenticated == true)
             {
                 _logger.LogWarning($"✅ Usuario encontrado en memoria estática: {_staticCurrentUser.Email}");
                 return _staticCurrentUser;
             }
-
+            
             // SEGUNDO: Intentar obtener del estado
             var authState = await GetAuthenticationStateAsync();
-
+            
             if (_staticCurrentUser?.IsAuthenticated == true)
             {
                 _logger.LogWarning($"✅ Usuario recuperado vía GetAuthenticationState: {_staticCurrentUser.Email}");
                 return _staticCurrentUser;
             }
-
+            
             _logger.LogWarning("❌ No se encontró usuario autenticado");
             return null;
         }

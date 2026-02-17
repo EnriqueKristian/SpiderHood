@@ -1,310 +1,10 @@
-﻿@inherits LayoutComponentBase
+﻿@using SpiderHood.Models
+@inherits LayoutComponentBase
 @inject Services.ParameterService ParameterService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<MainLayout> Logger
-
-<style>
-    /* Estilos adicionales para el header mejorado */
-
-    .top-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        height: 70px;
-        background: white;
-        border-bottom: 1px solid #e9ecef;
-        padding: 0 24px;
-        position: sticky;
-        top: 0;
-        z-index: 100;
-    }
-
-    /* Header Left */
-    .header-left {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
-
-    .breadcrumb {
-        background: transparent;
-        padding: 0;
-        margin: 0;
-    }
-
-    .breadcrumb-item a {
-        color: #6c757d;
-        text-decoration: none;
-    }
-
-    .breadcrumb-item.active {
-        color: #2563eb;
-        font-weight: 500;
-    }
-
-    .page-title {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #1e293b;
-        border-left: 2px solid #e9ecef;
-        padding-left: 16px;
-    }
-
-    /* Header Right */
-    .header-right {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-    }
-
-    /* Building Selector */
-    .building-selector {
-        display: flex;
-        align-items: center;
-        background: #f8f9fa;
-        border-radius: 10px;
-        padding: 6px 16px 6px 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-        border: 1px solid #e9ecef;
-        min-width: 200px;
-    }
-
-        .building-selector:hover {
-            background: #e9ecef;
-            border-color: #ced4da;
-        }
-
-    .building-info {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex: 1;
-    }
-
-    .building-icon {
-        width: 32px;
-        height: 32px;
-        background: linear-gradient(135deg, #2563eb, #1e40af);
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1rem;
-    }
-
-    .building-details {
-        display: flex;
-        flex-direction: column;
-        line-height: 1.2;
-    }
-
-    .building-name {
-        font-weight: 600;
-        color: #1e293b;
-        font-size: 0.9rem;
-    }
-
-    .building-period {
-        font-size: 0.7rem;
-        color: #6c757d;
-    }
-
-    /* Building Dropdown */
-    .building-dropdown {
-        width: 280px;
-        padding: 8px 0;
-    }
-
-        .building-dropdown .dropdown-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 16px;
-        }
-
-            .building-dropdown .dropdown-item.active {
-                background: #e9ecef;
-                color: #2563eb;
-            }
-
-    /* Notifications */
-    .notification-dropdown {
-        position: relative;
-    }
-
-    .btn-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        border: 1px solid #e9ecef;
-        background: white;
-        color: #495057;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        position: relative;
-    }
-
-        .btn-icon:hover {
-            background: #f8f9fa;
-        }
-
-    .notification-badge {
-        position: absolute;
-        top: -5px;
-        right: -5px;
-        background: #dc3545;
-        color: white;
-        border-radius: 50%;
-        width: 18px;
-        height: 18px;
-        font-size: 0.7rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    /* User Dropdown */
-    .user-dropdown {
-        position: relative;
-    }
-
-    .btn-user {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: transparent;
-        border: 1px solid #e9ecef;
-        border-radius: 30px;
-        padding: 4px 16px 4px 4px;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-        .btn-user:hover {
-            background: #f8f9fa;
-            border-color: #ced4da;
-        }
-
-    .avatar {
-        width: 36px;
-        height: 36px;
-        background: linear-gradient(135deg, #f59e0b, #d97706);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: 600;
-    }
-
-    .user-info {
-        display: flex;
-        flex-direction: column;
-        text-align: left;
-    }
-
-    .user-name {
-        font-weight: 600;
-        color: #1e293b;
-        font-size: 0.9rem;
-    }
-
-    .user-role {
-        font-size: 0.7rem;
-        color: #6c757d;
-    }
-
-    /* Dropdown Menus */
-    .dropdown-menu {
-        border: none;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-        border-radius: 12px;
-        padding: 8px 0;
-        min-width: 220px;
-    }
-
-    .dropdown-item {
-        padding: 10px 20px;
-        font-size: 0.9rem;
-        color: #1e293b;
-    }
-
-        .dropdown-item i {
-            width: 20px;
-            color: #6c757d;
-        }
-
-        .dropdown-item:hover {
-            background: #f8f9fa;
-        }
-
-        .dropdown-item.text-danger i {
-            color: #dc3545;
-        }
-
-    .dropdown-divider {
-        margin: 8px 0;
-        border-color: #e9ecef;
-    }
-
-    /* Error UI */
-    #blazor-error-ui {
-        background: #dc3545;
-        color: white;
-        padding: 8px 16px;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 2000;
-        display: none;
-    }
-
-    .error-content {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    #blazor-error-ui .reload {
-        color: white;
-        text-decoration: none;
-        background: rgba(255,255,255,0.2);
-        padding: 4px 12px;
-        border-radius: 20px;
-    }
-
-    #blazor-error-ui .dismiss {
-        cursor: pointer;
-        margin-left: 16px;
-        opacity: 0.8;
-    }
-
-    /* Responsive */
-    @@media (max-width: 768px) {
-        .building-selector {
-            min-width: auto;
-        }
-
-        .building-details .building-period {
-            display: none;
-        }
-
-        .user-info {
-            display: none !important;
-        }
-
-        .btn-user {
-            padding: 4px;
-        }
-    }
-</style>
+@inject Services.AuthService AuthService
 
 <div class="page">
     <div class="sidebar">
@@ -331,8 +31,8 @@
 
                 <!-- Título de página opcional -->
                 <h5 class="page-title ms-3 mb-0 d-none d-md-block">
-                    @*GetPageTitle()*@
-                    @(ParameterService.CurrentBuilding?.Name ?? "Vacio");
+                    @GetPageTitle()
+                    @*(ParameterService.CurrentBuilding?.Name ?? "Vacio");*@
                 </h5>
             </div>
             <div class=" col-md-2"></div>
@@ -346,7 +46,7 @@
                         </div>
                         <div class="building-details">
                             <span class="building-name">
-                                @(ParameterService.CurrentBuilding?.Name ?? "Seleccionar Edificio")
+                                @BuildingName
                             </span>
                             <!--<small class="building-period">
                                 @GetCurrentPeriod()
@@ -362,11 +62,11 @@
                     @foreach (var building in GetBuildings())
                     {
                         <li>
-                            <a class="dropdown-item @(building.IdBuilding == ParameterService.CurrentBuilding?.IdBuilding ? "active" : "")"
-                               href="@($"building/{building.IdBuilding}")">
+                            <a class="dropdown-item @(building.BuildingId == currentUser!.Buildings[0].BuildingId ? "active" : "")"
+                               href="/Buildings" )>
                                 <i class="fas fa-building me-2"></i>
-                                @building.Name
-                                <span class="badge bg-success ms-2">@building.Apartments</span>
+                                @building.BuildingName
+                                <span class="badge bg-success ms-2">@building.Role</span>
                             </a>
                         </li>
                     }
@@ -456,6 +156,22 @@
 
 @code {
     private bool _initialized = false;
+    private Models.UserSession? currentUser;
+    private List<Models.UserBuilding> Buildings { get; set; } = new();
+    private string BuildingName { get; set; } = "Seleccionar Edificio";
+    private Guid? CurrentBuildingId { get; set; }
+    private bool _isLoadingBuildings = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
+        var defaultBuilding = Buildings.GetValidDefaultBuilding(defaultBuildingId);
+        if (defaultBuilding != null)
+        {
+            await SetCurrentBuilding(defaultBuilding);
+        }
+        _isLoadingBuildings = true;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -465,19 +181,12 @@
 
             try
             {
-                // Esperar un momento para que todo esté listo
-                //await Task.Delay(100);
-
                 await AuthStateProvider.InitializeClientAsync();
+
+                // Cargar datos del usuario después de inicializar
+                await LoadUserDataAsync();
+
                 _initialized = true;
-
-                // Verificar si hay usuario después de inicializar
-                var user = await AuthStateProvider.GetCurrentUserAsync();
-                if (user != null)
-                {
-                    Logger.LogWarning($"✅ Usuario encontrado después de inicializar: {user.Email}");
-                }
-
                 StateHasChanged();
             }
             catch (Exception ex)
@@ -487,10 +196,167 @@
         }
     }
 
+    private async Task LoadUserDataAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync();
+
+        if (currentUser?.Buildings != null)
+        {
+            Buildings = currentUser.Buildings.ToList();
+
+            // Intentar obtener edificio actual de ParameterService o URL
+            await LoadCurrentBuildingFromParameterService();
+
+            // Si no hay edificio seleccionado, usar el primero
+            if ( CurrentBuildingId != Guid.Empty && Buildings.Any())
+            {
+                await SetCurrentBuilding(Buildings.First());
+            }
+
+            Logger.LogWarning($"✅ Usuario encontrado: {currentUser.Email} con {Buildings.Count} edificios");
+        }
+        else
+        {
+            Buildings = new List<Models.UserBuilding>();
+            BuildingName = "Seleccionar Edificio";
+            Logger.LogWarning("⚠️ Usuario no encontrado o sin edificios");
+        }
+    }
+
+
+    private async Task LoadBuildingsIfNeeded()
+    {
+        if (!Buildings.Any() && !_isLoadingBuildings)
+        {
+            _isLoadingBuildings = true;
+            StateHasChanged();
+
+            await LoadUserDataAsync();
+
+            _isLoadingBuildings = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnBuildingSelected(Models.UserBuilding building)
+    {
+        await SetCurrentBuilding(building);
+        NavigationManager.NavigateTo($"/building/{building.BuildingId}");
+    }
+
+    // En MainLayout.razor
+    private async Task SetCurrentBuilding(Models.UserBuilding building)
+    {
+        CurrentBuildingId = building.BuildingId; // Convertir Guid a string
+        BuildingName = building.BuildingName;
+
+        // Actualizar ParameterService
+        //ParameterService.CurrentBuilding = building;
+
+        // Guardar preferencia en AuthService
+        await AuthService.SetDefaultBuildingAsync(building.BuildingId);
+
+        StateHasChanged();
+    }
+
+    private async Task LoadCurrentBuildingFromParameterService()
+    {
+        if (ParameterService.CurrentBuilding != null)
+        {
+            //CurrentBuildingId = ParameterService.CurrentBuilding.BuildingId.ToString();
+            BuildingName = ParameterService.CurrentBuilding.Name;
+        }
+        else
+        {
+            // Intentar obtener de la URL
+            var uri = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+            /*if (uri.StartsWith("building/"))
+            {
+                var buildingIdString = uri.Split('/').LastOrDefault();
+                if (Guid.TryParse(buildingIdString, out Guid buildingId))
+                {
+                    var building = Buildings.FirstOrDefault(b => b.BuildingId == buildingId);
+                    if (building != null)
+                    {
+                        await SetCurrentBuilding(building);
+                        }
+                    }
+                }
+            else
+            {
+                // Intentar obtener preferencia guardada
+                var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
+                if (defaultBuildingId.HasValue)
+                {
+                    var building = Buildings.FirstOrDefault(b => b.BuildingId == defaultBuildingId.Value);
+                    if (building != null)
+                    {
+                        await SetCurrentBuilding(building);
+                        }
+                    }
+                }*/
+        }
+    }
+
+    private async Task SaveBuildingPreferenceAsync(Guid buildingId)
+    {
+        try
+        {
+            await AuthService.SetDefaultBuildingAsync(buildingId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error guardando preferencia de edificio");
+        }
+    }
+
+    private Guid GetCurrentBuildingId(Guid BuildingId)
+    {
+        var x = CurrentBuildingId ?? Buildings.FirstOrDefault()?.BuildingId ?? Guid.Empty;
+        if (BuildingId == x){
+
+            if (BuildingName != "Seleccionar Edificio") return x;
+            _isLoadingBuildings = false;
+            BuildingName = Buildings.FirstOrDefault()?.BuildingName!;
+            StateHasChanged();
+        }
+        return x;
+    }
+
+    private string GetRoleBadgeColor(string? role)
+    {
+        return role?.ToLower() switch
+        {
+            "admin" => "danger",
+            "administrador" => "danger",
+            "owner" => "warning",
+            "propietario" => "warning",
+            "tenant" => "info",
+            "inquilino" => "info",
+            _ => "secondary"
+        };
+    }
+
+    // Método público para refrescar desde otros componentes
+    public async Task RefreshBuildingsAsync()
+    {
+        _isLoadingBuildings = true;
+        StateHasChanged();
+
+        await LoadUserDataAsync();
+
+        _isLoadingBuildings = false;
+        StateHasChanged();
+    }
+
     // Obtener nombre de la página actual
     private string GetCurrentPageName()
     {
         var uri = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+
+        if (uri.StartsWith("building/"))
+            return "Edificio";
+
         return uri switch
         {
             "Dashboard" => "Dashboard",
@@ -519,6 +385,7 @@
             "Conciliación" => "Conciliación Bancaria",
             "Lectura Agua" => "Lectura Agua",
             "Reportes" => "Reportes y Estadísticas",
+            "Edificio" => ParameterService.CurrentBuilding?.Name ?? "Detalle de Edificio",
             _ => page
         };
     }
@@ -529,11 +396,18 @@
         return DateTime.Now.ToString("MMMM yyyy").ToUpper();
     }
 
-    // Obtener lista de edificios (implementar según tu lógica)
-    private List<Models.Building> GetBuildings()
-    {
-        // Aquí deberías obtener los edificios de tu servicio
-        return ParameterService.Buildings.ToList();
-    }
 
+    private List<Models.UserBuilding> GetBuildings()
+    {
+        currentUser = AuthService.GetCurrentUserAsync().Result!;
+        if (currentUser == null) return new List<Models.UserBuilding>();
+        if (BuildingName != "Seleccionar Edificio")
+            return currentUser?.Buildings!;
+        else
+        {
+            BuildingName = currentUser?.Buildings?.FirstOrDefault()?.BuildingName!;
+            StateHasChanged();
+        }
+        return currentUser?.Buildings ?? new List<Models.UserBuilding>();
+    }
 }

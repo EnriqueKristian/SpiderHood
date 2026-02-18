@@ -4,6 +4,7 @@
 @using System.ComponentModel
 @inject Services.AuthService AuthService
 @inject NavigationManager Navigation
+@rendermode InteractiveServer
 
 <div class="login-container">
     <div class="login-card">
@@ -135,7 +136,8 @@
     private bool isPasswordValid => string.IsNullOrEmpty(loginModel.Password) ||
                                      loginModel.Password.Length >= 6;
 
-    protected override void OnInitialized()
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         var currentUser = AuthService.GetCurrentUserAsync();
 
@@ -146,10 +148,7 @@
         }
 
         // Limpiar modelo
-        //loginModel = new LoginModel();
-        loginModel.Email = "admin@spiderhood.com";
-        loginModel.Password = "Admin123!";
-        loginModel.RememberMe = true;
+        loginModel = new LoginModel();
     }
 
     private async Task HandleLogin()
@@ -166,7 +165,7 @@
                 successMessage = "¡Login exitoso! Redirigiendo...";
                 StateHasChanged();
 
-                //await Task.Delay(1000);
+                await Task.Delay(100);
 
                 // 🔴 FORZAR RECARGA COMPLETA Y LIMPIAR PRERENDERING
                 Navigation.NavigateTo("/dashboard", true);

@@ -83,7 +83,7 @@
         </ul>
 
         <!-- Menú Usuario -->
-        <div class="user-dropdown">
+        <div class="user-dropdown @(Buildings.Count == 0 ? "disabled" : "")">
             <button class="btn-user" data-bs-toggle="dropdown">
                 <div class="avatar">
                     @if (_currentUser != null)
@@ -266,8 +266,8 @@
     {
         if (building?.Building == null) return;
 
-        await SetCurrentBuilding(building);
-        NavigationManager.NavigateTo($"/building/{building.Building.IdBuilding}");
+        //await SetCurrentBuilding(building);
+        NavigationManager.NavigateTo($"/buildings");
     }
 
     private bool IsActiveBuilding(Models.UserBuilding building)

@@ -139,6 +139,12 @@
     position: relative;
 }
 
+    .user-dropdown.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+
 .btn-user {
     display: flex;
     align-items: center;

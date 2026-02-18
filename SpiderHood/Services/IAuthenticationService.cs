@@ -88,7 +88,6 @@ namespace SpiderHood.Services
                 // 🔴 NORMALIZAR EMAIL: convertir a minúsculas para comparación
                 var normalizedEmail = model.Email?.Trim().ToLowerInvariant();
 
-
                 _users = await ec.GetUsersByEmailAsync(normalizedEmail!);
 
                 // Buscar usuario con email normalizado

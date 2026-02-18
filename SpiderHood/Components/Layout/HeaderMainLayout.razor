@@ -1,0 +1,373 @@
+@rendermode InteractiveServer
+
+<div class="header-container">
+    <div class="header-left">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="/Dashboard">
+                        <i class="fas fa-home"></i>
+                    </a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">
+                    @GetCurrentPageName()
+                </li>
+            </ol>
+        </nav>
+
+        <!-- Título de página -->
+        <h5 class="page-title">
+            @GetPageTitle()
+        </h5>
+    </div>
+
+    <div class="header-right">
+        <!-- Selector de edificio -->
+        <div class="building-selector @(Buildings.Count == 0 ? "disabled" : "")"
+             data-bs-toggle="dropdown"
+             aria-expanded="false"
+             @onclick="() => LoadBuildingsIfNeeded()">
+            <div class="building-info">
+                <div class="building-icon">
+                    <i class="fas fa-building"></i>
+                </div>
+                <div class="building-details">
+                    <span class="building-name">
+                        @if (_isLoading)
+                        {
+                            <span><i class="fas fa-spinner fa-spin me-1"></i>Cargando...</span>
+                        }
+                        else
+                        {
+                            @BuildingName
+                        }
+                    </span>
+                </div>
+            </div>
+            <i class="fas fa-chevron-down ms-2"></i>
+        </div>
+
+        <!-- Dropdown de edificios -->
+        <ul class="dropdown-menu building-dropdown">
+            <li><h6 class="dropdown-header">Mis Edificios</h6></li>
+            @if (_isLoading)
+            {
+                <li><span class="dropdown-item text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Cargando...</span></li>
+            }
+            else if (!Buildings.Any())
+            {
+                <li><span class="dropdown-item text-muted"><i class="fas fa-info-circle me-2"></i>Sin edificios</span></li>
+            }
+            else
+            {
+                @foreach (var building in Buildings)
+                {
+                    <li>
+                        <a class="dropdown-item @(IsActiveBuilding(building) ? "active" : "")"
+                           href="javascript:void(0)"
+                           @onclick="() => OnBuildingSelected(building)">
+                            <i class="fas fa-building me-2"></i>
+                            @(building.Building?.Name ?? "Sin nombre")
+                            <span class="badge bg-@GetRoleBadgeColor(building.Role)">@(building.Role ?? "Rol")</span>
+                        </a>
+                    </li>
+                }
+            }
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="/Buildings/Create">
+                    <i class="fas fa-plus me-2"></i>Nuevo Edificio
+                </a>
+            </li>
+        </ul>
+
+        <!-- Menú Usuario -->
+        <div class="user-dropdown">
+            <button class="btn-user" data-bs-toggle="dropdown">
+                <div class="avatar">
+                    @if (_currentUser != null)
+                    {
+                        <span>@GetUserInitials()</span>
+                    }
+                    else
+                    {
+                        <span>U</span>
+                    }
+                </div>
+                <div class="user-info">
+                    <span class="user-name">@GetUserDisplayName()</span>
+                    <small class="user-role">@GetUserRole()</small>
+                </div>
+                <i class="fas fa-chevron-down ms-2"></i>
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="/Profile"><i class="fas fa-user me-2"></i>Mi Perfil</a></li>
+                <li><a class="dropdown-item" href="/Settings"><i class="fas fa-gear me-2"></i>Configuración</a></li>
+                <li><a class="dropdown-item" href="/Security"><i class="fas fa-shield me-2"></i>Seguridad</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="/Logout"><i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión</a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private Services.AuthService AuthService { get; set; } = default!;
+    [Inject] private Services.CustomAuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+    [Inject] private Services.ParameterService ParameterService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+    [Inject] private ILogger<HeaderMainLayout> Logger { get; set; } = default!;
+
+    private bool _initialized = false;
+    private bool _isLoading = true;
+    private Models.UserSession? _currentUser;
+    private List<Models.UserBuilding> Buildings { get; set; } = new();
+    private string BuildingName { get; set; } = "Seleccionar Edificio";
+    private Guid? CurrentBuildingId { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            Logger.LogDebug("🟢 HeaderMainLayout.OnAfterRenderAsync - Inicializando");
+
+            try
+            {
+                _isLoading = true;
+                StateHasChanged();
+
+                await AuthStateProvider.InitializeClientAsync();
+                await LoadUserDataAsync();
+
+                _initialized = true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "❌ Error en HeaderMainLayout.OnAfterRenderAsync");
+            }
+            finally
+            {
+                _isLoading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task LoadUserDataAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync();
+
+        if (_currentUser?.Buildings != null)
+        {
+            Buildings = _currentUser.Buildings.ToList();
+            await LoadCurrentBuildingAsync();
+
+            Logger.LogDebug($"✅ Usuario: {_currentUser.Email} con {Buildings.Count} edificios");
+        }
+        else
+        {
+            Buildings = new List<Models.UserBuilding>();
+            BuildingName = "Seleccionar Edificio";
+            Logger.LogDebug("⚠️ Usuario sin edificios");
+        }
+    }
+
+    private async Task LoadCurrentBuildingAsync()
+    {
+        // 1. Intentar con ParameterService
+        if (ParameterService.CurrentBuilding != null)
+        {
+            var building = Buildings.FirstOrDefault(b =>
+                b.Building?.IdBuilding == ParameterService.CurrentBuilding.IdBuilding);
+
+            if (building != null)
+            {
+                await SetCurrentBuilding(building);
+                return;
+            }
+        }
+
+        // 2. Intentar con URL
+        var uri = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        if (uri.StartsWith("building/"))
+        {
+            var buildingIdString = uri.Split('/').LastOrDefault();
+            if (Guid.TryParse(buildingIdString, out Guid buildingId))
+            {
+                var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == buildingId);
+                if (building != null)
+                {
+                    await SetCurrentBuilding(building);
+                    return;
+                }
+            }
+        }
+
+        // 3. Intentar con preferencia guardada
+        var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
+        if (defaultBuildingId.HasValue)
+        {
+            var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == defaultBuildingId.Value);
+            if (building != null)
+            {
+                await SetCurrentBuilding(building);
+                return;
+            }
+        }
+
+        // 4. Usar el primer edificio
+        if (Buildings.Any())
+        {
+            await SetCurrentBuilding(Buildings.First());
+        }
+    }
+
+    private async Task SetCurrentBuilding(Models.UserBuilding building)
+    {
+        if (building?.Building == null) return;
+
+        CurrentBuildingId = building.Building.IdBuilding;
+        BuildingName = building.Building.Name ?? "Sin nombre";
+
+        // Actualizar servicios
+        ParameterService.CurrentBuilding = building.Building;
+
+        // No bloquear la UI mientras se guarda la preferencia
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await AuthService.SetDefaultBuildingAsync(building.Building.IdBuilding);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error guardando preferencia de edificio");
+            }
+        });
+
+        StateHasChanged();
+    }
+
+    private async Task LoadBuildingsIfNeeded()
+    {
+        if (!Buildings.Any() && !_isLoading)
+        {
+            _isLoading = true;
+            StateHasChanged();
+            await LoadUserDataAsync();
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnBuildingSelected(Models.UserBuilding building)
+    {
+        if (building?.Building == null) return;
+
+        await SetCurrentBuilding(building);
+        NavigationManager.NavigateTo($"/building/{building.Building.IdBuilding}");
+    }
+
+    private bool IsActiveBuilding(Models.UserBuilding building)
+    {
+        return building?.Building != null &&
+               building.Building.IdBuilding == CurrentBuildingId;
+    }
+
+    private string GetRoleBadgeColor(string? role)
+    {
+        return role?.ToLower() switch
+        {
+            "admin" or "administrador" => "danger",
+            "owner" or "propietario" => "warning",
+            "tenant" or "inquilino" => "info",
+            _ => "secondary"
+        };
+    }
+
+    // Métodos para el usuario
+    private string GetUserDisplayName()
+    {
+        if (_currentUser == null) return "Invitado";
+
+        if (!string.IsNullOrEmpty(_currentUser.FullName))
+            return _currentUser.FullName.Split(' ')[0];
+
+        return _currentUser.Email?.Split('@')[0] ?? "Usuario";
+    }
+
+    private string GetUserInitials()
+    {
+        if (_currentUser == null) return "U";
+
+        if (!string.IsNullOrEmpty(_currentUser.FullName))
+        {
+            var parts = _currentUser.FullName.Split(' ');
+            if (parts.Length >= 2)
+                return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+            if (parts.Length == 1)
+                return parts[0][0].ToString().ToUpper();
+        }
+
+        return _currentUser.Email?[0].ToString().ToUpper() ?? "U";
+    }
+
+    private string GetUserRole()
+    {
+        if (_currentUser?.Roles == null || !_currentUser.Roles.Any())
+            return "Usuario";
+
+        return string.Join(", ", _currentUser.Roles.Take(2));
+    }
+
+    private string GetCurrentPageName()
+    {
+        var uri = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+
+        if (uri.StartsWith("building/"))
+            return "Edificio";
+
+        return uri switch
+        {
+            "Dashboard" => "Dashboard",
+            "Buildings" => "Edificios",
+            "Units" => "Unidades",
+            "budgetlist" => "Presupuestos",
+            "budgetgenerator" => "Presupuesto",
+            "Reconciliation" => "Conciliación",
+            "WaterReadings" => "Lectura",
+            "Reports" => "Reportes",
+            "" => "Dashboard",
+            _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(uri)
+        };
+    }
+
+    private string GetPageTitle()
+    {
+        var page = GetCurrentPageName();
+        return page switch
+        {
+            "Dashboard" => "Panel de Control",
+            "Edificios" => "Gestión de Edificios",
+            "Unidades" => "Administración de Unidades",
+            "Presupuestos" => "Ciclo Presupuestario",
+            "Presupuesto" => "Presupuesto",
+            "Conciliación" => "Conciliación Bancaria",
+            "Lectura Agua" => "Lectura Agua",
+            "Reportes" => "Reportes y Estadísticas",
+            "Edificio" => ParameterService.CurrentBuilding?.Name ?? "Detalle de Edificio",
+            _ => page
+        };
+    }
+
+    public async Task RefreshBuildingsAsync()
+    {
+        _isLoading = true;
+        StateHasChanged();
+        await LoadUserDataAsync();
+        _isLoading = false;
+        StateHasChanged();
+    }
+}

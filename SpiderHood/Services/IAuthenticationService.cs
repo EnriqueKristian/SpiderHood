@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using SpiderHood.Data;
 using SpiderHood.Models;
@@ -232,15 +233,13 @@ namespace SpiderHood.Services
             return hashString;
         }
 
-        private string GetBuildingName(Guid id) => "Torre del Sol";
-
-        private Guid? GetDefaultBuilding(List<UserBuilding> buildings)
+        private Guid GetDefaultBuilding(List<UserBuilding> buildings)
         {
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)
                 return approved[0].Building!.IdBuilding;
 
-            return null;
+            return Guid.Empty;
         }
 
         private void NotifyAuthStateChanged() =>
@@ -277,6 +276,7 @@ namespace SpiderHood.Services
         /// </summary>
         public async Task SetDefaultBuildingAsync(Guid buildingId)
         {
+            string key = string.Empty;
             try
             {
                 var user = await GetCurrentUserAsync();
@@ -286,7 +286,7 @@ namespace SpiderHood.Services
                     return;
                 }
 
-                var key = $"defaultBuilding_{user.IdUser}"; // Asumiendo que UserSession tiene UserId
+                key = $"defaultBuilding_{user.IdUser}"; // Asumiendo que UserSession tiene UserId
                 await _jsRuntime.InvokeVoidAsync("localStorage.setItem", key, buildingId.ToString());
 
                 // También guardar el último edificio usado (para sesión actual)
@@ -296,7 +296,7 @@ namespace SpiderHood.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"❌ Error guardando edificio por defecto: {buildingId}");
+                _logger.LogError(ex, $"❌ Error guardando edificio por defecto: {key} {buildingId}");
             }
         }
 

@@ -1,10 +1,107 @@
 ﻿@using SpiderHood.Models
 @inherits LayoutComponentBase
-@inject Services.ParameterService ParameterService
-@inject Services.CustomAuthenticationStateProvider AuthStateProvider
-@inject NavigationManager NavigationManager
-@inject ILogger<MainLayout> Logger
 @inject Services.AuthService AuthService
+
+<style>
+    .page {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+
+    main {
+        flex: 1;
+    }
+
+    .sidebar {
+        background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    }
+
+    .top-row {
+        background-color: #f7f7f7;
+        border-bottom: 1px solid #d6d5d5;
+        justify-content: flex-end;
+        height: 3.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+        .top-row ::deep a, .top-row ::deep .btn-link {
+            white-space: nowrap;
+            margin-left: 1.5rem;
+            text-decoration: none;
+        }
+
+            .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
+                text-decoration: underline;
+            }
+
+            .top-row ::deep a:first-child {
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+    @@media (max-width: 640.98px) {
+        .top-row {
+            justify-content: space-between;
+        }
+
+            .top-row ::deep a, .top-row ::deep .btn-link {
+                margin-left: 0;
+            }
+    }
+
+    @@media (min-width: 641px) {
+        .page {
+            flex-direction: row;
+        }
+
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+        }
+
+        .top-row {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+            .top-row.auth ::deep a:first-child {
+                flex: 1;
+                text-align: right;
+                width: 0;
+            }
+
+        .top-row, article {
+            padding-left: 2rem !important;
+            padding-right: 1.5rem !important;
+        }
+    }
+
+    #blazor-error-ui {
+        color-scheme: light only;
+        background: lightyellow;
+        bottom: 0;
+        box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+        box-sizing: border-box;
+        display: none;
+        left: 0;
+        padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+        position: fixed;
+        width: 100%;
+        z-index: 1000;
+    }
+
+        #blazor-error-ui .dismiss {
+            cursor: pointer;
+            position: absolute;
+            right: 0.75rem;
+            top: 0.5rem;
+        }
+</style>
 
 <div class="page">
     <div class="sidebar">
@@ -13,126 +110,9 @@
 
     <main>
         <!-- HEADER MEJORADO -->
+        
         <div class="top-row px-4">
-            <div class="header-left col-md-4">
-                <!-- Breadcrumb mejorado -->
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb mb-0">
-                        <li class="breadcrumb-item">
-                            <a href="/Dashboard">
-                                <i class="fas fa-home"></i>
-                            </a>
-                        </li>
-                        <li class="breadcrumb-item active" aria-current="page">
-                            @GetCurrentPageName()
-                        </li>
-                    </ol>
-                </nav>
-
-                <!-- Título de página opcional -->
-                <h5 class="page-title ms-3 mb-0 d-none d-md-block">
-                    @GetPageTitle()
-                    @*(ParameterService.CurrentBuilding?.Name ?? "Vacio");*@
-                </h5>
-            </div>
-            <div class=" col-md-2"></div>
-
-            <div class="header-right col-md-6">
-                <!-- Selector de edificio mejorado -->
-                <div class="building-selector" data-bs-toggle="dropdown" aria-expanded="false">
-                    <div class="building-info">
-                        <div class="building-icon">
-                            <i class="fas fa-building"></i>
-                        </div>
-                        <div class="building-details">
-                            <span class="building-name">
-                                @BuildingName
-                            </span>
-                            <!--<small class="building-period">
-                                @GetCurrentPeriod()
-                            </small>-->
-                        </div>
-                    </div>
-                    <i class="fas fa-chevron-down ms-2"></i>
-                </div>
-
-                <!-- Dropdown de edificios -->
-                <ul class="dropdown-menu dropdown-menu-end building-dropdown">
-                    <li><h6 class="dropdown-header">Mis Edificios</h6></li>
-                    @foreach (var building in GetBuildings())
-                    {
-                        <li>
-                            <a class="dropdown-item @(building.Building!.IdBuilding! == currentUser!.Buildings[0].Building!.IdBuilding! ? "active" : "")"
-                               href="/Buildings" )>
-                                <i class="fas fa-building me-2"></i>
-                                @building.Building.Name
-                                <span class="badge bg-success ms-2">@building.Role</span>
-                            </a>
-                        </li>
-                    }
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <a class="dropdown-item" href="/Buildings/Create">
-                            <i class="fas fa-plus me-2"></i>Nuevo Edificio
-                        </a>
-                    </li>
-                </ul>
-
-                <!-- Notificaciones -->
-                <div class="notification-dropdown">
-                    <button class="btn btn-icon" data-bs-toggle="dropdown">
-                        <i class="fas fa-bell"></i>
-                        <span class="notification-badge">3</span>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-end notifications">
-                        <div class="notifications-header">
-                            <h6>Notificaciones</h6>
-                            <a href="#">Marcar todas como leídas</a>
-                        </div>
-                        <div class="notifications-list">
-                            <!-- Items de notificación -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Usuario mejorado -->
-                <div class="user-dropdown">
-                    <button class="btn-user" data-bs-toggle="dropdown">
-                        <div class="avatar">
-                            <span>MP</span>
-                        </div>
-                        <div class="user-info d-none d-lg-block">
-                            <span class="user-name">Admin</span>
-                            <small class="user-role">Administrador</small>
-                        </div>
-                        <i class="fas fa-chevron-down ms-2"></i>
-                    </button>
-
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li>
-                            <a class="dropdown-item" href="/Profile">
-                                <i class="fas fa-user me-2"></i>Mi Perfil
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="/Settings">
-                                <i class="fas fa-gear me-2"></i>Configuración
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="/Security">
-                                <i class="fas fa-shield me-2"></i>Seguridad
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item text-danger" href="/Logout">
-                                <i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
+            <HeaderMainLayout />
         </div>
 
         <!-- CONTENIDO PRINCIPAL -->
@@ -155,259 +135,11 @@
 </div>
 
 @code {
-    private bool _initialized = false;
-    private Models.UserSession? currentUser;
-    private List<Models.UserBuilding> Buildings { get; set; } = new();
-    private string BuildingName { get; set; } = "Seleccionar Edificio";
-    private Guid? CurrentBuildingId { get; set; }
-    private bool _isLoadingBuildings = false;
+    private UserSession? currentUser = null;
 
     protected override async Task OnInitializedAsync()
     {
-        var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
-        var defaultBuilding = Buildings.GetValidDefaultBuilding(defaultBuildingId);
-        if (defaultBuilding != null)
-        {
-            await SetCurrentBuilding(defaultBuilding);
-        }
-        _isLoadingBuildings = true;
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && !_initialized)
-        {
-            Logger.LogWarning("🟢 MainLayout.OnAfterRenderAsync - Inicializando cliente");
-
-            try
-            {
-                await AuthStateProvider.InitializeClientAsync();
-
-                // Cargar datos del usuario después de inicializar
-                await LoadUserDataAsync();
-
-                _initialized = true;
-                StateHasChanged();
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "❌ Error en MainLayout.OnAfterRenderAsync");
-            }
-        }
-    }
-
-    private async Task LoadUserDataAsync()
-    {
         currentUser = await AuthService.GetCurrentUserAsync();
-
-        if (currentUser?.Buildings != null)
-        {
-            Buildings = currentUser.Buildings.ToList();
-
-            // Intentar obtener edificio actual de ParameterService o URL
-            await LoadCurrentBuildingFromParameterService();
-
-            // Si no hay edificio seleccionado, usar el primero
-            if ( CurrentBuildingId != Guid.Empty && Buildings.Any())
-            {
-                await SetCurrentBuilding(Buildings.First());
-            }
-
-            Logger.LogWarning($"✅ Usuario encontrado: {currentUser.Email} con {Buildings.Count} edificios");
-        }
-        else
-        {
-            Buildings = new List<Models.UserBuilding>();
-            BuildingName = "Seleccionar Edificio";
-            Logger.LogWarning("⚠️ Usuario no encontrado o sin edificios");
-        }
     }
 
-
-    private async Task LoadBuildingsIfNeeded()
-    {
-        if (!Buildings.Any() && !_isLoadingBuildings)
-        {
-            _isLoadingBuildings = true;
-            StateHasChanged();
-
-            await LoadUserDataAsync();
-
-            _isLoadingBuildings = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task OnBuildingSelected(Models.UserBuilding building)
-    {
-        await SetCurrentBuilding(building);
-        NavigationManager.NavigateTo($"/building/{building.Building!.IdBuilding}");
-    }
-
-    // En MainLayout.razor
-    private async Task SetCurrentBuilding(Models.UserBuilding building)
-    {
-        CurrentBuildingId = building.Building!.IdBuilding; // Convertir Guid a string
-        BuildingName = building.Building.Name;
-
-        // Actualizar ParameterService
-        ParameterService.CurrentBuilding = building.Building;
-
-        // Guardar preferencia en AuthService
-        await AuthService.SetDefaultBuildingAsync(building.Building.IdBuilding);
-
-        StateHasChanged();
-    }
-
-    private async Task LoadCurrentBuildingFromParameterService()
-    {
-        if (ParameterService.CurrentBuilding != null)
-        {
-            //CurrentBuildingId = ParameterService.CurrentBuilding.BuildingId.ToString();
-            BuildingName = ParameterService.CurrentBuilding.Name;
-        }
-        else
-        {
-            // Intentar obtener de la URL
-            var uri = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-            if (uri.StartsWith("building/"))
-            {
-                var buildingIdString = uri.Split('/').LastOrDefault();
-                if (Guid.TryParse(buildingIdString, out Guid buildingId))
-                {
-                    var building = Buildings.FirstOrDefault(b => b.Building!.IdBuilding == buildingId);
-                    if (building != null)
-                    {
-                        await SetCurrentBuilding(building);
-                        }
-                    }
-                }
-            else
-            {
-                // Intentar obtener preferencia guardada
-                var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
-                if (defaultBuildingId.HasValue)
-                {
-                    var building = Buildings.FirstOrDefault(b => b.Building!.IdBuilding == defaultBuildingId.Value);
-                    if (building != null)
-                    {
-                        await SetCurrentBuilding(building);
-                        }
-                    }
-                }
-        }
-    }
-
-    private async Task SaveBuildingPreferenceAsync(Guid buildingId)
-    {
-        try
-        {
-            await AuthService.SetDefaultBuildingAsync(buildingId);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error guardando preferencia de edificio");
-        }
-    }
-
-    private Guid GetCurrentBuildingId(Guid BuildingId)
-    {
-        var x = CurrentBuildingId ?? Buildings.FirstOrDefault()?.Building!.IdBuilding ?? Guid.Empty;
-        if (BuildingId == x){
-
-            if (BuildingName != "Seleccionar Edificio") return x;
-            _isLoadingBuildings = false;
-            BuildingName = Buildings.FirstOrDefault()?.Building!.Name!;
-            StateHasChanged();
-        }
-        return x;
-    }
-
-    private string GetRoleBadgeColor(string? role)
-    {
-        return role?.ToLower() switch
-        {
-            "admin" => "danger",
-            "administrador" => "danger",
-            "owner" => "warning",
-            "propietario" => "warning",
-            "tenant" => "info",
-            "inquilino" => "info",
-            _ => "secondary"
-        };
-    }
-
-    // Método público para refrescar desde otros componentes
-    public async Task RefreshBuildingsAsync()
-    {
-        _isLoadingBuildings = true;
-        StateHasChanged();
-
-        await LoadUserDataAsync();
-
-        _isLoadingBuildings = false;
-        StateHasChanged();
-    }
-
-    // Obtener nombre de la página actual
-    private string GetCurrentPageName()
-    {
-        var uri = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-
-        if (uri.StartsWith("building/"))
-            return "Edificio";
-
-        return uri switch
-        {
-            "Dashboard" => "Dashboard",
-            "Buildings" => "Edificios",
-            "Units" => "Unidades",
-            "budgetlist" => "Presupuestos",
-            "budgetgenerator" => "Presupuesto",
-            "Reconciliation" => "Conciliación",
-            "WaterReadings" => "Lectura",
-            "Reports" => "Reportes",
-            _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(uri)
-        };
-    }
-
-    // Obtener título descriptivo
-    private string GetPageTitle()
-    {
-        var page = GetCurrentPageName();
-        return page switch
-        {
-            "Dashboard" => "Panel de Control",
-            "Edificios" => "Gestión de Edificios",
-            "Unidades" => "Administración de Unidades",
-            "Presupuestos" => "Ciclo Presupuestario",
-            "Presupuesto" => "Presupuesto",
-            "Conciliación" => "Conciliación Bancaria",
-            "Lectura Agua" => "Lectura Agua",
-            "Reportes" => "Reportes y Estadísticas",
-            "Edificio" => ParameterService.CurrentBuilding?.Name ?? "Detalle de Edificio",
-            _ => page
-        };
-    }
-
-    // Obtener período actual
-    private string GetCurrentPeriod()
-    {
-        return DateTime.Now.ToString("MMMM yyyy").ToUpper();
-    }
-
-
-    private List<Models.UserBuilding> GetBuildings()
-    {
-        currentUser = AuthService.GetCurrentUserAsync().Result!;
-        if (currentUser == null) return new List<Models.UserBuilding>();
-        if (BuildingName != "Seleccionar Edificio")
-            return currentUser?.Buildings!;
-        else
-        {
-            BuildingName = currentUser?.Buildings?.FirstOrDefault()?.Building!.Name!;
-            StateHasChanged();
-        }
-        return currentUser?.Buildings ?? new List<Models.UserBuilding>();
-    }
 }

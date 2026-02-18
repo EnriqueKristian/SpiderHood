@@ -582,7 +582,7 @@
         movement.Details = datos.ToList();
         movement.TotalRecords = movement.Details.Where(c => c.Validation == "Ok").Count();
         movement.UploadState = 1;
-        movement.IdUser = ParameterService.IdUser;
+        movement.IdUser = Guid.Parse("BCD5E9DE-0FD2-431D-AB16-B4B9BB19DDC7");//  ParameterService.IdUser;
         movement.IdBankAccount = IdBankAccount;
 
 

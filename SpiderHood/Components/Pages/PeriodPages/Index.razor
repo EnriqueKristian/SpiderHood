@@ -245,7 +245,7 @@
     {
         ShowModal = true;
         isNew = true;
-        period = ParameterService.CreateNewPeriod(DateTime.Today).Result;
+        period = ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding).Result;
     }
 
     private void EditPeriod(Models.Period _period)

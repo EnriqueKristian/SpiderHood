@@ -367,6 +367,7 @@ namespace SpiderHood.Models
         public Guid IdGroupUnit { get; set; }
         public Guid IdCategory { get; set; } // Categoría a excluir (ej: Mantenimiento Ascensor)
         public string Description { get; set; } = string.Empty;
+        [Precision(18, 2)]
         public decimal PercentageExcluded { get; set; } // Porcentaje a excluir (100% = totalmente excluido)
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; }

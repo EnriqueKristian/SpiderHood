@@ -13,8 +13,8 @@ namespace SpiderHood.Services
         
         private List<Parameter> _listParameters = [];
         private Guid _idUser;
-        private string _role;
-        private string _username;
+        //private string _role;
+        //private string _username;
         private List<Period> _periods = [];
         private bool _disposed = false;
 
@@ -31,20 +31,20 @@ namespace SpiderHood.Services
         public IReadOnlyList<Parameter> ListParameters => _listParameters.AsReadOnly();
 
         public Building CurrentBuilding { get; set; } = null!;
-        public List<Building> Buildings { get; set; } = [];
+        //public List<Building> Buildings { get; set; } = [];
 
 
-        public Guid IdUser => _idUser;
-        public string Role => _role;
-        public string UserName => _username;
+        //public Guid IdUser => _idUser;
+        //public string Role => _role;
+        //public string UserName => _username;
         
         public event Action? OnChange;
 
         public ParameterService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
             _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
-            _role = "Admin";
-            _username = "eechevarria";
+            //_role = "Admin";
+            //_username = "eechevarria";
         }
 
 
@@ -58,8 +58,8 @@ namespace SpiderHood.Services
         /// </summary>
         public async Task LoadParametersAsync(Guid IdBuilding, bool forceReload = false)
         {
-            if ( CurrentBuilding != null)
-                return;
+            //if ( CurrentBuilding != null)
+                //return;
                 //throw new ArgumentException("IdBuilding cannot be empty", nameof(IdBuilding));
 
             // Verificar caché si no es recarga forzada
@@ -82,13 +82,13 @@ namespace SpiderHood.Services
 
                 var parameters = await ecLocal.GetParametersByBuildingAsync(IdBuilding);
                 var periodos = await ecLocal.GetPeriodsByBuildingAsync(IdBuilding);
-                Buildings = await ecLocal.GetAllBuildingByOwnerAsync(IdUser);
-                Building building = await ecLocal.GetBuildingByIdAsync(IdBuilding);
-                if (building is null)
-                    throw new InvalidOperationException($"Building with Id {IdBuilding} not found.");
-                CurrentBuilding = building;
-                var listconfig = await ecLocal.GetBuildingConfigurationAsync(IdBuilding);
-                CurrentBuilding!.Configuration = listconfig.FirstOrDefault()!;
+                //Buildings = await ecLocal.GetAllBuildingByOwnerAsync(IdUser);
+                //Building building = await ecLocal.GetBuildingByIdAsync(IdBuilding);
+                //if (building is null)
+                    //throw new InvalidOperationException($"Building with Id {IdBuilding} not found.");
+                //CurrentBuilding = building;
+                //var listconfig = await ecLocal.GetBuildingConfigurationAsync(IdBuilding);
+                //CurrentBuilding!.Configuration = listconfig.FirstOrDefault()!;
 
                 _listParameters = parameters ?? [];
                 _periods = periodos;
@@ -326,21 +326,21 @@ namespace SpiderHood.Services
             return years;
         }
 
-        public async Task<List<Period>> GetPeriodsAsync()
+        public async Task<List<Period>> GetPeriodsAsync(Guid IdBuilding)
         {
             using var ctx = _contextFactory.CreateDbContext();
             var ecLocal = new BDLayout(ctx);
-            return await ecLocal.GetPeriodsByBuildingAsync(CurrentBuilding!.IdBuilding);
+            return await ecLocal.GetPeriodsByBuildingAsync(IdBuilding);
         }
 
-        public async Task<Models.Period> CreateNewPeriod(DateTime lastPeriod)
+        public async Task<Models.Period> CreateNewPeriod(DateTime lastPeriod, Guid IdBuilding)
         {
             DateTime _new = new DateTime(lastPeriod.Year, lastPeriod.Month, 1);
 
             return new Models.Period
             {
                 IdPeriod = Guid.NewGuid(),
-                IdBuilding = CurrentBuilding.IdBuilding,
+                IdBuilding = IdBuilding,
                 Name = lastPeriod.ToString("MMMM-yy", CultureInfo.InvariantCulture),
                 PeriodType = 1,
                 StartDate = _new,

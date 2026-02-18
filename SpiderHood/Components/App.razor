@@ -29,6 +29,7 @@
     <CascadingAuthenticationState>
         <Router AppAssembly="@typeof(Program).Assembly">
             <Found Context="routeData">
+                @* Solo usa AuthorizeRouteView, él manejará el login automáticamente *@
                 <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
                     <NotAuthorized>
                         <RedirectToLogin />

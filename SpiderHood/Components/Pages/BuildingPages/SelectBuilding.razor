@@ -170,10 +170,10 @@
                 .ToList() ?? new();
 
             // Si hay un edificio actual en la sesión, preseleccionarlo
-            if (currentUser.CurrentBuildingId.HasValue)
+            if (currentUser.CurrentBuildingId != Guid.Empty)
             {
                 var currentBuilding = approvedBuildings
-                    .FirstOrDefault(b => b.Building!.IdBuilding == currentUser.CurrentBuildingId.Value);
+                    .FirstOrDefault(b => b.Building!.IdBuilding == currentUser.CurrentBuildingId);
 
                 if (currentBuilding != null)
                 {

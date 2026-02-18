@@ -526,14 +526,14 @@
             _ServiceReadingState.CargoFijo = CARGO_FIJO_DEFAULT;
 
             // Cargar periodos desde BD
-            _periods = await ParameterService.GetPeriodsAsync();
+            _periods = await ParameterService.GetPeriodsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // Determinar si es primera carga
             if (_periods.Count == 0)
             {
                 ShowModalPeriod = true;
                 isNewPeriod = true;
-                period = await ParameterService.CreateNewPeriod(DateTime.Today);
+                period = await ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding);
             }
             else { 
                 // Configurar periodo inicial
@@ -571,7 +571,7 @@
 
     private async Task CrearNuevoPeriodo()
     {
-        Period newPeriod = ParameterService.CreateNewPeriod(_ultimoPeriodo).Result;
+        Period newPeriod = ParameterService.CreateNewPeriod(_ultimoPeriodo, ParameterService.CurrentBuilding.IdBuilding).Result;
         _periods.Add(newPeriod);
         _currentPeriod = newPeriod;
     }
@@ -824,7 +824,7 @@
 
             LimpiarDatos();
 
-            _periods = await ParameterService.GetPeriodsAsync();
+            _periods = await ParameterService.GetPeriodsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             await ConfigurarPeriodoInicial();
 

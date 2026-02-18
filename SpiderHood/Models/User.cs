@@ -59,7 +59,7 @@ namespace SpiderHood.Models
         public string FullName { get; set; } = string.Empty;
         public List<string> Roles { get; set; } = [];
         public List<UserBuilding> Buildings { get; set; } = [];
-        public Guid? CurrentBuildingId { get; set; }
+        public Guid CurrentBuildingId { get; set; }
         public DateTime SessionStart { get; set; }
         public DateTime SessionExpiry { get; set; }
         public bool IsAuthenticated => SessionExpiry > DateTime.UtcNow;

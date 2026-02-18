@@ -1,0 +1,238 @@
+﻿/* Header Container */
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    background-color: #f7f7f7;
+    border-bottom: 1px solid #dee2e6;
+    height: 3.5rem;
+}
+
+/* Left Section */
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+}
+
+    .header-left .breadcrumb {
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    .header-left .breadcrumb-item a {
+        color: #6c757d;
+        text-decoration: none;
+    }
+
+    .header-left .breadcrumb-item.active {
+        color: #0d6efd;
+        font-weight: 500;
+    }
+
+    .header-left .page-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #212529;
+        border-left: 2px solid #0d6efd;
+        padding-left: 1rem;
+    }
+
+/* Right Section */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Building Selector */
+.building-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 200px;
+}
+
+    .building-selector:hover:not(.disabled) {
+        background: #e9ecef;
+        border-color: #0d6efd;
+    }
+
+    .building-selector.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+.building-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.building-icon {
+    width: 32px;
+    height: 32px;
+    background: #e7f1ff;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0d6efd;
+}
+
+.building-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.building-name {
+    font-weight: 500;
+    color: #212529;
+}
+
+/* Building Dropdown */
+.building-dropdown {
+    width: 400px;
+    max-height: 450px;
+    overflow-y: auto;
+    padding: 0.5rem 0;
+}
+
+    .building-dropdown .dropdown-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        transition: all 0.2s;
+    }
+
+        .building-dropdown .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .building-dropdown .dropdown-item.active {
+            background-color: #e7f1ff;
+            color: #0d6efd;
+            border-left: 3px solid #0d6efd;
+        }
+
+    .building-dropdown .badge {
+        margin-left: auto;
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+/* User Dropdown */
+.user-dropdown {
+    position: relative;
+}
+
+.btn-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+    .btn-user:hover {
+        background: #f8f9fa;
+        border-color: #dee2e6;
+    }
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.user-name {
+    font-weight: 600;
+    color: #212529;
+    font-size: 0.9rem;
+}
+
+.user-role {
+    color: #6c757d;
+    font-size: 0.75rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .header-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    .header-left {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+        .header-left .page-title {
+            border-left: none;
+            padding-left: 0;
+        }
+
+    .header-right {
+        justify-content: space-between;
+    }
+
+    .building-selector {
+        min-width: 150px;
+    }
+
+    .user-info {
+        display: none;
+    }
+}
+
+/* Colores para badges */
+.badge.bg-danger {
+    background: #dc3545;
+}
+
+.badge.bg-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.badge.bg-info {
+    background: #0dcaf0;
+    color: #212529;
+}
+
+.badge.bg-secondary {
+    background: #6c757d;
+}

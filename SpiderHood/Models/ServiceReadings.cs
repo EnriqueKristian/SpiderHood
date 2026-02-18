@@ -44,6 +44,7 @@ namespace SpiderHood.Models
         public double CurrentReading { get; set; }
         public double Consumption { get; set; }
         public DateTime ReadingDate { get; set; }
+        [Precision(18, 2)]
         public decimal CalculatedAmount { get; set; }
         public bool Minimum { get; set; }
         public Guid IdServiceReading { get; set; }

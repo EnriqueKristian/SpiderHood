@@ -250,9 +250,9 @@ namespace SpiderHood.Services
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            if (session.CurrentBuildingId.HasValue)
+            if (session.CurrentBuildingId != Guid.Empty)
             {
-                claims.Add(new Claim("CurrentBuildingId", session.CurrentBuildingId.Value.ToString()));
+                claims.Add(new Claim("CurrentBuildingId", session.CurrentBuildingId.ToString()));
             }
 
             var identity = new ClaimsIdentity(claims, "custom");

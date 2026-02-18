@@ -521,7 +521,7 @@
     private async Task LoadDataDefault()
     {
         // Cargar periodos desde BD
-        _periods = await ParameterService.GetPeriodsAsync();
+        _periods = await ParameterService.GetPeriodsAsync(ParameterService.CurrentBuilding.IdBuilding);
         //Cargar Categoria
         filteredCategories = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
         //Caargar lista de Parametros
@@ -942,7 +942,7 @@
 
     private async Task CrearNuevoPeriodo(DateTime newperiod)
     {
-        Period newPeriod = ParameterService.CreateNewPeriod(newperiod).Result;
+        Period newPeriod = ParameterService.CreateNewPeriod(newperiod, ParameterService.CurrentBuilding.IdBuilding).Result;
         _periods.Add(newPeriod);
         _currentPeriod = newPeriod;
     }
@@ -982,7 +982,7 @@
         _BudgetState.Budget.Details.Clear();
         _BudgetState.Budget.Details = await presupuestoService.GetBudgetDetailAsync(_BudgetState.Budget.IdBudgetHeader);
         _periods.Clear();
-        _periods = await ParameterService.GetPeriodsAsync();
+        _periods = await ParameterService.GetPeriodsAsync(ParameterService.CurrentBuilding.IdBuilding);
     }
 
     private async Task PublishBudget1(MouseEventArgs args)

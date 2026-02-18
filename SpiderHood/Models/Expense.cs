@@ -38,7 +38,7 @@ namespace SpiderHood.Models
     {
         public Guid IdBudgetHeader { get; set; }
         public Guid IdParent { get; set; }
-        public decimal SumCategory { get; set; }
+        [Precision(18, 2)] public decimal SumCategory { get; set; }
     }
 
     public class Period

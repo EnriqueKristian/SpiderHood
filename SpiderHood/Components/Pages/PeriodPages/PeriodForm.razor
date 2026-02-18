@@ -130,7 +130,7 @@
 
     private void InitializeNewPeriod()
     {
-        period = ParameterService.CreateNewPeriod(DateTime.Today).Result;
+        period = ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding).Result;
     }
 
     private async Task LoadPeriod()
@@ -220,7 +220,7 @@
     {
         if (DateTime.TryParse(args.Value?.ToString(), out var date))
         {
-            period = ParameterService.CreateNewPeriod(date).Result;
+            period = ParameterService.CreateNewPeriod(date, ParameterService.CurrentBuilding.IdBuilding).Result;
         }
         return Task.CompletedTask;
     }

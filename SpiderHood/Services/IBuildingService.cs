@@ -66,7 +66,7 @@ namespace SpiderHood.Services
         }
 
         public async Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner) {
-            return await ec.GetAllBuildingByOwnerAsync(Guid.NewGuid());
+            return await ec.GetAllBuildingByOwnerAsync(IdOwner);
         }
 
         private async Task<List<Models.BuildingConfiguration>> GetBuildingConfigurationAsync(Guid IdBuilding)

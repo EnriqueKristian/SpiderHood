@@ -140,6 +140,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        currentUser = await AuthService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+
         await LoadUserDataAsync();
     }
 
@@ -150,7 +153,7 @@
             isLoading = true;
             StateHasChanged();
 
-            currentUser = await AuthService.GetCurrentUserAsync();
+            //currentUser = await AuthService.GetCurrentUserAsync();
 
             if (currentUser == null)
             {

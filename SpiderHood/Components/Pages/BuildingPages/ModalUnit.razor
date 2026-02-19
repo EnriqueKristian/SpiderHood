@@ -52,10 +52,10 @@
     [Parameter] public bool ShowModal { get; set; }
     //[Parameter] public int TypeCategory { get; set; }
     [Parameter] public Models.OpenType OpenMode { get; set; }
-    [Parameter] public Models.Unit View_Unit { get; set; }
+    [Parameter] public Models.RealEstateUnit View_Unit { get; set; }
     [Parameter] public IReadOnlyList<Models.Parameter> ListParameters { get; set; }
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
-    [Parameter] public EventCallback<SpiderHood.Models.Unit> OnSaveItem { get; set; }
+    [Parameter] public EventCallback<SpiderHood.Models.RealEstateUnit> OnSaveItem { get; set; }
 
     private async Task Guardar()
     {

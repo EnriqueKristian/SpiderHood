@@ -7,15 +7,14 @@
 @inject NavigationManager Navigation // Inyecta el servicio de navegación
 @inject ParameterService ParameterService
 @inject IOwnerService OwnerService
-
-@layout MainLayout
+@inject Services.AuthService AuthService
 @using Microsoft.AspNetCore.Components
 @using System.ComponentModel.DataAnnotations.Schema
 @inject IJSRuntime JSRuntime
 
 
 <!--    MODAL PARA NUEVO / MODIFICACION DE PROPIETARIOS   -->
-<SpiderHood.Components.Pages.OwnerPages.ModalOwner ShowModal="@MostrarModal"
+<ModalOwner ShowModal="@MostrarModal"
                                                          ShowModalChanged="@((valor) => MostrarModal = valor)"
                                                          OpenMode="@OpenMode"
                                                    ViewOwner="@_Owner"
@@ -23,7 +22,7 @@
 
 
 <!--    MODAL PARA NUEVO / MODIFICACION DE PROPIETARIOS   -->
-<SpiderHood.Components.Pages.OwnerPages.ModalOwnerUnit ShowModalUnit="@MostrarModalUnit"
+<ModalOwnerUnit ShowModalUnit="@MostrarModalUnit"
                                                    ShowModalChanged="@((valor) => MostrarModalUnit = valor)"
                                                    OpenMode="@OpenMode"
                                                        ViewOwner="@_OwnerUnit"
@@ -598,7 +597,7 @@
     /*  === DECLARACION DE VARIABLES    === */
     private Models.OwnerUnit _OwnerUnit = new Models.OwnerUnit();
     private Models.Owner _Owner = new Models.Owner();
-    private List<Models.Unit> FreeUnits = new();
+    private List<Models.RealEstateUnit> FreeUnits = new();
 
     //public async ValueTask DisposeAsync() => await ParameterService.context.DisposeAsync();
 
@@ -659,12 +658,17 @@
     private List<GroupUnit1> filteredGroupUnits = new();
 
     private List<GroupUnit1> currentPageData = new();
+    private UserSession? currentUser = new();
+
 
     protected override async Task OnInitializedAsync()
     {
-        if (ParameterService.CurrentBuilding == null) return;
+        currentUser = await AuthService.GetCurrentUserAsync();
+        if (currentUser == null) return;
 
-        List<OwnerUnitView> ownerUnits = await BuildingService.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+        List<OwnerUnitView> ownerUnits = await BuildingService.GetOwnersByBuildingAsync(currentUser.CurrentBuildingId);
+
+        await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId, true);
 
         // Diccionarios para lookup eficiente
         var unitsByGroup = new Dictionary<Guid, List<RealEstateUnit>>();
@@ -861,8 +865,8 @@
 
     private void UpdatePagination()
     {
-    totalRecords = filteredGroupUnits.Count;
-    totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+        totalRecords = filteredGroupUnits.Count;
+        totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
         // Ajustar página actual si es necesario
         if (currentPage > totalPages && totalPages > 0)
@@ -991,7 +995,8 @@
     private void SelectOwner(GroupUnit1 owner)
     {
         // Navegar a detalles del propietario
-        Navigation.NavigateTo($"/Owners/{owner.IdGroupUnit}");
+        //Navigation.NavigateTo($"/Owners/{owner.IdGroupUnit}");
+        AbrirModalProp(owner, OpenType.Update);
     }
 
     private void ViewOwnerDetails(GroupUnit1 owner)
@@ -1194,19 +1199,19 @@
         //return ParameterService.Context.Owner.Any(e => e.IdOwner == id);
     }
 
-    private void AbrirModalProp(Models.OwnerUnit _own, Models.OpenType _mode)
+    private void AbrirModalProp(GroupUnit1 _own, Models.OpenType _mode)
     {
         //throw new NotImplementedException();
         MostrarModalUnit = true;
         OpenMode = _mode;
-        FreeUnits = BuildingService.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        FreeUnits = BuildingService.GetUnitsByBuildingAsync(currentUser!.CurrentBuildingId).Result;
 
-        _OwnerUnit.IdOwner = _own.IdOwner;
-        _OwnerUnit.Names = _own.Names;
-        _OwnerUnit.Surname = _own.Surname;
+        _OwnerUnit.IdOwner = _own.Owners.FirstOrDefault()!.IdOwner;
+        _OwnerUnit.Names = _own.Owners.FirstOrDefault()!.FullName;
+        _OwnerUnit.Surname = _own.Owners.FirstOrDefault()!.LastName;
     }
 
-    private async Task SaveGroupUnit(List<Models.Unit> _Units)
+    private async Task SaveGroupUnit(List<Models.RealEstateUnit> _Units)
     {
         //if (OpenMode == TipoEdicion.Editar)
         //{
@@ -1216,10 +1221,10 @@
         decimal _AreaTotal = 0;
 
         // Obtener la unidad de tipo "DEPARTAMENTO"
-        Models.Unit _funit = _Units.FirstOrDefault(c => c.TypeUnit == 1)!;
+        Models.RealEstateUnit _funit = _Units.FirstOrDefault(c => c.TypeUnit == 1)!;
 
         // Obtener el grupo de la unidades disponibles
-        Models.Unit _cUnit = FreeUnits.FirstOrDefault(c => c.IdUnit == _funit.IdUnit)!;
+        Models.RealEstateUnit _cUnit = FreeUnits.FirstOrDefault(c => c.IdUnit == _funit.IdUnit)!;
 
         //SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
 
@@ -1237,7 +1242,7 @@
             await BuildingService.AddOwnerUnitAsync(_GroupUnit);
 
             //Crear las unidades asignadas al propietario
-            foreach (Models.Unit x1 in _Units)
+            foreach (Models.RealEstateUnit x1 in _Units)
             {
                     //Crear registro de GroupUnit para cada unidad asignada
                     Models.GroupUnit x2 = new Models.GroupUnit();

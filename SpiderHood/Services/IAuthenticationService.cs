@@ -330,8 +330,10 @@ namespace SpiderHood.Services
             return null;
         }
 
+        // Services/AuthService.cs - Agregar estos métodos
+
         /// <summary>
-        /// Limpia las preferencias del usuario al hacer logout
+        /// Limpia las preferencias del usuario (edificio por defecto, etc)
         /// </summary>
         public async Task ClearUserPreferencesAsync()
         {
@@ -342,14 +344,59 @@ namespace SpiderHood.Services
                 {
                     var userKey = $"defaultBuilding_{user.IdUser}";
                     await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", userKey);
+                    _logger.LogInformation($"✅ Preferencias limpiadas para usuario {user.IdUser}");
                 }
 
-                // No limpiar lastBuildingId porque podría ser útil para el próximo login
-                _logger.LogInformation("✅ Preferencias de usuario limpiadas");
+                // También limpiar cualquier otra preferencia global
+                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "lastBuildingId");
+                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "theme");
+                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "sidebarCollapsed");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "❌ Error limpiando preferencias");
+            }
+        }
+
+        /// <summary>
+        /// Limpia la sesión del usuario (datos de autenticación)
+        /// </summary>
+        public async Task ClearUserSessionAsync()
+        {
+            try
+            {
+                // Limpiar caché en memoria
+                //_cachedUser = null;
+
+                // Limpiar localStorage
+                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "currentUser");
+                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "authToken");
+                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "refreshToken");
+
+                // Limpiar sessionStorage si es necesario
+                await _jsRuntime.InvokeVoidAsync("sessionStorage.clear");
+
+                _logger.LogInformation("✅ Sesión limpiada exitosamente");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error limpiando sesión");
+            }
+        }
+
+        /// <summary>
+        /// Obtiene el token de autenticación
+        /// </summary>
+        public async Task<string?> GetTokenAsync()
+        {
+            try
+            {
+                return await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error obteniendo token");
+                return null;
             }
         }
     }

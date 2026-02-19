@@ -7,7 +7,6 @@ namespace SpiderHood.Components.Pages.BuildingPages
 {
     public partial class BuildingPage
     {
-
         [Inject]
         public Services.ICategoryService CategoryService { get; set; } = default!;
         [Inject]
@@ -16,12 +15,12 @@ namespace SpiderHood.Components.Pages.BuildingPages
         public Services.IBankAccountService BankAccountService { get; set; } = default!;
 
         private List<Building> Buildings = new();
-        private Building? SelectedBuilding = null;
+        private Building SelectedBuilding = null;
         private Building _editingBuilding = new();
-        private Building? _quickConfigBuilding = null;
+        private Building _quickConfigBuilding = null;
         private BankAccount _editingBankAccout = new();
         private Exoneration _Exoneration = new();
-        private IReadOnlyList<Models.Parameter>? filteredParameters;
+        private IReadOnlyList<Models.Parameter> filteredParameters;
         private List<Models.Category> filteredCategory = new();
         private List<Models.UnitView> filteredUnits = new();
 
@@ -49,10 +48,15 @@ namespace SpiderHood.Components.Pages.BuildingPages
         new Currency { Code = "EUR", Symbol = "€", Name = "Euros" }
     };
 
-        private bool _isLoading = true;
         private Guid IdBuilding = Guid.Empty;
-        UserSession? currentUser = new();
+        private UserSession currentUser = new();
         private bool _loaded = false;
+
+        protected override async Task OnInitializedAsync()
+        {
+            currentUser = await AuthService.GetCurrentUserAsync();
+            if (currentUser == null) return;
+        }
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
@@ -71,66 +75,13 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
             try
             {
-                // 1. VERIFICAR USUARIO AUTENTICADO
-                currentUser = await VerificarUsuarioAutenticado();
-                if (currentUser == null) return; // Ya redirigió a login
-
-                // 2. VERIFICAR EDIFICIO SELECCIONADO
-                if (!await VerificarEdificioSeleccionado(currentUser)) return; // Ya redirigió a select-building
-
-                // 3. CARGAR DATOS DE LA PÁGINA
+                // 1. CARGAR DATOS DE LA PÁGINA
                 await CargarDatosPagina();
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Error en OnInitializedAsync: {ex.Message}");
             }
-            finally
-            {
-                _isLoading = false;
-            }
-        }
-
-        private async Task<UserSession> VerificarUsuarioAutenticado()
-        {
-            UserSession? currentUser = null;
-            int intentos = 0;
-            const int maxIntentos = 5;
-
-            while (currentUser == null && intentos < maxIntentos)
-            {
-                currentUser = await AuthService.GetCurrentUserAsync();
-
-                if (currentUser == null)
-                {
-                    intentos++;
-                    Console.WriteLine($"⚠️ Intento {intentos}/{maxIntentos} - Usuario no autenticado, esperando 500ms...");
-                    await Task.Delay(500);
-                }
-                else
-                {
-                    Console.WriteLine($"✅ Usuario encontrado: {currentUser.Email}");
-                    return currentUser;
-                }
-            }
-
-            Console.WriteLine($"❌ Usuario no autenticado después de {maxIntentos} intentos - Redirigiendo a login");
-            Navigation.NavigateTo("/login", true);
-            return null;
-        }
-
-        private async Task<bool> VerificarEdificioSeleccionado(UserSession currentUser)
-        {
-            if (currentUser.CurrentBuildingId == Guid.Empty)
-            {
-                Console.WriteLine("⚠️ No hay edificio seleccionado - Redirigiendo a select-building");
-                Navigation.NavigateTo("/select-building", true);
-                return false;
-            }
-
-            IdBuilding = currentUser.CurrentBuildingId;
-            Console.WriteLine($"🏢 Edificio seleccionado: {IdBuilding}");
-            return true;
         }
 
         private async Task CargarDatosPagina()

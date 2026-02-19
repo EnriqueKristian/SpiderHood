@@ -1,7 +1,9 @@
-﻿using DocumentFormat.OpenXml.Presentation;
-using Microsoft.AspNetCore.Http.HttpResults;
+﻿using Humanizer.Localisation;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Data;
 
 namespace SpiderHood.Data
 {
@@ -10,16 +12,16 @@ namespace SpiderHood.Data
         // Common interface methods could be defined here if needed
     }
 
-    public class BDLayout : IBDLayout
+    public class BDLayout(SpiderHoodContext dbContext) : IBDLayout
     {
-        private readonly SpiderHoodContext _dbContext;
+        private readonly SpiderHoodContext _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         //private readonly ILogger<BDLayout> _logger;
+        //private SpiderHoodContext context;
 
-        public BDLayout(SpiderHoodContext dbContext)
+        /*public BDLayout(SpiderHoodContext context)
         {
-            _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
-            //_logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        }
+            this.context = context;
+        }*/
 
         #region Constants and Stored Procedure Names
         private static class StoredProcedures
@@ -125,11 +127,12 @@ namespace SpiderHood.Data
         {
             try
             {
+                //_logger.LogDebug($"Excute operation {operation.ToString()}");
                 return await operation();
             }
             catch (DbUpdateException ex)
             {
-                //_logger.LogError(ex, "Database update error during {OperationName}: {Message}", operationName, ex.Message);
+               // _logger.LogError(ex, "Database update error during {OperationName}: {Message}", operationName, ex.Message);
                 throw new RepositoryException($"Database update failed for {operationName}", ex);
             }
             catch (Exception ex)
@@ -164,11 +167,23 @@ namespace SpiderHood.Data
             string storedProcedureName,
             params object[] parameters) where T : class
         {
-            var paramString = string.Join(",", parameters.Select((_, i) => $"{{{i}}}"));
-            var sql = $"EXEC {storedProcedureName} {paramString}";
-            
+            // Build parameter list for SQL
+            var paramNames = new List<string>();
+            var sqlParams = new List<object>();
+
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                var paramName = $"@p{i}";
+                paramNames.Add(paramName);
+
+                // Create SqlParameter for better type handling
+                sqlParams.Add(new SqlParameter(paramName, parameters[i] ?? DBNull.Value));
+            }
+
+            var sql = $"EXEC {storedProcedureName} {string.Join(", ", paramNames)}";
+
             var item = await _dbContext.Set<T>()
-                .FromSqlRaw(sql, parameters)
+                .FromSqlRaw(sql, sqlParams.ToArray())
                 .AsNoTracking()
                 .ToListAsync();
 
@@ -180,13 +195,23 @@ namespace SpiderHood.Data
             string storedProcedureName,
             params object[] parameters) where T : class
         {
-            var paramString = string.Join(",", parameters.Select((_, i) => $"{{{i}}}"));
-            var sql = $"EXEC {storedProcedureName} {paramString}";
+            // Build parameter list for SQL
+            var paramNames = new List<string>();
+            var sqlParams = new List<object>();
 
-            //_logger.LogDebug("Executing query: {Sql}", sql);
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                var paramName = $"@p{i}";
+                paramNames.Add(paramName);
+
+                // Create SqlParameter for better type handling
+                sqlParams.Add(new SqlParameter(paramName, parameters[i] ?? DBNull.Value));
+            }
+
+            var sql = $"EXEC {storedProcedureName} {string.Join(", ", paramNames)}";
 
             return await _dbContext.Set<T>()
-                .FromSqlRaw(sql, parameters)
+                .FromSqlRaw(sql, sqlParams.ToArray())
                 .AsNoTracking()
                 .ToListAsync();
         }
@@ -281,7 +306,7 @@ namespace SpiderHood.Data
             }, "DeleteOwner", cancellationToken);
         }
 
-        public async Task<bool> DeleteRecordAsync(Unit unit, CancellationToken cancellationToken = default)
+        public async Task<bool> DeleteRecordAsync(RealEstateUnit unit, CancellationToken cancellationToken = default)
         {
             ValidateEntity(unit, nameof(unit));
 
@@ -772,7 +797,7 @@ namespace SpiderHood.Data
             }, "AddOwner", cancellationToken);
         }
 
-        public async Task<Unit> AddNewRecordAsync(Unit unit, CancellationToken cancellationToken = default)
+        public async Task<RealEstateUnit> AddNewRecordAsync(RealEstateUnit unit, CancellationToken cancellationToken = default)
         {
             ValidateEntity(unit, nameof(unit));
 
@@ -977,7 +1002,7 @@ namespace SpiderHood.Data
             }, "UpdateBankAccount", cancellationToken);
         }
 
-        public async Task<Models.Unit> UpdateRecordAsync(Models.Unit unit, CancellationToken cancellationToken = default)
+        public async Task<Models.RealEstateUnit> UpdateRecordAsync(Models.RealEstateUnit unit, CancellationToken cancellationToken = default)
         {
             ValidateEntity(unit, nameof(unit));
 
@@ -1281,14 +1306,73 @@ namespace SpiderHood.Data
             }, "GetAllBuildingByOwner", cancellationToken);
         }
 
-        public async Task<List<Unit>> GetUnitsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<RealEstateUnit>> GetUnitsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
-            return await ExecuteWithErrorHandlingAsync(async () =>
+            var units = new List<RealEstateUnit>();
+
+            try
             {
-                return await ExecuteQueryListAsync<Unit>(
-                    StoredProcedures.GET_UnitsByBuilding,
-                    idBuilding);
-            }, "GetUnitsByBuilding", cancellationToken);
+                using var connection = new SqlConnection(_dbContext.Database.GetConnectionString());
+                using var command = new SqlCommand(StoredProcedures.GET_UnitsByBuilding, connection);
+
+                command.CommandType = CommandType.StoredProcedure;
+                command.CommandTimeout = 30;
+                command.Parameters.AddWithValue("@idBuilding", idBuilding);
+
+                // Usar SqlDataAdapter en lugar de DataReader
+                using var adapter = new SqlDataAdapter(command);
+                var dataTable = new DataTable();
+
+                // Fill no es async pero no se cuelga con múltiples filas
+                adapter.Fill(dataTable);
+
+                foreach (DataRow row in dataTable.Rows)
+                {
+                    units.Add(new RealEstateUnit
+                    {
+                        IdUnit = Guid.Parse(row["IdUnit"].ToString()!),
+                        UnitNumber = row["UnitNumber"].ToString()!,
+                        Area = Convert.ToDecimal(row["Area"]),
+                        TypeGroupUnit = (GroupUnitType)Convert.ToInt32(row["TypeGroupUnit"]),
+                        IdGroupOwner = Guid.Parse(row["IdGroupOwner"].ToString()!),
+                        GroupName = row["GroupName"].ToString()!,
+                        AreaTotal = Convert.ToDecimal(row["AreaTotal"]),
+                        TypeOwner = (OwnerType)Convert.ToUInt32(row["TypeOwner"]),
+                        Names = row["Names"].ToString()!,
+                        Surname = row["Surname"].ToString()!,        // ✔ FIX
+                        IdBuilding = Guid.Parse(row["IdBuilding"].ToString()!),
+                        TypeUnit = Convert.ToInt32(row["TypeUnit"].ToString()!),
+                        IdOwner = Guid.Parse(row["IdOwner"].ToString()!),
+                        Number = Convert.ToInt32(row["Number"]),
+                        IsAvailable = Convert.ToBoolean(row["IsAvailable"]),   // ✔ FIX
+                        Building = row["Building"].ToString()!
+                    });
+                }
+
+                return units;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<List<RealEstateUnit>> GetUnitsByBuildingAsync1(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExecuteWithErrorHandlingAsync(async () =>
+                {
+                    return await ExecuteQueryListAsync<RealEstateUnit>(
+                        StoredProcedures.GET_UnitsByBuilding,
+                        idBuilding);
+                }, "GetUnitsByBuilding", cancellationToken);
+            }
+            catch (Exception ex) { 
+                Console.WriteLine(ex);
+                return [];
+            }
         }
 
         public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period, CancellationToken cancellationToken = default)

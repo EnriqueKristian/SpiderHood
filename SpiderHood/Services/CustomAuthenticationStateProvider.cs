@@ -258,5 +258,22 @@ namespace SpiderHood.Services
             var identity = new ClaimsIdentity(claims, "custom");
             return new AuthenticationState(new ClaimsPrincipal(identity));
         }
+
+        public async Task NotifyUserLogoutAsync()
+        {
+            try
+            {
+                await _localStorage.RemoveItemAsync("currentUser");
+                await _localStorage.RemoveItemAsync("authToken");
+
+                NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_anonymous)));
+
+                _logger.LogInformation("✅ Usuario desautenticado exitosamente");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error notificando logout");
+            }
+        }
     }
 }

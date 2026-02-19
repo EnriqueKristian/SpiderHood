@@ -1397,7 +1397,7 @@
 
     private void SeleccionarTodosTransacciones(ChangeEventArgs e)
     {
-        seleccionarTodos = (bool)e.Value; 
+        seleccionarTodos = (bool)e.Value!; 
 
         foreach (var transaccion in transaccionesNoConciliadas)
         {

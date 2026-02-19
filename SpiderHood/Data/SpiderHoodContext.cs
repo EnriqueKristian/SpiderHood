@@ -22,7 +22,7 @@ namespace SpiderHood.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Models.Category>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.Unit>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.RealEstateUnit>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.OwnerUnit>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Owner>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Building>().HasNoKey(); // If SP doesn't return a primary key
@@ -55,48 +55,6 @@ namespace SpiderHood.Data
 
             base.OnModelCreating(modelBuilder);
         }
-
-        /*public DbSet<SpiderHood.Models.Owner> Owner { get; set; } = default!;
-        public DbSet<SpiderHood.Models.Unit> Unit { get; set; } = default!;
-        public DbSet<SpiderHood.Models.Building> Building { get; set; } = default!;
-        public DbSet<SpiderHood.Models.Category> Category { get; set; } = default!;
-        public DbSet<SpiderHood.Models.OwnerUnit> OwnerUnit { get; set; } = default!;
-        public DbSet<SpiderHood.Models.Parameter> Parameter { get; set; } = default!;
-        public DbSet<SpiderHood.Models.Expense> Expense{ get; set; } = default!;
-        public DbSet<SpiderHood.Models.MovDetKey> MovDetKey { get; set; } = default!;
-        public DbSet<SpiderHood.Models.MovementHeader> MovementHeader { get; set; } = default!;
-        public DbSet<SpiderHood.Models.MovementDetail> MovementDetail { get; set; } = null!;
-        public DbSet<SpiderHood.Models.CuotaViewModel> CuotaViewModel { get; set; } = null!;
-        public DbSet<SpiderHood.Models.CuotaMensual> CuotasMensuales { get; set; } = null!;
-        public DbSet<SpiderHood.Models.Departamento> Departamento { get; set; } = null!;
-        public DbSet<SpiderHood.Models.ViewExpense> ViewExpense { get; set; } = null!;
-        public DbSet<SpiderHood.Models.DetalleCuota> DetallesCuota { get; set; } = null!;
-        public DbSet<SpiderHood.Models.DetalleCuotaViewModel> DetalleCuotaViewModel { get; set; } = null!;
-        public DbSet<SpiderHood.Models.GastoResumen> GastoResumen { get; set; } = null!;
-        public DbSet<SpiderHood.Models.CategoriaGasto> CategoriaGasto { get; set; } = null!;
-        public DbSet<SpiderHood.Models.GastoPendienteViewModel> GastoPendienteViewModel { get; set; } = null!;
-        public DbSet<SpiderHood.Models.CuotaMensual> CuotaMensual { get; set; } = null!;
-        public DbSet<SpiderHood.Models.BankAccount> BankAccount { get; set; } = null!;
-        public DbSet<SpiderHood.Models.TransactionBankView> TransactionBankView { get; set; } = null!;
-        public DbSet<SpiderHood.Models.BuildingConfiguration> BuildingConfiguration { get; set; } = null!;
-        public DbSet<SpiderHood.Models.Contact> Contact { get; set; } = null!;
-        public DbSet<SpiderHood.Models.ViewBudgetDetail> ViewBudgetDetail { get; set; } = null!;
-        public DbSet<SpiderHood.Models.BudgetHeader> BudgetHeader{ get; set; } = null!;
-        public DbSet<SpiderHood.Models.BudgetDetail> BudgetDetail { get; set; } = null!;
-        public DbSet<SpiderHood.Models.Presupuesto> Presupuestos { get; set; } = null!;
-        public DbSet<SpiderHood.Models.PresupuestoDetalle> PresupuestoDetalles { get; set; } = null!;
-        public DbSet<SpiderHood.Models.Categoria> Categorias { get; set; } = null!;
-        public DbSet<SpiderHood.Models.PresupuestoCategoria> PresupuestoCategorias { get; set; } = null!;
-        public DbSet<SpiderHood.Models.ServiceReading> ServiceReading { get; set; } = null!;
-        public DbSet<SpiderHood.Models.ServiceReadingDetail> ServiceReadingDetail { get; set; } = null!;
-        public DbSet<SpiderHood.Models.UnitView> UnitView { get; set; } = null!;
-        public DbSet<SpiderHood.Models.OwnerUnitView> OwnerUnitView { get; set; } = null!;
-        public DbSet<SpiderHood.Models.BudgetSumCategory> BudgetSumCategory { get; set; } = null!;
-        public DbSet<SpiderHood.Models.Period> Period { get; set; } = null!;
-        public DbSet<SpiderHood.Models.Exoneration> Exoneration { get; set; } = null!;
-        public DbSet<SpiderHood.Models.InstallmentException> InstallmentException { get; set; } = null!;
-        public DbSet<SpiderHood.Models.Installment> Installment { get; set; } = null!;*/
-
     }
 }
 

@@ -3,32 +3,47 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using Humanizer.Localisation;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SpiderHood.Models
 {
     public enum GroupUnitType { Individual = 1, Shared = 0 }
     public enum OwnerType { NaturalPerson = 1, LegalEntity = 2 }
 
-    public class Unit
+    public class RealEstateUnit
     {
         public Guid IdUnit { get; set; }
         public string UnitNumber { get; set; } = string.Empty;
+
         [Precision(18, 2)]
         public decimal Area { get; set; }
+
         public GroupUnitType TypeGroupUnit { get; set; }
+
         public Guid IdGroupOwner { get; set; }
+
         public string GroupName { get; set; } = string.Empty;
+
         [Precision(18, 2)]
         public decimal AreaTotal { get; set; }
+
         public OwnerType TypeOwner { get; set; }
+
         public string Names { get; set; } = string.Empty;
+
         public string Surname { get; set; } = string.Empty;
+
         public Guid IdBuilding { get; set; }
-        public string Building { get; set; } = string.Empty;
+
         public int TypeUnit { get; set; }
+
         public Guid IdOwner { get; set; }
+        
         public int Number { get; set; }
+
         public bool IsAvailable { get; set; }
+        
+        public string Building { get; set; } = string.Empty;
     }
 
     public class UnitView

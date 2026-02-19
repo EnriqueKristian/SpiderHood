@@ -23,7 +23,7 @@ namespace SpiderHood.Services
 
         Task<List<Models.OwnerUnitView>> GetOwnersByBuildingAsync(Guid IdBuilding);
 
-        Task<List<Models.Unit>> GetUnitsByBuildingAsync(Guid IdBuilding);
+        Task<List<Models.RealEstateUnit>> GetUnitsByBuildingAsync(Guid IdBuilding);
 
         /*  UNITS SECTIONS  */
         Task<List<Models.UnitView>> GetGroupUnitsByTypeAsync(Guid IdBuilding, int type);
@@ -36,12 +36,12 @@ namespace SpiderHood.Services
 
         Task AddOwnerGroupOwnerAsync(Models.OwnerGroupOwner newgroup);
 
-        Task AddUnitAsync(Models.Unit newunit);
+        Task AddUnitAsync(Models.RealEstateUnit newunit);
 
 
-        Task DeleteUnitAsync(Models.Unit unit);
+        Task DeleteUnitAsync(Models.RealEstateUnit unit);
 
-        Task UpdateUnitAsync(Models.Unit unit);
+        Task UpdateUnitAsync(Models.RealEstateUnit unit);
 
 
         Task<List<Departamento>> ObtenerDepartamentosActivosAsync();
@@ -248,7 +248,7 @@ namespace SpiderHood.Services
         }
 
 
-        public async Task UpdateUnitAsync(Models.Unit unit)
+        public async Task UpdateUnitAsync(Models.RealEstateUnit unit)
         {
             try
             {
@@ -260,7 +260,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task AddUnitAsync(Models.Unit newunit)
+        public async Task AddUnitAsync(Models.RealEstateUnit newunit)
         {
             try
             {
@@ -277,9 +277,18 @@ namespace SpiderHood.Services
             return await ec.GetOwnersByBuildingAsync(IdBuilding);
         }
 
-        public async Task<List<Models.Unit>> GetUnitsByBuildingAsync(Guid IdBuilding)
+        public async Task<List<Models.RealEstateUnit>> GetUnitsByBuildingAsync(Guid IdBuilding)
         {
-            return await ec.GetUnitsByBuildingAsync(IdBuilding);
+            
+            try
+            {
+                return await ec.GetUnitsByBuildingAsync(IdBuilding);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al obtener las unidades por edificio : {ex.Message}");
+                throw new Exception(ex.Message);
+            }
         }
 
         public async Task AddOwnerGroupOwnerAsync(Models.OwnerGroupOwner newgroup)
@@ -332,7 +341,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task DeleteUnitAsync(Models.Unit unit)
+        public async Task DeleteUnitAsync(Models.RealEstateUnit unit)
         {
             try
             {

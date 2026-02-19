@@ -1,0 +1,388 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.QuickGrid
+@rendermode InteractiveServer
+
+@inherits LayoutComponentBase
+
+@if (ShowModalUnit)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" @onclick="HandleBackgroundClick" @onclick:stopPropagation="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document" @onclick:stopPropagation="true">
+            <div class="modal-content shadow-lg">
+                <!-- Header del Modal -->
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas @GetModalIcon() me-2"></i>
+                        @GetModalTitle()
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal"></button>
+                </div>
+
+                <!-- Body del Modal -->
+                <div class="modal-body">
+                    <EditForm Model="@_formModel" OnValidSubmit="@Guardar" FormName="unitForm" method="post">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" role="alert" />
+
+                        <!-- Información del Propietario -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-user me-2"></i>Información del Propietario
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3 fw-bold">Propietario:</div>
+                                    <div class="col-md-9">
+                                        <span class="badge bg-info fs-6 p-2">
+                                            @ViewOwner?.Names @ViewOwner?.Surname
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (OpenMode == Models.OpenType.Update)
+                        {
+                            <!-- Modo UPDATE: Asignar Unidades Adicionales -->
+                            <div class="card mb-3">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-plus-circle me-2"></i>Asignar Unidades Adicionales
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <!-- Departamento Principal -->
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold">
+                                            <i class="fas fa-door-open me-2"></i>Departamento:
+                                        </label>
+                                        <InputSelect @bind-Value="@SelectedUnitId" class="form-select">
+                                            <option value="">-- Seleccionar Departamento --</option>
+                                            @foreach (var row in GetAvailableUnits(1))
+                                            {
+                                                <option value="@row.IdUnit">@row.UnitNumber</option>
+                                            }
+                                        </InputSelect>
+                                        @if (string.IsNullOrEmpty(SelectedUnitId))
+                                        {
+                                            <span class="text-danger small">Debe seleccionar un departamento</span>
+                                        }
+                                    </div>
+
+                                    <hr />
+
+                                    <!-- Unidades Adicionales -->
+                                    <div class="row">
+                                        <!-- Estacionamientos -->
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">
+                                                <i class="fas fa-parking me-2"></i>Estacionamientos:
+                                            </label>
+                                            <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                                @if (GetAvailableUnits(2).Any())
+                                                {
+                                                    @foreach (var unit in GetAvailableUnits(2))
+                                                    {
+                                                        <div class="form-check">
+                                                            <input type="checkbox"
+                                                                   class="form-check-input"
+                                                                   id="parking_@unit.IdUnit"
+                                                                   checked="@_selectedParking.Contains(unit.IdUnit)"
+                                                                   @onchange="@((e) => ToggleParking(unit, e.Value as bool? ?? false))" />
+                                                            <label class="form-check-label" for="parking_@unit.IdUnit">
+                                                                @unit.UnitNumber
+                                                            </label>
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <p class="text-muted small mb-0">
+                                                        <i class="fas fa-info-circle me-1"></i>No hay estacionamientos disponibles
+                                                    </p>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <!-- Depósitos -->
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">
+                                                <i class="fas fa-warehouse me-2"></i>Depósitos:
+                                            </label>
+                                            <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                                @if (GetAvailableUnits(3).Any())
+                                                {
+                                                    @foreach (var unit in GetAvailableUnits(3))
+                                                    {
+                                                        <div class="form-check">
+                                                            <input type="checkbox"
+                                                                   class="form-check-input"
+                                                                   id="storage_@unit.IdUnit"
+                                                                   checked="@_selectedStorage.Contains(unit.IdUnit)"
+                                                                   @onchange="@((e) => ToggleStorage(unit, e.Value as bool? ?? false))" />
+                                                            <label class="form-check-label" for="storage_@unit.IdUnit">
+                                                                @unit.UnitNumber
+                                                            </label>
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <p class="text-muted small mb-0">
+                                                        <i class="fas fa-info-circle me-1"></i>No hay depósitos disponibles
+                                                    </p>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Modo CREATE: Grupo de Unidades -->
+                            <div class="card">
+                                <div class="card-header bg-light">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-layer-group me-2"></i>Seleccionar Grupo de Unidades
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <label class="form-label fw-bold">Grupo de Departamento:</label>
+                                    <InputSelect @bind-Value="@SelectedUnitId" class="form-select">
+                                        <option value="">-- Seleccionar Grupo --</option>
+                                        @foreach (var row in GetAvailableGroups())
+                                        {
+                                            <option value="@row.IdGroupOwner">@row.GroupName</option>
+                                        }
+                                    </InputSelect>
+                                    @if (string.IsNullOrEmpty(SelectedUnitId))
+                                    {
+                                        <span class="text-danger small">Debe seleccionar un grupo de departamentos</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </EditForm>
+                </div>
+
+                <!-- Footer del Modal -->
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button type="submit" form="unitForm" class="btn btn-primary" disabled="@(!CanSubmit())">
+                        <i class="fas @GetSubmitIcon() me-2"></i>
+                        @((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool ShowModalUnit { get; set; }
+    [Parameter] public int TypeOwner { get; set; }
+    [Parameter] public Models.OpenType OpenMode { get; set; }
+    [Parameter] public Models.OwnerUnit? ViewOwner { get; set; }
+    [Parameter] public List<Models.RealEstateUnit>? FreeUnits { get; set; }
+    [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
+    [Parameter] public EventCallback<List<Models.RealEstateUnit>> OnSaveGroupUnit { get; set; }
+
+    // Modelo para validación
+    private class FormModel
+    {
+        [Required(ErrorMessage = "La selección es obligatoria")]
+        public string SelectedUnitId { get; set; } = string.Empty;
+    }
+
+    private FormModel _formModel = new();
+    private string SelectedUnitId
+    {
+        get => _formModel.SelectedUnitId;
+        set => _formModel.SelectedUnitId = value;
+    }
+
+    // Listas para elementos seleccionados
+    private HashSet<Guid> _selectedParking = new();
+    private HashSet<Guid> _selectedStorage = new();
+    private List<Models.RealEstateUnit> _selectedUnits = new();
+
+    protected override void OnParametersSet()
+    {
+        // Resetear selecciones cuando cambian los parámetros
+        if (ShowModalUnit)
+        {
+            ResetSelections();
+        }
+    }
+
+    private void ResetSelections()
+    {
+        _selectedParking.Clear();
+        _selectedStorage.Clear();
+        _selectedUnits.Clear();
+        SelectedUnitId = string.Empty;
+    }
+
+    private string GetModalTitle()
+    {
+        return (OpenMode == Models.OpenType.Create) ? "Agregar Propietario a Grupo" : "Actualizar Unidades del Propietario";
+    }
+
+    private string GetModalIcon()
+    {
+        return (OpenMode == Models.OpenType.Create) ? "fa-user-plus" : "fa-user-edit";
+    }
+
+    private string GetSubmitIcon()
+    {
+        return (OpenMode == Models.OpenType.Create) ? "fa-save" : "fa-check";
+    }
+
+    private bool CanSubmit()
+    {
+        if (string.IsNullOrEmpty(SelectedUnitId))
+            return false;
+
+        if (OpenMode == Models.OpenType.Update)
+        {
+            // En modo Update, al menos debe tener el departamento principal
+            return !string.IsNullOrEmpty(SelectedUnitId);
+        }
+
+        return true;
+    }
+
+    private IEnumerable<Models.RealEstateUnit> GetAvailableUnits(int typeUnit)
+    {
+        if (FreeUnits == null)
+            return Enumerable.Empty<Models.RealEstateUnit>();
+        
+        return FreeUnits.Where(c =>
+                c.IdGroupOwner == Guid.Empty &&
+                c.TypeUnit == typeUnit &&
+                !_selectedUnits.Any(u => u.IdUnit == c.IdUnit)
+            ).ToList();
+    }
+
+    private IEnumerable<Models.RealEstateUnit> GetAvailableGroups()
+    {
+        if (FreeUnits == null)
+            return Enumerable.Empty<Models.RealEstateUnit>();
+
+        return FreeUnits.Where(c =>
+            c.IdGroupOwner != Guid.Empty &&
+            c.TypeUnit == 1
+        ).ToList();
+    }
+
+    private void ToggleParking(Models.RealEstateUnit unit, bool isChecked)
+    {
+        if (isChecked)
+        {
+            _selectedParking.Add(unit.IdUnit);
+            AddSelectedUnit(unit);
+        }
+        else
+        {
+            _selectedParking.Remove(unit.IdUnit);
+            RemoveSelectedUnit(unit);
+        }
+    }
+
+    private void ToggleStorage(Models.RealEstateUnit unit, bool isChecked)
+    {
+        if (isChecked)
+        {
+            _selectedStorage.Add(unit.IdUnit);
+            AddSelectedUnit(unit);
+        }
+        else
+        {
+            _selectedStorage.Remove(unit.IdUnit);
+            RemoveSelectedUnit(unit);
+        }
+    }
+
+    private void AddSelectedUnit(Models.RealEstateUnit unit)
+    {
+        var newUnit = new Models.RealEstateUnit
+        {
+            IdUnit = unit.IdUnit,
+            UnitNumber = unit.UnitNumber,
+            TypeUnit = unit.TypeUnit,
+            IdOwner = ViewOwner?.IdOwner ?? Guid.Empty
+        };
+        _selectedUnits.Add(newUnit);
+    }
+
+    private void RemoveSelectedUnit(Models.RealEstateUnit unit)
+    {
+        var existing = _selectedUnits.FirstOrDefault(u => u.IdUnit == unit.IdUnit);
+        if (existing != null)
+        {
+            _selectedUnits.Remove(existing);
+        }
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            var unitsToSave = new List<Models.RealEstateUnit>();
+
+            if (OpenMode == Models.OpenType.Update)
+            {
+                // Modo Update: Departamento principal + selecciones
+                var mainUnit = FreeUnits?.FirstOrDefault(c => c.IdUnit == new Guid(SelectedUnitId));
+                if (mainUnit != null)
+                {
+                    mainUnit.IdOwner = ViewOwner?.IdOwner ?? Guid.Empty;
+                    unitsToSave.Add(mainUnit);
+                }
+
+                // Agregar unidades seleccionadas
+                unitsToSave.AddRange(_selectedUnits);
+            }
+            else
+            {
+                // Modo Create: Grupo completo
+                var groupUnit = FreeUnits?.FirstOrDefault(c => c.IdGroupOwner == new Guid(SelectedUnitId));
+                if (groupUnit != null)
+                {
+                    groupUnit.IdOwner = ViewOwner?.IdOwner ?? Guid.Empty;
+                    unitsToSave.Add(groupUnit);
+                }
+            }
+
+            if (unitsToSave.Any())
+            {
+                await OnSaveGroupUnit.InvokeAsync(unitsToSave);
+            }
+
+            await CerrarModal();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar: {ex.Message}");
+            // Aquí podrías mostrar un mensaje de error al usuario
+        }
+    }
+
+    private async Task CerrarModal()
+    {
+        ResetSelections();
+        ShowModalUnit = false;
+        await ShowModalChanged.InvokeAsync(ShowModalUnit);
+    }
+
+    private async Task HandleBackgroundClick()
+    {
+        // Opcional: cerrar modal al hacer clic en el fondo
+        await CerrarModal();
+    }
+}

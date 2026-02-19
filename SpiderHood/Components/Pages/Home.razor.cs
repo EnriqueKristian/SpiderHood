@@ -143,10 +143,8 @@ namespace SpiderHood.Components.Pages
 
         protected override async Task OnInitializedAsync()
         {
-            UserSession? currentUser = null;
-            currentUser = await AuthService.GetCurrentUserAsync();
+            var currentUser = await AuthService.GetCurrentUserAsync();
             if (currentUser == null) return;
-
         }
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -166,7 +164,7 @@ namespace SpiderHood.Components.Pages
             try
             {
                 // Intentar obtener usuario varias veces
-                UserSession? currentUser = null;
+                UserSession currentUser = null;
                 int intentos = 0;
                 const int maxIntentos = 3;
 

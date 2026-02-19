@@ -4,7 +4,7 @@
         align-items: center;
         justify-content: center;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 20px;
+        padding: 5px;
     }
 
     .login-card {
@@ -19,7 +19,7 @@
     .login-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 40px 30px;
+        padding: 10px 10px;
         text-align: center;
     }
 
@@ -28,7 +28,7 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
             .login-header .logo i {
@@ -42,7 +42,7 @@
         }
 
     .login-body {
-        padding: 40px 30px;
+        padding: 20px 20px;
     }
 
     .login-footer {

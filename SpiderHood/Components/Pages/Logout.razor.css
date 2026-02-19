@@ -1,0 +1,32 @@
+﻿.logout-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1rem;
+}
+
+.logout-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 3rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    max-width: 400px;
+    width: 100%;
+}
+
+.progress {
+    height: 0.5rem;
+    border-radius: 1rem;
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+@media (max-width: 768px) {
+    .logout-card {
+        padding: 2rem;
+    }
+}

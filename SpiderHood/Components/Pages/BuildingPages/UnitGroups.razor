@@ -1,5 +1,4 @@
-﻿@page "/units"
-@page "/units/type"
+﻿@page "/UnitGroups"
 @rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
 @using System.Threading.Tasks
@@ -13,6 +12,7 @@
 @inject ParameterService ParameterService
 @using Microsoft.AspNetCore.Components
 @inject IJSRuntime JSRuntime
+@inject Services.AuthService AuthService
 
 <PageTitle>Unidades Inmobiliarias</PageTitle>
 
@@ -401,34 +401,33 @@
     }
 
     // Métodos de acciones
-    private void ViewDetails(Models.Unit unidad)
+    private void ViewDetails(Models.RealEstateUnit unidad)
     {
         // Lógica para ver detalles
     }
 
-    private void EditUnit(Models.Unit unidad)
+    private void EditUnit(Models.RealEstateUnit unidad)
     {
         // Lógica para editar
     }
 
-    private void ViewFinances(Models.Unit unidad)
+    private void ViewFinances(Models.RealEstateUnit unidad)
     {
         // Lógica para ver finanzas
     }
 
-    private void DeleteUnit(Models.Unit unidad)
+    private void DeleteUnit(Models.RealEstateUnit unidad)
     {
         // Lógica para eliminar
     }
 }
 
 <!--    MODAL PARA CREAR / MODIFICAR UNIDADES -->
-<SpiderHood.Components.Pages.UnitPages.ModalUnit ShowModal="@MostrarModal"
-                                                 ShowModalChanged="@((valor) => MostrarModal = valor)"
-                                                 OpenMode="@OpenMode"
-                                                 ListParameters="@ParameterService.ListParameters"
-                                                 View_Unit="@_Unit"
-                                                 OnSaveItem="@((item) => SaveItem(item))" />
+<ModalUnit ShowModal="@MostrarModal" ShowModalChanged="@((valor) => MostrarModal = valor)"
+                                     OpenMode="@OpenMode"
+                                     ListParameters="@ParameterService.ListParameters"
+                                     View_Unit="@_Unit"
+                                     OnSaveItem="@((item) => SaveItem(item))" />
 
 <!--    MODAL PARA GENERAR UNIDADES -->
 <Modal @ref="modalAll" Title="Generara Bloque de Unidades" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true" IsScrollable="true">
@@ -515,7 +514,7 @@
     private async Task OnShowModalDelete(Guid IdCategory)
     {
         //Usuarios.Add(nuevo);
-        _Unit = new Models.Unit();
+        _Unit = new Models.RealEstateUnit();
         //_Unit.IdUnit = IdUnit;
         await modalAll.ShowAsync();
     }
@@ -542,10 +541,9 @@
 
                 for (int j=1; j<=_formCreateUnit.NroUnits; j++)
                 {
-                    Models.Unit _blockunit = new Models.Unit();
+                    Models.RealEstateUnit _blockunit = new Models.RealEstateUnit();
 
-                    //_blockunit.IdUnit = Guid.NewGuid();
-                    _blockunit.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
+                    _blockunit.IdBuilding = currentUser.CurrentBuildingId;
                     //_blockunit.IdGroupOwner = IdOwner;
                     _blockunit.TypeUnit = _formCreateUnit.IdUnitType;
                     _blockunit.Area = _formCreateUnit.Area;
@@ -578,15 +576,16 @@
         //await Task.CompletedTask;
     }
 
-    private List<Models.Unit> units = new();
-    private List<Models.Unit> list_units = new();
+    private List<Models.RealEstateUnit> units = new();
+    private List<Models.RealEstateUnit> list_units = new();
 
     /*  === Parametros de la Ventana Modal  === */
     private bool MostrarModal = false;
     private Models.OpenType OpenMode;
 
-    private Models.Unit _Unit = new Models.Unit();
+    private Models.RealEstateUnit _Unit = new Models.RealEstateUnit();
     private UnidadModel _formCreateUnit = new UnidadModel();
+    private UserSession currentUser = new();
 
     //  CLASE PARA GENERAR UNIDADES EN BLOQUE
     public class UnidadModel
@@ -615,27 +614,29 @@
     }
 
 
-    protected override void OnInitialized()
+    protected override async void OnInitialized()
     {
-        if (ParameterService.CurrentBuilding == null) return;
-        units = BuildingService.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        currentUser = await AuthService!.GetCurrentUserAsync()!;
+        if (currentUser == null) return;
+
+        units = BuildingService.GetUnitsByBuildingAsync(currentUser.CurrentBuildingId).Result;
         list_units = units.Where(c => c.TypeUnit == 1).ToList();
     }
 
-    private void AbrirModal(Models.Unit _cat, int type, Models.OpenType mode)
+    private void AbrirModal(Models.RealEstateUnit _cat, int type, Models.OpenType mode)
     {
         MostrarModal = true;
         OpenMode = mode;
 
         _Unit = mode switch
         {
-            OpenType.Create => new Models.Unit { IdBuilding = ParameterService.CurrentBuilding.IdBuilding },
+            OpenType.Create => new Models.RealEstateUnit { IdBuilding = currentUser.CurrentBuildingId },
             OpenType.Update => _cat,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Valor inesperado: {mode}")
         };
     }
 
-    private async Task SaveItem(SpiderHood.Models.Unit item)
+    private async Task SaveItem(SpiderHood.Models.RealEstateUnit item)
     {
         switch (OpenMode)
         {
@@ -656,14 +657,14 @@
 
     }
 
-    private async Task AddItem(SpiderHood.Models.Unit item)
+    private async Task AddItem(SpiderHood.Models.RealEstateUnit item)
     {
         //Usuarios.Add(nuevo);
-        item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
+        item.IdBuilding = currentUser.CurrentBuildingId;
         await BuildingService.AddUnitAsync(_Unit);
     }
 
-    private async Task UpdateItem(SpiderHood.Models.Unit item)
+    private async Task UpdateItem(SpiderHood.Models.RealEstateUnit item)
     {
         await BuildingService.UpdateUnitAsync(item);
     }

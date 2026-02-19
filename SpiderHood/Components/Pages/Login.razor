@@ -25,7 +25,7 @@
                 </div>
             }
 
-            @if (successMessage != null)
+            @if (successMessage != null && successMessage.Length > 0 )
             {
                 <div class="alert alert-success">
                     <i class="fas fa-check-circle me-2"></i>@successMessage
@@ -139,16 +139,19 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var currentUser = AuthService.GetCurrentUserAsync();
-
-        // Verificar si ya hay sesión activa
-        if (currentUser.Result != null)
+        if (firstRender)
         {
-            Navigation.NavigateTo("/dashboard");
-        }
+            var currentUser = AuthService.GetCurrentUserAsync();
 
-        // Limpiar modelo
-        loginModel = new LoginModel();
+            // Verificar si ya hay sesión activa
+            if (currentUser.Result != null)
+            {
+                Navigation.NavigateTo("/dashboard");
+            }
+
+            // Limpiar modelo
+            loginModel = new LoginModel();
+        }
     }
 
     private async Task HandleLogin()

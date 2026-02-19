@@ -1,7 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using SpiderHood.Models;
-using System;
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Globalization;
 
@@ -42,13 +39,6 @@ namespace SpiderHood.Models
         public bool Activo { get; set; }
         public string Categoria { get; set; } = "";
     }
-
-    /*public class LoginModel
-    {
-        public string Email { get; set; } = "";
-        public string Password { get; set; } = "";
-        public bool RememberMe { get; set; }
-    }*/
 
     public class RegistrationModel
     {
@@ -168,24 +158,7 @@ namespace SpiderHood.Models
 
         public BankAccount Clone() => (BankAccount)this.MemberwiseClone();
     }
-
-    
-
-
-    public enum ConcilationType
-    { 
-        NoConciliada = 0,
-        Conciliada = 1,
-        Parcial = 2,
-        Pendiente = 3
-    }
-
-    public enum TransactionOrigen
-    {
-        BankAccountState = 0,
-        ExcessPayment = 1,
-    }
-
+  
     public class ViewExpense
     {
         public Guid IdExpense { get; set; }
@@ -209,36 +182,6 @@ namespace SpiderHood.Models
         //public DateTime? PaymentDate { get; set; }
     }
 
-    public enum PaymentMethod
-    {
-        Cash = 1,
-        CreditCard = 2,
-        BankTransfer = 3,
-        Check = 4,
-        DebitCard = 5,
-        Other = 6
-    }
-
-    public enum StatusExpense
-    {
-        Pending,
-        Approved,
-        Rejected,
-        Paid
-    }
-
-    /*public class CategoriaGasto
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = "";
-        public string Descripcion { get; set; } = "";
-        public string Color { get; set; } = "#007bff";
-        [Precision(18, 2)]
-        public decimal Presupuesto { get; set; }
-        public bool Activa { get; set; } = true;
-        public TipoDistribucion TipoDistribucion { get; set; } // Fija o Porcentual
-    }*/
-
     public class Conciliacion
     {
         public int Id { get; set; }
@@ -254,40 +197,6 @@ namespace SpiderHood.Models
         public string Usuario { get; set; } = "";
         public string Notas { get; set; } = "";
     }
-
-    public enum TipoDistribucion
-    {
-        Fija,       // División igualitaria
-        Porcentual  // Según porcentaje de área
-    }
-    public enum EstadoCuota
-    {
-        Pendiente,
-        Generada,
-        Procesada,
-        Anulada,
-        PagadaParcialmente
-    }
-
-    public enum EstadoPago
-    {
-        Pendiente,
-        Pagado,
-        Atrasado,
-        Anulado
-    }
-
-    public enum TipoCategoriaGasto
-    {
-        Ordinario,
-        Extraordinario,
-        Mantenimiento,
-        Administrativo,
-        Otros
-    }
-    // Models/CuotaMensual.cs
-
-
 
     public class Installment
     {
@@ -340,8 +249,6 @@ namespace SpiderHood.Models
         public bool IsAutoReconcile { get; set; } = false;
         public bool IsPartialPayment { get; set; } = false;
     }
-
-
 
     public class CuotaMensual
     {
@@ -656,9 +563,6 @@ namespace SpiderHood.Models
         public string Observaciones { get; set; } = string.Empty;
     }
 
-    // Enums adicionales
-
-
     // Extension methods para utilidades
     public static class CuotaExtensions
     {
@@ -736,7 +640,6 @@ namespace SpiderHood.Models
         }
     }
 
-
     // Models/ViewModel para Detalle Cuota
     public class DetalleCuotaViewModel
     {
@@ -798,18 +701,6 @@ namespace SpiderHood.Models
         public decimal PorcentajeDelTotal { get; set; }
     }
 
-    public enum BudgetStatus
-    {
-        All = 0,
-        Created = 1,
-        Check = 2,
-        Approved = 3,
-        Active = 4,
-        Rejected = 5,
-        Closed = 6
-    }
-
-
     public class BudgetHeader
     {
         public Guid IdBudgetHeader { get; set; }
@@ -834,6 +725,7 @@ namespace SpiderHood.Models
         [NotMapped]
         public List<BudgetDetail> Details { get; set; } = [];
     }
+    
     public class BudgetDetail
     {
         public Guid IdBudgetDetail { get; set; }
@@ -854,7 +746,6 @@ namespace SpiderHood.Models
 		public Guid IdParent { get; set; }
     }
 
-    // Clases de modelos
     public class ViewBudgetDetail
     {
         public Guid IdBudgetDetail { get; set; }
@@ -874,7 +765,6 @@ namespace SpiderHood.Models
 
         public Guid IdParent { get; set; }
     }
-
 
     public class Presupuesto
     {
@@ -947,6 +837,7 @@ namespace SpiderHood.Models
         public Categoria? Categoria { get; set; }
  
     }
+    
     public class SectionInfo
     {
         public int Id { get; set; }
@@ -954,7 +845,6 @@ namespace SpiderHood.Models
         public Guid IdCategory { get; set; }
     }
 
-    // Clases de modelos
     public class NewCalculation
     {
         public int Month { get; set; }
@@ -979,7 +869,6 @@ namespace SpiderHood.Models
         public decimal Monthly { get; set; }
         public decimal Annual { get; set; }
     }
-
 
 }
 

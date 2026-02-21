@@ -1,5 +1,27 @@
-﻿using Blazored.LocalStorage;
+﻿/* 
+PSEUDOCODE PLAN (detailed):
+- Problem: CS1061 for 'AddEntityFrameworkStores' on IdentityBuilder indicates the extension method isn't available.
+- Root causes to check:
+  1) Missing assembly/package that defines the extension method (NuGet package).
+  2) Missing using directive for the namespace that exposes the extension method.
+- Fix approach:
+  1) Add the using directive that brings the extension method into scope:
+     - `using Microsoft.AspNetCore.Identity.EntityFrameworkCore;`
+  2) Ensure the project references the package that provides the implementation:
+     - Add a NuGet reference to `Microsoft.AspNetCore.Identity.EntityFrameworkCore` (version matching your target framework).
+     - Example: add a `<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="x.y.z" />` to the .csproj.
+  3) Keep the existing Identity call:
+     - `.AddEntityFrameworkStores<SpiderHoodContext>()`
+  4) If error persists after adding `using`, the package reference is missing and must be added to the project file via NuGet or editing the .csproj.
+- This file change only adds the using directive; add the NuGet package via CLI:
+  - `dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore`
+  or via Visual Studio NuGet manager.
+*/
+
+using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Components;
 using SpiderHood.Data;
@@ -30,6 +52,15 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthorizationCore();
 
+// 2. Identity
+
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+{
+    options.SignIn.RequireConfirmedEmail = true;
+})
+.AddEntityFrameworkStores<SpiderHoodContext>()
+.AddDefaultTokenProviders();
+
 // Otros servicios
 builder.Services.AddScoped<UsuarioService>();
 builder.Services.AddScoped<ParameterService>();
@@ -46,6 +77,8 @@ builder.Services.AddScoped<ICuotaService, CuotaService>();
 builder.Services.AddScoped<IGastoService, GastoService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
 builder.Services.AddHttpClient();
 
 var app = builder.Build();

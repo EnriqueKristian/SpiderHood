@@ -75,44 +75,19 @@ namespace SpiderHood.Models
 
     public class InvitationModel
     {
-        public int Id { get; set; }
-        public string Code { get; set; } = "";
-        public string Email { get; set; } = "";
-        public BuildingModel Building { get; set; } = new();
-        public string InvitedBy { get; set; } = "";
-        public string Role { get; set; } = "";
+        public Guid IdInvitation { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public Guid IdBuilding { get; set; }
+        public string BuildingName { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public string InvitedBy { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
         public int ApartmentNumber { get; set; }
         public bool RequiresApproval { get; set; }
-        public string AdminMessage { get; set; } = "";
+        public string AdminMessage { get; set; } = string.Empty;
         public DateTime ExpirationDate { get; set; }
         public string Status { get; set; } = "Pending"; // Pending, Accepted, Rejected, Expired
-    }
-
-    public class BuildingModel
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = "";
-        public string Address { get; set; } = "";
-        public string City { get; set; } = "";
-        public int TotalApartments { get; set; }
-        public int Floors { get; set; }
-        public string BuildingType { get; set; } = "";
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
-    }
-
-    public class UserModel
-    {
-        public int Id { get; set; }
-        public string FirstName { get; set; } = "";
-        public string LastName { get; set; } = "";
-        public string Email { get; set; } = "";
-        public string PhoneNumber { get; set; } = "";
-        public string Role { get; set; } = "";
-        public int BuildingId { get; set; }
-        public int ApartmentNumber { get; set; }
-        public string Status { get; set; } = "Pending"; // Active, Pending, Inactive
-        public List<BuildingModel> Buildings { get; set; } = [];
-        public DateTime CreatedDate { get; set; } = DateTime.Now;
     }
 
     public class AuthResult
@@ -121,6 +96,7 @@ namespace SpiderHood.Models
         public string Message { get; set; } = "";
         public UserModel? User { get; set; }
         public string Token { get; set; } = "";
+        public bool RequiresApproval { get; set; }
     }
 
     public class RegistrationResult
@@ -870,6 +846,16 @@ namespace SpiderHood.Models
         public decimal Annual { get; set; }
     }
 
+    public class RegisterWithInvitationModel
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+        public bool AcceptTerms { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string? PhoneNumber { get; set; }
+    }
 }
 
 

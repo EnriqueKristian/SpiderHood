@@ -1,9 +1,11 @@
-﻿@*page "/building-invitation/{invitationCode}"
+﻿@page "/invitation"
+@page "/invitation/{invitationCode}"
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IAuthenticationService AuthService
+@inject Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
 
 <PageTitle>SpiderHood - Unirse a Edificio</PageTitle>
 
@@ -48,10 +50,10 @@
                                     <i class="fas fa-building"></i>
                                 </div>
                                 <div>
-                                    <h5 class="mb-1">@invitation.Building.Name</h5>
+                                    <h5 class="mb-1">@invitation.BuildingName</h5>
                                     <p class="text-muted mb-0">
                                         <i class="fas fa-map-marker-alt me-1"></i>
-                                        @invitation.Building.Address
+                                        @invitation.Location
                                     </p>
                                 </div>
                             </div>
@@ -272,21 +274,25 @@
     public string InvitationCode { get; set; } = "";
 
     private InvitationModel? invitation;
-    private UserRegistrationModel userModel = new();
+    private RegisterWithInvitationModel userModel = new();
     private bool isLoading = true;
     private bool isSubmitting = false;
     private bool showPassword = false;
     private Dictionary<string, string> errors = new();
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!string.IsNullOrEmpty(InvitationCode))
+        if (firstRender)
         {
-            await LoadInvitation();
-        }
-        else
-        {
-            Navigation.NavigateTo("/");
+            if (!string.IsNullOrEmpty(InvitationCode))
+            {
+                await LoadInvitation();
+                StateHasChanged();
+            }
+            else
+            {
+                Navigation.NavigateTo("/");
+            }
         }
     }
 
@@ -296,38 +302,37 @@
 
         try
         {
-            // Simular carga de invitación
-            await Task.Delay(1000);
+            // Cargar invitación real desde el repositorio
+            invitation = await AuthService.GetByCodeAsync(InvitationCode);
 
-            // Datos de ejemplo
-            invitation = new InvitationModel
+            if (invitation == null)
             {
-                Id = 1,
-                Code = InvitationCode,
-                Email = "invitado@ejemplo.com",
-                Building = new BuildingModel
-                {
-                    Id = 1,
-                    Name = "Torres del Sol",
-                    Address = "Av. Principal 123, Ciudad",
-                    City = "Ciudad de México",
-                    TotalApartments = 50,
-                    Floors = 10
-                },
-                InvitedBy = "Juan Pérez",
-                Role = "Residente",
-                ApartmentNumber = 201,
-                RequiresApproval = true,
-                AdminMessage = "Te damos la bienvenida a nuestro edificio. Por favor, completa tu registro para acceder al sistema.",
-                ExpirationDate = DateTime.Now.AddDays(7),
-                Status = "Pending"
-            };
+                /*await JSRuntime.InvokeVoidAsync("showErrorMessage",
+                    "Invitación no encontrada",
+                    "El código de invitación no es válido");*/
 
-            userModel.Email = invitation.Email;
+                await ShowToast("Error: Invitación no encontrada.", $"El código de invitación {InvitationCode} no es válido", "danger");
+            }
+            else if (invitation.ExpirationDate < DateTime.Now)
+            {
+                /*await JSRuntime.InvokeVoidAsync("showErrorMessage",
+                    "Invitación expirada",
+                    "Esta invitación ha expirado");*/
+                
+
+                await ShowToast("Error: Invitación expirada.", $"Esta invitación {InvitationCode} ha expirado", "danger");
+
+                invitation = null;
+            }
+            else
+            {
+                userModel.Email = invitation.Email;
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading invitation: {ex.Message}");
+            await ShowToast("Error: Invitación .", "El código de invitación no es válido o ha expirado.", "danger");
         }
         finally
         {
@@ -375,9 +380,10 @@
                 if (invitation!.RequiresApproval)
                 {
                     // Mostrar mensaje de aprobación pendiente
-                    await JSRuntime.InvokeVoidAsync("showSuccessMessage",
+                    /*await JSRuntime.InvokeVoidAsync("showSuccessMessage",
                         "Solicitud enviada",
-                        "Tu solicitud ha sido enviada al administrador para aprobación. Recibirás un correo cuando sea procesada.");
+                        "Tu solicitud ha sido enviada al administrador para aprobación. Recibirás un correo cuando sea procesada.");*/
+                    await ShowToast("Éxito: Solicitud enviada.", "Tu solicitud ha sido enviada al administrador para aprobación. Recibirás un correo cuando sea procesada.", "success");
 
                     Navigation.NavigateTo("/");
                 }
@@ -459,4 +465,18 @@
             _ => new List<string> { "Acceso básico al sistema" }
         };
     }
-}*@
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            // Fallback a console
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
+    }
+}

@@ -1,4 +1,6 @@
 ﻿using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using SpiderHood.Data;
@@ -24,28 +26,37 @@ namespace SpiderHood.Services
     public class AuthService : IAuthService
     {
         private readonly ILogger<AuthService> _logger;
+        private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
         private readonly CustomAuthenticationStateProvider _authStateProvider;
 
-        private List<Models.User> _users = new();
+        private List<UserModel> _users = new();
         private List<UserBuildingAssociation> _userBuildings = new();
 
         private const string DEFAULT_BUILDING_KEY = "defaultBuildingId";
         private readonly IJSRuntime _jsRuntime;
 
         public event Action? OnAuthStateChanged;
-        private BDLayout ec { get; set; }
+        private BDLayout Ec { get; set; }
         public SpiderHoodContext _context = default!;
+
+        private readonly string _baseUrl;
 
         public AuthService(SpiderHoodContext context,
            ILogger<AuthService> logger,
+           IEmailService emailService,
            CustomAuthenticationStateProvider authStateProvider,
-           IJSRuntime jsRuntime) // Added parameter to satisfy readonly field assignment
+           IJSRuntime jsRuntime,
+           IConfiguration configuration) // Added parameter to satisfy readonly field assignment
         {
             _logger = logger;
             _authStateProvider = authStateProvider;
             _jsRuntime = jsRuntime; // Assign the non-nullable readonly field
-            ec = new BDLayout(context);
+            Ec = new BDLayout(context);
+            _emailService = emailService;
             //InitializeSampleData();
+            _configuration = configuration;
+            _baseUrl = _configuration["BaseUrl"] ?? "https://localhost:7175";
         }
 
         private void InitializeSampleData()
@@ -54,7 +65,7 @@ namespace SpiderHood.Services
 
             var adminId = Guid.Parse("BCD5E9DE-0FD2-431D-AB16-B4B9BB19DDC7"); //Guid.NewGuid();
 
-            _users.Add(new Models.User
+            _users.Add(new Models.UserModel
             {
                 IdUser = adminId,
                 // 🔴 Usar minúsculas para consistencia
@@ -88,7 +99,7 @@ namespace SpiderHood.Services
                 // 🔴 NORMALIZAR EMAIL: convertir a minúsculas para comparación
                 var normalizedEmail = model.Email?.Trim().ToLowerInvariant();
 
-                _users = await ec.GetUsersByEmailAsync(normalizedEmail!);
+                _users = await Ec.GetUsersByEmailAsync(normalizedEmail!);
 
                 // Buscar usuario con email normalizado
                 var user = _users.FirstOrDefault(u =>
@@ -112,10 +123,9 @@ namespace SpiderHood.Services
                     return AuthFail("Email o contraseña incorrectos");
                 }
 
-
-                _userBuildings = await ec.GetUserBuildingAssociationAsync(user.IdUser);
-                List<Building> builds = await ec.GetAllBuildingByOwnerAsync(user.IdUser);
-                List<BuildingConfiguration> configurations = await ec.GetAllBuildingsConfigAsync(user.IdUser);
+                _userBuildings = await Ec.GetUserBuildingAssociationAsync(user.IdUser);
+                List<Building> builds = await Ec.GetAllBuildingByOwnerAsync(user.IdUser);
+                List<BuildingConfiguration> configurations = await Ec.GetAllBuildingsConfigAsync(user.IdUser);
 
                 // Obtener edificios
                 foreach (var item in builds)
@@ -135,7 +145,7 @@ namespace SpiderHood.Services
                     }).ToList();
 
                 // Crear sesión
-                var session =  (new UserSession
+                var session = (new UserSession
                 {
                     IdUser = user.IdUser,
                     Email = user.Email,
@@ -199,6 +209,11 @@ namespace SpiderHood.Services
             NotifyAuthStateChanged();
         }
 
+        public async Task<UserModel> AddNewUserAsync(UserModel user) {
+            return await Ec.AddNewRecordAsync(user);
+        }
+
+    
         // -------------------------------------------
         //        UTILITARIOS
         // -------------------------------------------
@@ -270,9 +285,7 @@ namespace SpiderHood.Services
             }
         }
 
-        /// <summary>
         /// Guarda el edificio por defecto del usuario actual
-        /// </summary>
         public async Task SetDefaultBuildingAsync(Guid buildingId)
         {
             string key = string.Empty;
@@ -299,9 +312,7 @@ namespace SpiderHood.Services
             }
         }
 
-        /// <summary>
         /// Obtiene el edificio por defecto del usuario actual
-        /// </summary>
         public async Task<Guid?> GetDefaultBuildingAsync()
         {
             try
@@ -330,11 +341,7 @@ namespace SpiderHood.Services
             return null;
         }
 
-        // Services/AuthService.cs - Agregar estos métodos
-
-        /// <summary>
         /// Limpia las preferencias del usuario (edificio por defecto, etc)
-        /// </summary>
         public async Task ClearUserPreferencesAsync()
         {
             try
@@ -358,9 +365,7 @@ namespace SpiderHood.Services
             }
         }
 
-        /// <summary>
         /// Limpia la sesión del usuario (datos de autenticación)
-        /// </summary>
         public async Task ClearUserSessionAsync()
         {
             try
@@ -384,9 +389,7 @@ namespace SpiderHood.Services
             }
         }
 
-        /// <summary>
         /// Obtiene el token de autenticación
-        /// </summary>
         public async Task<string?> GetTokenAsync()
         {
             try
@@ -399,6 +402,148 @@ namespace SpiderHood.Services
                 return null;
             }
         }
-    }
 
+        public async Task<InvitationModel> GetByCodeAsync(string code){
+            return await Ec.GetInvitationByCodeAsync(code);
+        }
+
+        public async Task<AuthResult> RegisterWithInvitationAsync(
+    RegisterWithInvitationModel model,
+    InvitationModel invitation)
+        {
+            try
+            {
+                // Validar que la invitación sigue siendo válida
+                if (invitation.ExpirationDate < DateTime.Now)
+                {
+                    return new AuthResult
+                    {
+                        Success = false,
+                        Message = "La invitación ha expirado"
+                    };
+                }
+
+                if (invitation.Status != "Pending")
+                {
+                    return new AuthResult
+                    {
+                        Success = false,
+                        Message = "La invitación ya ha sido procesada"
+                    };
+                }
+
+                // Crear el usuario
+                var user = new IdentityUser
+                {
+                    UserName = invitation.Email,
+                    Email = invitation.Email,
+                    PhoneNumber = model.PhoneNumber,
+                    EmailConfirmed = true // El email está verificado por la invitación
+                };
+
+                // Crear el usuario en la base de datos
+                UserModel _user = new UserModel();
+
+                _user.IdUser = Guid.Parse(user.Id);
+                _user.Email = invitation.Email;
+                _user.PhoneNumber = model.PhoneNumber!;
+                _user.FirstName = model.FirstName;
+                _user.LastName = model.LastName;
+                _user.PasswordHash = HashPassword(model.Password);
+
+               //EmailConfirmed = true // El email está verificado por la invitación
+
+                var createResult = await AddNewUserAsync(_user);
+
+                await AcceptInvitationAsync(invitation, _user, model);
+
+                // Si no requiere aprobación, iniciar sesión automáticamente
+                if (!invitation.RequiresApproval)
+                {
+                    LoginModel login = new LoginModel();
+                    login.Email = invitation.Email;
+                    login.Password = model.Password;
+                    login.RememberMe = false;
+                    await LoginAsync(login);
+                }
+
+                // Enviar correo de confirmación
+                await SendWelcomeEmailAsync(user, model.FirstName, invitation.RequiresApproval);
+
+                return new AuthResult
+                {
+                    Success = true,
+                    Message = invitation.RequiresApproval
+                        ? "Registro exitoso. Esperando aprobación del administrador."
+                        : "Registro exitoso. ¡Bienvenido!",
+                    User = new UserModel
+                    {
+                        IdUser = Guid.Parse(user.Id),
+                        //UserName = user.UserName,
+                        Email = user.Email,
+                        FirstName = model.FirstName,
+                        LastName = model.LastName,
+                        PhoneNumber = model.PhoneNumber!,
+                        //RequiresApproval = invitation.RequiresApproval
+                    },
+                    RequiresApproval = invitation.RequiresApproval
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en RegisterWithInvitationAsync para email: {Email}", model.Email);
+                return new AuthResult
+                {
+                    Success = false,
+                    Message = "Error interno al procesar el registro"
+                };
+            }
+        }
+
+        private async Task<bool> AcceptInvitationAsync(InvitationModel invitation, UserModel User, RegisterWithInvitationModel model) {
+            // Asociar usuario con el edificio y departamento
+            UserBuildingAssociation _association = new UserBuildingAssociation();
+            _association.IdUser = User.IdUser;
+            _association.IdBuilding = invitation.IdBuilding;
+            _association.Role = invitation.Role;
+            _association.IsApproved = true;
+            _association.RequestedAt = DateTime.Now;
+
+            return await Ec.AcceptInvitationAsync(_association);
+
+        }
+
+        private async Task SendWelcomeEmailAsync(IdentityUser user, string firstName, bool requiresApproval)
+        {
+            try
+            {
+                var subject = requiresApproval
+                    ? "Solicitud de registro recibida"
+                    : "Bienvenido a SpiderHood";
+
+                var body = requiresApproval
+                    ? $@"
+                    <h2>Hola {firstName},</h2>
+                    <p>Hemos recibido tu solicitud de registro en SpiderHood.</p>
+                    <p>Tu cuenta está pendiente de aprobación por un administrador.</p>
+                    <p>Recibirás un correo electrónico cuando tu cuenta sea activada.</p>
+                    <br>
+                    <p>Saludos,<br>El equipo de SpiderHood</p>"
+                    : $@"
+                    <h2>¡Bienvenido a SpiderHood, {firstName}!</h2>
+                    <p>Tu cuenta ha sido creada exitosamente.</p>
+                    <p>Ya puedes acceder al sistema con tu correo electrónico y contraseña.</p>
+                    <br>
+                    <p><a href='{_baseUrl}/dashboard'>Ir al Dashboard</a></p>
+                    <br>
+                    <p>Saludos,<br>El equipo de SpiderHood</p>";
+
+                await _emailService.SendEmailAsync(user.Email!, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando email de bienvenida a: {Email}", user.Email);
+            }
+        }
+    }
 }

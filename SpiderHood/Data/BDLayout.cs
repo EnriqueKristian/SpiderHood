@@ -27,6 +27,8 @@ namespace SpiderHood.Data
         private static class StoredProcedures
         {
             // Insert Procedures
+            public const string INS_UserBuildingAssociation = "INS_UserBuildingAssociation";
+            public const string INS_User = "INS_User";
             public const string INS_Category = "INS_Category";
             public const string INS_Exoneration = "INS_Exoneration";
             public const string INS_Periods = "INS_Periods";
@@ -52,6 +54,7 @@ namespace SpiderHood.Data
             public const string INS_InstallmentPaid = "INS_InstallmentPaid";
 
             // Update Procedures
+            public const string UPD_UserToken = "UPD_UserToken";
             public const string UPD_Building = "UPD_Building";
             public const string UPD_BudgetDetail = "UPD_BudgetDetail";
             public const string UPD_ServiceReading = "UPD_ServiceReading";
@@ -80,6 +83,8 @@ namespace SpiderHood.Data
             public const string DEL_Unit = "DEL_Unit";
 
             // Get Procedures
+            public const string GET_UserById = "GET_UserById";
+            public const string GET_InvitationByCode = "GET_InvitationByCode";
             public const string GET_AllBuildings = "GET_AllBuildings";
             public const string GET_BuildingById = "GET_BuildingById";
             public const string GET_Building = "GET_Building";
@@ -334,6 +339,27 @@ namespace SpiderHood.Data
 
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 return exoneration;
+            }, "AddInstallmentExoneration", cancellationToken);
+        }
+
+        public async Task<Models.UserModel> AddNewRecordAsync(Models.UserModel user, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(user, nameof(user));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_User,
+                    cancellationToken,
+                    user.IdUser!,
+                    user.Email!,
+                    user.PasswordHash!,
+                    user.FirstName!,
+                    user.LastName!,
+                    user.PhoneNumber!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return user;
             }, "AddInstallmentExoneration", cancellationToken);
         }
 
@@ -1196,11 +1222,11 @@ namespace SpiderHood.Data
             }, "GetUserBuildingAssociation", cancellationToken);
         }
 
-        public async Task<List<Models.User>> GetUsersByEmailAsync(string email, CancellationToken cancellationToken = default)
+        public async Task<List<Models.UserModel>> GetUsersByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.User>(
+                return await ExecuteQueryListAsync<Models.UserModel>(
                     StoredProcedures.GET_UsersByEmail,
                     email);
             }, "GetUsersByEmail", cancellationToken);
@@ -1215,6 +1241,9 @@ namespace SpiderHood.Data
                     idBuilding);
             }, "GetBudgetSum", cancellationToken);
         }
+
+       
+
 
         public async Task<List<BudgetHeader>> GetBudgetsAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
@@ -1555,6 +1584,29 @@ namespace SpiderHood.Data
             }, "GetInstallmentsPaid", cancellationToken);
         }
 
+        public async Task<InvitationModel> GetInvitationByCodeAsync(string code, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<InvitationModel>(
+                    StoredProcedures.GET_InvitationByCode,
+                    code);
+                return result ?? throw new EntityNotFoundException($"Invitation with code {code} not found");
+            }, "GetInvitationByCode", cancellationToken);
+        }
+
+        public async Task<UserModel> GetUserByIdAsync(Guid idUser, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<UserModel>(
+                    StoredProcedures.GET_UserById,
+                    idUser);
+
+                return result ?? throw new EntityNotFoundException($"User with ID {idUser} not found");
+            }, "GetUserById", cancellationToken);
+        }
+
         public async Task<Building> GetBuildingByIdAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
@@ -1625,6 +1677,21 @@ namespace SpiderHood.Data
             }, "ClosePastBudgets", cancellationToken);
         }
 
+        public async Task<bool> UpdateTokenUserAsync(UserModel user, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_UserToken,
+                    cancellationToken,
+                    user.IdUser,
+                    user.Token);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "ClosePastBudgets", cancellationToken);
+        }
+
         public async Task<bool> CheckPeriodOverlapAsync(Period period, CancellationToken cancellationToken = default)
         {
             ValidateEntity(period, nameof(period));
@@ -1650,6 +1717,24 @@ namespace SpiderHood.Data
                     transaction.IdStatementDetail,
                     installment.Status,
                     transaction.ReconciliationStatus);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "ClosePastBudgets", cancellationToken);
+        }
+
+        public async Task<bool> AcceptInvitationAsync(UserBuildingAssociation invitation, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_UserBuildingAssociation,
+                    cancellationToken,
+                    invitation.IdUser,
+                    invitation.IdBuilding,
+                    invitation.Role,
+                    invitation.IsApproved,
+                    invitation.RequestedAt!);
 
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;

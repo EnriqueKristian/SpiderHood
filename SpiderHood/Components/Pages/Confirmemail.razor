@@ -1,0 +1,273 @@
+﻿@page "/Confirmemail"
+@using SpiderHood.Services
+@using SpiderHood.Models
+@inject IEmailConfirmationService EmailConfirmationService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>SpiderHood - Confirmar Email</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-envelope me-2"></i>
+                        Confirmar Email
+                    </h4>
+                </div>
+
+                <div class="card-body text-center py-5">
+                    @if (isLoading)
+                    {
+                        <div class="py-5">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p>Confirmando tu email...</p>
+                        </div>
+                    }
+                    else if (confirmationResult?.Success == true)
+                    {
+                        <div class="py-4">
+                            <div class="text-success mb-4">
+                                <i class="fas fa-check-circle fa-4x"></i>
+                            </div>
+
+                            <h4 class="mb-3">¡Email Confirmado!</h4>
+
+                            <p class="text-muted mb-4">
+                                Tu email <strong>@confirmationResult.Email</strong> ha sido confirmado exitosamente.
+                            </p>
+
+                            @if (confirmationResult.RequiresApproval)
+                            {
+                                <div class="alert alert-warning text-start mb-4">
+                                    <i class="fas fa-clock me-2"></i>
+                                    <strong>Aprobación pendiente:</strong>
+                                    <p class="mb-0 mt-2">
+                                        Tu cuenta está pendiente de aprobación por un administrador.
+                                        Recibirás un email cuando sea activada.
+                                    </p>
+                                </div>
+                            }
+
+                            <div class="mt-4">
+                                <a href="/login" class="btn btn-primary">
+                                    <i class="fas fa-sign-in-alt me-2"></i>
+                                    Ir a Iniciar Sesión
+                                </a>
+                            </div>
+                        </div>
+                    }
+                    else if (confirmationResult?.Success == false)
+                    {
+                        <div class="py-4">
+                            <div class="text-danger mb-4">
+                                <i class="fas fa-exclamation-triangle fa-4x"></i>
+                            </div>
+
+                            <h4 class="mb-3">Error de Confirmación</h4>
+
+                            <p class="text-muted mb-4">
+                                @confirmationResult.Message
+                            </p>
+
+                            <div class="alert alert-info text-start mb-4">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Posibles causas:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>El enlace ha expirado</li>
+                                    <li>El enlace ya fue utilizado</li>
+                                    <li>El enlace es inválido</li>
+                                </ul>
+                            </div>
+
+                            <div class="d-flex justify-content-center gap-3">
+                                <button class="btn btn-outline-primary" @onclick="ResendConfirmation">
+                                    <i class="fas fa-redo-alt me-2"></i>
+                                    Reenviar Email
+                                </button>
+                                <a href="/login" class="btn btn-primary">
+                                    <i class="fas fa-sign-in-alt me-2"></i>
+                                    Iniciar Sesión
+                                </a>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para reenviar confirmación -->
+
+    <div class="modal fade" id="resendModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-envelope me-2"></i>
+                        Reenviar Email de Confirmación
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Ingresa tu email</label>
+                        <input type="email" class="form-control" @bind="resendEmail"
+                        placeholder="tu@email.com" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmResend"
+                    disabled="@isResending">
+                        @if (isResending)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Enviar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+        // wwwroot/js/site.js o similar
+    window.showModal = (modalId) => {
+        var modal = new bootstrap.Modal(document.getElementById(modalId));
+        modal.show();
+    };
+
+    window.hideModal = (modalId) => {
+        var modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
+        if (modal) {
+            modal.hide();
+        }
+    };
+
+    window.showSuccessMessage = (title, message) => {
+        // Implementar según tu sistema de notificaciones
+        alert(`${title}: ${message}`);
+    };
+
+    window.showErrorMessage = (title, message) => {
+        alert(`${title}: ${message}`);
+    };
+
+    window.showToast = (type, message) => {
+        // Implementar según tu sistema de notificaciones
+        console.log(`${type}: ${message}`);
+    };
+</script>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? userId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? token { get; set; }
+
+    private EmailConfirmationResult? confirmationResult;
+    private bool isLoading = true;
+    private bool isResending = false;
+    private string resendEmail = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ConfirmEmail();
+    }
+
+    private async Task ConfirmEmail()
+    {
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(token))
+        {
+            confirmationResult = new EmailConfirmationResult
+            {
+                Success = false,
+                Message = "Enlace de confirmación inválido"
+            };
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            confirmationResult = await EmailConfirmationService.ConfirmEmailAsync(userId, token);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error confirmando email: {ex.Message}");
+            confirmationResult = new EmailConfirmationResult
+            {
+                Success = false,
+                Message = "Error al procesar la confirmación"
+            };
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResendConfirmation()
+    {
+        await JSRuntime.InvokeVoidAsync("showModal", "resendModal");
+    }
+
+    private async Task ConfirmResend()
+    {
+        if (string.IsNullOrEmpty(resendEmail))
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", "warning", "Ingresa tu email");
+            return;
+        }
+
+        isResending = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await EmailConfirmationService.ResendConfirmationEmailAsync(resendEmail);
+
+            await JSRuntime.InvokeVoidAsync("hideModal", "resendModal");
+
+            if (result.Success)
+            {
+                await JSRuntime.InvokeVoidAsync("showSuccessMessage",
+                    "Email enviado",
+                    "Si el email existe, recibirás un enlace de confirmación");
+
+                confirmationResult = new EmailConfirmationResult
+                {
+                    Success = true,
+                    Message = result.Message
+                };
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("showErrorMessage",
+                    "Error",
+                    result.Message);
+            }
+            
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("showErrorMessage",
+                "Error",
+                $"Error al enviar: {ex.Message}");
+        }
+        finally
+        {
+            isResending = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -1,4 +1,6 @@
 ﻿using Dapper;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.Build.Tasks.Deployment.Bootstrapper;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
@@ -11,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace SpiderHood.Data
 {
-    public class SpiderHoodContext : DbContext
+    public class SpiderHoodContext : IdentityDbContext<IdentityUser>
     {
         public SpiderHoodContext (DbContextOptions<SpiderHoodContext> options)
             : base(options)
@@ -50,8 +52,9 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.InstallmentException>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Installment>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.InstallmentPaid>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.User>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.UserModel>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.UserBuildingAssociation>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.InvitationModel>().HasNoKey(); // If SP doesn't return a primary key
 
             base.OnModelCreating(modelBuilder);
         }

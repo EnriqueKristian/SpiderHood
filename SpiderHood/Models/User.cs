@@ -1,17 +1,23 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SpiderHood.Models
 {
-    public class User
+    public class UserModel
     {
         public Guid IdUser { get; set; }
+        public string UserName => Email;
         public string Email { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public bool IsActive { get; set; }
+        [NotMapped]
         public DateTime CreatedAt { get; set; }
+        public bool EmailConfirmed { get; set; }
+        public List<Building> Buildings { get; set; } = [];
+        public string Token { get; set; } = string.Empty;
     }
 
     public class LoginModel
@@ -63,13 +69,12 @@ namespace SpiderHood.Models
         public DateTime SessionStart { get; set; }
         public DateTime SessionExpiry { get; set; }
         public bool IsAuthenticated => SessionExpiry > DateTime.UtcNow;
-
         public bool RememberMe { get; internal set; }
     }
 
     public class UserBuilding
     {
-        public Models.Building? Building { get; set; } 
+        public Models.Building? Building { get; set; }
         public string Role { get; set; } = string.Empty; // Admin, Junta, Residente
         public bool IsApproved { get; set; }
         public DateTime? ApprovedAt { get; set; }
@@ -84,14 +89,19 @@ namespace SpiderHood.Models
         public DateTime? RequestedAt { get; set; }
         public DateTime? ApprovedAt { get; set; }
         public Guid? ApprovedBy { get; set; }
+        public string Status { get; set; } = "Pending"; // Active, Pending, Inactive
+        [NotMapped]
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public bool RequiresApproval { get; set; }
+
     }
 
     public class AuthResponse
     {
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
-        public UserSession UserSession { get; set; }= new();
-        public string Token { get; set; }= string.Empty;
+        public UserSession UserSession { get; set; } = new();
+        public string Token { get; set; } = string.Empty;
     }
 
 
@@ -113,5 +123,27 @@ namespace SpiderHood.Models
             return buildings.FirstOrDefault(b => b.Building!.IdBuilding == preferredBuildingId.Value)
                    ?? buildings.FirstOrDefault();
         }
+    }
+
+    public class EmailConfirmationModel
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Token { get; set; } = string.Empty;
+        public bool? RequiresApproval { get; set; }
+    }
+
+    public class EmailConfirmationResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public bool RequiresApproval { get; set; }
+        public bool EmailConfirmed { get; set; }
+    }
+
+    public class ResendConfirmationModel
+    {
+        public string Email { get; set; } = string.Empty;
     }
 }

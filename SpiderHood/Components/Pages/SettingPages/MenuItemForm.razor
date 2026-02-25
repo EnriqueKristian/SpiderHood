@@ -1,0 +1,267 @@
+﻿@* Pages/Settings/MenuItemForm.razor *@
+@page "/Settings/MenuItems/Create"
+@page "/Settings/MenuItems/Edit/{Id:guid?}"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@inject Services.IMenuAdminService MenuAdminService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>@(_isEdit ? "Editar Item" : "Nuevo Item")</PageTitle>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-@(_isEdit ? "edit" : "plus") me-2"></i>
+                        @(_isEdit ? "Editar Item del Menú" : "Nuevo Item del Menú")
+                    </h4>
+                </div>
+                
+                <div class="card-body">
+                    <EditForm Model="@_item" OnValidSubmit="@HandleSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">Título *</label>
+                                    <InputText class="form-control" @bind-Value="_item.Title" 
+                                               placeholder="Ej: Dashboard, Edificios, etc." />
+                                    <ValidationMessage For="@(() => _item.Title)" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Orden</label>
+                                    <InputNumber class="form-control" @bind-Value="_item.DisplayOrder" min="1" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Icono (FontAwesome)</label>
+                                    <InputText class="form-control" @bind-Value="_item.Icon" 
+                                               placeholder="fas fa-home" />
+                                    <small class="text-muted">
+                                        <i class="@_item.Icon me-1"></i>Vista previa
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">URL</label>
+                                    <InputText class="form-control" @bind-Value="_item.Url" 
+                                               placeholder="Dashboard, Buildings, etc." />
+                                    <ValidationMessage For="@(() => _item.Url)" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Item Padre</label>
+                            <InputSelect class="form-control" @bind-Value="_item.ParentId">
+                                @foreach (var parent in _availableParents)
+                                {
+                                    <option value="@parent.MenuId">@parent.Title</option>
+                                }
+                            </InputSelect>
+                            <small class="text-muted">Dejar vacío para items de nivel superior</small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Texto del Badge</label>
+                                    <InputText class="form-control" @bind-Value="_item.BadgeText" 
+                                               placeholder="Ej: Nuevo, 3, etc." />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Color del Badge</label>
+                                    <InputSelect class="form-control" @bind-Value="_item.BadgeColor">
+                                        <option value="danger">Rojo</option>
+                                        <option value="warning">Amarillo</option>
+                                        <option value="success">Verde</option>
+                                        <option value="info">Azul</option>
+                                        <option value="secondary">Gris</option>
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <InputCheckbox class="form-check-input" @bind-Value="_item.IsVisible" />
+                                <label class="form-check-label">
+                                    Item visible en el menú
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Permisos Requeridos</label>
+                            <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                                
+                                        @foreach (var permission in _availablePermissions.Where(p => p.Group == _item.ParentKey))
+                                        {
+                                            <div class="form-check">
+                                                <input type="checkbox"
+                                                       class="form-check-input"
+                                                       id="@permission.IdPermission"
+                                                       value="@permission.IdPermission"
+                                                       @onchange="@((e) => TogglePermission(permission.PermissionKey, e.Value?.ToString()))"
+                                                       checked="@permission.IsSelected" />
+                                                <label class="form-check-label" for="@permission.IdPermission">
+                                                    <strong>@permission.Name</strong>
+                                                    <br />
+                                                    <small class="text-muted">@permission.DisplayGroupName</small>
+                                                </label>
+                                            </div>
+                                        }
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-secondary" 
+                                    @onclick='() => Navigation.NavigateTo("/Settings/MenuItems")'>
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                                @if (_saving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                else
+                                {
+                                    <i class="fas fa-save me-1"></i>
+                                }
+                                @(_isEdit ? "Actualizar" : "Crear") Item
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    [SupplyParameterFromQuery] public Guid? parentId { get; set; }
+
+    private MenuItemDefinition _item = new();
+    private List<MenuItemDefinition> _availableParents = new();
+    private List<PermissionSelection> _availablePermissions = new();
+    private bool _isEdit;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = Id.HasValue && Id.Value != Guid.Empty;
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _availableParents = await MenuAdminService.GetAvailableParentsAsync(Id!.Value);
+            _availablePermissions = await MenuAdminService.GetAllPermissionsForMenuAsync();
+
+            if (_isEdit)
+            {
+                await LoadItemAsync();
+            }
+            else if (!string.IsNullOrEmpty(parentId.ToString()))
+            {
+                _item.ParentId = parentId;
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar datos: {ex.Message}");
+        }
+    }
+
+    private async Task LoadItemAsync()
+    {
+        var item = await MenuAdminService.GetMenuItemByIdAsync(Id!.Value);
+        if (item != null)
+        {
+            _item = item;
+            
+            // Marcar permisos seleccionados
+            foreach (var perm in _availablePermissions)
+            {
+                perm.IsSelected = _item.RequiredPermissions.Contains(perm.IdPermission);
+            }
+        }
+        else
+        {
+            Navigation.NavigateTo("/Settings/MenuItems");
+        }
+    }
+
+    private void TogglePermission(string permissionkey, string? value)
+    {
+        var permission = _availablePermissions.FirstOrDefault(p => p.PermissionKey == permissionkey);
+        if (permission != null)
+        {
+            permission.IsSelected = !permission.IsSelected;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            _saving = true;
+
+            // Validar URL única
+            if (!string.IsNullOrEmpty(_item.Url))
+            {
+                var isValid = await MenuAdminService.ValidateMenuItemUrlAsync(_item.Url, _isEdit ? Id : null);
+                if (!isValid)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Ya existe un item con esta URL");
+                    _saving = false;
+                    return;
+                }
+            }
+
+            // Guardar permisos seleccionados
+            _item.RequiredPermissions = _availablePermissions
+                .Where(p => p.IsSelected)
+                .Select(p => p.IdPermission)
+                .ToList();
+
+            if (_isEdit)
+            {
+                await MenuAdminService.UpdateMenuItemAsync(_item);
+                await JSRuntime.InvokeVoidAsync("alert", "Item actualizado exitosamente");
+            }
+            else
+            {
+                await MenuAdminService.CreateMenuItemAsync(_item);
+                await JSRuntime.InvokeVoidAsync("alert", "Item creado exitosamente");
+            }
+
+            Navigation.NavigateTo("/Settings/MenuItems");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

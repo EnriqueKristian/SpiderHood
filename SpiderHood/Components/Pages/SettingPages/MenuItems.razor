@@ -1,0 +1,265 @@
+﻿@* Pages/Settings/MenuItems.razor *@
+@page "/Settings/MenuItems"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@inject Services.IMenuAdminService MenuAdminService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Administración del Menú</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="fas fa-bars me-2"></i>
+            Administración del Menú
+        </h2>
+        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/Settings/MenuItems/Create")'>
+            <i class="fas fa-plus me-1"></i>Nuevo Item
+        </button>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow">
+            <div class="card-header bg-light">
+                <ul class="nav nav-tabs card-header-tabs">
+                    <li class="nav-item">
+                        <a class="nav-link @(_viewMode == "tree" ? "active" : "")" 
+                           @onclick='() => SetViewMode("tree")' >
+                            <i class="fas fa-sitemap me-1"></i>Vista Jerárquica
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(_viewMode == "list" ? "active" : "")" 
+                           @onclick='() => SetViewMode("list")' >
+                            <i class="fas fa-list me-1"></i>Vista de Lista
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="card-body">
+                @if (_viewMode == "tree")
+                {
+                    <div>
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Menu</th>
+                                    <th>Rol 1</th>
+                                    <th>Rol 2</th>
+                                    <th>Rol n</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                    <div class="menu-tree">
+                        @foreach (var item in _rootItems)
+                        {
+                            <MenuItemNode Item="item" 
+                                          OnEdit="EditItem" 
+                                          OnDelete="DeleteItem"
+                                          OnAddChild="AddChildItem" />
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Orden</th>
+                                    <th>Icono</th>
+                                    <th>Título</th>
+                                    <th>URL</th>
+                                    <th>Padre</th>
+                                    <th>Permisos</th>
+                                    <th>Visible</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in _flatItems)
+                                {
+                                    <tr>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm" 
+                                                   style="width: 70px;" 
+                                                   value="@item.Order" 
+                                                   @onchange='(e) => UpdateOrder(item.Id, int.Parse(e.Value?.ToString() ?? "0"))' />
+                                        </td>
+                                        <td><i class="@item.Icon"></i></td>
+                                        <td>@item.Title</td>
+                                        <td>@item.Url</td>
+                                        <td>@item.ParentTitle</td>
+                                        <td>
+                                            @if (item.RequiredPermissions.Any())
+                                            {
+                                                <span class="badge bg-info">@item.RequiredPermissions.Count</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (item.IsVisible)
+                                            {
+                                                <span class="badge bg-success">Visible</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Oculto</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    @onclick="() => EditItem(item.Id)">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" 
+                                                    @onclick="() => DeleteItem(item.Id)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+            
+            <div class="card-footer">
+                <button class="btn btn-success" @onclick="SaveOrder">
+                    <i class="fas fa-save me-1"></i>Guardar Orden
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<MenuItemDefinition> _rootItems = new();
+    private List<MenuItemViewModel> _flatItems = new();
+    private bool _loading = true;
+    private string _viewMode = "tree";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadDataAsync(); 
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        //await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _loading = true;
+            _rootItems = await MenuAdminService.GetRootMenuItemsAsync();
+            await LoadFlatItemsAsync();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadFlatItemsAsync()
+    {
+        var allItems = await MenuAdminService.GetAllMenuItemsAsync();
+        var parents = await MenuAdminService.GetAvailableParentsAsync();
+        
+        _flatItems = allItems.Select(item => new MenuItemViewModel
+        {
+            Id = item.MenuId,
+            Title = item.Title,
+            Icon = item.Icon,
+            ItemKey = item.ItemKey,
+            Url = item.Url,
+            ParentId = item.ParentId,
+            ParentTitle = parents.FirstOrDefault(p => p.MenuId == item.ParentId)?.Title ?? "Raíz",
+            Order = item.DisplayOrder,
+            RequiredPermissions = item.RequiredPermissions,
+            IsVisible = item.IsVisible,
+            HasChildren = item.Children.Any(),
+            ChildrenCount = item.Children.Count
+        }).OrderBy(i => i.Order).ToList();
+    }
+
+    private void SetViewMode(string mode)
+    {
+        _viewMode = mode;
+        StateHasChanged();
+    }
+
+    private void EditItem(Guid id)
+    {
+        Navigation.NavigateTo($"/Settings/MenuItems/Edit/{id}");
+    }
+
+    private void AddChildItem(Guid parentId)
+    {
+        Navigation.NavigateTo($"/Settings/MenuItems/Create?parentId={parentId}");
+    }
+
+    private async Task DeleteItem(Guid id)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            "¿Está seguro de eliminar este item? También se eliminarán todos sus subitems.");
+        
+        if (confirmed)
+        {
+            try
+            {
+                await MenuAdminService.DeleteMenuItemAsync(id);
+                await LoadDataAsync();
+                await JSRuntime.InvokeVoidAsync("alert", "Item eliminado exitosamente");
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error al eliminar: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task UpdateOrder(Guid id, int newOrder)
+    {
+        var item = _flatItems.FirstOrDefault(i => i.Id == id);
+        if (item != null)
+        {
+            item.Order = newOrder;
+        }
+    }
+
+    private async Task SaveOrder()
+    {
+        var itemsToUpdate = _flatItems.Select(i => new MenuItemDefinition
+        {
+            MenuId = i.Id,
+            DisplayOrder = i.Order
+        }).ToList();
+
+        await MenuAdminService.ReorderMenuAsync(itemsToUpdate);
+        await LoadDataAsync();
+        await JSRuntime.InvokeVoidAsync("alert", "Orden guardado exitosamente");
+    }
+}

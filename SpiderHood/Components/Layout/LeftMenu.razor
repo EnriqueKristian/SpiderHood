@@ -1,0 +1,193 @@
+﻿@* LeftMenuLayout.razor *@
+@rendermode InteractiveServer
+@inject Services.IPermissionService PermissionService
+@inject Services.AuthService AuthService
+@inject Services.CustomAuthenticationStateProvider AuthStateProvider
+
+@if (ShowMenu)
+{
+    <div class="nav-scrollable bg-dark" id="nav-collapse">
+        <nav class="nav flex-column nav-pills">
+
+            <!-- Información del usuario -->
+            <div class="user-info text-center text-white mb-3 p-2">
+                <i class="fas fa-user-circle fa-2x mb-1"></i>
+                <div>@_currentUser?.Email</div>
+                <small class="text-muted">@GetRoleDisplayName(_currentUser?.Role)</small>
+            </div>
+
+            @foreach (var menuItem in _filteredMenu)
+            {
+                @if (menuItem.Children.Any())
+                {
+                    <!-- Menú con submenús -->
+                    <div class="nav-item px-1">
+                        <a class="nav-link collapsed" data-bs-toggle="collapse" href="#@menuItem.Target" role="button" aria-expanded="false">
+                            <i class="@menuItem.Icon me-2"></i>@menuItem.Title
+                            <i class="fas fa-chevron-down ms-auto toggle-icon"></i>
+                        </a>
+                        <div class="collapse" id="@menuItem.Target" data-bs-parent="#nav-collapse">
+                            <div class="submenu-wrapper">
+                                @foreach (var child in menuItem.Children)
+                                {
+                                    <NavLink class="nav-link ps-3" href="@child.Url" Match="NavLinkMatch.All">
+                                        <i class="@child.Icon me-2"></i>@child.Title
+                                        @if (ShouldShowBadge(child.ItemKey))
+                                        {
+                                            <span class="badge bg-danger ms-2">@GetBadgeCount(child.ItemKey)</span>
+                                        }
+                                    </NavLink>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Menú simple -->
+                    <div class="nav-item px-1 mt-2">
+                        <NavLink class="nav-link d-flex align-items-center" href="@menuItem.Url" Match="NavLinkMatch.All">
+                            <i class="@menuItem.Icon me-2"></i>@menuItem.Title
+                        </NavLink>
+                    </div>
+                }
+                
+            }
+
+            <!-- Selector de rol (solo para desarrollo/demo) -->
+            @if (_isDevelopment)
+            {
+                <div class="role-selector mt-3 px-1">
+                    <div class="current-role">
+                        <i class="fas fa-shield-alt me-2"></i>@GetRoleDisplayName(_currentUser?.Role)
+                    </div>
+                    <div class="role-options">
+                        <span class="role-badge @(_currentUser?.Role == "Admin" ? "active" : "")" @onclick='() => SwitchRole("Admin")'>Admin</span>
+                        <span class="role-badge @(_currentUser?.Role == "Junta" ? "active" : "")" @onclick='() => SwitchRole("Junta")'>Junta</span>
+                        <span class="role-badge @(_currentUser?.Role == "Residente" ? "active" : "")" @onclick='() => SwitchRole("Residente")'>Residente</span>
+                    </div>
+                </div>
+            }
+
+        </nav>
+        <!-- En la sección de Configuración, agrega: -->
+        <NavLink class="nav-link ps-3" href="Settings/Roles">
+            <i class="fas fa-user-tag me-2"></i>Roles y Permisos
+        </NavLink>
+        <NavLink class="nav-link ps-3" href="Settings/UserRoles">
+            <i class="fas fa-users-cog me-2"></i>Asignar Roles
+        </NavLink>
+        <NavLink class="nav-link ps-3" href="Settings/MenuItems">
+            <i class="fas fa-bars me-2"></i>Administrar Menú
+        </NavLink>
+    </div>
+}
+
+@code {
+    private bool ShowMenu = false;
+    private Models.UserSession? _currentUser;
+    private List<Models.MenuItem> _filteredMenu = new();
+    private bool _isDevelopment;
+
+    [Inject] private IWebHostEnvironment Environment { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isDevelopment = Environment.IsDevelopment();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Console.WriteLine("🟢 LeftMenuLayout.OnAfterRenderAsync - Inicializando");
+
+            try
+            {
+                await AuthStateProvider.InitializeClientAsync();
+                await LoadUserDataAsync();
+                await LoadMenuAsync();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error en LeftMenuLayout.OnAfterRenderAsync {ex.Message}");
+            }
+        }
+    }
+
+    private async Task LoadUserDataAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync();
+
+        if (_currentUser != null)
+        {
+            ShowMenu = true;
+            Console.WriteLine($"✅ Cargar Menu Usuario: {_currentUser.Email} - Rol: {_currentUser.Role}");
+        }
+    }
+
+    private async Task LoadMenuAsync()
+    {
+        _filteredMenu = await PermissionService.GetMenuForUserAsync(_currentUser!);
+    }
+
+    private async Task SwitchRole(string role)
+    {
+        if (_currentUser != null)
+        {
+            //_currentUser.Role = role;
+            //await AuthService.UpdateUserRoleAsync(role);
+            await LoadMenuAsync();
+            StateHasChanged();
+            Navigation.Refresh();
+        }
+    }
+
+    private string GetRoleDisplayName(string? role)
+    {
+        return role switch
+        {
+            "Administrador" => "Administrador",
+            "Junta" => "Miembro de Junta",
+            "Residente" => "Residente",
+            _ => "Usuario"
+        };
+    }
+
+    private bool ShouldShowBadge(string menuId)
+    {
+        // Lógica para mostrar badges en ciertos menús
+        return menuId switch
+        {
+            "allincidents" => true,
+            _ => false
+        };
+    }
+
+    private string GetBadgeCount(string menuId)
+    {
+        // Lógica para obtener contadores
+        return menuId switch
+        {
+            "allincidents" => "3",
+            _ => ""
+        };
+    }
+}
+<script>
+    // Para manejar el ícono del toggle (chevron) al abrir/cerrar
+    document.addEventListener('DOMContentLoaded', function() {
+        var toggles = document.querySelectorAll('[data-bs-toggle="collapse"]');
+        toggles.forEach(function(toggle) {
+            toggle.addEventListener('click', function() {
+                var icon = this.querySelector('.toggle-icon');
+                if (icon) {
+                    icon.classList.toggle('fa-chevron-down');
+                    icon.classList.toggle('fa-chevron-up');
+                }
+            });
+        });
+    });
+</script>

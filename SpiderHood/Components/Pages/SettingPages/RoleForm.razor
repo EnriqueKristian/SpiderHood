@@ -1,0 +1,146 @@
+﻿@* Pages/Settings/RoleForm.razor *@
+@page "/Settings/Roles/Create"
+@page "/Settings/Roles/Edit/{Id:guid?}"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@inject Services.IPermissionAdminService PermissionAdminService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>@(_isEdit ? "Editar Rol" : "Nuevo Rol")</PageTitle>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-@(_isEdit ? "edit" : "plus") me-2"></i>
+                        @(_isEdit ? "Editar Rol" : "Nuevo Rol")
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@_role" OnValidSubmit="@HandleSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+
+                        <div class="mb-3">
+                            <label class="form-label">Nombre del Rol</label>
+                            <InputText class="form-control" @bind-Value="_role.RoleName" 
+                                       placeholder="Ej: Administrador, Supervisor, etc." />
+                            <ValidationMessage For="@(() => _role.RoleName)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <InputTextArea class="form-control" @bind-Value="_role.Description" 
+                                          rows="3" placeholder="Describe el propósito de este rol..." />
+                            <ValidationMessage For="@(() => _role.Description)" />
+                        </div>
+
+                        @if (_isEdit && _role.IsSystem)
+                        {
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Este es un rol del sistema. Solo puedes modificar su descripción.
+                            </div>
+                        }
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-secondary" 
+                                    @onclick='() => Navigation.NavigateTo("/Settings/Roles")'>
+                                <i class="fas fa-times me-1"></i>Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                                @if (_saving)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                else
+                                {
+                                    <i class="fas fa-save me-1"></i>
+                                }
+                                @(_isEdit ? "Actualizar" : "Crear") Rol
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private Role _role = new();
+    private bool _isEdit;
+    private bool _saving;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadRoleAsync();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = Id.HasValue && Id.Value != Guid.Empty;
+        
+        if (_isEdit)
+        {
+            //await LoadRoleAsync();
+        }
+    }
+
+    private async Task LoadRoleAsync()
+    {
+        try
+        {
+            var role = await PermissionAdminService.GetRoleByIdAsync(Id!.Value);
+            if (role != null)
+            {
+                _role = role;
+            }
+            else
+            {
+                Navigation.NavigateTo("/Settings/Roles");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar el rol: {ex.Message}");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            _saving = true;
+            
+            if (_isEdit)
+            {
+                await PermissionAdminService.UpdateRoleAsync(_role);
+                await JSRuntime.InvokeVoidAsync("alert", "Rol actualizado exitosamente");
+            }
+            else
+            {
+                await PermissionAdminService.CreateRoleAsync(_role);
+                await JSRuntime.InvokeVoidAsync("alert", "Rol creado exitosamente");
+            }
+            
+            Navigation.NavigateTo("/Settings/Roles");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

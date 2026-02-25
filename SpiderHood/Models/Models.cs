@@ -124,17 +124,17 @@ namespace SpiderHood.Models
         public string AccountNumber { get; set; } = "";
         public string BankName { get; set; } = "";
         public int AccountType { get; set; }  // Ahorros, Corriente, etc.
-        [Precision(18,2)]
+        [Precision(18, 2)]
         public decimal CurrentBalance { get; set; }
         [Precision(18, 2)]
         public decimal ReconciledBalance { get; set; }
         public DateTime LastReconciliation { get; set; }
-        public int Status { get; set; } 
+        public int Status { get; set; }
         public Guid IdBuilding { get; set; }
 
         public BankAccount Clone() => (BankAccount)this.MemberwiseClone();
     }
-  
+
     public class ViewExpense
     {
         public Guid IdExpense { get; set; }
@@ -142,9 +142,9 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal Amount { get; set; }
         public string Category { get; set; } = string.Empty;
-        public Guid IdCategory{ get; set; }
+        public Guid IdCategory { get; set; }
         public string Supplier { get; set; } = string.Empty;
-        public PaymentMethod PaymentMethod { get; set; } 
+        public PaymentMethod PaymentMethod { get; set; }
         public StatusExpense Status { get; set; }  // Pending, Approved, Rejected
         public bool Reconciled { get; set; } = false;
         public Guid? ReconciledTransactionId { get; set; }
@@ -196,11 +196,11 @@ namespace SpiderHood.Models
         public bool IsPaid { get; set; } = false;
         [NotMapped]
         public bool Reconciled { get; set; } = false;
-        [NotMapped] 
+        [NotMapped]
         public Guid ReconciledTransactionId { get; set; }
         [NotMapped]
         public bool AutoReconcile { get; set; } = false;
-        [NotMapped] 
+        [NotMapped]
         public DateTime LastPartialPaymentDate { get; set; }
         [NotMapped]
         public List<TransactionBankDetail> PosiblesMatches { get; set; } = [];
@@ -695,13 +695,13 @@ namespace SpiderHood.Models
         public int Month { get { return BudgetDate.Month; } }
         [NotMapped]
         public int Year { get { return BudgetDate.Year; } }
-        public BudgetStatus Status  { get; set; }
+        public BudgetStatus Status { get; set; }
         public string Mes => CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(Month);
 
         [NotMapped]
         public List<BudgetDetail> Details { get; set; } = [];
     }
-    
+
     public class BudgetDetail
     {
         public Guid IdBudgetDetail { get; set; }
@@ -719,7 +719,7 @@ namespace SpiderHood.Models
         public bool IsHeader { get; set; } = false;
         public Guid IdBudgetHeader { get; set; }
         public bool IsNewItem { get; set; } = false;
-		public Guid IdParent { get; set; }
+        public Guid IdParent { get; set; }
     }
 
     public class ViewBudgetDetail
@@ -811,9 +811,9 @@ namespace SpiderHood.Models
         public Presupuesto? Presupuesto { get; set; }
         [NotMapped]
         public Categoria? Categoria { get; set; }
- 
+
     }
-    
+
     public class SectionInfo
     {
         public int Id { get; set; }
@@ -856,7 +856,146 @@ namespace SpiderHood.Models
         public string Email { get; set; } = string.Empty;
         public string? PhoneNumber { get; set; }
     }
+
+    public class MenuPermissions
+    {
+        public Guid MenuId { get; set; } = Guid.Empty;
+        public Guid PermissionId { get; set; } = Guid.Empty;
+    }
+
+    public class MenuItem
+    {
+        public Guid IdMenu { get; set; } 
+        public string Title { get; set; } = string.Empty;
+        public string ItemKey { get; set; } = string.Empty;
+        public string? Icon { get; set; }
+        public string? Url { get; set; }
+        public int Order { get; set; }
+        public Guid? ParentId { get; set; }
+        public List<string> RequiredPermissions { get; set; } = new();
+        public List<MenuItem> Children { get; set; } = new();
+        public bool IsVisible { get; set; } = true;
+        public string? Target { get; set; } // Para menús colapsables
+    }
+
+    public class RolePermissions
+    {
+        public Guid IdRole { get; set; } = Guid.Empty;
+        public Guid IdPermission { get; set; } = Guid.Empty;
+        public string RoleName { get; set; } = string.Empty;
+        public string PermissionKey { get; set; } = string.Empty;
+    }
+
+    public class Role
+    {
+        public Guid IdRole { get; set; } = Guid.Empty;
+        public string RoleName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public bool IsSystem { get; set; } // Para roles que no se pueden eliminar
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        [NotMapped]
+        public List<string> Permissions { get; set; } = new();
+    }
+
+    public class PermissionGroup
+    {
+        public string Module { get; set; } = string.Empty;
+        public string ModuleDisplayName { get; set; } = string.Empty;
+        public List<PermissionDefinition> Permissions { get; set; } = new();
+        public string Icon { get; set; } = "fas fa-cog";
+    }
+
+    public class PermissionDefinition
+    {
+        public Guid PermissionId { get; set; } = Guid.Empty;
+        public string PermissionKey { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Group { get; set; } = string.Empty;
+        [NotMapped]
+        public bool IsSelected { get; set; }
+    }
+
+    public class RoleAssignment
+    {
+        public Guid IdUser { get; set; } = Guid.Empty;
+        public string UserEmail { get; set; } = string.Empty;
+        public string UserName { get; set; } = string.Empty;
+        public string CurrentRole { get; set; } = string.Empty;
+        public List<string> AvailableRoles { get; set; } = new();
+    }
+
+
+    public class MenuItemDefinition
+    {
+        public Guid MenuId { get; set; } = Guid.NewGuid();
+        public string ItemKey { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string? Icon { get; set; }
+        public string? Url { get; set; }
+        public int DisplayOrder { get; set; }
+        public Guid? ParentId { get; set; }
+        public string ParentKey { get; set; } = string.Empty;
+        public string? Target { get; set; } // Para collapse ID
+        [NotMapped]
+        public List<Guid> RequiredPermissions { get; set; } = new();
+        
+        public bool IsVisible { get; set; } = true;
+        
+        public string? BadgeText { get; set; }
+        
+        public string? BadgeColor { get; set; } = "danger";
+        [NotMapped]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        [NotMapped]
+        public DateTime? UpdatedAt { get; set; }
+
+        // Propiedades de navegación
+        [NotMapped]
+        public List<MenuItemDefinition> Children { get; set; } = new();
+        [NotMapped]
+        public MenuItemDefinition? Parent { get; set; }
+    }
+
+    public class MenuModule
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Icon { get; set; } = "fas fa-folder";
+        public int Order { get; set; }
+        public List<MenuItemDefinition> MenuItems { get; set; } = new();
+    }
+
+    public class MenuItemViewModel
+    {
+        public Guid Id { get; set; } = Guid.Empty;
+        public string ItemKey { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string? Icon { get; set; }
+        public string? Url { get; set; }
+        public Guid? ParentId { get; set; }
+        public string? ParentTitle { get; set; }
+        public int Order { get; set; }
+        public List<Guid> RequiredPermissions { get; set; } = new();
+        public bool HasChildren { get; set; }
+        public int ChildrenCount { get; set; }
+        public bool IsVisible { get; set; }
+    }
+
+    public class PermissionSelection
+    {
+        public Guid IdPermission { get; set; } = Guid.Empty;
+        public string PermissionKey { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Group { get; set; } = string.Empty;
+        public string DisplayGroupName { get; set; } = string.Empty;
+        public bool IsSelected { get; set; }
+        public string ParentPermissionKey { get; set; } = string.Empty;
+    }
+
 }
+
 
 
 

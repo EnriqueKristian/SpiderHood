@@ -1,0 +1,75 @@
+﻿@* Pages/Settings/MenuNode.razor *@
+@using SpiderHood.Models
+
+<div class="menu-node" style="margin-left: @(Level * 20)px;">
+    <div class="menu-node-content @(Item.Children.Any() ? "has-children" : "")">
+        <div class="d-flex align-items-center p-2 border rounded mb-1 bg-light">
+            <div class="me-2">
+                <i class="@(Item.Children.Any() ? "fas fa-chevron-down" : "fas fa-circle") text-muted"></i>
+            </div>
+            <div class="me-3">
+                <i class="@Item.Icon"></i>
+            </div>
+            <div class="flex-grow-1">
+                <strong>@Item.Title</strong>
+                @if (!string.IsNullOrEmpty(Item.Url))
+                {
+                    <small class="text-muted ms-2">(@Item.Url)</small>
+                }
+                @if (!Item.IsVisible)
+                {
+                    <span class="badge bg-secondary ms-2">Oculto</span>
+                }
+                @if (Item.RequiredPermissions.Any())
+                {
+                    <span class="badge bg-info ms-2">@Item.RequiredPermissions.Count permisos</span>
+                }
+                @if (!string.IsNullOrEmpty(Item.BadgeText))
+                {
+                    <span class="badge bg-@Item.BadgeColor ms-2">@Item.BadgeText</span>
+                }
+            </div>
+            <div>
+                <input type="checkbox"
+                       class="form-check-input" />
+                <input type="checkbox"
+                       class="form-check-input"/>
+                <input type="checkbox"
+                       class="form-check-input" />
+            </div>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary" @onclick="() => OnEdit.InvokeAsync(Item.MenuId)">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-outline-success" @onclick="() => OnAddChild.InvokeAsync(Item.MenuId)">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <button class="btn btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(Item.MenuId)">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    @if (Item.Children.Any())
+    {
+        <div class="menu-node-children">
+            @foreach (var child in Item.Children.OrderBy(c => c.DisplayOrder))
+            {
+                <MenuItemNode Item="child" 
+                              Level="@(Level + 1)"
+                              OnEdit="OnEdit"
+                              OnDelete="OnDelete"
+                              OnAddChild="OnAddChild" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public MenuItemDefinition Item { get; set; } = new();
+    [Parameter] public int Level { get; set; } = 0;
+    [Parameter] public EventCallback<Guid> OnEdit { get; set; }
+    [Parameter] public EventCallback<Guid> OnDelete { get; set; }
+    [Parameter] public EventCallback<Guid> OnAddChild { get; set; }
+}

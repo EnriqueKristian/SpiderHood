@@ -1,0 +1,140 @@
+/* Estilos mejorados para el menú */
+    .bg-dark {
+        background-color: #0f172a !important;
+    }
+
+    .navbar-brand {
+        font-size: 1.4rem;
+        letter-spacing: -0.5px;
+    }
+
+    .nav-section-header {
+        padding: 1rem 1rem 0.25rem 1rem;
+        margin-top: 0.5rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        color: #94a3b8;
+        text-transform: uppercase;
+        border-bottom: 1px solid #334155;
+    }
+
+    .nav-pills .nav-link {
+        color: #e2e8f0;
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+        margin: 0.1rem 0.5rem;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+    }
+
+        .nav-pills .nav-link i {
+            width: 20px;
+            text-align: center;
+        }
+
+        .nav-pills .nav-link .toggle-icon {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-left: auto;
+        }
+
+        .nav-pills .nav-link:hover {
+            background-color: #1e293b;
+            color: white;
+        }
+
+        .nav-pills .nav-link.active {
+            background: linear-gradient(90deg, #2563eb, #3b82f6);
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+    .submenu-wrapper {
+        background-color: #0a0f1a;
+        border-radius: 8px;
+        margin: 0.25rem 0.75rem;
+        padding: 0.5rem 0;
+    }
+
+    .submenu-indent {
+        border-left: 2px solid #334155;
+        margin-left: 1.2rem;
+    }
+
+    .category-preview {
+        display: block;
+        padding: 0.3rem 1rem;
+        font-size: 0.8rem;
+        color: #94a3b8;
+    }
+
+    .conciliation-types {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        padding: 0.5rem 1rem;
+        background: #0f172a;
+        border-radius: 6px;
+        margin: 0.3rem 0.8rem;
+    }
+
+    .conciliation-item {
+        font-size: 0.8rem;
+        color: #cbd5e1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+
+    .role-selector {
+        border-top: 1px solid #334155;
+        margin-top: 1rem;
+        padding-top: 1rem;
+    }
+
+    .current-role {
+        color: #f1f5f9;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .role-options {
+        display: flex;
+        gap: 8px;
+    }
+
+    .role-badge {
+        background: #1e293b;
+        color: #cbd5e1;
+        padding: 0.25rem 0.75rem;
+        border-radius: 30px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+    }
+
+        .role-badge.active {
+            background: #2563eb;
+            color: white;
+        }
+
+        .role-badge:hover {
+            background: #2d3a4f;
+        }
+
+    /* Para el colapso suave */
+    .collapse {
+        transition: all 0.2s ease;
+    }

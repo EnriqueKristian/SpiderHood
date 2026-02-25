@@ -1,0 +1,132 @@
+﻿@* Pages/Settings/UserRoles.razor *@
+@page "/Settings/UserRoles"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@inject Services.IPermissionAdminService PermissionAdminService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Asignar Roles a Usuarios</PageTitle>
+
+<div class="container-fluid">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-users-cog me-2"></i>
+                Asignación de Roles a Usuarios
+            </h4>
+        </div>
+
+        <div class="card-body">
+            @if (_loading)
+            {
+                <div class="text-center p-5">
+                    <div class="spinner-border text-primary"></div>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Email</th>
+                                <th>Rol Actual</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var assignment in _assignments)
+                            {
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-user-circle me-2"></i>
+                                        @assignment.UserName
+                                    </td>
+                                    <td>@assignment.UserEmail</td>
+                                    <td>
+                                        <span class="badge @GetRoleBadgeClass(assignment.CurrentRole)">
+                                            @assignment.CurrentRole
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" style="width: auto; display: inline-block;"
+                                                @onchange="(e) => ChangeUserRole(assignment.IdUser, Guid.Parse(e.Value!.ToString()))">
+                                            <option value="">Seleccionar rol...</option>
+                                            @foreach (var role in assignment.AvailableRoles)
+                                            {
+                                                if (role == assignment.CurrentRole)
+                                                {
+                                                    <option value="@role" selected>@role (actual)</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="@role">@role</option>
+                                                }
+                                            }
+                                        </select>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<RoleAssignment> _assignments = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _loading = true;
+            _assignments = await PermissionAdminService.GetUserRoleAssignmentsAsync();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar datos: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ChangeUserRole(Guid userId, Guid newRole)
+    {
+        if ( newRole != Guid.Empty )
+        {
+            try
+            {
+                await PermissionAdminService.AssignRoleToUserAsync(userId, newRole);
+                await LoadDataAsync();
+                await JSRuntime.InvokeVoidAsync("alert", "Rol actualizado exitosamente");
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error al actualizar: {ex.Message}");
+            }
+        }
+    }
+
+    private string GetRoleBadgeClass(string role)
+    {
+        return role switch
+        {
+            "Admin" => "bg-danger",
+            "Junta" => "bg-warning text-dark",
+            "Residente" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+}

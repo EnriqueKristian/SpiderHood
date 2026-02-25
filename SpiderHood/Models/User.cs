@@ -61,6 +61,7 @@ namespace SpiderHood.Models
     public class UserSession
     {
         public Guid IdUser { get; set; }
+        public string UserName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
         public List<string> Roles { get; set; } = [];
@@ -70,6 +71,7 @@ namespace SpiderHood.Models
         public DateTime SessionExpiry { get; set; }
         public bool IsAuthenticated => SessionExpiry > DateTime.UtcNow;
         public bool RememberMe { get; internal set; }
+        public string Role { get; set; } = string.Empty; //=> Roles[0];
     }
 
     public class UserBuilding

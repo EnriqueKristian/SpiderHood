@@ -1,9 +1,14 @@
-﻿using Humanizer.Localisation;
+﻿using BlazorBootstrap;
+using DocumentFormat.OpenXml.InkML;
+using DocumentFormat.OpenXml.Office2010.ExcelAc;
+using DocumentFormat.OpenXml.Vml.Spreadsheet;
+using Humanizer.Localisation;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
+using System.Security;
 
 namespace SpiderHood.Data
 {
@@ -27,6 +32,9 @@ namespace SpiderHood.Data
         private static class StoredProcedures
         {
             // Insert Procedures
+            public const string INS_MenuItemPermission = "INS_MenuItemPermission";
+            public const string INS_MenuItem = "INS_MenuItem";
+            public const string INS_RolePermissions = "INS_RolePermissions";
             public const string INS_UserBuildingAssociation = "INS_UserBuildingAssociation";
             public const string INS_User = "INS_User";
             public const string INS_Category = "INS_Category";
@@ -54,6 +62,7 @@ namespace SpiderHood.Data
             public const string INS_InstallmentPaid = "INS_InstallmentPaid";
 
             // Update Procedures
+            public const string UPD_MenuItem = "UPD_MenuItem";
             public const string UPD_UserToken = "UPD_UserToken";
             public const string UPD_Building = "UPD_Building";
             public const string UPD_BudgetDetail = "UPD_BudgetDetail";
@@ -74,6 +83,7 @@ namespace SpiderHood.Data
             public const string UPD_InstallmentState = "UPD_InstallmentState";
 
             // Delete Procedures
+            public const string DEL_MenuItemPermission = "DEL_MenuItemPermission";
             public const string DEL_Category = "DEL_Category";
             public const string DEL_BudgetHeader = "DEL_BudgetHeader";
             public const string DEL_BudgetDetail = "DEL_BudgetDetail";
@@ -83,6 +93,13 @@ namespace SpiderHood.Data
             public const string DEL_Unit = "DEL_Unit";
 
             // Get Procedures
+            public const string GET_AllMenuPemission = "GET_AllMenuPemission";
+            public const string GET_RoleById = "GET_RoleById";
+            public const string GET_MenuItem = "GET_MenuItem";
+            public const string GET_AllRoles = "GET_AllRoles";
+            public const string GET_ALLPermissions = "GET_ALLPermissions";
+            public const string GET_PermissionsByRole = "GET_PermissionsByRole";
+            public const string GET_FullMenu = "GET_FullMenu";
             public const string GET_UserById = "GET_UserById";
             public const string GET_InvitationByCode = "GET_InvitationByCode";
             public const string GET_AllBuildings = "GET_AllBuildings";
@@ -224,6 +241,19 @@ namespace SpiderHood.Data
         #endregion
 
         #region Delete Operations
+
+        public async Task<bool> DeleteRecordAsync(MenuPermissions item, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(item, nameof(item));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_MenuItemPermission, cancellationToken, item.MenuId);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteMenuPermission", cancellationToken);
+        }
+
         public async Task<bool> DeleteRecordAsync(Category category, CancellationToken cancellationToken = default)
         {
             ValidateEntity(category, nameof(category));
@@ -325,6 +355,64 @@ namespace SpiderHood.Data
         #endregion
 
         #region Add Operations
+
+        public async Task<MenuPermissions> AddNewRecordAsync(MenuPermissions item, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(item, nameof(item));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_MenuItemPermission,
+                    cancellationToken,
+                    item.MenuId!,
+                    item.PermissionId!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return item;
+            }, "AddMenuItemPermission", cancellationToken);
+        }
+
+        public async Task<MenuItemDefinition> AddNewRecordAsync(MenuItemDefinition item, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(item, nameof(item));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_MenuItem,
+                    cancellationToken,
+                    item.MenuId!,
+                    item.ParentId!,
+                    item.ItemKey!,
+                    item.Title!,
+                    item.Icon!,
+                    item.Url!,
+                    item.Target!,
+                    item.DisplayOrder!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return item;
+            }, "AddMenuItem", cancellationToken);
+        }
+
+        public async Task<Models.RolePermissions> AddNewRecordAsync(Models.RolePermissions permissions, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(permissions, nameof(permissions));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_RolePermissions,
+                    cancellationToken,
+                    permissions.IdRole!,
+                    permissions.IdPermission!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return permissions;
+            }, "AddRolePermissions", cancellationToken);
+        }
+
         public async Task<Models.InstallmentExoneration> AddNewRecordAsync(Models.InstallmentExoneration exoneration, CancellationToken cancellationToken = default)
         {
             ValidateEntity(exoneration, nameof(exoneration));
@@ -901,6 +989,33 @@ namespace SpiderHood.Data
 
         #region Update Operations
 
+        public async Task<Models.MenuItemDefinition> UpdateRecordAsync(Models.MenuItemDefinition item, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(item, nameof(item));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_MenuItem,
+                    cancellationToken,
+                    item.MenuId!,
+                    item.ParentId!,
+                    item.ItemKey!,
+                    item.Title!,
+                    item.Icon!,
+                    item.Url!,
+                    item.Target!,
+                    item.DisplayOrder!, 
+                    item.IsVisible!,
+                    item.BadgeText!,
+                    item.BadgeColor!,
+                    item.UpdatedAt!);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return item;
+            }, "UpdateMenuItem", cancellationToken);
+        }
+
         public async Task<Models.ServiceReading> UpdateRecordAsync(Models.ServiceReading servicereading, CancellationToken cancellationToken = default)
         {
             ValidateEntity(servicereading, nameof(servicereading));
@@ -1202,6 +1317,48 @@ namespace SpiderHood.Data
 
         #region Get Operations
 
+        public async Task<List<Models.MenuPermissions>> GetAllMenuPermissionsAsync(CancellationToken cancellationToken = default)
+        {
+            List<MenuPermissions> list = [];
+            try
+            {
+                using var connection = new SqlConnection(_dbContext.Database.GetConnectionString());
+                using var command = new SqlCommand(StoredProcedures.GET_AllMenuPemission, connection);
+
+                command.CommandType = CommandType.StoredProcedure;
+                command.CommandTimeout = 30;
+
+                // Usar SqlDataAdapter en lugar de DataReader
+                using var adapter = new SqlDataAdapter(command);
+                var dataTable = new DataTable();
+
+                // Fill no es async pero no se cuelga con múltiples filas
+                adapter.Fill(dataTable);
+
+                foreach (DataRow row in dataTable.Rows)
+                {
+                    list.Add(
+                        new MenuPermissions
+                        {
+                            MenuId = row["MenuId"] is Guid g1 ? g1 : Guid.Parse(row["MenuId"].ToString()!),
+                            PermissionId = row["PermissionId"] is Guid g2 ? g2 : Guid.Parse(row["ParentId"].ToString()!)
+                        });
+                }
+
+                return list;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return [];
+            }
+            /*return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.MenuPermissions>(
+                    StoredProcedures.GET_AllMenuPemission);
+            }, "GetAllBuildingsConfig", cancellationToken);*/
+        }
+
         public async Task<List<Models.BuildingConfiguration>> GetAllBuildingsConfigAsync(Guid IdUser, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
@@ -1241,9 +1398,6 @@ namespace SpiderHood.Data
                     idBuilding);
             }, "GetBudgetSum", cancellationToken);
         }
-
-       
-
 
         public async Task<List<BudgetHeader>> GetBudgetsAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
@@ -1384,6 +1538,198 @@ namespace SpiderHood.Data
             {
                 Console.WriteLine($"Error: {ex.Message}");
                 throw;
+            }
+        }
+
+        public async Task<List<MenuItem>> GetFullMenuAsync(Guid IdUSer, CancellationToken cancellationToken = default)
+        {
+            var menus = new Dictionary<Guid, MenuItem>();
+
+            try
+            {
+                using var connection = new SqlConnection(_dbContext.Database.GetConnectionString());
+                using var command = new SqlCommand("GET_FullMenu", connection)
+
+                {
+                    CommandType = CommandType.StoredProcedure,
+                    CommandTimeout = 30,
+                };
+
+                command.Parameters.Add(new SqlParameter("@Rol", IdUSer));
+
+                await connection.OpenAsync(cancellationToken);
+
+                using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    Guid menuId = Guid.Parse(reader["MenuId"].ToString()!);
+
+                    if (!menus.ContainsKey(menuId))
+                    {
+                        menus[menuId] = new MenuItem
+                        {
+                            IdMenu = menuId,
+                            ParentId = reader["ParentId"] != DBNull.Value ? Guid.Parse(reader["ParentId"].ToString()!) : Guid.Empty,
+                            ItemKey = reader.GetString(reader.GetOrdinal("ItemKey")),
+                            Title = reader.GetString(reader.GetOrdinal("Title")),
+                            Icon = reader["Icon"]?.ToString(),
+                            Url = reader["Url"]?.ToString(),
+                            Target = reader["Target"]?.ToString(),
+                            Order = reader.GetInt32(reader.GetOrdinal("DisplayOrder")),
+                            RequiredPermissions = new List<string>(),
+                            Children = new List<MenuItem>()
+                        };
+                    }
+
+                    // Agregar permiso si existe
+                    if (reader["PermissionKey"] != DBNull.Value)
+                    {
+                        menus[menuId].RequiredPermissions!
+                            .Add(reader.GetString(reader.GetOrdinal("PermissionKey")));
+                    }
+                }
+
+                // Convertir en lista jerárquica
+                var menuList = menus.Values.ToList();
+
+                // Asignar hijos
+                var lookup = menuList.ToDictionary(m => m.IdMenu);
+
+                foreach (var item in menuList)
+                {
+                    if (item.ParentId.HasValue && lookup.ContainsKey(item.ParentId.Value))
+                    {
+                        lookup[item.ParentId.Value].Children.Add(item);
+                    }
+                }
+
+                // Solo elementos raíz
+                var finalMenu = menuList
+                    .Where(m => m.ParentId == Guid.Empty)
+                    .OrderBy(m => m.Order)
+                    .ToList();
+
+                return finalMenu;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<List<RolePermissions>> GetPermissionsForRoleAsync(string role, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExecuteWithErrorHandlingAsync(async () =>
+                {
+                    return await ExecuteQueryListAsync<RolePermissions>(
+                        StoredProcedures.GET_PermissionsByRole,
+                        role);
+                }, "GetPermissionsForRole", cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return [];
+            }
+        }
+
+        public async Task<List<PermissionDefinition>> GetAllPermissionsAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExecuteWithErrorHandlingAsync(async () =>
+                {
+                    return await ExecuteQueryListAsync<PermissionDefinition>(
+                        StoredProcedures.GET_ALLPermissions);
+                }, "GetAllPermissions", cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return [];
+            }
+        }
+
+        public async Task<List<Role>> GetRoleByIdAsync(Guid IdRole, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExecuteWithErrorHandlingAsync(async () =>
+                {
+                    return await ExecuteQueryListAsync<Role>(
+                        StoredProcedures.GET_RoleById, IdRole);
+                }, "GetRoleById", cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return [];
+            }
+        }
+
+        public async Task<List<Role>> GetAllRolesAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExecuteWithErrorHandlingAsync(async () =>
+                {
+                    return await ExecuteQueryListAsync<Role>(
+                        StoredProcedures.GET_AllRoles);
+                }, "GetAllRoles", cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return [];
+            }
+        }
+
+        public async Task<List<MenuItemDefinition>> GetMenuItemsAsync(CancellationToken cancellationToken = default)
+        {
+            List<MenuItemDefinition> list = [];
+            try
+            {
+                using var connection = new SqlConnection(_dbContext.Database.GetConnectionString());
+                using var command = new SqlCommand(StoredProcedures.GET_MenuItem, connection);
+
+                command.CommandType = CommandType.StoredProcedure;
+                command.CommandTimeout = 30;
+
+                // Usar SqlDataAdapter en lugar de DataReader
+                using var adapter = new SqlDataAdapter(command);
+                var dataTable = new DataTable();
+
+                // Fill no es async pero no se cuelga con múltiples filas
+                adapter.Fill(dataTable);
+
+                foreach (DataRow row in dataTable.Rows)
+                {
+                    list.Add(
+                        new MenuItemDefinition
+                        {
+
+                            MenuId = row["MenuId"] is Guid g1 ? g1 : Guid.Parse(row["MenuId"].ToString()!),
+                            ParentId = row["ParentId"] == DBNull.Value ? Guid.Empty : (row["ParentId"] is Guid g2 ? g2 : Guid.Parse(row["ParentId"].ToString()!)),
+                            ItemKey = row["ItemKey"]?.ToString() ?? "",
+                            Title = row["Title"]?.ToString() ?? "",
+                            Icon = row["Icon"]?.ToString() ?? "",
+                            Url = row["Url"]?.ToString() ?? "",
+                            Target = row["Target"]?.ToString() ?? "",
+                            ParentKey = row["ParentKey"]?.ToString() ?? "",
+                            DisplayOrder = row["DisplayOrder"] is int d ? d : Convert.ToInt32(row["DisplayOrder"])
+                        });
+                }
+
+                return list;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return [];
             }
         }
 
@@ -1740,6 +2086,8 @@ namespace SpiderHood.Data
                 return true;
             }, "ClosePastBudgets", cancellationToken);
         }
+
+
         #endregion
     }
 

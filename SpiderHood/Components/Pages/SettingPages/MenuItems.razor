@@ -8,6 +8,117 @@
 
 <PageTitle>Administración del Menú</PageTitle>
 
+<style >
+    /* Estilos unificados para la vista de árbol */
+    .menu-tree-table {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+    }
+
+    .menu-tree-table th,
+    .menu-tree-table td {
+        padding: 12px 8px;
+        vertical-align: middle !important;
+        border: 1px solid #dee2e6;
+    }
+
+    .menu-tree-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+
+    /* Contenedor del contenido del menú */
+    .menu-item-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    /* Indentación para jerarquía */
+    .menu-indent {
+        display: inline-block;
+        width: calc(var(--level, 0) * 20px);
+        flex-shrink: 0;
+    }
+
+    /* Icono expander */
+    .expander-icon {
+        cursor: pointer;
+        width: 20px;
+        text-align: center;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+
+    /* Contenedor de checkboxes - AHORA EN HORIZONTAL */
+    .role-checkbox-container {
+        text-align: center;
+        vertical-align: middle;
+        padding: 8px 4px !important;
+    }
+
+        .role-checkbox-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            cursor: pointer;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+    /* Contenedor de acciones */
+    .actions-container {
+        display: flex;
+        gap: 4px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    /* Grupo de badges */
+    .badge-group {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    /* Cambios pendientes */
+    .pending-change {
+        background-color: #fff3cd !important;
+    }
+
+    /* Hover en filas */
+    .menu-node-row:hover td {
+        background-color: #f8f9fa;
+    }
+
+    /* Asegurar que las celdas de checkboxes estén en una sola fila */
+    .menu-tree-table tr {
+        display: table-row;
+    }
+
+    .menu-tree-table td {
+        display: table-cell;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .menu-tree-table {
+            font-size: 14px;
+        }
+
+        .role-checkbox-container input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .actions-container {
+            flex-direction: column;
+        }
+    }
+</style>
+
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>
@@ -31,48 +142,63 @@
             <div class="card-header bg-light">
                 <ul class="nav nav-tabs card-header-tabs">
                     <li class="nav-item">
-                        <a class="nav-link @(_viewMode == "tree" ? "active" : "")" 
-                           @onclick='() => SetViewMode("tree")' >
+                        <a class="nav-link @(_viewMode == "tree" ? "active" : "")"
+                           @onclick='() => SetViewMode("tree")'>
                             <i class="fas fa-sitemap me-1"></i>Vista Jerárquica
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link @(_viewMode == "list" ? "active" : "")" 
-                           @onclick='() => SetViewMode("list")' >
+                        <a class="nav-link @(_viewMode == "list" ? "active" : "")"
+                           @onclick='() => SetViewMode("list")'>
                             <i class="fas fa-list me-1"></i>Vista de Lista
                         </a>
                     </li>
                 </ul>
             </div>
-            
+
             <div class="card-body">
                 @if (_viewMode == "tree")
                 {
-                    <div>
-                        <table class="table table-hover">
+                    <!-- Cabecera con nombres de roles -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered menu-tree-table">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Menu</th>
-                                    <th>Rol 1</th>
-                                    <th>Rol 2</th>
-                                    <th>Rol n</th>
-                                    <th>Acciones</th>
+                                    <th style="width: 40%;">Menu</th>
+                                    @foreach (var role in _allRoles)
+                                    {
+                                        <th style="width: @(60 / _allRoles.Count)%" class="text-center align-middle">
+                                            @role.Name
+                                            <button class="btn btn-sm btn-link p-0 ms-1"
+                                                    @onclick="() => ToggleRoleExpansion(role.Id)">
+                                                <i class="fas @(role.IsExpanded ? "fa-chevron-up" : "fa-chevron-down")"></i>
+                                            </button>
+                                        </th>
+                                    }
+                                    <th style="width: 150px;">Acciones</th>
                                 </tr>
                             </thead>
+                            <tbody>
+                                @foreach (var item in _rootItemsWithRoles)
+                                {
+                                    <MenuItemNode Item="item"
+                                                  Level="0"
+                                                  AllRoles="@_allRoles"
+                                                  IsExpanded="@item.IsExpanded"
+                                                  OnEdit="EditItem"
+                                                  OnDelete="DeleteItem"
+                                                  OnAddChild="AddChildItem"
+                                                  OnManagePermissions="ManagePermissions"
+                                                  OnRolePermissionChanged="HandleRolePermissionChanged"
+                                                  OnToggleExpand="ToggleItemExpansion" />
+                                }
+                            </tbody>
                         </table>
-                    </div>
-                    <div class="menu-tree">
-                        @foreach (var item in _rootItems)
-                        {
-                            <MenuItemNode Item="item" 
-                                          OnEdit="EditItem" 
-                                          OnDelete="DeleteItem"
-                                          OnAddChild="AddChildItem" />
-                        }
                     </div>
                 }
                 else
                 {
+                    <!-- Vista de lista existente -->
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead class="table-light">
@@ -82,31 +208,42 @@
                                     <th>Título</th>
                                     <th>URL</th>
                                     <th>Padre</th>
-                                    <th>Permisos</th>
+                                    @foreach (var role in _allRoles)
+                                    {
+                                        <th class="text-center">@role.Name</th>
+                                    }
                                     <th>Visible</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var item in _flatItems)
+                                @foreach (var item in _flatItemsWithRoles)
                                 {
                                     <tr>
                                         <td>
-                                            <input type="number" class="form-control form-control-sm" 
-                                                   style="width: 70px;" 
-                                                   value="@item.Order" 
-                                                   @onchange='(e) => UpdateOrder(item.Id, int.Parse(e.Value?.ToString() ?? "0"))' />
+                                            <input type="number" class="form-control form-control-sm"
+                                                   style="width: 70px;"
+                                                   value="@item.DisplayOrder"
+                                                   @onchange='(e) => UpdateOrder(item.IdMenu, int.Parse(e.Value?.ToString() ?? "0"))' />
                                         </td>
                                         <td><i class="@item.Icon"></i></td>
                                         <td>@item.Title</td>
                                         <td>@item.Url</td>
                                         <td>@item.ParentTitle</td>
-                                        <td>
-                                            @if (item.RequiredPermissions.Any())
-                                            {
-                                                <span class="badge bg-info">@item.RequiredPermissions.Count</span>
-                                            }
-                                        </td>
+                                        @foreach (var role in _allRoles)
+                                        {
+                                            var rolePerm = item.RolePermissions.FirstOrDefault(rp => rp.IdRole == role.Id);
+                                            <td class="text-center">
+                                                @if (!string.IsNullOrEmpty(item.Url))
+                                                {
+                                                    <input type="checkbox"
+                                                    class="form-check-input role-permission-checkbox"
+                                                    checked="@(rolePerm?.CanView ?? false)"
+                                                    @onchange='(e) => HandleListRolePermissionChanged(
+                                                       item.IdMenu, role.Id, (bool)(e.Value ?? false))' />                            
+                                                }
+                                            </td>
+                                                        }
                                         <td>
                                             @if (item.IsVisible)
                                             {
@@ -118,12 +255,12 @@
                                             }
                                         </td>
                                         <td>
-                                            <button class="btn btn-sm btn-outline-primary" 
-                                                    @onclick="() => EditItem(item.Id)">
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    @onclick="() => EditItem(item.IdMenu)">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="btn btn-sm btn-outline-danger" 
-                                                    @onclick="() => DeleteItem(item.Id)">
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    @onclick="() => DeleteItem(item.IdMenu)">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </td>
@@ -134,10 +271,18 @@
                     </div>
                 }
             </div>
-            
-            <div class="card-footer">
-                <button class="btn btn-success" @onclick="SaveOrder">
-                    <i class="fas fa-save me-1"></i>Guardar Orden
+
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <div>
+                    <button class="btn btn-success me-2" @onclick="SaveAllPermissions">
+                        <i class="fas fa-save me-1"></i>Guardar Todos los Permisos
+                    </button>
+                    <button class="btn btn-info" @onclick="ResetPermissions">
+                        <i class="fas fa-undo me-1"></i>Resetear
+                    </button>
+                </div>
+                <button class="btn btn-warning" @onclick="SaveOrder">
+                    <i class="fas fa-sort me-1"></i>Guardar Orden
                 </button>
             </div>
         </div>
@@ -145,22 +290,19 @@
 </div>
 
 @code {
-    private List<MenuItemDefinition> _rootItems = new();
-    private List<MenuItemViewModel> _flatItems = new();
+    private List<MenuItemWithRoles> _rootItemsWithRoles = new();
+    private List<MenuItemWithRoles> _flatItemsWithRoles = new();
+    private List<RoleDto> _allRoles = new();
     private bool _loading = true;
     private string _viewMode = "tree";
+    private Dictionary<string, bool> _pendingChanges = new();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            await LoadDataAsync(); 
+            await LoadDataAsync();
         }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        //await LoadDataAsync();
     }
 
     private async Task LoadDataAsync()
@@ -168,8 +310,13 @@
         try
         {
             _loading = true;
-            _rootItems = await MenuAdminService.GetRootMenuItemsAsync();
-            await LoadFlatItemsAsync();
+
+            // Cargar roles
+            _allRoles = await MenuAdminService.GetAllRolesAsync();
+
+            // Cargar items con permisos
+            _rootItemsWithRoles = await MenuAdminService.GetRootMenuItemsWithRolesAsync();
+            await LoadFlatItemsWithRolesAsync();
         }
         catch (Exception ex)
         {
@@ -182,26 +329,124 @@
         }
     }
 
-    private async Task LoadFlatItemsAsync()
+    private async Task LoadFlatItemsWithRolesAsync()
     {
         var allItems = await MenuAdminService.GetAllMenuItemsAsync();
         var parents = await MenuAdminService.GetAvailableParentsAsync();
-        
-        _flatItems = allItems.Select(item => new MenuItemViewModel
+
+        _flatItemsWithRoles = new List<MenuItemWithRoles>();
+
+        foreach (var item in allItems)
         {
-            Id = item.MenuId,
-            Title = item.Title,
-            Icon = item.Icon,
-            ItemKey = item.ItemKey,
-            Url = item.Url,
-            ParentId = item.ParentId,
-            ParentTitle = parents.FirstOrDefault(p => p.MenuId == item.ParentId)?.Title ?? "Raíz",
-            Order = item.DisplayOrder,
-            RequiredPermissions = item.RequiredPermissions,
-            IsVisible = item.IsVisible,
-            HasChildren = item.Children.Any(),
-            ChildrenCount = item.Children.Count
-        }).OrderBy(i => i.Order).ToList();
+            var itemWithRoles = new MenuItemWithRoles
+            {
+                IdMenu = item.IdMenu,
+                Title = item.Title,
+                Icon = item.Icon,
+                ItemKey = item.ItemKey,
+                Url = item.Url,
+                IdParent = item.IdParent,
+                ParentTitle = parents.FirstOrDefault(p => p.IdMenu == item.IdParent)?.Title ?? "Raíz",
+                DisplayOrder = item.DisplayOrder,
+                RequiredPermissions = item.RequiredPermissions ?? new List<Guid>(),
+                IsVisible = item.IsVisible,
+                RolePermissions = _allRoles.Select(role => new RolePermissionCheck
+                {
+                    IdRole = role.Id,
+                    RoleName = role.Name,
+                    CanView = item.RequiredPermissions?.Contains(role.Id) ?? false
+                }).ToList()
+            };
+
+            _flatItemsWithRoles.Add(itemWithRoles);
+        }
+
+        _flatItemsWithRoles = _flatItemsWithRoles.OrderBy(i => i.DisplayOrder).ToList();
+    }
+
+    // Manejador para el componente jerárquico (recibe tupla)
+    private async Task HandleRolePermissionChanged((Guid MenuItemId, Guid RoleId, bool CanView) change)
+    {
+        var key = $"{change.MenuItemId}*{change.RoleId}";
+        _pendingChanges[key] = change.CanView;
+
+        // Actualizar en la UI sin guardar aún
+        StateHasChanged();
+    }
+
+    // Manejador para la vista de lista (parámetros separados)
+    private async Task HandleListRolePermissionChanged(Guid menuItemId, Guid roleId, bool canView)
+    {
+        var key = $"{menuItemId}*{roleId}";
+        _pendingChanges[key] = canView;
+
+        // Actualizar también el modelo para mantener consistencia visual
+        var item = _flatItemsWithRoles.FirstOrDefault(i => i.IdMenu == menuItemId);
+        if (item != null)
+        {
+            var rolePerm = item.RolePermissions.FirstOrDefault(rp => rp.IdRole == roleId);
+            if (rolePerm != null)
+            {
+                rolePerm.CanView = canView;
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task SaveAllPermissions()
+    {
+        try
+        {
+            // Agrupar los cambios por MenuItemId
+            var changes = _pendingChanges
+                .GroupBy(c => c.Key.Split('*')[0])
+                .Select(g => new
+                {
+                    MenuItemId = Guid.Parse(g.Key),
+                    Permissions = g.Select(x => new
+                    {
+                        RoleId = Guid.Parse(x.Key.Split('*')[1]),
+                        IsChecked = x.Value
+                    }).ToList()
+                });
+
+            foreach (var change in changes)
+            {
+                // Extraer las listas de RoleIds y Actions
+                var roleIds = change.Permissions.Select(p => p.RoleId).ToList();
+                var actions = change.Permissions.Select(p => p.IsChecked).ToList();
+
+                await MenuAdminService.UpdateMenuItemPermissionsAsync(
+                    change.MenuItemId,
+                    roleIds,
+                    actions);
+            }
+
+            _pendingChanges.Clear();
+            await LoadDataAsync();
+            await JSRuntime.InvokeVoidAsync("alert", "Permisos guardados exitosamente");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+        }
+    }
+
+    private void ResetPermissions()
+    {
+        _pendingChanges.Clear();
+        _ = LoadDataAsync();
+    }
+
+    private void ToggleRoleExpansion(Guid roleId)
+    {
+        var role = _allRoles.FirstOrDefault(r => r.Id == roleId);
+        if (role != null)
+        {
+            role.IsExpanded = !role.IsExpanded;
+            StateHasChanged();
+        }
     }
 
     private void SetViewMode(string mode)
@@ -220,11 +465,16 @@
         Navigation.NavigateTo($"/Settings/MenuItems/Create?parentId={parentId}");
     }
 
+    private void ManagePermissions(Guid id)
+    {
+        Navigation.NavigateTo($"/Settings/MenuItems/Permissions/{id}");
+    }
+
     private async Task DeleteItem(Guid id)
     {
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             "¿Está seguro de eliminar este item? También se eliminarán todos sus subitems.");
-        
+
         if (confirmed)
         {
             try
@@ -243,23 +493,50 @@
 
     private async Task UpdateOrder(Guid id, int newOrder)
     {
-        var item = _flatItems.FirstOrDefault(i => i.Id == id);
+        var item = _flatItemsWithRoles.FirstOrDefault(i => i.IdMenu == id);
         if (item != null)
         {
-            item.Order = newOrder;
+            item.DisplayOrder = newOrder;
         }
     }
 
     private async Task SaveOrder()
     {
-        var itemsToUpdate = _flatItems.Select(i => new MenuItemDefinition
+        var itemsToUpdate = _flatItemsWithRoles.Select(i => new MenuItemWithRoles
         {
-            MenuId = i.Id,
-            DisplayOrder = i.Order
-        }).ToList();
+            IdMenu = i.IdMenu,
+            DisplayOrder = i.DisplayOrder
+        }).Cast<MenuItemWithRoles>().ToList();
 
         await MenuAdminService.ReorderMenuAsync(itemsToUpdate);
         await LoadDataAsync();
         await JSRuntime.InvokeVoidAsync("alert", "Orden guardado exitosamente");
+    }
+
+    private void ToggleItemExpansion(Guid itemId)
+    {
+        var item = FindMenuItem(_rootItemsWithRoles, itemId);
+        if (item != null)
+        {
+            item.IsExpanded = !item.IsExpanded;
+            StateHasChanged();
+        }
+    }
+
+    private MenuItemWithRoles? FindMenuItem(List<MenuItemWithRoles> items, Guid itemId)
+    {
+        foreach (var item in items)
+        {
+            if (item.IdMenu == itemId)
+                return item;
+
+            if (item.Children != null)
+            {
+                var found = FindMenuItem(item.Children, itemId);
+                if (found != null)
+                    return found;
+            }
+        }
+        return null;
     }
 }

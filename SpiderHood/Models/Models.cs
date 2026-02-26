@@ -859,8 +859,8 @@ namespace SpiderHood.Models
 
     public class MenuPermissions
     {
-        public Guid MenuId { get; set; } = Guid.Empty;
-        public Guid PermissionId { get; set; } = Guid.Empty;
+        public Guid IdMenu { get; set; } = Guid.Empty;
+        public Guid IdRole { get; set; } = Guid.Empty;
     }
 
     public class MenuItem
@@ -871,7 +871,7 @@ namespace SpiderHood.Models
         public string? Icon { get; set; }
         public string? Url { get; set; }
         public int Order { get; set; }
-        public Guid? ParentId { get; set; }
+        public Guid? IdParent { get; set; }
         public List<string> RequiredPermissions { get; set; } = new();
         public List<MenuItem> Children { get; set; } = new();
         public bool IsVisible { get; set; } = true;
@@ -925,16 +925,15 @@ namespace SpiderHood.Models
         public List<string> AvailableRoles { get; set; } = new();
     }
 
-
     public class MenuItemDefinition
     {
-        public Guid MenuId { get; set; } = Guid.NewGuid();
+        public Guid IdMenu { get; set; } = Guid.NewGuid();
         public string ItemKey { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string? Icon { get; set; }
         public string? Url { get; set; }
         public int DisplayOrder { get; set; }
-        public Guid? ParentId { get; set; }
+        public Guid? IdParent { get; set; }
         public string ParentKey { get; set; } = string.Empty;
         public string? Target { get; set; } // Para collapse ID
         [NotMapped]
@@ -952,7 +951,7 @@ namespace SpiderHood.Models
 
         // Propiedades de navegación
         [NotMapped]
-        public List<MenuItemDefinition> Children { get; set; } = new();
+        public List<MenuItemWithRoles> Children { get; set; } = new();
         [NotMapped]
         public MenuItemDefinition? Parent { get; set; }
     }
@@ -994,12 +993,35 @@ namespace SpiderHood.Models
         public string ParentPermissionKey { get; set; } = string.Empty;
     }
 
+    
+    public class RolePermissionCheck
+    {
+        public Guid IdRole { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+        public bool CanView { get; set; }
+        public bool IsExpanded { get; set; }
+    }
+
+    public class RoleDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public bool IsExpanded { get; set; } = true;
+        public int UserCount { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class MenuItemWithRoles : MenuItemDefinition
+    {
+        public List<RolePermissionCheck> RolePermissions { get; set; } = new();
+        public string? ParentTitle { get; set; }
+        public bool IsExpanded { get; set; } = true;
+        public int ChildrenCount => Children?.Count ?? 0;
+        public bool HasChildren => ChildrenCount > 0;
+    }
+
 }
-
-
-
-
-
 
 /*
 

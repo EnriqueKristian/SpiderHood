@@ -248,7 +248,7 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_MenuItemPermission, cancellationToken, item.MenuId);
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_MenuItemPermission, cancellationToken, item.IdMenu, item.IdRole);
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteMenuPermission", cancellationToken);
@@ -365,8 +365,8 @@ namespace SpiderHood.Data
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.INS_MenuItemPermission,
                     cancellationToken,
-                    item.MenuId!,
-                    item.PermissionId!);
+                    item.IdMenu!,
+                    item.IdRole!);
 
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 return item;
@@ -382,14 +382,17 @@ namespace SpiderHood.Data
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.INS_MenuItem,
                     cancellationToken,
-                    item.MenuId!,
-                    item.ParentId!,
+                    item.IdMenu!,
+                    item.IdParent!,
                     item.ItemKey!,
                     item.Title!,
                     item.Icon!,
                     item.Url!,
                     item.Target!,
-                    item.DisplayOrder!);
+                    item.DisplayOrder!, 
+                    item.IsVisible!,
+                    item.BadgeText!,
+                    item.BadgeColor!);
 
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 return item;
@@ -998,8 +1001,8 @@ namespace SpiderHood.Data
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.UPD_MenuItem,
                     cancellationToken,
-                    item.MenuId!,
-                    item.ParentId!,
+                    item.IdMenu!,
+                    item.IdParent!,
                     item.ItemKey!,
                     item.Title!,
                     item.Icon!,
@@ -1340,8 +1343,8 @@ namespace SpiderHood.Data
                     list.Add(
                         new MenuPermissions
                         {
-                            MenuId = row["MenuId"] is Guid g1 ? g1 : Guid.Parse(row["MenuId"].ToString()!),
-                            PermissionId = row["PermissionId"] is Guid g2 ? g2 : Guid.Parse(row["ParentId"].ToString()!)
+                            IdMenu = row["IdMenu"] is Guid g1 ? g1 : Guid.Parse(row["IdMenu"].ToString()!),
+                            IdRole = row["IdRole"] is Guid g2 ? g2 : Guid.Parse(row["IdRole"].ToString()!)
                         });
                 }
 
@@ -1541,7 +1544,7 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<MenuItem>> GetFullMenuAsync(Guid IdUSer, CancellationToken cancellationToken = default)
+        public async Task<List<MenuItem>> GetFullMenuAsync(Guid IdRole, CancellationToken cancellationToken = default)
         {
             var menus = new Dictionary<Guid, MenuItem>();
 
@@ -1555,7 +1558,7 @@ namespace SpiderHood.Data
                     CommandTimeout = 30,
                 };
 
-                command.Parameters.Add(new SqlParameter("@Rol", IdUSer));
+                command.Parameters.Add(new SqlParameter("@IdRole", IdRole));
 
                 await connection.OpenAsync(cancellationToken);
 
@@ -1563,14 +1566,14 @@ namespace SpiderHood.Data
 
                 while (await reader.ReadAsync(cancellationToken))
                 {
-                    Guid menuId = Guid.Parse(reader["MenuId"].ToString()!);
+                    Guid Idmenu = Guid.Parse(reader["IdMenu"].ToString()!);
 
-                    if (!menus.ContainsKey(menuId))
+                    if (!menus.ContainsKey(Idmenu))
                     {
-                        menus[menuId] = new MenuItem
+                        menus[Idmenu] = new MenuItem
                         {
-                            IdMenu = menuId,
-                            ParentId = reader["ParentId"] != DBNull.Value ? Guid.Parse(reader["ParentId"].ToString()!) : Guid.Empty,
+                            IdMenu = Idmenu,
+                            IdParent = reader["IdParent"] != DBNull.Value ? Guid.Parse(reader["IdParent"].ToString()!) : Guid.Empty,
                             ItemKey = reader.GetString(reader.GetOrdinal("ItemKey")),
                             Title = reader.GetString(reader.GetOrdinal("Title")),
                             Icon = reader["Icon"]?.ToString(),
@@ -1583,11 +1586,11 @@ namespace SpiderHood.Data
                     }
 
                     // Agregar permiso si existe
-                    if (reader["PermissionKey"] != DBNull.Value)
+                    /*if (reader["PermissionKey"] != DBNull.Value)
                     {
-                        menus[menuId].RequiredPermissions!
+                        menus[Idmenu].RequiredPermissions!
                             .Add(reader.GetString(reader.GetOrdinal("PermissionKey")));
-                    }
+                    }*/
                 }
 
                 // Convertir en lista jerárquica
@@ -1598,15 +1601,15 @@ namespace SpiderHood.Data
 
                 foreach (var item in menuList)
                 {
-                    if (item.ParentId.HasValue && lookup.ContainsKey(item.ParentId.Value))
+                    if (item.IdParent.HasValue && lookup.ContainsKey(item.IdParent.Value))
                     {
-                        lookup[item.ParentId.Value].Children.Add(item);
+                        lookup[item.IdParent.Value].Children.Add(item);
                     }
                 }
 
                 // Solo elementos raíz
                 var finalMenu = menuList
-                    .Where(m => m.ParentId == Guid.Empty)
+                    .Where(m => m.IdParent == Guid.Empty)
                     .OrderBy(m => m.Order)
                     .ToList();
 
@@ -1688,9 +1691,9 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<MenuItemDefinition>> GetMenuItemsAsync(CancellationToken cancellationToken = default)
+        public async Task<List<MenuItemWithRoles>> GetMenuItemsAsync(CancellationToken cancellationToken = default)
         {
-            List<MenuItemDefinition> list = [];
+            List<MenuItemWithRoles> list = [];
             try
             {
                 using var connection = new SqlConnection(_dbContext.Database.GetConnectionString());
@@ -1709,11 +1712,11 @@ namespace SpiderHood.Data
                 foreach (DataRow row in dataTable.Rows)
                 {
                     list.Add(
-                        new MenuItemDefinition
+                        new MenuItemWithRoles
                         {
 
-                            MenuId = row["MenuId"] is Guid g1 ? g1 : Guid.Parse(row["MenuId"].ToString()!),
-                            ParentId = row["ParentId"] == DBNull.Value ? Guid.Empty : (row["ParentId"] is Guid g2 ? g2 : Guid.Parse(row["ParentId"].ToString()!)),
+                            IdMenu = row["IdMenu"] is Guid g1 ? g1 : Guid.Parse(row["IdMenu"].ToString()!),
+                            IdParent = row["IdParent"] == DBNull.Value ? Guid.Empty : (row["IdParent"] is Guid g2 ? g2 : Guid.Parse(row["ParentId"].ToString()!)),
                             ItemKey = row["ItemKey"]?.ToString() ?? "",
                             Title = row["Title"]?.ToString() ?? "",
                             Icon = row["Icon"]?.ToString() ?? "",

@@ -65,10 +65,10 @@
 
                         <div class="mb-3">
                             <label class="form-label">Item Padre</label>
-                            <InputSelect class="form-control" @bind-Value="_item.ParentId">
+                            <InputSelect class="form-control" @bind-Value="_item.IdParent">
                                 @foreach (var parent in _availableParents)
                                 {
-                                    <option value="@parent.MenuId">@parent.Title</option>
+                                    <option value="@parent.IdMenu">@parent.Title</option>
                                 }
                             </InputSelect>
                             <small class="text-muted">Dejar vacío para items de nivel superior</small>
@@ -156,16 +156,25 @@
     [Parameter] public Guid? Id { get; set; }
     [SupplyParameterFromQuery] public Guid? parentId { get; set; }
 
-    private MenuItemDefinition _item = new();
-    private List<MenuItemDefinition> _availableParents = new();
+    private MenuItemWithRoles _item = new();
+    private List<MenuItemWithRoles> _availableParents = new();
     private List<PermissionSelection> _availablePermissions = new();
     private bool _isEdit;
     private bool _saving;
 
+     protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadDataAsync();
+        }
+    }
+
+
     protected override async Task OnInitializedAsync()
     {
         _isEdit = Id.HasValue && Id.Value != Guid.Empty;
-        await LoadDataAsync();
+        //await LoadDataAsync();
     }
 
     private async Task LoadDataAsync()
@@ -181,7 +190,7 @@
             }
             else if (!string.IsNullOrEmpty(parentId.ToString()))
             {
-                _item.ParentId = parentId;
+                _item.IdParent = parentId;
             }
         }
         catch (Exception ex)

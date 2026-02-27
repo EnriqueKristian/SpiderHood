@@ -20,7 +20,7 @@ namespace SpiderHood.Services
 
         // Fixed: Declare as instance method on the interface (not an extension method).
         Task<bool> RequestBuildingAccess(Guid buildingId, string role);
-        Task SetCurrentBuilding(Guid? Idbuilding);
+        Task SetCurrentBuilding(Guid? Idbuilding, string role);
     }
 
     public class AuthService : IAuthService
@@ -134,7 +134,7 @@ namespace SpiderHood.Services
                 }
 
                 var buildings = _userBuildings
-                    .Where(ub => ub.IdUser == user.IdUser)
+                    .Where(ub => ub.IdUser == user.IdUser )
                     .Select(ub => new UserBuilding
                     {
                         Building = builds.FirstOrDefault(b => b.IdBuilding == ub.IdBuilding),
@@ -155,7 +155,8 @@ namespace SpiderHood.Services
                     CurrentBuildingId = GetDefaultBuilding(buildings),
                     RememberMe = model.RememberMe,
                     SessionStart = DateTime.UtcNow,
-                    SessionExpiry = DateTime.UtcNow.AddHours(8)
+                    SessionExpiry = DateTime.UtcNow.AddHours(8),
+                    Role = buildings.Select(b => b.Role).Distinct().FirstOrDefault()!,
                 });
 
                 _logger.LogWarning($"✅ Usuario autenticado: {model.Email}");
@@ -187,16 +188,18 @@ namespace SpiderHood.Services
             return await _authStateProvider.GetCurrentUserAsync();
         }
 
-        public async Task SetCurrentBuilding(Guid? buildingId)
+        public async Task SetCurrentBuilding(Guid? buildingId, string Role)
         {
             var user = await GetCurrentUserAsync();
             if (user == null) return;
 
             if (buildingId.HasValue)
             {
-                var building = user.Buildings.FirstOrDefault(b => b.Building!.IdBuilding == buildingId.Value);
+                var building = user.Buildings.FirstOrDefault(b => b.Building!.IdBuilding == buildingId.Value && b.Role == Role);
                 if (building != null)
                 {
+                    //Marcar el Building como default
+                    
                     user.CurrentBuildingId = buildingId.Value;
                     await _authStateProvider.MarkUserAsAuthenticated(user);
                 }

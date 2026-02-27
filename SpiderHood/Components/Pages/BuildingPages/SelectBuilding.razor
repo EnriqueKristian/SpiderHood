@@ -46,8 +46,8 @@
                             <div class="building-list mb-4">
                                 @foreach (var building in approvedBuildings)
                                 {
-                                    <div class="building-item @(selectedBuilding == building.Building!.IdBuilding ? "selected" : "")"
-                                         @onclick="() => SelectBuilding1(building.Building!.IdBuilding)">
+                                    <div class="building-item @( (selectedBuilding == building.Building!.IdBuilding && selectedRole == building.Role) ? "selected" : "")"
+                                         @onclick="() => SelectBuilding1(building)">
                                         <div class="building-info">
                                             <div class="building-icon">
                                                 <i class="fas fa-building"></i>
@@ -64,7 +64,7 @@
                                             </div>
                                         </div>
                                         <div class="building-check">
-                                            @if (selectedBuilding == building.Building!.IdBuilding)
+                                            @if (selectedBuilding == building.Building!.IdBuilding && selectedRole == building.Role)
                                             {
                                                 <i class="fas fa-check-circle text-primary fa-lg"></i>
                                             }
@@ -134,16 +134,25 @@
     private List<Models.UserBuilding> approvedBuildings = new();
     private List<Models.UserBuilding> pendingBuildings = new();
     private Guid? selectedBuilding;
+    private string? selectedRole;
     private bool isLoading = true;
     private bool isSelecting = false;
     private Models.UserSession? currentUser;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadUserDataAsync();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         currentUser = await AuthService.GetCurrentUserAsync();
         if (currentUser == null) return;
 
-        await LoadUserDataAsync();
+        //await LoadUserDataAsync();
     }
 
     private async Task LoadUserDataAsync()
@@ -151,9 +160,6 @@
         try
         {
             isLoading = true;
-            StateHasChanged();
-
-            //currentUser = await AuthService.GetCurrentUserAsync();
 
             if (currentUser == null)
             {
@@ -202,9 +208,10 @@
         }
     }
 
-    private void SelectBuilding1(Guid buildingId)
+    private void SelectBuilding1(Models.UserBuilding building)
     {
-        selectedBuilding = buildingId;
+        selectedBuilding = building.Building!.IdBuilding;
+        selectedRole = building.Role;
         //StateHasChanged();
     }
 
@@ -217,10 +224,10 @@
             isSelecting = true;
             StateHasChanged();
 
-            Logger.LogInformation($"Seleccionando edificio: {selectedBuilding.Value}");
+            Logger.LogInformation($"Seleccionando edificio: {selectedBuilding.Value} y Rol {selectedRole}");
 
             // Establecer el edificio actual
-            await AuthService.SetCurrentBuilding(selectedBuilding.Value);
+            await AuthService.SetCurrentBuilding(selectedBuilding.Value, selectedRole!);
 
             // Pequeña pausa para dar feedback visual
             await Task.Delay(300);

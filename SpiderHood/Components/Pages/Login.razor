@@ -168,7 +168,7 @@
                 successMessage = "¡Login exitoso! Redirigiendo...";
                 StateHasChanged();
 
-                await Task.Delay(100);
+                //await Task.Delay(100);
 
                 // 🔴 FORZAR RECARGA COMPLETA Y LIMPIAR PRERENDERING
                 Navigation.NavigateTo("/dashboard", true);
@@ -204,7 +204,7 @@
         }
         else if (approvedBuildings.Count == 1)
         {
-            await AuthService.SetCurrentBuilding(approvedBuildings.First().Building!.IdBuilding);
+            await AuthService.SetCurrentBuilding(approvedBuildings.First().Building!.IdBuilding, session.Role);
             Navigation.NavigateTo("/dashboard", true);
         }
         else

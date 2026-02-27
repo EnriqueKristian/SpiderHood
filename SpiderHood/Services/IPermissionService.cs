@@ -14,6 +14,7 @@ namespace SpiderHood.Services
         Task<bool> CanAccessRouteAsync(UserSession user, string route);
         Task<Dictionary<string, bool>> GetButtonPermissionsAsync(UserSession user, string module);
         Task<List<string>> GetPermissionsForRoleAsync(string role);
+        Task RefreshMenu();
     }
     public class PermissionService : IPermissionService
     {
@@ -40,7 +41,8 @@ namespace SpiderHood.Services
             var userPermissions = await GetUserPermissionsAsync(user);
             var allMenuItems = await GetMenuDefinitionsAsync(user);
 
-            return FilterMenuItems(allMenuItems, userPermissions);
+            return allMenuItems;
+            //return FilterMenuItems(allMenuItems, userPermissions);
         }
 
         public async Task<bool> HasPermissionAsync(UserSession user, string permissionId)
@@ -60,7 +62,7 @@ namespace SpiderHood.Services
             if (user?.Role == null) return new List<string>();
 
             // Obtener permisos según el rol del usuario
-            _userPermissionsCache = await GetPermissionsForRoleAsync(user!.Roles!.FirstOrDefault()!.ToString());
+            _userPermissionsCache = await GetPermissionsForRoleAsync(user.Role);
             return _userPermissionsCache;
         }
 
@@ -122,12 +124,15 @@ namespace SpiderHood.Services
             return filtered.OrderBy(i => i.Order).ToList();
         }
 
+        public async Task RefreshMenu() {
+            _menuCache = null;
+        }
         private async Task<List<MenuItem>> GetMenuDefinitionsAsync(UserSession user)
         {
             if (_menuCache != null)
                 return _menuCache;
 
-            _menuCache  = await ec.GetFullMenuAsync(user.IdUser);
+            _menuCache  = await ec.GetFullMenuAsync(user.IdRole);
 
             return _menuCache;
         }

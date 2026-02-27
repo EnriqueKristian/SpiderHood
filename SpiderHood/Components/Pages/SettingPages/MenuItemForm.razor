@@ -162,7 +162,7 @@
     private bool _isEdit;
     private bool _saving;
 
-     protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
@@ -181,7 +181,7 @@
     {
         try
         {
-            _availableParents = await MenuAdminService.GetAvailableParentsAsync(Id!.Value);
+            _availableParents = await MenuAdminService.GetAvailableParentsAsync(Id == null ? null : Id!.Value);
             _availablePermissions = await MenuAdminService.GetAllPermissionsForMenuAsync();
 
             if (_isEdit)
@@ -196,6 +196,10 @@
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar datos: {ex.Message}");
+        }
+        finally
+        {
+            StateHasChanged();
         }
     }
 

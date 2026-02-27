@@ -48,7 +48,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
         new Currency { Code = "EUR", Symbol = "€", Name = "Euros" }
     };
 
-        private Guid IdBuilding = Guid.Empty;
+        //private Guid IdBuilding = Guid.Empty;
         private UserSession currentUser = new();
         private bool _loaded = false;
 
@@ -86,19 +86,21 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task CargarDatosPagina()
         {
-            Console.WriteLine($"📦 Cargando datos para edificio: {IdBuilding}");
+            Console.WriteLine($"📦 Cargando datos para edificio: ");
 
             // Cargar edificios del propietario
-            Buildings = currentUser!.Buildings!.Select(ub => ub.Building).ToList()!;
+            Buildings = currentUser!.Buildings!.Where(c => c.Role == currentUser.Role).Select(ub => ub.Building).ToList()!;
+
+            SelectedBuilding = Buildings.First();   //GetBuildingDefault
 
             // Cargar parámetros
             filteredParameters = ParameterService.ListParameters;
 
             // Cargar categorías
-            filteredCategory = await CategoryService.GetCategoriesAsync(IdBuilding);
+            filteredCategory = await CategoryService.GetCategoriesAsync(SelectedBuilding.IdBuilding);
 
             // Cargar unidades
-            filteredUnits = await BuildingService.GetGroupUnitsByTypeAsync(IdBuilding, 1);
+            filteredUnits = await BuildingService.GetGroupUnitsByTypeAsync(SelectedBuilding.IdBuilding, 1);
 
             // Cargar métodos de pago (PARAMETRO_PADRE = 16)
             _paymentMethods = filteredParameters
@@ -109,8 +111,8 @@ namespace SpiderHood.Components.Pages.BuildingPages
             // Seleccionar el primer edificio por defecto
             if (Buildings.Any())
             {
-                SelectedBuilding = Buildings.First();   //GetBuildingDefault
-                SelectedBuilding.Configuration = await GetConfigurationAsync(currentUser!.CurrentBuildingId);
+                //SelectedBuilding = Buildings.First();   //GetBuildingDefault
+                SelectedBuilding.Configuration = await GetConfigurationAsync(SelectedBuilding.IdBuilding);
             }
 
             Console.WriteLine("✅ Datos cargados correctamente");

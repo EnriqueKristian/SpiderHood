@@ -613,14 +613,26 @@
         public decimal Area { get; set; } 
     }
 
-
-    protected override async void OnInitialized()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        currentUser = await AuthService!.GetCurrentUserAsync()!;
-        if (currentUser == null) return;
+        if (firstRender)
+        {
+            await InicializarPagina();
+        }
+    }
 
-        units = BuildingService.GetUnitsByBuildingAsync(currentUser.CurrentBuildingId).Result;
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync();
+        if (currentUser == null) return;
+    }
+
+    private async Task InicializarPagina()
+    {
+        units = await BuildingService.GetUnitsByBuildingAsync(currentUser.CurrentBuildingId);
         list_units = units.Where(c => c.TypeUnit == 1).ToList();
+        //_loaded = true;
+        StateHasChanged();
     }
 
     private void AbrirModal(Models.RealEstateUnit _cat, int type, Models.OpenType mode)

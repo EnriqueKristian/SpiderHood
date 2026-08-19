@@ -232,8 +232,10 @@
             // Pequeña pausa para dar feedback visual
             await Task.Delay(300);
 
-            // Redirigir al dashboard
-            Navigation.NavigateTo("/dashboard", true);
+            // Redirigir al dashboard (sin forceLoad — ver nota en Login.razor/HandleLogin
+            // sobre por qué un forceLoad aquí rompe la autenticación tras el fix del bug
+            // de sesión compartida).
+            Navigation.NavigateTo("/dashboard");
         }
         catch (Exception ex)
         {

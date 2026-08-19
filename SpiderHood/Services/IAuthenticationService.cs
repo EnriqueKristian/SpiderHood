@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using SpiderHood.Data;
 using SpiderHood.Models;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace SpiderHood.Services
@@ -33,6 +34,10 @@ namespace SpiderHood.Services
         private List<UserModel> _users = new();
         private List<UserBuildingAssociation> _userBuildings = new();
 
+        // Hashing real (PBKDF2, vía Identity — ya referenciado en el proyecto).
+        // Reemplaza el SHA-256 sin salt que había antes.
+        private readonly PasswordHasher<UserModel> _passwordHasher = new();
+
         private const string DEFAULT_BUILDING_KEY = "defaultBuildingId";
         private readonly IJSRuntime _jsRuntime;
 
@@ -59,35 +64,8 @@ namespace SpiderHood.Services
             _baseUrl = _configuration["BaseUrl"] ?? "https://localhost:7175";
         }
 
-        private void InitializeSampleData()
-        {
-            if (_users.Any()) return;
-
-            var adminId = Guid.Parse("BCD5E9DE-0FD2-431D-AB16-B4B9BB19DDC7"); //Guid.NewGuid();
-
-            _users.Add(new Models.UserModel
-            {
-                IdUser = adminId,
-                // 🔴 Usar minúsculas para consistencia
-                Email = "admin@spiderhood.com",
-                PasswordHash = HashPassword("Admin123!"),
-                FirstName = "Admin",
-                LastName = "Principal",
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            });
-
-            _userBuildings.Add(new UserBuildingAssociation
-            {
-                IdUser = adminId,
-                IdBuilding = Guid.Parse("C574A553-1573-48C8-F85E-08DE3426C28E"),
-                Role = "Administrador",
-                IsApproved = true,
-                ApprovedAt = DateTime.UtcNow
-            });
-
-            _logger.LogWarning($"✅ Usuario de prueba creado: admin@spiderhood.com / Admin123!");
-        }
+        // NOTA: se eliminó InitializeSampleData() — era código muerto (nunca se llamaba,
+        // estaba comentado) que además usaba la firma vieja de HashPassword(string).
 
         // En AuthService.cs, actualizar estos métodos:
         public async Task<AuthResponse> LoginAsync(LoginModel model)
@@ -117,7 +95,7 @@ namespace SpiderHood.Services
                     return AuthFail("Tu cuenta está desactivada");
                 }
 
-                if (!VerifyPassword(model.Password, user.PasswordHash))
+                if (!await VerifyPasswordAsync(user, model.Password, user.PasswordHash))
                 {
                     _logger.LogWarning($"❌ Contraseña incorrecta para: {model.Email}");
                     return AuthFail("Email o contraseña incorrectos");
@@ -134,7 +112,7 @@ namespace SpiderHood.Services
                 }
 
                 var buildings = _userBuildings
-                    .Where(ub => ub.IdUser == user.IdUser )
+                    .Where(ub => ub.IdUser == user.IdUser)
                     .Select(ub => new UserBuilding
                     {
                         Building = builds.FirstOrDefault(b => b.IdBuilding == ub.IdBuilding),
@@ -199,7 +177,7 @@ namespace SpiderHood.Services
                 if (building != null)
                 {
                     //Marcar el Building como default
-                    
+
                     user.CurrentBuildingId = buildingId.Value;
                     await _authStateProvider.MarkUserAsAuthenticated(user);
                 }
@@ -212,11 +190,12 @@ namespace SpiderHood.Services
             NotifyAuthStateChanged();
         }
 
-        public async Task<UserModel> AddNewUserAsync(UserModel user) {
+        public async Task<UserModel> AddNewUserAsync(UserModel user)
+        {
             return await Ec.AddNewRecordAsync(user);
         }
 
-    
+
         // -------------------------------------------
         //        UTILITARIOS
         // -------------------------------------------
@@ -224,30 +203,65 @@ namespace SpiderHood.Services
         private static AuthResponse AuthFail(string message) =>
             new AuthResponse { Success = false, Message = message };
 
-        private bool VerifyPassword(string password, string hash)
+        private async Task<bool> VerifyPasswordAsync(UserModel user, string password, string storedHash)
         {
-            var hashedInput = HashPassword(password);
+            if (string.IsNullOrEmpty(storedHash))
+                return false;
 
-            // 🔴 LOGGING PARA DEBUG
-            _logger.LogWarning($"🔐 Verificando contraseña:");
-            _logger.LogWarning($"   - Input password: {password}");
-            _logger.LogWarning($"   - Hash del input: {hashedInput}");
-            _logger.LogWarning($"   - Hash almacenado: {hash}");
-            _logger.LogWarning($"   - Coinciden: {hashedInput == hash}");
+            // Formato nuevo: PasswordHasher (PBKDF2 con salt por usuario).
+            var result = _passwordHasher.VerifyHashedPassword(user, storedHash, password);
+            if (result != PasswordVerificationResult.Failed)
+            {
+                // Si el hasher recomienda re-hashear (cambiaron los parámetros), lo actualizamos
+                // y lo persistimos en la base de datos.
+                if (result == PasswordVerificationResult.SuccessRehashNeeded)
+                {
+                    var newHash = _passwordHasher.HashPassword(user, password);
+                    try
+                    {
+                        await Ec.UpdateUserPasswordAsync(user.IdUser, newHash);
+                        user.PasswordHash = newHash;
+                    }
+                    catch (Exception ex)
+                    {
+                        // No bloqueamos el login si falla la migración del hash — el usuario
+                        // ya se autenticó correctamente contra el hash existente.
+                        _logger.LogError(ex, "No se pudo persistir el hash migrado para el usuario {IdUser}", user.IdUser);
+                    }
+                }
+                return true;
+            }
 
-            return hashedInput == hash;
+            // Compatibilidad temporal con hashes antiguos (SHA-256 sin salt).
+            if (!VerifyLegacySha256Password(password, storedHash))
+                return false;
+
+            // Login válido con hash legado: migramos silenciosamente al formato nuevo.
+            var migratedHash = _passwordHasher.HashPassword(user, password);
+            try
+            {
+                await Ec.UpdateUserPasswordAsync(user.IdUser, migratedHash);
+                user.PasswordHash = migratedHash;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo migrar el hash legado para el usuario {IdUser}", user.IdUser);
+            }
+
+            return true;
         }
 
-        private string HashPassword(string password)
+        private static bool VerifyLegacySha256Password(string password, string storedHash)
         {
-            using var sha256 = System.Security.Cryptography.SHA256.Create();
-            var bytes = Encoding.UTF8.GetBytes(password);
-            var hash = sha256.ComputeHash(bytes);
-            var hashString = Convert.ToBase64String(hash);
+            using var sha256 = SHA256.Create();
+            var computedHash = Convert.ToBase64String(sha256.ComputeHash(Encoding.UTF8.GetBytes(password)));
 
-            _logger.LogWarning($"🔐 Hash generado para '{password}': {hashString}");
+            var a = Encoding.UTF8.GetBytes(computedHash);
+            var b = Encoding.UTF8.GetBytes(storedHash);
+            if (a.Length != b.Length)
+                return false;
 
-            return hashString;
+            return CryptographicOperations.FixedTimeEquals(a, b);
         }
 
         private Guid GetDefaultBuilding(List<UserBuilding> buildings)
@@ -270,23 +284,8 @@ namespace SpiderHood.Services
             return Task.FromResult(true);
         }
 
-        // Fixed: instance method (removed 'this' from parameter)
-        public void DebugPrintUsers()
-        {
-            _logger.LogWarning("=== USUARIOS EN BASE DE DATOS ===");
-            foreach (var user in _users)
-            {
-                _logger.LogWarning($"Usuario: {user.Email}");
-                _logger.LogWarning($"  - Hash: {user.PasswordHash}");
-                _logger.LogWarning($"  - Activo: {user.IsActive}");
-            }
-
-            _logger.LogWarning("=== EDIFICIOS ASIGNADOS ===");
-            foreach (var ub in _userBuildings)
-            {
-                _logger.LogWarning($"Usuario: {ub.IdUser} -> Edificio: {ub.IdBuilding} - {ub.Role} - Aprobado: {ub.IsApproved}");
-            }
-        }
+        // NOTA: se eliminó DebugPrintUsers() — no se llamaba desde ningún lado y
+        // logueaba los password hashes de todos los usuarios.
 
         /// Guarda el edificio por defecto del usuario actual
         public async Task SetDefaultBuildingAsync(Guid buildingId)
@@ -406,7 +405,8 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<InvitationModel> GetByCodeAsync(string code){
+        public async Task<InvitationModel> GetByCodeAsync(string code)
+        {
             return await Ec.GetInvitationByCodeAsync(code);
         }
 
@@ -452,9 +452,9 @@ namespace SpiderHood.Services
                 _user.PhoneNumber = model.PhoneNumber!;
                 _user.FirstName = model.FirstName;
                 _user.LastName = model.LastName;
-                _user.PasswordHash = HashPassword(model.Password);
+                _user.PasswordHash = _passwordHasher.HashPassword(_user, model.Password);
 
-               //EmailConfirmed = true // El email está verificado por la invitación
+                //EmailConfirmed = true // El email está verificado por la invitación
 
                 var createResult = await AddNewUserAsync(_user);
 
@@ -503,7 +503,8 @@ namespace SpiderHood.Services
             }
         }
 
-        private async Task<bool> AcceptInvitationAsync(InvitationModel invitation, UserModel User, RegisterWithInvitationModel model) {
+        private async Task<bool> AcceptInvitationAsync(InvitationModel invitation, UserModel User, RegisterWithInvitationModel model)
+        {
             // Asociar usuario con el edificio y departamento
             UserBuildingAssociation _association = new UserBuildingAssociation();
             _association.IdUser = User.IdUser;

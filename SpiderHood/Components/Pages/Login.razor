@@ -25,7 +25,7 @@
                 </div>
             }
 
-            @if (successMessage != null && successMessage.Length > 0 )
+            @if (successMessage != null && successMessage.Length > 0)
             {
                 <div class="alert alert-success">
                     <i class="fas fa-check-circle me-2"></i>@successMessage
@@ -168,10 +168,20 @@
                 successMessage = "¡Login exitoso! Redirigiendo...";
                 StateHasChanged();
 
-                //await Task.Delay(100);
-
-                // 🔴 FORZAR RECARGA COMPLETA Y LIMPIAR PRERENDERING
-                Navigation.NavigateTo("/dashboard", true);
+                // NOTA: antes esto hacía NavigateTo("/dashboard", true) — un forceLoad
+                // (recarga completa del navegador). Eso tira abajo el circuito de Blazor
+                // Server y crea uno nuevo desde cero, con su propio scope de DI. Mientras
+                // CustomAuthenticationStateProvider guardaba la sesión en un campo `static`
+                // (bug ya corregido — esa sesión se compartía entre TODOS los usuarios del
+                // servidor), el nuevo circuito la "heredaba" igual y todo parecía funcionar.
+                // Ahora que el campo es de instancia (correcto), un forceLoad pierde esa
+                // sesión hasta que se recarga desde localStorage — pero AuthorizeRouteView
+                // ya evalúa la autorización ANTES de que eso termine de cargar, y manda de
+                // vuelta a /login. Por eso "regresaba al login".
+                //
+                // La solución es navegar SIN recargar la página: así seguimos en el mismo
+                // circuito/scope que acaba de autenticar al usuario, sin ninguna carrera.
+                await HandlePostLogin(result.UserSession!);
             }
             else
             {
@@ -205,7 +215,7 @@
         else if (approvedBuildings.Count == 1)
         {
             await AuthService.SetCurrentBuilding(approvedBuildings.First().Building!.IdBuilding, session.Role);
-            Navigation.NavigateTo("/dashboard", true);
+            Navigation.NavigateTo("/dashboard");
         }
         else
         {

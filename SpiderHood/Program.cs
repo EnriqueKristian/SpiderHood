@@ -32,7 +32,21 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthorizationCore();
 
 // 2. Identity
-
+//
+// NOTA: esto se mantiene registrado porque `IEmailConfirmationService`
+// (usado por Confirmemail.razor) inyecta `UserManager<IdentityUser>` — si se
+// quita esto, esa página se rompe al cargar (DI no puede resolver
+// UserManager<IdentityUser>).
+//
+// Pero ojo: el login real de la app NO pasa por aquí — `AuthService.LoginAsync`
+// usa su propio `UserModel` (tabla propia, vía BDLayout/Dapper), no
+// `SignInManager`/`UserManager`. Y nadie en el código llama a
+// `UserManager.CreateAsync()`, así que nunca se crea un `IdentityUser` real
+// en la tabla `AspNetUsers`. Eso significa que `Confirmemail.razor` /
+// `IEmailConfirmationService` (que sí buscan un `IdentityUser` por id/email)
+// en la práctica nunca van a encontrar nada — es un flujo que compila pero
+// no funciona de verdad, porque le falta la mitad (crear el usuario).
+// Documentado así para no volver a confundirlo con configuración muerta.
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
     options.SignIn.RequireConfirmedEmail = true;

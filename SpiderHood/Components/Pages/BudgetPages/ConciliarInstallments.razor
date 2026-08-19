@@ -1,4 +1,4 @@
-﻿@page "/conciliarcuota/"
+﻿@page "/ReconcileInstallments/"
 @rendermode InteractiveServer
 @inject SpiderHood.Services.ParameterService ParameterService
 @inject IJSRuntime JSRuntime
@@ -98,7 +98,7 @@
     private bool _HasTransactions => transacciones!.Count() > 0;
 
     [Inject]
-    public InstallmentService InstallmentService { get; set; } = default!;
+    public IInstallmentService InstallmentService { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {

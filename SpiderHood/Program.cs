@@ -61,6 +61,7 @@ builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>(
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IPermissionAdminService, PermissionAdminService>();
 builder.Services.AddScoped<IMenuAdminService, MenuAdminService>();
+builder.Services.AddScoped<IServiceReadingService, ServiceReadingService>();
 builder.Services.AddHttpClient();
 
 var app = builder.Build();

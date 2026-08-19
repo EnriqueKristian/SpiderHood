@@ -1,5 +1,5 @@
-﻿@page "/conciliacion"
-@page "/conciliacion/{accountId:int}"
+﻿@page "/ReconcileExpenses"
+@page "/ReconcileExpenses/{accountId:guid}"
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject IExpenseService ExpenseService
@@ -786,7 +786,7 @@
     public IBudgetService BudgetService { get; set; } = default!;
 
     [Inject]
-    public InstallmentService InstallmentService { get; set; } = default!;
+    public IInstallmentService InstallmentService { get; set; } = default!;
 
     // Servicios y datos
     private List<BankAccount> cuentasBancarias = new();

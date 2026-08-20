@@ -1,4 +1,4 @@
-﻿@* LeftMenuLayout.razor *@
+﻿﻿@* LeftMenuLayout.razor *@
 @rendermode InteractiveServer
 @inject Services.IPermissionService PermissionService
 @inject Services.AuthService AuthService
@@ -10,11 +10,15 @@
         <nav class="nav flex-column nav-pills">
 
             <!-- Información del usuario -->
-            <div class="user-info text-center text-white mb-3 p-2">
-                <i class="fas fa-user-circle fa-2x mb-1"></i>
-                <div>@_currentUser?.Email</div>
-                <small class="text-muted">@GetRoleDisplayName(_currentUser?.Role)</small>
-            </div>
+            <a href="/Profile" class="user-info-card text-decoration-none">
+                <div class="user-avatar">@GetInitials()</div>
+                <div class="user-details">
+                    <div class="user-email">@_currentUser?.Email</div>
+                    <span class="role-chip @GetRoleColorClass(_currentUser?.Role)">
+                        <i class="@GetRoleIcon(_currentUser?.Role) me-1"></i>@GetRoleDisplayName(_currentUser?.Role)
+                    </span>
+                </div>
+            </a>
 
             @foreach (var menuItem in _filteredMenu)
             {
@@ -58,13 +62,18 @@
             @if (_isDevelopment)
             {
                 <div class="role-selector mt-3 px-1">
+                    <div class="role-selector-header">
+                        <i class="fas fa-flask me-1"></i>Modo Desarrollo
+                    </div>
                     <div class="current-role">
-                        <i class="fas fa-shield-alt me-2"></i>@GetRoleDisplayName(_currentUser?.Role)
+                        <i class="@GetRoleIcon(_currentUser?.Role) me-2"></i>@GetRoleDisplayName(_currentUser?.Role)
                     </div>
                     <div class="role-options">
                         @foreach (var role in _currentUser!.Roles)
                         {
-                            <span class="role-badge @(_currentUser?.Role == role ? "active" : "")" @onclick='() => SwitchRole(role)'>@role</span>
+                            <span class="role-badge @GetRoleColorClass(role) @(_currentUser?.Role == role ? "active" : "")" @onclick='() => SwitchRole(role)'>
+                                <i class="@GetRoleIcon(role) me-1"></i>@role
+                            </span>
                         }
                     </div>
                 </div>
@@ -112,22 +121,7 @@
 
     private async Task LoadUserDataAsync()
     {
-        // Mismo fix que en HeaderMainLayout: sin reintentos, una carrera con
-        // la carga de sesión desde localStorage dejaba _currentUser en null
-        // para siempre en este circuito, y con eso ShowMenu nunca se activaba.
-        const int maxAttempts = 3;
-        for (int attempt = 0; attempt < maxAttempts; attempt++)
-        {
-            _currentUser = await AuthService.GetCurrentUserAsync();
-            if (_currentUser != null)
-                break;
-
-            if (attempt < maxAttempts - 1)
-            {
-                Console.WriteLine($"⏳ Intento {attempt + 1}/{maxAttempts} - Usuario no autenticado, esperando 100ms...");
-                await Task.Delay(100);
-            }
-        }
+        _currentUser = await AuthService.GetCurrentUserAsync();
 
         if (_currentUser != null)
         {
@@ -159,10 +153,53 @@
         return role switch
         {
             "Administrador" => "Administrador",
+            "SysAdmin" => "Super Admin",
             "Junta" => "Miembro de Junta",
             "Residente" => "Residente",
             _ => "Usuario"
         };
+    }
+
+    private string GetRoleColorClass(string? role)
+    {
+        return role switch
+        {
+            "Administrador" => "role-admin",
+            "SysAdmin" => "role-sysadmin",
+            "Junta" => "role-junta",
+            "Residente" => "role-residente",
+            _ => "role-neutral"
+        };
+    }
+
+    private string GetRoleIcon(string? role)
+    {
+        return role switch
+        {
+            "Administrador" => "fas fa-user-shield",
+            "SysAdmin" => "fas fa-crown",
+            "Junta" => "fas fa-users",
+            "Residente" => "fas fa-house-user",
+            _ => "fas fa-user"
+        };
+    }
+
+    private string GetInitials()
+    {
+        if (_currentUser == null)
+            return "U";
+
+        var name = _currentUser.FullName;
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+                return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+            if (parts.Length == 1)
+                return parts[0][0].ToString().ToUpper();
+        }
+
+        return !string.IsNullOrWhiteSpace(_currentUser.Email) ? _currentUser.Email[0].ToString().ToUpper() : "U";
     }
 
     private bool ShouldShowBadge(string menuId)

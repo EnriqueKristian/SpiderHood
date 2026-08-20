@@ -13,7 +13,6 @@ namespace SpiderHood.Models
         public string LastName { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public bool IsActive { get; set; }
-        [NotMapped]
         public DateTime CreatedAt { get; set; }
         public bool EmailConfirmed { get; set; }
         public List<Building> Buildings { get; set; } = [];

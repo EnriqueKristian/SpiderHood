@@ -22,6 +22,9 @@ namespace SpiderHood.Services
         // Fixed: Declare as instance method on the interface (not an extension method).
         Task<bool> RequestBuildingAccess(Guid buildingId, string role);
         Task SetCurrentBuilding(Guid? Idbuilding, string role);
+        Task<UserModel> GetUserProfileAsync(Guid userId);
+        Task<AuthResult> UpdateProfileAsync(Guid userId, string firstName, string lastName, string phoneNumber);
+        Task<AuthResult> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
     }
 
     public class AuthService : IAuthService
@@ -195,6 +198,60 @@ namespace SpiderHood.Services
             return await Ec.AddNewRecordAsync(user);
         }
 
+        public async Task<UserModel> GetUserProfileAsync(Guid userId)
+        {
+            return await Ec.GetUserByIdAsync(userId);
+        }
+
+        public async Task<AuthResult> UpdateProfileAsync(Guid userId, string firstName, string lastName, string phoneNumber)
+        {
+            try
+            {
+                var user = await Ec.GetUserByIdAsync(userId);
+
+                user.FirstName = firstName;
+                user.LastName = lastName;
+                user.PhoneNumber = phoneNumber;
+
+                await Ec.UpdateRecordAsync(user);
+
+                var session = await GetCurrentUserAsync();
+                if (session != null)
+                {
+                    session.FullName = $"{firstName} {lastName}";
+                    await _authStateProvider.MarkUserAsAuthenticated(session);
+                    NotifyAuthStateChanged();
+                }
+
+                return new AuthResult { Success = true, Message = "Perfil actualizado exitosamente" };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error actualizando el perfil del usuario {UserId}", userId);
+                return new AuthResult { Success = false, Message = "No se pudo actualizar el perfil" };
+            }
+        }
+
+        public async Task<AuthResult> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+        {
+            try
+            {
+                var user = await Ec.GetUserByIdAsync(userId);
+
+                if (!await VerifyPasswordAsync(user, currentPassword, user.PasswordHash))
+                    return new AuthResult { Success = false, Message = "La contraseña actual es incorrecta" };
+
+                var newHash = _passwordHasher.HashPassword(user, newPassword);
+                await Ec.UpdateUserPasswordAsync(userId, newHash);
+
+                return new AuthResult { Success = true, Message = "Contraseña actualizada exitosamente" };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error cambiando la contraseña del usuario {UserId}", userId);
+                return new AuthResult { Success = false, Message = "No se pudo cambiar la contraseña" };
+            }
+        }
 
         // -------------------------------------------
         //        UTILITARIOS

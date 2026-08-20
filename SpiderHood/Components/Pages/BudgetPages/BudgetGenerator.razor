@@ -474,7 +474,19 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (ParameterService.CurrentBuilding == null  )
+        // ParameterService.CurrentBuilding se asigna en HeaderMainLayout.OnAfterRenderAsync,
+        // que corre DESPUÉS de este OnInitializedAsync en el primer render del circuito
+        // (mismo problema que tenía Index.razor / la lista de presupuestos: sin esperar,
+        // esta página se quedaba sin inicializar nada — sin periodos, sin categorías, sin
+        // BudgetState — la primera vez que se entraba tras el login).
+        var attempts = 0;
+        while (ParameterService.CurrentBuilding == null && attempts < 20)
+        {
+            await Task.Delay(150);
+            attempts++;
+        }
+
+        if (ParameterService.CurrentBuilding == null)
             return;
 
         //Obtiene el presupuesto de la pagina de lista de presupuestos
@@ -919,14 +931,19 @@
     {
         if (_newCalcModal == null ) return;
 
+        // Si el edificio todavía no tiene ningún periodo (típico en un edificio recién
+        // creado), _periods viene vacío: FirstOrDefault()! y Max() de más abajo tronaban
+        // con NullReferenceException/InvalidOperationException en cuanto alguien intentaba
+        // crear su primer presupuesto. Si no hay periodos, arrancamos desde hoy y dejamos
+        // que CrearNuevoPeriodo cree el primero.
         _ultimoPeriodo = presupuestoService._Budgets.Count > 0
     ? presupuestoService._Budgets.Max(c => c.BudgetDate)
-    : _periods.FirstOrDefault()!.StartDate;
+    : (_periods.Any() ? _periods.First().StartDate : DateTime.Now);
 
-        //NOTE: Deberia validar que el presupuesto que se quiere crear no exista 
-        if (_ultimoPeriodo >= _periods.Max(p => p.StartDate) )
+        //NOTE: Deberia validar que el presupuesto que se quiere crear no exista
+        if (!_periods.Any() || _ultimoPeriodo >= _periods.Max(p => p.StartDate))
         {
-            await CrearNuevoPeriodo(_ultimoPeriodo.AddMonths(1));
+            await CrearNuevoPeriodo(_periods.Any() ? _ultimoPeriodo.AddMonths(1) : _ultimoPeriodo);
         }
 
         _newCalculation = new NewCalculation
@@ -942,7 +959,7 @@
 
     private async Task CrearNuevoPeriodo(DateTime newperiod)
     {
-        Period newPeriod = ParameterService.CreateNewPeriod(newperiod, ParameterService.CurrentBuilding.IdBuilding).Result;
+        Period newPeriod = await ParameterService.CreateNewPeriod(newperiod, ParameterService.CurrentBuilding.IdBuilding);
         _periods.Add(newPeriod);
         _currentPeriod = newPeriod;
     }

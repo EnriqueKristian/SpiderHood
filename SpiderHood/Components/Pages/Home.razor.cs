@@ -13,6 +13,9 @@ namespace SpiderHood.Components.Pages
         [Inject]
         private ParameterService ParameterService { get; set; } = default!;
 
+        [Inject]
+        private CustomAuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+
         // Flag para controlar si ya se cargaron los datos
         private bool _isDataLoaded = false;
 
@@ -163,6 +166,15 @@ namespace SpiderHood.Components.Pages
 
             try
             {
+                // GetCurrentUserAsync() sólo devuelve algo si InitializeClientAsync() ya
+                // corrió y restauró la sesión desde localStorage. Antes dependíamos de que
+                // HeaderMainLayout la llamara primero en su propio OnAfterRenderAsync — pero
+                // el orden entre el OnAfterRenderAsync del layout y el de esta página no está
+                // garantizado, así que a veces perdíamos la carrera y esta página mandaba a
+                // un usuario que SÍ tenía sesión válida de vuelta a /login. La llamamos
+                // nosotros mismos primero (es idempotente) para no depender de esa carrera.
+                await AuthStateProvider.InitializeClientAsync();
+
                 // Intentar obtener usuario varias veces
                 UserSession currentUser = null;
                 int intentos = 0;

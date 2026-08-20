@@ -681,7 +681,13 @@ namespace SpiderHood.Models
     {
         public Guid IdBudgetHeader { get; set; }
         public string BudgetName { get; set; } = string.Empty;
-        public DateTime BudgetDate { get; set; }
+        // Un new BudgetHeader() recién creado (flujo de "nuevo presupuesto") queda con
+        // BudgetDate = default(DateTime) = 0001-01-01 si no se inicializa aquí. SQL Server
+        // sólo acepta datetime desde 1753-01-01, así que cualquier consulta que use esa
+        // fecha antes de que el usuario la elija en el modal "Nuevo Cálculo" (p.ej. cargar
+        // gastos pendientes de conciliación) truena con SqlTypeException y tumba el circuito
+        // entero de Blazor Server.
+        public DateTime BudgetDate { get; set; } = DateTime.Now;
         [Precision(18, 2)]
         public decimal Amount { get; set; }
         [Precision(18, 2)]

@@ -11,6 +11,38 @@ namespace SpiderHood.Data
     {
         #region Delete Operations
 
+        public async Task<bool> DeleteRecordAsync(Role role, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(role, nameof(role));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Role, cancellationToken, role.IdRole);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteRole", cancellationToken);
+        }
+
+        public async Task<bool> DeleteRolePermissionsByRoleAsync(Guid idRole, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_RolePermissionsByRole, cancellationToken, idRole);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteRolePermissionsByRole", cancellationToken);
+        }
+
+        public async Task<bool> DeleteUserRoleByUserAsync(Guid idUser, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_UserRoleByUser, cancellationToken, idUser);
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "DeleteUserRoleByUser", cancellationToken);
+        }
+
         public async Task<bool> DeleteRecordAsync(MenuPermissions item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

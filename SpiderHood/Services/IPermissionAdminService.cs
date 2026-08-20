@@ -23,7 +23,6 @@ namespace SpiderHood.Services
         private readonly IConfiguration _configuration;
         private readonly AuthService _authService;
         private readonly IPermissionService _permissionService;
-        private List<Role> _roles = new(); // En producción, esto vendría de BD
         private List<PermissionDefinition> _allPermissions = new();
         public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
@@ -36,15 +35,6 @@ namespace SpiderHood.Services
             _authService = authService;
             _permissionService = permissionService;
             ec = new BDLayout(context);
-            //_ = InitializeDataAsync();
-        }
-
-        private async Task InitializeDataAsync()
-        {
-            // Inicializar permisos del sistema
-            _allPermissions = await GetAllPermissionDefinitionsAsync();
-
-            _roles = await GetAllRolesAsync();
         }
 
         private async Task<List<PermissionDefinition>> GetAllPermissionDefinitionsAsync()
@@ -71,35 +61,31 @@ namespace SpiderHood.Services
             return role.FirstOrDefault();
         }
 
-        public Task<Role> CreateRoleAsync(Role role)
+        public async Task<Role> CreateRoleAsync(Role role)
         {
             role.IdRole = Guid.NewGuid();
             role.CreatedAt = DateTime.UtcNow;
             role.IsSystem = false;
-            _roles.Add(role);
-            return Task.FromResult(role);
+            await ec.AddNewRecordAsync(role);
+            return role;
         }
 
-        public Task UpdateRoleAsync(Role role)
+        public async Task UpdateRoleAsync(Role role)
         {
-            var existing = _roles.FirstOrDefault(r => r.IdRole == role.IdRole);
-            if (existing != null)
-            {
-                existing.RoleName = role.RoleName;
-                existing.Description = role.Description;
-                existing.Permissions = role.Permissions;
-            }
-            return Task.CompletedTask;
+            await ec.UpdateRecordAsync(role);
         }
 
-        public Task DeleteRoleAsync(Guid id)
+        public async Task DeleteRoleAsync(Guid id)
         {
-            var role = _roles.FirstOrDefault(r => r.IdRole == id);
-            if (role != null && !role.IsSystem)
-            {
-                _roles.Remove(role);
-            }
-            return Task.CompletedTask;
+            var role = await ec.GetRoleByIdAsync(id);
+            var existing = role.FirstOrDefault();
+            if (existing == null)
+                return;
+
+            if (existing.IsSystem)
+                throw new InvalidOperationException("No se puede eliminar un rol de sistema.");
+
+            await ec.DeleteRecordAsync(existing);
         }
 
         public async Task<List<PermissionGroup>> GetAllPermissionsAsync()
@@ -122,61 +108,50 @@ namespace SpiderHood.Services
             return groups; // Task.FromResult(groups);
         }
 
-        public Task AssignPermissionsToRoleAsync(Guid roleId, List<Guid> permissionIds, List<string> permissionkeys)
+        public async Task AssignPermissionsToRoleAsync(Guid roleId, List<Guid> permissionIds, List<string> permissionkeys)
         {
-            var role = _roles.FirstOrDefault(r => r.IdRole == roleId);
-            if (role != null)
+            var role = await ec.GetRoleByIdAsync(roleId);
+            if (role.FirstOrDefault() == null)
+                throw new InvalidOperationException("El rol especificado no existe.");
+
+            await ec.DeleteRolePermissionsByRoleAsync(roleId);
+
+            foreach (var permissionId in permissionIds)
             {
-                role.Permissions = permissionkeys;
-
-                RolePermissions permissions = new();
-
-                foreach (var permission in permissionIds) {
-                    permissions.IdRole = roleId;
-                    permissions.IdPermission = permission;
-
-                    _ = ec.AddNewRecordAsync(permissions);
-                }
-
+                await ec.AddNewRecordAsync(new RolePermissions
+                {
+                    IdRole = roleId,
+                    IdPermission = permissionId
+                });
             }
-            //Insertar los Permission to Role
-            return Task.CompletedTask;
         }
 
-        public Task<List<RoleAssignment>> GetUserRoleAssignmentsAsync()
+        public async Task<List<RoleAssignment>> GetUserRoleAssignmentsAsync()
         {
-            // En producción, esto vendría de la base de datos
-            var users = new List<UserSession>
+            var assignments = await ec.GetAllUsersWithRolesAsync();
+            var roles = await ec.GetAllRolesAsync();
+
+            foreach (var assignment in assignments)
             {
-                new() { IdUser = Guid.NewGuid(), Email = "admin@example.com", UserName = "Admin User", Role = "Admin" },
-                new() { IdUser = Guid.NewGuid(), Email = "juan@example.com", UserName = "Juan Pérez", Role = "Residente" },
-                new() { IdUser = Guid.NewGuid(), Email = "maria@example.com", UserName = "Maria García", Role = "Junta" }
-            };
+                assignment.AvailableRoles = roles;
+            }
 
-            var assignments = users.Select(u => new RoleAssignment
-            {
-                IdUser = u.IdUser,
-                UserEmail = u.Email,
-                UserName = u.UserName,
-                CurrentRole = u.Role,
-                AvailableRoles = _roles.Select(r => r.RoleName).ToList()
-            }).ToList();
-
-            return Task.FromResult(assignments);
+            return assignments;
         }
 
-        public Task AssignRoleToUserAsync(Guid userId, Guid roleId)
+        public async Task AssignRoleToUserAsync(Guid userId, Guid roleId)
         {
-            // En producción, actualizar en base de datos
-            return Task.CompletedTask;
+            await ec.DeleteUserRoleByUserAsync(userId);
+            await ec.AddUserRoleAsync(userId, roleId);
         }
 
-        public Task<List<string>> GetUserPermissionsAsync(Guid userId)
+        public async Task<List<string>> GetUserPermissionsAsync(Guid userId)
         {
-            // En producción, obtener de BD
-            var user = new UserSession { IdUser  = userId, Role = "Admin" };
-            var role = _roles.FirstOrDefault(r => r.RoleName == user.Role);
-            return Task.FromResult(role?.Permissions ?? new List<string>());
+            var role = await ec.GetRoleByUserIdAsync(userId);
+            if (role == null)
+                return new List<string>();
+
+            return await _permissionService.GetPermissionsForRoleAsync(role.RoleName);
         }
 
         private string GetModuleDisplayName(string module)

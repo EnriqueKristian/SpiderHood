@@ -54,6 +54,40 @@ namespace SpiderHood.Data
             }, "AddMenuItem", cancellationToken);
         }
 
+        public async Task<Models.Role> AddNewRecordAsync(Models.Role role, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(role, nameof(role));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Role,
+                    cancellationToken,
+                    role.IdRole,
+                    role.RoleName,
+                    role.Description,
+                    role.IsSystem);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return role;
+            }, "AddRole", cancellationToken);
+        }
+
+        public async Task AddUserRoleAsync(Guid idUser, Guid idRole, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_UserRole,
+                    cancellationToken,
+                    idUser,
+                    idRole);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return true;
+            }, "AddUserRole", cancellationToken);
+        }
+
         public async Task<Models.RolePermissions> AddNewRecordAsync(Models.RolePermissions permissions, CancellationToken cancellationToken = default)
         {
             ValidateEntity(permissions, nameof(permissions));

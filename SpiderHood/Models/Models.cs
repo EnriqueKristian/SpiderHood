@@ -922,7 +922,8 @@ namespace SpiderHood.Models
         public string UserEmail { get; set; } = string.Empty;
         public string UserName { get; set; } = string.Empty;
         public string CurrentRole { get; set; } = string.Empty;
-        public List<string> AvailableRoles { get; set; } = new();
+        [NotMapped]
+        public List<Role> AvailableRoles { get; set; } = new();
     }
 
     public class MenuItemDefinition

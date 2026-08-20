@@ -59,6 +59,7 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.PermissionDefinition>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.MenuItemDefinition>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Role>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.RoleAssignment>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.MenuPermissions>().HasNoKey(); // If SP doesn't return a primary key
             
 

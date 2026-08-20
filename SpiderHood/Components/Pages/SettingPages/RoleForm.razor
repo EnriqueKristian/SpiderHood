@@ -79,20 +79,15 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (firstRender && _isEdit)
         {
             await LoadRoleAsync();
         }
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         _isEdit = Id.HasValue && Id.Value != Guid.Empty;
-        
-        if (_isEdit)
-        {
-            //await LoadRoleAsync();
-        }
     }
 
     private async Task LoadRoleAsync()

@@ -1222,6 +1222,17 @@ td {
         // que corre DESPUÉS de este OnInitializedAsync en el primer render del circuito.
         // Sin esperar, esta página se quedaba con el spinner de carga para siempre en la
         // primera navegación tras el login. Reintentamos brevemente antes de rendirnos.
+        //
+        // El prerenderizado estático (SSR) corre este método completo — reintentos incluidos
+        // — ANTES de mandar el primer HTML al navegador, y en esa pasada CurrentBuilding
+        // nunca se llega a setear (HeaderMainLayout.OnAfterRenderAsync no corre durante
+        // prerenderizado). O sea que el HTML inicial ya llega en el estado "sin datos", no
+        // en el spinner. Forzamos un render aquí para que, en la pasada interactiva real, el
+        // usuario vea "Cargando presupuestos..." desde el primer instante en vez de quedarse
+        // viendo el HTML prerenderizado sin cambios durante los ~3s que dura el retry.
+        isLoading = true;
+        StateHasChanged();
+
         var attempts = 0;
         while (ParameterService.CurrentBuilding == null && attempts < 20)
         {

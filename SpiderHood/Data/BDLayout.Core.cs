@@ -68,6 +68,7 @@ namespace SpiderHood.Data
             public const string UPD_Owner = "UPD_Owner";
             public const string UPD_InstallmentState = "UPD_InstallmentState";
             public const string UPD_Role = "UPD_Role";
+            public const string UPD_USER = "UPD_USER";
 
             // Delete Procedures
             public const string DEL_MenuItemPermission = "DEL_MenuItemPermission";
@@ -134,26 +135,51 @@ namespace SpiderHood.Data
         #endregion
 
         #region Helper Methods
+
+        // SpiderHoodContext se inyecta como Scoped y varios componentes de una misma
+        // página (Header, LeftMenu, la página en sí) disparan sus propias consultas
+        // async en OnAfterRenderAsync casi al mismo tiempo, todas contra la misma
+        // instancia de DbContext. EF Core no permite operaciones concurrentes sobre
+        // la misma instancia y lanza InvalidOperationException ("A second operation
+        // was started..."). Reintentamos un par de veces con una espera corta en vez
+        // de fallar la página: no resuelve la causa raíz (un DbContext por operación,
+        // vía IDbContextFactory), pero evita que ese choque intermitente tumbe cualquier
+        // carga de página que coincida con otra en el mismo circuito.
+        private const int MaxConcurrencyRetries = 3;
+
+        private static bool IsConcurrentDbContextUsage(Exception ex) =>
+            ex is InvalidOperationException &&
+            ex.Message.Contains("A second operation was started on this context instance", StringComparison.OrdinalIgnoreCase);
+
         private async Task<T> ExecuteWithErrorHandlingAsync<T>(
             Func<Task<T>> operation,
             string operationName,
             CancellationToken cancellationToken = default)
         {
-            try
+            for (int attempt = 1; attempt <= MaxConcurrencyRetries; attempt++)
             {
-                //_logger.LogDebug($"Excute operation {operation.ToString()}");
-                return await operation();
+                try
+                {
+                    //_logger.LogDebug($"Excute operation {operation.ToString()}");
+                    return await operation();
+                }
+                catch (Exception ex) when (IsConcurrentDbContextUsage(ex) && attempt < MaxConcurrencyRetries)
+                {
+                    await Task.Delay(75 * attempt, cancellationToken);
+                }
+                catch (DbUpdateException ex)
+                {
+                    // _logger.LogError(ex, "Database update error during {OperationName}: {Message}", operationName, ex.Message);
+                    throw new RepositoryException($"Database update failed for {operationName}", ex);
+                }
+                catch (Exception ex)
+                {
+                    //_logger.LogError(ex, "Error during {OperationName}: {Message}", operationName, ex.Message);
+                    throw new RepositoryException($"Operation {operationName} failed", ex);
+                }
             }
-            catch (DbUpdateException ex)
-            {
-               // _logger.LogError(ex, "Database update error during {OperationName}: {Message}", operationName, ex.Message);
-                throw new RepositoryException($"Database update failed for {operationName}", ex);
-            }
-            catch (Exception ex)
-            {
-                //_logger.LogError(ex, "Error during {OperationName}: {Message}", operationName, ex.Message);
-                throw new RepositoryException($"Operation {operationName} failed", ex);
-            }
+
+            throw new RepositoryException($"Operation {operationName} failed after {MaxConcurrencyRetries} attempts");
         }
 
         private void ValidateEntity<T>(T entity, string entityName) where T : class

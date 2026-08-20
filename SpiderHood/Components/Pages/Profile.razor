@@ -1,0 +1,289 @@
+﻿@page "/Profile"
+@using SpiderHood.Models
+@using System.ComponentModel.DataAnnotations
+@inject Services.AuthService AuthService
+@inject Services.CustomAuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>Mi Perfil</PageTitle>
+
+<div class="container-fluid">
+    <h2 class="mb-4">
+        <i class="fas fa-user me-2"></i>
+        Mi Perfil
+    </h2>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else if (_user == null)
+    {
+        <div class="alert alert-danger">No se pudo cargar tu perfil.</div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <div class="card shadow-sm text-center">
+                    <div class="card-body">
+                        <div class="profile-avatar mx-auto mb-3">
+                            @GetInitials()
+                        </div>
+                        <h5 class="mb-1">@_user.FirstName @_user.LastName</h5>
+                        <p class="text-muted mb-2">@_user.Email</p>
+                        @if (_session != null && _session.Roles.Any())
+                        {
+                            <div class="mb-2">
+                                @foreach (var role in _session.Roles.Where(r => !string.IsNullOrWhiteSpace(r)).Distinct())
+                                {
+                                    <span class="badge bg-primary me-1">@role</span>
+                                }
+                            </div>
+                        }
+                        <p class="text-muted small mb-0">
+                            <i class="fas fa-calendar me-1"></i>
+                            Miembro desde @(_user.CreatedAt == default ? "—" : _user.CreatedAt.ToString("dd/MM/yyyy"))
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <i class="fas fa-id-card me-2"></i>Información Personal
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@_profileForm" OnValidSubmit="@HandleProfileSubmit">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger" />
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="firstName" class="form-label">Nombres</label>
+                                    <InputText id="firstName" class="form-control" @bind-Value="_profileForm.FirstName" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="lastName" class="form-label">Apellidos</label>
+                                    <InputText id="lastName" class="form-control" @bind-Value="_profileForm.LastName" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input id="email" class="form-control" value="@_user.Email" disabled />
+                                    <small class="text-muted">El email no se puede modificar.</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="phone" class="form-label">Teléfono</label>
+                                    <InputText id="phone" class="form-control" @bind-Value="_profileForm.PhoneNumber" />
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary mt-3" disabled="@_savingProfile">
+                                @if (_savingProfile)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Guardar Cambios
+                            </button>
+                        </EditForm>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-secondary text-white">
+                        <i class="fas fa-lock me-2"></i>Cambiar Contraseña
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@_passwordForm" OnValidSubmit="@HandlePasswordSubmit">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger" />
+
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label for="currentPassword" class="form-label">Contraseña Actual</label>
+                                    <InputText id="currentPassword" type="password" class="form-control" @bind-Value="_passwordForm.CurrentPassword" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="newPassword" class="form-label">Nueva Contraseña</label>
+                                    <InputText id="newPassword" type="password" class="form-control" @bind-Value="_passwordForm.NewPassword" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="confirmPassword" class="form-label">Confirmar Nueva Contraseña</label>
+                                    <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="_passwordForm.ConfirmNewPassword" />
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-secondary mt-3" disabled="@_savingPassword">
+                                @if (_savingPassword)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Cambiar Contraseña
+                            </button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .profile-avatar {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.75rem;
+        font-weight: 600;
+    }
+</style>
+
+@code {
+    private bool _loading = true;
+    private bool _savingProfile;
+    private bool _savingPassword;
+    private UserModel? _user;
+    private UserSession? _session;
+    private bool _initialized;
+
+    private ProfileFormModel _profileForm = new();
+    private ChangePasswordFormModel _passwordForm = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            await LoadProfileAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadProfileAsync()
+    {
+        try
+        {
+            _loading = true;
+            await AuthStateProvider.InitializeClientAsync();
+            _session = await AuthService.GetCurrentUserAsync();
+            if (_session == null)
+                return;
+
+            _user = await AuthService.GetUserProfileAsync(_session.IdUser);
+            _profileForm.FirstName = _user.FirstName;
+            _profileForm.LastName = _user.LastName;
+            _profileForm.PhoneNumber = _user.PhoneNumber;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar el perfil: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleProfileSubmit()
+    {
+        if (_user == null)
+            return;
+
+        try
+        {
+            _savingProfile = true;
+            var result = await AuthService.UpdateProfileAsync(_user.IdUser, _profileForm.FirstName, _profileForm.LastName, _profileForm.PhoneNumber);
+
+            if (result.Success)
+            {
+                _user.FirstName = _profileForm.FirstName;
+                _user.LastName = _profileForm.LastName;
+                _user.PhoneNumber = _profileForm.PhoneNumber;
+            }
+
+            await JSRuntime.InvokeVoidAsync("alert", result.Message);
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+        }
+        finally
+        {
+            _savingProfile = false;
+        }
+    }
+
+    private async Task HandlePasswordSubmit()
+    {
+        if (_user == null)
+            return;
+
+        try
+        {
+            _savingPassword = true;
+            var result = await AuthService.ChangePasswordAsync(_user.IdUser, _passwordForm.CurrentPassword, _passwordForm.NewPassword);
+
+            await JSRuntime.InvokeVoidAsync("alert", result.Message);
+
+            if (result.Success)
+            {
+                _passwordForm = new();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al cambiar la contraseña: {ex.Message}");
+        }
+        finally
+        {
+            _savingPassword = false;
+        }
+    }
+
+    private string GetInitials()
+    {
+        if (_user == null)
+            return "U";
+
+        var first = string.IsNullOrWhiteSpace(_user.FirstName) ? "" : _user.FirstName[0].ToString();
+        var last = string.IsNullOrWhiteSpace(_user.LastName) ? "" : _user.LastName[0].ToString();
+        var initials = $"{first}{last}".ToUpper();
+        return string.IsNullOrEmpty(initials) ? "U" : initials;
+    }
+
+    private class ProfileFormModel
+    {
+        [Required(ErrorMessage = "El nombre es requerido")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El apellido es requerido")]
+        public string LastName { get; set; } = string.Empty;
+
+        public string PhoneNumber { get; set; } = string.Empty;
+    }
+
+    private class ChangePasswordFormModel
+    {
+        [Required(ErrorMessage = "La contraseña actual es requerida")]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La nueva contraseña es requerida")]
+        [MinLength(8, ErrorMessage = "La contraseña debe tener al menos 8 caracteres")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Debes confirmar la nueva contraseña")]
+        [Compare(nameof(NewPassword), ErrorMessage = "Las contraseñas no coinciden")]
+        public string ConfirmNewPassword { get; set; } = string.Empty;
+    }
+}

@@ -1218,8 +1218,22 @@ td {
 
     protected override async Task OnInitializedAsync()
     {
+        // ParameterService.CurrentBuilding se asigna en HeaderMainLayout.OnAfterRenderAsync,
+        // que corre DESPUÉS de este OnInitializedAsync en el primer render del circuito.
+        // Sin esperar, esta página se quedaba con el spinner de carga para siempre en la
+        // primera navegación tras el login. Reintentamos brevemente antes de rendirnos.
+        var attempts = 0;
+        while (ParameterService.CurrentBuilding == null && attempts < 20)
+        {
+            await Task.Delay(150);
+            attempts++;
+        }
+
         if (ParameterService.CurrentBuilding == null)
+        {
+            isLoading = false;
             return;
+        }
 
         await CargarDatos();
         await LoadMonths();
@@ -1469,21 +1483,33 @@ td {
                 BudgetDate = _budget.BudgetDate,
                 BudgetName = $"{_budget.BudgetName} (Copia)",
                 Status = BudgetStatus.Created,//"Activo",
+                IdBuilding = _budget.IdBuilding,
                 CreatedBy = "UsuarioActual" // Obtener del sistema de autenticación
             };
 
             var creado = await budgetService.CreatePresupuestoAsync(nuevoPresupuesto);
 
+            // La fila viene de la lista paginada, que no trae los detalles cargados;
+            // hay que pedirlos aparte para poder clonarlos.
+            var detallesOrigen = _budget.Details.Any()
+                ? _budget.Details
+                : await budgetService.GetBudgetDetailAsync(_budget.IdBudgetHeader);
+
             // Clonar detalles
-            foreach (var detalle in _budget.Details)
+            foreach (var detalle in detallesOrigen)
             {
                 var nuevoDetalle = new BudgetDetail
                 {
                     IdBudgetHeader = creado.IdBudgetHeader,
                     IdCategory = detalle.IdCategory,
+                    IdSection = detalle.IdSection,
+                    ItemNumber = detalle.ItemNumber,
                     Description = detalle.Description,
-                    MonthlyAmount = detalle.MonthlyAmount
-                    //No = detalle.Notas
+                    MonthlyAmount = detalle.MonthlyAmount,
+                    AnnualAmount = detalle.AnnualAmount,
+                    Frequency = detalle.Frequency,
+                    Type = detalle.Type,
+                    IsHeader = detalle.IsHeader
                 };
                 await budgetService.AddDetalleToPresupuestoAsync(nuevoDetalle);
             }

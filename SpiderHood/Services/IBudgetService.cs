@@ -132,7 +132,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                var presupuesto = ec.GetBudgetByIdAsync(id).Result;
+                var presupuesto = await ec.GetBudgetByIdAsync(id);
                 var detail = await ec.GetBudgetDetailAsync(id);
                 presupuesto.Details = detail;
 
@@ -156,44 +156,24 @@ namespace SpiderHood.Services
 
         public async Task<BudgetHeader> CreatePresupuestoAsync(BudgetHeader presupuesto)
         {
-            /*using var transaction = await _context.Database.BeginTransactionAsync();
-
             try
             {
-                // Validar código único
-                var existeCodigo = await _context.Presupuestos
-                    .AnyAsync(p => p.Codigo == presupuesto.Codigo);
+                if (presupuesto.IdBudgetHeader == Guid.Empty)
+                    presupuesto.IdBudgetHeader = Guid.NewGuid();
 
-                if (existeCodigo)
-                {
-                    throw new InvalidOperationException($"Ya existe un presupuesto con el código {presupuesto.Codigo}");
-                }
-
-                // Establecer valores por defecto
                 presupuesto.CreatedOn = DateTime.Now;
-                presupuesto.Status = 1; // presupuesto.Status ?? 1;
 
-                // Agregar presupuesto
-                _context.Presupuestos.Add(presupuesto);
-                await _context.SaveChangesAsync();
+                await ec.AddNewRecordAsync(presupuesto);
 
-                // Crear relaciones con categorías activas
-                await CrearRelacionesCategoriasAsync(presupuesto.Id);
-
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("Presupuesto creado: {Codigo}", presupuesto.Codigo);
+                _logger.LogInformation("Presupuesto creado: {Id}", presupuesto.IdBudgetHeader);
 
                 return presupuesto;
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al crear presupuesto");
                 throw;
             }
-            */
-            return presupuesto;
         }
 
         public async Task UpdatePresupuestoAsync(BudgetHeader presupuesto)
@@ -688,58 +668,18 @@ namespace SpiderHood.Services
 
         public async Task AddDetalleToPresupuestoAsync(BudgetDetail detalle)
         {
-            /*
-            using var transaction = await _context.Database.BeginTransactionAsync();
-
             try
             {
-                // Validar que existe el presupuesto
-                var presupuesto = await _context.Presupuestos
-                    .FirstOrDefaultAsync(p => p.Id == detalle.PresupuestoId);
+                if (detalle.IdBudgetDetail == Guid.Empty)
+                    detalle.IdBudgetDetail = Guid.NewGuid();
 
-                if (presupuesto == null)
-                {
-                    throw new KeyNotFoundException($"Presupuesto con ID {detalle.PresupuestoId} no encontrado");
-                }
-
-                // Validar que existe la categoría
-                var categoria = await _context.Categorias
-                    .FirstOrDefaultAsync(c => c.Id == detalle.CategoriaId);
-
-                if (categoria == null)
-                {
-                    throw new KeyNotFoundException($"Categoría con ID {detalle.CategoriaId} no encontrada");
-                }
-
-                // Validar que la categoría esté activa
-                if (!categoria.Activo)
-                {
-                    throw new InvalidOperationException($"La categoría {categoria.Nombre} no está activa");
-                }
-
-                // Agregar detalle
-                _context.PresupuestoDetalles.Add(detalle);
-                await _context.SaveChangesAsync();
-
-                // Actualizar total del presupuesto
-                presupuesto.Amount += detalle.Monto;
-                _context.Presupuestos.Update(presupuesto);
-
-                // Actualizar relación presupuesto-categoría
-                await ActualizarRelacionCategoriaAsync(presupuesto.Id, categoria.Id, detalle.Monto);
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("Detalle agregado al presupuesto {PresupuestoId}", detalle.PresupuestoId);
+                await ec.AddNewRecordAsync(detalle);
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error al agregar detalle al presupuesto");
+                _logger.LogError(ex, "Error al agregar detalle al presupuesto {PresupuestoId}", detalle.IdBudgetHeader);
                 throw;
             }
-            */
         }
 
         public async Task UpdateDetalleAsync(BudgetDetail detalle)

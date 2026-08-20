@@ -11,6 +11,24 @@ namespace SpiderHood.Data
     {
         #region Update Operations
 
+        public async Task<Models.Role> UpdateRecordAsync(Models.Role role, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(role, nameof(role));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Role,
+                    cancellationToken,
+                    role.IdRole,
+                    role.RoleName,
+                    role.Description);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return role;
+            }, "UpdateRole", cancellationToken);
+        }
+
         public async Task<Models.MenuItemDefinition> UpdateRecordAsync(Models.MenuItemDefinition item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

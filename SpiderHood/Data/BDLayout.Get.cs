@@ -365,6 +365,41 @@ namespace SpiderHood.Data
             }
         }
 
+        public async Task<List<RoleAssignment>> GetAllUsersWithRolesAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExecuteWithErrorHandlingAsync(async () =>
+                {
+                    return await ExecuteQueryListAsync<RoleAssignment>(
+                        StoredProcedures.GET_AllUsersWithRoles);
+                }, "GetAllUsersWithRoles", cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                throw;
+            }
+        }
+
+        public async Task<Role?> GetRoleByUserIdAsync(Guid idUser, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExecuteWithErrorHandlingAsync(async () =>
+                {
+                    var roles = await ExecuteQueryListAsync<Role>(
+                        StoredProcedures.GET_RoleByUserId, idUser);
+                    return roles.FirstOrDefault();
+                }, "GetRoleByUserId", cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                throw;
+            }
+        }
+
         public async Task<List<Role>> GetAllRolesAsync(CancellationToken cancellationToken = default)
         {
             try

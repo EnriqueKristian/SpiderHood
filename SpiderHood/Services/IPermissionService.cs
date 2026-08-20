@@ -124,7 +124,8 @@ namespace SpiderHood.Services
             return filtered.OrderBy(i => i.Order).ToList();
         }
 
-        public async Task RefreshMenu() {
+        public async Task RefreshMenu()
+        {
             _menuCache = null;
         }
         private async Task<List<MenuItem>> GetMenuDefinitionsAsync(UserSession user)
@@ -132,14 +133,33 @@ namespace SpiderHood.Services
             if (_menuCache != null)
                 return _menuCache;
 
-            _menuCache  = await ec.GetFullMenuAsync(user.IdRole);
+            // Antes esto usaba `user.IdRole`, una propiedad que mapeaba el nombre del rol
+            // a GUIDs escritos a mano en el código (desconectados de la tabla Role real,
+            // donde cada rol se crea con Guid.NewGuid()). Eso hacía que, salvo coincidencia,
+            // GetFullMenuAsync recibiera un IdRole que no existe en la base de datos y
+            // devolviera el menú vacío. Ahora resolvemos el IdRole real buscando el rol
+            // por nombre contra la tabla Role.
+            var idRole = await ResolveRoleIdAsync(user.Role);
+            _menuCache = await ec.GetFullMenuAsync(idRole);
 
             return _menuCache;
         }
 
+        private async Task<Guid> ResolveRoleIdAsync(string roleName)
+        {
+            if (string.IsNullOrWhiteSpace(roleName))
+                return Guid.Empty;
+
+            var roles = await ec.GetAllRolesAsync();
+            var match = roles.FirstOrDefault(r =>
+                string.Equals(r.RoleName, roleName, StringComparison.OrdinalIgnoreCase));
+
+            return match?.IdRole ?? Guid.Empty;
+        }
+
         public async Task<List<string>> GetPermissionsForRoleAsync(string role)
         {
-            var permitions =  await ec.GetPermissionsForRoleAsync(role);
+            var permitions = await ec.GetPermissionsForRoleAsync(role);
 
             return permitions.Select(i => i.PermissionKey.ToString()).ToList()!;
 

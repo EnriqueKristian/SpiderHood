@@ -51,7 +51,7 @@
                         </NavLink>
                     </div>
                 }
-                
+
             }
 
             <!-- Selector de rol (solo para desarrollo/demo) -->
@@ -112,7 +112,22 @@
 
     private async Task LoadUserDataAsync()
     {
-        _currentUser = await AuthService.GetCurrentUserAsync();
+        // Mismo fix que en HeaderMainLayout: sin reintentos, una carrera con
+        // la carga de sesión desde localStorage dejaba _currentUser en null
+        // para siempre en este circuito, y con eso ShowMenu nunca se activaba.
+        const int maxAttempts = 3;
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            _currentUser = await AuthService.GetCurrentUserAsync();
+            if (_currentUser != null)
+                break;
+
+            if (attempt < maxAttempts - 1)
+            {
+                Console.WriteLine($"⏳ Intento {attempt + 1}/{maxAttempts} - Usuario no autenticado, esperando 100ms...");
+                await Task.Delay(100);
+            }
+        }
 
         if (_currentUser != null)
         {

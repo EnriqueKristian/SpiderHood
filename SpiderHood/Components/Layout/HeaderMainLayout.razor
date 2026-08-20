@@ -157,7 +157,27 @@
 
     private async Task LoadUserDataAsync()
     {
-        _currentUser = await AuthService.GetCurrentUserAsync();
+        // FIX: antes esto solo intentaba UNA vez. Si la sesión todavía no
+        // terminaba de cargarse desde localStorage (una carrera normal justo
+        // después de loguearse o cambiar de edificio), _currentUser quedaba
+        // en null para siempre — este componente solo corre esto una vez por
+        // circuito (OnAfterRenderAsync firstRender), sin reintentar. Por eso
+        // el header mostraba "Invitado" aunque la página sí encontraba al
+        // usuario segundos después (esa sí reintenta). Ahora reintentamos acá
+        // también, igual que ya hace Home.razor.
+        const int maxAttempts = 3;
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            _currentUser = await AuthService.GetCurrentUserAsync();
+            if (_currentUser != null)
+                break;
+
+            if (attempt < maxAttempts - 1)
+            {
+                Logger.LogDebug($"⏳ Intento {attempt + 1}/{maxAttempts} - Usuario no autenticado, esperando 100ms...");
+                await Task.Delay(100);
+            }
+        }
 
         if (_currentUser?.Buildings != null)
         {

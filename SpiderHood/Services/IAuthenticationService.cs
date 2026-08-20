@@ -179,6 +179,12 @@ namespace SpiderHood.Services
                     //Marcar el Building como default
 
                     user.CurrentBuildingId = buildingId.Value;
+                    // FIX: antes solo se actualizaba CurrentBuildingId — el Role de la sesión
+                    // se quedaba con el valor fijado en el login (el primer rol distinto entre
+                    // todos los edificios del usuario), sin importar qué rol eligiera acá. Como
+                    // el menú se resuelve por user.Role, elegir un edificio/rol distinto al que
+                    // quedó fijado en el login rompía el menú.
+                    user.Role = Role;
                     await _authStateProvider.MarkUserAsAuthenticated(user);
                 }
             }

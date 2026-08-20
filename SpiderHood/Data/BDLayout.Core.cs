@@ -18,6 +18,8 @@ namespace SpiderHood.Data
             public const string INS_MenuItemPermission = "INS_MenuItemPermission";
             public const string INS_MenuItem = "INS_MenuItem";
             public const string INS_RolePermissions = "INS_RolePermissions";
+            public const string INS_Role = "INS_Role";
+            public const string INS_UserRole = "INS_UserRole";
             public const string INS_UserBuildingAssociation = "INS_UserBuildingAssociation";
             public const string INS_User = "INS_User";
             public const string INS_Category = "INS_Category";
@@ -65,6 +67,7 @@ namespace SpiderHood.Data
             public const string UPD_Category = "UPD_Category";
             public const string UPD_Owner = "UPD_Owner";
             public const string UPD_InstallmentState = "UPD_InstallmentState";
+            public const string UPD_Role = "UPD_Role";
 
             // Delete Procedures
             public const string DEL_MenuItemPermission = "DEL_MenuItemPermission";
@@ -75,6 +78,9 @@ namespace SpiderHood.Data
             public const string DEL_Parameter = "DEL_Parameter";
             public const string DEL_Owner = "DEL_Owner";
             public const string DEL_Unit = "DEL_Unit";
+            public const string DEL_Role = "DEL_Role";
+            public const string DEL_RolePermissionsByRole = "DEL_RolePermissionsByRole";
+            public const string DEL_UserRoleByUser = "DEL_UserRoleByUser";
 
             // Get Procedures
             public const string GET_AllMenuPemission = "GET_AllMenuPemission";
@@ -122,6 +128,8 @@ namespace SpiderHood.Data
             public const string GET_UsersByEmail = "GET_UsersByEmail";
             public const string GET_UserBuildingAssociation = "GET_UserBuildingAssociation";
             public const string GET_AllBuildingsConfig = "GET_AllBuildingsConfig";
+            public const string GET_AllUsersWithRoles = "GET_AllUsersWithRoles";
+            public const string GET_RoleByUserId = "GET_RoleByUserId";
         }
         #endregion
 

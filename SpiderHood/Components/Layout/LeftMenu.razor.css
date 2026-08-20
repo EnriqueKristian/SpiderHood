@@ -97,41 +97,123 @@
         font-weight: 500;
     }
 
+    /* Tarjeta de usuario */
+    .user-info-card {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0.75rem 0.75rem 1rem;
+        padding: 0.85rem;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        transition: background 0.2s, border-color 0.2s;
+    }
+
+        .user-info-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+    .user-avatar {
+        flex: 0 0 auto;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.95rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .user-details {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .user-email {
+        color: #f1f5f9;
+        font-size: 0.85rem;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .role-chip {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 0.35rem;
+        padding: 0.15rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+    }
+
+    /* Sistema de color por rol, compartido por el chip de usuario y el selector */
+    .role-admin { background: rgba(37, 99, 235, 0.2); color: #93c5fd; }
+    .role-sysadmin { background: rgba(244, 63, 94, 0.2); color: #fda4af; }
+    .role-junta { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+    .role-residente { background: rgba(100, 116, 139, 0.3); color: #cbd5e1; }
+    .role-neutral { background: rgba(100, 116, 139, 0.3); color: #cbd5e1; }
+
+    /* Selector de rol (solo desarrollo) */
     .role-selector {
-        border-top: 1px solid #334155;
-        margin-top: 1rem;
-        padding-top: 1rem;
+        margin: 1rem 0.75rem 0.5rem;
+        padding: 0.85rem;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px dashed rgba(251, 191, 36, 0.35);
+        border-radius: 12px;
+    }
+
+    .role-selector-header {
+        display: flex;
+        align-items: center;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: #fbbf24;
+        margin-bottom: 0.6rem;
     }
 
     .current-role {
         color: #f1f5f9;
         font-size: 0.85rem;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.6rem;
     }
 
     .role-options {
         display: flex;
-        gap: 8px;
+        flex-wrap: wrap;
+        gap: 6px;
     }
 
     .role-badge {
-        background: #1e293b;
-        color: #cbd5e1;
-        padding: 0.25rem 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        padding: 0.3rem 0.7rem;
         border-radius: 30px;
-        font-size: 0.75rem;
-        font-weight: 500;
+        font-size: 0.72rem;
+        font-weight: 600;
         cursor: pointer;
+        border: 1px solid transparent;
+        transition: filter 0.15s, box-shadow 0.15s;
     }
 
-        .role-badge.active {
-            background: #2563eb;
-            color: white;
+        .role-badge:hover {
+            filter: brightness(1.25);
         }
 
-        .role-badge:hover {
-            background: #2d3a4f;
+        .role-badge.active {
+            border-color: currentColor;
+            box-shadow: 0 0 0 1px currentColor inset;
         }
 
     /* Para el colapso suave */

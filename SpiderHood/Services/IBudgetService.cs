@@ -12,7 +12,7 @@ namespace SpiderHood.Services
         public List<BudgetHeader> _Budgets { get; set; }
         public BudgetHeader _SelectedBudget { get; set; }
 
-        Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null,  string? mes = null, BudgetStatus? estado = null);
+        Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null, string? mes = null, BudgetStatus? estado = null);
         Task<List<BudgetSumCategory>> GetPresupuestosSumAsync(Guid IdBuilding);
         Task<BudgetHeader?> GetPresupuestoByIdAsync(Guid id);
         Task<BudgetHeader> CreatePresupuestoAsync(BudgetHeader presupuesto);
@@ -63,7 +63,7 @@ namespace SpiderHood.Services
 
         #region Presupuestos
 
-        public async Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null,  string? mes = null, BudgetStatus? estado = null)
+        public async Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null, string? mes = null, BudgetStatus? estado = null)
         {
             try
             {
@@ -87,7 +87,7 @@ namespace SpiderHood.Services
                     query = query.Where(p => p.Mes == mes).ToList();
                 }
 
-                if ( estado != null)
+                if (estado != null)
                 {
                     query = query.Where(p => p.Status == estado).ToList();
                 }
@@ -119,7 +119,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                return  await ec.GetBudgetSumAsync(IdBuilding);
+                return await ec.GetBudgetSumAsync(IdBuilding);
             }
             catch (Exception ex)
             {
@@ -283,7 +283,8 @@ namespace SpiderHood.Services
                 await LoadBudgetDetailsAsync(state);
                 state.CalculateTotals();
             }
-            else {
+            else
+            {
                 state.IsNewBudget = true;
                 state.Status = BudgetStatus.Created;
             }
@@ -298,7 +299,7 @@ namespace SpiderHood.Services
 
         public async Task LoadDataDefaultAsync(BudgetState state)
         {
-            state.ExpensesList  = await ec.GetPendingConciliationExpensesAsync(state.Budget.IdBuilding, state.Budget.BudgetDate, state.Budget.BudgetDate);
+            state.ExpensesList = await ec.GetPendingConciliationExpensesAsync(state.Budget.IdBuilding, state.Budget.BudgetDate, state.Budget.BudgetDate);
             state.Owners = await ec.GetOwnersByBuildingAsync(state.Budget.IdBuilding);
             state.Owners = state.Owners.Where(c => c.Role == 1 && c.TypeUnit == 1).ToList();
         }
@@ -307,7 +308,7 @@ namespace SpiderHood.Services
         {
             //Cargar Template Default
             state.ListDefault = await ec.GetBudgetDetailDefaultAsync(state.Budget.IdBuilding);
-            
+
 
             var sequentialNumber = 0.0m;
             state.Budget.Details.Clear();
@@ -358,16 +359,18 @@ namespace SpiderHood.Services
 
             try
             {
-               foreach (var period in _periods.Where(c => c.IsNewPeriod)) {
-                        await ecLocal.AddNewRecordAsync(period);
-               }
+                foreach (var period in _periods.Where(c => c.IsNewPeriod))
+                {
+                    await ecLocal.AddNewRecordAsync(period);
+                }
 
                 if (state.Status == BudgetStatus.Created || state.Status == BudgetStatus.Rejected)
                 {
                     await SaveCategoriesAsync(ecLocal, state);
                 }
 
-                if (state.Status == BudgetStatus.Active) {
+                if (state.Status == BudgetStatus.Active)
+                {
                     //Guardar Installments en BD
                     await SaveInstallment(ecLocal, state);
                 }
@@ -454,7 +457,8 @@ namespace SpiderHood.Services
             await ecLocal.UpdateRecordAsync(state.Budget);
         }
 
-        private async Task SaveInstallment(BDLayout ecLocal, BudgetState state) {
+        private async Task SaveInstallment(BDLayout ecLocal, BudgetState state)
+        {
 
             foreach (var item in state.Installments)
                 await ecLocal.AddNewRecordAsync(item);
@@ -482,7 +486,7 @@ namespace SpiderHood.Services
 
         #region Categorías
 
-        public async Task<List<Category>> GetCategoriasAsync(Guid IdBuilding,bool? activas = true)
+        public async Task<List<Category>> GetCategoriasAsync(Guid IdBuilding, bool? activas = true)
         {
             try
             {
@@ -1160,8 +1164,4 @@ namespace SpiderHood.Services
             await ec.UnsetOtherCurrentPeriodsAsync(IdBuilding, IdcurrentPeriod);
         }
     }
-
 }
-
-
-

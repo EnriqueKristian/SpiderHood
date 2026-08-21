@@ -215,7 +215,7 @@ namespace SpiderHood.Data
                 }
                 catch (DbUpdateException ex)
                 {
-                   // _logger.LogError(ex, "Database update error during {OperationName}: {Message}", operationName, ex.Message);
+                    // _logger.LogError(ex, "Database update error during {OperationName}: {Message}", operationName, ex.Message);
                     throw new RepositoryException($"Database update failed for {operationName}", ex);
                 }
                 catch (Exception ex)

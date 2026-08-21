@@ -42,7 +42,7 @@ namespace SpiderHood.Data
                     item.Icon!,
                     item.Url!,
                     item.Target!,
-                    item.DisplayOrder!, 
+                    item.DisplayOrder!,
                     item.IsVisible!,
                     item.BadgeText!,
                     item.BadgeColor!);
@@ -164,8 +164,8 @@ namespace SpiderHood.Data
                     installment.IdBudgetHeader!,
                     installment.UnitName,
                     installment.OwnerName,
-                    installment.CreationDate, 
-                    installment.Amount, 
+                    installment.CreationDate,
+                    installment.Amount,
                     installment.Percent,
                     installment.TotalArea,
                     installment.CreatedBy,
@@ -326,16 +326,16 @@ namespace SpiderHood.Data
                     StoredProcedures.INS_AccountStatementDetail,
                     cancellationToken,
                     movementdetail.IdStatementDetail,
-                    movementdetail.IdStatementHeader      ,
-                    movementdetail.StatementDate          ,
-                    movementdetail.Description            ,
-                    movementdetail.ITF                    ,
-                    movementdetail.Currency               ,
-                    movementdetail.Amount                 ,
-                    movementdetail.SequenceNumber         ,
-                    movementdetail.ReconciliationStatus   ,
-                    movementdetail.ReconciliationDate!    ,
-                    movementdetail.IdParent               ,
+                    movementdetail.IdStatementHeader,
+                    movementdetail.StatementDate,
+                    movementdetail.Description,
+                    movementdetail.ITF,
+                    movementdetail.Currency,
+                    movementdetail.Amount,
+                    movementdetail.SequenceNumber,
+                    movementdetail.ReconciliationStatus,
+                    movementdetail.ReconciliationDate!,
+                    movementdetail.IdParent,
                     movementdetail.Origen);
                 return movementdetail;
             }, "AddMovementDetail", cancellationToken);
@@ -472,12 +472,12 @@ namespace SpiderHood.Data
                             detail.Minimum,
                             detail.IdServiceReading);
                     }
-                   // await transaction.CommitAsync(cancellationToken);
+                    // await transaction.CommitAsync(cancellationToken);
                 }
                 catch (Exception ex)
                 {
                     //await transaction.RollbackAsync(cancellationToken);
-                    throw new Exception (ex.Message);
+                    throw new Exception(ex.Message);
                 }
 
                 return true;

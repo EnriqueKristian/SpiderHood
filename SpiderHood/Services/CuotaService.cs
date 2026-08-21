@@ -302,7 +302,7 @@ namespace SpiderHood.Services
         public async Task<List<int>> ObtenerAñosDisponiblesAsync()
         {
 
-            List<int> x =  [];
+            List<int> x = [];
             x.Add(2022);
             x.Add(2023);
             x.Add(2024);

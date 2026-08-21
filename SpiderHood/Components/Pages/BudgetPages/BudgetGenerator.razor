@@ -22,7 +22,7 @@
                            OnLoadTemplate="LoadSampleData"
                            OnSave="SaveCalculation"
                            OnGenerateReport="GenerateReport"
-                           OnServiceReading="ShowServiceReadingModal"/>
+                           OnServiceReading="ShowServiceReadingModal" />
 
     <div class="row">
         <!-- Expenses Table -->
@@ -41,12 +41,13 @@
                                     <i class="bi bi-plus-lg me-1"></i>Nueva Sección
                                 </button>
                             }
-                            @if(_BudgetState.PublishBudget()){
+                            @if (_BudgetState.PublishBudget())
+                            {
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="PublishBudget">
                                     <i class="@_icon"></i>&nbsp@_msjButtonWorflow
                                 </button>
                             }
-                            @if(_Status == BudgetStatus.Check)
+                            @if (_Status == BudgetStatus.Check)
                             {
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="RejectBudget">
                                     <i class="fa-solid fa-ban"></i>&nbspRechazar
@@ -86,11 +87,11 @@
                                                     {
                                                         var _disable = !_BudgetState.AddNewSection;
                                                         <button class="btn btn-sm btn-outline-primary add-item-btn" disabled="@_disable"
-                                                            @onclick="() => AddExpenseItemToSection(section.Id)">
+                                                                @onclick="() => AddExpenseItemToSection(section.Id)">
                                                             <i class="bi bi-plus me-1"></i>Agregar Item
                                                         </button>
                                                     }
-                                                    
+
                                                 </div>
                                             </td>
                                         </tr>
@@ -122,11 +123,11 @@
                                                         <div class="currency-input">
                                                             <span class="currency-symbol" style="font-size:0.6em">S/</span>
                                                             <input @bind="item.MonthlyAmount" readonly="@_BudgetState.IsReadOnly"
-                                                                         class="form-control form-control-sm"
-                                                                         step="0.01"
-                                                                         style="justify-items:right"
-                                                                         @bind:event="onchange"
-                                                                         @bind:after="() => CalculateTotals()" />
+                                                                   class="form-control form-control-sm"
+                                                                   step="0.01"
+                                                                   style="justify-items:right"
+                                                                   @bind:event="onchange"
+                                                                   @bind:after="() => CalculateTotals()" />
                                                         </div>
                                                     </td>
                                                     <td>
@@ -143,11 +144,11 @@
                                                                 @bind:event="onchange"
                                                                 @bind:after="() => UpdateFrequency(item)"
                                                                 class="form-select form-select-sm">
-                                                                <!--    PARAMETRO PADRE    -->
-                                                                @foreach (var frec in filteredParameters.Where(c => c.IdParent == 38))
-                                                                {
-                                                                    <option value="@frec.Value">@frec.ShortDescription</option>
-                                                                }
+                                                            <!--    PARAMETRO PADRE    -->
+                                                            @foreach (var frec in filteredParameters.Where(c => c.IdParent == 38))
+                                                            {
+                                                                <option value="@frec.Value">@frec.ShortDescription</option>
+                                                            }
                                                         </select>
                                                     </td>
                                                     <td>
@@ -241,7 +242,7 @@
                             else
                             {
                                 <span>Primero debe Crear el Presupuesto</span>
-                                <p/>
+                                <p />
                                 <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="ShowNewCalculationModal">
                                     <i class="bi bi-plus-circle me-2"></i>Nuevo Cálculo
                                 </button>
@@ -254,18 +255,18 @@
         </div>
 
         <!-- Configuration and Distribution -->
-        <InformatioPanelComponent   TotalMonthly="_BudgetState.TotalMonthly"
-                                    QuotaPerApartment="_BudgetState.QuotaPerApartment"
-                                    TotalInstallments="_BudgetState.TotalInstallments"
-                                    OccupiedApartments="_BudgetState.OccupiedApartments"
-                                    TotalApartments="_BudgetState.TotalApartments"
-                                    showorNot="@showorNot"
-                                    class2="@class2"
-                                    class5="@class5"
-                                    OnCopyToClipboard="CopyToClipboard"
-                                    OnClearAllData="ClearAllData"
-                                    SectionTotals="GetSectionTotals()" 
-                                    OnShoworNot="ShoworNot"  />
+        <InformatioPanelComponent TotalMonthly="_BudgetState.TotalMonthly"
+                                  QuotaPerApartment="_BudgetState.QuotaPerApartment"
+                                  TotalInstallments="_BudgetState.TotalInstallments"
+                                  OccupiedApartments="_BudgetState.OccupiedApartments"
+                                  TotalApartments="_BudgetState.TotalApartments"
+                                  showorNot="@showorNot"
+                                  class2="@class2"
+                                  class5="@class5"
+                                  OnCopyToClipboard="CopyToClipboard"
+                                  OnClearAllData="ClearAllData"
+                                  SectionTotals="GetSectionTotals()"
+                                  OnShoworNot="ShoworNot" />
 
     </div>
 </div>
@@ -344,16 +345,16 @@
             <div class="mb-3">
                 <label class="form-label"><strong>Categorías Disponibles</strong></label>
 
-                    <div class="list-group mb-3">
+                <div class="list-group mb-3">
                     @foreach (var categoria in _Categories)
-                        {
-                            <button type="button"
-                                    class="list-group-item list-group-item-action"
-                                    @onclick="() => SeleccionarCategoria(categoria)">
-                                @categoria.Description
-                            </button>
-                        }
-                    </div>
+                    {
+                        <button type="button"
+                                class="list-group-item list-group-item-action"
+                                @onclick="() => SeleccionarCategoria(categoria)">
+                            @categoria.Description
+                        </button>
+                    }
+                </div>
             </div>
 
             @if (_Categories.Count == 0)
@@ -391,16 +392,17 @@
 
 <p></p>
 
-@if( _BudgetState.IsWaterReadingReady &&_BudgetState.Status > BudgetStatus.Created ){
+@if (_BudgetState.IsWaterReadingReady && _BudgetState.Status > BudgetStatus.Created)
+{
     <InstallmentTable Installments="@_BudgetState.Installments"
-                  Budget="@_BudgetState.Budget"
-                  WaterReadings="@_BudgetState.WaterReadings" 
-                  TotalBudget="_BudgetState.TotalMonthly"
-                  Exonerations="@_BudgetState.Exonerations"/>
+                      Budget="@_BudgetState.Budget"
+                      WaterReadings="@_BudgetState.WaterReadings"
+                      TotalBudget="_BudgetState.TotalMonthly"
+                      Exonerations="@_BudgetState.Exonerations" />
 }
 
 <!-- Agregar al final del componente -->
-<ConfirmationModal @ref="_confirmationModal" 
+<ConfirmationModal @ref="_confirmationModal"
                    OnClose="OnConfirmationResult" />
 
 @code {
@@ -511,7 +513,7 @@
             _textCabecera = _BudgetState.Budget.BudgetName;
             //Cargar Lectura de Agua
             _BudgetState.WaterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(_BudgetState.Budget.BudgetDate);
-            bool isActiveOrClosed =  _BudgetState.Status == BudgetStatus.Active ||  _BudgetState.Status == BudgetStatus.Closed;
+            bool isActiveOrClosed = _BudgetState.Status == BudgetStatus.Active || _BudgetState.Status == BudgetStatus.Closed;
 
             _BudgetState.Exonerations = isActiveOrClosed
                 ? await presupuestoService.GetExonerationByBudgetHeaderAsync(_BudgetState.Budget.IdBudgetHeader)
@@ -790,7 +792,7 @@
                 detail.IdBudgetDetail = newItem.IdBudgetDetail;
                 detail.IdCategory = newItem.IdCategory;
                 detail.IdSection = newSectionId;
-                detail.ItemNumber = SequentialNumber ;
+                detail.ItemNumber = SequentialNumber;
                 detail.Description = newItem.Description;
                 detail.MonthlyAmount = newItem.MonthlyAmount == 0
                           ? _BudgetState.ExpensesList.Where(c => c.IdCategory == newItem.IdCategory).Sum(x => x.Amount)
@@ -929,7 +931,7 @@
 
     private async Task ShowNewCalculationModal()
     {
-        if (_newCalcModal == null ) return;
+        if (_newCalcModal == null) return;
 
         // Si el edificio todavía no tiene ningún periodo (típico en un edificio recién
         // creado), _periods viene vacío: FirstOrDefault()! y Max() de más abajo tronaban
@@ -947,12 +949,12 @@
         }
 
         _newCalculation = new NewCalculation
-            {
-                Month = _currentPeriod.StartDate.Month,
-                Year = _currentPeriod.StartDate.Year,
-                TotalApartments = _BudgetState.TotalApartments,
-                Description = "Presupuesto - " + @GetMonthName(_currentPeriod.StartDate.Month) + " " + _currentPeriod.StartDate.Year
-            };
+        {
+            Month = _currentPeriod.StartDate.Month,
+            Year = _currentPeriod.StartDate.Year,
+            TotalApartments = _BudgetState.TotalApartments,
+            Description = "Presupuesto - " + @GetMonthName(_currentPeriod.StartDate.Month) + " " + _currentPeriod.StartDate.Year
+        };
 
         await _newCalcModal.ShowAsync();
     }
@@ -968,15 +970,15 @@
     {
         // Implementar lógica para crear nuevo cálculo
         _BudgetState.Budget = new BudgetHeader
-            {
-                IdBudgetHeader = Guid.NewGuid(),
-                IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
-                BudgetDate = _selectedPeriod, //new DateTime(_selectedYear, _selectedMonth, 1),
-                BudgetName = $"Presupuesto {GetMonthName(_selectedPeriod.Month)} {_selectedPeriod.Year}",
-                Status = BudgetStatus.Created,
-                CreatedBy = "Admin",
-                IdPeriod = _periods.Where(c => c.StartDate == _selectedPeriod).FirstOrDefault()!.IdPeriod
-            };
+        {
+            IdBudgetHeader = Guid.NewGuid(),
+            IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
+            BudgetDate = _selectedPeriod, //new DateTime(_selectedYear, _selectedMonth, 1),
+            BudgetName = $"Presupuesto {GetMonthName(_selectedPeriod.Month)} {_selectedPeriod.Year}",
+            Status = BudgetStatus.Created,
+            CreatedBy = "Admin",
+            IdPeriod = _periods.Where(c => c.StartDate == _selectedPeriod).FirstOrDefault()!.IdPeriod
+        };
 
         //_BudgetState.IsDisabled = false;
         _BudgetState.Status = BudgetStatus.Created;
@@ -1117,7 +1119,7 @@
         var newitem = WaterReadings.Select(b => b.Clone()).ToList();
         _BudgetState.WaterReadings = newitem;
         _ = CalculateTotals();
-    }  
+    }
 
     private async Task PublishBudget(MouseEventArgs args)
     {
@@ -1200,7 +1202,7 @@
                             readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Lectura actual debe ser mayor a la anterior");
                             }*/
 
-    if (reading.Consumption <= 0)
+                        if (reading.Consumption <= 0)
                         {
                             readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Consumo inválido");
                         }
@@ -1285,7 +1287,7 @@
 
 
             // 7. Mostrar errores si los hay
-    if (errorMessages.Any())
+            if (errorMessages.Any())
             {
                 var errorDetails = string.Join("\n• ", errorMessages);
 
@@ -1352,8 +1354,9 @@
     {
         string _mensaje = "guardado";
 
-        switch (status){
-            case BudgetStatus.Check: 
+        switch (status)
+        {
+            case BudgetStatus.Check:
                 _mensaje = " enviardo a aprobacion";
                 break;
             case BudgetStatus.Rejected:

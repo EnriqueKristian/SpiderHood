@@ -130,7 +130,8 @@ namespace SpiderHood.Services
             return filtered.OrderBy(i => i.Order).ToList();
         }
 
-        public async Task RefreshMenu() {
+        public async Task RefreshMenu()
+        {
             _menuCacheByRole.Clear();
         }
         private async Task<List<MenuItem>> GetMenuDefinitionsAsync(UserSession user)
@@ -146,7 +147,7 @@ namespace SpiderHood.Services
 
         public async Task<List<string>> GetPermissionsForRoleAsync(string role)
         {
-            var permitions =  await ec.GetPermissionsForRoleAsync(role);
+            var permitions = await ec.GetPermissionsForRoleAsync(role);
 
             return permitions.Select(i => i.PermissionKey.ToString()).ToList()!;
 

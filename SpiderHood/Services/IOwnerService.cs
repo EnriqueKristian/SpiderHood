@@ -53,7 +53,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                 await ec.DeleteRecordAsync(owner);
+                await ec.DeleteRecordAsync(owner);
             }
             catch (Exception ex)
             {

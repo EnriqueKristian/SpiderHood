@@ -87,7 +87,7 @@ namespace SpiderHood.Data
             }, "CheckPeriodOverlap", cancellationToken);
         }
 
-        public async Task<bool> ConciliarInstallmentAsync(Installment installment, TransactionBankDetail transaction , CancellationToken cancellationToken = default)
+        public async Task<bool> ConciliarInstallmentAsync(Installment installment, TransactionBankDetail transaction, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {

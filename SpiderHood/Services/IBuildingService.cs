@@ -64,7 +64,8 @@ namespace SpiderHood.Services
             ec = new BDLayout(contextFactory);
         }
 
-        public async Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner) {
+        public async Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner)
+        {
             return await ec.GetAllBuildingByOwnerAsync(IdOwner);
         }
 
@@ -278,7 +279,7 @@ namespace SpiderHood.Services
 
         public async Task<List<Models.RealEstateUnit>> GetUnitsByBuildingAsync(Guid IdBuilding)
         {
-            
+
             try
             {
                 return await ec.GetUnitsByBuildingAsync(IdBuilding);

@@ -496,7 +496,7 @@
     {
         filteredParameters = parameters
             .Where(p => string.IsNullOrEmpty(searchTerm) ||
-                       p.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) )
+                       p.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             .Where(p => selectedStatus == null || p.Estado == selectedStatus)
             .ToList();
 

@@ -21,7 +21,7 @@ namespace SpiderHood.Services
 
         Task<List<RoleDto>> GetAllRolesAsync();
         Task<List<MenuItemWithRoles>> GetRootMenuItemsWithRolesAsync();
-        
+
         Task UpdateMenuItemPermissionsAsync(Guid menuItemId, List<Guid> roleIds, List<bool> action);
     }
 
@@ -58,7 +58,7 @@ namespace SpiderHood.Services
             // Construir relaciones padre-hijo
             BuildHierarchy();
         }
-        
+
         private void BuildHierarchy()
         {
             foreach (var item in _menuItems)
@@ -126,7 +126,8 @@ namespace SpiderHood.Services
             mperm.IdMenu = item.IdMenu;
             _ = ec.DeleteRecordAsync(mperm);
 
-            foreach (var perm in item.RequiredPermissions) {
+            foreach (var perm in item.RequiredPermissions)
+            {
                 mperm = new();
                 mperm.IdMenu = item.IdMenu;
                 mperm.IdRole = perm;

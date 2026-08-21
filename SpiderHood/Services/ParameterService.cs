@@ -10,7 +10,7 @@ namespace SpiderHood.Services
 {
     public class ParameterService : IDisposable
     {
-        
+
         private List<Parameter> _listParameters = [];
         private Guid _idUser;
         //private string _role;
@@ -21,7 +21,7 @@ namespace SpiderHood.Services
 
         // Cache para evitar cargas innecesarias
         private readonly Dictionary<Guid, (List<Parameter> Parameters, DateTime LastUpdated, List<Period> Periodos)> _cache
-            = [];  
+            = [];
 
         private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
@@ -37,7 +37,7 @@ namespace SpiderHood.Services
         //public Guid IdUser => _idUser;
         //public string Role => _role;
         //public string UserName => _username;
-        
+
         public event Action? OnChange;
 
         public ParameterService(IDbContextFactory<SpiderHoodContext> contextFactory)
@@ -48,7 +48,8 @@ namespace SpiderHood.Services
         }
 
 
-        public IDbContextFactory<SpiderHoodContext>  ContextFactory()  {
+        public IDbContextFactory<SpiderHoodContext> ContextFactory()
+        {
             return _contextFactory;
         }
 
@@ -59,8 +60,8 @@ namespace SpiderHood.Services
         public async Task LoadParametersAsync(Guid IdBuilding, bool forceReload = false)
         {
             //if ( CurrentBuilding != null)
-                //return;
-                //throw new ArgumentException("IdBuilding cannot be empty", nameof(IdBuilding));
+            //return;
+            //throw new ArgumentException("IdBuilding cannot be empty", nameof(IdBuilding));
 
             // Verificar caché si no es recarga forzada
             if (!forceReload && _cache.TryGetValue(IdBuilding, out var cached)
@@ -84,7 +85,7 @@ namespace SpiderHood.Services
                 //Buildings = await ecLocal.GetAllBuildingByOwnerAsync(IdUser);
                 //Building building = await ecLocal.GetBuildingByIdAsync(IdBuilding);
                 //if (building is null)
-                    //throw new InvalidOperationException($"Building with Id {IdBuilding} not found.");
+                //throw new InvalidOperationException($"Building with Id {IdBuilding} not found.");
                 //CurrentBuilding = building;
                 //var listconfig = await ecLocal.GetBuildingConfigurationAsync(IdBuilding);
                 //CurrentBuilding!.Configuration = listconfig.FirstOrDefault()!;
@@ -115,7 +116,8 @@ namespace SpiderHood.Services
 
 
 
-        public async Task<OperationResult> AddParameterAsync(Parameter parameter) {
+        public async Task<OperationResult> AddParameterAsync(Parameter parameter)
+        {
             try
             {
                 var ecLocal = new BDLayout(_contextFactory);
@@ -493,6 +495,7 @@ namespace SpiderHood.Services
         public string GetChildParameterDescription(int parentId, int value)
         {
             var param = _listParameters.FirstOrDefault(c => c.IdParent == parentId && c.Value == value);
+            //Console.WriteLine($"parentid: {parentId}, value: {value}");
             return param?.ShortDescription ?? "No se encontro coincidencia";
         }
 

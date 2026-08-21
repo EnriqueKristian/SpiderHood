@@ -473,7 +473,8 @@ namespace SpiderHood.Data
                         idBuilding);
                 }, "GetUnitsByBuilding", cancellationToken);
             }
-            catch (Exception ex) { 
+            catch (Exception ex)
+            {
                 Console.WriteLine(ex);
                 return [];
             }

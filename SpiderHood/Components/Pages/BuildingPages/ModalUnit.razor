@@ -1,4 +1,4 @@
-﻿@using System.ComponentModel.DataAnnotations
+﻿﻿@using System.ComponentModel.DataAnnotations
 
 @inherits LayoutComponentBase
 
@@ -45,8 +45,8 @@
                             <ValidationMessage For="() => View_Unit.Area" class="text-danger" />
                         </div>
                     </div>
-                    <div class="modal-footer" >
-                            <Button Color="ButtonColor.Secondary" @onclick="CerrarModal">Close</Button>
+                    <div class="modal-footer">
+                        <Button Color="ButtonColor.Secondary" @onclick="CerrarModal">Close</Button>
                         @if (OpenMode != Models.OpenType.ReadOnly)
                         {
                             <button type="submit" class="btn btn-primary">@((OpenMode == Models.OpenType.Create) ? "Save" : "Update")</button>

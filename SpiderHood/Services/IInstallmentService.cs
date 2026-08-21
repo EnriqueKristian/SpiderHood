@@ -42,7 +42,7 @@ namespace SpiderHood.Services
                 Console.WriteLine($"Error al obtener los installments por budget: {ex.Message}");
                 return new List<Installment>();
             }
-            
+
         }
 
         public async Task<List<Installment>> GetPendingInstallmentsAsync(Guid IdBuilding)
@@ -160,12 +160,12 @@ namespace SpiderHood.Services
 
                 totalCoincidencias += posiblesMatches.Count;
 
-                
+
             }
             return totalCoincidencias;
         }
 
-        public async Task ConciliarConCuota(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota,  bool automatico = false)
+        public async Task ConciliarConCuota(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, bool automatico = false)
         {
             try
             {
@@ -315,6 +315,3 @@ namespace SpiderHood.Services
     }
 
 }
-
-
-

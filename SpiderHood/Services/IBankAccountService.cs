@@ -11,7 +11,7 @@ namespace SpiderHood.Services
         Task AddBankAccount(BankAccount newbank);
         Task UpdateBankAccount(BankAccount bankaccount);
         Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding);
-        Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync( Guid cuentaId, DateTime desde, DateTime hasta);
+        Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync(Guid cuentaId, DateTime desde, DateTime hasta);
         Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto);
         Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion);
         Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion);
@@ -134,7 +134,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync( Guid cuentaId, DateTime desde, DateTime hasta)
+        public async Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync(Guid cuentaId, DateTime desde, DateTime hasta)
         {
             try
             {
@@ -165,7 +165,7 @@ namespace SpiderHood.Services
             {
                 Console.WriteLine($"Error al Conciliar Transaccion con Cuota: {ex.Message}");
             }
-            
+
         }
 
         public async Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion)
@@ -214,7 +214,8 @@ namespace SpiderHood.Services
             return new List<TransactionBankDetail>();
         }
 
-        public async Task CrearTransaccionSobranteAsync(TransactionBankDetail paidexcesc) {
+        public async Task CrearTransaccionSobranteAsync(TransactionBankDetail paidexcesc)
+        {
             try
             {
                 await ec.AddNewRecordAsync(paidexcesc);
@@ -223,7 +224,7 @@ namespace SpiderHood.Services
             {
                 Console.WriteLine($"Error al obtener transacciones: {ex.Message}");
             }
-            
+
         }
     }
 }

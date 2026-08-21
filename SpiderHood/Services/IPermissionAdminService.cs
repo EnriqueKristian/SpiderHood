@@ -47,7 +47,8 @@ namespace SpiderHood.Services
 
             list = await ec.GetAllRolesAsync();
 
-            foreach (var rol in list) { 
+            foreach (var rol in list)
+            {
                 rol.Permissions = await _permissionService.GetPermissionsForRoleAsync(rol.RoleName);
             }
 

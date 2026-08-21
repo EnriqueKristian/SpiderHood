@@ -88,6 +88,11 @@
     protected override void OnInitialized()
     {
         _isEdit = Id.HasValue && Id.Value != Guid.Empty;
+
+
+
+
+
     }
 
     private async Task LoadRoleAsync()
@@ -115,7 +120,7 @@
         try
         {
             _saving = true;
-            
+
             if (_isEdit)
             {
                 await PermissionAdminService.UpdateRoleAsync(_role);
@@ -126,7 +131,7 @@
                 await PermissionAdminService.CreateRoleAsync(_role);
                 await JSRuntime.InvokeVoidAsync("alert", "Rol creado exitosamente");
             }
-            
+
             Navigation.NavigateTo("/Settings/Roles");
         }
         catch (Exception ex)

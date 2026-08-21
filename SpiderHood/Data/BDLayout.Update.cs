@@ -63,7 +63,7 @@ namespace SpiderHood.Data
                     item.Icon!,
                     item.Url!,
                     item.Target!,
-                    item.DisplayOrder!, 
+                    item.DisplayOrder!,
                     item.IsVisible!,
                     item.BadgeText!,
                     item.BadgeColor!,

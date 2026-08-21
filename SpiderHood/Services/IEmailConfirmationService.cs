@@ -118,7 +118,8 @@ namespace SpiderHood.Services
             }
         }
 
-        private async Task<IdentityResult> ConfirmEmailAsync(UserModel user, string decodedToken) {
+        private async Task<IdentityResult> ConfirmEmailAsync(UserModel user, string decodedToken)
+        {
 
             IdentityResult result;
 

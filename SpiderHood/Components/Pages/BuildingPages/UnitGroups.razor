@@ -403,22 +403,24 @@
     // Métodos de acciones
     private void ViewDetails(Models.RealEstateUnit unidad)
     {
-        // Lógica para ver detalles
+        AbrirModal(unidad, unidad.TypeUnit, Models.OpenType.ReadOnly);
     }
 
     private void EditUnit(Models.RealEstateUnit unidad)
     {
-        // Lógica para editar
+        AbrirModal(unidad, unidad.TypeUnit, Models.OpenType.Update);
     }
 
     private void ViewFinances(Models.RealEstateUnit unidad)
     {
-        // Lógica para ver finanzas
+        // No existe todavía una vista de finanzas por unidad en la app — pendiente de
+        // definir a qué pantalla debería llevar este botón.
     }
 
-    private void DeleteUnit(Models.RealEstateUnit unidad)
+    private async Task DeleteUnit(Models.RealEstateUnit unidad)
     {
-        // Lógica para eliminar
+        _Unit = unidad;
+        await modal.ShowAsync();
     }
 }
 
@@ -617,6 +619,25 @@
     {
         if (firstRender)
         {
+            // currentUser puede seguir null aquí: la sesión se restaura de forma asíncrona
+            // (localStorage vía CustomAuthenticationStateProvider) y ese proceso no tiene
+            // garantía de haber terminado antes de este primer OnAfterRenderAsync. Sin este
+            // reintento, InicializarPagina() dereferenciaba currentUser.CurrentBuildingId
+            // con currentUser en null y tiraba NullReferenceException, tumbando el circuito
+            // (mismo patrón ya solucionado en Index.razor/BudgetGenerator.razor).
+            var attempts = 0;
+            while (currentUser == null && attempts < 20)
+            {
+                await Task.Delay(150);
+                currentUser = await AuthService.GetCurrentUserAsync();
+                attempts++;
+            }
+
+            if (currentUser == null)
+            {
+                return;
+            }
+
             await InicializarPagina();
         }
     }
@@ -624,7 +645,6 @@
     protected override async Task OnInitializedAsync()
     {
         currentUser = await AuthService.GetCurrentUserAsync();
-        if (currentUser == null) return;
     }
 
     private async Task InicializarPagina()
@@ -643,7 +663,7 @@
         _Unit = mode switch
         {
             OpenType.Create => new Models.RealEstateUnit { IdBuilding = currentUser.CurrentBuildingId },
-            OpenType.Update => _cat,
+            OpenType.Update or OpenType.ReadOnly => _cat,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Valor inesperado: {mode}")
         };
     }

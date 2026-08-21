@@ -119,7 +119,7 @@
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <span class="badge @GetTypeBadgeClass(unidad.TypeUnit) me-2">
-                                            @unidad.TypeUnit
+                                            @ParameterService.GetChildParameterDescription(4, @unidad.TypeUnit)
                                         </span>
                                     </div>
                                 </td>
@@ -359,8 +359,8 @@
 </div>
 
 @code {
-    
 
+    
     private int totalUnidades = 9;
 
     // Métodos para clases CSS
@@ -403,31 +403,33 @@
     // Métodos de acciones
     private void ViewDetails(Models.RealEstateUnit unidad)
     {
-        // Lógica para ver detalles
+        AbrirModal(unidad, unidad.TypeUnit, Models.OpenType.ReadOnly);
     }
 
     private void EditUnit(Models.RealEstateUnit unidad)
     {
-        // Lógica para editar
+        AbrirModal(unidad, unidad.TypeUnit, Models.OpenType.Update);
     }
 
     private void ViewFinances(Models.RealEstateUnit unidad)
     {
-        // Lógica para ver finanzas
+        // No existe todavía una vista de finanzas por unidad en la app — pendiente de
+        // definir a qué pantalla debería llevar este botón.
     }
 
-    private void DeleteUnit(Models.RealEstateUnit unidad)
+    private async Task DeleteUnit(Models.RealEstateUnit unidad)
     {
-        // Lógica para eliminar
+        _Unit = unidad;
+        await modal.ShowAsync();
     }
 }
 
 <!--    MODAL PARA CREAR / MODIFICAR UNIDADES -->
 <ModalUnit ShowModal="@MostrarModal" ShowModalChanged="@((valor) => MostrarModal = valor)"
-                                     OpenMode="@OpenMode"
-                                     ListParameters="@ParameterService.ListParameters"
-                                     View_Unit="@_Unit"
-                                     OnSaveItem="@((item) => SaveItem(item))" />
+           OpenMode="@OpenMode"
+           ListParameters="@ParameterService.ListParameters"
+           View_Unit="@_Unit"
+           OnSaveItem="@((item) => SaveItem(item))" />
 
 <!--    MODAL PARA GENERAR UNIDADES -->
 <Modal @ref="modalAll" Title="Generara Bloque de Unidades" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true" IsScrollable="true">
@@ -464,7 +466,7 @@
                     <label for="floorformat" class="form-label">Unidad Inicio:</label>
                     <InputNumber id="floorformat" @bind-Value="_formCreateUnit.StarUnit" class="form-control" aria-required="true" placeHolder="1" />
                     <ValidationMessage For="() => _formCreateUnit.StarUnit" class="text-danger" />
-                    
+
                     <label for="floorformat" class="form-label">Formato Unidad:</label>
                     <InputSelect id="unittype_id" @bind-Value="_formCreateUnit.formatUnit" class="form-select">
                         <option value="0x" selected>0x</option>
@@ -539,7 +541,7 @@
             {
                 int StarUnitLocal = _formCreateUnit.StarUnit;
 
-                for (int j=1; j<=_formCreateUnit.NroUnits; j++)
+                for (int j = 1; j <= _formCreateUnit.NroUnits; j++)
                 {
                     Models.RealEstateUnit _blockunit = new Models.RealEstateUnit();
 
@@ -600,23 +602,42 @@
         public int IdUnitType { get; set; }
 
         [Range(1, int.MaxValue, ErrorMessage = "El Piso de inicio debe ser mayor a 0")]
-        public int StarFloor { get; set; } 
+        public int StarFloor { get; set; }
 
 
         [Range(1, int.MaxValue, ErrorMessage = "El número de unidades debe ser mayor a 0")]
-        public int StarUnit { get; set; } 
+        public int StarUnit { get; set; }
 
         [RegularExpression(@"^0+[0-9A-Za-z]$", ErrorMessage = "Formato inválido. Ejemplos válidos: 0x, 00x")]
         public string formatUnit { get; set; } = string.Empty;
 
         [Range(1, double.MaxValue, ErrorMessage = "El número de unidades debe ser mayor a 1")]
-        public decimal Area { get; set; } 
+        public decimal Area { get; set; }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            // currentUser puede seguir null aquí: la sesión se restaura de forma asíncrona
+            // (localStorage vía CustomAuthenticationStateProvider) y ese proceso no tiene
+            // garantía de haber terminado antes de este primer OnAfterRenderAsync. Sin este
+            // reintento, InicializarPagina() dereferenciaba currentUser.CurrentBuildingId
+            // con currentUser en null y tiraba NullReferenceException, tumbando el circuito
+            // (mismo patrón ya solucionado en Index.razor/BudgetGenerator.razor).
+            var attempts = 0;
+            while (currentUser == null && attempts < 20)
+            {
+                await Task.Delay(150);
+                currentUser = await AuthService.GetCurrentUserAsync();
+                attempts++;
+            }
+
+            if (currentUser == null)
+            {
+                return;
+            }
+
             await InicializarPagina();
         }
     }
@@ -624,7 +645,6 @@
     protected override async Task OnInitializedAsync()
     {
         currentUser = await AuthService.GetCurrentUserAsync();
-        if (currentUser == null) return;
     }
 
     private async Task InicializarPagina()
@@ -643,7 +663,7 @@
         _Unit = mode switch
         {
             OpenType.Create => new Models.RealEstateUnit { IdBuilding = currentUser.CurrentBuildingId },
-            OpenType.Update => _cat,
+            OpenType.Update or OpenType.ReadOnly => _cat,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), $"Valor inesperado: {mode}")
         };
     }

@@ -1274,7 +1274,7 @@
         var attempts = 0;
         while (ParameterService.CurrentBuilding == null && attempts < 20)
         {
-            await Task.Delay(150);
+            await Task.Delay(10);
             attempts++;
             Console.WriteLine($"Index razor. Intento nro: {attempts}");
         }
@@ -1284,6 +1284,14 @@
             isLoading = false;
             return;
         }
+        // ParameterService._listParameters (de donde sale la descripción de ESTADO, vía
+        // GetChildParameterDescription) solo se carga hoy desde Home.razor, Owners.razor o
+        // ParameterPage.razor — ninguna de las tres corre necesariamente antes que esta
+        // página. Si el usuario llega aquí sin haber pasado antes por el Dashboard en este
+        // mismo circuito, _listParameters queda vacío y CADA fila de la tabla muestra "No se
+        // encontro coincidencia", sin importar el estado real. Lo cargamos explícitamente
+        // acá (usa caché si Home ya lo hizo, así que no duplica la consulta en ese caso).
+        await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         await CargarDatos();
         await LoadMonths();

@@ -495,6 +495,7 @@ namespace SpiderHood.Services
         public string GetChildParameterDescription(int parentId, int value)
         {
             var param = _listParameters.FirstOrDefault(c => c.IdParent == parentId && c.Value == value);
+            //Console.WriteLine($"parentid: {parentId}, value: {value}");
             return param?.ShortDescription ?? "No se encontro coincidencia";
         }
 

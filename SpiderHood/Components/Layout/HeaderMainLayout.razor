@@ -1,4 +1,6 @@
 @rendermode InteractiveServer
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Authorization
 
 <div class="header-container">
     <div class="header-left">
@@ -126,6 +128,30 @@
     private List<Models.UserBuilding> Buildings { get; set; } = new();
     private string BuildingName { get; set; } = "Seleccionar Edificio";
     private Guid? CurrentBuildingId { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // Igual que en LeftMenu: login, selección de edificio y cambio de rol navegan
+        // SIN forceLoad, así que este componente no se recrea entre esas pantallas y su
+        // OnAfterRenderAsync(firstRender) corre una sola vez por circuito — normalmente
+        // en /login, con el usuario todavía anónimo. Sin esto, el header se quedaba
+        // mostrando "Invitado" para siempre después de loguearse en el mismo circuito.
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChangedAsync;
+    }
+
+    private void OnAuthenticationStateChangedAsync(Task<AuthenticationState> task)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadUserDataAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChangedAsync;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

@@ -154,13 +154,21 @@
         // _currentUser vuelve a null. Antes solo se ponía ShowMenu = true y nunca se
         // apagaba, así que después de cerrar sesión el menú intentaba re-renderizar el
         // selector de rol con un _currentUser null y tiraba NullReferenceException.
-        ShowMenu = _currentUser != null;
+        //
+        // También exigimos CurrentBuildingId != Guid.Empty: un usuario recién logueado
+        // con más de un edificio/rol todavía no ha confirmado ninguno (CurrentBuildingId
+        // se queda en Guid.Empty hasta que SetCurrentBuilding corre desde /select-building
+        // — ver GetDefaultBuilding en AuthService). Sin esta condición, el menú aparecía
+        // apenas terminaba el login, mostrando de entrada el primer rol devuelto por la
+        // BD, antes de que el usuario eligiera edificio/rol en /select-building.
+        ShowMenu = _currentUser != null && _currentUser.CurrentBuildingId != Guid.Empty;
 
         if (_currentUser != null)
         {
             Console.WriteLine($"✅ Cargar Menu Usuario: {_currentUser.Email} - Rol: {_currentUser.Role}");
         }
-        else
+
+        if (!ShowMenu)
         {
             _filteredMenu = new();
         }
@@ -168,7 +176,7 @@
 
     private async Task LoadMenuAsync()
     {
-        if (_currentUser == null)
+        if (!ShowMenu || _currentUser == null)
         {
             _filteredMenu = new();
             return;

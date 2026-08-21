@@ -71,7 +71,7 @@
                         <i class="@GetRoleIcon(_currentUser?.Role) me-2"></i>@GetRoleDisplayName(_currentUser?.Role)
                     </div>
                     <div class="role-options">
-                        @foreach (var role in _currentUser!.Roles)
+                        @foreach (var role in _currentUser?.Roles ?? new())
                         {
                             <span class="role-badge @GetRoleColorClass(role) @(_currentUser?.Role == role ? "active" : "")" @onclick='() => SwitchRole(role)'>
                                 <i class="@GetRoleIcon(role) me-1"></i>@role
@@ -149,16 +149,32 @@
     {
         _currentUser = await AuthService.GetCurrentUserAsync();
 
+        // ShowMenu tiene que reflejar el estado ACTUAL, no solo activarse: este método
+        // también corre en logout (vía OnAuthenticationStateChangedAsync), donde
+        // _currentUser vuelve a null. Antes solo se ponía ShowMenu = true y nunca se
+        // apagaba, así que después de cerrar sesión el menú intentaba re-renderizar el
+        // selector de rol con un _currentUser null y tiraba NullReferenceException.
+        ShowMenu = _currentUser != null;
+
         if (_currentUser != null)
         {
-            ShowMenu = true;
             Console.WriteLine($"✅ Cargar Menu Usuario: {_currentUser.Email} - Rol: {_currentUser.Role}");
+        }
+        else
+        {
+            _filteredMenu = new();
         }
     }
 
     private async Task LoadMenuAsync()
     {
-        _filteredMenu = await PermissionService.GetMenuForUserAsync(_currentUser!);
+        if (_currentUser == null)
+        {
+            _filteredMenu = new();
+            return;
+        }
+
+        _filteredMenu = await PermissionService.GetMenuForUserAsync(_currentUser);
     }
 
     private async Task SwitchRole(string role)

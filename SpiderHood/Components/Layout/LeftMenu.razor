@@ -140,8 +140,14 @@
         if (_currentUser != null)
         {
             _currentUser.Role = role;
+
+            // Persistir el cambio ANTES de refrescar: Navigation.Refresh() tira abajo el
+            // circuito actual y arranca uno nuevo, que restaura la sesión desde localStorage
+            // (CustomAuthenticationStateProvider.InitializeClientAsync). Sin este guardado,
+            // el rol nuevo solo vivía en memoria del circuito viejo y el refresh lo revertía
+            // silenciosamente al rol original.
+            await AuthStateProvider.MarkUserAsAuthenticated(_currentUser);
             await PermissionService.RefreshMenu();
-            // AuthService.UpdateUserRoleAsync(role);
             await LoadMenuAsync();
             StateHasChanged();
             Navigation.Refresh();

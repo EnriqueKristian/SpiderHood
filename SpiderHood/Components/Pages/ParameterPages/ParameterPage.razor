@@ -429,9 +429,36 @@
 
     protected override void OnInitialized()
     {
+        // Carga "optimista": si ParameterService.ListParameters ya tiene datos porque otra
+        // página (Home, Owners, ...) ya los cargó en este mismo circuito, los mostramos de
+        // una. Si esta es la primera página con datos de parámetros que se visita en el
+        // circuito, ListParameters todavía está vacío acá — OnAfterRenderAsync se encarga
+        // de cargarlo explícitamente (no se puede hacer acá: ParameterService.CurrentBuilding,
+        // que LoadParametersAsync necesita, recién se setea en el OnAfterRenderAsync de
+        // HeaderMainLayout, que corre DESPUÉS del OnInitialized de todos los componentes).
         filteredParameters = @ParameterService.ListParameters.ToList();
         UpdateStatistics();
         GroupParameters();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var attempts = 0;
+            while (ParameterService.CurrentBuilding == null && attempts < 20)
+            {
+                await Task.Delay(150);
+                attempts++;
+            }
+
+            if (ParameterService.CurrentBuilding == null)
+                return;
+
+            await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
+            OnInitialized();
+            StateHasChanged();
+        }
     }
 
     private void GroupParameters()

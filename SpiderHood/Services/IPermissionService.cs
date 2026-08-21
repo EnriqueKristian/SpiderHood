@@ -21,7 +21,14 @@ namespace SpiderHood.Services
     {
         private readonly AuthService _authService;
         private readonly IConfiguration _configuration;
-        private List<MenuItem>? _menuCache;
+
+        // Cacheado por rol (IdRole), no en un solo slot: PermissionService es Scoped por
+        // circuito y sobrevive a los cambios de rol dentro de una misma sesión (desde
+        // /select-building, el dropdown de edificio del header, o el selector de "Modo
+        // Desarrollo"). Con un solo _menuCache, el menú del PRIMER rol cargado quedaba
+        // pegado para el resto del circuito — cambiar de rol actualizaba el chip/header
+        // pero el listado de opciones del menú nunca se refrescaba.
+        private readonly Dictionary<Guid, List<MenuItem>> _menuCacheByRole = new();
         private List<string>? _userPermissionsCache;
         private BDLayout ec { get; set; }
 
@@ -124,16 +131,17 @@ namespace SpiderHood.Services
         }
 
         public async Task RefreshMenu() {
-            _menuCache = null;
+            _menuCacheByRole.Clear();
         }
         private async Task<List<MenuItem>> GetMenuDefinitionsAsync(UserSession user)
         {
-            if (_menuCache != null)
-                return _menuCache;
+            if (_menuCacheByRole.TryGetValue(user.IdRole, out var cached))
+                return cached;
 
-            _menuCache  = await ec.GetFullMenuAsync(user.IdRole);
+            var menu = await ec.GetFullMenuAsync(user.IdRole);
+            _menuCacheByRole[user.IdRole] = menu;
 
-            return _menuCache;
+            return menu;
         }
 
         public async Task<List<string>> GetPermissionsForRoleAsync(string role)

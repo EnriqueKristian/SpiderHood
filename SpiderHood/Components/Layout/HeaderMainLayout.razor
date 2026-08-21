@@ -1,4 +1,6 @@
 @rendermode InteractiveServer
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Authorization
 
 <div class="header-container">
     <div class="header-left">
@@ -127,6 +129,30 @@
     private string BuildingName { get; set; } = "Seleccionar Edificio";
     private Guid? CurrentBuildingId { get; set; }
 
+    protected override void OnInitialized()
+    {
+        // Igual que en LeftMenu: login, selección de edificio y cambio de rol navegan
+        // SIN forceLoad, así que este componente no se recrea entre esas pantallas y su
+        // OnAfterRenderAsync(firstRender) corre una sola vez por circuito — normalmente
+        // en /login, con el usuario todavía anónimo. Sin esto, el header se quedaba
+        // mostrando "Invitado" para siempre después de loguearse en el mismo circuito.
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChangedAsync;
+    }
+
+    private void OnAuthenticationStateChangedAsync(Task<AuthenticationState> task)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadUserDataAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChangedAsync;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && !_initialized)
@@ -157,27 +183,7 @@
 
     private async Task LoadUserDataAsync()
     {
-        // FIX: antes esto solo intentaba UNA vez. Si la sesión todavía no
-        // terminaba de cargarse desde localStorage (una carrera normal justo
-        // después de loguearse o cambiar de edificio), _currentUser quedaba
-        // en null para siempre — este componente solo corre esto una vez por
-        // circuito (OnAfterRenderAsync firstRender), sin reintentar. Por eso
-        // el header mostraba "Invitado" aunque la página sí encontraba al
-        // usuario segundos después (esa sí reintenta). Ahora reintentamos acá
-        // también, igual que ya hace Home.razor.
-        const int maxAttempts = 3;
-        for (int attempt = 0; attempt < maxAttempts; attempt++)
-        {
-            _currentUser = await AuthService.GetCurrentUserAsync();
-            if (_currentUser != null)
-                break;
-
-            if (attempt < maxAttempts - 1)
-            {
-                Logger.LogDebug($"⏳ Intento {attempt + 1}/{maxAttempts} - Usuario no autenticado, esperando 100ms...");
-                await Task.Delay(100);
-            }
-        }
+        _currentUser = await AuthService.GetCurrentUserAsync();
 
         if (_currentUser?.Buildings != null)
         {

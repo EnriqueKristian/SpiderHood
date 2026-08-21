@@ -182,6 +182,15 @@ namespace SpiderHood.Services
                     //Marcar el Building como default
 
                     user.CurrentBuildingId = buildingId.Value;
+
+                    // Un mismo edificio puede tener varias filas (una por rol) cuando el
+                    // usuario tiene acceso con más de un rol — así que seleccionar edificio
+                    // TAMBIÉN es seleccionar rol. Antes esto solo actualizaba
+                    // CurrentBuildingId y dejaba Role intacto (el primero que trajo el
+                    // login), así que elegir el 2do o 3er rol en /select-building no tenía
+                    // efecto: el menú y el header seguían mostrando el rol original.
+                    user.Role = Role;
+
                     await _authStateProvider.MarkUserAsAuthenticated(user);
                 }
             }

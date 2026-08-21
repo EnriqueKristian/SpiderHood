@@ -649,6 +649,14 @@
 
     private async Task InicializarPagina()
     {
+        // ParameterService.ListParameters (de donde sale la descripción del tipo de unidad,
+        // vía GetChildParameterDescription) solo se carga hoy desde Home.razor, Owners.razor
+        // o ParameterPage.razor — ninguna corre necesariamente antes que esta página. Si el
+        // usuario llega aquí sin haber pasado antes por esas páginas en este mismo circuito,
+        // ListParameters queda vacío y CADA fila muestra "No se encontro coincidencia", sin
+        // importar el tipo real (mismo patrón ya solucionado en BudgetPages/Index.razor).
+        await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId);
+
         units = await BuildingService.GetUnitsByBuildingAsync(currentUser.CurrentBuildingId);
         list_units = units.Where(c => c.TypeUnit == 1).ToList();
         //_loaded = true;

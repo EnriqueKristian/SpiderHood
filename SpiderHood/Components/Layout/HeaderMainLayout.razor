@@ -202,6 +202,25 @@
 
     private async Task LoadCurrentBuildingAsync()
     {
+        // 0. Preferir el edificio+ROL ya confirmado en la sesión. Un mismo edificio puede
+        // tener varias filas en Buildings (una por rol al que el usuario tiene acceso), y
+        // los pasos de abajo (ParameterService, URL, preferencia guardada) solo matchean
+        // por IdBuilding — así que con 2-3 roles sobre el mismo edificio siempre
+        // resolvían a la PRIMERA fila (el primer rol), sin importar cuál se hubiera
+        // elegido realmente. _currentUser.CurrentBuildingId/Role sí quedan sincronizados
+        // entre sí porque AuthService.SetCurrentBuilding actualiza ambos juntos.
+        if (_currentUser != null && _currentUser.CurrentBuildingId != Guid.Empty)
+        {
+            var current = Buildings.FirstOrDefault(b =>
+                b.Building?.IdBuilding == _currentUser.CurrentBuildingId && b.Role == _currentUser.Role);
+
+            if (current != null)
+            {
+                await SetCurrentBuilding(current);
+                return;
+            }
+        }
+
         // 1. Intentar con ParameterService
         if (ParameterService.CurrentBuilding != null)
         {
@@ -292,14 +311,23 @@
     {
         if (building?.Building == null) return;
 
-        //await SetCurrentBuilding(building);
-        NavigationManager.NavigateTo($"/buildings");
+        // Este dropdown puede listar el MISMO edificio varias veces (una fila por rol),
+        // así que "seleccionar" acá también es seleccionar rol — igual que en
+        // /select-building. Antes esta llamada estaba comentada, por eso elegir
+        // cualquier opción no tenía ningún efecto. AuthService.SetCurrentBuilding
+        // actualiza CurrentBuildingId y Role en la sesión y notifica el cambio
+        // (LeftMenu y este mismo header ya escuchan ese evento); el refresh de página
+        // asegura que el contenido de la página actual (presupuestos, unidades, etc.,
+        // que no escuchan el evento) también recargue con el edificio/rol nuevo.
+        await AuthService.SetCurrentBuilding(building.Building.IdBuilding, building.Role);
+        NavigationManager.Refresh();
     }
 
     private bool IsActiveBuilding(Models.UserBuilding building)
     {
         return building?.Building != null &&
-               building.Building.IdBuilding == CurrentBuildingId;
+               building.Building.IdBuilding == CurrentBuildingId &&
+               building.Role == _currentUser?.Role;
     }
 
     private string GetRoleBadgeColor(string? role)
@@ -342,10 +370,10 @@
 
     private string GetUserRole()
     {
-        if (_currentUser?.Roles == null || !_currentUser.Roles.Any())
-            return "Usuario";
-
-        return string.Join(", ", _currentUser.Roles.Take(2));
+        // Antes mostraba TODOS los roles a los que el usuario tiene acceso
+        // (_currentUser.Roles), no el que está usando ahora — confuso cuando un usuario
+        // tiene 2-3 roles sobre el mismo edificio. El rol activo es _currentUser.Role.
+        return string.IsNullOrWhiteSpace(_currentUser?.Role) ? "Usuario" : _currentUser.Role;
     }
 
     private string GetCurrentPageName()

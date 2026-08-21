@@ -7,7 +7,7 @@ namespace SpiderHood.Services
 {
     public interface IExpenseService
     {
-        Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync( Guid IdBuilding, DateTime desde, DateTime hasta);
+        Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync(Guid IdBuilding, DateTime desde, DateTime hasta);
         //Task<List<CategoriaGasto>> ObtenerCategoriasAsync();
         Task<ViewExpense> CrearGastoAsync(ViewExpense gasto);
         Task MarcarGastoComoConciliadoAsync(Guid gastoId, Guid transaccionId);
@@ -22,13 +22,11 @@ namespace SpiderHood.Services
     {
         private List<ViewExpense> gastos = new();
         //private List<CategoriaGasto> categorias = new();
-        public SpiderHoodContext Context { get; private set; }
         public BDLayout ec = default!;
 
-        public ExpenseService(SpiderHoodContext _context)
+        public ExpenseService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
-            Context = _context ?? throw new ArgumentNullException(nameof(_context));
-            ec = new BDLayout(Context);
+            ec = new BDLayout(contextFactory);
             InicializarDatos();
         }
 
@@ -156,7 +154,7 @@ namespace SpiderHood.Services
                 gasto.ReconciledTransactionId = new Guid(); //transaccionId;
             }
         }
-        
+
         public async Task DesconciliarGastoAsync(Guid gastoId)
         {
             var gasto = gastos.FirstOrDefault(g => g.IdExpense == gastoId);

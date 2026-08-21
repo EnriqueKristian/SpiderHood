@@ -1,4 +1,5 @@
 ﻿// Services/IPermissionAdminService.cs
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 
@@ -24,17 +25,15 @@ namespace SpiderHood.Services
         private readonly AuthService _authService;
         private readonly IPermissionService _permissionService;
         private List<PermissionDefinition> _allPermissions = new();
-        public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
 
 
-        public PermissionAdminService(SpiderHoodContext context, IConfiguration configuration, AuthService authService, IPermissionService permissionService)
+        public PermissionAdminService(IDbContextFactory<SpiderHoodContext> contextFactory, IConfiguration configuration, AuthService authService, IPermissionService permissionService)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _configuration = configuration;
             _authService = authService;
             _permissionService = permissionService;
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         private async Task<List<PermissionDefinition>> GetAllPermissionDefinitionsAsync()
@@ -52,6 +51,7 @@ namespace SpiderHood.Services
             {
                 rol.Permissions = await _permissionService.GetPermissionsForRoleAsync(rol.RoleName);
             }
+
             return list;
         }
 
@@ -113,7 +113,7 @@ namespace SpiderHood.Services
             var role = await ec.GetRoleByIdAsync(roleId);
             if (role.FirstOrDefault() == null)
                 throw new InvalidOperationException("El rol especificado no existe.");
-            
+
             await ec.DeleteRolePermissionsByRoleAsync(roleId);
 
             foreach (var permissionId in permissionIds)
@@ -135,6 +135,7 @@ namespace SpiderHood.Services
             {
                 assignment.AvailableRoles = roles;
             }
+
             return assignments;
         }
 

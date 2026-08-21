@@ -1,4 +1,5 @@
 ﻿// Services/IPermissionService.cs
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SpiderHood.Data;
 using SpiderHood.Models;
@@ -22,15 +23,13 @@ namespace SpiderHood.Services
         private readonly IConfiguration _configuration;
         private List<MenuItem>? _menuCache;
         private List<string>? _userPermissionsCache;
-        public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
 
-        public PermissionService(SpiderHoodContext context, AuthService authService, IConfiguration configuration)
+        public PermissionService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, IConfiguration configuration)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _authService = authService;
             _configuration = configuration;
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         public async Task<List<MenuItem>> GetMenuForUserAsync(UserSession user)
@@ -133,28 +132,9 @@ namespace SpiderHood.Services
             if (_menuCache != null)
                 return _menuCache;
 
-            // Antes esto usaba `user.IdRole`, una propiedad que mapeaba el nombre del rol
-            // a GUIDs escritos a mano en el código (desconectados de la tabla Role real,
-            // donde cada rol se crea con Guid.NewGuid()). Eso hacía que, salvo coincidencia,
-            // GetFullMenuAsync recibiera un IdRole que no existe en la base de datos y
-            // devolviera el menú vacío. Ahora resolvemos el IdRole real buscando el rol
-            // por nombre contra la tabla Role.
-            var idRole = await ResolveRoleIdAsync(user.Role);
-            _menuCache = await ec.GetFullMenuAsync(idRole);
+            _menuCache = await ec.GetFullMenuAsync(user.IdRole);
 
             return _menuCache;
-        }
-
-        private async Task<Guid> ResolveRoleIdAsync(string roleName)
-        {
-            if (string.IsNullOrWhiteSpace(roleName))
-                return Guid.Empty;
-
-            var roles = await ec.GetAllRolesAsync();
-            var match = roles.FirstOrDefault(r =>
-                string.Equals(r.RoleName, roleName, StringComparison.OrdinalIgnoreCase));
-
-            return match?.IdRole ?? Guid.Empty;
         }
 
         public async Task<List<string>> GetPermissionsForRoleAsync(string role)

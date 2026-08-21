@@ -1,5 +1,6 @@
 ﻿using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 
@@ -10,7 +11,7 @@ namespace SpiderHood.Services
         Task AddBankAccount(BankAccount newbank);
         Task UpdateBankAccount(BankAccount bankaccount);
         Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding);
-        Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync( Guid cuentaId, DateTime desde, DateTime hasta);
+        Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync(Guid cuentaId, DateTime desde, DateTime hasta);
         Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto);
         Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion);
         Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion);
@@ -29,14 +30,12 @@ namespace SpiderHood.Services
         private readonly HttpClient _httpClient;
         private readonly ILocalStorageService _localStorage;
         public BDLayout ec = default!;
-        public SpiderHoodContext Context { get; private set; }
 
-        public BankAccountService(SpiderHoodContext _context, HttpClient httpClient, ILocalStorageService localStorage)
+        public BankAccountService(IDbContextFactory<SpiderHoodContext> contextFactory, HttpClient httpClient, ILocalStorageService localStorage)
         {
             _httpClient = httpClient;
             _localStorage = localStorage;
-            Context = _context ?? throw new ArgumentNullException(nameof(_context));
-            ec = new BDLayout(Context);
+            ec = new BDLayout(contextFactory);
         }
 
 
@@ -135,7 +134,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync( Guid cuentaId, DateTime desde, DateTime hasta)
+        public async Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync(Guid cuentaId, DateTime desde, DateTime hasta)
         {
             try
             {
@@ -166,7 +165,7 @@ namespace SpiderHood.Services
             {
                 Console.WriteLine($"Error al Conciliar Transaccion con Cuota: {ex.Message}");
             }
-            
+
         }
 
         public async Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion)
@@ -215,7 +214,8 @@ namespace SpiderHood.Services
             return new List<TransactionBankDetail>();
         }
 
-        public async Task CrearTransaccionSobranteAsync(TransactionBankDetail paidexcesc) {
+        public async Task CrearTransaccionSobranteAsync(TransactionBankDetail paidexcesc)
+        {
             try
             {
                 await ec.AddNewRecordAsync(paidexcesc);
@@ -224,7 +224,7 @@ namespace SpiderHood.Services
             {
                 Console.WriteLine($"Error al obtener transacciones: {ex.Message}");
             }
-            
+
         }
     }
 }

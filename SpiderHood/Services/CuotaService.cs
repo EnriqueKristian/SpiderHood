@@ -11,16 +11,13 @@ namespace SpiderHood.Services
 {
     public class CuotaService : ICuotaService
     {
-        public SpiderHoodContext _context = default!;
         private readonly ILogger<CuotaService> _logger;
         [Inject]
         private ParameterService ParameterService { get; set; } = default!;
 
-        public CuotaService(SpiderHoodContext context, ILogger<CuotaService> logger)
+        public CuotaService(ILogger<CuotaService> logger)
         {
-            _context = context;
             _logger = logger;
-//            ParameterService = new ParameterService(_context);
         }
 
         public async Task<ResultadoGeneracion> GenerarCuotaMensualAsync(
@@ -305,7 +302,7 @@ namespace SpiderHood.Services
         public async Task<List<int>> ObtenerAñosDisponiblesAsync()
         {
 
-            List<int> x =  [];
+            List<int> x = [];
             x.Add(2022);
             x.Add(2023);
             x.Add(2024);

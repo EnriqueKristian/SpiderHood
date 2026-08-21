@@ -1,4 +1,5 @@
-﻿using SpiderHood.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using SpiderHood.Data;
 
 namespace SpiderHood.Services
 {
@@ -15,12 +16,10 @@ namespace SpiderHood.Services
     public class CategoryService : ICategoryService
     {
         public BDLayout ec = default!;
-        public SpiderHoodContext Context { get; private set; }
 
-        public CategoryService(SpiderHoodContext _context)
+        public CategoryService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
-            Context = _context ?? throw new ArgumentNullException(nameof(_context));
-            ec = new BDLayout(Context);
+            ec = new BDLayout(contextFactory);
         }
 
         public async Task<List<Models.Category>> GetCategoriesAsync(Guid IdBulding)

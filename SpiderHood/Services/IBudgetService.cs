@@ -12,7 +12,7 @@ namespace SpiderHood.Services
         public List<BudgetHeader> _Budgets { get; set; }
         public BudgetHeader _SelectedBudget { get; set; }
 
-        Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null,  string? mes = null, BudgetStatus? estado = null);
+        Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null, string? mes = null, BudgetStatus? estado = null);
         Task<List<BudgetSumCategory>> GetPresupuestosSumAsync(Guid IdBuilding);
         Task<BudgetHeader?> GetPresupuestoByIdAsync(Guid id);
         Task<BudgetHeader> CreatePresupuestoAsync(BudgetHeader presupuesto);
@@ -50,20 +50,20 @@ namespace SpiderHood.Services
         public List<BudgetHeader> _Budgets { get; set; } = new List<BudgetHeader>();
         public BudgetHeader _SelectedBudget { get; set; } = new BudgetHeader();
 
-        public SpiderHoodContext _context = default!;
+        private readonly IDbContextFactory<SpiderHoodContext> _contextFactory;
         private readonly ILogger<IBudgetService> _logger;
         private BDLayout ec { get; set; }
 
-        public BudgetService(SpiderHoodContext context, ILogger<IBudgetService> logger)
+        public BudgetService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         #region Presupuestos
 
-        public async Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null,  string? mes = null, BudgetStatus? estado = null)
+        public async Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null, string? mes = null, BudgetStatus? estado = null)
         {
             try
             {
@@ -87,7 +87,7 @@ namespace SpiderHood.Services
                     query = query.Where(p => p.Mes == mes).ToList();
                 }
 
-                if ( estado != null)
+                if (estado != null)
                 {
                     query = query.Where(p => p.Status == estado).ToList();
                 }
@@ -119,7 +119,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                return  await ec.GetBudgetSumAsync(IdBuilding);
+                return await ec.GetBudgetSumAsync(IdBuilding);
             }
             catch (Exception ex)
             {
@@ -132,7 +132,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                var presupuesto = ec.GetBudgetByIdAsync(id).Result;
+                var presupuesto = await ec.GetBudgetByIdAsync(id);
                 var detail = await ec.GetBudgetDetailAsync(id);
                 presupuesto.Details = detail;
 
@@ -156,44 +156,24 @@ namespace SpiderHood.Services
 
         public async Task<BudgetHeader> CreatePresupuestoAsync(BudgetHeader presupuesto)
         {
-            /*using var transaction = await _context.Database.BeginTransactionAsync();
-
             try
             {
-                // Validar código único
-                var existeCodigo = await _context.Presupuestos
-                    .AnyAsync(p => p.Codigo == presupuesto.Codigo);
+                if (presupuesto.IdBudgetHeader == Guid.Empty)
+                    presupuesto.IdBudgetHeader = Guid.NewGuid();
 
-                if (existeCodigo)
-                {
-                    throw new InvalidOperationException($"Ya existe un presupuesto con el código {presupuesto.Codigo}");
-                }
-
-                // Establecer valores por defecto
                 presupuesto.CreatedOn = DateTime.Now;
-                presupuesto.Status = 1; // presupuesto.Status ?? 1;
 
-                // Agregar presupuesto
-                _context.Presupuestos.Add(presupuesto);
-                await _context.SaveChangesAsync();
+                await ec.AddNewRecordAsync(presupuesto);
 
-                // Crear relaciones con categorías activas
-                await CrearRelacionesCategoriasAsync(presupuesto.Id);
-
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("Presupuesto creado: {Codigo}", presupuesto.Codigo);
+                _logger.LogInformation("Presupuesto creado: {Id}", presupuesto.IdBudgetHeader);
 
                 return presupuesto;
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al crear presupuesto");
                 throw;
             }
-            */
-            return presupuesto;
         }
 
         public async Task UpdatePresupuestoAsync(BudgetHeader presupuesto)
@@ -252,14 +232,19 @@ namespace SpiderHood.Services
 
         public async Task DeletePresupuestoAsync(Guid id)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            // BDLayout normalmente crea su propio SpiderHoodContext por operación (ver
+            // BDLayout.Core.cs), pero eso rompería una transacción como esta: cada llamada
+            // de ec.X() usaría su propia conexión, fuera de la transacción, y un rollback no
+            // revertiría nada. Por eso este método arma su propio contexto + transacción y
+            // pasa ese MISMO contexto a un BDLayout local (modo "fijo"), para que ambas
+            // llamadas de abajo compartan la misma conexión/transacción.
+            using var context = await _contextFactory.CreateDbContextAsync();
+            using var transaction = await context.Database.BeginTransactionAsync();
+            var ecLocal = new BDLayout(context);
 
             try
             {
-                // Verificar si existe
-                /*var presupuesto = await _context.BudgetHeader
-                    .FirstOrDefaultAsync(p => p.IdBudgetHeader == id);*/
-                BudgetHeader presupuesto = await ec.GetBudgetByIdAsync(id);
+                BudgetHeader presupuesto = await ecLocal.GetBudgetByIdAsync(id);
 
                 if (presupuesto == null)
                 {
@@ -267,11 +252,7 @@ namespace SpiderHood.Services
                 }
 
                 // Eliminar detalles asociados
-                await ec.DeleteRecordAsync(presupuesto);
-                
-                // Eliminar presupuesto
-                //_context.BudgetHeader.Remove(presupuesto);
-                await _context.SaveChangesAsync();
+                await ecLocal.DeleteRecordAsync(presupuesto);
 
                 await transaction.CommitAsync();
 
@@ -302,7 +283,8 @@ namespace SpiderHood.Services
                 await LoadBudgetDetailsAsync(state);
                 state.CalculateTotals();
             }
-            else {
+            else
+            {
                 state.IsNewBudget = true;
                 state.Status = BudgetStatus.Created;
             }
@@ -317,7 +299,7 @@ namespace SpiderHood.Services
 
         public async Task LoadDataDefaultAsync(BudgetState state)
         {
-            state.ExpensesList  = await ec.GetPendingConciliationExpensesAsync(state.Budget.IdBuilding, state.Budget.BudgetDate, state.Budget.BudgetDate);
+            state.ExpensesList = await ec.GetPendingConciliationExpensesAsync(state.Budget.IdBuilding, state.Budget.BudgetDate, state.Budget.BudgetDate);
             state.Owners = await ec.GetOwnersByBuildingAsync(state.Budget.IdBuilding);
             state.Owners = state.Owners.Where(c => c.Role == 1 && c.TypeUnit == 1).ToList();
         }
@@ -326,7 +308,7 @@ namespace SpiderHood.Services
         {
             //Cargar Template Default
             state.ListDefault = await ec.GetBudgetDetailDefaultAsync(state.Budget.IdBuilding);
-            
+
 
             var sequentialNumber = 0.0m;
             state.Budget.Details.Clear();
@@ -366,36 +348,45 @@ namespace SpiderHood.Services
 
         public async Task SaveBudgetAsync(BudgetState state, List<Models.Period> _periods)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            // Igual que en DeletePresupuestoAsync: todas las llamadas de abajo (directas y
+            // de los métodos privados que llaman) tienen que compartir el mismo contexto/
+            // conexión que esta transacción, así que se pasa un BDLayout local en modo
+            // "fijo" a través de toda la cadena en vez de usar el campo `ec` (que crea un
+            // contexto nuevo por llamada y quedaría fuera de la transacción).
+            using var context = await _contextFactory.CreateDbContextAsync();
+            using var transaction = await context.Database.BeginTransactionAsync();
+            var ecLocal = new BDLayout(context);
 
             try
             {
-               foreach (var period in _periods.Where(c => c.IsNewPeriod)) {
-                        await ec.AddNewRecordAsync(period);
-               }
+                foreach (var period in _periods.Where(c => c.IsNewPeriod))
+                {
+                    await ecLocal.AddNewRecordAsync(period);
+                }
 
                 if (state.Status == BudgetStatus.Created || state.Status == BudgetStatus.Rejected)
                 {
-                    await SaveCategoriesAsync(state);
+                    await SaveCategoriesAsync(ecLocal, state);
                 }
 
-                if (state.Status == BudgetStatus.Active) {
+                if (state.Status == BudgetStatus.Active)
+                {
                     //Guardar Installments en BD
-                    await SaveInstallment(state);
+                    await SaveInstallment(ecLocal, state);
                 }
 
                 if (state.IsNewBudget)
                 {
-                    await CreateNewBudgetAsync(state);
+                    await CreateNewBudgetAsync(ecLocal, state);
                 }
                 else
                 {
                     if (state.Status < BudgetStatus.Check || state.Status == BudgetStatus.Rejected)
-                        await UpdateExistingBudgetAsync(state);
+                        await UpdateExistingBudgetAsync(ecLocal, state);
                     else
                     {
-                        await ec.UpdateRecordAsync(state.Budget);
-                        await ec.ClosePastBudgetsAsync(state.Budget.IdBuilding, state.Budget.BudgetDate);
+                        await ecLocal.UpdateRecordAsync(state.Budget);
+                        await ecLocal.ClosePastBudgetsAsync(state.Budget.IdBuilding, state.Budget.BudgetDate);
                     }
                 }
 
@@ -409,20 +400,20 @@ namespace SpiderHood.Services
             }
         }
 
-        private async Task SaveCategoriesAsync(BudgetState state)
+        private async Task SaveCategoriesAsync(BDLayout ecLocal, BudgetState state)
         {
             foreach (var header in state.Details.Where(c => c.IsHeader && c.IsNewItem))
             {
-                await SaveCategoryAsync(header, Guid.Empty, state.Budget.IdBuilding);
+                await SaveCategoryAsync(ecLocal, header, Guid.Empty, state.Budget.IdBuilding);
 
                 foreach (var subItem in state.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader && c.IsNewItem))
                 {
-                    await SaveCategoryAsync(subItem, header.IdCategory, state.Budget.IdBuilding);
+                    await SaveCategoryAsync(ecLocal, subItem, header.IdCategory, state.Budget.IdBuilding);
                 }
             }
         }
 
-        private async Task SaveCategoryAsync(BudgetDetail item, Guid parentId, Guid IdBuilding)
+        private async Task SaveCategoryAsync(BDLayout ecLocal, BudgetDetail item, Guid parentId, Guid IdBuilding)
         {
             var category = new Category
             {
@@ -436,40 +427,41 @@ namespace SpiderHood.Services
                 ParentId = parentId
             };
 
-            await ec.AddNewRecordAsync(category);
+            await ecLocal.AddNewRecordAsync(category);
         }
 
-        private async Task CreateNewBudgetAsync(BudgetState state)
+        private async Task CreateNewBudgetAsync(BDLayout ecLocal, BudgetState state)
         {
-            
-            await ec.AddNewRecordAsync(state.Budget);
+
+            await ecLocal.AddNewRecordAsync(state.Budget);
 
             foreach (var item in state.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
             {
                 item.IdBudgetHeader = state.Budget.IdBudgetHeader;
-                await ec.AddNewRecordAsync(item);
+                await ecLocal.AddNewRecordAsync(item);
             }
 
             state.IsNewBudget = false;
         }
 
-        private async Task UpdateExistingBudgetAsync(BudgetState state)
+        private async Task UpdateExistingBudgetAsync(BDLayout ecLocal, BudgetState state)
         {
-            await ec.DeleteRecordAsync(state.Budget.IdBudgetHeader);
+            await ecLocal.DeleteRecordAsync(state.Budget.IdBudgetHeader);
 
             foreach (var item in state.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
             {
                 item.IdBudgetHeader = state.Budget.IdBudgetHeader;
-                await ec.AddNewRecordAsync(item);
+                await ecLocal.AddNewRecordAsync(item);
             }
 
-            await ec.UpdateRecordAsync(state.Budget);
+            await ecLocal.UpdateRecordAsync(state.Budget);
         }
 
-        private async Task SaveInstallment(BudgetState state) {
-            
+        private async Task SaveInstallment(BDLayout ecLocal, BudgetState state)
+        {
+
             foreach (var item in state.Installments)
-                await ec.AddNewRecordAsync(item);
+                await ecLocal.AddNewRecordAsync(item);
 
 
             var ServiceHeader = state.WaterReadings.FirstOrDefault();
@@ -479,14 +471,14 @@ namespace SpiderHood.Services
             UpdStatus.Status = 2;
 
             //Actualizar lectura de Agua
-            await ec.UpdateRecordAsync(UpdStatus);
+            await ecLocal.UpdateRecordAsync(UpdStatus);
 
             InstallmentExoneration _exoneration = new();
             _exoneration.IdBudgetHeader = state.Budget.IdBudgetHeader;
             _exoneration.IdBuilding = state.Budget.IdBuilding;
 
             //Generar Hist de Excepciones para calculo
-            await ec.AddNewRecordAsync(_exoneration);
+            await ecLocal.AddNewRecordAsync(_exoneration);
         }
 
 
@@ -494,7 +486,7 @@ namespace SpiderHood.Services
 
         #region Categorías
 
-        public async Task<List<Category>> GetCategoriasAsync(Guid IdBuilding,bool? activas = true)
+        public async Task<List<Category>> GetCategoriasAsync(Guid IdBuilding, bool? activas = true)
         {
             try
             {
@@ -688,58 +680,18 @@ namespace SpiderHood.Services
 
         public async Task AddDetalleToPresupuestoAsync(BudgetDetail detalle)
         {
-            /*
-            using var transaction = await _context.Database.BeginTransactionAsync();
-
             try
             {
-                // Validar que existe el presupuesto
-                var presupuesto = await _context.Presupuestos
-                    .FirstOrDefaultAsync(p => p.Id == detalle.PresupuestoId);
+                if (detalle.IdBudgetDetail == Guid.Empty)
+                    detalle.IdBudgetDetail = Guid.NewGuid();
 
-                if (presupuesto == null)
-                {
-                    throw new KeyNotFoundException($"Presupuesto con ID {detalle.PresupuestoId} no encontrado");
-                }
-
-                // Validar que existe la categoría
-                var categoria = await _context.Categorias
-                    .FirstOrDefaultAsync(c => c.Id == detalle.CategoriaId);
-
-                if (categoria == null)
-                {
-                    throw new KeyNotFoundException($"Categoría con ID {detalle.CategoriaId} no encontrada");
-                }
-
-                // Validar que la categoría esté activa
-                if (!categoria.Activo)
-                {
-                    throw new InvalidOperationException($"La categoría {categoria.Nombre} no está activa");
-                }
-
-                // Agregar detalle
-                _context.PresupuestoDetalles.Add(detalle);
-                await _context.SaveChangesAsync();
-
-                // Actualizar total del presupuesto
-                presupuesto.Amount += detalle.Monto;
-                _context.Presupuestos.Update(presupuesto);
-
-                // Actualizar relación presupuesto-categoría
-                await ActualizarRelacionCategoriaAsync(presupuesto.Id, categoria.Id, detalle.Monto);
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                _logger.LogInformation("Detalle agregado al presupuesto {PresupuestoId}", detalle.PresupuestoId);
+                await ec.AddNewRecordAsync(detalle);
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error al agregar detalle al presupuesto");
+                _logger.LogError(ex, "Error al agregar detalle al presupuesto {PresupuestoId}", detalle.IdBudgetHeader);
                 throw;
             }
-            */
         }
 
         public async Task UpdateDetalleAsync(BudgetDetail detalle)
@@ -1035,13 +987,11 @@ namespace SpiderHood.Services
 
     public class PeriodService : IPeriodService
     {
-        private readonly SpiderHoodContext _context;
         private BDLayout ec { get; set; }
 
-        public PeriodService(SpiderHoodContext context)
+        public PeriodService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
-            _context = context;
-            ec = new BDLayout(_context);
+            ec = new BDLayout(contextFactory);
         }
 
         public async Task<IEnumerable<Models.Period>> GetPeriodsByBuildingAsync(Guid IdBuilding)
@@ -1084,7 +1034,6 @@ namespace SpiderHood.Services
                     await UnsetOtherCurrentPeriods(period.IdBuilding, period.IdPeriod);
                 }
 
-                await _context.SaveChangesAsync();
                 return true;
             }
             catch (Exception)
@@ -1215,8 +1164,4 @@ namespace SpiderHood.Services
             await ec.UnsetOtherCurrentPeriodsAsync(IdBuilding, IdcurrentPeriod);
         }
     }
-
 }
-
-
-

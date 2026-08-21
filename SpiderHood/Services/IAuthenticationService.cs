@@ -1,5 +1,6 @@
 ﻿using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -46,11 +47,10 @@ namespace SpiderHood.Services
 
         public event Action? OnAuthStateChanged;
         private BDLayout Ec { get; set; }
-        public SpiderHoodContext _context = default!;
 
         private readonly string _baseUrl;
 
-        public AuthService(SpiderHoodContext context,
+        public AuthService(IDbContextFactory<SpiderHoodContext> contextFactory,
            ILogger<AuthService> logger,
            IEmailService emailService,
            CustomAuthenticationStateProvider authStateProvider,
@@ -60,7 +60,7 @@ namespace SpiderHood.Services
             _logger = logger;
             _authStateProvider = authStateProvider;
             _jsRuntime = jsRuntime; // Assign the non-nullable readonly field
-            Ec = new BDLayout(context);
+            Ec = new BDLayout(contextFactory);
             _emailService = emailService;
             //InitializeSampleData();
             _configuration = configuration;

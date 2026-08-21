@@ -8,7 +8,8 @@ using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
-    public interface IServiceReadingService {
+    public interface IServiceReadingService
+    {
         Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period);
         Task AddServiceReadingAsync(Models.ServiceReading newservice);
 
@@ -19,18 +20,17 @@ namespace SpiderHood.Services
     public class ServiceReadingService : IServiceReadingService
     {
 
-        public SpiderHoodContext _context = default!;
         private readonly ILogger<IBudgetService> _logger;
         private BDLayout ec { get; set; }
 
-        public ServiceReadingService(SpiderHoodContext context, ILogger<IBudgetService> logger)
+        public ServiceReadingService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
-        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period) {
+        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period)
+        {
             return await ec.GetServiceReadingDetailbyPeriodAsync(period);
         }
 
@@ -136,10 +136,9 @@ namespace SpiderHood.Services
     {
         private List<TarifaAgua> _tarifas = [];
         private List<ConsumoHistorico> _historicos = [];
-        public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
 
-        public CalculoService(SpiderHoodContext context)
+        public CalculoService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
             // Tarifas por defecto según la tabla proporcionada
             _tarifas = [
@@ -151,12 +150,11 @@ namespace SpiderHood.Services
 
             // Datos de ejemplo
             _historicos = [
-            
+
                 new() { Id = 1, DepartamentoId = 1, Anio = 2023, Consumo = 1338.99 },
                 new() { Id = 2, DepartamentoId = 1, Anio = 2022, Consumo = 14865.86 }
             ];
-            _context = context;
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         public Task<List<TarifaAgua>> ObtenerTarifasAsync()
@@ -270,7 +268,7 @@ namespace SpiderHood.Services
 
             ServiceLoadExcel readExcel = new ServiceLoadExcel();
 
-            ValidationResult?  readingValidation = new();
+            ValidationResult? readingValidation = new();
 
             int fila = 2; // Comienza después del encabezado
             foreach (var row in worksheet.RowsUsed().Skip(1))
@@ -285,7 +283,7 @@ namespace SpiderHood.Services
                 // Validaciones
                 WaterReadingValidator _validator = new WaterReadingValidator();
 
-                readingValidation  = _validator.ValidateLoadExcelReading(readExcel, readingValidation);
+                readingValidation = _validator.ValidateLoadExcelReading(readExcel, readingValidation);
 
                 var prev = previous.Where(c => c.GroupNumber == readExcel.Number).FirstOrDefault();
 
@@ -297,7 +295,7 @@ namespace SpiderHood.Services
                         IdServiceReadingDetail = Guid.NewGuid(),
                         IdServiceReading = reading.IdServiceReading,
                         IdGroupUnit = prev!.IdGroupUnit,
-                        GroupNumber = readExcel.Number, 
+                        GroupNumber = readExcel.Number,
                         Code = readExcel.Aparment + reading.Period.Month + reading.Period.Year,
                         CurrentReading = readExcel.ReadingValue,
                         PreviousReading = prev!.CurrentReading,
@@ -313,11 +311,13 @@ namespace SpiderHood.Services
                 fila++;
             }
 
-            foreach (var item in previous) {
+            foreach (var item in previous)
+            {
 
                 int exists = lecturas.Count(c => c.GroupNumber == item.GroupNumber);
 
-                if (exists == 0) {
+                if (exists == 0)
+                {
                     var lectura = new Models.ServiceReadingDetail
                     {
                         IdServiceReadingDetail = Guid.NewGuid(),
@@ -337,7 +337,7 @@ namespace SpiderHood.Services
 
             //return lecturas;
             reading.ValidationErrors = readingValidation!;
-            reading.WaterReadingDetail = [..lecturas.OrderBy(h => h.GroupNumber)];
+            reading.WaterReadingDetail = [.. lecturas.OrderBy(h => h.GroupNumber)];
             return Task.FromResult(reading);
         }
 
@@ -346,9 +346,10 @@ namespace SpiderHood.Services
             foreach (var lectura in lecturas.Where(c => c.Procesed))
             {
 
-                var consumo =  Math.Max(0, lectura.CurrentReading - lectura.PreviousReading);
+                var consumo = Math.Max(0, lectura.CurrentReading - lectura.PreviousReading);
 
-                if (consumo > 0) { 
+                if (consumo > 0)
+                {
                     var calculo = CalcularConsumoAsync(consumo, cargoFijo).Result;
                     lectura.CalculationDetail = calculo;
                     lectura.CalculatedAmount = calculo.TotalConIGV;
@@ -385,7 +386,8 @@ namespace SpiderHood.Services
     }
 
 
-    public class ServiceLoadExcel {
+    public class ServiceLoadExcel
+    {
 
         public string Aparment { get; set; } = string.Empty;
         public string Period { get; set; } = string.Empty;
@@ -439,45 +441,45 @@ namespace SpiderHood.Services
         {
             //var result = new ValidationResult();
 
-                if (!DateTime.TryParse(reading.Period, out DateTime periodo))
-                {
-                    //errores.Add($"Fila {.row - 1}: Periodo inválido");
-                    result!.AddError("PERIODO_INVALIDO", $"Fila {reading.row - 1}: Periodo inválido");
-                    reading.Procesed = false;
-                }
-                else if (periodo > DateTime.Today)
-                {
-                    //errores.Add($"Fila {fila - 1}: Fecha futura no permitida");
-                    result!.AddError("PERIODO_INVALIDO", $"Fila {reading.row - 1}: Periodo con Fecha Futura");
-                    reading.Procesed = false;
+            if (!DateTime.TryParse(reading.Period, out DateTime periodo))
+            {
+                //errores.Add($"Fila {.row - 1}: Periodo inválido");
+                result!.AddError("PERIODO_INVALIDO", $"Fila {reading.row - 1}: Periodo inválido");
+                reading.Procesed = false;
+            }
+            else if (periodo > DateTime.Today)
+            {
+                //errores.Add($"Fila {fila - 1}: Fecha futura no permitida");
+                result!.AddError("PERIODO_INVALIDO", $"Fila {reading.row - 1}: Periodo con Fecha Futura");
+                reading.Procesed = false;
             }
 
-                if (!DateTime.TryParse(reading.sDateReading , out DateTime fecha))
-                {
-                    result!.AddError("FECHA_LECTURA", $"Fila {reading.row - 1}: Fecha inválida");
-                    reading.Procesed = false;
-                    //errores.Add($"Fila {fila - 1}: Fecha inválida");
-                }
-                else if (fecha > DateTime.Today)
-                {
-                    result!.AddError("FECHA_LECTURA", $"Fila {reading.row - 1}: Fecha futura no permitida");
-                    reading.Procesed = false;
-                    //errores.Add($"Fila {fila - 1}: Fecha futura no permitida");
-                }
+            if (!DateTime.TryParse(reading.sDateReading, out DateTime fecha))
+            {
+                result!.AddError("FECHA_LECTURA", $"Fila {reading.row - 1}: Fecha inválida");
+                reading.Procesed = false;
+                //errores.Add($"Fila {fila - 1}: Fecha inválida");
+            }
+            else if (fecha > DateTime.Today)
+            {
+                result!.AddError("FECHA_LECTURA", $"Fila {reading.row - 1}: Fecha futura no permitida");
+                reading.Procesed = false;
+                //errores.Add($"Fila {fila - 1}: Fecha futura no permitida");
+            }
 
-                if (!int.TryParse(reading.Aparment, out int Number))
-                {
-                    result!.AddError("DPTO_INVALIDO", $"Fila {reading.row - 1}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
-                    reading.Procesed = false;
-                    //errores.Add($"Fila {fila - 1}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
-                }
+            if (!int.TryParse(reading.Aparment, out int Number))
+            {
+                result!.AddError("DPTO_INVALIDO", $"Fila {reading.row - 1}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
+                reading.Procesed = false;
+                //errores.Add($"Fila {fila - 1}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
+            }
 
-                if (!double.TryParse(reading.Reading, out double value))
-                {
-                    result!.AddError("LECTURA_INVALIDO", $"Fila {reading.row - 1}: Lectura Actual inválido (debe ser un número positivo)");
-                    reading.Procesed = false;
-                    //errores.Add($"Fila {fila - 1}: Lectura Actual inválido (debe ser un número positivo)");
-                }
+            if (!double.TryParse(reading.Reading, out double value))
+            {
+                result!.AddError("LECTURA_INVALIDO", $"Fila {reading.row - 1}: Lectura Actual inválido (debe ser un número positivo)");
+                reading.Procesed = false;
+                //errores.Add($"Fila {fila - 1}: Lectura Actual inválido (debe ser un número positivo)");
+            }
 
             return result!;
         }
@@ -557,5 +559,4 @@ namespace SpiderHood.Services
         public decimal MinConsumption { get; set; } = 5.0m;
         public int MaxReadingsPerFile { get; set; } = 1000;
     }
-
 }

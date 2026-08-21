@@ -21,7 +21,7 @@ namespace SpiderHood.Services
 
         Task<List<RoleDto>> GetAllRolesAsync();
         Task<List<MenuItemWithRoles>> GetRootMenuItemsWithRolesAsync();
-        
+
         Task UpdateMenuItemPermissionsAsync(Guid menuItemId, List<Guid> roleIds, List<bool> action);
     }
 
@@ -30,15 +30,13 @@ namespace SpiderHood.Services
         private readonly IConfiguration _configuration;
         private readonly IPermissionAdminService _permissionAdminService;
         private List<MenuItemWithRoles> _menuItems = [];
-        public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
 
-        public MenuAdminService(SpiderHoodContext context, IConfiguration configuration, IPermissionAdminService permissionAdminService)
+        public MenuAdminService(IDbContextFactory<SpiderHoodContext> contextFactory, IConfiguration configuration, IPermissionAdminService permissionAdminService)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _configuration = configuration;
             _permissionAdminService = permissionAdminService;
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
             InitializeMenuData();
         }
 
@@ -60,7 +58,7 @@ namespace SpiderHood.Services
             // Construir relaciones padre-hijo
             BuildHierarchy();
         }
-        
+
         private void BuildHierarchy()
         {
             foreach (var item in _menuItems)
@@ -128,7 +126,8 @@ namespace SpiderHood.Services
             mperm.IdMenu = item.IdMenu;
             _ = ec.DeleteRecordAsync(mperm);
 
-            foreach (var perm in item.RequiredPermissions) {
+            foreach (var perm in item.RequiredPermissions)
+            {
                 mperm = new();
                 mperm.IdMenu = item.IdMenu;
                 mperm.IdRole = perm;

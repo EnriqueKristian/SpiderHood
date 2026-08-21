@@ -2,6 +2,7 @@
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages.Manage;
 using SpiderHood.Data;
@@ -23,11 +24,10 @@ namespace SpiderHood.Services
         private readonly IEmailService _emailService;
         private readonly ILogger<EmailConfirmationService> _logger;
         private readonly IConfiguration _configuration;
-        public SpiderHoodContext _context = default!;
 
         private BDLayout Ec { get; set; }
 
-        public EmailConfirmationService(SpiderHoodContext context,
+        public EmailConfirmationService(IDbContextFactory<SpiderHoodContext> contextFactory,
             UserManager<IdentityUser> userManager,
             IEmailService emailService,
             ILogger<EmailConfirmationService> logger,
@@ -37,7 +37,7 @@ namespace SpiderHood.Services
             _emailService = emailService;
             _logger = logger;
             _configuration = configuration;
-            Ec = new BDLayout(context);
+            Ec = new BDLayout(contextFactory);
             //_invitationRepository = invitationRepository;
         }
 
@@ -118,7 +118,8 @@ namespace SpiderHood.Services
             }
         }
 
-        private async Task<IdentityResult> ConfirmEmailAsync(UserModel user, string decodedToken) {
+        private async Task<IdentityResult> ConfirmEmailAsync(UserModel user, string decodedToken)
+        {
 
             IdentityResult result;
 

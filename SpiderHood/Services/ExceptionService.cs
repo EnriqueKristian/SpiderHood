@@ -1,4 +1,5 @@
-﻿using SpiderHood.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using SpiderHood.Data;
 using SpiderHood.Models;
 
 namespace SpiderHood.Services
@@ -38,19 +39,17 @@ namespace SpiderHood.Services
 
     public class ExceptionService : IExceptionService
     {
-        private SpiderHoodContext Context { get; set; }
         private BDLayout Ec { get; set; }
 
         private readonly ILogger<ExceptionService> _logger;
 
 
         public ExceptionService(
-            SpiderHoodContext context,
+            IDbContextFactory<SpiderHoodContext> contextFactory,
             ILogger<ExceptionService> logger)
         {
-            Context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            Ec = new BDLayout(Context);
+            Ec = new BDLayout(contextFactory);
         }
 
         public async Task<List<Exoneration>> GetExceptionsByBuildingAsync(Guid idBuilding)

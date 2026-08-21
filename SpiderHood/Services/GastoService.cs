@@ -9,14 +9,7 @@ namespace SpiderHood.Services
 {
     public class GastoService : IGastoService
     {
-        public SpiderHoodContext _context = default!;
         private ParameterService ParameterService { get; set; } = default!;
-
-        public GastoService(SpiderHoodContext context)
-        {
-            _context = context;
-            //ParameterService = new ParameterService(_context);
-        }
 
         public async Task<List<GastoPendienteViewModel>> ObtenerGastosPendientesAsync()
         {
@@ -61,7 +54,6 @@ namespace SpiderHood.Services
         public async Task<ViewExpense> CrearGastoAsync(ViewExpense gasto)
         {
             //_context.Gastos.Add(gasto);
-            await _context.SaveChangesAsync();
             return gasto;
         }
 
@@ -72,7 +64,6 @@ namespace SpiderHood.Services
                 return false;
 
             _context.Entry(gastoExistente).CurrentValues.SetValues(gasto);*/
-            await _context.SaveChangesAsync();
             return true;
         }
 
@@ -83,7 +74,6 @@ namespace SpiderHood.Services
                 return false;
 
             _context.Gastos.Remove(gasto);*/
-            await _context.SaveChangesAsync();
             return true;
         }
 

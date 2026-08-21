@@ -71,6 +71,15 @@ namespace SpiderHood.Models
         public bool IsAuthenticated => SessionExpiry > DateTime.UtcNow;
         public bool RememberMe { get; internal set; }
         public string Role { get; set; } = string.Empty; //=> Roles[0];
+        public Guid IdRole =>
+            Role switch
+            {
+                "Administrador" => Guid.Parse("46198F07-F865-49A6-8057-571B867C5D1B"),
+                "Residente" => Guid.Parse("E507B520-E2F5-4A47-99FB-D71B5515A575"),
+                "Junta" => Guid.Parse("46461AA2-5A7B-4083-88CF-D9FD4704DF80"),
+                "SysAdmin" => Guid.Parse("E6A7FC24-75C2-44CE-88BF-7FC5B2A0EED4"),
+                _ => Guid.Empty
+            };
     }
 
     public class UserBuilding

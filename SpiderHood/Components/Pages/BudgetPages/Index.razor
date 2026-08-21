@@ -9,61 +9,81 @@
 
 <style>
 
-/* Estilos específicos para el sistema de presupuestos */
-.presupuestos-container {
-    /*background: #f8f9fa;*/
-    min-height: 100vh;
-}
+    /* Estilos específicos para el sistema de presupuestos */
+    .presupuestos-container {
+        /*background: #f8f9fa;*/
+        min-height: 100vh;
+    }
 
-/* Tabla con columnas dinámicas */
-.presupuestos-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-}
+    /* Tabla con columnas dinámicas */
+    .presupuestos-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+    }
 
-.presupuestos-table th {
-    background: #f1f5f9;
-    padding: 12px;
-    font-weight: 600;
-    color: #2c3e50;
-    border-bottom: 2px solid #dee2e6;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
+        .presupuestos-table th {
+            background: #f1f5f9;
+            padding: 12px;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 2px solid #dee2e6;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
 
-.presupuestos-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #eee;
-}
+        .presupuestos-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+        }
 
-.presupuestos-table tr:hover {
-    background-color: rgba(52, 152, 219, 0.05);
-}
+        .presupuestos-table tr:hover {
+            background-color: rgba(52, 152, 219, 0.05);
+        }
 
-.presupuestos-table tr.selected {
-    background-color: rgba(52, 152, 219, 0.1);
-    border-left: 3px solid #3498db;
-}
+        .presupuestos-table tr.selected {
+            background-color: rgba(52, 152, 219, 0.1);
+            border-left: 3px solid #3498db;
+        }
 
-/* Columnas específicas */
-.col-codigo { width: 120px; }
-.col-mes { width: 150px; }
-.col-descripcion { min-width: 260px; }
-.col-categoria { min-width: 120px; }
-.col-total { min-width: 110px; }
-.col-estado { width: 120px; }
-.col-acciones { width: 100px; }
+    /* Columnas específicas */
+    .col-codigo {
+        width: 120px;
+    }
 
-/* Badges de estado */
-.estado-badge {
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-}
+    .col-mes {
+        width: 150px;
+    }
+
+    .col-descripcion {
+        min-width: 260px;
+    }
+
+    .col-categoria {
+        min-width: 120px;
+    }
+
+    .col-total {
+        min-width: 110px;
+    }
+
+    .col-estado {
+        width: 120px;
+    }
+
+    .col-acciones {
+        width: 100px;
+    }
+
+    /* Badges de estado */
+    .estado-badge {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
 
     .estado-Active {
         background-color: rgba(39, 174, 96, 0.1);
@@ -76,44 +96,64 @@
     }
 
     .estado-Created {
-    background-color: rgba(243, 156, 18, 0.1);
-    color: #f39c12;
+        background-color: rgba(243, 156, 18, 0.1);
+        color: #f39c12;
     }
 
-/* Botones de acción */
+    /* Botones de acción */
 
-.btn-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    border: none;
-    background: transparent;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
+    .btn-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 4px;
+        border: none;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
 
-.btn-view { color: #3498db; }
-.btn-view:hover { background-color: rgba(52, 152, 219, 0.1); }
+    .btn-view {
+        color: #3498db;
+    }
 
-.btn-edit { color: #f39c12; }
-.btn-edit:hover { background-color: rgba(243, 156, 18, 0.1); }
+        .btn-view:hover {
+            background-color: rgba(52, 152, 219, 0.1);
+        }
 
-.btn-delete { color: #e74c3c; }
-.btn-delete:hover { background-color: rgba(231, 76, 60, 0.1); }
+    .btn-edit {
+        color: #f39c12;
+    }
 
-.btn-clone { color: #9b59b6; }
-.btn-clone:hover { background-color: rgba(155, 89, 182, 0.1); }
+        .btn-edit:hover {
+            background-color: rgba(243, 156, 18, 0.1);
+        }
 
-.btn-edit-sm, .btn-delete-sm {
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
-}
+    .btn-delete {
+        color: #e74c3c;
+    }
 
-/* Tarjetas de categorías en modal */
+        .btn-delete:hover {
+            background-color: rgba(231, 76, 60, 0.1);
+        }
+
+    .btn-clone {
+        color: #9b59b6;
+    }
+
+        .btn-clone:hover {
+            background-color: rgba(155, 89, 182, 0.1);
+        }
+
+    .btn-edit-sm, .btn-delete-sm {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+
+    /* Tarjetas de categorías en modal */
 
 
     .categories-grid {
@@ -156,7 +196,6 @@
         }
 
     .category-header {
-        
         padding: 10px;
         color: white;
         font-weight: 600;
@@ -226,91 +265,91 @@
         color: #1e3c72;
     }
 
-/* Preview de color */
-.color-preview {
-    width: 30px;
-    height: 30px;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-}
+    /* Preview de color */
+    .color-preview {
+        width: 30px;
+        height: 30px;
+        border-radius: 4px;
+        border: 1px solid #dee2e6;
+    }
 
-/* Paginación */
-.pagination-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    background: white;
-    border-top: 1px solid #dee2e6;
-}
+    /* Paginación */
+    .pagination-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background: white;
+        border-top: 1px solid #dee2e6;
+    }
 
-.pagination-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 
-.pagination-btn {
-    width: 36px;
-    height: 36px;
-    border: 1px solid #dee2e6;
-    background: white;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
+    .pagination-btn {
+        width: 36px;
+        height: 36px;
+        border: 1px solid #dee2e6;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
 
-.pagination-btn:hover:not(:disabled) {
-    background: #f8f9fa;
-    border-color: #3498db;
-}
+        .pagination-btn:hover:not(:disabled) {
+            background: #f8f9fa;
+            border-color: #3498db;
+        }
 
-.pagination-btn.active {
-    background: #3498db;
-    color: white;
-    border-color: #3498db;
-}
+        .pagination-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
 
-.pagination-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
-/* Estados vacíos */
-.empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    background: white;
-    border-radius: 8px;
-    color: #7f8c8d;
-}
+    /* Estados vacíos */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 8px;
+        color: #7f8c8d;
+    }
 
-.empty-state i {
-    color: #bdc3c7;
-    margin-bottom: 20px;
-}
+        .empty-state i {
+            color: #bdc3c7;
+            margin-bottom: 20px;
+        }
 
-.empty-state h3 {
-    color: #2c3e50;
-    margin-bottom: 10px;
-}
+        .empty-state h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
 
-/* Loading */
-.loading-table {
-    text-align: center;
-    padding: 60px;
-    background: white;
-}
+    /* Loading */
+    .loading-table {
+        text-align: center;
+        padding: 60px;
+        background: white;
+    }
 
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid rgba(52, 152, 219, 0.2);
-    border-top: 4px solid #3498db;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 20px;
-}
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(52, 152, 219, 0.2);
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
 
 @*keyframes spin {
     0% { transform: rotate(0deg); }
@@ -340,51 +379,50 @@
         text-align: center;
     }
 }*@
+    /* Estilos específicos para la página de presupuestos */
+    .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
 
-/* Estilos específicos para la página de presupuestos */
-.container {
-    max-width: 1400px;
-    margin: 0 auto;
-    background-color: white;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    overflow: hidden;
-}
-
-.header {
-    background: linear-gradient(135deg, var(--primary-color) 0%, #1a2530 100%);
-    color: white;
-    padding: 20px 30px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 15px;
-}
+    .header {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #1a2530 100%);
+        color: white;
+        padding: 20px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
 
 
-.header-controls {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
+    .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
 
-.top-filters {
-    padding: 20px 30px;
-    background-color: white;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 15px;
-}
+    .top-filters {
+        padding: 20px 30px;
+        background-color: white;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
 
-.filter-container {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-}
+    .filter-container {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
 
 
     .search-box {
@@ -424,191 +462,191 @@
         min-width: 120px;
     }
 
-.btn-group {
-    display: flex;
-    gap: 10px;
-}
+    .btn-group {
+        display: flex;
+        gap: 10px;
+    }
 
-.btn {
-    padding: 10px 18px;
-    border-radius: var(--radius);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
-    border: none;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+    .btn {
+        padding: 10px 18px;
+        border-radius: var(--radius);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: none;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 
-.stats-container {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-}
+    .stats-container {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
 
-.stat-badge {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 8px 15px;
-    background-color: white;
-    border-radius: var(--radius);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
+    .stat-badge {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 8px 15px;
+        background-color: white;
+        border-radius: var(--radius);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
 
-.stat-value {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--primary-color);
-}
+    .stat-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
 
-.stat-label {
-    font-size: 12px;
-    color: #666;
-    margin-top: 2px;
-}
+    .stat-label {
+        font-size: 12px;
+        color: #666;
+        margin-top: 2px;
+    }
 
-.table-container {
-    padding: 0;
-    overflow-x: auto;
-}
+    .table-container {
+        padding: 0;
+        overflow-x: auto;
+    }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-    min-width: 1200px;
-}
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        min-width: 1200px;
+    }
 
-thead {
-    background-color: #f1f5f9;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
+    thead {
+        background-color: #f1f5f9;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
 
-th {
-    padding: 16px 12px;
-    text-align: left;
-    font-weight: 600;
-    color: var(--primary-color);
-    border-bottom: 2px solid var(--border-color);
-    position: relative;
-    white-space: nowrap;
-    cursor: pointer;
-    user-select: none;
-}
+    th {
+        padding: 16px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--primary-color);
+        border-bottom: 2px solid var(--border-color);
+        position: relative;
+        white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+    }
 
-th i {
-    margin-left: 5px;
-    opacity: 0.7;
-    transition: opacity 0.3s;
-}
+        th i {
+            margin-left: 5px;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
 
-th:hover i {
-    opacity: 1;
-}
+        th:hover i {
+            opacity: 1;
+        }
 
-tbody tr {
-    border-bottom: 1px solid var(--border-color);
-    transition: background-color 0.2s;
-    cursor: pointer;
-}
+    tbody tr {
+        border-bottom: 1px solid var(--border-color);
+        transition: background-color 0.2s;
+        cursor: pointer;
+    }
 
-tbody tr:hover {
-    background-color: rgba(52, 152, 219, 0.05);
-}
+        tbody tr:hover {
+            background-color: rgba(52, 152, 219, 0.05);
+        }
 
-td {
-    padding: 14px 12px;
-    vertical-align: middle;
-}
+    td {
+        padding: 14px 12px;
+        vertical-align: middle;
+    }
 
-.text-center {
-    text-align: center;
-}
+    .text-center {
+        text-align: center;
+    }
 
-.text-right {
-    text-align: right;
-}
+    .text-right {
+        text-align: right;
+    }
 
-.item-cell {
-    font-weight: 600;
-    color: var(--primary-color);
-    width: 60px;
-}
+    .item-cell {
+        font-weight: 600;
+        color: var(--primary-color);
+        width: 60px;
+    }
 
-.date-cell {
-    width: 200px;
-    font-weight: 500;
-}
+    .date-cell {
+        width: 200px;
+        font-weight: 500;
+    }
 
-.budget-id {
-    font-size: 11px;
-    color: #999;
-    display: block;
-    margin-top: 3px;
-}
+    .budget-id {
+        font-size: 11px;
+        color: #999;
+        display: block;
+        margin-top: 3px;
+    }
 
-.amount-cell {
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-weight: 600;
-    color: var(--primary-color);
-}
+    .amount-cell {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-weight: 600;
+        color: var(--primary-color);
+    }
 
-.total-cell {
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-weight: 700;
-    color: var(--success-color);
-    background-color: rgba(39, 174, 96, 0.05);
-    border-left: 2px solid var(--success-color);
-}
+    .total-cell {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-weight: 700;
+        color: var(--success-color);
+        background-color: rgba(39, 174, 96, 0.05);
+        border-left: 2px solid var(--success-color);
+    }
 
-.action-cell {
-    width: 220px;
-}
+    .action-cell {
+        width: 220px;
+    }
 
-.action-btn {
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
-    border: none;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
+    .action-btn {
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: none;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
 
-.action-btn-detail {
-    background-color: rgba(52, 152, 219, 0.1);
-    color: var(--secondary-color);
-}
+    .action-btn-detail {
+        background-color: rgba(52, 152, 219, 0.1);
+        color: var(--secondary-color);
+    }
 
-.action-btn-detail:hover {
-    background-color: rgba(52, 152, 219, 0.2);
-}
+        .action-btn-detail:hover {
+            background-color: rgba(52, 152, 219, 0.2);
+        }
 
-.action-btn-edit {
-    background-color: rgba(243, 156, 18, 0.1);
-    color: var(--warning-color);
-}
+    .action-btn-edit {
+        background-color: rgba(243, 156, 18, 0.1);
+        color: var(--warning-color);
+    }
 
-.action-btn-edit:hover {
-    background-color: rgba(243, 156, 18, 0.2);
-}
+        .action-btn-edit:hover {
+            background-color: rgba(243, 156, 18, 0.2);
+        }
 
-.action-btn-delete {
-    background-color: rgba(231, 76, 60, 0.1);
-    color: var(--accent-color);
-}
+    .action-btn-delete {
+        background-color: rgba(231, 76, 60, 0.1);
+        color: var(--accent-color);
+    }
 
-.action-btn-delete:hover {
-    background-color: rgba(231, 76, 60, 0.2);
-}
+        .action-btn-delete:hover {
+            background-color: rgba(231, 76, 60, 0.2);
+        }
 
     .pagination-container {
         padding: 20px 30px;
@@ -677,46 +715,46 @@ td {
         background-color: white;
     }
 
-.summary-footer {
-    padding: 15px 30px;
-    background-color: #f8f9fa;
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 15px;
-}
+    .summary-footer {
+        padding: 15px 30px;
+        background-color: #f8f9fa;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
 
-.summary-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px 20px;
-    background-color: white;
-    border-radius: var(--radius);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    min-width: 120px;
-}
+    .summary-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 20px;
+        background-color: white;
+        border-radius: var(--radius);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        min-width: 120px;
+    }
 
-.summary-total {
-    background-color: rgba(39, 174, 96, 0.1);
-    border: 1px solid var(--success-color);
-}
+    .summary-total {
+        background-color: rgba(39, 174, 96, 0.1);
+        border: 1px solid var(--success-color);
+    }
 
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
         transition: opacity 0.3s, visibility 0.3s;
-    z-index: 1000;
-}
+        z-index: 1000;
+    }
 
     .modal-container {
         max-width: 900px;
@@ -729,80 +767,80 @@ td {
         animation: modalAppear 0.4s ease-out;
     }
 
-.modal-content {
-    background-color: white;
-    border-radius: var(--radius);
-    width: 90%;
-    max-width: 800px;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
+    .modal-content {
+        background-color: white;
+        border-radius: var(--radius);
+        width: 90%;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
 
-.modal-header {
-    padding: 20px 30px;
-    background-color: var(--primary-color);
-    color: white;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-radius: var(--radius) var(--radius) 0 0;
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-}
+    .modal-header {
+        padding: 20px 30px;
+        background-color: var(--primary-color);
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: var(--radius) var(--radius) 0 0;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    }
 
-.modal-title {
-    font-size: 20px;
-    font-weight: 600;
-}
+    .modal-title {
+        font-size: 20px;
+        font-weight: 600;
+    }
 
-.modal-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: background-color 0.3s;
-}
+    .modal-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background-color 0.3s;
+    }
 
-.modal-close:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
+        .modal-close:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
 
-.loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(255, 255, 255, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 100;
-    border-radius: var(--radius);
-}
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 100;
+        border-radius: var(--radius);
+    }
 
-.spinner {
-    border: 4px solid rgba(52, 152, 219, 0.2);
-    border-top: 4px solid var(--secondary-color);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-}
+    .spinner {
+        border: 4px solid rgba(52, 152, 219, 0.2);
+        border-top: 4px solid var(--secondary-color);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
 
 </style>
 
 <div class="presupuestos-container">
 
-     <!-- Header -->
+    <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="mb-1">Lista de Presupuestos </h1>
@@ -836,7 +874,7 @@ td {
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-3">
             <div class="card card-hover">
                 <div class="card-body">
@@ -922,90 +960,91 @@ td {
                 </div>
 
                 <div class="card-body p-0">
- <!-- Tabla de Presupuestos -->
-    <div class="table-section">
-        @if (isLoading)
-        {
-            <div class="loading-table">
-                <div class="spinner"></div>
-                <p>Cargando presupuestos...</p>
-            </div>
-        }
-                        else if (!filteredbudgets.Any())
-        {
-            <div class="empty-state">
-                <i class="fas fa-file-invoice-dollar fa-3x"></i>
-                <h3>No hay presupuestos</h3>
-                <p>No se encontraron presupuestos con los filtros aplicados.</p>
-                <button class="btn btn-primary" @onclick="NuevoPresupuesto">
-                    <i class="fas fa-plus"></i> Crear Primer Presupuesto
-                </button>
-            </div>
-        }
-        else
-        {
-            <div class="table-responsive">
-                <table class="presupuestos-table">
-                    <thead>
-                        <tr>
-                            <!--<th class="col-codigo">CÓDIGO</th>-->
-                            <th class="col-mes">MES</th>
-                            <th class="col-descripcion">DESCRIPCIÓN</th>
-                            
-                            <!-- Columnas dinámicas de categorías -->
-                            @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
-                            {
-                                <th class="col-categoria" style="color: @categoria.Color">
-                                    @categoria.ShortDescript.ToUpper()
-                                </th>
-                            }
-                            
-                            <th class="col-total">TOTAL</th>
-                            <th class="col-estado">ESTADO</th>
-                            <th class="col-acciones">ACCIONES</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var presupuesto in presupuestosPaginados)
+                    <!-- Tabla de Presupuestos -->
+                    <div class="table-section">
+                        @if (isLoading)
                         {
-                            <tr @onclick="() => SeleccionarPresupuesto(presupuesto)" 
-                                class="@(selectedBudget?.IdBudgetHeader == presupuesto.IdBudgetHeader ? "selected" : "")">
-                                <!--<td class="col-codigo">
+                            <div class="loading-table">
+                                <div class="spinner"></div>
+                                <p>Cargando presupuestos...</p>
+                            </div>
+                        }
+                        else if (!filteredbudgets.Any())
+                        {
+                            <div class="empty-state">
+                                <i class="fas fa-file-invoice-dollar fa-3x"></i>
+                                <h3>No hay presupuestos</h3>
+                                <p>No se encontraron presupuestos con los filtros aplicados.</p>
+                                <button class="btn btn-primary" @onclick="NuevoPresupuesto">
+                                    <i class="fas fa-plus"></i> Crear Primer Presupuesto
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="presupuestos-table">
+                                    <thead>
+                                        <tr>
+                                            <!--<th class="col-codigo">CÓDIGO</th>-->
+                                            <th class="col-mes">MES</th>
+                                            <th class="col-descripcion">DESCRIPCIÓN</th>
+
+                                            <!-- Columnas dinámicas de categorías -->
+                                            @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
+                                            {
+                                                <th class="col-categoria" style="color: @categoria.Color">
+                                                    @categoria.ShortDescript.ToUpper()
+                                                </th>
+                                            }
+
+                                            <th class="col-total">TOTAL</th>
+                                            <th class="col-estado">ESTADO</th>
+                                            <th class="col-acciones">ACCIONES</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var presupuesto in presupuestosPaginados)
+                                        {
+                                            <tr @onclick="() => SeleccionarPresupuesto(presupuesto)"
+                                                class="@(selectedBudget?.IdBudgetHeader == presupuesto.IdBudgetHeader ? "selected" : "")">
+                                                <!--<td class="col-codigo">
                                     <strong>@presupuesto.Codigo</strong>
                                 </td>-->
-                                <td class="col-mes">@presupuesto.Mes</td>
-                                <td class="col-descripcion">@presupuesto.BudgetName</td>
-                                
-                                <!-- Montos por categoría -->
-                                @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
-                                {
-                                    var monto = GetMontoCategoria(presupuesto, categoria.IdCategory);
-                                    <td class="col-categoria text-right">
-                                        <span>S/ @monto.ToString("N2")</span>
-                                    </td>
-                                }
-                                
-                                <td class="col-total text-right">
-                                    <strong>S/ @presupuesto.Amount.ToString("N2")</strong>
-                                </td>
-                                <td class="col-estado">
-                                    <span class="estado-badge estado-@presupuesto.Status"> <!-- PARAMETRO PADRE -->
-                                                    @ParameterService.GetChildParameterDescription(45, (int)presupuesto.Status)
-                                    </span>
-                                </td>
-                                <td class="col-acciones">
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-secondary"
-                                                            title="Ver Presupuesto"
-                                                            @onclick:stopPropagation @onclick="() => VerDetalle(presupuesto)">
-                                                        <i class="bi bi-eye"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-secondary"
-                                                            title="Editar Presupuesto"
-                                                            @onclick:stopPropagation @onclick="() => EditarPresupuesto(presupuesto)">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                        @if ( presupuesto.Status == BudgetStatus.Created || presupuesto.Status == BudgetStatus.Rejected || presupuesto.Status == BudgetStatus.Check )
+                                                <td class="col-mes">@presupuesto.Mes</td>
+                                                <td class="col-descripcion">@presupuesto.BudgetName</td>
+
+                                                <!-- Montos por categoría -->
+                                                @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
+                                                {
+                                                    var monto = GetMontoCategoria(presupuesto, categoria.IdCategory);
+                                                    <td class="col-categoria text-right">
+                                                        <span>S/ @monto.ToString("N2")</span>
+                                                    </td>
+                                                }
+
+                                                <td class="col-total text-right">
+                                                    <strong>S/ @presupuesto.Amount.ToString("N2")</strong>
+                                                </td>
+                                                <td class="col-estado">
+                                                    <span class="estado-badge estado-@presupuesto.Status">
+                                                        <!-- PARAMETRO PADRE -->
+                                                        @ParameterService.GetChildParameterDescription(45, (int)presupuesto.Status)
+                                                    </span>
+                                                </td>
+                                                <td class="col-acciones">
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button class="btn btn-outline-secondary"
+                                                                title="Ver Presupuesto"
+                                                                @onclick:stopPropagation @onclick="() => VerDetalle(presupuesto)">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                        <button class="btn btn-outline-secondary"
+                                                                title="Editar Presupuesto"
+                                                                @onclick:stopPropagation @onclick="() => EditarPresupuesto(presupuesto)">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                        @if (presupuesto.Status == BudgetStatus.Created || presupuesto.Status == BudgetStatus.Rejected || presupuesto.Status == BudgetStatus.Check)
                                                         {
                                                             <button class="btn btn-outline-danger"
                                                                     title="Elimnar Presupuesto"
@@ -1015,39 +1054,39 @@ td {
                                                         }
 
                                                     
-                                                    <button class="btn btn-outline-success"
-                                                            title="Clonar Presupuesto"
-                                                            @onclick:stopPropagation @onclick="() => ClonarPresupuesto(presupuesto)">
-                                                        <i class="bi bi-copy"></i>
-                                                    </button>
-                                                </div>
-                                </td>
-                            </tr>
+                                                        <button class="btn btn-outline-success"
+                                                                title="Clonar Presupuesto"
+                                                                @onclick:stopPropagation @onclick="() => ClonarPresupuesto(presupuesto)">
+                                                            <i class="bi bi-copy"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="total-row">
+                                            <td colspan="2" class="text-right"><strong>TOTALES:</strong></td>
+
+                                            <!-- Totales por categoría -->
+                                            @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
+                                            {
+                                                var totalCategoria = GetTotalCategoria(categoria.IdCategory);
+                                                <td class="text-right">
+                                                    <strong>S/ @totalCategoria.ToString("N2")</strong>
+                                                </td>
+                                            }
+
+                                            <td class="text-right">
+                                                <strong class="total-general">S/ @TotalGeneral.ToString("N2")</strong>
+                                            </td>
+                                            <td colspan="2"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
                         }
-                    </tbody>
-                    <tfoot>
-                        <tr class="total-row">
-                            <td colspan="2" class="text-right"><strong>TOTALES:</strong></td>
-                            
-                            <!-- Totales por categoría -->
-                            @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
-                            {
-                                var totalCategoria = GetTotalCategoria(categoria.IdCategory);
-                                <td class="text-right">
-                                    <strong>S/ @totalCategoria.ToString("N2")</strong>
-                                </td>
-                            }
-                            
-                            <td class="text-right">
-                                <strong class="total-general">S/ @TotalGeneral.ToString("N2")</strong>
-                            </td>
-                            <td colspan="2"></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        }
-    </div>
+                    </div>
                 </div>
 
                 <!-- Paginación -->
@@ -1142,12 +1181,12 @@ td {
 </div>
 
 <!-- Modal de Detalle de Presupuesto -->
-@if (mostrarModalDetalle )
+@if (mostrarModalDetalle)
 {
     <PresupuestoDetalleModal Presupuesto="budgetDetail"
-        Categorias="categoriasActivas"
-        OnClose="CerrarModalDetalle"
-        OnSave="GuardarCambiosDetalle" />
+                             Categorias="categoriasActivas"
+                             OnClose="CerrarModalDetalle"
+                             OnSave="GuardarCambiosDetalle" />
 }
 
 
@@ -1197,7 +1236,7 @@ td {
     private Modal modal = default!;
 
     // Datos calculados
-    private List<BudgetHeader> presupuestosPaginados => 
+    private List<BudgetHeader> presupuestosPaginados =>
         filteredbudgets.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
 
     private decimal TotalGeneral => filteredbudgets.Sum(p => p.Amount);
@@ -1218,8 +1257,33 @@ td {
 
     protected override async Task OnInitializedAsync()
     {
+        // ParameterService.CurrentBuilding se asigna en HeaderMainLayout.OnAfterRenderAsync,
+        // que corre DESPUÉS de este OnInitializedAsync en el primer render del circuito.
+        // Sin esperar, esta página se quedaba con el spinner de carga para siempre en la
+        // primera navegación tras el login. Reintentamos brevemente antes de rendirnos.
+        //
+        // El prerenderizado estático (SSR) corre este método completo — reintentos incluidos
+        // — ANTES de mandar el primer HTML al navegador, y en esa pasada CurrentBuilding
+        // nunca se llega a setear (HeaderMainLayout.OnAfterRenderAsync no corre durante
+        // prerenderizado). O sea que el HTML inicial ya llega en el estado "sin datos", no
+        // en el spinner. Forzamos un render aquí para que, en la pasada interactiva real, el
+        // usuario vea "Cargando presupuestos..." desde el primer instante en vez de quedarse
+        // viendo el HTML prerenderizado sin cambios durante los ~3s que dura el retry.
+        isLoading = true;
+        StateHasChanged();
+        var attempts = 0;
+        while (ParameterService.CurrentBuilding == null && attempts < 20)
+        {
+            await Task.Delay(150);
+            attempts++;
+            Console.WriteLine($"Index razor. Intento nro: {attempts}");
+        }
+
         if (ParameterService.CurrentBuilding == null)
+        {
+            isLoading = false;
             return;
+        }
 
         await CargarDatos();
         await LoadMonths();
@@ -1293,7 +1357,7 @@ td {
     }
 
     /*  SECCION PAGINACION   */
-    #region Paginacion 
+    #region Paginacion
 
     private void UpdatePagination()
     {
@@ -1469,21 +1533,33 @@ td {
                 BudgetDate = _budget.BudgetDate,
                 BudgetName = $"{_budget.BudgetName} (Copia)",
                 Status = BudgetStatus.Created,//"Activo",
+                IdBuilding = _budget.IdBuilding,
                 CreatedBy = "UsuarioActual" // Obtener del sistema de autenticación
             };
 
             var creado = await budgetService.CreatePresupuestoAsync(nuevoPresupuesto);
 
+            // La fila viene de la lista paginada, que no trae los detalles cargados;
+            // hay que pedirlos aparte para poder clonarlos.
+            var detallesOrigen = _budget.Details.Any()
+                ? _budget.Details
+                : await budgetService.GetBudgetDetailAsync(_budget.IdBudgetHeader);
+
             // Clonar detalles
-            foreach (var detalle in _budget.Details)
+            foreach (var detalle in detallesOrigen)
             {
                 var nuevoDetalle = new BudgetDetail
                 {
                     IdBudgetHeader = creado.IdBudgetHeader,
                     IdCategory = detalle.IdCategory,
+                    IdSection = detalle.IdSection,
+                    ItemNumber = detalle.ItemNumber,
                     Description = detalle.Description,
-                    MonthlyAmount = detalle.MonthlyAmount
-                    //No = detalle.Notas
+                    MonthlyAmount = detalle.MonthlyAmount,
+                    AnnualAmount = detalle.AnnualAmount,
+                    Frequency = detalle.Frequency,
+                    Type = detalle.Type,
+                    IsHeader = detalle.IsHeader
                 };
                 await budgetService.AddDetalleToPresupuestoAsync(nuevoDetalle);
             }

@@ -98,14 +98,35 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task InitializeClientAsync()
+        // Varios componentes del layout (LeftMenu, Home, HeaderMainLayout, ...) llaman a
+        // InitializeClientAsync() de forma independiente en su primer render. El guard
+        // `if (_staticIsClientInitialized) return;` solo se cumple DESPUÉS del primer
+        // `await`, así que si dos llamadas entran antes de que la primera termine, ambas
+        // pasan el guard y ejecutan el cuerpo completo en paralelo — leyendo localStorage
+        // dos veces y disparando NotifyAuthenticationStateChanged dos veces. Eso multiplica
+        // el trabajo de cualquier suscriptor a AuthenticationStateChanged (p.ej. LeftMenu
+        // recargando el menú) y agrava las colisiones del DbContext compartido del circuito.
+        // Memoizamos la tarea de inicialización para que todas las llamadas concurrentes
+        // esperen la MISMA ejecución en vez de disparar una cada una.
+        private Task? _initializationTask;
+        private readonly object _initializationLock = new();
+
+        public Task InitializeClientAsync()
         {
             if (_staticIsClientInitialized)
             {
-                //_logger.LogWarning($"⚠️ Cliente ya inicializado - Instancia: {this.GetHashCode()}");
-                return;
+                return Task.CompletedTask;
             }
 
+            lock (_initializationLock)
+            {
+                _initializationTask ??= InitializeClientCoreAsync();
+                return _initializationTask;
+            }
+        }
+
+        private async Task InitializeClientCoreAsync()
+        {
             _logger.LogWarning($"🔄 InitializeClientAsync INICIADO - Instancia: {this.GetHashCode()}");
 
             try

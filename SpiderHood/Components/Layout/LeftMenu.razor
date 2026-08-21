@@ -1,5 +1,7 @@
 ﻿@* LeftMenuLayout.razor *@
 @rendermode InteractiveServer
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Authorization
 @inject Services.IPermissionService PermissionService
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
@@ -97,6 +99,15 @@
     protected override async Task OnInitializedAsync()
     {
         _isDevelopment = Environment.IsDevelopment();
+
+        // Login, selección de edificio y cambio de rol navegan SIN forceLoad para no perder
+        // la sesión del circuito (ver notas en Login.razor/SelectBuilding.razor). Eso significa
+        // que este componente NO se recrea entre esas pantallas, así que su OnAfterRenderAsync
+        // con firstRender==true corre una sola vez por circuito — normalmente en /login, con el
+        // usuario todavía anónimo. Sin esta suscripción, el menú quedaba vacío hasta un F5 real
+        // (que sí recrea el circuito). Al escuchar el evento de la sesión, el menú se recarga en
+        // cuanto login/SetCurrentBuilding/SwitchRole notifican el cambio de sesión.
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChangedAsync;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -117,6 +128,21 @@
                 Console.WriteLine($"❌ Error en LeftMenuLayout.OnAfterRenderAsync {ex.Message}");
             }
         }
+    }
+
+    private void OnAuthenticationStateChangedAsync(Task<AuthenticationState> task)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadUserDataAsync();
+            await LoadMenuAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChangedAsync;
     }
 
     private async Task LoadUserDataAsync()

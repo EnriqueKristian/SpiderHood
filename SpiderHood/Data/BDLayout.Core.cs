@@ -7,9 +7,58 @@ using System.Data;
 
 namespace SpiderHood.Data
 {
-    public partial class BDLayout(SpiderHoodContext dbContext) : IBDLayout
+    public partial class BDLayout : IBDLayout
     {
-        private readonly SpiderHoodContext _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
+        // Antes BDLayout recibía un SpiderHoodContext ya construido — inyectado como Scoped
+        // por circuito de Blazor Server y compartido por TODOS los servicios/páginas que
+        // cargan datos en paralelo (LeftMenu, Home, HeaderMainLayout, ...). EF Core no
+        // permite operaciones concurrentes sobre la misma instancia, así que ese diseño
+        // garantizaba colisiones ("A second operation was started on this context
+        // instance...") cada vez que dos componentes cargaban al mismo tiempo; se mitigaban
+        // con reintentos, no se eliminaban. Ahora BDLayout recibe la factory y cada
+        // operación crea su propio SpiderHoodContext de corta vida, así que dos llamadas
+        // concurrentes ya no pueden pisarse: cada una tiene su propia conexión/contexto.
+        private readonly IDbContextFactory<SpiderHoodContext>? _contextFactory;
+        private readonly SpiderHoodContext? _fixedContext;
+        private readonly string? _connectionString;
+
+        public BDLayout(IDbContextFactory<SpiderHoodContext> contextFactory)
+        {
+            _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
+
+            // Algunas consultas abren su propia SqlConnection en paralelo a EF (Dapper puro,
+            // sin pasar por el change tracker). La cadena de conexión no cambia en runtime,
+            // así que basta con leerla una vez de un contexto descartable.
+            using var seedContext = _contextFactory.CreateDbContext();
+            _connectionString = seedContext.Database.GetConnectionString();
+        }
+
+        // Modo transaccional: algunos servicios necesitan que VARIAS llamadas de BDLayout
+        // (todas raw SQL vía ExecuteSqlRawAsync) participen en la MISMA transacción que el
+        // caller abrió con context.Database.BeginTransactionAsync(). Si cada llamada creara
+        // su propio contexto (modo normal, de arriba), cada una usaría su propia conexión y
+        // quedaría fuera de esa transacción — un rollback no revertiría nada. Este
+        // constructor reutiliza el contexto que ya trae el caller en vez de crear uno nuevo
+        // por operación; el caller es dueño del contexto y de su disposición.
+        public BDLayout(SpiderHoodContext existingContext)
+        {
+            _fixedContext = existingContext ?? throw new ArgumentNullException(nameof(existingContext));
+            _connectionString = existingContext.Database.GetConnectionString();
+        }
+
+        private async Task<SpiderHoodContext> RentContextAsync(CancellationToken cancellationToken = default)
+            => _fixedContext ?? await _contextFactory!.CreateDbContextAsync(cancellationToken);
+
+        private void ReturnContext(SpiderHoodContext context)
+        {
+            // Solo descartamos el contexto si lo creamos nosotros para esta operación
+            // (modo factory). El contexto "fijo" pasado por el caller es responsabilidad
+            // del caller, no nuestra.
+            if (_fixedContext == null)
+            {
+                context.Dispose();
+            }
+        }
 
         #region Constants and Stored Procedure Names
         private static class StoredProcedures
@@ -136,15 +185,12 @@ namespace SpiderHood.Data
 
         #region Helper Methods
 
-        // SpiderHoodContext se inyecta como Scoped y varios componentes de una misma
-        // página (Header, LeftMenu, la página en sí) disparan sus propias consultas
-        // async en OnAfterRenderAsync casi al mismo tiempo, todas contra la misma
-        // instancia de DbContext. EF Core no permite operaciones concurrentes sobre
-        // la misma instancia y lanza InvalidOperationException ("A second operation
-        // was started..."). Reintentamos un par de veces con una espera corta en vez
-        // de fallar la página: no resuelve la causa raíz (un DbContext por operación,
-        // vía IDbContextFactory), pero evita que ese choque intermitente tumbe cualquier
-        // carga de página que coincida con otra en el mismo circuito.
+        // Cada operación de BDLayout ahora crea su propio SpiderHoodContext de corta vida
+        // (ver el constructor), así que la colisión de concurrencia que este reintento
+        // mitigaba ya no debería ocurrir DESDE BDLayout. Se deja como red de seguridad:
+        // otros servicios del proyecto todavía comparten un SpiderHoodContext inyectado
+        // como Scoped y podrían seguir generando el mismo InvalidOperationException hasta
+        // que también migren a IDbContextFactory.
         private const int MaxConcurrencyRetries = 3;
 
         private static bool IsConcurrentDbContextUsage(Exception ex) =>
@@ -200,7 +246,15 @@ namespace SpiderHood.Data
 
             //_logger.LogDebug("Executing stored procedure: {Sql}", sql);
 
-            return await _dbContext.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
+            var dbContext = await RentContextAsync(cancellationToken);
+            try
+            {
+                return await dbContext.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
+            }
+            finally
+            {
+                ReturnContext(dbContext);
+            }
         }
 
         private async Task<T?> ExecuteQuerySingleAsync<T>(
@@ -222,12 +276,20 @@ namespace SpiderHood.Data
 
             var sql = $"EXEC {storedProcedureName} {string.Join(", ", paramNames)}";
 
-            var item = await _dbContext.Set<T>()
-                .FromSqlRaw(sql, sqlParams.ToArray())
-                .AsNoTracking()
-                .ToListAsync();
+            var dbContext = await RentContextAsync();
+            try
+            {
+                var item = await dbContext.Set<T>()
+                    .FromSqlRaw(sql, sqlParams.ToArray())
+                    .AsNoTracking()
+                    .ToListAsync();
 
-            return item.FirstOrDefault();
+                return item.FirstOrDefault();
+            }
+            finally
+            {
+                ReturnContext(dbContext);
+            }
         }
 
         // FIXED: Use FromSqlRaw with EXEC and call AsEnumerable() for client-side evaluation
@@ -250,10 +312,18 @@ namespace SpiderHood.Data
 
             var sql = $"EXEC {storedProcedureName} {string.Join(", ", paramNames)}";
 
-            return await _dbContext.Set<T>()
-                .FromSqlRaw(sql, sqlParams.ToArray())
-                .AsNoTracking()
-                .ToListAsync();
+            var dbContext = await RentContextAsync();
+            try
+            {
+                return await dbContext.Set<T>()
+                    .FromSqlRaw(sql, sqlParams.ToArray())
+                    .AsNoTracking()
+                    .ToListAsync();
+            }
+            finally
+            {
+                ReturnContext(dbContext);
+            }
         }
 
         #endregion

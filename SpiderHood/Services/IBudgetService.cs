@@ -50,15 +50,15 @@ namespace SpiderHood.Services
         public List<BudgetHeader> _Budgets { get; set; } = new List<BudgetHeader>();
         public BudgetHeader _SelectedBudget { get; set; } = new BudgetHeader();
 
-        public SpiderHoodContext _context = default!;
+        private readonly IDbContextFactory<SpiderHoodContext> _contextFactory;
         private readonly ILogger<IBudgetService> _logger;
         private BDLayout ec { get; set; }
 
-        public BudgetService(SpiderHoodContext context, ILogger<IBudgetService> logger)
+        public BudgetService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         #region Presupuestos
@@ -232,14 +232,19 @@ namespace SpiderHood.Services
 
         public async Task DeletePresupuestoAsync(Guid id)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            // BDLayout normalmente crea su propio SpiderHoodContext por operación (ver
+            // BDLayout.Core.cs), pero eso rompería una transacción como esta: cada llamada
+            // de ec.X() usaría su propia conexión, fuera de la transacción, y un rollback no
+            // revertiría nada. Por eso este método arma su propio contexto + transacción y
+            // pasa ese MISMO contexto a un BDLayout local (modo "fijo"), para que ambas
+            // llamadas de abajo compartan la misma conexión/transacción.
+            using var context = await _contextFactory.CreateDbContextAsync();
+            using var transaction = await context.Database.BeginTransactionAsync();
+            var ecLocal = new BDLayout(context);
 
             try
             {
-                // Verificar si existe
-                /*var presupuesto = await _context.BudgetHeader
-                    .FirstOrDefaultAsync(p => p.IdBudgetHeader == id);*/
-                BudgetHeader presupuesto = await ec.GetBudgetByIdAsync(id);
+                BudgetHeader presupuesto = await ecLocal.GetBudgetByIdAsync(id);
 
                 if (presupuesto == null)
                 {
@@ -247,11 +252,7 @@ namespace SpiderHood.Services
                 }
 
                 // Eliminar detalles asociados
-                await ec.DeleteRecordAsync(presupuesto);
-                
-                // Eliminar presupuesto
-                //_context.BudgetHeader.Remove(presupuesto);
-                await _context.SaveChangesAsync();
+                await ecLocal.DeleteRecordAsync(presupuesto);
 
                 await transaction.CommitAsync();
 
@@ -346,36 +347,43 @@ namespace SpiderHood.Services
 
         public async Task SaveBudgetAsync(BudgetState state, List<Models.Period> _periods)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            // Igual que en DeletePresupuestoAsync: todas las llamadas de abajo (directas y
+            // de los métodos privados que llaman) tienen que compartir el mismo contexto/
+            // conexión que esta transacción, así que se pasa un BDLayout local en modo
+            // "fijo" a través de toda la cadena en vez de usar el campo `ec` (que crea un
+            // contexto nuevo por llamada y quedaría fuera de la transacción).
+            using var context = await _contextFactory.CreateDbContextAsync();
+            using var transaction = await context.Database.BeginTransactionAsync();
+            var ecLocal = new BDLayout(context);
 
             try
             {
                foreach (var period in _periods.Where(c => c.IsNewPeriod)) {
-                        await ec.AddNewRecordAsync(period);
+                        await ecLocal.AddNewRecordAsync(period);
                }
 
                 if (state.Status == BudgetStatus.Created || state.Status == BudgetStatus.Rejected)
                 {
-                    await SaveCategoriesAsync(state);
+                    await SaveCategoriesAsync(ecLocal, state);
                 }
 
                 if (state.Status == BudgetStatus.Active) {
                     //Guardar Installments en BD
-                    await SaveInstallment(state);
+                    await SaveInstallment(ecLocal, state);
                 }
 
                 if (state.IsNewBudget)
                 {
-                    await CreateNewBudgetAsync(state);
+                    await CreateNewBudgetAsync(ecLocal, state);
                 }
                 else
                 {
                     if (state.Status < BudgetStatus.Check || state.Status == BudgetStatus.Rejected)
-                        await UpdateExistingBudgetAsync(state);
+                        await UpdateExistingBudgetAsync(ecLocal, state);
                     else
                     {
-                        await ec.UpdateRecordAsync(state.Budget);
-                        await ec.ClosePastBudgetsAsync(state.Budget.IdBuilding, state.Budget.BudgetDate);
+                        await ecLocal.UpdateRecordAsync(state.Budget);
+                        await ecLocal.ClosePastBudgetsAsync(state.Budget.IdBuilding, state.Budget.BudgetDate);
                     }
                 }
 
@@ -389,20 +397,20 @@ namespace SpiderHood.Services
             }
         }
 
-        private async Task SaveCategoriesAsync(BudgetState state)
+        private async Task SaveCategoriesAsync(BDLayout ecLocal, BudgetState state)
         {
             foreach (var header in state.Details.Where(c => c.IsHeader && c.IsNewItem))
             {
-                await SaveCategoryAsync(header, Guid.Empty, state.Budget.IdBuilding);
+                await SaveCategoryAsync(ecLocal, header, Guid.Empty, state.Budget.IdBuilding);
 
                 foreach (var subItem in state.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader && c.IsNewItem))
                 {
-                    await SaveCategoryAsync(subItem, header.IdCategory, state.Budget.IdBuilding);
+                    await SaveCategoryAsync(ecLocal, subItem, header.IdCategory, state.Budget.IdBuilding);
                 }
             }
         }
 
-        private async Task SaveCategoryAsync(BudgetDetail item, Guid parentId, Guid IdBuilding)
+        private async Task SaveCategoryAsync(BDLayout ecLocal, BudgetDetail item, Guid parentId, Guid IdBuilding)
         {
             var category = new Category
             {
@@ -416,40 +424,40 @@ namespace SpiderHood.Services
                 ParentId = parentId
             };
 
-            await ec.AddNewRecordAsync(category);
+            await ecLocal.AddNewRecordAsync(category);
         }
 
-        private async Task CreateNewBudgetAsync(BudgetState state)
+        private async Task CreateNewBudgetAsync(BDLayout ecLocal, BudgetState state)
         {
-            
-            await ec.AddNewRecordAsync(state.Budget);
+
+            await ecLocal.AddNewRecordAsync(state.Budget);
 
             foreach (var item in state.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
             {
                 item.IdBudgetHeader = state.Budget.IdBudgetHeader;
-                await ec.AddNewRecordAsync(item);
+                await ecLocal.AddNewRecordAsync(item);
             }
 
             state.IsNewBudget = false;
         }
 
-        private async Task UpdateExistingBudgetAsync(BudgetState state)
+        private async Task UpdateExistingBudgetAsync(BDLayout ecLocal, BudgetState state)
         {
-            await ec.DeleteRecordAsync(state.Budget.IdBudgetHeader);
+            await ecLocal.DeleteRecordAsync(state.Budget.IdBudgetHeader);
 
             foreach (var item in state.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
             {
                 item.IdBudgetHeader = state.Budget.IdBudgetHeader;
-                await ec.AddNewRecordAsync(item);
+                await ecLocal.AddNewRecordAsync(item);
             }
 
-            await ec.UpdateRecordAsync(state.Budget);
+            await ecLocal.UpdateRecordAsync(state.Budget);
         }
 
-        private async Task SaveInstallment(BudgetState state) {
-            
+        private async Task SaveInstallment(BDLayout ecLocal, BudgetState state) {
+
             foreach (var item in state.Installments)
-                await ec.AddNewRecordAsync(item);
+                await ecLocal.AddNewRecordAsync(item);
 
 
             var ServiceHeader = state.WaterReadings.FirstOrDefault();
@@ -459,14 +467,14 @@ namespace SpiderHood.Services
             UpdStatus.Status = 2;
 
             //Actualizar lectura de Agua
-            await ec.UpdateRecordAsync(UpdStatus);
+            await ecLocal.UpdateRecordAsync(UpdStatus);
 
             InstallmentExoneration _exoneration = new();
             _exoneration.IdBudgetHeader = state.Budget.IdBudgetHeader;
             _exoneration.IdBuilding = state.Budget.IdBuilding;
 
             //Generar Hist de Excepciones para calculo
-            await ec.AddNewRecordAsync(_exoneration);
+            await ecLocal.AddNewRecordAsync(_exoneration);
         }
 
 
@@ -975,13 +983,11 @@ namespace SpiderHood.Services
 
     public class PeriodService : IPeriodService
     {
-        private readonly SpiderHoodContext _context;
         private BDLayout ec { get; set; }
 
-        public PeriodService(SpiderHoodContext context)
+        public PeriodService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
-            _context = context;
-            ec = new BDLayout(_context);
+            ec = new BDLayout(contextFactory);
         }
 
         public async Task<IEnumerable<Models.Period>> GetPeriodsByBuildingAsync(Guid IdBuilding)
@@ -1024,7 +1030,6 @@ namespace SpiderHood.Services
                     await UnsetOtherCurrentPeriods(period.IdBuilding, period.IdPeriod);
                 }
 
-                await _context.SaveChangesAsync();
                 return true;
             }
             catch (Exception)

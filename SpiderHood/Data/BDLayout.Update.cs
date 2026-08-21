@@ -27,8 +27,6 @@ namespace SpiderHood.Data
                     user.LastName,
                     user.PhoneNumber,
                     user.IsActive);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return user;
             }, "UpdateUser", cancellationToken);
         }
@@ -45,8 +43,6 @@ namespace SpiderHood.Data
                     role.IdRole,
                     role.RoleName,
                     role.Description);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return role;
             }, "UpdateRole", cancellationToken);
         }
@@ -72,8 +68,6 @@ namespace SpiderHood.Data
                     item.BadgeText!,
                     item.BadgeColor!,
                     item.UpdatedAt!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return item;
             }, "UpdateMenuItem", cancellationToken);
         }
@@ -89,8 +83,6 @@ namespace SpiderHood.Data
                     cancellationToken,
                     servicereading.IdServiceReading!,
                     servicereading.Status!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return servicereading;
             }, "UpdateServiceReading", cancellationToken);
         }
@@ -111,8 +103,6 @@ namespace SpiderHood.Data
                     budgetheader.BudgetType!,
                     budgetheader.Status!,
                     budgetheader.IdPeriod!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return budgetheader;
             }, "UpdateBudgetHeader", cancellationToken);
         }
@@ -133,8 +123,6 @@ namespace SpiderHood.Data
                     owner.Address!,
                     owner.PhoneNumber!,
                     owner.IdTypeIdNumber!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return owner;
             }, "UpdateOwner", cancellationToken);
         }
@@ -150,8 +138,6 @@ namespace SpiderHood.Data
                     cancellationToken,
                     ownerunit.IdGroupOwner!,
                     ownerunit.AreaTotal!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return ownerunit;
             }, "UpdateOwnerUnit", cancellationToken);
         }
@@ -178,8 +164,6 @@ namespace SpiderHood.Data
                     configuration.DefaultCategory!,
                     configuration.WaterReadingDefault!,
                     configuration.IdBuilding!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return configuration;
             }, "UpdateBuildingConfiguration", cancellationToken);
         }
@@ -199,8 +183,6 @@ namespace SpiderHood.Data
                     bankaccount.BankName!,
                     bankaccount.AccountType!,
                     bankaccount.Status!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return bankaccount;
             }, "UpdateBankAccount", cancellationToken);
         }
@@ -217,8 +199,6 @@ namespace SpiderHood.Data
                     unit.IdUnit!,
                     unit.UnitNumber!,
                     unit.Area!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return unit;
             }, "Updateunit", cancellationToken);
         }
@@ -239,8 +219,6 @@ namespace SpiderHood.Data
                     parameter.Sort!,
                     parameter.IdParent!,
                     parameter.Estado!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return parameter;
             }, "UpdateParameter", cancellationToken);
         }
@@ -260,8 +238,6 @@ namespace SpiderHood.Data
                     category.Color!,
                     category.Icon!,
                     category.Distribution!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return category;
             }, "UpdateCategory", cancellationToken);
         }
@@ -279,8 +255,6 @@ namespace SpiderHood.Data
                     building.Name,
                     building.Location,
                     building.TotalArea);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return building;
             }, "UpdateBuilding", cancellationToken);
         }
@@ -303,8 +277,6 @@ namespace SpiderHood.Data
                     budgetDetail.Frequency,
                     budgetDetail.Type,
                     budgetDetail.IsHeader);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return budgetDetail;
             }, "UpdateBudgetDetail", cancellationToken);
         }
@@ -326,8 +298,6 @@ namespace SpiderHood.Data
                     contact.Address,
                     contact.OfficePhone,
                     contact.MobilePhone);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return contact;
             }, "UpdateContact", cancellationToken);
         }
@@ -347,8 +317,6 @@ namespace SpiderHood.Data
                     expense.IdDistribution!,
                     expense.IsIncludedInQuota,
                     expense.IdSubCategory!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return expense;
             }, "UpdateExpense", cancellationToken);
         }
@@ -370,8 +338,6 @@ namespace SpiderHood.Data
                     transaction.ReconciliationDate!,
                     transaction.GastoConciliado!.IdExpense,
                     transaction.GastoConciliado.AutoReconcile);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "UpdateExpenseReconciliation", cancellationToken);
         }

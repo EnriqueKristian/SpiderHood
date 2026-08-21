@@ -1,5 +1,6 @@
 ﻿using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 
@@ -29,14 +30,12 @@ namespace SpiderHood.Services
         private readonly HttpClient _httpClient;
         private readonly ILocalStorageService _localStorage;
         public BDLayout ec = default!;
-        public SpiderHoodContext Context { get; private set; }
 
-        public BankAccountService(SpiderHoodContext _context, HttpClient httpClient, ILocalStorageService localStorage)
+        public BankAccountService(IDbContextFactory<SpiderHoodContext> contextFactory, HttpClient httpClient, ILocalStorageService localStorage)
         {
             _httpClient = httpClient;
             _localStorage = localStorage;
-            Context = _context ?? throw new ArgumentNullException(nameof(_context));
-            ec = new BDLayout(Context);
+            ec = new BDLayout(contextFactory);
         }
 
 

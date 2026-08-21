@@ -1,4 +1,5 @@
 ﻿// Services/IPermissionService.cs
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SpiderHood.Data;
 using SpiderHood.Models;
@@ -22,15 +23,13 @@ namespace SpiderHood.Services
         private readonly IConfiguration _configuration;
         private List<MenuItem>? _menuCache;
         private List<string>? _userPermissionsCache;
-        public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
 
-        public PermissionService(SpiderHoodContext context, AuthService authService, IConfiguration configuration)
+        public PermissionService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, IConfiguration configuration)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _authService = authService;
             _configuration = configuration;
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         public async Task<List<MenuItem>> GetMenuForUserAsync(UserSession user)

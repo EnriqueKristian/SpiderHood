@@ -77,8 +77,7 @@ namespace SpiderHood.Services
             // Carga desde base de datos usando un DbContext creado por la factory
             try
             {
-                using var ctx = _contextFactory.CreateDbContext();
-                var ecLocal = new BDLayout(ctx);
+                var ecLocal = new BDLayout(_contextFactory);
 
                 var parameters = await ecLocal.GetParametersByBuildingAsync(IdBuilding);
                 var periodos = await ecLocal.GetPeriodsByBuildingAsync(IdBuilding);
@@ -119,8 +118,7 @@ namespace SpiderHood.Services
         public async Task<OperationResult> AddParameterAsync(Parameter parameter) {
             try
             {
-                using var ctx = _contextFactory.CreateDbContext();
-                var ecLocal = new BDLayout(ctx);
+                var ecLocal = new BDLayout(_contextFactory);
                 await ecLocal.AddNewRecordAsync(parameter);
                 return OperationResult.Success(parameter);
 
@@ -141,8 +139,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                using var ctx = _contextFactory.CreateDbContext();
-                var ecLocal = new BDLayout(ctx);
+                var ecLocal = new BDLayout(_contextFactory);
                 await ecLocal.UpdateRecordAsync(parameter);
                 return OperationResult.Success(parameter);
 
@@ -328,8 +325,7 @@ namespace SpiderHood.Services
 
         public async Task<List<Period>> GetPeriodsAsync(Guid IdBuilding)
         {
-            using var ctx = _contextFactory.CreateDbContext();
-            var ecLocal = new BDLayout(ctx);
+            var ecLocal = new BDLayout(_contextFactory);
             return await ecLocal.GetPeriodsByBuildingAsync(IdBuilding);
         }
 
@@ -405,8 +401,7 @@ namespace SpiderHood.Services
 
             try
             {
-                using var ctx = _contextFactory.CreateDbContext();
-                var ecLocal = new BDLayout(ctx);
+                var ecLocal = new BDLayout(_contextFactory);
                 return await operation(ecLocal);
             }
             catch (Exception ex)

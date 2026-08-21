@@ -19,8 +19,6 @@ namespace SpiderHood.Data
                     cancellationToken,
                     idBuilding,
                     idCurrentPeriod);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "UnsetOtherCurrentPeriods", cancellationToken);
         }
@@ -34,8 +32,6 @@ namespace SpiderHood.Data
                     cancellationToken,
                     period,
                     idBuilding);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "ClosePastBudgets", cancellationToken);
         }
@@ -49,8 +45,6 @@ namespace SpiderHood.Data
                     cancellationToken,
                     user.IdUser,
                     user.Token);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "ClosePastBudgets", cancellationToken);
         }
@@ -67,8 +61,6 @@ namespace SpiderHood.Data
                     cancellationToken,
                     idUser,
                     newPasswordHash);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "UpdateUserPassword", cancellationToken);
         }
@@ -79,11 +71,19 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = await _dbContext.Database.ExecuteSqlInterpolatedAsync(
-                    $"EXEC CHK_Period_CheckOverlap {period.IdBuilding}, {period.IdPeriod}, {period.EndDate}, {period.StartDate}",
-                    cancellationToken);
+                var dbContext = await RentContextAsync(cancellationToken);
+                try
+                {
+                    var result = await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                        $"EXEC CHK_Period_CheckOverlap {period.IdBuilding}, {period.IdPeriod}, {period.EndDate}, {period.StartDate}",
+                        cancellationToken);
 
-                return result > 0;
+                    return result > 0;
+                }
+                finally
+                {
+                    ReturnContext(dbContext);
+                }
             }, "CheckPeriodOverlap", cancellationToken);
         }
 
@@ -98,8 +98,6 @@ namespace SpiderHood.Data
                     transaction.IdStatementDetail,
                     installment.Status,
                     transaction.ReconciliationStatus);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "ClosePastBudgets", cancellationToken);
         }
@@ -116,8 +114,6 @@ namespace SpiderHood.Data
                     invitation.Role,
                     invitation.IsApproved,
                     invitation.RequestedAt!);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "ClosePastBudgets", cancellationToken);
         }

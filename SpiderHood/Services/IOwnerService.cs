@@ -1,4 +1,5 @@
-﻿using SpiderHood.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using SpiderHood.Data;
 using SpiderHood.Models;
 
 namespace SpiderHood.Services
@@ -16,12 +17,10 @@ namespace SpiderHood.Services
     public class OwnerService : IOwnerService
     {
         public BDLayout ec = default!;
-        public SpiderHoodContext Context { get; private set; }
 
-        public OwnerService(SpiderHoodContext _context)
+        public OwnerService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
-            Context = _context ?? throw new ArgumentNullException(nameof(_context));
-            ec = new BDLayout(Context);
+            ec = new BDLayout(contextFactory);
         }
 
         public async Task<Models.Owner> AddOwnerAsync(Owner newowner)

@@ -1,4 +1,5 @@
 ﻿// Services/IPermissionAdminService.cs
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 
@@ -24,17 +25,15 @@ namespace SpiderHood.Services
         private readonly AuthService _authService;
         private readonly IPermissionService _permissionService;
         private List<PermissionDefinition> _allPermissions = new();
-        public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
 
 
-        public PermissionAdminService(SpiderHoodContext context, IConfiguration configuration, AuthService authService, IPermissionService permissionService)
+        public PermissionAdminService(IDbContextFactory<SpiderHoodContext> contextFactory, IConfiguration configuration, AuthService authService, IPermissionService permissionService)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _configuration = configuration;
             _authService = authService;
             _permissionService = permissionService;
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         private async Task<List<PermissionDefinition>> GetAllPermissionDefinitionsAsync()

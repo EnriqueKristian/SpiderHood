@@ -22,13 +22,11 @@ namespace SpiderHood.Services
     {
         private List<ViewExpense> gastos = new();
         //private List<CategoriaGasto> categorias = new();
-        public SpiderHoodContext Context { get; private set; }
         public BDLayout ec = default!;
 
-        public ExpenseService(SpiderHoodContext _context)
+        public ExpenseService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
-            Context = _context ?? throw new ArgumentNullException(nameof(_context));
-            ec = new BDLayout(Context);
+            ec = new BDLayout(contextFactory);
             InicializarDatos();
         }
 

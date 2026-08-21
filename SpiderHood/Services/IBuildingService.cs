@@ -1,4 +1,5 @@
-﻿using SpiderHood.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using SpiderHood.Data;
 using SpiderHood.Models;
 
 
@@ -55,14 +56,12 @@ namespace SpiderHood.Services
 
     public class BuildingService : IBuildingService
     {
-        public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
         private ParameterService ParameterService { get; set; } = default!;
 
-        public BuildingService(SpiderHoodContext context)
+        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
-            _context = context;
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         public async Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner) {
@@ -374,7 +373,6 @@ namespace SpiderHood.Services
         public async Task<Departamento> CrearDepartamentoAsync(Departamento departamento)
         {
             //_context.Departamentos.Add(departamento);
-            await _context.SaveChangesAsync();
             return departamento;
         }
 
@@ -385,7 +383,6 @@ namespace SpiderHood.Services
                 return false;
 
             _context.Entry(deptoExistente).CurrentValues.SetValues(departamento);*/
-            await _context.SaveChangesAsync();
             return true;
         }
 
@@ -397,7 +394,6 @@ namespace SpiderHood.Services
 
             // Soft delete
             departamento.Activo = false;*/
-            await _context.SaveChangesAsync();
             return true;
         }
 

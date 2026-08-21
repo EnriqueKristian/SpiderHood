@@ -30,15 +30,13 @@ namespace SpiderHood.Services
         private readonly IConfiguration _configuration;
         private readonly IPermissionAdminService _permissionAdminService;
         private List<MenuItemWithRoles> _menuItems = [];
-        public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
 
-        public MenuAdminService(SpiderHoodContext context, IConfiguration configuration, IPermissionAdminService permissionAdminService)
+        public MenuAdminService(IDbContextFactory<SpiderHoodContext> contextFactory, IConfiguration configuration, IPermissionAdminService permissionAdminService)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _configuration = configuration;
             _permissionAdminService = permissionAdminService;
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
             InitializeMenuData();
         }
 

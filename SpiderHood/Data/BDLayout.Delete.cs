@@ -18,7 +18,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Role, cancellationToken, role.IdRole);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteRole", cancellationToken);
         }
@@ -28,7 +27,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_RolePermissionsByRole, cancellationToken, idRole);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteRolePermissionsByRole", cancellationToken);
         }
@@ -38,7 +36,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_UserRoleByUser, cancellationToken, idUser);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteUserRoleByUser", cancellationToken);
         }
@@ -50,7 +47,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_MenuItemPermission, cancellationToken, item.IdMenu, item.IdRole);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteMenuPermission", cancellationToken);
         }
@@ -62,7 +58,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Category, cancellationToken, category.IdCategory );
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteCategory", cancellationToken);
         }
@@ -74,7 +69,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_BudgetHeader, cancellationToken, budgetHeader.IdBudgetHeader);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteBudgetHeader", cancellationToken);
         }
@@ -84,7 +78,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_BudgetDetail, cancellationToken, idBudgetHeader);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteBudgetDetailByHeader", cancellationToken);
         }
@@ -96,7 +89,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_BudgetDetail, cancellationToken, budgetDetail.IdBudgetDetail);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteBudgetDetail", cancellationToken);
         }
@@ -112,8 +104,6 @@ namespace SpiderHood.Data
                     cancellationToken,
                     exoneration.IdExoneration,
                     exoneration.UpdatedBy);
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteExoneration", cancellationToken);
         }
@@ -125,7 +115,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Parameter, cancellationToken, parameter.IdTabla);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteParameter", cancellationToken);
         }
@@ -137,7 +126,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Owner, cancellationToken, owner.IdOwner);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteOwner", cancellationToken);
         }
@@ -149,7 +137,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Unit, cancellationToken, unit.IdUnit);
-                await _dbContext.SaveChangesAsync(cancellationToken);
                 return true;
             }, "DeleteUnit", cancellationToken);
         }

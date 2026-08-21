@@ -16,7 +16,7 @@ namespace SpiderHood.Data
             List<MenuPermissions> list = [];
             try
             {
-                using var connection = new SqlConnection(_dbContext.Database.GetConnectionString());
+                using var connection = new SqlConnection(_connectionString);
                 using var command = new SqlCommand(StoredProcedures.GET_AllMenuPemission, connection);
 
                 command.CommandType = CommandType.StoredProcedure;
@@ -189,7 +189,7 @@ namespace SpiderHood.Data
 
             try
             {
-                using var connection = new SqlConnection(_dbContext.Database.GetConnectionString());
+                using var connection = new SqlConnection(_connectionString);
                 using var command = new SqlCommand(StoredProcedures.GET_UnitsByBuilding, connection);
 
                 command.CommandType = CommandType.StoredProcedure;
@@ -241,7 +241,7 @@ namespace SpiderHood.Data
 
             try
             {
-                using var connection = new SqlConnection(_dbContext.Database.GetConnectionString());
+                using var connection = new SqlConnection(_connectionString);
                 using var command = new SqlCommand("GET_FullMenu", connection)
 
                 {
@@ -422,7 +422,7 @@ namespace SpiderHood.Data
             List<MenuItemWithRoles> list = [];
             try
             {
-                using var connection = new SqlConnection(_dbContext.Database.GetConnectionString());
+                using var connection = new SqlConnection(_connectionString);
                 using var command = new SqlCommand(StoredProcedures.GET_MenuItem, connection);
 
                 command.CommandType = CommandType.StoredProcedure;

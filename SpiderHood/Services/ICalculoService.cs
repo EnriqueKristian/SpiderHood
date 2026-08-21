@@ -19,15 +19,13 @@ namespace SpiderHood.Services
     public class ServiceReadingService : IServiceReadingService
     {
 
-        public SpiderHoodContext _context = default!;
         private readonly ILogger<IBudgetService> _logger;
         private BDLayout ec { get; set; }
 
-        public ServiceReadingService(SpiderHoodContext context, ILogger<IBudgetService> logger)
+        public ServiceReadingService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period) {
@@ -136,10 +134,9 @@ namespace SpiderHood.Services
     {
         private List<TarifaAgua> _tarifas = [];
         private List<ConsumoHistorico> _historicos = [];
-        public SpiderHoodContext _context = default!;
         private BDLayout ec { get; set; }
 
-        public CalculoService(SpiderHoodContext context)
+        public CalculoService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
             // Tarifas por defecto según la tabla proporcionada
             _tarifas = [
@@ -155,8 +152,7 @@ namespace SpiderHood.Services
                 new() { Id = 1, DepartamentoId = 1, Anio = 2023, Consumo = 1338.99 },
                 new() { Id = 2, DepartamentoId = 1, Anio = 2022, Consumo = 14865.86 }
             ];
-            _context = context;
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         public Task<List<TarifaAgua>> ObtenerTarifasAsync()

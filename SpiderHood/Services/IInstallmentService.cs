@@ -1,4 +1,5 @@
-﻿using SpiderHood.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using SpiderHood.Data;
 using SpiderHood.Models;
 
 namespace SpiderHood.Services
@@ -21,15 +22,13 @@ namespace SpiderHood.Services
         public List<InstallmentPaid> InstallmentPaids { get; set; } = [];
         public InstallmentPaid InstallmentPaid { get; set; } = new();
 
-        public SpiderHoodContext _context = default!;
         private readonly ILogger<IBudgetService> _logger;
         private BDLayout ec { get; set; }
 
-        public InstallmentService(SpiderHoodContext context, ILogger<IBudgetService> logger)
+        public InstallmentService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger)
         {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            ec = new BDLayout(context);
+            ec = new BDLayout(contextFactory);
         }
 
         public async Task<List<Installment>> GetInstallmentsByBudgetAsync(Guid IdBudgetHeader)

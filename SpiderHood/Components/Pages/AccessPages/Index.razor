@@ -1,7 +1,10 @@
-﻿@page "/usuarios"
+@page "/usuarios"
+@rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject UsuarioService UsuarioService
+@inject Services.AuthService AuthService
+@inject IPermissionAdminService PermissionAdminService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Gestión de Usuarios</PageTitle>
 
@@ -13,9 +16,6 @@
                     <i class="fas fa-users me-2"></i>Gestión de Usuarios
                 </h1>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-outline-primary" @onclick="ExportarUsuarios">
-                        <i class="fas fa-file-export me-1"></i> Exportar
-                    </button>
                     <button class="btn btn-primary" @onclick="MostrarModalNuevoUsuario">
                         <i class="fas fa-user-plus me-1"></i> Nuevo Usuario
                     </button>
@@ -24,205 +24,207 @@
         </div>
     </div>
 
-    <!-- Tarjetas de Resumen -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card summary-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-subtitle mb-2 text-muted">Total Usuarios</h6>
-                            <h3 class="card-title mb-0">@usuarios.Count</h3>
-                        </div>
-                        <div class="icon-circle bg-primary">
-                            <i class="fas fa-users text-white"></i>
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    }
+    else
+    {
+        <!-- Tarjetas de Resumen -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card summary-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-subtitle mb-2 text-muted">Total Usuarios</h6>
+                                <h3 class="card-title mb-0">@usuarios.Count</h3>
+                            </div>
+                            <div class="icon-circle bg-primary">
+                                <i class="fas fa-users text-white"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card summary-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-subtitle mb-2 text-muted">Administradores</h6>
-                            <h3 class="card-title mb-0">@usuarios.Count(u => u.Rol == "Administrador")</h3>
-                        </div>
-                        <div class="icon-circle bg-warning">
-                            <i class="fas fa-user-shield text-white"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card summary-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-subtitle mb-2 text-muted">Usuarios Activos</h6>
-                            <h3 class="card-title mb-0">@usuarios.Count(u => u.Estado == "Activo")</h3>
-                        </div>
-                        <div class="icon-circle bg-success">
-                            <i class="fas fa-user-check text-white"></i>
+            <div class="col-md-3">
+                <div class="card summary-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-subtitle mb-2 text-muted">Administradores</h6>
+                                <h3 class="card-title mb-0">@usuarios.Count(u => u.Rol == "Administrador")</h3>
+                            </div>
+                            <div class="icon-circle bg-warning">
+                                <i class="fas fa-user-shield text-white"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card summary-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-subtitle mb-2 text-muted">Usuarios Inactivos</h6>
-                            <h3 class="card-title mb-0">@usuarios.Count(u => u.Estado == "Inactivo")</h3>
-                        </div>
-                        <div class="icon-circle bg-secondary">
-                            <i class="fas fa-user-clock text-white"></i>
+            <div class="col-md-3">
+                <div class="card summary-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-subtitle mb-2 text-muted">Usuarios Activos</h6>
+                                <h3 class="card-title mb-0">@usuarios.Count(u => u.Estado == "Activo")</h3>
+                            </div>
+                            <div class="icon-circle bg-success">
+                                <i class="fas fa-user-check text-white"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <!-- Filtros -->
-        <div class="col-lg-3 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-4">
-                        <h6 class="text-muted mb-3">
-                            <i class="fas fa-user-tag me-2"></i>Roles
-                        </h6>
-                        <div class="list-group list-group-flush">
-                            @foreach (var rol in roles)
-                            {
-                                <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(rolSeleccionado == rol ? "active" : "")"
-                                        @onclick="() => FiltrarPorRol(rol)">
-                                    @rol
-                                    <span class="badge bg-primary rounded-pill">@ObtenerCantidadPorRol(rol)</span>
-                                </button>
-                            }
-                        </div>
-                    </div>
-
-                    <div>
-                        <h6 class="text-muted mb-3">
-                            <i class="fas fa-chart-bar me-2"></i>Estado
-                        </h6>
-                        <div class="list-group list-group-flush">
-                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(filtroEstado == null ? "active" : "")"
-                                    @onclick="() => FiltrarPorEstado(null)">
-                                Todos
-                                <span class="badge bg-secondary rounded-pill">@usuarios.Count</span>
-                            </button>
-                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(filtroEstado == "Activo" ? "active" : "")"
-                                    @onclick="() => FiltrarPorEstado(strActivo)">
-                                Activos
-                                <span class="badge bg-success rounded-pill">@usuarios.Count(u => u.Estado == "Activo")</span>
-                            </button>
-                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(filtroEstado == "Inactivo" ? "active" : "")"
-                                    @onclick="() => FiltrarPorEstado(strInactivo)">
-                                Inactivos
-                                <span class="badge bg-secondary rounded-pill">@usuarios.Count(u => u.Estado == "Inactivo")</span>
-                            </button>
+            <div class="col-md-3">
+                <div class="card summary-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="card-subtitle mb-2 text-muted">Usuarios Inactivos</h6>
+                                <h3 class="card-title mb-0">@usuarios.Count(u => u.Estado == "Inactivo")</h3>
+                            </div>
+                            <div class="icon-circle bg-secondary">
+                                <i class="fas fa-user-clock text-white"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Tabla de Usuarios -->
-        <div class="col-lg-9">
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>USUARIO</th>
-                                    <th>CONTACTO</th>
-                                    <th>ROL</th>
-                                    <th>DEPTO</th>
-                                    <th>ESTADO</th>
-                                    <th>FECHA INGRESO</th>
-                                    <th>ACCIONES</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var usuario in usuariosFiltrados)
+        <div class="row">
+            <!-- Filtros -->
+            <div class="col-lg-3 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-4">
+                            <h6 class="text-muted mb-3">
+                                <i class="fas fa-user-tag me-2"></i>Roles
+                            </h6>
+                            <div class="list-group list-group-flush">
+                                @foreach (var rol in roles)
                                 {
-                                    <tr>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="avatar @GetAvatarClass(usuario)">
-                                                    @GetIniciales(usuario.Nombre)
-                                                </div>
-                                                <div class="ms-3">
-                                                    <div class="fw-bold">@usuario.Nombre</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="d-flex flex-column">
-                                                <small class="text-primary">@usuario.Email</small>
-                                                <small class="text-muted">@usuario.Telefono</small>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge @GetRolBadgeClass(usuario.Rol)">
-                                                @usuario.Rol
-                                            </span>
-                                        </td>
-                                        <td>@usuario.Departamento</td>
-                                        <td>
-                                            <span class="badge @(usuario.Estado == "Activo" ? "bg-success" : "bg-secondary")">
-                                                @usuario.Estado
-                                            </span>
-                                        </td>
-                                        <td>@usuario.FechaIngreso.ToString("dd MMM yyyy")</td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm" role="group">
-                                                <button class="btn btn-outline-primary"
-                                                        @onclick="() => EditarUsuario(usuario.Id)"
-                                                        title="Editar usuario">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn btn-outline-warning"
-                                                        @onclick="() => CambiarEstadoUsuario(usuario.Id)"
-                                                        title="Cambiar estado">
-                                                    <i class="fas @(usuario.Estado == "Activo" ? "fa-user-slash" : "fa-user-check")"></i>
-                                                </button>
-                                                <button class="btn btn-outline-danger"
-                                                        @onclick="() => EliminarUsuario(usuario.Id)"
-                                                        title="Eliminar usuario">
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(rolSeleccionado == rol ? "active" : "")"
+                                            @onclick="() => FiltrarPorRol(rol)">
+                                        @rol
+                                        <span class="badge bg-primary rounded-pill">@ObtenerCantidadPorRol(rol)</span>
+                                    </button>
                                 }
-                            </tbody>
-                        </table>
-                    </div>
-
-                    @if (!usuariosFiltrados.Any())
-                    {
-                        <div class="text-center py-5">
-                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
-                            <p class="text-muted">No se encontraron usuarios con los filtros seleccionados</p>
+                            </div>
                         </div>
-                    }
+
+                        <div>
+                            <h6 class="text-muted mb-3">
+                                <i class="fas fa-chart-bar me-2"></i>Estado
+                            </h6>
+                            <div class="list-group list-group-flush">
+                                <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(filtroEstado == null ? "active" : "")"
+                                        @onclick="() => FiltrarPorEstado(null)">
+                                    Todos
+                                    <span class="badge bg-secondary rounded-pill">@usuarios.Count</span>
+                                </button>
+                                <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(filtroEstado == "Activo" ? "active" : "")"
+                                        @onclick="() => FiltrarPorEstado(strActivo)">
+                                    Activos
+                                    <span class="badge bg-success rounded-pill">@usuarios.Count(u => u.Estado == "Activo")</span>
+                                </button>
+                                <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(filtroEstado == "Inactivo" ? "active" : "")"
+                                        @onclick="() => FiltrarPorEstado(strInactivo)">
+                                    Inactivos
+                                    <span class="badge bg-secondary rounded-pill">@usuarios.Count(u => u.Estado == "Inactivo")</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Usuarios -->
+            <div class="col-lg-9">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>USUARIO</th>
+                                        <th>CONTACTO</th>
+                                        <th>ROL</th>
+                                        <th>ESTADO</th>
+                                        <th>FECHA INGRESO</th>
+                                        <th>ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var usuario in usuariosFiltrados)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="avatar @GetAvatarClass(usuario)">
+                                                        @GetIniciales(usuario.Nombre)
+                                                    </div>
+                                                    <div class="ms-3">
+                                                        <div class="fw-bold">@usuario.Nombre</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-column">
+                                                    <small class="text-primary">@usuario.Email</small>
+                                                    <small class="text-muted">@usuario.Telefono</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetRolBadgeClass(usuario.Rol)">
+                                                    @usuario.Rol
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge @(usuario.Estado == "Activo" ? "bg-success" : "bg-secondary")">
+                                                    @usuario.Estado
+                                                </span>
+                                            </td>
+                                            <td>@usuario.FechaIngreso.ToString("dd MMM yyyy")</td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <button class="btn btn-outline-primary"
+                                                            @onclick="() => EditarUsuario(usuario.IdUser)"
+                                                            title="Editar usuario">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-warning"
+                                                            @onclick="() => CambiarEstadoUsuario(usuario)"
+                                                            title="Cambiar estado">
+                                                        <i class="fas @(usuario.Estado == "Activo" ? "fa-user-slash" : "fa-user-check")"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if (!usuariosFiltrados.Any())
+                        {
+                            <div class="text-center py-5">
+                                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">No se encontraron usuarios con los filtros seleccionados</p>
+                            </div>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    }
 </div>
 
 <!-- Modal para Nuevo/Editar Usuario -->
@@ -234,13 +236,14 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="fas @(usuarioEditando == null ? "fa-user-plus" : "fa-user-edit") me-2"></i>
-                        @(usuarioEditando == null ? "Nuevo Usuario" : "Editar Usuario")
+                        <i class="fas @(formModel!.IsEdit ? "fa-user-edit" : "fa-user-plus") me-2"></i>
+                        @(formModel!.IsEdit ? "Editar Usuario" : "Nuevo Usuario")
                     </h5>
                     <button type="button" class="btn-close" @onclick="CerrarModalUsuario"></button>
                 </div>
                 <div class="modal-body">
-                    <UsuarioForm Usuario="usuarioActual"
+                    <UsuarioForm Model="formModel!"
+                                 AvailableRoles="_availableRoles"
                                  OnSave="GuardarUsuario"
                                  OnCancel="CerrarModalUsuario" />
                 </div>
@@ -250,20 +253,32 @@
 }
 
 @code {
-    private List<Usuario> usuarios = new();
-    private List<Usuario> usuariosFiltrados = new();
-    private List<string> roles = new() { "Todos", "Administrador", "Junta Directiva", "Residente" };
+    private class UsuarioRow
+    {
+        public Guid IdUser { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Telefono { get; set; } = string.Empty;
+        public string Rol { get; set; } = string.Empty;
+        public Guid? IdRole { get; set; }
+        public string Estado { get; set; } = "Activo";
+        public DateTime FechaIngreso { get; set; }
+    }
+
+    private List<UsuarioRow> usuarios = new();
+    private List<UsuarioRow> usuariosFiltrados = new();
+    private List<Role> _availableRoles = new();
+    private List<string> roles = new() { "Todos" };
 
     private string? rolSeleccionado = "Todos";
     private string? filtroEstado;
 
+    private bool _loading = true;
     private bool mostrarModalUsuario = false;
-    private Usuario? usuarioActual;
-    private Usuario? usuarioEditando;
+    private UsuarioFormModel? formModel;
 
     private string strActivo = "Activo";
     private string strInactivo = "Inactivo";
-
 
     protected override async Task OnInitializedAsync()
     {
@@ -273,28 +288,47 @@
 
     private async Task CargarUsuarios()
     {
-        // En una aplicación real, esto vendría de una base de datos o API
-        usuarios = new List<Usuario>
+        try
         {
-            new Usuario { Id = 1, Nombre = "Juan Pérez", Email = "juan.perez@email.com",
-                         Telefono = "+52 55 1234 5678", Rol = "Administrador",
-                         Departamento = "101", Estado = "Activo", FechaIngreso = new DateTime(2023, 1, 14) },
-            new Usuario { Id = 2, Nombre = "María García", Email = "maria.garcia@email.com",
-                         Telefono = "+52 55 2345 6789", Rol = "Junta Directiva",
-                         Departamento = "102", Estado = "Activo", FechaIngreso = new DateTime(2023, 2, 19) },
-            new Usuario { Id = 3, Nombre = "Carlos López", Email = "carlos.lopez@email.com",
-                         Telefono = "+52 55 3456 7890", Rol = "Residente",
-                         Departamento = "201", Estado = "Activo", FechaIngreso = new DateTime(2023, 3, 9) },
-            new Usuario { Id = 4, Nombre = "Ana Martínez", Email = "ana.martinez@email.com",
-                         Telefono = "+52 55 4567 8901", Rol = "Junta Directiva",
-                         Departamento = "202", Estado = "Activo", FechaIngreso = new DateTime(2023, 4, 4) },
-            new Usuario { Id = 5, Nombre = "Roberto Silva", Email = "roberto.silva@email.com",
-                         Telefono = "+52 55 5678 9012", Rol = "Residente",
-                         Departamento = "301", Estado = "Activo", FechaIngreso = new DateTime(2023, 5, 11) },
-            new Usuario { Id = 6, Nombre = "Laura Torres", Email = "laura.torres@gmail.com",
-                         Telefono = "+52 55 6789 0123", Rol = "Residente",
-                         Departamento = "302", Estado = "Inactivo", FechaIngreso = new DateTime(2023, 6, 17) }
-        };
+            _loading = true;
+
+            var assignments = await PermissionAdminService.GetUserRoleAssignmentsAsync();
+            _availableRoles = assignments.FirstOrDefault()?.AvailableRoles
+                ?? await PermissionAdminService.GetAllRolesAsync();
+
+            var rows = new List<UsuarioRow>();
+            foreach (var assignment in assignments)
+            {
+                var profile = await AuthService.GetUserProfileAsync(assignment.IdUser);
+
+                var nombre = profile != null && (!string.IsNullOrWhiteSpace(profile.FirstName) || !string.IsNullOrWhiteSpace(profile.LastName))
+                    ? $"{profile.FirstName} {profile.LastName}".Trim()
+                    : assignment.UserName;
+
+                rows.Add(new UsuarioRow
+                {
+                    IdUser = assignment.IdUser,
+                    Nombre = string.IsNullOrWhiteSpace(nombre) ? assignment.UserEmail : nombre,
+                    Email = assignment.UserEmail,
+                    Telefono = profile?.PhoneNumber ?? string.Empty,
+                    Rol = string.IsNullOrEmpty(assignment.CurrentRole) ? "Sin rol" : assignment.CurrentRole,
+                    IdRole = _availableRoles.FirstOrDefault(r => r.RoleName == assignment.CurrentRole)?.IdRole,
+                    Estado = (profile?.IsActive ?? true) ? "Activo" : "Inactivo",
+                    FechaIngreso = profile?.CreatedAt ?? DateTime.MinValue
+                });
+            }
+
+            usuarios = rows.OrderBy(u => u.Nombre).ToList();
+            roles = new List<string> { "Todos" }.Concat(_availableRoles.Select(r => r.RoleName)).ToList();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar usuarios: {ex.Message}");
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     private void FiltrarPorRol(string rol)
@@ -322,12 +356,12 @@
         return rol == "Todos" ? usuarios.Count : usuarios.Count(u => u.Rol == rol);
     }
 
-    private string GetAvatarClass(Usuario usuario)
+    private string GetAvatarClass(UsuarioRow usuario)
     {
         return usuario.Rol switch
         {
             "Administrador" => "avatar-admin",
-            "Junta Directiva" => "avatar-junta",
+            "Junta" => "avatar-junta",
             "Residente" => "avatar-residente",
             _ => "avatar-default"
         };
@@ -335,9 +369,9 @@
 
     private string GetIniciales(string nombre)
     {
-        var partes = nombre.Split(' ');
+        var partes = nombre.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (partes.Length >= 2)
-            return $"{partes[0][0]}{partes[1][0]}";
+            return $"{partes[0][0]}{partes[1][0]}".ToUpper();
         return nombre.Length >= 2 ? nombre.Substring(0, 2).ToUpper() : nombre.ToUpper();
     }
 
@@ -346,7 +380,8 @@
         return rol switch
         {
             "Administrador" => "bg-primary",
-            "Junta Directiva" => "bg-warning",
+            "SysAdmin" => "bg-danger",
+            "Junta" => "bg-warning",
             "Residente" => "bg-success",
             _ => "bg-secondary"
         };
@@ -354,80 +389,116 @@
 
     private void MostrarModalNuevoUsuario()
     {
-        usuarioActual = new Usuario();
-        usuarioEditando = null;
+        formModel = new UsuarioFormModel { IsActive = true };
         mostrarModalUsuario = true;
     }
 
-    private void EditarUsuario(int id)
+    private void EditarUsuario(Guid idUser)
     {
-        usuarioEditando = usuarios.FirstOrDefault(u => u.Id == id);
-        usuarioActual = usuarioEditando?.Clone();
+        var usuario = usuarios.FirstOrDefault(u => u.IdUser == idUser);
+        if (usuario == null) return;
+
+        formModel = new UsuarioFormModel
+        {
+            IdUser = usuario.IdUser,
+            IsEdit = true,
+            FirstName = usuario.Nombre.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(0) ?? string.Empty,
+            LastName = usuario.Nombre.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1) ?? string.Empty,
+            Email = usuario.Email,
+            PhoneNumber = usuario.Telefono,
+            IdRole = usuario.IdRole,
+            IsActive = usuario.Estado == "Activo"
+        };
         mostrarModalUsuario = true;
     }
 
-    private async Task GuardarUsuario(Usuario usuario)
+    private async Task GuardarUsuario(UsuarioFormModel model)
     {
-        if (usuarioEditando == null)
+        try
         {
-            // Nuevo usuario
-            usuario.Id = usuarios.Max(u => u.Id) + 1;
-            usuarios.Add(usuario);
-        }
-        else
-        {
-            // Editar usuario existente
-            var index = usuarios.FindIndex(u => u.Id == usuarioEditando.Id);
-            if (index >= 0)
+            if (model.IsEdit)
             {
-                usuarios[index] = usuario;
-            }
-        }
+                var result = await AuthService.UpdateUserAdminAsync(model.IdUser, model.FirstName, model.LastName, model.PhoneNumber, model.IsActive);
+                if (!result.Success)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", result.Message);
+                    return;
+                }
 
-        AplicarFiltros();
-        CerrarModalUsuario();
-        StateHasChanged();
+                if (model.IdRole.HasValue)
+                {
+                    await PermissionAdminService.AssignRoleToUserAsync(model.IdUser, model.IdRole.Value);
+                }
+
+                if (!string.IsNullOrWhiteSpace(model.Password))
+                {
+                    var passwordResult = await AuthService.AdminResetPasswordAsync(model.IdUser, model.Password);
+                    if (!passwordResult.Success)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", passwordResult.Message);
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                var result = await AuthService.CreateUserAsync(model.Email, model.FirstName, model.LastName, model.PhoneNumber, model.Password);
+                if (!result.Success || result.User == null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", result.Message);
+                    return;
+                }
+
+                if (model.IdRole.HasValue)
+                {
+                    await PermissionAdminService.AssignRoleToUserAsync(result.User.IdUser, model.IdRole.Value);
+                }
+
+                if (!model.IsActive)
+                {
+                    await AuthService.UpdateUserAdminAsync(result.User.IdUser, model.FirstName, model.LastName, model.PhoneNumber, false);
+                }
+            }
+
+            CerrarModalUsuario();
+            await CargarUsuarios();
+            AplicarFiltros();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+        }
     }
 
     private void CerrarModalUsuario()
     {
         mostrarModalUsuario = false;
-        usuarioActual = null;
-        usuarioEditando = null;
+        formModel = null;
     }
 
-    private async Task CambiarEstadoUsuario(int id)
+    private async Task CambiarEstadoUsuario(UsuarioRow usuario)
     {
-        var usuario = usuarios.FirstOrDefault(u => u.Id == id);
-        if (usuario != null)
+        var nuevoEstadoActivo = usuario.Estado != "Activo";
+        var accion = nuevoEstadoActivo ? "activar" : "desactivar";
+
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"¿Está seguro de {accion} a {usuario.Nombre}?"))
+            return;
+
+        var partes = usuario.Nombre.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        var result = await AuthService.UpdateUserAdminAsync(
+            usuario.IdUser,
+            partes.ElementAtOrDefault(0) ?? string.Empty,
+            partes.ElementAtOrDefault(1) ?? string.Empty,
+            usuario.Telefono,
+            nuevoEstadoActivo);
+
+        if (!result.Success)
         {
-            usuario.Estado = usuario.Estado == "Activo" ? "Inactivo" : "Activo";
-            AplicarFiltros();
-            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("alert", result.Message);
+            return;
         }
-    }
 
-    private async Task EliminarUsuario(int id)
-    {
-        var usuario = usuarios.FirstOrDefault(u => u.Id == id);
-        if (usuario != null)
-        {
-            // Confirmación antes de eliminar
-            if (await jsRuntime.InvokeAsync<bool>("confirm", $"¿Está seguro de eliminar al usuario {usuario.Nombre}?"))
-            {
-                usuarios.Remove(usuario);
-                AplicarFiltros();
-                StateHasChanged();
-            }
-        }
+        await CargarUsuarios();
+        AplicarFiltros();
     }
-
-    private async Task ExportarUsuarios()
-    {
-        // Lógica para exportar usuarios
-        await jsRuntime.InvokeVoidAsync("alert", "Exportando usuarios...");
-    }
-
-    [Inject]
-    private IJSRuntime jsRuntime { get; set; } = default!;
 }

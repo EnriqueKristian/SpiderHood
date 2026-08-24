@@ -1,128 +1,136 @@
-﻿@using SpiderHood.Models
+@using SpiderHood.Models
 
-<div class="row g-3">
-    <div class="col-md-6">
-        <label for="nombre" class="form-label">Nombre Completo *</label>
-        <input type="text" class="form-control" id="nombre"
-               @bind="Usuario.Nombre"
-               @bind:event="oninput" />
-        <ValidationMessage For="@(() => Usuario.Nombre)" />
-    </div>
+<EditForm Model="@Model" OnValidSubmit="@Guardar">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
 
-    <div class="col-md-6">
-        <label for="email" class="form-label">Correo Electrónico *</label>
-        <input type="email" class="form-control" id="email"
-               @bind="Usuario.Email"
-               @bind:event="oninput" />
-        <ValidationMessage For="@(() => Usuario.Email)" />
-    </div>
-
-    <div class="col-md-6">
-        <label for="telefono" class="form-label">Teléfono</label>
-        <input type="tel" class="form-control" id="telefono"
-               @bind="Usuario.Telefono"
-               @bind:event="oninput" />
-    </div>
-
-    <div class="col-md-6">
-        <label for="rol" class="form-label">Rol *</label>
-        <select class="form-select" id="rol" @bind="Usuario.Rol">
-            <option value="">Seleccionar rol...</option>
-            <option value="Administrador">Administrador</option>
-            <option value="Junta Directiva">Junta Directiva</option>
-            <option value="Residente">Residente</option>
-        </select>
-        <ValidationMessage For="@(() => Usuario.Rol)" />
-    </div>
-
-    <div class="col-md-6">
-        <label for="departamento" class="form-label">Departamento</label>
-        <input type="text" class="form-control" id="departamento"
-               @bind="Usuario.Departamento"
-               @bind:event="oninput" />
-    </div>
-
-    <div class="col-md-6">
-        <label for="estado" class="form-label">Estado</label>
-        <select class="form-select" id="estado" @bind="Usuario.Estado">
-            <option value="Activo">Activo</option>
-            <option value="Inactivo">Inactivo</option>
-        </select>
-    </div>
-
-    <div class="col-md-6">
-        <label for="fechaIngreso" class="form-label">Fecha de Ingreso</label>
-        <input type="date" class="form-control" id="fechaIngreso"
-               @bind="Usuario.FechaIngreso"
-               @bind:format="yyyy-MM-dd" />
-    </div>
-
-    <div class="col-md-6">
-        <label for="password" class="form-label">Contraseña @(Usuario.Id == 0 ? "*" : "")</label>
-        <div class="input-group">
-            <input type="password" class="form-control" id="password"
-                   @bind="passwordTemporal"
-                   @bind:event="oninput" />
-            <button class="btn btn-outline-secondary" type="button"
-                    @onclick="TogglePasswordVisibility">
-                <i class="fas @(mostrarPassword ? "fa-eye-slash" : "fa-eye")"></i>
-            </button>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label for="firstName" class="form-label">Nombre *</label>
+            <InputText id="firstName" class="form-control" @bind-Value="Model.FirstName" />
+            <ValidationMessage For="@(() => Model.FirstName)" />
         </div>
-        @if (Usuario.Id == 0)
-        {
-            <ValidationMessage For="@(() => passwordTemporal)" />
-        }
-    </div>
 
-    <div class="col-12 mt-4">
-        <div class="d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-secondary" @onclick="OnCancel">
-                Cancelar
-            </button>
-            <button type="button" class="btn btn-primary" @onclick="Guardar">
-                <i class="fas fa-save me-1"></i>
-                Guardar
-            </button>
+        <div class="col-md-6">
+            <label for="lastName" class="form-label">Apellido *</label>
+            <InputText id="lastName" class="form-control" @bind-Value="Model.LastName" />
+            <ValidationMessage For="@(() => Model.LastName)" />
+        </div>
+
+        <div class="col-md-6">
+            <label for="email" class="form-label">Correo Electrónico *</label>
+            <InputText id="email" class="form-control" @bind-Value="Model.Email" disabled="@Model.IsEdit" />
+            <ValidationMessage For="@(() => Model.Email)" />
+            @if (Model.IsEdit)
+            {
+                <small class="text-muted">El email no se puede modificar.</small>
+            }
+        </div>
+
+        <div class="col-md-6">
+            <label for="telefono" class="form-label">Teléfono</label>
+            <InputText id="telefono" class="form-control" @bind-Value="Model.PhoneNumber" />
+        </div>
+
+        <div class="col-md-6">
+            <label for="rol" class="form-label">Rol</label>
+            <select class="form-select" id="rol" @bind="RolSeleccionado">
+                <option value="">Sin rol asignado</option>
+                @foreach (var rol in AvailableRoles)
+                {
+                    <option value="@rol.IdRole">@rol.RoleName</option>
+                }
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label for="estado" class="form-label">Estado</label>
+            <select class="form-select" id="estado" @bind="EstadoSeleccionado">
+                <option value="true">Activo</option>
+                <option value="false">Inactivo</option>
+            </select>
+        </div>
+
+        <div class="col-md-6">
+            <label for="password" class="form-label">
+                Contraseña @(Model.IsEdit ? "" : "*")
+            </label>
+            <div class="input-group">
+                <input type="@(mostrarPassword ? "text" : "password")" class="form-control" id="password"
+                       @bind="Model.Password"
+                       @bind:event="oninput" />
+                <button class="btn btn-outline-secondary" type="button"
+                        @onclick="TogglePasswordVisibility">
+                    <i class="fas @(mostrarPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                </button>
+            </div>
+            @if (Model.IsEdit)
+            {
+                <small class="text-muted">Dejar en blanco para no editar el usuario.</small>
+            }
+            @if (!string.IsNullOrEmpty(_passwordError))
+            {
+                <div class="text-danger small">@_passwordError</div>
+            }
+        </div>
+
+        <div class="col-12 mt-4">
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" @onclick="OnCancel">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i>
+                    Guardar
+                </button>
+            </div>
         </div>
     </div>
-</div>
+</EditForm>
 
 @code {
     [Parameter]
-    public Usuario Usuario { get; set; } = new();
+    public UsuarioFormModel Model { get; set; } = new();
 
     [Parameter]
-    public EventCallback<Usuario> OnSave { get; set; }
+    public List<Role> AvailableRoles { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<UsuarioFormModel> OnSave { get; set; }
 
     [Parameter]
     public EventCallback OnCancel { get; set; }
 
-    private string passwordTemporal = "";
     private bool mostrarPassword = false;
-    private EditContext? editContext;
+    private string? _passwordError;
 
-    protected override void OnInitialized()
+    private string RolSeleccionado
     {
-        editContext = new EditContext(Usuario);
+        get => Model.IdRole?.ToString() ?? string.Empty;
+        set => Model.IdRole = string.IsNullOrEmpty(value) ? null : Guid.Parse(value);
+    }
+
+    private string EstadoSeleccionado
+    {
+        get => Model.IsActive.ToString();
+        set => Model.IsActive = bool.Parse(value);
     }
 
     private void Guardar()
     {
-        if (editContext?.Validate() ?? false)
-        {
-            if (!string.IsNullOrEmpty(passwordTemporal))
-            {
-                // En una app real, aquí se hashearía la contraseña
-                Usuario.PasswordHash = passwordTemporal;
-            }
+        _passwordError = null;
 
-            OnSave.InvokeAsync(Usuario);
+        if (!Model.IsEdit && string.IsNullOrWhiteSpace(Model.Password))
+        {
+            _passwordError = "La contraseña es obligatoria para un usuario nuevo";
+            return;
         }
+
+        OnSave.InvokeAsync(Model);
     }
 
     private void TogglePasswordVisibility()
     {
         mostrarPassword = !mostrarPassword;
-        // Aquí se cambiaría el tipo del input de password a text y viceversa
     }
 }

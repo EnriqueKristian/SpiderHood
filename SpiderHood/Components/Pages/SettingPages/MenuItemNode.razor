@@ -15,13 +15,13 @@
                 @if (Item.Children?.Any() == true)
                 {
                     <span class="expander-icon" @onclick="ToggleExpand">
-                        <i class="fas @(IsExpanded ? "fa-chevron-down" : "fa-chevron-right")"></i>
+                        <i class="bi @(IsExpanded ? "bi-chevron-down" : "bi-chevron-right")"></i>
                     </span>
                 }
                 else
                 {
                     <span class="expander-icon">
-                        <i class="fas fa-circle" style="font-size: 8px; color: #6c757d;"></i>
+                        <i class="bi bi-circle-fill" style="font-size: 8px; color: #6c757d;"></i>
                     </span>
                 }
 
@@ -76,13 +76,13 @@
         <td style="width: 150px;">
             <div class="actions-container">
                 <button class="btn btn-sm btn-outline-primary" @onclick="() => OnEdit.InvokeAsync(Item.IdMenu)" title="Editar">
-                    <i class="fas fa-edit"></i>
+                    <i class="bi bi-pencil-square"></i>
                 </button>
                 <button class="btn btn-sm btn-outline-success" @onclick="() => OnAddChild.InvokeAsync(Item.IdMenu)" title="Añadir hijo">
-                    <i class="fas fa-plus"></i>
+                    <i class="bi bi-plus"></i>
                 </button>
                 <!--<button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(Item.MenuId)" title="Eliminar">
-                    <i class="fas fa-trash"></i>
+                    <i class="bi bi-trash"></i>
                 </button>-->
             </div>
         </td>

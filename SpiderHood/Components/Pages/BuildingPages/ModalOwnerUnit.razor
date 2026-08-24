@@ -12,7 +12,7 @@
                 <!-- Header del Modal -->
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">
-                        <i class="fas @GetModalIcon() me-2"></i>
+                        <i class="bi @GetModalIcon() me-2"></i>
                         @GetModalTitle()
                     </h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal"></button>
@@ -28,7 +28,7 @@
                         <div class="card mb-3">
                             <div class="card-header bg-light">
                                 <h6 class="mb-0">
-                                    <i class="fas fa-user me-2"></i>Información del Propietario
+                                    <i class="bi bi-person me-2"></i>Información del Propietario
                                 </h6>
                             </div>
                             <div class="card-body">
@@ -49,14 +49,14 @@
                             <div class="card mb-3">
                                 <div class="card-header bg-light">
                                     <h6 class="mb-0">
-                                        <i class="fas fa-plus-circle me-2"></i>Asignar Unidades Adicionales
+                                        <i class="bi bi-plus-circle me-2"></i>Asignar Unidades Adicionales
                                     </h6>
                                 </div>
                                 <div class="card-body">
                                     <!-- Departamento Principal -->
                                     <div class="mb-4">
                                         <label class="form-label fw-bold">
-                                            <i class="fas fa-door-open me-2"></i>Departamento:
+                                            <i class="bi bi-door-open me-2"></i>Departamento:
                                         </label>
                                         <InputSelect @bind-Value="@SelectedUnitId" class="form-select">
                                             <option value="">-- Seleccionar Departamento --</option>
@@ -78,7 +78,7 @@
                                         <!-- Estacionamientos -->
                                         <div class="col-md-6">
                                             <label class="form-label fw-bold">
-                                                <i class="fas fa-parking me-2"></i>Estacionamientos:
+                                                <i class="bi bi-p-square me-2"></i>Estacionamientos:
                                             </label>
                                             <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
                                                 @if (GetAvailableUnits(2).Any())
@@ -100,7 +100,7 @@
                                                 else
                                                 {
                                                     <p class="text-muted small mb-0">
-                                                        <i class="fas fa-info-circle me-1"></i>No hay estacionamientos disponibles
+                                                        <i class="bi bi-info-circle me-1"></i>No hay estacionamientos disponibles
                                                     </p>
                                                 }
                                             </div>
@@ -109,7 +109,7 @@
                                         <!-- Depósitos -->
                                         <div class="col-md-6">
                                             <label class="form-label fw-bold">
-                                                <i class="fas fa-warehouse me-2"></i>Depósitos:
+                                                <i class="bi bi-building me-2"></i>Depósitos:
                                             </label>
                                             <div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
                                                 @if (GetAvailableUnits(3).Any())
@@ -131,7 +131,7 @@
                                                 else
                                                 {
                                                     <p class="text-muted small mb-0">
-                                                        <i class="fas fa-info-circle me-1"></i>No hay depósitos disponibles
+                                                        <i class="bi bi-info-circle me-1"></i>No hay depósitos disponibles
                                                     </p>
                                                 }
                                             </div>
@@ -146,7 +146,7 @@
                             <div class="card">
                                 <div class="card-header bg-light">
                                     <h6 class="mb-0">
-                                        <i class="fas fa-layer-group me-2"></i>Seleccionar Grupo de Unidades
+                                        <i class="bi bi-layers me-2"></i>Seleccionar Grupo de Unidades
                                     </h6>
                                 </div>
                                 <div class="card-body">
@@ -171,10 +171,10 @@
                 <!-- Footer del Modal -->
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
-                        <i class="fas fa-times me-2"></i>Cancelar
+                        <i class="bi bi-x-lg me-2"></i>Cancelar
                     </button>
                     <button type="submit" form="unitForm" class="btn btn-primary" disabled="@(!CanSubmit())">
-                        <i class="fas @GetSubmitIcon() me-2"></i>
+                        <i class="bi @GetSubmitIcon() me-2"></i>
                         @((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
                     </button>
                 </div>
@@ -235,12 +235,12 @@
 
     private string GetModalIcon()
     {
-        return (OpenMode == Models.OpenType.Create) ? "fa-user-plus" : "fa-user-edit";
+        return (OpenMode == Models.OpenType.Create) ? "bi-person-plus" : "bi-person-fill-gear";
     }
 
     private string GetSubmitIcon()
     {
-        return (OpenMode == Models.OpenType.Create) ? "fa-save" : "fa-check";
+        return (OpenMode == Models.OpenType.Create) ? "bi-floppy" : "bi-check";
     }
 
     private bool CanSubmit()

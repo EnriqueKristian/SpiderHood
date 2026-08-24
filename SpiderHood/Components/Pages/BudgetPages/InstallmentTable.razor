@@ -208,17 +208,17 @@
                <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center py-3">
                     <div>
                         <h5 class="mb-0">
-                            <i class="fas fa-calendar-alt me-2"></i>
+                            <i class="bi bi-calendar3 me-2"></i>
                             Cuota Mensual: @GetNombreMes(Budget!.BudgetDate.Month) @Budget.BudgetDate.Year
                         </h5>
                         <small class="opacity-75">Distribución de gastos por departamento</small>
                     </div>
                     <div class="btn-group" role="group">
                         <button class="btn btn-light btn-sm px-3" @onclick="ExportarPDF" title="Exportar a PDF">
-                            <i class="fas fa-file-pdf text-danger me-1"></i> PDF
+                            <i class="bi bi-file-earmark-pdf text-danger me-1"></i> PDF
                         </button>
                         <button class="btn btn-light btn-sm px-3 ms-2" @onclick="ExportarExcel" title="Exportar a Excel">
-                            <i class="fas fa-file-excel text-success me-1"></i> Excel
+                            <i class="bi bi-file-earmark-excel text-success me-1"></i> Excel
                         </button>
                     </div>
                 </div> 
@@ -231,7 +231,7 @@
                     <div class="col-md-3">
                         <div class="stat-card border-end">
                             <div class="stat-icon bg-info">
-                                <i class="fas fa-building"></i>
+                                <i class="bi bi-building"></i>
                             </div>
                             <div class="stat-content">
                                 <h6>Departamentos</h6>
@@ -242,7 +242,7 @@
                     <div class="col-md-3">
                         <div class="stat-card border-end">
                             <div class="stat-icon bg-success">
-                                <i class="fas fa-calculator"></i>
+                                <i class="bi bi-calculator"></i>
                             </div>
                             <div class="stat-content">
                                 <h6>Total Presupuesto</h6>
@@ -253,7 +253,7 @@
                     <div class="col-md-3">
                         <div class="stat-card border-end">
                             <div class="stat-icon bg-warning">
-                                <i class="fas fa-tint"></i>
+                                <i class="bi bi-droplet-fill"></i>
                             </div>
                             <div class="stat-content">
                                 <h6>Consumo Agua</h6>
@@ -264,7 +264,7 @@
                     <div class="col-md-3">
                         <div class="stat-card">
                             <div class="stat-icon bg-primary">
-                                <i class="fas fa-money-bill-wave"></i>
+                                <i class="bi bi-cash-coin"></i>
                             </div>
                             <div class="stat-content">
                                 <h6>Total Cuotas</h6>
@@ -280,7 +280,7 @@
                     <!-- Tabla de Filtros -->
                     <div class="table-header d-flex justify-content-between align-items-center p-3 border-bottom">
                         <h6 class="mb-0 text-muted">
-                            <i class="fas fa-list me-2"></i>Cuotas por Unidad
+                            <i class="bi bi-list me-2"></i>Cuotas por Unidad
                         </h6>
                         <div class="search-box">
                             <input type="text"
@@ -307,43 +307,43 @@
                             <thead class="table-light">
                                 <tr>
                                     <th width="12%" class="ps-3">
-                                        <i class="fas fa-door-closed me-1"></i>Unidad
+                                        <i class="bi bi-door-closed me-1"></i>Unidad
                                     </th>
                                     <th>
-                                        <i class="fas fa-user me-1"></i>Propietario
+                                        <i class="bi bi-person me-1"></i>Propietario
                                     </th>
                                     @if (Conciliar)
                                     {
                                         <th width="10%" class="text-end">
-                                            <i class="fa-regular fa-calendar"></i>
+                                            <i class="bi bi-calendar3"></i>
                                             Periodo
                                         </th>
                                         <th width="14%" class="text-end">
-                                            <i class="fas fa-money-bill me-1"></i>Total Cuota
+                                            <i class="bi bi-cash me-1"></i>Total Cuota
                                         </th>
                                         <th width="14%" class="text-end">
-                                            <i class="fas fa-money-bill me-1"></i>Deuda
+                                            <i class="bi bi-cash me-1"></i>Deuda
                                         </th>
                                     }
                                     else
                                     {
                                         <th width="10%" class="text-end">
-                                            <i class="fas fa-ruler-combined me-1"></i>Área (m²)
+                                            <i class="bi bi-rulers me-1"></i>Área (m²)
                                         </th>
                                         <th width="10%" class="text-end">
 
-                                            <i class="fas fa-percentage me-1"></i>
+                                            <i class="bi bi-percent me-1"></i>
                                             % Área
                                         </th>
                                         <th width="14%" class="text-end">
-                                            <i class="fas fa-money-bill me-1"></i>Total Cuota
+                                            <i class="bi bi-cash me-1"></i>Total Cuota
                                         </th>
                                     }
                                     <th width="15%" class="text-center">
-                                        <i class="fas fa-cogs me-1"></i>Acciones
+                                        <i class="bi bi-gear-fill me-1"></i>Acciones
                                     </th>
                                     <th width="8%" class="text-center">
-                                        <i class="fas fa-cogs me-1"></i>Excep
+                                        <i class="bi bi-gear-fill me-1"></i>Excep
                                     </th>
                                 </tr>
                             </thead>
@@ -352,7 +352,7 @@
                             {
                                 <tr>
                                     <td colspan="7" class="text-center py-5">
-                                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                        <i class="bi bi-inbox bi-3x text-muted mb-3"></i>
                                         <p class="text-muted">No se encontraron departamentos</p>
                                     </td>
                                 </tr>
@@ -381,7 +381,7 @@
                                                 @*if (!string.IsNullOrEmpty(item.OwnerEmail))
                                                 {
                                                     <small class="d-block text-muted">
-                                                        <i class="fas fa-envelope me-1"></i>@item.OwnerEmail
+                                                        <i class="bi bi-envelope me-1"></i>@item.OwnerEmail
                                                     </small>
                                                 }*@
                                             </div>
@@ -415,12 +415,12 @@
 								                            title="Ver detalles de la cuota"
 								                            @onclick:stopPropagation
 								                            @onclick="() => VerDetalle(item)">
-							                            <i class="fas fa-eye me-1"></i>Detalles
+							                            <i class="bi bi-eye me-1"></i>Detalles
 						                            </button>
 						                            @if (item.IsPaid)
 						                            {
 							                            <span class="badge bg-success ms-2">
-								                            <i class="fas fa-check me-1"></i>Pagado
+								                            <i class="bi bi-check me-1"></i>Pagado
 							                            </span>
 						                            }
 					                            </div>
@@ -432,7 +432,7 @@
 								                            title="Ver excepciones"
 								                            @onclick:stopPropagation
 								                            @onclick="() => ShowExceptions(item)">
-							                            <i class="fas fa-exclamation-triangle"></i>
+							                            <i class="bi bi-exclamation-triangle"></i>
 							                            <span class="badge bg-warning ms-1">
 								                            @GetExceptionCount(item.IdGroupUnit)
 							                            </span>
@@ -516,14 +516,14 @@
                                                                 title="Conciliar manualmente"
                                                                     disabled="@isDisableSelected"
                                                                 @onclick="() => ShowConciliationModal(item)">
-                                                            <i class="fas fa-link"></i>
+                                                            <i class="bi bi-link-45deg"></i>
                                                         </button>
                                                     }
                                                     <button class="btn btn-outline-info"
                                                             title="Ver detalles"
                                                                 disabled="@isDisableSelected"
                                                             @onclick="() => InstallmentViewDetails(item)">
-                                                        <i class="fas fa-eye"></i>
+                                                        <i class="bi bi-eye"></i>
                                                     </button>
                                                         @if (item.Status == ConcilationType.Parcial )
                                                     {
@@ -531,7 +531,7 @@
                                                                 title="Desconciliar"
                                                                     disabled="@isDisableSelected"
                                                                 @onclick="() => UnConciliationModal(item)">
-                                                            <i class="fas fa-unlink"></i>
+                                                            <i class="bi bi-x-circle"></i>
                                                         </button>
                                                     }
                                                 </div>
@@ -568,7 +568,7 @@
     <HeaderTemplate>
         <div class="modal-header bg-gradient-primary text-white">
             <h5 class="modal-title">
-                <i class="fas fa-file-invoice-dollar me-2"></i>
+                <i class="bi bi-receipt me-2"></i>
                 Detalle de Cuota - DPTO @selectedInstallment?.UnitName
             </h5>
             <button type="button" class="btn-close btn-close-white"
@@ -582,10 +582,10 @@
             <div class="owner-summary p-4 bg-light border-bottom">
                 <div class="row">
                     <div class="col-md-6">
-                        <h6><i class="fas fa-user me-2"></i>Propietario</h6>
+                        <h6><i class="bi bi-person me-2"></i>Propietario</h6>
                         <p class="fs-5 fw-bold">@selectedInstallment?.OwnerName</p>
                         <p class="text-muted">
-                            <i class="fas fa-phone me-1"></i>
+                            <i class="bi bi-telephone me-1"></i>
                             982322319 @*GetOwnerPhone(selectedInstallment?.IdGroupUnit)*@
                         </p>
                     </div>
@@ -647,7 +647,7 @@
                                     <tr class="section-header">
                                         <td colspan="6" class="bg-light">
                                             <div class="d-flex align-items-center py-2">
-                                                <i class="fas fa-folder me-2 text-primary"></i>
+                                                <i class="bi bi-folder me-2 text-primary"></i>
                                                 <strong class="text-primary">@GetSectionName(section.Id)</strong>
                                                 <span class="badge bg-secondary ms-2">
                                                     @sectionItems.Count items
@@ -682,7 +682,7 @@
                                                 </span>
                                             </td>
                                             <td class="text-center">
-                                                <i class="fas fa-check-circle text-success"></i>
+                                                <i class="bi bi-check-circle text-success"></i>
                                             </td>
                                         </tr>
 
@@ -699,7 +699,7 @@
                                                     <td></td>
                                                     <td colspan="2">
                                                         <div class="water-consumption">
-                                                            <h6 class="mb-2"><i class="fas fa-tint me-2"></i>Consumo de Agua</h6>
+                                                            <h6 class="mb-2"><i class="bi bi-droplet-fill me-2"></i>Consumo de Agua</h6>
                                                             <div class="row">
                                                                 <div class="col-4">
                                                                     <small class="text-muted">Lectura Anterior</small>
@@ -723,7 +723,7 @@
                                                     </td>
                                                     <td class="text-center" valign="middle">
                                                         <span class="badge bg-info">
-                                                            <i class="fas fa-tint me-1"></i>Agua
+                                                            <i class="bi bi-droplet-fill me-1"></i>Agua
                                                         </span>
                                                     </td>
                                                     <td></td>
@@ -737,7 +737,7 @@
                         <tfoot class="table-light">
                             <tr>
                                 <td colspan="3" class="text-end fw-bold py-3">
-                                    <i class="fas fa-calculator me-2"></i>TOTAL CUOTA:
+                                    <i class="bi bi-calculator me-2"></i>TOTAL CUOTA:
                                 </td>
                                 <td class="text-end py-3">
                                     <span class="total-amount fs-5 fw-bold text-primary">
@@ -755,13 +755,13 @@
     <FooterTemplate>
         <div class="modal-footer bg-light">
             <button class="btn btn-secondary" @onclick="() => viewinstallment.HideAsync()">
-                <i class="fas fa-times me-1"></i>Cerrar
+                <i class="bi bi-x-lg me-1"></i>Cerrar
             </button>
             <button class="btn btn-outline-primary" @onclick="PrintSingleInstallment">
-                <i class="fas fa-print me-1"></i>Imprimir
+                <i class="bi bi-printer me-1"></i>Imprimir
             </button>
             <button class="btn btn-primary" @onclick="SendToOwner">
-                <i class="fas fa-paper-plane me-1"></i>Enviar al Propietario
+                <i class="bi bi-send me-1"></i>Enviar al Propietario
             </button>
         </div>
     </FooterTemplate>

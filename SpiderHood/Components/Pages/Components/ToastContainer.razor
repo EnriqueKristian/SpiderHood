@@ -61,11 +61,11 @@
 
     private string GetIcon(Services.ToastType type) => type switch
     {
-        Services.ToastType.Success => "fas fa-check-circle",
-        Services.ToastType.Error => "fas fa-exclamation-circle",
-        Services.ToastType.Warning => "fas fa-exclamation-triangle",
-        Services.ToastType.Info => "fas fa-info-circle",
-        _ => "fas fa-bell"
+        Services.ToastType.Success => "bi bi-check-circle",
+        Services.ToastType.Error => "bi bi-exclamation-circle",
+        Services.ToastType.Warning => "bi bi-exclamation-triangle",
+        Services.ToastType.Info => "bi bi-info-circle",
+        _ => "bi bi-bell"
     };
 
     public class ToastItem : Services.ToastMessage

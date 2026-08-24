@@ -1,0 +1,66 @@
+/*
+    Design tokens de SpiderHood.
+    Formaliza en variables la paleta que ya predominaba de facto en toda la
+    app (los mismos azules/verdes/ambares de Bootstrap, vía btn-primary,
+    bg-success, etc.) en vez de introducir una marca nueva. Cambiar el
+    "look and feel" de toda la app pasa por editar estos valores, no por
+    tocar color por color en cada página.
+*/
+
+:root {
+    /* Paleta principal (coincide con los valores por defecto de Bootstrap
+       ya usados en toda la app: btn-primary, bg-success, badge bg-danger…) */
+    --sh-primary: #0d6efd;
+    --sh-primary-dark: #0b5ed7;
+    --sh-primary-light: #cfe2ff;
+    --sh-secondary: #6c757d;
+    --sh-success: #198754;
+    --sh-success-light: #d1e7dd;
+    --sh-warning: #ffc107;
+    --sh-warning-light: #fff3cd;
+    --sh-danger: #dc3545;
+    --sh-danger-light: #f8d7da;
+    --sh-info: #0dcaf0;
+    --sh-info-light: #cff4fc;
+
+    /* Neutrales */
+    --sh-body-bg: #f5f7fa;
+    --sh-surface: #ffffff;
+    --sh-surface-muted: #f8f9fa;
+    --sh-border: #e9ecef;
+    --sh-text: #212529;
+    --sh-text-muted: #6c757d;
+    --sh-text-heading: #2c3e50;
+
+    /* Espaciado (escala de 4px) */
+    --sh-space-1: 0.25rem;
+    --sh-space-2: 0.5rem;
+    --sh-space-3: 0.75rem;
+    --sh-space-4: 1rem;
+    --sh-space-5: 1.5rem;
+    --sh-space-6: 2rem;
+    --sh-space-8: 3rem;
+
+    /* Bordes y radios */
+    --sh-radius-sm: 0.375rem;
+    --sh-radius-md: 0.5rem;
+    --sh-radius-lg: 0.75rem;
+    --sh-radius-pill: 50rem;
+    --sh-radius-circle: 50%;
+
+    /* Sombras */
+    --sh-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --sh-shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
+    --sh-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.12);
+
+    /* Tipografía */
+    --sh-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --sh-fs-h1: 1.75rem;
+    --sh-fs-h2: 1.5rem;
+    --sh-fs-h3: 1.25rem;
+    --sh-fs-body: 1rem;
+    --sh-fs-small: 0.875rem;
+
+    /* Transición estándar para hover/focus en tarjetas y botones */
+    --sh-transition: all 0.15s ease-in-out;
+}

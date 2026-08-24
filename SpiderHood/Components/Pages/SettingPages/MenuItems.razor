@@ -122,11 +122,11 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>
-            <i class="fas fa-bars me-2"></i>
+            <i class="bi bi-list me-2"></i>
             Administración del Menú
         </h2>
         <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/Settings/MenuItems/Create")'>
-            <i class="fas fa-plus me-1"></i>Nuevo Item
+            <i class="bi bi-plus me-1"></i>Nuevo Item
         </button>
     </div>
 
@@ -144,13 +144,13 @@
                     <li class="nav-item">
                         <a class="nav-link @(_viewMode == "tree" ? "active" : "")"
                            @onclick='() => SetViewMode("tree")'>
-                            <i class="fas fa-sitemap me-1"></i>Vista Jerárquica
+                            <i class="bi bi-diagram-3 me-1"></i>Vista Jerárquica
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link @(_viewMode == "list" ? "active" : "")"
                            @onclick='() => SetViewMode("list")'>
-                            <i class="fas fa-list me-1"></i>Vista de Lista
+                            <i class="bi bi-list me-1"></i>Vista de Lista
                         </a>
                     </li>
                 </ul>
@@ -171,7 +171,7 @@
                                             @role.Name
                                             <button class="btn btn-sm btn-link p-0 ms-1"
                                                     @onclick="() => ToggleRoleExpansion(role.Id)">
-                                                <i class="fas @(role.IsExpanded ? "fa-chevron-up" : "fa-chevron-down")"></i>
+                                                <i class="bi @(role.IsExpanded ? "bi-chevron-up" : "bi-chevron-down")"></i>
                                             </button>
                                         </th>
                                     }
@@ -256,11 +256,11 @@
                                         <td>
                                             <button class="btn btn-sm btn-outline-primary"
                                                     @onclick="() => EditItem(item.IdMenu)">
-                                                <i class="fas fa-edit"></i>
+                                                <i class="bi bi-pencil-square"></i>
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger"
                                                     @onclick="() => DeleteItem(item.IdMenu)">
-                                                <i class="fas fa-trash"></i>
+                                                <i class="bi bi-trash"></i>
                                             </button>
                                         </td>
                                     </tr>
@@ -274,14 +274,14 @@
             <div class="card-footer d-flex justify-content-between align-items-center">
                 <div>
                     <button class="btn btn-success me-2" @onclick="SaveAllPermissions">
-                        <i class="fas fa-save me-1"></i>Guardar Todos los Permisos
+                        <i class="bi bi-floppy me-1"></i>Guardar Todos los Permisos
                     </button>
                     <button class="btn btn-info" @onclick="ResetPermissions">
-                        <i class="fas fa-undo me-1"></i>Resetear
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Resetear
                     </button>
                 </div>
                 <button class="btn btn-warning" @onclick="SaveOrder">
-                    <i class="fas fa-sort me-1"></i>Guardar Orden
+                    <i class="bi bi-arrow-down-up me-1"></i>Guardar Orden
                 </button>
             </div>
         </div>

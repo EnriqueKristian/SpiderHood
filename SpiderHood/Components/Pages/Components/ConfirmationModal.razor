@@ -23,7 +23,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" @onclick="Cancel">
-                    <i class="fas fa-times me-1"></i> Cancelar
+                    <i class="bi bi-x-lg me-1"></i> Cancelar
                 </button>
                 @if ( !IsCancelOnly )
                 {
@@ -75,15 +75,15 @@
 
     private string GetIcon() => _type switch
     {
-        "danger" => "fas fa-exclamation-triangle",
-        "warning" => "fas fa-exclamation-circle",
-        "info" => "fas fa-info-circle",
-        _ => "fas fa-question-circle"
+        "danger" => "bi bi-exclamation-triangle",
+        "warning" => "bi bi-exclamation-circle",
+        "info" => "bi bi-info-circle",
+        _ => "bi bi-question-circle"
     };
 
     private string GetConfirmIcon() => _type switch
     {
-        "danger" => "fas fa-trash-alt",
-        _ => "fas fa-check"
+        "danger" => "bi bi-trash",
+        _ => "bi bi-check"
     };
 }

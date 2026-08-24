@@ -13,11 +13,11 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <h1 class="page-title">
-                    <i class="fas fa-users me-2"></i>Gestión de Usuarios
+                    <i class="bi bi-people me-2"></i>Gestión de Usuarios
                 </h1>
                 <div class="d-flex gap-2">
                     <button class="btn btn-primary" @onclick="MostrarModalNuevoUsuario">
-                        <i class="fas fa-user-plus me-1"></i> Nuevo Usuario
+                        <i class="bi bi-person-plus me-1"></i> Nuevo Usuario
                     </button>
                 </div>
             </div>
@@ -43,7 +43,7 @@
                                 <h3 class="card-title mb-0">@usuarios.Count</h3>
                             </div>
                             <div class="icon-circle bg-primary">
-                                <i class="fas fa-users text-white"></i>
+                                <i class="bi bi-people text-white"></i>
                             </div>
                         </div>
                     </div>
@@ -58,7 +58,7 @@
                                 <h3 class="card-title mb-0">@usuarios.Count(u => u.Rol == "Administrador")</h3>
                             </div>
                             <div class="icon-circle bg-warning">
-                                <i class="fas fa-user-shield text-white"></i>
+                                <i class="bi bi-person-badge text-white"></i>
                             </div>
                         </div>
                     </div>
@@ -73,7 +73,7 @@
                                 <h3 class="card-title mb-0">@usuarios.Count(u => u.Estado == "Activo")</h3>
                             </div>
                             <div class="icon-circle bg-success">
-                                <i class="fas fa-user-check text-white"></i>
+                                <i class="bi bi-person-check text-white"></i>
                             </div>
                         </div>
                     </div>
@@ -88,7 +88,7 @@
                                 <h3 class="card-title mb-0">@usuarios.Count(u => u.Estado == "Inactivo")</h3>
                             </div>
                             <div class="icon-circle bg-secondary">
-                                <i class="fas fa-user-clock text-white"></i>
+                                <i class="bi bi-person-fill text-white"></i>
                             </div>
                         </div>
                     </div>
@@ -101,12 +101,12 @@
             <div class="col-lg-3 mb-4">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros</h5>
+                        <h5 class="mb-0"><i class="bi bi-funnel me-2"></i>Filtros</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-4">
                             <h6 class="text-muted mb-3">
-                                <i class="fas fa-user-tag me-2"></i>Roles
+                                <i class="bi bi-person-badge me-2"></i>Roles
                             </h6>
                             <div class="list-group list-group-flush">
                                 @foreach (var rol in roles)
@@ -122,7 +122,7 @@
 
                         <div>
                             <h6 class="text-muted mb-3">
-                                <i class="fas fa-chart-bar me-2"></i>Estado
+                                <i class="bi bi-bar-chart me-2"></i>Estado
                             </h6>
                             <div class="list-group list-group-flush">
                                 <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(filtroEstado == null ? "active" : "")"
@@ -198,12 +198,12 @@
                                                     <button class="btn btn-outline-primary"
                                                             @onclick="() => EditarUsuario(usuario.IdUser)"
                                                             title="Editar usuario">
-                                                        <i class="fas fa-edit"></i>
+                                                        <i class="bi bi-pencil-square"></i>
                                                     </button>
                                                     <button class="btn btn-outline-warning"
                                                             @onclick="() => CambiarEstadoUsuario(usuario)"
                                                             title="Cambiar estado">
-                                                        <i class="fas @(usuario.Estado == "Activo" ? "fa-user-slash" : "fa-user-check")"></i>
+                                                        <i class="bi @(usuario.Estado == "Activo" ? "bi-person-dash" : "bi-person-check")"></i>
                                                     </button>
                                                 </div>
                                             </td>
@@ -216,7 +216,7 @@
                         @if (!usuariosFiltrados.Any())
                         {
                             <div class="text-center py-5">
-                                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                                <i class="bi bi-people bi-3x text-muted mb-3"></i>
                                 <p class="text-muted">No se encontraron usuarios con los filtros seleccionados</p>
                             </div>
                         }
@@ -236,7 +236,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="fas @(formModel!.IsEdit ? "fa-user-edit" : "fa-user-plus") me-2"></i>
+                        <i class="bi @(formModel!.IsEdit ? "bi-person-fill-gear" : "bi-person-plus") me-2"></i>
                         @(formModel!.IsEdit ? "Editar Usuario" : "Nuevo Usuario")
                     </h5>
                     <button type="button" class="btn-close" @onclick="CerrarModalUsuario"></button>

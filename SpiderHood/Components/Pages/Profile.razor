@@ -10,7 +10,7 @@
 
 <div class="container-fluid">
     <h2 class="mb-4">
-        <i class="fas fa-user me-2"></i>
+        <i class="bi bi-person me-2"></i>
         Mi Perfil
     </h2>
 
@@ -47,7 +47,7 @@
                             </div>
                         }
                         <p class="text-muted small mb-0">
-                            <i class="fas fa-calendar me-1"></i>
+                            <i class="bi bi-calendar3 me-1"></i>
                             Miembro desde @(_user.CreatedAt == default ? "—" : _user.CreatedAt.ToString("dd/MM/yyyy"))
                         </p>
                     </div>
@@ -57,7 +57,7 @@
             <div class="col-lg-8">
                 <div class="card shadow-sm mb-4">
                     <div class="card-header bg-primary text-white">
-                        <i class="fas fa-id-card me-2"></i>Información Personal
+                        <i class="bi bi-person-vcard me-2"></i>Información Personal
                     </div>
                     <div class="card-body">
                         <EditForm Model="@_profileForm" OnValidSubmit="@HandleProfileSubmit">
@@ -97,7 +97,7 @@
 
                 <div class="card shadow-sm">
                     <div class="card-header bg-secondary text-white">
-                        <i class="fas fa-lock me-2"></i>Cambiar Contraseña
+                        <i class="bi bi-lock me-2"></i>Cambiar Contraseña
                     </div>
                     <div class="card-body">
                         <EditForm Model="@_passwordForm" OnValidSubmit="@HandlePasswordSubmit">

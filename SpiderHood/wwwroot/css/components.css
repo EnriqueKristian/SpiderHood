@@ -1,0 +1,468 @@
+/*
+    Clases de componentes reutilizables en toda la app: headers de página,
+    íconos-insignia, tarjetas de estadística, tablas, modales, badges y
+    botones. Consolida patrones que antes se repetían (con pequeñas
+    variaciones) copiados y pegados en cada página, y resuelve reglas que
+    antes se contradecían entre sí en app.css (dos .btn-primary distintos,
+    dos .badge distintos, dos .modal-backdrop distintos — el último definido
+    ganaba la cascada de forma poco predecible).
+*/
+
+/* ---------- Íconos (Bootstrap Icons) ---------- */
+
+/* Bootstrap Icons no trae, a diferencia de FontAwesome, modificadores de
+   tamaño ni la animación de "spin" — se agregan acá porque varias páginas
+   los usaban (spinners de carga, íconos grandes en pantallas de éxito/error). */
+.bi-lg { font-size: 1.333em; vertical-align: -0.075em; }
+.bi-2x { font-size: 2em; }
+.bi-3x { font-size: 3em; }
+.bi-4x { font-size: 4em; }
+
+.bi-spin {
+    animation: sh-spin 1.5s linear infinite;
+    display: inline-block;
+}
+
+@keyframes sh-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ---------- Layout de página ---------- */
+
+.page-header {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--sh-space-3);
+    margin-bottom: var(--sh-space-5);
+}
+
+@media (min-width: 768px) {
+    .page-header {
+        flex-direction: row;
+        align-items: center;
+    }
+}
+
+.page-header-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sh-space-3);
+}
+
+.page-header-actions {
+    display: flex;
+    gap: var(--sh-space-2);
+    flex-wrap: wrap;
+}
+
+/* Círculo de ícono que encabeza casi todas las páginas (antes copiado con
+   clases sueltas: icon-shape bg-primary rounded-circle p-3) */
+.icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--sh-radius-circle);
+    background-color: var(--sh-primary);
+    color: #fff;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.icon-badge.icon-badge-sm {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1rem;
+}
+
+.icon-badge-success { background-color: var(--sh-success); }
+.icon-badge-warning { background-color: var(--sh-warning); color: #664d03; }
+.icon-badge-danger { background-color: var(--sh-danger); }
+.icon-badge-info { background-color: var(--sh-info); color: #055160; }
+.icon-badge-secondary { background-color: var(--sh-secondary); }
+
+/* ---------- Tarjetas ---------- */
+
+.card {
+    border-radius: var(--sh-radius-lg);
+    border: 1px solid var(--sh-border);
+}
+
+.card.shadow-sm {
+    box-shadow: var(--sh-shadow-sm) !important;
+}
+
+/* Tarjeta de estadística (Total X / Activos / etc.) — antes reimplementada
+   página por página como .summary-card, .stat-card o markup suelto. */
+.stat-card {
+    border: 1px solid var(--sh-border);
+    border-radius: var(--sh-radius-lg);
+    background-color: var(--sh-surface);
+    box-shadow: var(--sh-shadow-sm);
+    transition: var(--sh-transition);
+}
+
+    .stat-card:hover {
+        box-shadow: var(--sh-shadow-md);
+        transform: translateY(-2px);
+    }
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.125rem;
+}
+
+.stat-label {
+    font-size: var(--sh-fs-small);
+    color: var(--sh-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+/* ---------- Botones ---------- */
+
+.btn {
+    border-radius: var(--sh-radius-sm);
+    font-weight: 500;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: var(--sh-primary);
+    border-color: var(--sh-primary);
+}
+
+    .btn-primary:hover,
+    .btn-primary:focus {
+        background-color: var(--sh-primary-dark);
+        border-color: var(--sh-primary-dark);
+    }
+
+.btn-outline-primary {
+    color: var(--sh-primary);
+    border-color: var(--sh-primary);
+}
+
+    .btn-outline-primary:hover {
+        background-color: var(--sh-primary);
+        border-color: var(--sh-primary);
+    }
+
+/* ---------- Badges ---------- */
+
+.badge {
+    font-weight: 500;
+    padding: 0.4em 0.75em;
+    border-radius: var(--sh-radius-sm);
+}
+
+.badge.rounded-pill {
+    border-radius: var(--sh-radius-pill);
+}
+
+/* ---------- Tablas ---------- */
+
+.table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: var(--sh-fs-small);
+    letter-spacing: 0.5px;
+}
+
+.table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.table-responsive {
+    border: 1px solid var(--sh-border);
+    border-radius: var(--sh-radius-md);
+}
+
+/* Alterna filas suavemente en tablas planas (fuera de .table-striped) */
+tr:nth-child(even) {
+    background: var(--sh-surface-muted);
+}
+
+tbody tr {
+    height: 2.2rem;
+}
+
+/* Oculta encabezados de QuickGrid cuando la propia tabla ya los dibuja */
+.quickgrid thead,
+.no_header_my_grid thead {
+    display: none;
+}
+
+#myGridView thead {
+    display: table-header-group;
+    position: sticky;
+    top: 0;
+    background-color: var(--sh-surface-muted);
+    z-index: 1;
+}
+
+.table-color {
+    background-color: var(--sh-surface);
+    color: var(--sh-text);
+    font-size: 0.8em;
+    width: 100%;
+}
+
+    .table-color tr, .table-color td {
+        background-color: var(--sh-surface);
+    }
+
+/* ---------- Modales ---------- */
+
+.modal-backdrop {
+    opacity: 0.5;
+}
+
+.modal {
+    z-index: 1050;
+}
+
+.modal-container {
+    background-color: var(--sh-surface);
+    border-radius: var(--sh-radius-lg);
+    padding: 16px 18px;
+    box-shadow: var(--sh-shadow-lg);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    overflow: hidden;
+    box-sizing: border-box;
+    width: 120%;
+    max-width: 680px;
+}
+
+.modal-container .modal-header {
+    margin-bottom: 1px;
+    border-bottom: 1px solid var(--sh-border);
+    padding-bottom: 1px;
+    background-color: var(--sh-surface-muted);
+}
+
+    .modal-container .modal-header h2 {
+        font-size: 1.2rem;
+        margin: 0;
+    }
+
+.modal-container .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-bottom: 5px;
+    margin-top: 0;
+    max-height: 444px;
+}
+
+.modal-container .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid var(--sh-border);
+    gap: 20px;
+    padding: 5px;
+    padding-bottom: 0;
+}
+
+/* ---------- Formularios ---------- */
+
+.form-group {
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+    .form-group label {
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+    }
+
+/* Selector de color (alta/edición de Categorías) */
+.color-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: var(--sh-space-2);
+}
+
+.color-item {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--sh-border);
+    border-radius: var(--sh-radius-sm);
+    cursor: pointer;
+}
+
+    .color-item.selected {
+        outline: 4px solid var(--sh-primary-light);
+        border-color: var(--sh-primary);
+    }
+
+/* Selector de ícono (alta/edición de Categorías) */
+.icon-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: var(--sh-space-2);
+}
+
+.icon-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--sh-border);
+    border-radius: var(--sh-radius-md);
+    background: var(--sh-surface);
+    cursor: pointer;
+}
+
+    .icon-item.selected {
+        border-color: var(--sh-primary);
+        box-shadow: 0 0 0 0.2rem var(--sh-primary-light);
+    }
+
+    .icon-item i {
+        font-size: 1.25rem;
+    }
+
+/* Zona de arrastrar y soltar archivos */
+.drop-zone, .file-upload-area {
+    border: 2px dashed var(--sh-border);
+    border-radius: var(--sh-radius-md);
+    padding: 2rem;
+    text-align: center;
+    background-color: var(--sh-surface-muted);
+    transition: var(--sh-transition);
+    cursor: pointer;
+}
+
+    .drop-zone:hover, .file-upload-area:hover {
+        border-color: var(--sh-primary);
+        background-color: rgba(13, 110, 253, 0.05);
+        transform: translateY(-2px);
+    }
+
+.drop-zone-active {
+    border-color: var(--sh-success) !important;
+    background-color: var(--sh-success-light) !important;
+}
+
+/* ---------- Utilidades varias ---------- */
+
+.pointer {
+    cursor: pointer;
+}
+
+.btnNoBorde {
+    border: none;
+    background: none;
+}
+
+.btn-list {
+    border: 1px solid #999;
+    opacity: 0.5;
+    transition: color 0.3s ease;
+    padding: 0.4em;
+    border-radius: var(--sh-radius-sm);
+}
+
+.btn-icon:hover i {
+    color: var(--sh-primary);
+    border-block-color: var(--sh-primary);
+}
+
+.btn-icon-danger:hover i {
+    color: var(--sh-danger);
+    border-block-color: var(--sh-danger);
+}
+
+.fullscreen-container {
+    width: 100vw;
+    min-height: 20vh;
+    overflow: auto;
+}
+
+.row-red {
+    color: var(--sh-danger);
+    font-weight: bold;
+    font-style: italic;
+    text-decoration: line-through;
+}
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    color: white;
+    font-size: 1.2em;
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--sh-primary) 0%, var(--sh-primary-dark) 100%);
+}
+
+.transaccion-pendiente {
+    border-left: 4px solid var(--sh-warning);
+}
+
+.transaccion-conciliada {
+    border-left: 4px solid var(--sh-success);
+}
+
+.dropdown-menu {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.dropdown-item {
+    white-space: normal;
+    padding: 0.75rem 1rem;
+}
+
+.list-group-item-action {
+    transition: all 0.2s;
+}
+
+    .list-group-item-action:hover {
+        transform: translateX(5px);
+    }
+
+.drop-zone, .stat-card, .card {
+    animation: sh-fade-in 0.3s ease-out;
+}
+
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1.5rem !important;
+    }
+
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+
+    .btn-group {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+        .btn-group .btn {
+            flex: 1;
+            min-width: 80px;
+        }
+}

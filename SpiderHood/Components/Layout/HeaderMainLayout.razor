@@ -9,7 +9,7 @@
             <ol class="breadcrumb">
                 <li class="breadcrumb-item">
                     <a href="/Dashboard">
-                        <i class="fas fa-home"></i>
+                        <i class="bi bi-house"></i>
                     </a>
                 </li>
                 <li class="breadcrumb-item active" aria-current="page">
@@ -32,13 +32,13 @@
              @onclick="() => LoadBuildingsIfNeeded()">
             <div class="building-info">
                 <div class="building-icon">
-                    <i class="fas fa-building"></i>
+                    <i class="bi bi-building"></i>
                 </div>
                 <div class="building-details">
                     <span class="building-name">
                         @if (_isLoading)
                         {
-                            <span><i class="fas fa-spinner fa-spin me-1"></i>Cargando...</span>
+                            <span><i class="bi bi-arrow-repeat bi-spin me-1"></i>Cargando...</span>
                         }
                         else
                         {
@@ -47,7 +47,7 @@
                     </span>
                 </div>
             </div>
-            <i class="fas fa-chevron-down ms-2"></i>
+            <i class="bi bi-chevron-down ms-2"></i>
         </div>
 
         <!-- Dropdown de edificios -->
@@ -55,11 +55,11 @@
             <li><h6 class="dropdown-header">Mis Edificios</h6></li>
             @if (_isLoading)
             {
-                <li><span class="dropdown-item text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Cargando...</span></li>
+                <li><span class="dropdown-item text-muted"><i class="bi bi-arrow-repeat bi-spin me-2"></i>Cargando...</span></li>
             }
             else if (!Buildings.Any())
             {
-                <li><span class="dropdown-item text-muted"><i class="fas fa-info-circle me-2"></i>Sin edificios</span></li>
+                <li><span class="dropdown-item text-muted"><i class="bi bi-info-circle me-2"></i>Sin edificios</span></li>
             }
             else
             {
@@ -69,7 +69,7 @@
                         <a class="dropdown-item @(IsActiveBuilding(building) ? "active" : "")"
                            href="javascript:void(0)"
                            @onclick="() => OnBuildingSelected(building)">
-                            <i class="fas fa-building me-2"></i>
+                            <i class="bi bi-building me-2"></i>
                             @(building.Building?.Name ?? "Sin nombre")
                             <span class="badge bg-@GetRoleBadgeColor(building.Role)">@(building.Role ?? "Rol")</span>
                         </a>
@@ -79,7 +79,7 @@
             <li><hr class="dropdown-divider"></li>
             <li>
                 <a class="dropdown-item" href="/Buildings/Create">
-                    <i class="fas fa-plus me-2"></i>Nuevo Edificio
+                    <i class="bi bi-plus me-2"></i>Nuevo Edificio
                 </a>
             </li>
         </ul>
@@ -101,15 +101,15 @@
                     <span class="user-name">@GetUserDisplayName()</span>
                     <small class="user-role">@GetUserRole()</small>
                 </div>
-                <i class="fas fa-chevron-down ms-2"></i>
+                <i class="bi bi-chevron-down ms-2"></i>
             </button>
 
             <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="/Profile"><i class="fas fa-user me-2"></i>Mi Perfil</a></li>
-                <li><a class="dropdown-item" href="/Settings"><i class="fas fa-gear me-2"></i>Configuración</a></li>
-                <li><a class="dropdown-item" href="/Security"><i class="fas fa-shield me-2"></i>Seguridad</a></li>
+                <li><a class="dropdown-item" href="/Profile"><i class="bi bi-person me-2"></i>Mi Perfil</a></li>
+                <li><a class="dropdown-item" href="/Settings"><i class="bi bi-gear me-2"></i>Configuración</a></li>
+                <li><a class="dropdown-item" href="/Security"><i class="bi bi-shield me-2"></i>Seguridad</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="/Logout"><i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión</a></li>
+                <li><a class="dropdown-item text-danger" href="/Logout"><i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión</a></li>
             </ul>
         </div>
     </div>

@@ -61,7 +61,7 @@
                        @bind:event="oninput" />
                 <button class="btn btn-outline-secondary" type="button"
                         @onclick="TogglePasswordVisibility">
-                    <i class="fas @(mostrarPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                    <i class="bi @(mostrarPassword ? "bi-eye-slash" : "bi-eye")"></i>
                 </button>
             </div>
             @if (Model.IsEdit)
@@ -80,7 +80,7 @@
                     Cancelar
                 </button>
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save me-1"></i>
+                    <i class="bi bi-floppy me-1"></i>
                     Guardar
                 </button>
             </div>

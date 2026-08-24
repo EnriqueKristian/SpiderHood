@@ -15,7 +15,7 @@
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">
-                        <i class="fas fa-@(_isEdit ? "edit" : "plus") me-2"></i>
+                        <i class="bi fa-@(_isEdit ? "edit" : "plus") me-2"></i>
                         @(_isEdit ? "Editar Item del Menú" : "Nuevo Item del Menú")
                     </h4>
                 </div>
@@ -47,7 +47,7 @@
                                 <div class="mb-3">
                                     <label class="form-label">Icono (FontAwesome)</label>
                                     <InputText class="form-control" @bind-Value="_item.Icon" 
-                                               placeholder="fas fa-home" />
+                                               placeholder="bi bi-house" />
                                     <small class="text-muted">
                                         <i class="@_item.Icon me-1"></i>Vista previa
                                     </small>
@@ -132,7 +132,7 @@
                         <div class="d-flex justify-content-between mt-4">
                             <button type="button" class="btn btn-secondary" 
                                     @onclick='() => Navigation.NavigateTo("/Settings/MenuItems")'>
-                                <i class="fas fa-times me-1"></i>Cancelar
+                                <i class="bi bi-x-lg me-1"></i>Cancelar
                             </button>
                             <button type="submit" class="btn btn-primary" disabled="@_saving">
                                 @if (_saving)
@@ -141,7 +141,7 @@
                                 }
                                 else
                                 {
-                                    <i class="fas fa-save me-1"></i>
+                                    <i class="bi bi-floppy me-1"></i>
                                 }
                                 @(_isEdit ? "Actualizar" : "Crear") Item
                             </button>

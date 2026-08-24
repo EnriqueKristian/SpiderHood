@@ -921,7 +921,7 @@
                             </p>
                         </div>
                         <div class="search-box">
-                            <i class="fas fa-search search-icon"></i>
+                            <i class="bi bi-search search-icon"></i>
                             <input type="text" class="search-input"
                                    placeholder="Buscar presupuesto por código o descripción..."
                                    @bind="searchTerm"
@@ -972,11 +972,11 @@
                         else if (!filteredbudgets.Any())
                         {
                             <div class="empty-state">
-                                <i class="fas fa-file-invoice-dollar fa-3x"></i>
+                                <i class="bi bi-receipt bi-3x"></i>
                                 <h3>No hay presupuestos</h3>
                                 <p>No se encontraron presupuestos con los filtros aplicados.</p>
                                 <button class="btn btn-primary" @onclick="NuevoPresupuesto">
-                                    <i class="fas fa-plus"></i> Crear Primer Presupuesto
+                                    <i class="bi bi-plus"></i> Crear Primer Presupuesto
                                 </button>
                             </div>
                         }

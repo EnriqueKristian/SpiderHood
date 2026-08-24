@@ -10,7 +10,7 @@
     <div class="login-card">
         <div class="login-header">
             <div class="logo">
-                <i class="fas fa-building"></i>
+                <i class="bi bi-building"></i>
                 <h2>SpiderHood</h2>
             </div>
             <p class="text-muted">Sistema de Administración de Edificios</p>
@@ -20,7 +20,7 @@
             @if (!string.IsNullOrEmpty(errorMessage))
             {
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-circle me-2"></i>@errorMessage
+                    <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
                     <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
                 </div>
             }
@@ -28,7 +28,7 @@
             @if (successMessage != null && successMessage.Length > 0)
             {
                 <div class="alert alert-success">
-                    <i class="fas fa-check-circle me-2"></i>@successMessage
+                    <i class="bi bi-check-circle me-2"></i>@successMessage
                 </div>
             }
 
@@ -45,7 +45,7 @@
                 <!-- Campo Email -->
                 <div class="form-group mb-3">
                     <label for="email" class="form-label">
-                        <i class="fas fa-envelope me-2"></i>Email
+                        <i class="bi bi-envelope me-2"></i>Email
                     </label>
 
                     <InputText id="email"
@@ -61,7 +61,7 @@
                 <!-- Campo Contraseña -->
                 <div class="form-group mb-3">
                     <label for="password" class="form-label">
-                        <i class="fas fa-lock me-2"></i>Contraseña
+                        <i class="bi bi-lock me-2"></i>Contraseña
                     </label>
                     <InputText id="password"
                                type="password"
@@ -96,7 +96,7 @@
                     }
                     else
                     {
-                        <i class="fas fa-sign-in-alt me-2"></i>
+                        <i class="bi bi-box-arrow-in-right me-2"></i>
                         <span>Iniciar Sesión</span>
                     }
                 </button>
@@ -106,12 +106,12 @@
             <div class="login-footer mt-4">
                 <p class="mb-2">
                     <a href="/register" class="text-decoration-none">
-                        <i class="fas fa-user-plus me-1"></i>¿No tienes cuenta? Regístrate
+                        <i class="bi bi-person-plus me-1"></i>¿No tienes cuenta? Regístrate
                     </a>
                 </p>
                 <p>
                     <a href="/forgot-password" class="text-decoration-none small">
-                        <i class="fas fa-key me-1"></i>¿Olvidaste tu contraseña?
+                        <i class="bi bi-key me-1"></i>¿Olvidaste tu contraseña?
                     </a>
                 </p>
             </div>

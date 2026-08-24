@@ -15,19 +15,19 @@
 
 <!--    MODAL PARA NUEVO / MODIFICACION DE PROPIETARIOS   -->
 <ModalOwner ShowModal="@MostrarModal"
-                                                         ShowModalChanged="@((valor) => MostrarModal = valor)"
-                                                         OpenMode="@OpenMode"
-                                                   ViewOwner="@_Owner"
-                                                   OnSaveModal="@((own) => SaveItem(own))" />
+            ShowModalChanged="@((valor) => MostrarModal = valor)"
+            OpenMode="@OpenMode"
+            ViewOwner="@_Owner"
+            OnSaveModal="@((own) => SaveItem(own))" />
 
 
 <!--    MODAL PARA NUEVO / MODIFICACION DE PROPIETARIOS   -->
 <ModalOwnerUnit ShowModalUnit="@MostrarModalUnit"
-                                                   ShowModalChanged="@((valor) => MostrarModalUnit = valor)"
-                                                   OpenMode="@OpenMode"
-                                                       ViewOwner="@_OwnerUnit"
-                                                   FreeUnits="@FreeUnits"
-                                                       OnSaveGroupUnit="@((unt) => SaveGroupUnit(unt))" />
+                ShowModalChanged="@((valor) => MostrarModalUnit = valor)"
+                OpenMode="@OpenMode"
+                ViewOwner="@_OwnerUnit"
+                FreeUnits="@FreeUnits"
+                OnSaveGroupUnit="@((unt) => SaveGroupUnit(unt))" />
 
 
 <!--    MODAL PARA ELIMINACION DE PROPIETARIOS   -->
@@ -296,47 +296,52 @@
                                                             @onclick:stopPropagation @onclick="() => AddResident(owner)">
                                                         <i class="bi bi-person-plus"></i>
                                                     </button>
+                                                    <button class="btn btn-outline-info"
+                                                            title="Asignar unidades"
+                                                            @onclick:stopPropagation @onclick="() => GoToAssignUnits(owner)">
+                                                        <i class="bi bi-diagram-3"></i>
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
                                         <!-- Detalle de subunidades -->
-                                    @*foreach (var subunidad in Owners.Where(c => c.IdOwner == owner.IdOwner && c.Role == 1 && c.TypeUnit != 1))*@
-                                    @foreach (var subunidad in owner.Units.Where(c => c.TypeUnit != 1))
-                                    {
-                                        <tr class="table-group-child">
-                                            <td class="ps-5">
-                                                <i class="bi bi-arrow-return-right me-1 text-muted"></i>
-                                            </td>
-                                            <td class="ps-3">
-                                                <div class="d-flex align-items-center">
-                                                    <i class="bi bi-arrow-right-short me-2 text-muted"></i>
-                                                <span class="text-muted">@subunidad.TypeUnit @subunidad.UnitNumber</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                @if (!string.IsNullOrEmpty(subunidad.UnitNumber))
-                                                {
-                                                    <div class="text-muted small">
-                                                        <i class="bi bi-person me-1"></i>
+                                        @*foreach (var subunidad in Owners.Where(c => c.IdOwner == owner.IdOwner && c.Role == 1 && c.TypeUnit != 1))*@
+                                        @foreach (var subunidad in owner.Units.Where(c => c.TypeUnit != 1))
+                                        {
+                                            <tr class="table-group-child">
+                                                <td class="ps-5">
+                                                    <i class="bi bi-arrow-return-right me-1 text-muted"></i>
+                                                </td>
+                                                <td class="ps-3">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="bi bi-arrow-right-short me-2 text-muted"></i>
+                                                        <span class="text-muted">@subunidad.TypeUnit @subunidad.UnitNumber</span>
                                                     </div>
-                                                }
-                                            </td>
-                                            <td>
+                                                </td>
+                                                <td>
+                                                    @if (!string.IsNullOrEmpty(subunidad.UnitNumber))
+                                                    {
+                                                        <div class="text-muted small">
+                                                            <i class="bi bi-person me-1"></i>
+                                                        </div>
+                                                    }
+                                                </td>
+                                                <td>
                                                     <span class="badge @GetUnitTypeBadge(subunidad.TypeUnit)">
                                                         @ParameterService.GetChildParameterDescription(4, subunidad.TypeUnit)
                                                     </span>
-                                            </td>
-                                            <td align="center">@subunidad.UnitNumber</td>
-                                        <td>@subunidad.Area.ToString("F2")<small class="text-muted"> m²</small></td>
-                                            <td class="text-center">
-                                                <button class="btn btn-sm btn-outline-secondary"
-                                                        title="Gestionar subunidad"
-                                                        @onclick:stopPropagation @onclick="() => ManageSubUnit(subunidad)">
-                                                    <i class="bi bi-gear"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    }
+                                                </td>
+                                                <td align="center">@subunidad.UnitNumber</td>
+                                                <td>@subunidad.Area.ToString("F2")<small class="text-muted"> m²</small></td>
+                                                <td class="text-center">
+                                                    <button class="btn btn-sm btn-outline-secondary"
+                                                            title="Gestionar subunidad"
+                                                            @onclick:stopPropagation @onclick="() => ManageSubUnit(subunidad)">
+                                                        <i class="bi bi-gear"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
                                         <!-- Separador -->
                                         <tr>
                                             <td colspan="7" class="p-0">
@@ -452,109 +457,6 @@
     </div>
 </div>
 
-<!-- Modal para agregar/editar propietario -->
-@if (showOwnerModal)
-{
-    <div class="modal fade show" style="display: block;" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi @(isEditingOwner ? "bi-pencil" : "bi-plus-circle") me-2"></i>
-                        @(isEditingOwner ? "Editar Propietario" : "Nuevo Propietario")
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="CloseOwnerModal"></button>
-                </div>
-                <div class="modal-body">
-                    <form>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Nombre Completo *</label>
-                                <input type="text" class="form-control" @bind="currentOwner.Names"
-                                       placeholder="Nombre del propietario" />
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Documento de Identidad *</label>
-                                <input type="text" class="form-control" @bind="currentOwner.Names"
-                                       placeholder="Número de DNI" />
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Teléfono</label>
-                                <input type="text" class="form-control" @bind="currentOwner.Names"
-                                       placeholder="Número de teléfono" />
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="text" class="form-control" @bind="currentOwner.Names"
-                                       placeholder="correo@ejemplo.com" />
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Tipo de Unidad *</label>
-                                <select class="form-select" @bind="currentOwner.TypeUnit">
-                                    <option value="DPTO">Departamento</option>
-                                    <option value="EST">Estacionamiento</option>
-                                    <option value="LOC">Local Comercial</option>
-                                    <option value="OFI">Oficina</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Número de Unidad *</label>
-                                <input type="text" class="form-control" @bind="currentOwner.UnitNumber"
-                                       placeholder="Ej: 1001, 2, A-1" />
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Torre/Piso</label>
-                                <label class="form-label">currentOwner.Floor</label>
-                                <!--input type="number" class="form-control" @bind="currentOwner.Floor"
-                                       placeholder="Ej: 1, 2, 3" /-->
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Área (m²) *</label>
-                                <input type="number" class="form-control" @bind="currentOwner.Area"
-                                       step="0.01" min="0" />
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Fecha de Adquisición</label>
-                                <label class="form-label">currentOwner.FechaAdquisicion</label>
-                                <!--
-                                <input type="date" class="form-control" @bind="currentOwner.FechaAdquisicion"
-                                       @bind:format="yyyy-MM-dd" />
-                                       -->
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Estado</label>
-                                <label class="form-label">currentOwner.Estado</label>
-                                <!--
-                                <select class="form-select" @bind="currentOwner.Estado">
-                                    <option value="Activo">Activo</option>
-                                    <option value="Inactivo">Inactivo</option>
-                                    <option value="Moroso">Moroso</option>
-                                </select>
-                                -->
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label class="form-label">Observaciones</label>
-                                <label class="form-label">currentOwner.Observaciones</label>
-                                <!--
-                                <textarea class="form-control" rows="3" @bind="currentOwner.Observaciones"
-                                          placeholder="Observaciones adicionales..."></textarea>
-                                          -->
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseOwnerModal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" @onclick="SaveOwner">
-                        <i class="bi bi-save me-2"></i>Guardar Propietario
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-}
-
 @code {
 
     [Inject] private IBuildingService BuildingService { get; set; } = default!;
@@ -576,11 +478,6 @@
     private int selectedTower = 0;
     private string selectedStatus = "all";
     private string searchTerm = string.Empty;
-
-    // Modal
-    private bool showOwnerModal = false;
-    private bool isEditingOwner = false;
-    private OwnerUnit currentOwner = new();
 
     // Datos auxiliares
     private List<int> availableTowers = new() { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
@@ -605,6 +502,10 @@
     private bool MostrarModal = false;
     private Models.OpenType OpenMode = 0;   //Crear
     private Modal modal = default!;
+
+    // Cuando se abre el modal de propietario para agregar un residente adicional
+    // a un grupo ya existente, aquí queda el grupo destino (null = alta de propietario normal).
+    private Guid? _residentGroupId = null;
 
     private bool MostrarModalUnit = false;
 
@@ -642,14 +543,14 @@
         public string IdentityDocument { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
-        public string FirstName { get; set; }= string.Empty;
+        public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
         public Guid IdBuilding { get; set; }
         public Guid IdGroupUnit { get; set; }
         [NotMapped]
-        public string FullName => FirstName + " " +LastName;
+        public string FullName => FirstName + " " + LastName;
     }
 
     private List<GroupUnit1> GroupUnits = new();
@@ -666,9 +567,19 @@
         currentUser = await AuthService.GetCurrentUserAsync();
         if (currentUser == null) return;
 
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        if (currentUser == null) return;
+
         List<OwnerUnitView> ownerUnits = await BuildingService.GetOwnersByBuildingAsync(currentUser.CurrentBuildingId);
 
         await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId, true);
+
+        // Se recarga desde cero para no duplicar los grupos ya cargados en una ejecución previa.
+        GroupUnits = new();
 
         // Diccionarios para lookup eficiente
         var unitsByGroup = new Dictionary<Guid, List<RealEstateUnit>>();
@@ -983,104 +894,62 @@
 
     private void ShowAddOwnerModal()
     {
-        isEditingOwner = false;
-        currentOwner = new Models.OwnerUnit
-        {
-            //Estado = "Activo",
-            //FechaAdquisicion = DateTime.Now
-        };
-        showOwnerModal = true;
+        _residentGroupId = null;
+        _Owner = new Models.Owner { IdBuilding = currentUser?.CurrentBuildingId ?? Guid.Empty };
+        OpenMode = Models.OpenType.Create;
+        MostrarModal = true;
     }
 
     private void SelectOwner(GroupUnit1 owner)
     {
-        // Navegar a detalles del propietario
-        //Navigation.NavigateTo($"/Owners/{owner.IdGroupUnit}");
         AbrirModalProp(owner, OpenType.Update);
     }
 
     private void ViewOwnerDetails(GroupUnit1 owner)
     {
-        // Mostrar detalles en modal o navegar
-        Navigation.NavigateTo($"/propietarios/{owner.IdGroupUnit}/detalles");
+        Navigation.NavigateTo($"/Owners/Details/{owner.IdGroupUnit}");
     }
 
     private void EditOwner(GroupUnit1 owner)
     {
-        isEditingOwner = true;
-        /*currentOwner = new OwnerUnit
+        var titular = owner.Owners.FirstOrDefault();
+        if (titular == null) return;
+
+        _residentGroupId = null;
+        _Owner = new Models.Owner
         {
-            IdOwner = owner.IdOwner,
-            //Floor = owner.Torre,
-            TypeUnit = owner.TypeUnit.ToString(),
-            UnitNumber = owner.UnitNumber,
+            IdOwner = titular.IdOwner,
+            IdGroupOwner = owner.IdGroupUnit,
+            GroupName = "DPTO " + owner.GroupNumber,
             AreaTotal = owner.TotalArea,
-            Area = owner.Area,
-            //Estado = owner.Estado,
-            //Nombre = owner.Propietarios.FirstOrDefault()?.Nombre ?? "",
-            //Telefono = owner.Propietarios.FirstOrDefault()?.Telefono ?? "",
-            //Email = owner.Propietarios.FirstOrDefault()?.Email ?? "",
-            //FechaAdquisicion = owner.FechaRegistro,
-            //Observaciones = owner.Observaciones
-        };*/
-        showOwnerModal = true;
+            TypeOwner = 1,
+            IdNumber = titular.IdentityDocument,
+            Names = titular.FirstName,
+            Surname = titular.LastName,
+            Address = titular.Address,
+            PhoneNumber = titular.PhoneNumber,
+            IdBuilding = titular.IdBuilding
+        };
+        OpenMode = Models.OpenType.Update;
+        MostrarModal = true;
     }
 
     private void AddResident(GroupUnit1 owner)
     {
-        // Lógica para agregar residente
+        _residentGroupId = owner.IdGroupUnit;
+        _Owner = new Models.Owner { IdBuilding = currentUser?.CurrentBuildingId ?? Guid.Empty };
+        OpenMode = Models.OpenType.Create;
+        MostrarModal = true;
+    }
+
+    private void GoToAssignUnits(GroupUnit1 owner)
+    {
+        Navigation.NavigateTo($"/AssignUnits/{owner.IdGroupUnit}");
     }
 
     private void ManageSubUnit(RealEstateUnit subUnidad)
     {
         // Lógica para gestionar subunidad
-    }
-
-    private void SaveOwner()
-    {
-        if (isEditingOwner)
-        {
-            /*var existing = GroupUnits.FirstOrDefault(o => o.IdOwner == currentOwner.IdOwner);
-            if (existing != null)
-            {
-                existing.Torre = currentOwner.Torre;
-                existing.TipoUnidad = currentOwner.TipoUnidad;
-                existing.NumeroUnidad = currentOwner.NumeroUnidad;
-                existing.Estado = currentOwner.Estado;
-
-                if (existing.Propietarios.Any())
-                {
-                    existing.Propietarios[0].Nombre = currentOwner.Nombre;
-                    existing.Propietarios[0].Telefono = currentOwner.Telefono;
-                    existing.Propietarios[0].Email = currentOwner.Email;
-                    }
-                
-            }*/
-        }
-        else
-        {
-            //var newId = owners.Any() ? owners.Max(o => o.Id) + 1 : 1;
-            currentOwner.IdOwner = new Guid();
-            /*currentOwner.Propietarios = new List<PropietarioInfo>
-            {
-                new PropietarioInfo
-                {
-                    Nombre = currentOwner.Nombre,
-                    Telefono = currentOwner.Telefono,
-                    Email = currentOwner.Email
-                    }
-            };*/
-            //Owners.Add(currentOwner);
-        }
-
-        CloseOwnerModal();
-        FilterOwners();
-    }
-
-    private void CloseOwnerModal()
-    {
-        showOwnerModal = false;
-        currentOwner = new Models.OwnerUnit();
     }
 
     private async Task ExportToExcel()
@@ -1107,41 +976,6 @@
 
     /*  SECCION DEL FUNCION MODAL   */
 
-    private void AbrirModal(Models.OwnerUnit item, Models.OpenType _mode)
-    {
-        MostrarModal = true;
-        OpenMode = _mode;
-
-        try
-        {
-            //SpiderHood.Data.BDLayout ec = new SpiderHood.Data.BDLayout(context);
-            FreeUnits = BuildingService.GetUnitsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
-
-            switch (_mode)
-            {
-                case Models.OpenType.Create:
-                    _Owner = new Models.Owner();
-                    // Si necesitas copiar valores, descomenta:
-                    // _Owner.IdTypeIdNumber = _own.IdTypeIdNumber;
-                    break;
-
-                case Models.OpenType.Update:
-                    //_Owner = _own;
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(_mode), $"Valor inesperado: {_mode}");
-            }
-        }
-        catch 
-        {
-            // Opcional: mostrar mensaje al usuario
-            MostrarModal = false;
-            // Si tienes un sistema de alertas:
-            //await MostrarMensajeError("Ocurrió un error al cargar la información. Intenta nuevamente.");
-        }
-    }
-
     private async Task OnShowModalDelete(Guid IdOwner)
     {
         _Owner = new Models.Owner();
@@ -1167,16 +1001,28 @@
 
 
         _OwnerUnit = new OwnerUnit();
-        OnInitialized();
+        await LoadDataAsync();
         return;
 
     }
 
     private async Task AddItem(SpiderHood.Models.Owner item)
     {
-        item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-        await OwnerService.AddOwnerAsync(item);
-        //await ParameterService.Context.SaveChangesAsync();
+        item.IdBuilding = currentUser?.CurrentBuildingId ?? ParameterService.CurrentBuilding.IdBuilding;
+        var created = await OwnerService.AddOwnerAsync(item);
+
+        if (_residentGroupId is Guid groupId)
+        {
+            // Se está agregando un residente adicional a un grupo ya existente,
+            // en vez de crear un propietario/titular independiente.
+            await BuildingService.AddOwnerGroupOwnerAsync(new Models.OwnerGroupOwner
+            {
+                IdGroupOwner = groupId,
+                IdOwner = created.IdOwner,
+                TypeOwner = 2 // Adicional / Residente
+            });
+            _residentGroupId = null;
+        }
     }
 
     private async Task UpdateItem(SpiderHood.Models.Owner item)
@@ -1189,7 +1035,7 @@
         // Lógica adicional después de cerrar el modal, si es necesario
         await OwnerService.DeleteOwnerAsync(_Owner);
         await modal.HideAsync();
-        OnInitialized();
+        await LoadDataAsync();
         return;
     }
 
@@ -1236,20 +1082,20 @@
             _GroupUnit.IdGroupOwner = Guid.NewGuid();
             _GroupUnit.IdOwner = _cUnit.IdOwner;
             _GroupUnit.GroupName = "DPTO " + _cUnit.UnitNumber.ToString();
-            _GroupUnit.TypeOwner =1;            //Titular
+            _GroupUnit.TypeOwner = 1;            //Titular
             _GroupUnit.AreaTotal = _cUnit.Area;
-            
+
             await BuildingService.AddOwnerUnitAsync(_GroupUnit);
 
             //Crear las unidades asignadas al propietario
             foreach (Models.RealEstateUnit x1 in _Units)
             {
-                    //Crear registro de GroupUnit para cada unidad asignada
-                    Models.GroupUnit x2 = new Models.GroupUnit();
-                    x2.IdGroupOwner = _GroupUnit.IdGroupOwner;
-                    x2.IdUnit = x1.IdUnit;
-                x2.TypeGroupUnit = x1.TypeUnit ==1 ? GroupUnitType.Individual : GroupUnitType.Shared;
-                    _AreaTotal += x1.Area;
+                //Crear registro de GroupUnit para cada unidad asignada
+                Models.GroupUnit x2 = new Models.GroupUnit();
+                x2.IdGroupOwner = _GroupUnit.IdGroupOwner;
+                x2.IdUnit = x1.IdUnit;
+                x2.TypeGroupUnit = x1.TypeUnit == 1 ? GroupUnitType.Individual : GroupUnitType.Shared;
+                _AreaTotal += x1.Area;
 
                 await BuildingService.AddGroupUnitAsync(x2);
             }
@@ -1259,7 +1105,7 @@
         }
         else
         {
-            //Lógica para manejar el caso donde el grupo ya tiene un propietario    
+            //Lógica para manejar el caso donde el grupo ya tiene un propietario
             Models.OwnerGroupOwner _existingGroupOwner = new Models.OwnerGroupOwner();
             //_existingGroupOwner = ec.GetOwnerGroupOwnerById(_cUnit.IdGroupOwner);
 
@@ -1272,10 +1118,10 @@
         //}
         //else
         //{
-            // Create new Category / Subcategory logic here
-            //await AddOwner(_Owner);
+        // Create new Category / Subcategory logic here
+        //await AddOwner(_Owner);
         //}
-        OnInitialized();
+        await LoadDataAsync();
         return;
 
     }

@@ -1,4 +1,4 @@
-﻿@* Pages/Settings/MenuItems.razor *@
+﻿﻿@* Pages/Settings/MenuItems.razor *@
 @page "/Settings/MenuItems"
 @rendermode InteractiveServer
 @using SpiderHood.Models
@@ -8,7 +8,7 @@
 
 <PageTitle>Administración del Menú</PageTitle>
 
-<style >
+<style>
     /* Estilos unificados para la vista de árbol */
     .menu-tree-table {
         width: 100%;
@@ -16,17 +16,17 @@
         border-collapse: collapse;
     }
 
-    .menu-tree-table th,
-    .menu-tree-table td {
-        padding: 12px 8px;
-        vertical-align: middle !important;
-        border: 1px solid #dee2e6;
-    }
+        .menu-tree-table th,
+        .menu-tree-table td {
+            padding: 12px 8px;
+            vertical-align: middle !important;
+            border: 1px solid #dee2e6;
+        }
 
-    .menu-tree-table th {
-        background-color: #f8f9fa;
-        font-weight: 600;
-    }
+        .menu-tree-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
 
     /* Contenedor del contenido del menú */
     .menu-item-content {
@@ -188,7 +188,6 @@
                                                   OnEdit="EditItem"
                                                   OnDelete="DeleteItem"
                                                   OnAddChild="AddChildItem"
-                                                  OnManagePermissions="ManagePermissions"
                                                   OnRolePermissionChanged="HandleRolePermissionChanged"
                                                   OnToggleExpand="ToggleItemExpansion" />
                                 }
@@ -237,13 +236,13 @@
                                                 @if (!string.IsNullOrEmpty(item.Url))
                                                 {
                                                     <input type="checkbox"
-                                                    class="form-check-input role-permission-checkbox"
-                                                    checked="@(rolePerm?.CanView ?? false)"
-                                                    @onchange='(e) => HandleListRolePermissionChanged(
-                                                       item.IdMenu, role.Id, (bool)(e.Value ?? false))' />                            
+                                                           class="form-check-input role-permission-checkbox"
+                                                           checked="@(rolePerm?.CanView ?? false)"
+                                                           @onchange='(e) => HandleListRolePermissionChanged(
+                                                                                                           item.IdMenu, role.Id, (bool)(e.Value ?? false))' />
                                                 }
                                             </td>
-                                                        }
+                                        }
                                         <td>
                                             @if (item.IsVisible)
                                             {
@@ -365,12 +364,29 @@
     }
 
     // Manejador para el componente jerárquico (recibe tupla)
-    private async Task HandleRolePermissionChanged((Guid MenuItemId, Guid RoleId, bool CanView) change)
+    private void HandleRolePermissionChanged((Guid MenuItemId, Guid RoleId, bool CanView) change)
     {
         var key = $"{change.MenuItemId}*{change.RoleId}";
         _pendingChanges[key] = change.CanView;
 
-        // Actualizar en la UI sin guardar aún
+        // El checkbox se pinta a partir de Item.RolePermissions[].CanView en cada render
+        // (ver MenuItemNode.razor), así que hay que reflejar el cambio ahí también: si solo
+        // se actualiza _pendingChanges, Blazor vuelve a calcular "checked" con el valor viejo
+        // y el clic parece no tener efecto (el checkbox "no se queda marcado").
+        var treeItem = FindMenuItem(_rootItemsWithRoles, change.MenuItemId);
+        var treeRolePerm = treeItem?.RolePermissions.FirstOrDefault(rp => rp.IdRole == change.RoleId);
+        if (treeRolePerm != null)
+        {
+            treeRolePerm.CanView = change.CanView;
+        }
+
+        var flatItem = _flatItemsWithRoles.FirstOrDefault(i => i.IdMenu == change.MenuItemId);
+        var flatRolePerm = flatItem?.RolePermissions.FirstOrDefault(rp => rp.IdRole == change.RoleId);
+        if (flatRolePerm != null)
+        {
+            flatRolePerm.CanView = change.CanView;
+        }
+
         StateHasChanged();
     }
 
@@ -463,11 +479,6 @@
     private void AddChildItem(Guid parentId)
     {
         Navigation.NavigateTo($"/Settings/MenuItems/Create?parentId={parentId}");
-    }
-
-    private void ManagePermissions(Guid id)
-    {
-        Navigation.NavigateTo($"/Settings/MenuItems/Permissions/{id}");
     }
 
     private async Task DeleteItem(Guid id)

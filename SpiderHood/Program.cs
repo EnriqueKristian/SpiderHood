@@ -55,7 +55,6 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddDefaultTokenProviders();
 
 // Otros servicios
-builder.Services.AddScoped<UsuarioService>();
 builder.Services.AddScoped<ParameterService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();

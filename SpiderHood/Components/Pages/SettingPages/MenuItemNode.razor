@@ -1,4 +1,4 @@
-﻿@* Shared/MenuItemNode.razor *@
+﻿﻿@* Shared/MenuItemNode.razor *@
 @using SpiderHood.Models
 
 @if (Item != null)
@@ -65,13 +65,10 @@
             
             <td style="width: @(60 / AllRoles.Count)%"
                 class="role-checkbox-container @(isPending ? "pending-change" : "")">
-                @if (Item.Children?.Any() == false)
-                {
-                    <input type="checkbox"
-                    class="form-check-input"
-                    checked="@isChecked"
-                    @onchange="@((ChangeEventArgs e) => OnRolePermissionChanged.InvokeAsync((Item.IdMenu, role.Id, (bool)e.Value!)))" />                    
-                }
+                <input type="checkbox"
+                       class="form-check-input"
+                       checked="@isChecked"
+                       @onchange="@((ChangeEventArgs e) => OnRolePermissionChanged.InvokeAsync((Item.IdMenu, role.Id, (bool)e.Value!)))" />
             </td>
         }
 
@@ -83,9 +80,6 @@
                 </button>
                 <button class="btn btn-sm btn-outline-success" @onclick="() => OnAddChild.InvokeAsync(Item.IdMenu)" title="Añadir hijo">
                     <i class="fas fa-plus"></i>
-                </button>
-                <button class="btn btn-sm btn-outline-info" @onclick="() => OnManagePermissions.InvokeAsync(Item.IdMenu)" title="Gestionar permisos">
-                    <i class="fas fa-shield-alt"></i>
                 </button>
                 <!--<button class="btn btn-sm btn-outline-danger" @onclick="() => OnDelete.InvokeAsync(Item.MenuId)" title="Eliminar">
                     <i class="fas fa-trash"></i>
@@ -106,7 +100,6 @@
                           OnEdit="OnEdit"
                           OnDelete="OnDelete"
                           OnAddChild="OnAddChild"
-                          OnManagePermissions="OnManagePermissions"
                           OnRolePermissionChanged="OnRolePermissionChanged"
                           OnToggleExpand="OnToggleExpand"
                           PendingChanges="@PendingChanges" />
@@ -124,7 +117,6 @@
     [Parameter] public EventCallback<Guid> OnEdit { get; set; }
     [Parameter] public EventCallback<Guid> OnDelete { get; set; }
     [Parameter] public EventCallback<Guid> OnAddChild { get; set; }
-    [Parameter] public EventCallback<Guid> OnManagePermissions { get; set; }
     [Parameter] public EventCallback<(Guid MenuItemId, Guid RoleId, bool CanView)> OnRolePermissionChanged { get; set; }
     [Parameter] public EventCallback<Guid> OnToggleExpand { get; set; }
 

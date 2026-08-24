@@ -26,6 +26,9 @@ namespace SpiderHood.Services
         Task<UserModel> GetUserProfileAsync(Guid userId);
         Task<AuthResult> UpdateProfileAsync(Guid userId, string firstName, string lastName, string phoneNumber);
         Task<AuthResult> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
+        Task<AuthResult> CreateUserAsync(string email, string firstName, string lastName, string phoneNumber, string password);
+        Task<AuthResult> UpdateUserAdminAsync(Guid userId, string firstName, string lastName, string phoneNumber, bool isActive);
+        Task<AuthResult> AdminResetPasswordAsync(Guid userId, string newPassword);
     }
 
     public class AuthService : IAuthService
@@ -259,6 +262,83 @@ namespace SpiderHood.Services
             {
                 _logger.LogError(ex, "Error cambiando la contraseña del usuario {UserId}", userId);
                 return new AuthResult { Success = false, Message = "No se pudo cambiar la contraseña" };
+            }
+        }
+
+        public async Task<AuthResult> CreateUserAsync(string email, string firstName, string lastName, string phoneNumber, string password)
+        {
+            try
+            {
+                var normalizedEmail = email.Trim().ToLowerInvariant();
+
+                var existing = await Ec.GetUsersByEmailAsync(normalizedEmail);
+                if (existing.Any(u => u.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return new AuthResult { Success = false, Message = "Ya existe un usuario con ese email" };
+                }
+
+                var user = new UserModel
+                {
+                    IdUser = Guid.NewGuid(),
+                    Email = normalizedEmail,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    PhoneNumber = phoneNumber,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                user.PasswordHash = _passwordHasher.HashPassword(user, password);
+
+                await AddNewUserAsync(user);
+
+                return new AuthResult { Success = true, Message = "Usuario creado exitosamente", User = user };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creando usuario {Email}", email);
+                return new AuthResult { Success = false, Message = "No se pudo crear el usuario" };
+            }
+        }
+
+        public async Task<AuthResult> UpdateUserAdminAsync(Guid userId, string firstName, string lastName, string phoneNumber, bool isActive)
+        {
+            try
+            {
+                var user = await Ec.GetUserByIdAsync(userId);
+
+                user.FirstName = firstName;
+                user.LastName = lastName;
+                user.PhoneNumber = phoneNumber;
+                user.IsActive = isActive;
+
+                await Ec.UpdateRecordAsync(user);
+
+                return new AuthResult { Success = true, Message = "Usuario actualizado exitosamente" };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error actualizando usuario {UserId}", userId);
+                return new AuthResult { Success = false, Message = "No se pudo actualizar el usuario" };
+            }
+        }
+
+        // A diferencia de ChangePasswordAsync, este método es para uso administrativo:
+        // no exige conocer la contraseña actual (un admin restableciendo la contraseña
+        // de otro usuario no la tiene).
+        public async Task<AuthResult> AdminResetPasswordAsync(Guid userId, string newPassword)
+        {
+            try
+            {
+                var user = await Ec.GetUserByIdAsync(userId);
+                var newHash = _passwordHasher.HashPassword(user, newPassword);
+                await Ec.UpdateUserPasswordAsync(userId, newHash);
+
+                return new AuthResult { Success = true, Message = "Contraseña actualizada exitosamente" };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error restableciendo la contraseña del usuario {UserId}", userId);
+                return new AuthResult { Success = false, Message = "No se pudo restablecer la contraseña" };
             }
         }
 

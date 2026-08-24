@@ -1,4 +1,4 @@
-﻿@* Pages/Settings/MenuItemForm.razor *@
+﻿﻿@* Pages/Settings/MenuItemForm.razor *@
 @page "/Settings/MenuItems/Create"
 @page "/Settings/MenuItems/Edit/{Id:guid?}"
 @rendermode InteractiveServer
@@ -19,7 +19,7 @@
                         @(_isEdit ? "Editar Item del Menú" : "Nuevo Item del Menú")
                     </h4>
                 </div>
-                
+
                 <div class="card-body">
                     <EditForm Model="@_item" OnValidSubmit="@HandleSubmit">
                         <DataAnnotationsValidator />
@@ -29,7 +29,7 @@
                             <div class="col-md-8">
                                 <div class="mb-3">
                                     <label class="form-label">Título *</label>
-                                    <InputText class="form-control" @bind-Value="_item.Title" 
+                                    <InputText class="form-control" @bind-Value="_item.Title"
                                                placeholder="Ej: Dashboard, Edificios, etc." />
                                     <ValidationMessage For="@(() => _item.Title)" />
                                 </div>
@@ -46,7 +46,7 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">Icono (FontAwesome)</label>
-                                    <InputText class="form-control" @bind-Value="_item.Icon" 
+                                    <InputText class="form-control" @bind-Value="_item.Icon"
                                                placeholder="fas fa-home" />
                                     <small class="text-muted">
                                         <i class="@_item.Icon me-1"></i>Vista previa
@@ -56,7 +56,7 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">URL</label>
-                                    <InputText class="form-control" @bind-Value="_item.Url" 
+                                    <InputText class="form-control" @bind-Value="_item.Url"
                                                placeholder="Dashboard, Buildings, etc." />
                                     <ValidationMessage For="@(() => _item.Url)" />
                                 </div>
@@ -78,7 +78,7 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">Texto del Badge</label>
-                                    <InputText class="form-control" @bind-Value="_item.BadgeText" 
+                                    <InputText class="form-control" @bind-Value="_item.BadgeText"
                                                placeholder="Ej: Nuevo, 3, etc." />
                                 </div>
                             </div>
@@ -106,30 +106,31 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">Permisos Requeridos</label>
+                            <label class="form-label">Roles con Acceso</label>
                             <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
-                                
-                                        @foreach (var permission in _availablePermissions.Where(p => p.Group == _item.ParentKey))
-                                        {
-                                            <div class="form-check">
-                                                <input type="checkbox"
-                                                       class="form-check-input"
-                                                       id="@permission.IdPermission"
-                                                       value="@permission.IdPermission"
-                                                       @onchange="@((e) => TogglePermission(permission.PermissionKey, e.Value?.ToString()))"
-                                                       checked="@permission.IsSelected" />
-                                                <label class="form-check-label" for="@permission.IdPermission">
-                                                    <strong>@permission.Name</strong>
-                                                    <br />
-                                                    <small class="text-muted">@permission.DisplayGroupName</small>
-                                                </label>
-                                            </div>
-                                        }
+                                @foreach (var role in _allRoles)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox"
+                                               class="form-check-input"
+                                               id="@role.Id"
+                                               @onchange="@((e) => ToggleRole(role.Id, (bool)(e.Value ?? false)))"
+                                               checked="@_selectedRoleIds.Contains(role.Id)" />
+                                        <label class="form-check-label" for="@role.Id">
+                                            <strong>@role.Name</strong>
+                                            @if (!string.IsNullOrEmpty(role.Description))
+                                            {
+                                                <br />
+                                                <small class="text-muted">@role.Description</small>
+                                            }
+                                        </label>
+                                    </div>
+                                }
                             </div>
                         </div>
 
                         <div class="d-flex justify-content-between mt-4">
-                            <button type="button" class="btn btn-secondary" 
+                            <button type="button" class="btn btn-secondary"
                                     @onclick='() => Navigation.NavigateTo("/Settings/MenuItems")'>
                                 <i class="fas fa-times me-1"></i>Cancelar
                             </button>
@@ -158,7 +159,8 @@
 
     private MenuItemWithRoles _item = new();
     private List<MenuItemWithRoles> _availableParents = new();
-    private List<PermissionSelection> _availablePermissions = new();
+    private List<RoleDto> _allRoles = new();
+    private HashSet<Guid> _selectedRoleIds = new();
     private bool _isEdit;
     private bool _saving;
 
@@ -182,7 +184,7 @@
         try
         {
             _availableParents = await MenuAdminService.GetAvailableParentsAsync(Id == null ? null : Id!.Value);
-            _availablePermissions = await MenuAdminService.GetAllPermissionsForMenuAsync();
+            _allRoles = await MenuAdminService.GetAllRolesAsync();
 
             if (_isEdit)
             {
@@ -209,12 +211,10 @@
         if (item != null)
         {
             _item = item;
-            
-            // Marcar permisos seleccionados
-            foreach (var perm in _availablePermissions)
-            {
-                perm.IsSelected = _item.RequiredPermissions.Contains(perm.IdPermission);
-            }
+
+            // RequiredPermissions guarda los IdRole con acceso a este ítem (ver
+            // MenuAdminService.InitializeMenuData / UpdateMenuItemPermissionsAsync).
+            _selectedRoleIds = new HashSet<Guid>(_item.RequiredPermissions);
         }
         else
         {
@@ -222,13 +222,12 @@
         }
     }
 
-    private void TogglePermission(string permissionkey, string? value)
+    private void ToggleRole(Guid roleId, bool isChecked)
     {
-        var permission = _availablePermissions.FirstOrDefault(p => p.PermissionKey == permissionkey);
-        if (permission != null)
-        {
-            permission.IsSelected = !permission.IsSelected;
-        }
+        if (isChecked)
+            _selectedRoleIds.Add(roleId);
+        else
+            _selectedRoleIds.Remove(roleId);
     }
 
     private async Task HandleSubmit()
@@ -249,11 +248,8 @@
                 }
             }
 
-            // Guardar permisos seleccionados
-            _item.RequiredPermissions = _availablePermissions
-                .Where(p => p.IsSelected)
-                .Select(p => p.IdPermission)
-                .ToList();
+            // Guardar los roles con acceso a este ítem
+            _item.RequiredPermissions = _selectedRoleIds.ToList();
 
             if (_isEdit)
             {

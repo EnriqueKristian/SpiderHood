@@ -18,15 +18,18 @@
 
 <div class="container-fluid px-4 py-3">
     <!-- Header principal -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
-        <div class="mb-3 mb-md-0">
-            <h1 class="h2 fw-bold text-primary mb-2">
-                <i class="bi bi-building me-2"></i>Unidades Inmobiliarias
-            </h1>
-            <p class="text-muted mb-0">Administra y gestiona todas las unidades del edificio</p>
+    <div class="page-header">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-building"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Unidades Inmobiliarias</h1>
+                <p class="text-muted mb-0">Administra y gestiona todas las unidades del edificio</p>
+            </div>
         </div>
 
-        <div class="d-flex gap-2">
+        <div class="page-header-actions">
             <button class="btn btn-primary d-flex align-items-center">
                 <i class="bi bi-plus-circle me-2"></i>Nueva Unidad
             </button>
@@ -234,39 +237,39 @@
                     <div class="row g-3">
                         <!-- Estadísticas -->
                         <div class="col-md-3">
-                            <div class="card border-0 bg-light">
-                                <div class="card-body text-center py-4">
-                                    <i class="bi bi-building display-6 text-primary mb-3"></i>
-                                    <h3 class="fw-bold mb-1">@units.Count()</h3>
-                                    <p class="text-muted mb-0">Total Unidades</p>
+                            <div class="stat-card text-center py-4">
+                                <div class="icon-badge mx-auto mb-2">
+                                    <i class="bi bi-building"></i>
                                 </div>
+                                <div class="stat-value">@units.Count()</div>
+                                <div class="stat-label">Total Unidades</div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="card border-0 bg-light">
-                                <div class="card-body text-center py-4">
-                                    <i class="bi bi-house-door display-6 text-success mb-3"></i>
-                                    <h3 class="fw-bold mb-1">@units.Count(u => u.TypeUnit == 1)</h3>
-                                    <p class="text-muted mb-0">Departamentos</p>
+                            <div class="stat-card text-center py-4">
+                                <div class="icon-badge icon-badge-success mx-auto mb-2">
+                                    <i class="bi bi-house-door"></i>
                                 </div>
+                                <div class="stat-value">@units.Count(u => u.TypeUnit == 1)</div>
+                                <div class="stat-label">Departamentos</div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="card border-0 bg-light">
-                                <div class="card-body text-center py-4">
-                                    <i class="bi bi-people display-6 text-info mb-3"></i>
-                                    <h3 class="fw-bold mb-1">@units.Select(u => u.Names).Distinct().Count()</h3>
-                                    <p class="text-muted mb-0">Propietarios</p>
+                            <div class="stat-card text-center py-4">
+                                <div class="icon-badge icon-badge-info mx-auto mb-2">
+                                    <i class="bi bi-people"></i>
                                 </div>
+                                <div class="stat-value">@units.Select(u => u.Names).Distinct().Count()</div>
+                                <div class="stat-label">Propietarios</div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="card border-0 bg-light">
-                                <div class="card-body text-center py-4">
-                                    <i class="bi bi-calculator display-6 text-warning mb-3"></i>
-                                    <h3 class="fw-bold mb-1">@units.Sum(u => u.Area).ToString("F1")</h3>
-                                    <p class="text-muted mb-0">Área Total (m²)</p>
+                            <div class="stat-card text-center py-4">
+                                <div class="icon-badge icon-badge-warning mx-auto mb-2">
+                                    <i class="bi bi-calculator"></i>
                                 </div>
+                                <div class="stat-value">@units.Sum(u => u.Area).ToString("F1")</div>
+                                <div class="stat-label">Área Total (m²)</div>
                             </div>
                         </div>
 

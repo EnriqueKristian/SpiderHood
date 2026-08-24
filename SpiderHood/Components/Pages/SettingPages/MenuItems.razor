@@ -9,15 +9,19 @@
 <PageTitle>Administración del Menú</PageTitle>
 
 
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-            <i class="bi bi-list me-2"></i>
-            Administración del Menú
-        </h2>
-        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/Settings/MenuItems/Create")'>
-            <i class="bi bi-plus me-1"></i>Nuevo Item
-        </button>
+<div class="container-fluid px-4 py-3">
+    <div class="page-header">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-list"></i>
+            </div>
+            <h1 class="h3 fw-bold mb-0">Administración del Menú</h1>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/Settings/MenuItems/Create")'>
+                <i class="bi bi-plus me-1"></i>Nuevo Item
+            </button>
+        </div>
     </div>
 
     @if (_loading)

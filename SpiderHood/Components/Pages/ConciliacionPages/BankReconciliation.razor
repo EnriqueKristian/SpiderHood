@@ -15,21 +15,24 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="page-title">
-                        <i class="bi bi-receipt me-2"></i>Conciliación Bancaria
-                    </h1>
-                    <nav aria-label="breadcrumb">
-                        <ol class="breadcrumb">
-                            <li class="breadcrumb-item"><a href="/">Inicio</a></li>
-                            <li class="breadcrumb-item"><a href="/finanzas">Finanzas</a></li>
-                            <li class="breadcrumb-item active">Conciliación</li>
-                        </ol>
-                    </nav>
+            <div class="page-header mb-0">
+                <div class="page-header-title">
+                    <div class="icon-badge">
+                        <i class="bi bi-receipt"></i>
+                    </div>
+                    <div>
+                        <h1 class="h3 fw-bold mb-1">Conciliación Bancaria</h1>
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb mb-0">
+                                <li class="breadcrumb-item"><a href="/">Inicio</a></li>
+                                <li class="breadcrumb-item"><a href="/finanzas">Finanzas</a></li>
+                                <li class="breadcrumb-item active">Conciliación</li>
+                            </ol>
+                        </nav>
+                    </div>
                 </div>
-                
-                <div class="d-flex gap-2">
+
+                <div class="page-header-actions">
                     <button class="btn btn-outline-primary" @onclick="ExportarConciliacion">
                         <i class="bi bi-file-earmark-arrow-up me-1"></i> Exportar
                     </button>

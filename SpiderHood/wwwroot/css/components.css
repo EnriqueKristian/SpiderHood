@@ -111,6 +111,18 @@
         transform: translateY(-2px);
     }
 
+/* Utilidad genérica de "levantar" tarjeta al pasar el mouse — usada en
+   BuildingPage, BudgetHeaderComponent, BudgetGenerator y BudgetPages/Index,
+   donde se referenciaba pero nunca se había definido. */
+.card-hover {
+    transition: var(--sh-transition);
+}
+
+    .card-hover:hover {
+        box-shadow: var(--sh-shadow-md);
+        transform: translateY(-2px);
+    }
+
 .stat-value {
     font-size: 1.5rem;
     font-weight: 700;

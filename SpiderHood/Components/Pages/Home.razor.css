@@ -1,7 +1,7 @@
 ﻿/* Estilos específicos del dashboard */
 .dashboard-container {
     padding: 1.5rem;
-    background-color: #f8f9fa;
+    background-color: var(--sh-surface-muted);
     min-height: calc(100vh - 70px);
 }
 
@@ -16,7 +16,7 @@
 .avatar-icon {
     width: 50px;
     height: 50px;
-    background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+    background: linear-gradient(135deg, var(--sh-primary) 0%, var(--sh-primary-dark) 100%);
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -54,7 +54,7 @@
         top: 0;
         bottom: 0;
         width: 2px;
-        background-color: #e9ecef;
+        background-color: var(--sh-border);
     }
 
 .activity-item {
@@ -68,7 +68,7 @@
     }
 
     .activity-item.important .activity-icon {
-        border: 2px solid #ffc107;
+        border: 2px solid var(--sh-warning);
     }
 
 .activity-icon {
@@ -111,7 +111,7 @@
     align-items: center;
     gap: 1rem;
     padding: 0.75rem;
-    background: #f8f9fa;
+    background: var(--sh-surface-muted);
     border-radius: 8px;
 }
 
@@ -142,18 +142,18 @@
     align-items: center;
     gap: 1rem;
     padding: 1rem;
-    background: #f8f9fa;
+    background: var(--sh-surface-muted);
     border-radius: 10px;
     transition: all 0.3s ease;
 }
 
     .due-item.urgent {
-        border-left: 4px solid #dc3545;
+        border-left: 4px solid var(--sh-danger);
         background: #fff5f5;
     }
 
     .due-item:hover {
-        background: #e9ecef;
+        background: var(--sh-border);
     }
 
 .due-date {
@@ -258,7 +258,7 @@
 /* Placeholder para gráficos */
 .placeholder-chart {
     height: 100%;
-    background: linear-gradient(45deg, #f8f9fa 25%, #e9ecef 25%, #e9ecef 50%, #f8f9fa 50%, #f8f9fa 75%, #e9ecef 75%);
+    background: linear-gradient(45deg, var(--sh-surface-muted) 25%, var(--sh-border) 25%, var(--sh-border) 50%, var(--sh-surface-muted) 50%, var(--sh-surface-muted) 75%, var(--sh-border) 75%);
     background-size: 20px 20px;
     border-radius: 8px;
 }

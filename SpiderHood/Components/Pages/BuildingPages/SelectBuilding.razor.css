@@ -4,7 +4,7 @@
         align-items: center;
         justify-content: space-between;
         padding: 1rem;
-        border: 1px solid #dee2e6;
+        border: 1px solid var(--sh-border-strong);
         border-radius: 0.5rem;
         margin-bottom: 0.75rem;
         cursor: pointer;
@@ -12,14 +12,14 @@
     }
 
         .building-item:hover {
-            background-color: #f8f9fa;
-            border-color: #0d6efd;
+            background-color: var(--sh-surface-muted);
+            border-color: var(--sh-primary);
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
         .building-item.selected {
-            border-color: #0d6efd;
+            border-color: var(--sh-primary);
             background-color: #e7f1ff;
         }
 
@@ -37,7 +37,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #0d6efd;
+        color: var(--sh-primary);
     }
 
     .pending-item {
@@ -45,7 +45,7 @@
         align-items: center;
         justify-content: space-between;
         padding: 0.75rem;
-        background-color: #f8f9fa;
+        background-color: var(--sh-surface-muted);
         border-radius: 0.5rem;
         margin-bottom: 0.5rem;
     }

@@ -1,0 +1,197 @@
+@page "/AssignUnits/{IdGroupUnit:guid}"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject NavigationManager Navigation
+@inject Services.AuthService AuthService
+@inject IBuildingService BuildingService
+@inject ParameterService ParameterService
+
+<PageTitle>Asignar Unidades</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex align-items-center mb-4">
+        <button class="btn btn-outline-secondary me-3" @onclick="Volver">
+            <i class="bi bi-arrow-left"></i>
+        </button>
+        <div>
+            <h1 class="h3 fw-bold mb-1">Asignar Unidades</h1>
+            <p class="text-muted mb-0">Asigna estacionamientos y depósitos adicionales al propietario</p>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <p class="text-muted">Cargando...</p>
+    }
+    else if (_titular == null)
+    {
+        <div class="alert alert-warning">No se encontró el grupo de propietario indicado.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-person me-2"></i>Propietario</h6>
+            </div>
+            <div class="card-body">
+                <span class="badge bg-info fs-6 p-2">@_titular.FirstName @_titular.LastName</span>
+                <span class="text-muted ms-3">Grupo @_groupNumber &middot; @_totalArea.ToString("F2") m²</span>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Asignar Unidades Adicionales</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-p-square me-2"></i>Estacionamientos
+                        </label>
+                        <div class="border rounded p-2" style="max-height: 260px; overflow-y: auto;">
+                            @if (AvailableParking.Any())
+                            {
+                                @foreach (var unit in AvailableParking)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="parking_@unit.IdUnit"
+                                               checked="@_selectedUnits.Contains(unit.IdUnit)"
+                                               @onchange="@((e) => ToggleUnit(unit, e.Value as bool? ?? false))" />
+                                        <label class="form-check-label" for="parking_@unit.IdUnit">
+                                            @unit.UnitNumber <small class="text-muted">(@unit.Area.ToString("F2") m²)</small>
+                                        </label>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <p class="text-muted small mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>No hay estacionamientos disponibles
+                                </p>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-box-seam me-2"></i>Depósitos
+                        </label>
+                        <div class="border rounded p-2" style="max-height: 260px; overflow-y: auto;">
+                            @if (AvailableStorage.Any())
+                            {
+                                @foreach (var unit in AvailableStorage)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="storage_@unit.IdUnit"
+                                               checked="@_selectedUnits.Contains(unit.IdUnit)"
+                                               @onchange="@((e) => ToggleUnit(unit, e.Value as bool? ?? false))" />
+                                        <label class="form-check-label" for="storage_@unit.IdUnit">
+                                            @unit.UnitNumber <small class="text-muted">(@unit.Area.ToString("F2") m²)</small>
+                                        </label>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <p class="text-muted small mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>No hay depósitos disponibles
+                                </p>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_message))
+                {
+                    <div class="alert alert-success mt-3 mb-0">@_message</div>
+                }
+            </div>
+            <div class="card-footer bg-transparent d-flex justify-content-end gap-2">
+                <button class="btn btn-secondary" @onclick="Volver">Cancelar</button>
+                <button class="btn btn-primary" disabled="@(_selectedUnits.Count == 0 || _saving)" @onclick="Guardar">
+                    <i class="bi bi-check-lg me-2"></i>Asignar Unidades
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid IdGroupUnit { get; set; }
+
+    private UserSession? currentUser;
+    private bool _loading = true;
+    private bool _saving = false;
+    private string _message = string.Empty;
+
+    private OwnerUnitView? _titular;
+    private string _groupNumber = string.Empty;
+    private decimal _totalArea;
+
+    private List<RealEstateUnit> FreeUnits = new();
+    private HashSet<Guid> _selectedUnits = new();
+
+    private IEnumerable<RealEstateUnit> AvailableParking => FreeUnits.Where(u => u.IdGroupOwner == Guid.Empty && u.TypeUnit == 2);
+    private IEnumerable<RealEstateUnit> AvailableStorage => FreeUnits.Where(u => u.IdGroupOwner == Guid.Empty && u.TypeUnit == 3);
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync();
+        if (currentUser == null)
+        {
+            _loading = false;
+            return;
+        }
+
+        await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId);
+
+        var ownerUnits = await BuildingService.GetOwnersByBuildingAsync(currentUser.CurrentBuildingId);
+        var main = ownerUnits.FirstOrDefault(o => o.IdGroupUnit == IdGroupUnit && o.TypeUnit == 1 && o.Role == 1);
+
+        if (main != null)
+        {
+            _titular = main;
+            _groupNumber = main.GroupNumber.ToString();
+            _totalArea = main.TotalArea;
+
+            FreeUnits = await BuildingService.GetUnitsByBuildingAsync(currentUser.CurrentBuildingId);
+        }
+
+        _loading = false;
+    }
+
+    private void ToggleUnit(RealEstateUnit unit, bool isChecked)
+    {
+        if (isChecked)
+            _selectedUnits.Add(unit.IdUnit);
+        else
+            _selectedUnits.Remove(unit.IdUnit);
+    }
+
+    private async Task Guardar()
+    {
+        if (_titular == null || _selectedUnits.Count == 0) return;
+
+        _saving = true;
+
+        foreach (var idUnit in _selectedUnits)
+        {
+            await BuildingService.AddGroupUnitAsync(new Models.GroupUnit
+            {
+                IdUnit = idUnit,
+                IdGroupOwner = IdGroupUnit,
+                TypeGroupUnit = GroupUnitType.Shared
+            });
+        }
+
+        _saving = false;
+        _message = "Unidades asignadas correctamente.";
+        _selectedUnits.Clear();
+
+        FreeUnits = await BuildingService.GetUnitsByBuildingAsync(currentUser!.CurrentBuildingId);
+    }
+
+    private void Volver() => Navigation.NavigateTo("/Owners");
+}

@@ -1,0 +1,175 @@
+@page "/Owners/Details/{IdGroupUnit:guid}"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject NavigationManager Navigation
+@inject Services.AuthService AuthService
+@inject IBuildingService BuildingService
+@inject ParameterService ParameterService
+
+<PageTitle>Detalle del Propietario</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="d-flex align-items-center mb-4">
+        <button class="btn btn-outline-secondary me-3" @onclick="Volver">
+            <i class="bi bi-arrow-left"></i>
+        </button>
+        <div>
+            <h1 class="h3 fw-bold mb-1">Detalle del Propietario</h1>
+            <p class="text-muted mb-0">Información del grupo de unidades y sus propietarios</p>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <p class="text-muted">Cargando...</p>
+    }
+    else if (_owners.Count == 0)
+    {
+        <div class="alert alert-warning">No se encontró información para el propietario indicado.</div>
+    }
+    else
+    {
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-transparent border-bottom py-3">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-house-door me-2"></i>Grupo @_groupNumber
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <span class="text-muted small d-block">Área Total</span>
+                                <span class="fw-bold fs-5">@_totalArea.ToString("F2") m²</span>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted small d-block">Unidades Asignadas</span>
+                                <span class="fw-bold fs-5">@_units.Count</span>
+                            </div>
+                            <div class="col-md-4">
+                                <span class="text-muted small d-block">Propietarios / Residentes</span>
+                                <span class="fw-bold fs-5">@_owners.Count</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-transparent border-bottom py-3">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-people me-2"></i>Propietarios / Residentes
+                        </h5>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var owner in _owners)
+                        {
+                            <li class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="fw-medium">@owner.FirstName @owner.LastName</div>
+                                        <small class="text-muted">
+                                            <i class="bi bi-card-text me-1"></i>@owner.IdentityDocument
+                                        </small><br />
+                                        <small class="text-muted">
+                                            <i class="bi bi-telephone me-1"></i>@owner.PhoneNumber
+                                        </small>
+                                        @if (!string.IsNullOrWhiteSpace(owner.Email))
+                                        {
+                                            <br />
+                                            <small class="text-muted">
+                                                <i class="bi bi-envelope me-1"></i>@owner.Email
+                                            </small>
+                                        }
+                                    </div>
+                                    <span class="badge @(owner.IsActive ? "bg-success" : "bg-secondary")">
+                                        @(owner.IsActive ? "Activo" : "Inactivo")
+                                    </span>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-transparent border-bottom py-3">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-grid-3x3-gap me-2"></i>Unidades del Grupo
+                        </h5>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        @foreach (var unit in _units)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-secondary me-2">
+                                        @ParameterService.GetChildParameterDescription(4, unit.TypeUnit)
+                                    </span>
+                                    <span class="fw-medium">@unit.UnitNumber</span>
+                                </div>
+                                <span class="text-muted">@unit.Area.ToString("F2") m²</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid IdGroupUnit { get; set; }
+
+    private UserSession? currentUser;
+    private bool _loading = true;
+
+    private string _groupNumber = string.Empty;
+    private decimal _totalArea;
+    private List<OwnerUnitView> _owners = new();
+    private List<OwnerUnitView> _units = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync();
+        if (currentUser == null)
+        {
+            _loading = false;
+            return;
+        }
+
+        await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId);
+
+        var ownerUnits = await BuildingService.GetOwnersByBuildingAsync(currentUser.CurrentBuildingId);
+        var groupRows = ownerUnits.Where(o => o.IdGroupUnit == IdGroupUnit).ToList();
+
+        var main = groupRows.FirstOrDefault(o => o.TypeUnit == 1 && o.Role == 1);
+        if (main != null)
+        {
+            _groupNumber = main.GroupNumber.ToString();
+            _totalArea = main.TotalArea;
+        }
+
+        _owners = groupRows
+            .Where(o => o.TypeUnit == 1)
+            .GroupBy(o => o.IdOwner)
+            .Select(g => g.First())
+            .ToList();
+
+        _units = groupRows
+            .Where(o => o.Role == 1)
+            .GroupBy(o => o.IdUnit)
+            .Select(g => g.First())
+            .ToList();
+
+        _loading = false;
+    }
+
+    private void Volver() => Navigation.NavigateTo("/Owners");
+}

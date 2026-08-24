@@ -109,6 +109,8 @@ namespace SpiderHood.Data
             public const string UPD_GroupOwner = "UPD_GroupOwner";
             public const string UPD_Unit = "UPD_Unit";
             public const string UPD_UnsetOtherCurrentPeriods = "UPD_UnsetOtherCurrentPeriods";
+            public const string UPD_Period = "UPD_Period";
+            public const string UPD_SetPeriodAsCurrent = "UPD_SetPeriodAsCurrent";
             public const string UPD_BankAccount = "UPD_BankAccount";
             public const string UPD_BuildingConfiguration = "UPD_BuildingConfiguration";
             public const string UPD_BudgetHeader = "UPD_BudgetHeader";
@@ -126,6 +128,7 @@ namespace SpiderHood.Data
             public const string DEL_BudgetDetail = "DEL_BudgetDetail";
             public const string DEL_Exoneration = "DEL_Exoneration";
             public const string DEL_Parameter = "DEL_Parameter";
+            public const string DEL_Period = "DEL_Period";
             public const string DEL_Owner = "DEL_Owner";
             public const string DEL_Unit = "DEL_Unit";
             public const string DEL_Role = "DEL_Role";

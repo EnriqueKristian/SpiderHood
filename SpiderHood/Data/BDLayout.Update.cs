@@ -223,6 +223,28 @@ namespace SpiderHood.Data
             }, "UpdateParameter", cancellationToken);
         }
 
+        public async Task<Models.Period> UpdateRecordAsync(Models.Period period, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(period, nameof(period));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Period,
+                    cancellationToken,
+                    period.IdPeriod,
+                    period.Name,
+                    period.PeriodType,
+                    period.StartDate,
+                    period.EndDate,
+                    period.ClosingDate,
+                    period.Status,
+                    period.IsCurrentPeriod,
+                    period.Description);
+                return period;
+            }, "UpdatePeriod", cancellationToken);
+        }
+
         public async Task<Models.Category> UpdateRecordAsync(Models.Category category, CancellationToken cancellationToken = default)
         {
             ValidateEntity(category, nameof(category));

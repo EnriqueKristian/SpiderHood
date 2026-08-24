@@ -23,6 +23,7 @@ namespace SpiderHood.Data
             }, "UnsetOtherCurrentPeriods", cancellationToken);
         }
 
+
         public async Task<bool> ClosePastBudgetsAsync(Guid idBuilding, DateTime period, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
@@ -34,6 +35,18 @@ namespace SpiderHood.Data
                     idBuilding);
                 return true;
             }, "ClosePastBudgets", cancellationToken);
+        }
+
+        public async Task<bool> SetPeriodAsCurrentAsync(Guid idPeriod, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_SetPeriodAsCurrent,
+                    cancellationToken,
+                    idPeriod);
+                return true;
+            }, "SetPeriodAsCurrent", cancellationToken);
         }
 
         public async Task<bool> UpdateTokenUserAsync(UserModel user, CancellationToken cancellationToken = default)

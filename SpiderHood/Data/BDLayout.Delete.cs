@@ -62,6 +62,17 @@ namespace SpiderHood.Data
             }, "DeleteCategory", cancellationToken);
         }
 
+        public async Task<bool> DeleteRecordAsync(Period period, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(period, nameof(period));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Period, cancellationToken, period.IdPeriod);
+                return true;
+            }, "DeletePeriod", cancellationToken);
+        }
+
         public async Task<bool> DeleteRecordAsync(BudgetHeader budgetHeader, CancellationToken cancellationToken = default)
         {
             ValidateEntity(budgetHeader, nameof(budgetHeader));

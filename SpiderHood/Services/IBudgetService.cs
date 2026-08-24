@@ -1044,103 +1044,58 @@ namespace SpiderHood.Services
 
         public async Task<bool> UpdatePeriodAsync(Models.Period period)
         {
-            /*try
+            try
             {
-                // Validar que no haya superposición de fechas
-                var hasOverlap = await _context.Periods.AnyAsync(p =>
-                    p.IdBuilding == period.IdBuilding &&
-                    p.IdPeriod != period.IdPeriod &&
-                    ((p.StartDate <= period.EndDate && p.EndDate >= period.StartDate) ||
-                     (period.StartDate <= p.EndDate && period.EndDate >= p.StartDate)));
+                // Validar que no haya superposición de fechas con otro periodo (el propio
+                // IdPeriod que se le pasa a CHK_Period_CheckOverlap lo excluye de sí mismo).
+                var hasOverlap = await ec.CheckPeriodOverlapAsync(period);
 
                 if (hasOverlap)
                 {
                     throw new Exception("El periodo se superpone con otro periodo existente");
                 }
 
-                var existingPeriod = await _context.Periods.FindAsync(period.IdPeriod);
-                if (existingPeriod == null)
-                    return false;
+                await ec.UpdateRecordAsync(period);
 
-                _context.Entry(existingPeriod).CurrentValues.SetValues(period);
-
-                // Si este periodo es el actual, desmarcar los demás
+                // Si este periodo pasa a ser el actual, desmarcar los demás
                 if (period.IsCurrentPeriod)
                 {
                     await UnsetOtherCurrentPeriods(period.IdBuilding, period.IdPeriod);
                 }
 
-                await _context.SaveChangesAsync();
                 return true;
             }
             catch (Exception)
             {
                 return false;
-            }*/
-            return false;
+            }
         }
 
         public async Task<bool> DeletePeriodAsync(Guid id)
         {
-            /*try
+            try
             {
-                var period = await _context.Periods.FindAsync(id);
-                if (period == null)
-                    return false;
-
-                // Verificar si tiene datos relacionados
-                var hasReadings = await _context.ServiceReadings
-                    .AnyAsync(r => r.IdPeriod == id);
-
-                var hasBudgets = await _context.BudgetHeaders
-                    .AnyAsync(b => b.IdPeriod == id);
-
-                if (hasReadings || hasBudgets)
-                {
-                    throw new Exception("No se puede eliminar el periodo porque tiene datos relacionados");
-                }
-
-                _context.Periods.Remove(period);
-                await _context.SaveChangesAsync();
+                await ec.DeleteRecordAsync(new Models.Period { IdPeriod = id });
                 return true;
             }
             catch (Exception)
             {
                 return false;
-            }*/
-            return false;
+            }
         }
 
         public async Task<bool> SetAsCurrentPeriodAsync(Guid periodId, Guid buildingId)
         {
-            /*try
+            try
             {
-                // Desmarcar todos los periodos como no actuales
-                var periods = await _context.Periods
-                    .Where(p => p.IdBuilding == buildingId)
-                    .ToListAsync();
-
-                foreach (var period in periods)
-                {
-                    period.IsCurrentPeriod = false;
-                }
-
-                // Marcar el periodo seleccionado como actual
-                var selectedPeriod = await _context.Periods.FindAsync(periodId);
-                if (selectedPeriod != null)
-                {
-                    selectedPeriod.IsCurrentPeriod = true;
-                    selectedPeriod.Status = 1; // Asegurar que esté activo
-                }
-
-                await _context.SaveChangesAsync();
+                await UnsetOtherCurrentPeriods(buildingId, periodId);
+                await ec.SetPeriodAsCurrentAsync(periodId);
                 return true;
             }
             catch (Exception)
             {
                 return false;
-            }*/
-            return false;
+            }
         }
 
         public async Task<bool> ValidatePeriodDatesAsync(Guid buildingId, DateTime startDate, DateTime endDate, Guid? excludeId = null)

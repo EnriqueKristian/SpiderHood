@@ -350,53 +350,59 @@
                     <button type="button" class="btn-close" @onclick="CloseModal"></button>
                 </div>
                 <div class="modal-body">
-                    <form>
+                    <EditForm Model="currentParameter" OnValidSubmit="SaveParameter">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Descripción *</label>
-                                <input type="text" class="form-control" @bind="currentParameter.Description"
-                                       placeholder="Ingrese descripción del parámetro" />
+                                <InputText class="form-control" @bind-Value="currentParameter.Description"
+                                           placeholder="Ingrese descripción del parámetro" />
+                                <ValidationMessage For="() => currentParameter.Description" class="text-danger" />
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Descripción Corta *</label>
-                                <input type="text" class="form-control" @bind="currentParameter.ShortDescription"
-                                       placeholder="Ingrese descripción corta del parámetro" />
+                                <InputText class="form-control" @bind-Value="currentParameter.ShortDescription"
+                                           placeholder="Ingrese descripción corta del parámetro" />
+                                <ValidationMessage For="() => currentParameter.ShortDescription" class="text-danger" />
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Valor</label>
-                                <input type="text" class="form-control" @bind="currentParameter.Value"
-                                       placeholder="Valor del parámetro" />
+                                <label class="form-label">Valor *</label>
+                                <InputNumber class="form-control" @bind-Value="currentParameter.Value"
+                                             placeholder="Valor del parámetro" />
+                                <ValidationMessage For="() => currentParameter.Value" class="text-danger" />
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Orden</label>
-                                <input type="text" class="form-control" @bind="currentParameter.Sort"
-                                       placeholder="Orden del parámetro" />
+                                <InputNumber class="form-control" @bind-Value="currentParameter.Sort"
+                                             placeholder="Orden del parámetro" />
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Estado *</label>
-                                <select class="form-select" @bind="currentParameter.Estado">
+                                <InputSelect class="form-select" @bind-Value="currentParameter.Estado">
                                     <option value="Activo">Activo</option>
                                     <option value="Inactivo">Inactivo</option>
-                                </select>
+                                </InputSelect>
+                                <ValidationMessage For="() => currentParameter.Estado" class="text-danger" />
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Parámetro Padre</label>
-                                <select class="form-select" @bind="currentParameter.IdParent">
+                                <InputSelect class="form-select" @bind-Value="currentParameter.IdParent">
                                     <option value="0">(Ninguno - Grupo Principal)</option>
                                     @foreach (var parent in availableParents)
                                     {
                                         <option value="@parent.IdTabla">@parent.Description</option>
                                     }
-                                </select>
+                                </InputSelect>
                             </div>
                         </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" @onclick="SaveParameter">
-                        <i class="bi bi-save me-2"></i>Guardar Parámetro
-                    </button>
+                        <div class="modal-footer px-0 pb-0 border-0">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>Guardar Parámetro
+                            </button>
+                        </div>
+                    </EditForm>
                 </div>
             </div>
         </div>
@@ -415,8 +421,6 @@
     private Models.Parameter currentParameter = new();
     private List<Models.Parameter> availableParents = new();
     private List<Models.Parameter> parameters = new();
-
-    private OpenType OpenMode = OpenType.ReadOnly;
 
     // Estadísticas
     private int totalGrupos = 0;
@@ -593,31 +597,36 @@
         OnInitialized();
     }
 
-    private void DeleteParameter(Parameter parameter)
+    private async Task DeleteParameter(Parameter parameter)
     {
-        // Verificar si tiene hijos
-        var hasChildren = parameters.Any(p => p.IdParent == parameter.IdTabla);
+        var children = parameters.Where(p => p.IdParent == parameter.IdTabla).ToList();
 
-        if (hasChildren)
+        var mensaje = children.Any()
+            ? $"¿Está seguro que desea eliminar '{parameter.ShortDescription}'? También se eliminarán sus {children.Count} parámetro(s) hijo(s)."
+            : $"¿Está seguro que desea eliminar '{parameter.ShortDescription}'?";
+
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", mensaje))
+            return;
+
+        foreach (var child in children)
         {
-            // Mostrar confirmación
-            // En implementación real, usar un modal de confirmación
-        }
-
-        parameters.Remove(parameter);
-
-        // También eliminar hijos si es un grupo
-        if (parameter.IdParent == 0)
-        {
-            var children = parameters.Where(p => p.IdParent == parameter.IdTabla).ToList();
-            foreach (var child in children)
+            var childResult = await ParameterService.DeleteParameterAsync(child.IdTabla);
+            if (!childResult.IsSuccess)
             {
-                parameters.Remove(child);
+                await JSRuntime.InvokeVoidAsync("alert", childResult.ErrorMessage ?? "No se pudo eliminar un parámetro hijo");
+                return;
             }
         }
 
-        FilterParameters();
-        UpdateStatistics();
+        var result = await ParameterService.DeleteParameterAsync(parameter.IdTabla);
+        if (!result.IsSuccess)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo eliminar el parámetro");
+            return;
+        }
+
+        await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding, true);
+        OnInitialized();
     }
 
     private void CloseModal()
@@ -647,52 +656,14 @@
     }
 
 
-    private async Task SaveItem(SpiderHood.Models.Parameter item)
-    {
-        switch (OpenMode)
-        {
-            case Models.OpenType.Create:
-                await AddItem(item);
-                break;
-
-            case Models.OpenType.Update:
-                await UpdateItem(item);
-                break;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}");
-        }
-        await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
-        OnInitialized();
-        return;
-
-    }
-
     private async Task AddItem(SpiderHood.Models.Parameter item)
     {
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
         await ParameterService.AddParameterAsync(item);
-        //await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(SpiderHood.Models.Parameter _param)
     {
         await ParameterService.UpdateParameterAsync(_param);
-    }
-
-    private async Task DeleteItem()
-    {
-        // Lógica adicional después de cerrar el modal, si es necesario
-        //await ParameterService.ec.DeleteRecordAsync(_Parameter);
-        //await ParameterService.Context.SaveChangesAsync();
-        //await modal.HideAsync();
-        OnInitialized();
-        return;
-    }
-
-    private bool ItemExists(int id)
-    {
-        return false;
-        //return ParameterService.Context.Parameter.Any(e => e.IdTabla == id);
     }
 }

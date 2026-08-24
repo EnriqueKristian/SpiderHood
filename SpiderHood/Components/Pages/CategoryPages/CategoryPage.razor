@@ -132,7 +132,11 @@
 
     private async Task ShowModal(Models.Category category)
     {
-        OpenModal(category, 0, OpenType.Update);
+        // El tipo se deriva del propio dato (¿tiene padre?), no se asume: de lo contrario
+        // editar una subcategoría abría el modal en modo "categoría" (mostrando el selector
+        // de color que las subcategorías no usan — ver ModalCategory).
+        var type = category.ParentId == Guid.Empty ? 0 : 1;
+        OpenModal(category, type, OpenType.Update);
     }
 
     private void OpenModal(Category item, int type, OpenType mode)
@@ -185,6 +189,11 @@
     {
         item.IdCategory = Guid.NewGuid();
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
+        // Nivel nunca se seteaba al crear una subcategoría (quedaba en el default 0, igual
+        // que una categoría de nivel superior), así que cada subcategoría nueva también se
+        // renderizaba como su propia tarjeta duplicada en la vista de nivel superior
+        // (CategoryPage.LoadCategories filtra _catParent por Nivel == 0).
+        item.Nivel = item.ParentId == Guid.Empty ? 0 : 1;
         await CategoryService.AddCategoryAsync(item);
         //await ParameterService.Context.SaveChangesAsync();
     }

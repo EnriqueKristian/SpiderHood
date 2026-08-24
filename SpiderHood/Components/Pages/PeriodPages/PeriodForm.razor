@@ -101,16 +101,16 @@
                                    @bind-Value="period.Description" />
                 </div>
 
-            </EditForm>
-                </div>
                 <div class="modal-footer">
                     <button type="button"
                             class="btn btn-outline-secondary" @onclick="CerrarModal">
                         Cancelar
                     </button>
-                    <button type="submit" class="btn btn-primary" @onclick="HandleValidSubmit">
+                    <button type="submit" class="btn btn-primary">
                         Save
                     </button>
+                </div>
+            </EditForm>
                 </div>
 
             </div>
@@ -169,11 +169,15 @@
 
             if (isNew)
             {
-                success = await PeriodService.CreatePeriodAsync(period); 
+                success = await PeriodService.CreatePeriodAsync(period);
                 if (success)
                 {
-                    //await SweetAlert.FireAsync("¡Actualizado!", "El periodo ha sido actualizado correctamente", SweetAlertIcon.Success);
                     await ShowToast("¡Creado!", "El periodo ha sido creado correctamente", "success");
+                }
+                else
+                {
+                    await ShowToast("Error", "No se pudo crear el periodo", "danger");
+                    return;
                 }
             }
             else
@@ -181,18 +185,23 @@
                 success = await PeriodService.UpdatePeriodAsync(period);
                 if (success)
                 {
-                    //await SweetAlert.FireAsync("¡Creado!", "El periodo ha sido creado correctamente", SweetAlertIcon.Success);
                     await ShowToast("¡Actualizado!", "El periodo ha sido actualizado correctamente", "success");
                 }
+                else
+                {
+                    await ShowToast("Error", "No se pudo actualizar el periodo", "danger");
+                    return;
+                }
             }
+
             period.IsNewPeriod = false;
-            await OnSave.InvokeAsync(period);
             ShowModal = false;
+            await ShowModalChanged.InvokeAsync(ShowModal);
+            await OnSave.InvokeAsync(period);
         }
         catch (Exception ex)
         {
-            //await SweetAlert.FireAsync("Error", $"Ocurrió un error: {ex.Message}", SweetAlertIcon.Error);
-            await ShowToast("Error", $"Ocurrió un error: {ex.Message}", "dange");
+            await ShowToast("Error", $"Ocurrió un error: {ex.Message}", "danger");
         }
     }
 

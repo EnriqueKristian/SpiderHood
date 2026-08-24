@@ -367,30 +367,28 @@ namespace SpiderHood.Services
         /// </summary>
         public async Task<OperationResult> DeleteParameterAsync(int idTabla)
         {
-            /*try
+            try
             {
-                var parameter = await Context.Parameter
-                    .FirstOrDefaultAsync(p => p.IdTabla == idTabla);
+                var ecLocal = new BDLayout(_contextFactory);
+                await ecLocal.DeleteRecordAsync(new Parameter { IdTabla = idTabla });
 
-                if (parameter == null)
-                    return OperationResult.Failure("Parameter not found");
-
-                Context.Parameter.Remove(parameter);
-                await Context.SaveChangesAsync();
-
-                // Actualizar lista local
                 _listParameters.RemoveAll(p => p.IdTabla == idTabla);
-                ClearCacheForBuilding(CurrentBuilding.IdBuilding);
+                if (CurrentBuilding != null)
+                {
+                    ClearCacheForBuilding(CurrentBuilding.IdBuilding);
+                }
                 NotifyStateChanged();
 
                 return OperationResult.Success();
             }
+            catch (DbUpdateException ex)
+            {
+                return OperationResult.Failure($"Database error: {ex.Message}");
+            }
             catch (Exception ex)
             {
-                // Log error
                 return OperationResult.Failure($"Error deleting parameter: {ex.Message}");
-            }*/
-            return OperationResult.Failure("Not implemented");
+            }
         }
 
         /// <summary>

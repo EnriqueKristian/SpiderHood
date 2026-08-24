@@ -1,0 +1,108 @@
+/* Estilos unificados para la vista de árbol */
+    .menu-tree-table {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+    }
+
+    .menu-tree-table th,
+    .menu-tree-table td {
+        padding: 12px 8px;
+        vertical-align: middle !important;
+        border: 1px solid var(--sh-border-strong);
+    }
+
+    .menu-tree-table th {
+        background-color: var(--sh-surface-muted);
+        font-weight: 600;
+    }
+
+    /* Contenedor del contenido del menú */
+    .menu-item-content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    /* Indentación para jerarquía */
+    .menu-indent {
+        display: inline-block;
+        width: calc(var(--level, 0) * 20px);
+        flex-shrink: 0;
+    }
+
+    /* Icono expander */
+    .expander-icon {
+        cursor: pointer;
+        width: 20px;
+        text-align: center;
+        display: inline-block;
+        flex-shrink: 0;
+    }
+
+    /* Contenedor de checkboxes - AHORA EN HORIZONTAL */
+    .role-checkbox-container {
+        text-align: center;
+        vertical-align: middle;
+        padding: 8px 4px !important;
+    }
+
+        .role-checkbox-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            cursor: pointer;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+    /* Contenedor de acciones */
+    .actions-container {
+        display: flex;
+        gap: 4px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    /* Grupo de badges */
+    .badge-group {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    /* Cambios pendientes */
+    .pending-change {
+        background-color: var(--sh-warning-light) !important;
+    }
+
+    /* Hover en filas */
+    .menu-node-row:hover td {
+        background-color: var(--sh-surface-muted);
+    }
+
+    /* Asegurar que las celdas de checkboxes estén en una sola fila */
+    .menu-tree-table tr {
+        display: table-row;
+    }
+
+    .menu-tree-table td {
+        display: table-cell;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .menu-tree-table {
+            font-size: 14px;
+        }
+
+        .role-checkbox-container input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .actions-container {
+            flex-direction: column;
+        }
+    }

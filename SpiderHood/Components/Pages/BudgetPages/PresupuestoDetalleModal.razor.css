@@ -60,3 +60,19 @@
     .details-table{
         width:100%;
     }
+
+    .section-header-row {
+        background-color: var(--sh-border) !important;
+        position: relative;
+    }
+
+    .empty-section {
+        text-align: center;
+        padding: 1rem;
+        color: var(--sh-text-muted);
+        font-style: italic;
+        background-color: var(--sh-surface-muted);
+        border-radius: 4px;
+        margin: 0.5rem 0;
+        border: 1px dashed var(--sh-border);
+    }

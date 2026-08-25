@@ -1,0 +1,14 @@
+/* Reemplaza parte del antiguo wwwroot/budget.css (ver BudgetGenerator.razor.css
+   para el resto) — este componente también renderiza .apartment-distribution y
+   .transition-all directamente, así que necesita su propia copia scoped. */
+
+.apartment-distribution {
+    background-color: #f0f9ff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.transition-all {
+    transition: all 0.3s ease-in-out;
+}

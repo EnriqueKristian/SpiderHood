@@ -1,0 +1,108 @@
+/* CSS for CategoryCard component */
+.category-card {
+    background-color: var(--sh-surface);
+    border-radius: var(--sh-radius-lg);
+    box-shadow: var(--sh-shadow-sm);
+    margin-bottom: 25px;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+    .category-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--sh-shadow-md);
+    }
+
+.category-header {
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--sh-space-2);
+    border-bottom: 1px solid var(--sh-border);
+}
+
+.category-name {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--sh-text-heading);
+}
+
+.subcategory-count {
+    background-color: var(--sh-primary-light);
+    color: var(--sh-primary-dark);
+    padding: 5px 12px;
+    border-radius: var(--sh-radius-pill);
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.subcategory-list {
+    padding: 20px;
+}
+
+.subcategory-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sh-space-2);
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--sh-border);
+}
+
+    .subcategory-item:last-child {
+        border-bottom: none;
+    }
+
+    .subcategory-item:hover {
+        background-color: var(--sh-surface-muted);
+    }
+
+.checkbox-container {
+    display: inline-flex;
+    width: 22px;
+}
+
+.subcategory-name {
+    font-size: 1.1rem;
+    color: var(--sh-text-heading);
+    flex: 1;
+}
+
+.distribution-tag {
+    padding: 4px 10px;
+    border-radius: var(--sh-radius-pill);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.distribution-fixed {
+    background-color: var(--sh-success-light);
+    color: var(--sh-success);
+}
+
+.distribution-percentage {
+    background-color: var(--sh-warning-light);
+    color: #b45309;
+}
+
+.add-subcategory {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+    background-color: var(--sh-surface-muted);
+    border-top: 1px solid var(--sh-border);
+    color: var(--sh-primary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+    .add-subcategory:hover {
+        background-color: var(--sh-primary-light);
+    }
+
+    .add-subcategory i {
+        margin-right: 8px;
+    }

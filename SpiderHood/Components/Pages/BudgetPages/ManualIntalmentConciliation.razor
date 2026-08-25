@@ -1,4 +1,4 @@
-﻿@using SpiderHood.Components.Pages.Components
+﻿﻿@using SpiderHood.Components.Pages.Components
 @using SpiderHood.Models
 @inherits LayoutComponentBase
 
@@ -8,7 +8,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-link me-2"></i>Conciliar Cuota / Transacción
+                    <i class="bi bi-link-45deg me-2"></i>Conciliar Cuota / Transacción
                 </h5>
                 <button type="button" class="btn-close" @onclick="CerrarModal"></button>
             </div>
@@ -61,19 +61,19 @@
                     else
                     {
                         <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <i class="bi bi-exclamation-triangle me-2"></i>
                             No se encontraron gastos pendientes de conciliar
                         </div>
                     }
 
                     <div class="text-center mt-3">
                         <button class="btn btn-outline-primary" @onclick="() => CerrarModal()">
-                            <i class="fas fa-plus-circle me-2"></i>Cancelar
+                            <i class="bi bi-plus-circle me-2"></i>Cancelar
                         </button>
                         &nbsp;
                         <button class="btn btn-outline-primary" disabled="@DisabledConcilicar" @onclick='() => ExecuteWithConfirmation(SaveData, "Asociar Pago", "¿Seguro que desea asiociar el pago?", "info")'>
-                                <i class="fas fa-plus-circle me-2"></i>Conciliar
-                            </button>
+                            <i class="bi bi-plus-circle me-2"></i>Conciliar
+                        </button>
                     </div>
                 </div>
             </div>
@@ -82,7 +82,7 @@
 </div>
 
 <!-- Agregar al final del componente -->
-<ConfirmationModal @ref="_confirmationModal" 
+<ConfirmationModal @ref="_confirmationModal"
                    OnClose="OnConfirmationResult" />
 
 @code {

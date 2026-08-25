@@ -1,4 +1,4 @@
-﻿@using SpiderHood.Components.Pages.Components
+﻿﻿@using SpiderHood.Components.Pages.Components
 @using SpiderHood.Components.Pages.PeriodPages
 @using SpiderHood.Models
 @using SpiderHood.Services
@@ -9,35 +9,6 @@
 @inject ParameterService ParameterService
 @using ClosedXML.Excel
 @inject IJSRuntime JSRuntime
-
-
-<style>
-    .loading-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(255, 255, 255, 0.85);
-        z-index: 9999;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-
-    .loading-container {
-        text-align: center;
-        background: white;
-        padding: 2rem;
-        border-radius: 10px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        border: 1px solid #dee2e6;
-    }
-
-    .loading-text {
-        max-width: 300px;
-    }
-</style>
 
 <script src="/js/fileDownload.js"></script>
 <script src="/js/utilidades.js"></script>
@@ -75,30 +46,31 @@
                     </div>
                 </div>
 
-                @if(_ServiceReadingState.CurrentReading.Status < 2 ){
+                @if (_ServiceReadingState.CurrentReading.Status < 2)
+                {
                     <!-- Importar Excel -->
                     <div class="col-md-5">
                         <div class="card" disabled="@(!_ServiceReadingState.OpenFromModal)">
                             <div class="card-body">
-                            
+
                                 <div class="mb-3">
                                     <!-- InputFile oculto -->
                                     <InputFile id="fileInput"
-                                                OnChange="CargarArchivoExcel"
-                                                accept=".xlsx,.xls,.csv"
-                                                style="display:none;" />
+                                               OnChange="CargarArchivoExcel"
+                                               accept=".xlsx,.xls,.csv"
+                                               style="display:none;" />
 
                                     <!-- Botón para abrir el selector de archivos -->
                                     <div class="text-center">
                                         <button class="btn btn-primary btn-lg" @onclick="AbrirSelectorArchivo">
-                                            <i class="fas fa-cloud-upload-alt mr-2"></i>
+                                            <i class="bi bi-cloud-upload mr-2"></i>
                                             Importar Lecturas de Agua
                                         </button>
 
                                         <div class="summary">
-                                            <div><i class="fas fa-info-circle"></i> Formatos aceptados: .xlsx, .xls</div>
+                                            <div><i class="bi bi-info-circle"></i> Formatos aceptados: .xlsx, .xls</div>
                                             <div>
-                                                <i class="fas fa-download"></i>
+                                                <i class="bi bi-download"></i>
                                                 <a href="javascript:void(0)" @onclick="ExportarPlantillaVacia">
                                                     Descargar plantilla
                                                 </a>
@@ -107,12 +79,12 @@
                                         </div>
                                     </div>
                                 </div>
-                            
+
                             
                                 @if (!string.IsNullOrEmpty(_archivoNombre))
                                 {
                                     <div class="alert alert-success">
-                                        <i class="fas fa-check-circle mr-2"></i>
+                                        <i class="bi bi-check-circle mr-2"></i>
                                         @_archivoNombre (@_lecturasCargadas.Count registros)
                                     </div>
                                 }
@@ -131,20 +103,20 @@
             <!-- Indicador de carga global -->
             @if (util._isLoading)
             {
-                        <div class="loading-overlay">
-                            <div class="loading-card shadow">
-                                <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status">
-                                    <span class="visually-hidden">Cargando...</span>
-                                </div>
-
-                                <div class="mt-3 text-center">
-                                    <strong>@util._currentOperation</strong>
-                                    <p class="text-muted small mb-0">Por favor espere…</p>
-                                </div>
-                            </div>
+                <div class="loading-overlay">
+                    <div class="loading-card shadow">
+                        <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;" role="status">
+                            <span class="visually-hidden">Cargando...</span>
                         </div>
+
+                        <div class="mt-3 text-center">
+                            <strong>@util._currentOperation</strong>
+                            <p class="text-muted small mb-0">Por favor espere…</p>
+                        </div>
+                    </div>
+                </div>
             }
-            
+
             <!-- Mensajes de estado -->
             @if (!string.IsNullOrEmpty(mensaje))
             {
@@ -225,23 +197,23 @@
                 </div>
 
                 <div class="table-responsive mb-4">
-                    
+
                     <table class="table table-bordered table-hover table-striped">
                         <thead>
                             <tr>
                                 <th @onclick="() => SortColumn(GroupNumber)" style="cursor: pointer;">DPTO @_pagination.GetSortIndicator("GroupNumber")</th>
-                                <th><i class="far fa-calendar"></i> PERÍODO</th>
-                                <th><i class="fas fa-fingerprint"></i> ID LECTURA</th>
-                                <th><i class="fas fa-history"></i> LECTURA ANTERIOR</th>
-                                <th><i class="fas fa-bolt"></i> LECTURA ACTUAL</th>
-                                <th @onclick="() => SortColumn(Consumption)" style="cursor: pointer;"><i class="fas fa-water"></i> CONSUMO (M³) @_pagination.GetSortIndicator("Consumption")</th>
-                                <th @onclick="() => SortColumn(CalculatedAmount)" style="cursor: pointer;"><i class="fas fa-money-bill-wave"></i> MONTO TOTAL @_pagination.GetSortIndicator("CalculatedAmount")</th>
-                                <th><i class="fas fa-cogs"></i> ACCIONES</th>
+                                <th><i class="bi bi-calendar3"></i> PERÍODO</th>
+                                <th><i class="bi bi-fingerprint"></i> ID LECTURA</th>
+                                <th><i class="bi bi-clock-history"></i> LECTURA ANTERIOR</th>
+                                <th><i class="bi bi-lightning-charge"></i> LECTURA ACTUAL</th>
+                                <th @onclick="() => SortColumn(Consumption)" style="cursor: pointer;"><i class="bi bi-droplet"></i> CONSUMO (M³) @_pagination.GetSortIndicator("Consumption")</th>
+                                <th @onclick="() => SortColumn(CalculatedAmount)" style="cursor: pointer;"><i class="bi bi-cash-coin"></i> MONTO TOTAL @_pagination.GetSortIndicator("CalculatedAmount")</th>
+                                <th><i class="bi bi-gear-fill"></i> ACCIONES</th>
                             </tr>
                         </thead>
                         <tbody>
-                            
-                            @foreach (var lectura in  _pagination.CurrentPageData ) //_ServiceReadingState.CurrentReadingDetail)
+
+                            @foreach (var lectura in _pagination.CurrentPageData) //_ServiceReadingState.CurrentReadingDetail)
                             {
                                 <!--tr class="@(!lectura.Minimum ? "table-success" : "table-warning")"-->
 
@@ -266,7 +238,8 @@
                                                 @lectura.Consumption.ToString("F2") m³
                                             </span>
                                         }
-                                        else{
+                                        else
+                                        {
                                             <div class="dropdown">
                                                 <button class="btn btn-sm btn-outline-danger dropdown-toggle"
                                                         type="button"
@@ -295,18 +268,18 @@
                                                     </li>
                                                 </ul>
                                             </div>
-                                            }
+                                        }
                                     </td>
                                     <td align="right">
-                                            <strong class="text-success">
+                                        <strong class="text-success">
                                             S/ @lectura.CalculatedAmount.ToString("F2")
-                                            </strong>
+                                        </strong>
                                     </td>
                                     <td>
                                         <button @onclick="() => SeleccionarLectura(lectura)"
                                                 class="btn btn-info btn-sm mr-1"
                                                 title="Ver detalle">
-                                            <i class="fas fa-eye"></i>
+                                            <i class="bi bi-eye"></i>
                                         </button>
                                     </td>
                                 </tr>
@@ -335,24 +308,24 @@
                     <!-- Botones de acción -->
                     <div class="d-flex justify-content-between">
                         <button @onclick="ExportarAExcel" class="btn btn-success">
-                            <i class="fas fa-file-excel mr-2"></i>&nbsp;Exportar a Excel
+                            <i class="bi bi-file-earmark-excel mr-2"></i>&nbsp;Exportar a Excel
                         </button>
                         @if (_ServiceReadingState.ShowSaveReadings) // !_error )
                         {
-                        <button @onclick="GuardarLecturas" class="btn btn-primary">
-                            <i class="fas fa-save mr-2"></i>&nbsp;Guardar Lecturas
+                            <button @onclick="GuardarLecturas" class="btn btn-primary">
+                                <i class="bi bi-floppy mr-2"></i>&nbsp;Guardar Lecturas
+                            </button>
+                        }
+                        <button @onclick="LimpiarDatos" class="btn btn-danger">
+                            <i class="bi bi-trash mr-2"></i>&nbsp;Limpiar Todo
                         </button>
-                    }
-                    <button @onclick="LimpiarDatos" class="btn btn-danger">
-                        <i class="fas fa-trash mr-2"></i>&nbsp;Limpiar Todo
-                    </button>
-                </div>
+                    </div>
                 }
             }
             else
             {
                 <div class="text-center py-5">
-                    <i class="fas fa-file-import fa-4x text-muted mb-3"></i>
+                    <i class="bi bi-file-earmark-arrow-down bi-4x text-muted mb-3"></i>
                     <h4 class="text-muted">No hay lecturas cargadas</h4>
                     <p class="text-muted">Importe un archivo Excel o ingrese lecturas manualmente</p>
                 </div>
@@ -368,7 +341,7 @@
                 <div class="modal-content">
                     <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title">
-                            <i class="fas fa-calculator mr-2"></i>
+                            <i class="bi bi-calculator mr-2"></i>
                             Detalle de Cálculo - Dpto @_lecturaSeleccionada.GroupNumber
                         </h5>
                         <button @onclick="CerrarModalDetalle" class="btn-close btn-close-white"></button>
@@ -535,7 +508,8 @@
                 isNewPeriod = true;
                 period = await ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding);
             }
-            else { 
+            else
+            {
                 // Configurar periodo inicial
                 await ConfigurarPeriodoInicial();
 
@@ -631,7 +605,8 @@
             // TODO: Mostrar mensaje de error al usuario
             Console.WriteLine($"Error al cargar periodo: {ex.Message}");
         }
-        finally{
+        finally
+        {
             util.StopLoading();
             StateHasChanged();
         }
@@ -668,7 +643,7 @@
             if (_ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any())
             {
                 _ServiceReadingState.PreviousReadingDetail = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.CurrentBuilding.IdBuilding);
-            } 
+            }
 
             _ServiceReadingState.CurrentReading = await CalculoService.ImportarDesdeExcelAsync(
                 memoryStream,
@@ -718,7 +693,7 @@
     {
         if (!_lecturasCargadas.Any()) return;
 
-        if ( _ServiceReadingState.PreviousReadingDetail.Any(c => c.CurrentReading  == 0) ) //_esPrimeraCarga)
+        if (_ServiceReadingState.PreviousReadingDetail.Any(c => c.CurrentReading == 0)) //_esPrimeraCarga)
         {
             _ServiceReadingState.CurrentReadingDetail = _lecturasCargadas;
             MarcarTodasComoProcesadas();
@@ -795,54 +770,54 @@
 
         using (transaction)
 
-        try
-        {
-            if (!PuedeGuardar)
+            try
             {
-                // TODO: Mostrar mensaje de que faltan procesar lecturas
-                return;
-            }
+                if (!PuedeGuardar)
+                {
+                    // TODO: Mostrar mensaje de que faltan procesar lecturas
+                    return;
+                }
 
-            //agregar periodo
-            if (_periods.Where(c => c.IsNewPeriod).Count() > 0)
+                //agregar periodo
+                if (_periods.Where(c => c.IsNewPeriod).Count() > 0)
+                {
+                    await ServiceReadingService.AddPeriodAsync(_currentPeriod);
+                }
+
+                // Asignar detalles procesados a la lectura actual
+                _ServiceReadingState.CurrentReading.TotalAmount = TotalGeneral;
+
+                // Guardar en base de datos
+                await ServiceReadingService.AddServiceReadingAsync(_ServiceReadingState.CurrentReading);
+
+                // Guardar en base de datos
+                await ServiceReadingService.AddServiceReadingDetailAsync(_ServiceReadingState.CurrentReading.WaterReadingDetail!);
+
+                await transaction.CommitAsync();
+
+                //await MostrarMensajeExito("Lecturas guardadas exitosamente");
+                await ShowToast("Info", $"Lecturas guardadas exitosamente.", "success");
+
+                LimpiarDatos();
+
+                _periods = await ParameterService.GetPeriodsAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+                await ConfigurarPeriodoInicial();
+
+                await CargarPeriodo(_periodoActual);
+
+            }
+            catch (Exception ex)
             {
-                await ServiceReadingService.AddPeriodAsync(_currentPeriod);
+                // TODO: Mostrar mensaje de error
+                await transaction.RollbackAsync();
+                //await MostrarMensajeError($"Error al guardar lecturas: {ex.Message}");
+                await ShowToast("Error", $"Error al guardar lecturas: {ex.Message}", "danger");
             }
-
-            // Asignar detalles procesados a la lectura actual
-            _ServiceReadingState.CurrentReading.TotalAmount = TotalGeneral;
-
-            // Guardar en base de datos
-            await ServiceReadingService.AddServiceReadingAsync(_ServiceReadingState.CurrentReading);
-
-            // Guardar en base de datos
-            await ServiceReadingService.AddServiceReadingDetailAsync(_ServiceReadingState.CurrentReading.WaterReadingDetail!);
-
-            await transaction.CommitAsync();
-
-            //await MostrarMensajeExito("Lecturas guardadas exitosamente");
-            await ShowToast("Info", $"Lecturas guardadas exitosamente.", "success");
-
-            LimpiarDatos();
-
-            _periods = await ParameterService.GetPeriodsAsync(ParameterService.CurrentBuilding.IdBuilding);
-
-            await ConfigurarPeriodoInicial();
-
-            await CargarPeriodo(_periodoActual);
-
-        }
-        catch (Exception ex)
-        {
-            // TODO: Mostrar mensaje de error
-            await transaction.RollbackAsync();
-            //await MostrarMensajeError($"Error al guardar lecturas: {ex.Message}");
-            await ShowToast("Error", $"Error al guardar lecturas: {ex.Message}", "danger");
-        }
-        finally
-        {
-            StateHasChanged();
-        }
+            finally
+            {
+                StateHasChanged();
+            }
     }
 
     private void LimpiarDatos()
@@ -1213,7 +1188,7 @@
         if (lectura.Minimum)
             return "table-info";
 
-        if (lectura.Consumption > 100 )
+        if (lectura.Consumption > 100)
             return "table-danger";
 
         return "";
@@ -1227,7 +1202,7 @@
         if (lectura.Minimum)
             return $"Consumo mínimo/personalizado aplicado ({lectura.Consumption} m³)";
 
-        if (lectura.Consumption > 100 )
+        if (lectura.Consumption > 100)
             return $"Consumo alto detectado ({lectura.Consumption} m³)";
 
         return $"Consumo: {lectura.Consumption:F2} m³ | Monto: S/ {lectura.CalculatedAmount:F2}";

@@ -2,8 +2,6 @@
 
 @inherits LayoutComponentBase
 
-<link rel="stylesheet" href="@Assets["Category.css"]" />
-
 @if (ShowModal)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -16,7 +14,7 @@
                 <EditForm Model="@ViewCategory" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
                     <DataAnnotationsValidator />
                     <ValidationSummary class="text-danger" role="alert" />
-                <div class="modal-body">
+                    <div class="modal-body">
                         <div class="mb-3">
                             <label for="description" class="form-label">@((TypeCategory == 1) ? "Nombre de la Sub Categoria" : "Nombre de la Categoria"):</label>
                             <InputText id="description" @bind-Value="ViewCategory.Description" class="form-control" aria-required="true" placeholder="@NombrePlaceholder" />
@@ -52,10 +50,10 @@
                                     {
                                         var isSelected = color == ViewCategory.Color;
                                         <button type="button"
-                                        class="color-item @(isSelected ? "selected" : "")"
-                                        style="background-color:@color"
-                                        title="@color"
-                                        @onclick="@(() => SeleccionarColor(color))">
+                                                class="color-item @(isSelected ? "selected" : "")"
+                                                style="background-color:@color"
+                                                title="@color"
+                                                @onclick="@(() => SeleccionarColor(color))">
                                         </button>
                                     }
                                 </div>
@@ -64,7 +62,7 @@
                         }
                         else
                         {
-                            ViewCategory.Color = "#FFFFFF";    
+                            ViewCategory.Color = "#FFFFFF";
                         }
                         <div class="form-group">
                             <label class="form-label">Tipo de Distribución:</label>
@@ -80,7 +78,7 @@
                             </div>
                             <p class="form-description">@DistribucionDescripcion</p>
                         </div>
-                </div>
+                    </div>
                     <div class="modal-footer">
                         <Button Color="ButtonColor.Secondary" @onclick="CerrarModal">Close</Button>
                         <button type="submit" class="btn btn-primary">@((OpenMode == Models.OpenType.Create) ? "Save" : "Update")</button>
@@ -149,25 +147,25 @@
     // Fuente de iconos (puedes cambiar por tus clases de iconos: Bootstrap Icons, FontAwesome, etc.)
     private readonly string[] IconosDisponibles =
         [
-        "fa-solid fa-droplet",
-        "fa-solid fa-hammer",
-        "fa-solid fa-inbox",
-        "fa-solid fa-lightbulb",
-        "fa-solid fa-lock",
-        "fa-solid fa-paperclip",
-        "fa-solid fa-screwdriver-wrench",
-        "fa-solid fa-tree",
-        "fa-solid fa-user-group",
-        "fa-solid fa-users",
-        "fa-regular fa-address-book",
-        "fa-solid fa-bell",
-        "fa-solid fa-box-archive",
-        "fa-solid fa-building-circle-check",
-        "fa-solid fa-calendar-days",
-        "fa-solid fa-chart-line",
-        "fa-solid fa-leaf",
-        "fa-solid fa-plant-wilt",
-        "fa-solid fa-shield-halved",
-        "fa-solid fa-sliders"
+        "bi bi-droplet",
+        "bi bi-tools",
+        "bi bi-inbox",
+        "bi bi-lightbulb",
+        "bi bi-lock",
+        "bi bi-paperclip",
+        "bi bi-tools",
+        "bi bi-tree",
+        "bi bi-people",
+        "bi bi-people",
+        "bi bi-person-vcard",
+        "bi bi-bell",
+        "bi bi-archive",
+        "bi bi-building-check",
+        "bi bi-calendar-week",
+        "bi bi-graph-up",
+        "bi bi-tree",
+        "bi bi-flower1",
+        "bi bi-shield-check",
+        "bi bi-sliders"
     ];
 }

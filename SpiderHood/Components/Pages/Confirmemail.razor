@@ -14,7 +14,7 @@
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0">
-                        <i class="fas fa-envelope me-2"></i>
+                        <i class="bi bi-envelope me-2"></i>
                         Confirmar Email
                     </h4>
                 </div>
@@ -33,7 +33,7 @@
                     {
                         <div class="py-4">
                             <div class="text-success mb-4">
-                                <i class="fas fa-check-circle fa-4x"></i>
+                                <i class="bi bi-check-circle bi-4x"></i>
                             </div>
 
                             <h4 class="mb-3">¡Email Confirmado!</h4>
@@ -45,7 +45,7 @@
                             @if (confirmationResult.RequiresApproval)
                             {
                                 <div class="alert alert-warning text-start mb-4">
-                                    <i class="fas fa-clock me-2"></i>
+                                    <i class="bi bi-clock me-2"></i>
                                     <strong>Aprobación pendiente:</strong>
                                     <p class="mb-0 mt-2">
                                         Tu cuenta está pendiente de aprobación por un administrador.
@@ -56,7 +56,7 @@
 
                             <div class="mt-4">
                                 <a href="/login" class="btn btn-primary">
-                                    <i class="fas fa-sign-in-alt me-2"></i>
+                                    <i class="bi bi-box-arrow-in-right me-2"></i>
                                     Ir a Iniciar Sesión
                                 </a>
                             </div>
@@ -66,7 +66,7 @@
                     {
                         <div class="py-4">
                             <div class="text-danger mb-4">
-                                <i class="fas fa-exclamation-triangle fa-4x"></i>
+                                <i class="bi bi-exclamation-triangle bi-4x"></i>
                             </div>
 
                             <h4 class="mb-3">Error de Confirmación</h4>
@@ -76,7 +76,7 @@
                             </p>
 
                             <div class="alert alert-info text-start mb-4">
-                                <i class="fas fa-info-circle me-2"></i>
+                                <i class="bi bi-info-circle me-2"></i>
                                 <strong>Posibles causas:</strong>
                                 <ul class="mb-0 mt-2">
                                     <li>El enlace ha expirado</li>
@@ -87,11 +87,11 @@
 
                             <div class="d-flex justify-content-center gap-3">
                                 <button class="btn btn-outline-primary" @onclick="ResendConfirmation">
-                                    <i class="fas fa-redo-alt me-2"></i>
+                                    <i class="bi bi-arrow-clockwise me-2"></i>
                                     Reenviar Email
                                 </button>
                                 <a href="/login" class="btn btn-primary">
-                                    <i class="fas fa-sign-in-alt me-2"></i>
+                                    <i class="bi bi-box-arrow-in-right me-2"></i>
                                     Iniciar Sesión
                                 </a>
                             </div>
@@ -110,7 +110,7 @@
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title">
-                        <i class="fas fa-envelope me-2"></i>
+                        <i class="bi bi-envelope me-2"></i>
                         Reenviar Email de Confirmación
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>

@@ -4,97 +4,13 @@
 @using SpiderHood.Services
 @inject ICalculoService CalculoService
 
-<style>
-
-    /* Estilos personalizados para el sistema de agua */
-    .agua-calculator {
-        padding: 20px;
-    }
-
-    .card {
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border: none;
-        margin-bottom: 20px;
-    }
-
-    .card-header {
-        border-radius: 10px 10px 0 0 !important;
-        padding: 15px 20px;
-    }
-
-    .table th {
-        background-color: #f8f9fa;
-        font-weight: 600;
-    }
-
-    .input-group-text {
-        background-color: #e9ecef;
-        border: 1px solid #ced4da;
-    }
-
-    .consumo-actual {
-        background-color: #f0f7ff;
-        padding: 15px;
-        border-radius: 8px;
-        text-align: center;
-    }
-
-    .badge {
-        font-size: 0.9em;
-        padding: 5px 10px;
-    }
-
-    .btn-lg {
-        padding: 12px 30px;
-        font-size: 1.1rem;
-    }
-
-    /* Estilos para la tabla de resultados */
-    .table-striped tbody tr:nth-of-type(odd) {
-        background-color: rgba(0, 123, 255, 0.05);
-    }
-
-    .table-primary {
-        background-color: #cce5ff !important;
-    }
-
-    /* Animaciones */
-    .btn {
-        transition: all 0.3s ease;
-    }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-    /* Responsive */
-    @*media (max-width: 768px) {
-        .agua-calculator {
-            padding: 10px;
-        }
-
-        .display-4 {
-            font-size: 2.5rem;
-        }
-
-        .btn-lg {
-            padding: 10px 20px;
-            font-size: 1rem;
-            margin-bottom: 10px;
-            width: 100%;
-        }
-    }*@
-</style>
-
 <div class="agua-calculator">
     <div class="row">
         <!--
         <div class="col-md-8">
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h3><i class="fas fa-tint mr-2"></i>CÁLCULO CONSUMO DE AGUA</h3>
+                    <h3><i class="bi bi-droplet-fill mr-2"></i>CÁLCULO CONSUMO DE AGUA</h3>
                 </div>
                 <div class="card-body">
                     <div class="row mb-4">
@@ -149,10 +65,10 @@
 
                     <div class="text-center mb-4">
                         <button @onclick="Calcular" class="btn btn-success btn-lg mr-3">
-                            <i class="fas fa-calculator mr-2"></i>Calcular Consumo
+                            <i class="bi bi-calculator mr-2"></i>Calcular Consumo
                         </button>
                         <button @onclick="GuardarLectura" class="btn btn-primary btn-lg">
-                            <i class="fas fa-save mr-2"></i>Guardar Lectura
+                            <i class="bi bi-floppy mr-2"></i>Guardar Lectura
                         </button>
                     </div>
 
@@ -210,7 +126,7 @@
         <div class="col-md-4">
             <!--<div class="card mb-4">
                 <div class="card-header bg-info text-white">
-                    <h4><i class="fas fa-history mr-2"></i>HISTÓRICO DE CONSUMO</h4>
+                    <h4><i class="bi bi-clock-history mr-2"></i>HISTÓRICO DE CONSUMO</h4>
                 </div>
                 <div class="card-body">
                     @if (historicoConsumo.Any())
@@ -244,7 +160,7 @@
 
             <div class="card">
                 <div class="card-header bg-warning">
-                    <h4><i class="fas fa-cogs mr-2"></i>Configuración Rápida</h4>
+                    <h4><i class="bi bi-gear-fill mr-2"></i>Configuración Rápida</h4>
                 </div>
                 <div class="card-body">
                     <p class="mb-3">Tarifas actuales:</p>
@@ -259,7 +175,7 @@
                     </div>
                     <div class="mt-3 text-center">
                         <a href="/configwater" class="btn btn-outline-warning btn-sm">
-                            <i class="fas fa-edit mr-1"></i>Configurar Tarifas
+                            <i class="bi bi-pencil-square mr-1"></i>Configurar Tarifas
                         </a>
                     </div>
                 </div>

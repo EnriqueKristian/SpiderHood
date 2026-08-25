@@ -431,7 +431,7 @@
 </style>
 
 <button class="btn btn-primary" @onclick="ShowModal">
-    <i class="fas fa-water"></i> Administrar Lecturas
+    <i class="bi bi-droplet"></i> Administrar Lecturas
 </button>
 
 <div class="modal-overlay visible" >
@@ -443,12 +443,12 @@
                 <div class="logo-container">
                     <div class="logo">A</div>
                     <div>
-                        <h1><i class="fas fa-tint"></i> Aguai de Agua en Bloque</h1>
+                        <h1><i class="bi bi-droplet-fill"></i> Aguai de Agua en Bloque</h1>
                         <div class="period-info">Período: 2025</div>
                     </div>
                 </div>
                 <button class="close-btn" >
-                    <i class="fas fa-times"></i>
+                    <i class="bi bi-x-lg"></i>
                 </button>
             </div>
         </div>
@@ -459,21 +459,21 @@
             <!-- Tarjetas de información -->
             <div class="dashboard">
                 <div class="card">
-                    <h3><i class="fas fa-file-invoice-dollar"></i> Cargo Fijo</h3>
+                    <h3><i class="bi bi-receipt"></i> Cargo Fijo</h3>
                     <div class="fixed-charge">S/ 5.04</div>
                     <div class="fixed-charge-subtitle">Tarifa base mensual</div>
                     <div class="summary">
-                        <div><i class="fas fa-users"></i> Plantilla: Plantilla Ejewmplo</div>
-                        <div><i class="fas fa-sync-alt"></i> Actualizado mensualmente</div>
+                        <div><i class="bi bi-people"></i> Plantilla: Plantilla Ejewmplo</div>
+                        <div><i class="bi bi-arrow-repeat"></i> Actualizado mensualmente</div>
                     </div>
                 </div>
 
                 <div class="card import-section">
-                    <h3><i class="fas fa-file-import"></i> Importar desde Excel</h3>
+                    <h3><i class="bi bi-file-earmark-arrow-down"></i> Importar desde Excel</h3>
                     <p>Selecciona un archivo Excel con los datos de consumo para importar.</p>
                     <div class="file-input-container">
                         <label for="file-input" class="file-input-label">
-                            <i class="fas fa-file-excel"></i> Elegir archivo
+                            <i class="bi bi-file-earmark-excel"></i> Elegir archivo
                         </label>
                         <input type="file" id="file-input"
                                accept=".xlsx,.xls"
@@ -492,9 +492,9 @@
                         </div>
                     }*@
                     <div class="summary">
-                        <div><i class="fas fa-info-circle"></i> Formatos aceptados: .xlsx, .xls</div>
+                        <div><i class="bi bi-info-circle"></i> Formatos aceptados: .xlsx, .xls</div>
                         <div>
-                            <i class="fas fa-download"></i>
+                            <i class="bi bi-download"></i>
                             <a href="#" @onclick:preventDefault>Descargar plantilla</a>
                         </div>
                     </div>
@@ -504,19 +504,19 @@
             <!-- Tabla de lecturas -->
             <div class="table-container">
                 <div class="table-header">
-                    <h3><i class="fas fa-list-alt"></i> Registros de Consumo</h3>
+                    <h3><i class="bi bi-card-list"></i> Registros de Consumo</h3>
                     <div class="table-actions">
                         <button class="btn-primary" >
-                            <i class="fas fa-plus"></i> Nuevo Registro
+                            <i class="bi bi-plus"></i> Nuevo Registro
                         </button>
                         <button class="btn-secondary" >
-                            <i class="fas fa-file-export"></i> Exportar
+                            <i class="bi bi-file-earmark-arrow-up"></i> Exportar
                         </button>
                     </div>
                 </div>
 
                     <div class="empty-state">
-                        <i class="fas fa-water"></i>
+                        <i class="bi bi-droplet"></i>
                         <h4>No hay lecturas registradas</h4>
                         <p>Importa datos desde Excel o agrega un nuevo registro manualmente.</p>
                     </div>
@@ -526,13 +526,13 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th><i class="far fa-calendar"></i> PERÍODO</th>
-                                    <th><i class="fas fa-fingerprint"></i> ID LECTURA</th>
-                                    <th><i class="fas fa-history"></i> LECTURA ANTERIOR</th>
-                                    <th><i class="fas fa-bolt"></i> LECTURA ACTUAL</th>
-                                    <th><i class="fas fa-water"></i> CONSUMO (M³)</th>
-                                    <th><i class="fas fa-money-bill-wave"></i> MONTO TOTAL</th>
-                                    <th><i class="fas fa-cogs"></i> ACCIONES</th>
+                                    <th><i class="bi bi-calendar3"></i> PERÍODO</th>
+                                    <th><i class="bi bi-fingerprint"></i> ID LECTURA</th>
+                                    <th><i class="bi bi-clock-history"></i> LECTURA ANTERIOR</th>
+                                    <th><i class="bi bi-lightning-charge"></i> LECTURA ACTUAL</th>
+                                    <th><i class="bi bi-droplet"></i> CONSUMO (M³)</th>
+                                    <th><i class="bi bi-cash-coin"></i> MONTO TOTAL</th>
+                                    <th><i class="bi bi-gear-fill"></i> ACCIONES</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -547,13 +547,13 @@
                                         <td class="monto-total">S/ @lectura.MontoTotal.ToString("F2")</td>
                                         <td class="actions">
                                             <button class="action-btn" title="Editar" @onclick="() => EditReading(lectura)">
-                                                <i class="fas fa-edit"></i>
+                                                <i class="bi bi-pencil-square"></i>
                                             </button>
                                             <button class="action-btn" title="Eliminar" @onclick="() => DeleteReading(lectura)">
-                                                <i class="fas fa-trash-alt"></i>
+                                                <i class="bi bi-trash"></i>
                                             </button>
                                             <button class="action-btn" title="Ver detalles" @onclick="() => ViewDetails(lectura)">
-                                                <i class="fas fa-eye"></i>
+                                                <i class="bi bi-eye"></i>
                                             </button>
                                         </td>
                                     </tr>
@@ -582,13 +582,13 @@
             <!-- Sección Administrativa -->
             <div class="admin-section">
                 <div class="admin-icon">
-                    <i class="fas fa-user-tie"></i>
+                    <i class="bi bi-person-badge"></i>
                 </div>
                 <div class="admin-content">
                     <div class="admin-text">Personal Administrativo</div>
                     <div class="admin-info">
-                        <span><i class="fas fa-user"></i> Usuario: eechevarria</span>
-                        <span><i class="far fa-clock"></i> Sesión: 05:00 am</span>
+                        <span><i class="bi bi-person"></i> Usuario: eechevarria</span>
+                        <span><i class="bi bi-clock"></i> Sesión: 05:00 am</span>
                     </div>
                 </div>
             </div>
@@ -597,10 +597,10 @@
         <!-- Footer del Modal -->
         <div class="modal-footer">
             <button class="btn-secondary" >
-                <i class="fas fa-times"></i> Cancelar
+                <i class="bi bi-x-lg"></i> Cancelar
             </button>
             <button class="btn-primary" >
-                <i class="fas fa-save"></i> Guardar Cambios
+                <i class="bi bi-floppy"></i> Guardar Cambios
             </button>
         </div>
     </div>
@@ -623,18 +623,4 @@
         IsVisible = isVisible;
         StateHasChanged();
     }
-
-
-
-
-
-
-
- 
-
-
-
-
-
-
 }

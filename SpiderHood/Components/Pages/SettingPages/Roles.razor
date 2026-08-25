@@ -8,15 +8,19 @@
 
 <PageTitle>Gestión de Roles</PageTitle>
 
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>
-            <i class="fas fa-user-tag me-2"></i>
-            Gestión de Roles y Permisos
-        </h2>
-        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/Settings/Roles/Create")'>
-            <i class="fas fa-plus me-1"></i>Nuevo Rol
-        </button>
+<div class="container-fluid px-4 py-3">
+    <div class="page-header">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-person-badge"></i>
+            </div>
+            <h1 class="h3 fw-bold mb-0">Gestión de Roles y Permisos</h1>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/Settings/Roles/Create")'>
+                <i class="bi bi-plus me-1"></i>Nuevo Rol
+            </button>
+        </div>
     </div>
 
     @if (_loading)
@@ -37,7 +41,7 @@
                         <div class="card-header @(role.IsSystem ? "bg-primary text-white" : "bg-light")">
                             <div class="d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">
-                                    <i class="fas fa-shield-alt me-2"></i>
+                                    <i class="bi bi-shield-check me-2"></i>
                                     @role.RoleName
                                 </h5>
                                 @if (role.IsSystem)
@@ -50,7 +54,7 @@
                             <p class="card-text text-muted">@role.Description</p>
                             <div class="mb-3">
                                 <small class="text-muted">
-                                    <i class="fas fa-key me-1"></i>
+                                    <i class="bi bi-key me-1"></i>
                                     @role.Permissions.Count permisos asignados
                                 </small>
                             </div>
@@ -60,19 +64,19 @@
                         </div>
                         <div class="card-footer bg-transparent">
                             <div class="btn-group w-100">
-                                <button class="btn btn-outline-primary btn-sm" 
+                                <button class="btn btn-outline-primary btn-sm"
                                         @onclick='() => Navigation.NavigateTo($"/Settings/Roles/Edit/{role.IdRole}")'>
-                                    <i class="fas fa-edit me-1"></i>Editar
+                                    <i class="bi bi-pencil-square me-1"></i>Editar
                                 </button>
-                                <button class="btn btn-outline-info btn-sm" 
+                                <button class="btn btn-outline-info btn-sm"
                                         @onclick='() => Navigation.NavigateTo($"/Settings/Roles/Permissions/{role.IdRole}")'>
-                                    <i class="fas fa-lock me-1"></i>Permisos
+                                    <i class="bi bi-lock me-1"></i>Permisos
                                 </button>
                                 @if (!role.IsSystem)
                                 {
-                                    <button class="btn btn-outline-danger btn-sm" 
+                                    <button class="btn btn-outline-danger btn-sm"
                                             @onclick="() => DeleteRole(role)">
-                                        <i class="fas fa-trash me-1"></i>
+                                        <i class="bi bi-trash me-1"></i>
                                     </button>
                                 }
                             </div>
@@ -120,9 +124,9 @@
 
     private async Task DeleteRole(Role role)
     {
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             $"¿Está seguro de eliminar el rol '{role.RoleName}'?");
-        
+
         if (confirmed)
         {
             try

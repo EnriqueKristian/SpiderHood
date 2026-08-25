@@ -9,24 +9,25 @@
 
 @implements IDisposable
 
-<link rel="stylesheet" href="@Assets["Category.css"]" />
-
-<section>
-    <div class="row">
-        <div class="col-md-8 order-md-2 mb-4">
-            <h2><i class="bi bi-tags me-2"></i>Administración de Categorias</h2>
-            <p class="text-muted mb-0">Organiza tus gastos y mantenimientos con categorías personalizadas</p>
+<div class="container-fluid px-4 py-3">
+    <div class="page-header">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-tags"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Administración de Categorías</h1>
+                <p class="text-muted mb-0">Organiza tus gastos y mantenimientos con categorías personalizadas</p>
+            </div>
         </div>
-        <div class="col-md-3 order-md-2 mb-4">
-            <button class="w-100 btn btn-primary btn-lg" type="button" 
+        <div class="page-header-actions">
+            <button class="btn btn-primary" type="button"
                     @onclick="() => OpenModal(new Category(), 0, OpenType.Create)">
-                Agregar Categoria
+                <i class="bi bi-plus-circle me-2"></i>Agregar Categoría
             </button>
         </div>
     </div>
-</section>
 
-<section>
     <div class="main-content">
         <div class="categories-section">
             <h4>Categorías Existentes</h4>
@@ -54,13 +55,11 @@
             }
         </div>
     </div>
-</section>
 
-<section>
     <div class="footer-note">
         <p>El tipo de distribución seleccionado para cada categoría o subcategoría se aplicará automáticamente a los gastos que se registren con ellas.</p>
     </div>
-</section>
+</div>
 
 <!-- MODAL PARA NUEVO / MODIFICACION DE CATEGORIAS -->
 <SpiderHood.Components.Pages.CategoryPages.ModalCategory 
@@ -132,7 +131,11 @@
 
     private async Task ShowModal(Models.Category category)
     {
-        OpenModal(category, 0, OpenType.Update);
+        // El tipo se deriva del propio dato (¿tiene padre?), no se asume: de lo contrario
+        // editar una subcategoría abría el modal en modo "categoría" (mostrando el selector
+        // de color que las subcategorías no usan — ver ModalCategory).
+        var type = category.ParentId == Guid.Empty ? 0 : 1;
+        OpenModal(category, type, OpenType.Update);
     }
 
     private void OpenModal(Category item, int type, OpenType mode)
@@ -185,6 +188,11 @@
     {
         item.IdCategory = Guid.NewGuid();
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
+        // Nivel nunca se seteaba al crear una subcategoría (quedaba en el default 0, igual
+        // que una categoría de nivel superior), así que cada subcategoría nueva también se
+        // renderizaba como su propia tarjeta duplicada en la vista de nivel superior
+        // (CategoryPage.LoadCategories filtra _catParent por Nivel == 0).
+        item.Nivel = item.ParentId == Guid.Empty ? 0 : 1;
         await CategoryService.AddCategoryAsync(item);
         //await ParameterService.Context.SaveChangesAsync();
     }

@@ -1,4 +1,4 @@
-﻿@using SpiderHood.Models
+﻿﻿@using SpiderHood.Models
 
 <div class="modal-backdrop show"></div>
 <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
@@ -6,7 +6,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
-                    <i class="fas fa-user-plus me-2"></i>
+                    <i class="bi bi-person-plus me-2"></i>
                     Crear Cuenta
                 </h5>
                 <button type="button" class="btn-close" @onclick="CloseModal"></button>
@@ -19,21 +19,21 @@
                             <button class="nav-link @(currentStep == 1 ? "active" : "")"
                                     @onclick="() => ChangeStep(1)"
                                     :disabled="currentStep > 1">
-                                <i class="fas fa-user me-2"></i>Cuenta
+                                <i class="bi bi-person me-2"></i>Cuenta
                             </button>
                         </li>
                         <li class="nav-item">
                             <button class="nav-link @(currentStep == 2 ? "active" : "")"
                                     @onclick="() => ChangeStep(2)"
                                     :disabled="currentStep > 2">
-                                <i class="fas fa-building me-2"></i>Edificio
+                                <i class="bi bi-building me-2"></i>Edificio
                             </button>
                         </li>
                         <li class="nav-item">
                             <button class="nav-link @(currentStep == 3 ? "active" : "")"
                                     @onclick="() => ChangeStep(3)"
                                     :disabled="currentStep > 3">
-                                <i class="fas fa-check-circle me-2"></i>Confirmar
+                                <i class="bi bi-check-circle me-2"></i>Confirmar
                             </button>
                         </li>
                     </ul>
@@ -96,7 +96,7 @@
                                             <button class="btn btn-outline-secondary"
                                                     type="button"
                                                     @onclick="TogglePasswordVisibility">
-                                                <i class="fas @(showPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                                                <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
                                             </button>
                                         </div>
                                         @if (errors.ContainsKey("Password"))
@@ -160,7 +160,7 @@
                                     <button type="submit"
                                             class="btn btn-primary"
                                             disabled="@isLoading">
-                                        Siguiente <i class="fas fa-arrow-right ms-2"></i>
+                                        Siguiente <i class="bi bi-arrow-right ms-2"></i>
                                     </button>
                                 </div>
                             </form>
@@ -174,7 +174,7 @@
                         <h6 class="mb-4">Información del Edificio</h6>
 
                         <div class="alert alert-info">
-                            <i class="fas fa-info-circle me-2"></i>
+                            <i class="bi bi-info-circle me-2"></i>
                             Como primer usuario, serás designado como <strong>Administrador</strong> del edificio.
                         </div>
 
@@ -277,12 +277,12 @@
                                 <button type="button"
                                         class="btn btn-outline-secondary"
                                         @onclick="PreviousStep">
-                                    <i class="fas fa-arrow-left me-2"></i> Atrás
+                                    <i class="bi bi-arrow-left me-2"></i> Atrás
                                 </button>
                                 <button type="submit"
                                         class="btn btn-primary"
                                         disabled="@isLoading">
-                                    Siguiente <i class="fas fa-arrow-right ms-2"></i>
+                                    Siguiente <i class="bi bi-arrow-right ms-2"></i>
                                 </button>
                             </div>
                         </form>
@@ -342,7 +342,7 @@
                         </div>
 
                         <div class="alert alert-warning mt-3">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <i class="bi bi-exclamation-triangle me-2"></i>
                             <strong>Importante:</strong> Como administrador, tendrás control total sobre el edificio
                             y podrás gestionar los permisos de otros usuarios.
                         </div>
@@ -351,7 +351,7 @@
                             <button type="button"
                                     class="btn btn-outline-secondary"
                                     @onclick="PreviousStep">
-                                <i class="fas fa-arrow-left me-2"></i> Atrás
+                                <i class="bi bi-arrow-left me-2"></i> Atrás
                             </button>
                             <button type="button"
                                     class="btn btn-success"
@@ -361,7 +361,7 @@
                                 {
                                     <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                                 }
-                                <i class="fas fa-check-circle me-2"></i>
+                                <i class="bi bi-check-circle me-2"></i>
                                 Completar Registro
                             </button>
                         </div>

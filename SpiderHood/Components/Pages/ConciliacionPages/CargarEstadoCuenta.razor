@@ -1,4 +1,4 @@
-﻿@using SpiderHood.Models
+﻿﻿@using SpiderHood.Models
 @using System.Text.Json
 
 <script src=@Assets["js/conciliacion.js"]></script>
@@ -27,16 +27,16 @@
          @ondragover="HandleDragOver"
          @ondrop="HandleDrop">
         <div class="text-center py-5">
-            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+            <i class="bi bi-cloud-upload bi-3x text-muted mb-3"></i>
             <h5>Arrastra y suelta tu archivo aquí</h5>
             <p class="text-muted">o haz clic para seleccionar</p>
             <InputFile class="form-control d-none"
-                   id="fileInput"
+                       id="fileInput"
                        @ref="fileInput"
-                   OnChange="HandleFileSelected"
-                   accept=".csv,.xlsx,.xls,.pdf,.ofx,.qbo" />
+                       OnChange="HandleFileSelected"
+                       accept=".csv,.xlsx,.xls,.pdf,.ofx,.qbo" />
             <button class="btn btn-outline-primary mt-3" @onclick="SeleccionarArchivo">
-                <i class="fas fa-folder-open me-2"></i>Seleccionar Archivo
+                <i class="bi bi-folder2-open me-2"></i>Seleccionar Archivo
             </button>
         </div>
     </div>
@@ -48,19 +48,19 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <i class="fas fa-file @GetFileIconClass() text-primary me-2"></i>
+                        <i class="bi bi-file-earmark @GetFileIconClass() text-primary me-2"></i>
                         <span class="fw-bold">@archivoSeleccionado.Name</span>
                         <span class="text-muted ms-2">(@(archivoSeleccionado.Size / 1024) KB)</span>
                     </div>
                     <button class="btn btn-sm btn-outline-danger" @onclick="EliminarArchivo">
-                        <i class="fas fa-times"></i>
+                        <i class="bi bi-x-lg"></i>
                     </button>
                 </div>
 
                 @if (!string.IsNullOrEmpty(errorProcesamiento))
                 {
                     <div class="alert alert-danger mt-2">
-                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <i class="bi bi-exclamation-circle me-2"></i>
                         @errorProcesamiento
                     </div>
                 }
@@ -170,7 +170,7 @@
                         {
                             <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                         }
-                        <i class="fas fa-cog me-2"></i>Procesar Archivo
+                        <i class="bi bi-gear me-2"></i>Procesar Archivo
                     </button>
                 </div>
             </div>
@@ -186,7 +186,7 @@
                 <div class="col-md-3">
                     <div class="card h-100">
                         <div class="card-body text-center">
-                            <i class="fas fa-university fa-2x text-primary mb-2"></i>
+                            <i class="bi bi-bank bi-2x text-primary mb-2"></i>
                             <h6 class="card-title">@plantilla.Nombre</h6>
                             <p class="card-text small text-muted">@plantilla.Descripcion</p>
                             <button class="btn btn-sm btn-outline-primary"
@@ -464,11 +464,11 @@
     {
         return formatoSeleccionado switch
         {
-            "CSV" => "fa-file-csv",
-            "Excel" => "fa-file-excel",
-            "PDF" => "fa-file-pdf",
-            "OFX" => "fa-file-invoice-dollar",
-            _ => "fa-file"
+            "CSV" => "bi-filetype-csv",
+            "Excel" => "bi-file-earmark-excel",
+            "PDF" => "bi-file-earmark-pdf",
+            "OFX" => "bi-receipt",
+            _ => "bi-file-earmark"
         };
     }
 
@@ -504,10 +504,10 @@
     }
 
 
-public class PlantillaBanco
-{
-    public int Id { get; set; }
-    public string Nombre { get; set; } = "";
-    public string Descripcion { get; set; } = "";
-}
+    public class PlantillaBanco
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
+        public string Descripcion { get; set; } = "";
+    }
 }

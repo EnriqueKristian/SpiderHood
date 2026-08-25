@@ -15,19 +15,19 @@
 
 <!--    MODAL PARA NUEVO / MODIFICACION DE PROPIETARIOS   -->
 <ModalOwner ShowModal="@MostrarModal"
-            ShowModalChanged="@((valor) => MostrarModal = valor)"
-            OpenMode="@OpenMode"
-            ViewOwner="@_Owner"
-            OnSaveModal="@((own) => SaveItem(own))" />
+                                                         ShowModalChanged="@((valor) => MostrarModal = valor)"
+                                                         OpenMode="@OpenMode"
+                                                   ViewOwner="@_Owner"
+                                                   OnSaveModal="@((own) => SaveItem(own))" />
 
 
 <!--    MODAL PARA NUEVO / MODIFICACION DE PROPIETARIOS   -->
 <ModalOwnerUnit ShowModalUnit="@MostrarModalUnit"
-                ShowModalChanged="@((valor) => MostrarModalUnit = valor)"
-                OpenMode="@OpenMode"
-                ViewOwner="@_OwnerUnit"
-                FreeUnits="@FreeUnits"
-                OnSaveGroupUnit="@((unt) => SaveGroupUnit(unt))" />
+                                                   ShowModalChanged="@((valor) => MostrarModalUnit = valor)"
+                                                   OpenMode="@OpenMode"
+                                                       ViewOwner="@_OwnerUnit"
+                                                   FreeUnits="@FreeUnits"
+                                                       OnSaveGroupUnit="@((unt) => SaveGroupUnit(unt))" />
 
 
 <!--    MODAL PARA ELIMINACION DE PROPIETARIOS   -->
@@ -45,22 +45,18 @@
 
 <div class="container-fluid px-4 py-3">
     <!-- Header principal -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
-        <div class="mb-3 mb-md-0">
-            <div class="d-flex align-items-center">
-                <div class=" me-2">
-                    <div class="icon-shape bg-primary rounded-circle p-3">
-                        <i class="bi bi-people text-white fs-4"></i>
-                    </div>
-                </div>
-                <div>
-                    <h1 class="h3 fw-bold mb-1">Propietarios</h1>
-                    <p class="text-muted mb-0">Administra propietarios, residentes, inquilinos</p>
-                </div>
+    <div class="page-header">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-people"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Propietarios</h1>
+                <p class="text-muted mb-0">Administra propietarios, residentes, inquilinos</p>
             </div>
         </div>
 
-        <div class="d-flex gap-2">
+        <div class="page-header-actions">
             <button class="btn btn-outline-secondary" @onclick="ExportToExcel">
                 <i class="bi bi-file-earmark-excel me-2"></i>Exportar
             </button>
@@ -126,61 +122,53 @@
     <!-- Estadísticas rápidas -->
     <div class="row mb-4">
         <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-0 bg-light">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="bi bi-people-fill display-6 text-primary"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h5 class="card-title text-primary mb-1">Total Propietarios</h5>
-                            <p class="card-text fs-3 fw-bold mb-0">@totalOwners</p>
-                        </div>
+            <div class="stat-card">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="icon-badge icon-badge-sm">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Propietarios</div>
+                        <div class="stat-value">@totalOwners</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-0 bg-light">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="bi bi-house-door-fill display-6 text-success"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h5 class="card-title text-success mb-1">Unidades Ocupadas</h5>
-                            <p class="card-text fs-3 fw-bold mb-0">@occupiedUnits/@totalUnits</p>
-                        </div>
+            <div class="stat-card">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="icon-badge icon-badge-sm icon-badge-success">
+                        <i class="bi bi-house-door-fill"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Unidades Ocupadas</div>
+                        <div class="stat-value">@occupiedUnits/@totalUnits</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-0 bg-light">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="bi bi-exclamation-triangle-fill display-6 text-warning"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h5 class="card-title text-warning mb-1">Propietarios Morosos</h5>
-                            <p class="card-text fs-3 fw-bold mb-0">@delinquentOwners</p>
-                        </div>
+            <div class="stat-card">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="icon-badge icon-badge-sm icon-badge-warning">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Propietarios Morosos</div>
+                        <div class="stat-value">@delinquentOwners</div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card border-0 bg-light">
-                <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="bi bi-calculator-fill display-6 text-info"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h5 class="card-title text-info mb-1">Área Promedio</h5>
-                            <p class="card-text fs-3 fw-bold mb-0">@(averageArea.ToString("F1")) m²</p>
-                        </div>
+            <div class="stat-card">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="icon-badge icon-badge-sm icon-badge-info">
+                        <i class="bi bi-calculator-fill"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Área Promedio</div>
+                        <div class="stat-value">@(averageArea.ToString("F1")) m²</div>
                     </div>
                 </div>
             </div>
@@ -305,43 +293,43 @@
                                             </td>
                                         </tr>
                                         <!-- Detalle de subunidades -->
-                                        @*foreach (var subunidad in Owners.Where(c => c.IdOwner == owner.IdOwner && c.Role == 1 && c.TypeUnit != 1))*@
-                                        @foreach (var subunidad in owner.Units.Where(c => c.TypeUnit != 1))
-                                        {
-                                            <tr class="table-group-child">
-                                                <td class="ps-5">
-                                                    <i class="bi bi-arrow-return-right me-1 text-muted"></i>
-                                                </td>
-                                                <td class="ps-3">
-                                                    <div class="d-flex align-items-center">
-                                                        <i class="bi bi-arrow-right-short me-2 text-muted"></i>
-                                                        <span class="text-muted">@subunidad.TypeUnit @subunidad.UnitNumber</span>
+                                    @*foreach (var subunidad in Owners.Where(c => c.IdOwner == owner.IdOwner && c.Role == 1 && c.TypeUnit != 1))*@
+                                    @foreach (var subunidad in owner.Units.Where(c => c.TypeUnit != 1))
+                                    {
+                                        <tr class="table-group-child">
+                                            <td class="ps-5">
+                                                <i class="bi bi-arrow-return-right me-1 text-muted"></i>
+                                            </td>
+                                            <td class="ps-3">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="bi bi-arrow-right-short me-2 text-muted"></i>
+                                                <span class="text-muted">@subunidad.TypeUnit @subunidad.UnitNumber</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(subunidad.UnitNumber))
+                                                {
+                                                    <div class="text-muted small">
+                                                        <i class="bi bi-person me-1"></i>
                                                     </div>
-                                                </td>
-                                                <td>
-                                                    @if (!string.IsNullOrEmpty(subunidad.UnitNumber))
-                                                    {
-                                                        <div class="text-muted small">
-                                                            <i class="bi bi-person me-1"></i>
-                                                        </div>
-                                                    }
-                                                </td>
-                                                <td>
+                                                }
+                                            </td>
+                                            <td>
                                                     <span class="badge @GetUnitTypeBadge(subunidad.TypeUnit)">
                                                         @ParameterService.GetChildParameterDescription(4, subunidad.TypeUnit)
                                                     </span>
-                                                </td>
-                                                <td align="center">@subunidad.UnitNumber</td>
-                                                <td>@subunidad.Area.ToString("F2")<small class="text-muted"> m²</small></td>
-                                                <td class="text-center">
-                                                    <button class="btn btn-sm btn-outline-secondary"
-                                                            title="Gestionar subunidad"
-                                                            @onclick:stopPropagation @onclick="() => ManageSubUnit(subunidad)">
-                                                        <i class="bi bi-gear"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        }
+                                            </td>
+                                            <td align="center">@subunidad.UnitNumber</td>
+                                        <td>@subunidad.Area.ToString("F2")<small class="text-muted"> m²</small></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-secondary"
+                                                        title="Gestionar subunidad"
+                                                        @onclick:stopPropagation @onclick="() => ManageSubUnit(subunidad)">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
                                         <!-- Separador -->
                                         <tr>
                                             <td colspan="7" class="p-0">
@@ -543,14 +531,14 @@
         public string IdentityDocument { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
-        public string FirstName { get; set; } = string.Empty;
+        public string FirstName { get; set; }= string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
         public Guid IdBuilding { get; set; }
         public Guid IdGroupUnit { get; set; }
         [NotMapped]
-        public string FullName => FirstName + " " + LastName;
+        public string FullName => FirstName + " " +LastName;
     }
 
     private List<GroupUnit1> GroupUnits = new();
@@ -1082,20 +1070,20 @@
             _GroupUnit.IdGroupOwner = Guid.NewGuid();
             _GroupUnit.IdOwner = _cUnit.IdOwner;
             _GroupUnit.GroupName = "DPTO " + _cUnit.UnitNumber.ToString();
-            _GroupUnit.TypeOwner = 1;            //Titular
+            _GroupUnit.TypeOwner =1;            //Titular
             _GroupUnit.AreaTotal = _cUnit.Area;
-
+            
             await BuildingService.AddOwnerUnitAsync(_GroupUnit);
 
             //Crear las unidades asignadas al propietario
             foreach (Models.RealEstateUnit x1 in _Units)
             {
-                //Crear registro de GroupUnit para cada unidad asignada
-                Models.GroupUnit x2 = new Models.GroupUnit();
-                x2.IdGroupOwner = _GroupUnit.IdGroupOwner;
-                x2.IdUnit = x1.IdUnit;
-                x2.TypeGroupUnit = x1.TypeUnit == 1 ? GroupUnitType.Individual : GroupUnitType.Shared;
-                _AreaTotal += x1.Area;
+                    //Crear registro de GroupUnit para cada unidad asignada
+                    Models.GroupUnit x2 = new Models.GroupUnit();
+                    x2.IdGroupOwner = _GroupUnit.IdGroupOwner;
+                    x2.IdUnit = x1.IdUnit;
+                x2.TypeGroupUnit = x1.TypeUnit ==1 ? GroupUnitType.Individual : GroupUnitType.Shared;
+                    _AreaTotal += x1.Area;
 
                 await BuildingService.AddGroupUnitAsync(x2);
             }
@@ -1105,7 +1093,7 @@
         }
         else
         {
-            //Lógica para manejar el caso donde el grupo ya tiene un propietario
+            //Lógica para manejar el caso donde el grupo ya tiene un propietario    
             Models.OwnerGroupOwner _existingGroupOwner = new Models.OwnerGroupOwner();
             //_existingGroupOwner = ec.GetOwnerGroupOwnerById(_cUnit.IdGroupOwner);
 
@@ -1118,8 +1106,8 @@
         //}
         //else
         //{
-        // Create new Category / Subcategory logic here
-        //await AddOwner(_Owner);
+            // Create new Category / Subcategory logic here
+            //await AddOwner(_Owner);
         //}
         await LoadDataAsync();
         return;

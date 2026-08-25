@@ -50,7 +50,7 @@
                             @if (_Status == BudgetStatus.Check)
                             {
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="RejectBudget">
-                                    <i class="fa-solid fa-ban"></i>&nbspRechazar
+                                    <i class="bi bi-slash-circle"></i>&nbspRechazar
                                 </button>
                             }
                         </div>
@@ -428,7 +428,7 @@
     private string class5 = "bi bi-arrow-bar-right";
     private bool showorNot = true;
     private string _msjButtonWorflow = "Sol. Aprob.";
-    private string _icon = "fa-solid fa-list-check";
+    private string _icon = "bi bi-list-check";
     private string _textCabecera = "Detalle de Gastos - ";
 
     private List<SelectListItem> _availableMonths = new();
@@ -450,16 +450,16 @@
             case BudgetStatus.Created or BudgetStatus.Rejected:
                 break;
             case BudgetStatus.Check:
-                SetWorkflowState("Aprobar", "fa-solid fa-file", true);
+                SetWorkflowState("Aprobar", "bi bi-file-earmark", true);
                 break;
             case BudgetStatus.Approved:
-                SetWorkflowState("Publicar", "fa-solid fa-upload", true);
+                SetWorkflowState("Publicar", "bi bi-upload", true);
                 break;
             case BudgetStatus.Active:
-                SetWorkflowState("Cerrar", "fa-solid fa-folder-closed", true);
+                SetWorkflowState("Cerrar", "bi bi-folder", true);
                 break;
             case BudgetStatus.Closed:
-                SetWorkflowState("Cerrado", "fa-solid fa-lock", true);
+                SetWorkflowState("Cerrado", "bi bi-lock", true);
                 break;
             case BudgetStatus.All:
                 value = BudgetStatus.Created;
@@ -1022,26 +1022,26 @@
         {
             case BudgetStatus.Created or BudgetStatus.Rejected:
                 _Status = BudgetStatus.Check;
-                SetWorkflowState("Aprobar", "fa-solid fa-file", true);
+                SetWorkflowState("Aprobar", "bi bi-file-earmark", true);
                 break;
             case BudgetStatus.Check:
                 _Status = BudgetStatus.Approved;
-                SetWorkflowState("Publicar", "fa-solid fa-upload", true);
+                SetWorkflowState("Publicar", "bi bi-upload", true);
                 break;
             case BudgetStatus.Approved:
                 _Status = BudgetStatus.Active;
-                SetWorkflowState("Cerrar", "fa-solid fa-folder-closed", true);
+                SetWorkflowState("Cerrar", "bi bi-folder", true);
                 break;
             case BudgetStatus.Active:
                 _Status = BudgetStatus.Closed;
-                SetWorkflowState("Cerrado", "fa-solid fa-lock", true);
+                SetWorkflowState("Cerrado", "bi bi-lock", true);
                 break;
         }
     }
 
     private async Task RejectBudget(MouseEventArgs args)
     {
-        SetWorkflowState("Sol. Aprob.", "fa-solid fa-list-check", false);
+        SetWorkflowState("Sol. Aprob.", "bi bi-list-check", false);
         _Status = BudgetStatus.Created;
 
         _BudgetState.Status = _Status;

@@ -1,4 +1,4 @@
-﻿﻿@* LeftMenuLayout.razor *@
+﻿﻿﻿@* LeftMenuLayout.razor *@
 @rendermode InteractiveServer
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Authorization
@@ -30,7 +30,7 @@
                     <div class="nav-item px-1">
                         <a class="nav-link collapsed" data-bs-toggle="collapse" href="#@menuItem.Target" role="button" aria-expanded="false">
                             <i class="@menuItem.Icon me-2"></i>@menuItem.Title
-                            <i class="fas fa-chevron-down ms-auto toggle-icon"></i>
+                            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
                         </a>
                         <div class="collapse" id="@menuItem.Target" data-bs-parent="#nav-collapse">
                             <div class="submenu-wrapper">
@@ -65,7 +65,7 @@
             {
                 <div class="role-selector mt-3 px-1">
                     <div class="role-selector-header">
-                        <i class="fas fa-flask me-1"></i>Modo Desarrollo
+                        <i class="bi bi-tools me-1"></i>Modo Desarrollo
                     </div>
                     <div class="current-role">
                         <i class="@GetRoleIcon(_currentUser?.Role) me-2"></i>@GetRoleDisplayName(_currentUser?.Role)
@@ -232,11 +232,11 @@
     {
         return role switch
         {
-            "Administrador" => "fas fa-user-shield",
-            "SysAdmin" => "fas fa-crown",
-            "Junta" => "fas fa-users",
-            "Residente" => "fas fa-house-user",
-            _ => "fas fa-user"
+            "Administrador" => "bi bi-person-badge",
+            "SysAdmin" => "bi bi-award",
+            "Junta" => "bi bi-people",
+            "Residente" => "bi bi-house-door",
+            _ => "bi bi-person"
         };
     }
 
@@ -286,8 +286,8 @@
             toggle.addEventListener('click', function() {
                 var icon = this.querySelector('.toggle-icon');
                 if (icon) {
-                    icon.classList.toggle('fa-chevron-down');
-                    icon.classList.toggle('fa-chevron-up');
+                    icon.classList.toggle('bi-chevron-down');
+                    icon.classList.toggle('bi-chevron-up');
                 }
             });
         });

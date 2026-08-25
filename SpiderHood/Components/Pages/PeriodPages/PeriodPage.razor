@@ -1,25 +1,31 @@
 ﻿@page "/periods"
 @page "/periods/{buildingId:guid}"
+@implements IDisposable
 
 @using System.ComponentModel.DataAnnotations
 @inject NavigationManager Navigation
 @inject Services.IPeriodService PeriodService
 @inject Services.ParameterService ParameterService
+@inject IJSRuntime JSRuntime
 @using SpiderHood.Components.Pages.Components
 @rendermode InteractiveServer
 
 <PageTitle>Administración de Periodos</PageTitle>
 
-<div class="container">
+<div class="container-fluid px-4 py-3">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="mb-1">Lista de Periodos </h1>
-            <p class="text-muted mb-0">Listado de Periodos por Edificio</p>
+    <div class="page-header">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-calendar3"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Lista de Periodos</h1>
+                <p class="text-muted mb-0">Listado de Periodos por Edificio</p>
+            </div>
         </div>
-        <!-- Botones de Acción -->
-        <div class="d-flex gap-2">
-            <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="CreateNew">
+        <div class="page-header-actions">
+            <button class="btn btn-primary" @onclick="CreateNew">
                 <i class="bi bi-plus-circle me-2"></i>Nuevo Periodo
             </button>
         </div>
@@ -28,32 +34,28 @@
     <!-- Summary Cards -->
     <div class="row g-4 mb-4">
         <div class="col-md-3">
-            <div class="card card-hover">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted text-uppercase small">Total Periodos:</h6>
-                            <h2 class="mb-0">@_pagination.TotalRecords</h2>
-                        </div>
-                        <div style="color: #3b82f6;">
-                            <i class="bi bi-calculator-fill" style="font-size: 1.2rem;"></i>
-                        </div>
+            <div class="stat-card">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="icon-badge icon-badge-sm">
+                        <i class="bi bi-calculator-fill"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Periodos</div>
+                        <div class="stat-value">@_pagination.TotalRecords</div>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="col-md-3">
-            <div class="card card-hover">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="text-muted text-uppercase small">Total Activos</h6>
-                            <h2 class="mb-0">@_pagination.TotalRecords</h2>
-                        </div>
-                        <div style="color: #10b981;">
-                            <i class="bi bi-calendar-check-fill" style="font-size: 1.2rem;"></i>
-                        </div>
+            <div class="stat-card">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="icon-badge icon-badge-sm icon-badge-success">
+                        <i class="bi bi-calendar-check-fill"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Activos</div>
+                        <div class="stat-value">@periods.Count(p => p.Status == 1)</div>
                     </div>
                 </div>
             </div>
@@ -197,7 +199,7 @@
     <!-- Reutilizar el mismo componente de paginación -->
     <PaginationControls _pagination="@_pagination" />
 
-    <PeriodForm ShowModal="ShowModal" isNew="@isNew" OnSave="SavePeriod" period="period" />
+    <PeriodForm ShowModal="ShowModal" ShowModalChanged="@((valor) => ShowModal = valor)" isNew="@isNew" OnSave="SavePeriod" period="period" />
 </div>
 
 @code {
@@ -216,8 +218,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Suscribirse una sola vez: LoadPeriods() se llama repetidas veces durante la vida
+        // de la página (carga inicial, cambio de BuildingId, después de guardar/eliminar) y
+        // volver a suscribirse ahí acumulaba handlers duplicados en OnPaginationChanged.
+        _pagination.OnPaginationChanged += StateHasChanged;
 
-        if (ParameterService.CurrentBuilding == null  )
+        if (ParameterService.CurrentBuilding == null)
             return;
 
         await LoadPeriods();
@@ -237,8 +243,6 @@
     {
         periods = (await PeriodService.GetPeriodsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding)).ToList();
         _pagination.Initialize(periods);
-        // Suscribirse a cambios en la paginación
-        _pagination.OnPaginationChanged += StateHasChanged;
     }
 
     private void CreateNew()
@@ -257,53 +261,43 @@
 
     private async Task SavePeriod(Models.Period _period)
     {
-        //TODO
+        // PeriodForm ya confirmó con el usuario que la creación/actualización fue
+        // exitosa antes de invocar OnSave (ver PeriodForm.HandleValidSubmit), así que acá
+        // solo hace falta refrescar el listado y cerrar el modal.
+        ShowModal = false;
+        await LoadPeriods();
     }
 
     private async Task DeletePeriod(Models.Period period)
     {
-        /*var result = await SweetAlert.FireAsync(new SweetAlertOptions
-        {
-            Title = "¿Está seguro?",
-            Text = $"¿Desea eliminar el periodo {period.Name}?",
-            Icon = SweetAlertIcon.Warning,
-            ShowCancelButton = true,
-            ConfirmButtonText = "Sí, eliminar",
-            CancelButtonText = "Cancelar"
-        });
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Desea eliminar el periodo {period.Name}?");
+        if (!confirmed) return;
 
-        if (result.IsConfirmed)
+        var success = await PeriodService.DeletePeriodAsync(period.IdPeriod);
+        if (success)
         {
-            var success = await PeriodService.DeletePeriodAsync(period.IdPeriod);
-            if (success)
-            {
-                await SweetAlert.FireAsync("¡Eliminado!", "El periodo ha sido eliminado.", SweetAlertIcon.Success);
-                await LoadPeriods();
-            }
-        }*/
+            await LoadPeriods();
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "No se pudo eliminar el periodo");
+        }
     }
 
     private async Task SetAsCurrent(Guid periodId)
     {
-        /*var result = await SweetAlert.FireAsync(new SweetAlertOptions
-        {
-            Title = "¿Está seguro?",
-            Text = "¿Desea establecer este periodo como el periodo actual?",
-            Icon = SweetAlertIcon.Question,
-            ShowCancelButton = true,
-            ConfirmButtonText = "Sí, establecer",
-            CancelButtonText = "Cancelar"
-        });
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "¿Desea establecer este periodo como el periodo actual?");
+        if (!confirmed) return;
 
-        if (result.IsConfirmed)
+        var success = await PeriodService.SetAsCurrentPeriodAsync(periodId, ParameterService.CurrentBuilding.IdBuilding);
+        if (success)
         {
-            var success = await PeriodService.SetAsCurrentPeriodAsync(periodId, BuildingId);
-            if (success)
-            {
-                await SweetAlert.FireAsync("¡Actualizado!", "El periodo ha sido establecido como actual.", SweetAlertIcon.Success);
-                await LoadPeriods();
-            }
-        }*/
+            await LoadPeriods();
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "No se pudo establecer el periodo como actual");
+        }
     }
 
     private string GetPeriodTypeDescription(int periodType)
@@ -340,7 +334,7 @@
             _ => "bg-secondary"
         };
     }
-    
+
     #region Paginación
 
     private Utilities.PeriodPagination _pagination = new Utilities.PeriodPagination();

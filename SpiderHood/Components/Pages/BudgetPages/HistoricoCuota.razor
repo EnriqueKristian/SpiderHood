@@ -33,7 +33,7 @@
     </div>
     <div class="col-md-2">
         <button class="btn btn-primary" @onclick="Filtrar">
-            <i class="fas fa-filter"></i> Filtrar
+            <i class="bi bi-funnel"></i> Filtrar
         </button>
     </div>
 </div>
@@ -63,12 +63,12 @@
                 <td>
                     <button class="btn btn-sm btn-info"
                             @onclick="@(() => VerDetalle(cuota.Id))">
-                        <i class="fas fa-eye"></i>
+                        <i class="bi bi-eye"></i>
                     </button>
                     <button class="btn btn-sm btn-warning"
                             @onclick="@(() => ReversarCuota(cuota.Id))"
                             disabled="@cuota.Procesada">
-                        <i class="fas fa-undo"></i>
+                        <i class="bi bi-arrow-counterclockwise"></i>
                     </button>
                 </td>
             </tr>

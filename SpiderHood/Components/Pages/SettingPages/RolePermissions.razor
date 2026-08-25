@@ -1,4 +1,4 @@
-﻿@* Pages/Settings/RolePermissions.razor *@
+﻿﻿@* Pages/Settings/RolePermissions.razor *@
 @page "/Settings/Roles/Permissions/{RoleId:guid?}"
 @rendermode InteractiveServer
 @using SpiderHood.Models
@@ -16,16 +16,16 @@
                 <div class="card-header bg-primary text-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">
-                            <i class="fas fa-lock me-2"></i>
+                            <i class="bi bi-lock me-2"></i>
                             Asignar Permisos - @_role?.RoleName
                         </h4>
                         <button class="btn btn-light btn-sm" @onclick="ToggleSelectAll">
-                            <i class="fas fa-@(_allSelected ? "times" : "check-double") me-1"></i>
+                            <i class="bi fa-@(_allSelected ? "times" : "check-double") me-1"></i>
                             @(_allSelected ? "Deseleccionar Todos" : "Seleccionar Todos")
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="card-body">
                     @if (_loading)
                     {
@@ -36,9 +36,9 @@
                     else
                     {
                         <div class="mb-3">
-                            <input type="text" class="form-control" 
-                                   placeholder="Buscar permisos..." 
-                                   @bind="_searchTerm" 
+                            <input type="text" class="form-control"
+                                   placeholder="Buscar permisos..."
+                                   @bind="_searchTerm"
                                    @bind:event="oninput" />
                         </div>
 
@@ -56,7 +56,7 @@
                                                         <i class="@group.Icon me-2"></i>
                                                         @group.ModuleDisplayName
                                                     </h6>
-                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                    <button class="btn btn-sm btn-outline-primary"
                                                             @onclick="() => ToggleGroup(group.Module)">
                                                         Seleccionar Grupo
                                                     </button>
@@ -66,8 +66,8 @@
                                                 @foreach (var permission in filteredPermissions)
                                                 {
                                                     <div class="form-check mb-2">
-                                                        <input type="checkbox" 
-                                                               class="form-check-input" 
+                                                        <input type="checkbox"
+                                                               class="form-check-input"
                                                                id="@permission.PermissionId"
                                                                @bind="permission.IsSelected"
                                                                @bind:after="PermissionChanged" />
@@ -86,9 +86,9 @@
                         </div>
 
                         <div class="d-flex justify-content-between mt-4">
-                            <button class="btn btn-secondary" 
+                            <button class="btn btn-secondary"
                                     @onclick='() => Navigation.NavigateTo("/Settings/Roles")'>
-                                <i class="fas fa-arrow-left me-1"></i>Volver
+                                <i class="bi bi-arrow-left me-1"></i>Volver
                             </button>
                             <button class="btn btn-primary" @onclick="SavePermissions" disabled="@_saving">
                                 @if (_saving)
@@ -97,7 +97,7 @@
                                 }
                                 else
                                 {
-                                    <i class="fas fa-save me-1"></i>
+                                    <i class="bi bi-floppy me-1"></i>
                                 }
                                 Guardar Permisos
                             </button>
@@ -138,7 +138,7 @@
             _loading = true;
             _role = await PermissionAdminService.GetRoleByIdAsync(RoleId!.Value);
             _role!.Permissions = await PermissionService.GetPermissionsForRoleAsync(_role!.RoleName);
-            
+
             if (_role == null)
             {
                 Navigation.NavigateTo("/Settings/Roles");
@@ -146,7 +146,7 @@
             }
 
             var allPermissions = await PermissionAdminService.GetAllPermissionsAsync();
-            
+
             // Marcar permisos seleccionados
             foreach (var group in allPermissions)
             {
@@ -155,7 +155,7 @@
                     perm.IsSelected = _role.Permissions.Contains(perm.PermissionKey);
                 }
             }
-            
+
             _permissionGroups = allPermissions;
         }
         catch (Exception ex)
@@ -174,7 +174,7 @@
         if (string.IsNullOrWhiteSpace(_searchTerm))
             return permissions;
 
-        return permissions.Where(p => 
+        return permissions.Where(p =>
             p.Name.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
             p.Description.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
         ).ToList();
@@ -233,7 +233,7 @@
             .ToList();
 
             await PermissionAdminService.AssignPermissionsToRoleAsync(RoleId!.Value, selectedIds, selectedKeys);
-            
+
             await JSRuntime.InvokeVoidAsync("alert", "Permisos guardados exitosamente");
             Navigation.NavigateTo("/Settings/Roles");
         }

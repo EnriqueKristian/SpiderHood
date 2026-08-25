@@ -92,7 +92,7 @@
     }
 
     /* Responsive */
-    @@media (max-width: 768px) {
+    @media (max-width: 768px) {
         .menu-tree-table {
             font-size: 14px;
         }

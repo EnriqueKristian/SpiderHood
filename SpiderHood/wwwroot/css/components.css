@@ -272,8 +272,13 @@ tbody tr {
     opacity: 0.5;
 }
 
+/* Bootstrap deja un margen de 5 (1055 vs 1050 del backdrop) a propósito para
+   que el modal siempre pinte encima de su propio fondo oscuro. Si acá se
+   iguala a 1050, el navegador desempata por orden en el DOM — y como el
+   backdrop suele insertarse después, terminaba pintándose ENCIMA del modal:
+   pantalla oscurecida y clics bloqueados aunque el modal se viera "abierto". */
 .modal {
-    z-index: 1050;
+    z-index: 1055;
 }
 
 .modal-container {

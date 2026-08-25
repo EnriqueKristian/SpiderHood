@@ -151,6 +151,28 @@ namespace SpiderHood.Data
                 return true;
             }, "DeleteUnit", cancellationToken);
         }
+
+        public async Task<bool> DeleteRecordAsync(Models.Workflow workflow, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(workflow, nameof(workflow));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Workflow, cancellationToken, workflow.IdWorkflow);
+                return true;
+            }, "DeleteWorkflow", cancellationToken);
+        }
+
+        public async Task<bool> DeleteRecordAsync(Models.WorkflowStep step, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(step, nameof(step));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_WorkflowStep, cancellationToken, step.IdWorkflowStep);
+                return true;
+            }, "DeleteWorkflowStep", cancellationToken);
+        }
         #endregion
     }
 }

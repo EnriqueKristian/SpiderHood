@@ -363,6 +363,42 @@ namespace SpiderHood.Data
                 return true;
             }, "UpdateExpenseReconciliation", cancellationToken);
         }
+
+        public async Task<Models.Workflow> UpdateRecordAsync(Models.Workflow workflow, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(workflow, nameof(workflow));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Workflow,
+                    cancellationToken,
+                    workflow.IdWorkflow,
+                    workflow.Name,
+                    workflow.Description,
+                    (int)workflow.Status);
+                return workflow;
+            }, "UpdateWorkflow", cancellationToken);
+        }
+
+        public async Task<Models.WorkflowStep> UpdateRecordAsync(Models.WorkflowStep step, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(step, nameof(step));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_WorkflowStep,
+                    cancellationToken,
+                    step.IdWorkflowStep,
+                    step.StepOrder,
+                    step.Name,
+                    step.Description,
+                    step.Responsible,
+                    step.IsImplemented);
+                return step;
+            }, "UpdateWorkflowStep", cancellationToken);
+        }
         #endregion
     }
 }

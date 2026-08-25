@@ -1,871 +1,476 @@
-﻿@page "/workflow"
-@using System.ComponentModel.DataAnnotations
+@page "/workflow"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject IWorkflowService WorkflowService
-@implements IDisposable
+@inject IJSRuntime JSRuntime
 
-<PageTitle>Administración de Workflows</PageTitle>
+<PageTitle>Catálogo de Workflows</PageTitle>
 
-
-<div class="workflow-container">
-    <div class="row">
-        <div class="col-md-4">
-            <div class="workflow-selector card">
-                <div class="card-header">
-                    <h3>Seleccionar Workflow</h3>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="workflowSelect" class="form-label">Seleccione un workflow:</label>
-                        <select @onchange="(e) => OnWorkflowSelected(e.Value!.ToString()!)" class="form-select" id="workflowSelect">
-                            <option value="">-- Seleccione --</option>
-                            @foreach (var workflow in workflows)
-                            {
-                                <option value="@workflow.Id">@workflow.Name</option>
-                            }
-                        </select>
-                    </div>
-                    
-                    <div class="workflow-details">
-                        @if (selectedWorkflow != null)
-                        {
-                            <h5>@selectedWorkflow.Name</h5>
-                            <p>@selectedWorkflow.Description</p>
-                            <p><strong>Versión:</strong> @selectedWorkflow.Version</p>
-                            <p><strong>Estado:</strong> 
-                                <span class="badge @GetStatusBadgeClass(selectedWorkflow.Status)">
-                                    @selectedWorkflow.Status
-                                </span>
-                            </p>
-                            <p><strong>Fecha creación:</strong> @selectedWorkflow.CreatedDate.ToShortDateString()</p>
-                            @if (selectedWorkflow.UpdatedDate.HasValue)
-                            {
-                                <p><strong>Última actualización:</strong> @selectedWorkflow.UpdatedDate.Value.ToShortDateString()</p>
-                            }
-                        }
-                    </div>
-                    
-                    <div class="mt-3">
-                        <button class="btn btn-primary" @onclick="LoadWorkflow" disabled="@(selectedWorkflow == null)">
-                            <i class="bi bi-diagram-3"></i> Mostrar Workflow
-                        </button>
-                        <button class="btn btn-outline-secondary ms-2" @onclick="ResetSelection">
-                            <i class="bi bi-arrow-clockwise"></i> Reiniciar
-                        </button>
-                    </div>
-                </div>
+<div class="container-fluid px-4 py-3">
+    <div class="page-header">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-diagram-3"></i>
             </div>
-            
-            <!-- Panel de detalles del paso seleccionado -->
-            @if (selectedWorkflowDetails?.Any() == true && showDetails)
-            {
-                <div class="card mt-3">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5>Detalles del Workflow</h5>
-                        <span class="badge bg-primary">@selectedWorkflowDetails.Count pasos</span>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="list-group list-group-flush">
-                            @foreach (var detail in selectedWorkflowDetails.OrderBy(d => d.Order))
-                            {
-                                <div class="list-group-item">
-                                    <div class="d-flex w-100 justify-content-between">
-                                        <h6 class="mb-1">
-                                            <span class="step-badge @GetStepTypeClass(detail.StepType)">@detail.Order</span>
-                                            @detail.StepName
-                                        </h6>
-                                        <small class="text-muted">@detail.StepType</small>
-                                    </div>
-                                    <p class="mb-1">@detail.Description</p>
-                                    @if (detail.StepType == "Decisión")
-                                    {
-                                        <div class="mt-2">
-                                            <small class="text-success">
-                                                <i class="bi bi-check-circle"></i> SÍ: @detail.NextStepIfYes
-                                            </small>
-                                            <br />
-                                            <small class="text-danger">
-                                                <i class="bi bi-x-circle"></i> NO: @detail.NextStepIfNo
-                                            </small>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
-                </div>
-            }
+            <div>
+                <h1 class="h3 fw-bold mb-1">Catálogo de Workflows</h1>
+                <p class="text-muted mb-0">Documenta y trackea los flujos de negocio de la app y su estado de implementación</p>
+            </div>
         </div>
-        
-        <div class="col-md-8">
-            <div class="workflow-display card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3>
-                        @if (selectedWorkflow != null)
-                        {
-                            <span>@selectedWorkflow.Name - Diagrama de Flujo</span>
-                        }
-                        else
-                        {
-                            <span>Visualización de Workflow</span>
-                        }
-                    </h3>
-                    <div>
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleDetails" title="Mostrar/ocultar detalles">
-                            <i class="bi @(showDetails ? "bi-eye-slash" : "bi-eye")"></i>
-                            @(showDetails ? "Ocultar" : "Mostrar") detalles
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    @if (selectedWorkflow == null)
-                    {
-                        <div class="text-center py-5">
-                            <i class="bi bi-diagram-3 display-1 text-muted"></i>
-                            <h4 class="mt-3">No hay workflow seleccionado</h4>
-                            <p class="text-muted">Por favor, seleccione un workflow de la lista para visualizarlo.</p>
-                        </div>
-                    }
-                    else if (isLoading)
-                    {
-                        <div class="text-center py-5">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Cargando...</span>
-                            </div>
-                            <p class="mt-3">Cargando diagrama del workflow...</p>
-                        </div>
-                    }
-                    else if (!string.IsNullOrEmpty(workflowImageSrc))
-                    {
-                        <!-- Mostrar imagen del workflow desde la BD -->
-                        <div class="workflow-image-container text-center">
-                            <h5 class="mb-3">Diagrama del Workflow</h5>
-                            <div class="border rounded p-3 mb-3">
-                                <img src="@workflowImageSrc" 
-                                     alt="Diagrama del workflow @selectedWorkflow.Name" 
-                                     class="img-fluid workflow-diagram-image"
-                                     style="max-height: 500px;" />
-                                <div class="mt-2 text-muted small">
-                                    <i class="bi bi-file-image"></i> @selectedWorkflow.OriginalFileName
-                                </div>
-                            </div>
-                            
-                            <!-- Información del archivo -->
-                            <div class="row text-start">
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6><i class="bi bi-info-circle"></i> Información de la Imagen</h6>
-                                            <p class="mb-1"><strong>Tipo:</strong> @selectedWorkflow.ImageContentType</p>
-                                            <p class="mb-1"><strong>Tamaño:</strong> @(selectedWorkflow.WorkflowImage?.Length / 1024) KB</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6><i class="bi bi-diagram-3"></i> Resumen del Workflow</h6>
-                                            <p class="mb-1"><strong>Pasos:</strong> @selectedWorkflowDetails?.Count</p>
-                                            <p class="mb-1"><strong>Decisiones:</strong> @selectedWorkflowDetails?.Count(d => d.StepType == "Decisión")</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    }
-                    else
-                    {
-                        <!-- Si no hay imagen, mostrar un placeholder -->
-                        <div class="text-center py-5">
-                            <i class="bi bi-image display-1 text-muted"></i>
-                            <h4 class="mt-3">No hay imagen disponible</h4>
-                            <p class="text-muted">Este workflow no tiene un diagrama asociado.</p>
-                            <button class="btn btn-outline-primary mt-2" @onclick="GenerateSampleImage">
-                                <i class="bi bi-magic"></i> Generar imagen de ejemplo
-                            </button>
-                        </div>
-                    }
-                </div>
-            </div>
-            
-            <!-- Acciones del workflow -->
-            @if (selectedWorkflow != null)
-            {
-                <div class="card mt-3">
-                    <div class="card-header">
-                        <h5>Gestión del Workflow</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-flex flex-wrap gap-2">
-                            <button class="btn btn-outline-primary" @onclick="ShowUploadModal">
-                                <i class="bi bi-upload"></i> Subir nueva imagen
-                            </button>
-                            <button class="btn btn-outline-success" @onclick="ExecuteWorkflow">
-                                <i class="bi bi-play-circle"></i> Ejecutar Workflow
-                            </button>
-                            <button class="btn btn-outline-info" @onclick="ShowHistory">
-                                <i class="bi bi-clock-history"></i> Ver Historial
-                            </button>
-                            <button class="btn btn-outline-warning" @onclick="EditWorkflow">
-                                <i class="bi bi-pencil-square"></i> Editar Detalles
-                            </button>
-                            <button class="btn btn-outline-danger" @onclick="ConfirmDelete">
-                                <i class="bi bi-trash"></i> Eliminar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            }
+        <div class="page-header-actions">
+            <button class="btn btn-primary" @onclick="ShowCreateWorkflowModal">
+                <i class="bi bi-plus-circle me-2"></i>Nuevo Workflow
+            </button>
         </div>
     </div>
-</div>
 
-<!-- Modal para subir imagen -->
-@if (showUploadModal)
-{
-    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Subir imagen del workflow</h5>
-                    <button type="button" class="btn-close" @onclick="CloseUploadModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="imageUpload" class="form-label">Seleccionar archivo de imagen</label>
-                        <!--input type="file" @ref="fileInput" @onchange="OnFileSelected" class="form-control" id="imageUpload" accept=".png,.jpg,.jpeg,.gif" /-->
-                        <InputFile OnChange="OnFileSelected" accept=".png,.jpg,.jpeg,.gif" />
-                        <div class="form-text">
-                            Formatos permitidos: PNG, JPG, JPEG, GIF. Tamaño máximo: 5MB.
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Estadísticas -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="icon-badge icon-badge-sm">
+                            <i class="bi bi-diagram-3"></i>
+                        </div>
+                        <div>
+                            <div class="stat-label">Total Workflows</div>
+                            <div class="stat-value">@_workflows.Count</div>
                         </div>
                     </div>
-                    @if (selectedFile != null)
-                    {
-                        <div class="alert alert-info">
-                            <i class="bi bi-file-image"></i> Archivo seleccionado: @selectedFile.Name (@(selectedFile.Size / 1024) KB)
-                        </div>
-                    }
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseUploadModal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" @onclick="UploadImage" disabled="@(selectedFile == null)">
-                        <i class="bi bi-upload"></i> Subir imagen
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="icon-badge icon-badge-sm icon-badge-success">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </div>
+                        <div>
+                            <div class="stat-label">Implementados</div>
+                            <div class="stat-value">@_workflows.Count(w => w.Status == WorkflowImplementationStatus.Implementado)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="icon-badge icon-badge-sm icon-badge-warning">
+                            <i class="bi bi-hourglass-split"></i>
+                        </div>
+                        <div>
+                            <div class="stat-label">En Desarrollo</div>
+                            <div class="stat-value">@_workflows.Count(w => w.Status == WorkflowImplementationStatus.EnDesarrollo)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="icon-badge icon-badge-sm icon-badge-secondary">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                        <div>
+                            <div class="stat-label">Pendientes</div>
+                            <div class="stat-value">@_workflows.Count(w => w.Status == WorkflowImplementationStatus.Pendiente)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (!_workflows.Any())
+        {
+            <div class="card shadow-sm border-0">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-diagram-3 text-muted display-4"></i>
+                    <h5 class="text-muted mb-2 mt-3">No hay workflows registrados</h5>
+                    <p class="text-muted mb-3">Documentá acá los flujos de negocio de la app (aprobaciones, conciliaciones, etc.) y su estado de implementación.</p>
+                    <button class="btn btn-primary" @onclick="ShowCreateWorkflowModal">
+                        <i class="bi bi-plus-circle me-2"></i>Agregar el Primer Workflow
                     </button>
                 </div>
+            </div>
+        }
+        else
+        {
+            <div class="row">
+                @foreach (var workflow in _workflows.OrderBy(w => w.Name))
+                {
+                    <div class="col-12 mb-3">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-header bg-transparent border-bottom py-3">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleExpanded(workflow.IdWorkflow)" title="Mostrar/ocultar pasos">
+                                            <i class="bi @(_expanded.Contains(workflow.IdWorkflow) ? "bi-chevron-down" : "bi-chevron-right")"></i>
+                                        </button>
+                                        <div>
+                                            <h5 class="card-title mb-0">@workflow.Name</h5>
+                                            @if (!string.IsNullOrWhiteSpace(workflow.Description))
+                                            {
+                                                <p class="text-muted mb-0 small">@workflow.Description</p>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge @GetStatusBadgeClass(workflow.Status)">@GetStatusLabel(workflow.Status)</span>
+                                        @if (workflow.TotalSteps > 0)
+                                        {
+                                            <span class="badge bg-light text-dark border">
+                                                @workflow.ImplementedSteps / @workflow.TotalSteps pasos implementados
+                                            </span>
+                                        }
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" title="Editar" @onclick="() => ShowEditWorkflowModal(workflow)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" title="Eliminar" @onclick="() => ConfirmDeleteWorkflow(workflow)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (_expanded.Contains(workflow.IdWorkflow))
+                            {
+                                <div class="card-body">
+                                    @if (!workflow.Steps.Any())
+                                    {
+                                        <p class="text-muted mb-2">Todavía no tiene pasos definidos.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="list-group list-group-flush mb-3">
+                                            @foreach (var step in workflow.Steps.OrderBy(s => s.StepOrder))
+                                            {
+                                                <div class="list-group-item px-0">
+                                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                                        <div class="d-flex align-items-start gap-2">
+                                                            <span class="badge bg-secondary">@step.StepOrder</span>
+                                                            <div>
+                                                                <div class="fw-semibold">
+                                                                    @step.Name
+                                                                    @if (!string.IsNullOrWhiteSpace(step.Responsible))
+                                                                    {
+                                                                        <span class="text-muted small ms-1">— @step.Responsible</span>
+                                                                    }
+                                                                </div>
+                                                                @if (!string.IsNullOrWhiteSpace(step.Description))
+                                                                {
+                                                                    <div class="text-muted small">@step.Description</div>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            @if (step.IsImplemented)
+                                                            {
+                                                                <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Implementado</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-secondary">Pendiente</span>
+                                                            }
+                                                            <button class="btn btn-sm btn-outline-primary" title="Editar paso" @onclick="() => ShowEditStepModal(workflow, step)">
+                                                                <i class="bi bi-pencil"></i>
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-danger" title="Eliminar paso" @onclick="() => ConfirmDeleteStep(workflow, step)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowCreateStepModal(workflow)">
+                                        <i class="bi bi-plus-lg me-1"></i>Agregar Paso
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+<!-- Modal: Crear/Editar Workflow -->
+@if (_showWorkflowModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <EditForm Model="@_workflowForm" OnValidSubmit="SaveWorkflow">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-diagram-3 me-2 text-primary"></i>@(_isNewWorkflow ? "Nuevo Workflow" : "Editar Workflow")
+                        </h5>
+                        <button type="button" class="btn-close" @onclick="CloseWorkflowModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre</label>
+                            <InputText class="form-control" @bind-Value="_workflowForm.Name" />
+                            <ValidationMessage For="() => _workflowForm.Name" class="text-danger" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="_workflowForm.Description" />
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label">Estado de implementación</label>
+                            <InputSelect class="form-select" @bind-Value="_workflowForm.Status">
+                                @foreach (WorkflowImplementationStatus status in Enum.GetValues<WorkflowImplementationStatus>())
+                                {
+                                    <option value="@status">@GetStatusLabel(status)</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseWorkflowModal">
+                            <i class="bi bi-x-lg me-1"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Guardar
+                        </button>
+                    </div>
+                </EditForm>
             </div>
         </div>
     </div>
 }
 
-<!-- Modal de confirmación para eliminar -->
-@if (showDeleteConfirm)
+<!-- Modal: Crear/Editar Paso -->
+@if (_showStepModal)
 {
-    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Confirmar eliminación</h5>
-                    <button type="button" class="btn-close" @onclick="CancelDelete"></button>
-                </div>
-                <div class="modal-body">
-                    <p>¿Está seguro que desea eliminar el workflow <strong>@selectedWorkflow?.Name</strong>?</p>
-                    <p class="text-danger">
-                        <i class="bi bi-exclamation-triangle"></i> 
-                        Esta acción no se puede deshacer. Se eliminarán todos los detalles asociados.
-                    </p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancelar</button>
-                    <button type="button" class="btn btn-danger" @onclick="DeleteWorkflow">
-                        <i class="bi bi-trash"></i> Eliminar definitivamente
-                    </button>
-                </div>
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <EditForm Model="@_stepForm" OnValidSubmit="SaveStep">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-list-check me-2 text-primary"></i>@(_isNewStep ? "Nuevo Paso" : "Editar Paso")
+                        </h5>
+                        <button type="button" class="btn-close" @onclick="CloseStepModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Orden</label>
+                                <InputNumber class="form-control" @bind-Value="_stepForm.StepOrder" />
+                            </div>
+                            <div class="col-md-9">
+                                <label class="form-label">Nombre del paso</label>
+                                <InputText class="form-control" @bind-Value="_stepForm.Name" />
+                                <ValidationMessage For="() => _stepForm.Name" class="text-danger" />
+                            </div>
+                        </div>
+                        <div class="mb-3 mt-3">
+                            <label class="form-label">Descripción</label>
+                            <InputTextArea class="form-control" rows="2" @bind-Value="_stepForm.Description" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Responsable</label>
+                            <InputText class="form-control" placeholder="Ej: Administrador, Junta, Sistema" @bind-Value="_stepForm.Responsible" />
+                        </div>
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" id="stepImplemented" @bind-Value="_stepForm.IsImplemented" />
+                            <label class="form-check-label" for="stepImplemented">Ya está implementado</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CloseStepModal">
+                            <i class="bi bi-x-lg me-1"></i>Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Guardar
+                        </button>
+                    </div>
+                </EditForm>
             </div>
         </div>
     </div>
 }
 
 @code {
-    private List<Workflow> workflows = new List<Workflow>();
-    private Workflow selectedWorkflow = new();
-    private List<WorkflowDetail> selectedWorkflowDetails = new List<WorkflowDetail>();
-    private string selectedWorkflowId = "";
-    private string workflowImageSrc = "";
-    private bool showDetails = true;
-    private bool isLoading = false;
-    private bool showUploadModal = false;
-    private bool showDeleteConfirm = false;
-    
-    // Para manejo de archivos
-    //private ElementReference fileInput;
-    private IBrowserFile? selectedFile;
-    
+    private List<Workflow> _workflows = new();
+    private HashSet<Guid> _expanded = new();
+    private bool _loading = true;
+
+    private bool _showWorkflowModal = false;
+    private bool _isNewWorkflow = true;
+    private Workflow _workflowForm = new();
+
+    private bool _showStepModal = false;
+    private bool _isNewStep = true;
+    private WorkflowStep _stepForm = new();
+    private Guid _stepFormWorkflowId;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadWorkflows();
-        
-        // Seleccionar el primer workflow por defecto
-        if (workflows.Any())
-        {
-            selectedWorkflowId = workflows[0].Id.ToString();
-            await OnWorkflowSelected(selectedWorkflowId);
-        }
     }
-    
+
     private async Task LoadWorkflows()
     {
-        workflows = await WorkflowService.GetAllWorkflowsAsync();
+        _loading = true;
+        _workflows = await WorkflowService.GetWorkflowsAsync();
+        _loading = false;
     }
-    
-    private async Task OnWorkflowSelected(string _selectedWorkflowId)
+
+    private void ToggleExpanded(Guid idWorkflow)
     {
-        selectedWorkflowId = _selectedWorkflowId;
-        if (!string.IsNullOrEmpty(selectedWorkflowId))
+        if (!_expanded.Add(idWorkflow))
+            _expanded.Remove(idWorkflow);
+    }
+
+    private string GetStatusLabel(WorkflowImplementationStatus status) => status switch
+    {
+        WorkflowImplementationStatus.Pendiente => "Pendiente",
+        WorkflowImplementationStatus.EnDesarrollo => "En Desarrollo",
+        WorkflowImplementationStatus.Implementado => "Implementado",
+        WorkflowImplementationStatus.Descartado => "Descartado",
+        _ => status.ToString()
+    };
+
+    private string GetStatusBadgeClass(WorkflowImplementationStatus status) => status switch
+    {
+        WorkflowImplementationStatus.Pendiente => "bg-secondary",
+        WorkflowImplementationStatus.EnDesarrollo => "bg-warning",
+        WorkflowImplementationStatus.Implementado => "bg-success",
+        WorkflowImplementationStatus.Descartado => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    /*  === WORKFLOW ===  */
+
+    private void ShowCreateWorkflowModal()
+    {
+        _isNewWorkflow = true;
+        _workflowForm = new Workflow();
+        _showWorkflowModal = true;
+    }
+
+    private void ShowEditWorkflowModal(Workflow workflow)
+    {
+        _isNewWorkflow = false;
+        _workflowForm = new Workflow
         {
-            selectedWorkflow = await WorkflowService.GetWorkflowByIdAsync(int.Parse(selectedWorkflowId));
-            await LoadWorkflowDetails();
-            await LoadWorkflowImage();
+            IdWorkflow = workflow.IdWorkflow,
+            Name = workflow.Name,
+            Description = workflow.Description,
+            Status = workflow.Status
+        };
+        _showWorkflowModal = true;
+    }
+
+    private void CloseWorkflowModal()
+    {
+        _showWorkflowModal = false;
+    }
+
+    private async Task SaveWorkflow()
+    {
+        if (_isNewWorkflow)
+        {
+            await WorkflowService.CreateWorkflowAsync(_workflowForm);
         }
         else
         {
-            selectedWorkflow = null;
-            selectedWorkflowDetails.Clear();
-            workflowImageSrc = "";
+            await WorkflowService.UpdateWorkflowAsync(_workflowForm);
         }
+
+        _showWorkflowModal = false;
+        await LoadWorkflows();
     }
-    
-    private async Task LoadWorkflow()
+
+    private async Task ConfirmDeleteWorkflow(Workflow workflow)
     {
-        await OnWorkflowSelected(selectedWorkflowId);
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"¿Eliminar el workflow \"{workflow.Name}\"? También se eliminarán todos sus pasos.");
+
+        if (!confirmed) return;
+
+        await WorkflowService.DeleteWorkflowAsync(workflow);
+        await LoadWorkflows();
     }
-    
-    private async Task LoadWorkflowDetails()
+
+    /*  === STEP ===  */
+
+    private void ShowCreateStepModal(Workflow workflow)
     {
-        if (selectedWorkflow != null)
+        _isNewStep = true;
+        _stepFormWorkflowId = workflow.IdWorkflow;
+        _stepForm = new WorkflowStep
         {
-            selectedWorkflowDetails = await WorkflowService.GetWorkflowDetailsAsync(selectedWorkflow.Id);
-        }
-    }
-    
-    private async Task LoadWorkflowImage()
-    {
-        if (selectedWorkflow != null)
-        {
-            isLoading = true;
-            StateHasChanged();
-            
-            try
-            {
-                workflowImageSrc = await WorkflowService.GetWorkflowImageAsBase64Async(selectedWorkflow.Id);
-            }
-            finally
-            {
-                isLoading = false;
-            }
-        }
-    }
-    
-    private void ResetSelection()
-    {
-        selectedWorkflowId = "";
-        selectedWorkflow = null;
-        selectedWorkflowDetails.Clear();
-        workflowImageSrc = "";
-        showDetails = true;
-    }
-    
-    private void ToggleDetails()
-    {
-        showDetails = !showDetails;
-    }
-    
-    private string GetStatusBadgeClass(string status)
-    {
-        return status switch
-        {
-            "Activo" => "bg-success",
-            "En revisión" => "bg-warning",
-            "Inactivo" => "bg-secondary",
-            "Eliminado" => "bg-danger",
-            _ => "bg-info"
+            IdWorkflow = workflow.IdWorkflow,
+            StepOrder = (workflow.Steps.Any() ? workflow.Steps.Max(s => s.StepOrder) : 0) + 1
         };
+        _showStepModal = true;
     }
-    
-    private string GetStepTypeClass(string stepType)
+
+    private void ShowEditStepModal(Workflow workflow, WorkflowStep step)
     {
-        return stepType switch
+        _isNewStep = false;
+        _stepFormWorkflowId = workflow.IdWorkflow;
+        _stepForm = new WorkflowStep
         {
-            "Inicio" => "bg-success",
-            "Fin" => "bg-danger",
-            "Decisión" => "bg-warning",
-            _ => "bg-primary"
+            IdWorkflowStep = step.IdWorkflowStep,
+            IdWorkflow = step.IdWorkflow,
+            StepOrder = step.StepOrder,
+            Name = step.Name,
+            Description = step.Description,
+            Responsible = step.Responsible,
+            IsImplemented = step.IsImplemented
         };
+        _showStepModal = true;
     }
-    
-    // Métodos para manejo de archivos
-    private void ShowUploadModal()
+
+    private void CloseStepModal()
     {
-        showUploadModal = true;
+        _showStepModal = false;
     }
-    
-    private void CloseUploadModal()
+
+    private async Task SaveStep()
     {
-        showUploadModal = false;
-        selectedFile = null;
-    }
-    
-    private void OnFileSelected(InputFileChangeEventArgs e)
-    {
-        selectedFile = e.File;
-    }
-    
-    private async Task UploadImage()
-    {
-        if (selectedFile != null && selectedWorkflow != null)
+        if (_isNewStep)
         {
-            isLoading = true;
-            
-            try
-            {
-                // Leer el archivo como byte array
-                using var stream = selectedFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024); // 5MB
-                using var memoryStream = new MemoryStream();
-                await stream.CopyToAsync(memoryStream);
-                var imageData = memoryStream.ToArray();
-                
-                // Actualizar el workflow con la nueva imagen
-                selectedWorkflow.WorkflowImage = imageData;
-                selectedWorkflow.ImageContentType = selectedFile.ContentType;
-                selectedWorkflow.OriginalFileName = selectedFile.Name;
-                selectedWorkflow.UpdatedDate = DateTime.Now;
-                
-                // En una implementación real, aquí se llamaría a un método del servicio para actualizar en BD
-                // await WorkflowService.UpdateWorkflowImageAsync(selectedWorkflow.Id, imageData, selectedFile.ContentType, selectedFile.Name);
-                
-                await LoadWorkflowImage();
-                CloseUploadModal();
-            }
-            catch (Exception ex)
-            {
-                // Manejar error
-                Console.WriteLine($"Error al subir imagen: {ex.Message}");
-            }
-            finally
-            {
-                isLoading = false;
-            }
-        }
-    }
-    
-    private async Task GenerateSampleImage()
-    {
-        // Generar una imagen de ejemplo simple (en base64)
-        var sampleImage = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
-        workflowImageSrc = $"data:image/png;base64,{sampleImage}";
-        
-        if (selectedWorkflow != null)
-        {
-            selectedWorkflow.WorkflowImage = Convert.FromBase64String(sampleImage);
-            selectedWorkflow.ImageContentType = "image/png";
-            selectedWorkflow.OriginalFileName = "sample_workflow.png";
-        }
-    }
-    
-    private void ExecuteWorkflow()
-    {
-        // Lógica para ejecutar el workflow
-        Console.WriteLine($"Ejecutando workflow: {selectedWorkflow.Name}");
-    }
-    
-    private void ShowHistory()
-    {
-        // Lógica para mostrar historial
-        Console.WriteLine($"Mostrando historial del workflow: {selectedWorkflow.Name}");
-    }
-    
-    private void EditWorkflow()
-    {
-        // Navegar a página de edición o mostrar modal
-        Console.WriteLine($"Editando workflow: {selectedWorkflow.Name}");
-    }
-    
-    private void ConfirmDelete()
-    {
-        showDeleteConfirm = true;
-    }
-    
-    private void CancelDelete()
-    {
-        showDeleteConfirm = false;
-    }
-    
-    private async Task DeleteWorkflow()
-    {
-        if (selectedWorkflow != null)
-        {
-            await WorkflowService.DeleteWorkflowAsync(selectedWorkflow.Id);
-            showDeleteConfirm = false;
-            await LoadWorkflows();
-            
-            if (workflows.Any())
-            {
-                selectedWorkflowId = workflows[0].Id.ToString();
-                await OnWorkflowSelected(selectedWorkflowId);
-            }
-            else
-            {
-                ResetSelection();
-            }
-        }
-    }
-    
-    public void Dispose()
-    {
-        // Limpieza si es necesaria
-    }
-}
-
-
-@*
-
-<PageTitle>Administración de Workflows</PageTitle>
-
-
-<div class="workflow-container">
-    <div class="row">
-        <div class="col-md-4">
-            <div class="workflow-selector card">
-                <div class="card-header">
-                    <h3>Seleccionar Workflow</h3>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="workflowSelect" class="form-label">Seleccione un workflow:</label>
-                        <select @bind="selectedWorkflowId" class="form-select" id="workflowSelect">
-                            <option value="">-- Seleccione --</option>
-                            @foreach (var workflow in workflows)
-                            {
-                                <option value="@workflow.Id">@workflow.Name</option>
-                            }
-                        </select>
-                    </div>
-
-                    <div class="workflow-details">
-                        @if (selectedWorkflow != null)
-                        {
-                            <h5>@selectedWorkflow.Name</h5>
-                            <p>@selectedWorkflow.Description</p>
-                            <p><strong>Versión:</strong> @selectedWorkflow.Version</p>
-                            <p><strong>Estado:</strong> @selectedWorkflow.Status</p>
-                            <p><strong>Fecha creación:</strong> @selectedWorkflow.CreatedDate.ToShortDateString()</p>
-                        }
-                    </div>
-
-                    <div class="mt-3">
-                        <button class="btn btn-primary" @onclick="LoadWorkflow">
-                            <i class="bi bi-diagram-3"></i> Mostrar Workflow
-                        </button>
-                        <button class="btn btn-outline-secondary ms-2" @onclick="ResetSelection">
-                            <i class="bi bi-arrow-clockwise"></i> Reiniciar
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card mt-3">
-                <div class="card-header">
-                    <h5>Información del Workflow</h5>
-                </div>
-                <div class="card-body">
-                    <p>Esta página permite visualizar diferentes workflows del sistema de administración.</p>
-                    <p>Seleccione un workflow de la lista para visualizar su diagrama de flujo.</p>
-
-                    <div class="alert alert-info mt-2">
-                        <i class="bi bi-info-circle"></i>
-                        <strong>Workflow actual:</strong>
-                        @if (selectedWorkflow != null)
-                        {
-                            <span>@selectedWorkflow.Name</span>
-                        }
-                        else
-                        {
-                            <span>Ningún workflow seleccionado</span>
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-8">
-            <div class="workflow-display card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3>
-                        @if (selectedWorkflow != null)
-                        {
-                            <span>@selectedWorkflow.Name</span>
-                        }
-                        else
-                        {
-                            <span>Visualización de Workflow</span>
-                        }
-                    </h3>
-                    <div>
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleDetails" title="Mostrar/ocultar detalles">
-                            <i class="bi @(showDetails ? "bi-eye-slash" : "bi-eye")"></i>
-                            @(showDetails ? "Ocultar" : "Mostrar") detalles
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body">
-                    @if (selectedWorkflow == null)
-                    {
-                        <div class="text-center py-5">
-                            <i class="bi bi-diagram-3 display-1 text-muted"></i>
-                            <h4 class="mt-3">No hay workflow seleccionado</h4>
-                            <p class="text-muted">Por favor, seleccione un workflow de la lista para visualizarlo.</p>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="workflow-visualization">
-                            <!-- Aquí se renderizará el workflow seleccionado -->
-                            @if (selectedWorkflowId == "1")
-                            {
-                                <!-- Workflow de presupuesto basado en la imagen proporcionada -->
-                                <div class="budget-workflow">
-                                    <h4 class="text-center mb-4">Workflow de Presupuesto</h4>
-                                    <div class="workflow-diagram">
-                                        <!-- Nodo: ADMINISTRACIÓN -->
-                                        <div class="workflow-node start-node">
-                                            <div class="node-content">
-                                                <div class="node-title">ADMINISTRACIÓN</div>
-                                            </div>
-                                            <div class="node-connector down"></div>
-                                        </div>
-
-                                        <!-- Línea vertical -->
-                                        <div class="vertical-line"></div>
-
-                                        <!-- Nodo: INICIO -->
-                                        <div class="workflow-node">
-                                            <div class="node-content">
-                                                <div class="node-title">INICIO</div>
-                                            </div>
-                                            <div class="node-connector down"></div>
-                                        </div>
-
-                                        <!-- Línea vertical -->
-                                        <div class="vertical-line"></div>
-
-                                        <!-- Nodo: CREA PRESUPUESTO -->
-                                        <div class="workflow-node">
-                                            <div class="node-content">
-                                                <div class="node-title">CREA PRESUPUESTO</div>
-                                            </div>
-                                            <div class="node-connector down"></div>
-                                        </div>
-
-                                        <!-- Línea vertical -->
-                                        <div class="vertical-line"></div>
-
-                                        <!-- Nodo de decisión: ¿RECHAZADO? -->
-                                        <div class="decision-node">
-                                            <div class="node-content">
-                                                <div class="node-title">¿APROBADO?</div>
-                                            </div>
-                                            <div class="decision-branches">
-                                                <div class="branch yes-branch">
-                                                    <div class="branch-label">SÍ</div>
-                                                    <div class="branch-line right"></div>
-                                                    <div class="branch-node">
-                                                        <div class="node-content">
-                                                            <div class="node-title">APROBAR</div>
-                                                        </div>
-                                                        <div class="node-connector down"></div>
-                                                    </div>
-                                                    <div class="vertical-line"></div>
-                                                    <div class="branch-node">
-                                                        <div class="node-content">
-                                                            <div class="node-title">ACTIVO</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="branch no-branch">
-                                                    <div class="branch-label">NO</div>
-                                                    <div class="branch-line left"></div>
-                                                    <div class="vertical-line long"></div>
-                                                    <div class="back-arrow">
-                                                        <i class="bi bi-arrow-up-left"></i>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Nodo final -->
-                                        <div class="workflow-node end-node">
-                                            <div class="node-content">
-                                                <div class="node-title">FIN</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    @if (showDetails)
-                                    {
-                                        <div class="workflow-details mt-4 p-3 border rounded">
-                                            <h5>Detalles del Workflow de Presupuesto</h5>
-                                            <p>Este workflow representa el proceso de creación y aprobación de presupuestos en el sistema de administración.</p>
-                                            <ul>
-                                                <li><strong>INICIO:</strong> Punto de inicio del workflow</li>
-                                                <li><strong>CREA PRESUPUESTO:</strong> Etapa de creación del presupuesto</li>
-                                                <li><strong>¿APROBADO?:</strong> Punto de decisión para verificar si requiere revisión</li>
-                                                <li><strong>SÍ:</strong> Flujo cuando no requiere revisión, procede a aprobación</li>
-                                                <li><strong>NO:</strong> Flujo cuando requiere revisión, regresa al inicio</li>
-                                                <li><strong>APROBAR:</strong> Etapa de aprobación del presupuesto</li>
-                                                <li><strong>ACTIVO:</strong> Estado final cuando el presupuesto está activo</li>
-                                                <li><strong>FIN:</strong> Finalización del workflow</li>
-                                            </ul>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                            else if (selectedWorkflowId == "2")
-                            {
-                                <!-- Otro workflow de ejemplo -->
-                                <div class="text-center py-4">
-                                    <h4>Workflow de Aprobación de Gastos</h4>
-                                    <p class="text-muted">Diagrama del workflow de aprobación de gastos se mostraría aquí.</p>
-                                    <div class="placeholder-diagram mt-4">
-                                        <div class="placeholder-node">INICIO</div>
-                                        <div class="placeholder-arrow">↓</div>
-                                        <div class="placeholder-node">REVISIÓN</div>
-                                        <div class="placeholder-arrow">↓</div>
-                                        <div class="placeholder-node">APROBACIÓN</div>
-                                        <div class="placeholder-arrow">↓</div>
-                                        <div class="placeholder-node">FIN</div>
-                                    </div>
-                                </div>
-                            }
-                            else if (selectedWorkflowId == "3")
-                            {
-                                <!-- Otro workflow de ejemplo -->
-                                <div class="text-center py-4">
-                                    <h4>Workflow de Contratación</h4>
-                                    <p class="text-muted">Diagrama del workflow de contratación se mostraría aquí.</p>
-                                    <div class="placeholder-diagram mt-4">
-                                        <div class="placeholder-node">SOLICITUD</div>
-                                        <div class="placeholder-arrow">↓</div>
-                                        <div class="placeholder-node">EVALUACIÓN</div>
-                                        <div class="placeholder-arrow">↓</div>
-                                        <div class="placeholder-node decision">¿APROBADO?</div>
-                                        <div class="placeholder-arrow yes">SÍ → CONTRATAR</div>
-                                        <div class="placeholder-arrow no">NO → ARCHIVAR</div>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-            </div>
-
-            <div class="card mt-3">
-                <div class="card-body">
-                    <h5>Acciones</h5>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-primary" disabled="@(selectedWorkflow == null)">
-                            <i class="bi bi-pencil"></i> Editar Workflow
-                        </button>
-                        <button class="btn btn-outline-success" disabled="@(selectedWorkflow == null)">
-                            <i class="bi bi-clipboard-check"></i> Ejecutar Workflow
-                        </button>
-                        <button class="btn btn-outline-info" disabled="@(selectedWorkflow == null)">
-                            <i class="bi bi-graph-up"></i> Ver Historial
-                        </button>
-                        <button class="btn btn-outline-danger" disabled="@(selectedWorkflow == null)">
-                            <i class="bi bi-trash"></i> Eliminar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-@code {
-    private List<Workflow> workflows = new List<Workflow>();
-    private string selectedWorkflowId = "";
-    private Workflow selectedWorkflow = null;
-    private bool showDetails = true;
-
-    protected override void OnInitialized()
-    {
-        // Inicializar la lista de workflows disponibles
-        workflows = new List<Workflow>
-        {
-            new Workflow { Id = 1, Name = "Presupuesto", Description = "Workflow para creación y aprobación de presupuestos", Version = "1.0", Status = "Activo", CreatedDate = new DateTime(2023, 10, 15) },
-            new Workflow { Id = 2, Name = "Aprobación de Gastos", Description = "Workflow para aprobación de gastos operativos", Version = "2.1", Status = "Activo", CreatedDate = new DateTime(2023, 9, 20) },
-            new Workflow { Id = 3, Name = "Contratación", Description = "Workflow para proceso de contratación de personal", Version = "1.5", Status = "En revisión", CreatedDate = new DateTime(2023, 11, 5) },
-            new Workflow { Id = 4, Name = "Compras", Description = "Workflow para proceso de compras y adquisiciones", Version = "3.2", Status = "Activo", CreatedDate = new DateTime(2023, 8, 12) },
-            new Workflow { Id = 5, Name = "Proyectos", Description = "Workflow para gestión y aprobación de proyectos", Version = "2.0", Status = "Activo", CreatedDate = new DateTime(2023, 12, 1) }
-        };
-
-        // Seleccionar el workflow de presupuesto por defecto
-        selectedWorkflowId = "1";
-        selectedWorkflow = workflows.FirstOrDefault(w => w.Id == 1);
-    }
-
-    private void LoadWorkflow()
-    {
-        if (!string.IsNullOrEmpty(selectedWorkflowId))
-        {
-            selectedWorkflow = workflows.FirstOrDefault(w => w.Id == int.Parse(selectedWorkflowId));
+            await WorkflowService.AddStepAsync(_stepForm);
         }
         else
         {
-            selectedWorkflow = null;
+            await WorkflowService.UpdateStepAsync(_stepForm);
         }
+
+        _showStepModal = false;
+        _expanded.Add(_stepFormWorkflowId);
+        await LoadWorkflows();
     }
 
-    private void ResetSelection()
+    private async Task ConfirmDeleteStep(Workflow workflow, WorkflowStep step)
     {
-        selectedWorkflowId = "";
-        selectedWorkflow = null;
-        showDetails = true;
-    }
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar el paso \"{step.Name}\"?");
+        if (!confirmed) return;
 
-    private void ToggleDetails()
-    {
-        showDetails = !showDetails;
-    }
-
-    public class Workflow
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public string Version { get; set; }
-        public string Status { get; set; }
-        public DateTime CreatedDate { get; set; }
+        await WorkflowService.DeleteStepAsync(step);
+        await LoadWorkflows();
     }
 }
-
-
-
-
-
-*@
-
-
-
-
-
-
-
-
-
-
-@* Pages/WorkflowView.razor *@
-
-
-

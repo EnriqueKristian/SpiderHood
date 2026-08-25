@@ -10,12 +10,12 @@
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document" @onclick:stopPropagation="true">
             <div class="modal-content shadow-lg">
                 <!-- Header del Modal -->
-                <div class="modal-header bg-primary text-white">
+                <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="bi @GetModalIcon() me-2"></i>
+                        <i class="bi @GetModalIcon() me-2 text-primary"></i>
                         @GetModalTitle()
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal"></button>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
                 </div>
 
                 <!-- Body del Modal -->
@@ -170,7 +170,7 @@
 
                 <!-- Footer del Modal -->
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
                         <i class="bi bi-x-lg me-2"></i>Cancelar
                     </button>
                     <button type="submit" form="unitForm" class="btn btn-primary" disabled="@(!CanSubmit())">

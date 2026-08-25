@@ -8,21 +8,22 @@
     <div class="modal-dialog modal-xl modal-dialog-centered" role="document">
         <div class="modal-content shadow-lg">
             <div class="modal-header">
-                    <i class="bi bi-droplet mr-2"></i><h5 class="modal-title">&nbsp;Lectura de Agua: @_period.ToString("MMMM-yy")</h5>
+                <h5 class="modal-title">
+                    <i class="bi bi-droplet me-2 text-primary"></i>Lectura de Agua: @_period.ToString("MMMM-yy")
+                </h5>
                 <button type="button" class="btn-close" @onclick="CerrarModal"></button>
             </div>
             <div class="modal-body">
                     <SpiderHood.Components.Pages.WaterCalculationPages.BlockWaterReading @ref="LecturaBloqueRef" _period="_period" OnSaveReady="UpdateStatus" />
             </div>
                 <div class="modal-footer">
-                    <button type="button"
-                            class="btn btn-outline-secondary" @onclick="CerrarModal">
-                        Cancelar
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
+                        <i class="bi bi-x-lg me-1"></i>Cancelar
                     </button>
                     <button type="submit" class="btn btn-primary"
                             @onclick='() => ExecuteWithConfirmation(SaveData, "Guardar Lectura", "¿Guardar las lecturas procesadas?", "info")'
                             disabled="@IsDisabledToSave">
-                        Save
+                        <i class="bi bi-check-lg me-1"></i>Guardar
                     </button>
                 </div>
             

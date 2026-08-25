@@ -386,7 +386,15 @@ namespace SpiderHood.Services
                     else
                     {
                         await ecLocal.UpdateRecordAsync(state.Budget);
-                        await ecLocal.ClosePastBudgetsAsync(state.Budget.IdBuilding, state.Budget.BudgetDate);
+
+                        // Solo al llegar a Active (publicado) este presupuesto pasa a ser el
+                        // vigente del edificio y corresponde cerrar el anterior. Antes se
+                        // llamaba en cada paso desde Check en adelante, así que el presupuesto
+                        // previo se cerraba apenas se mandaba el nuevo a revisión — si la Junta
+                        // lo rechazaba después, el edificio se quedaba sin ningún presupuesto
+                        // activo (el viejo ya cerrado, el nuevo nunca llegó a publicarse).
+                        if (state.Status == BudgetStatus.Active)
+                            await ecLocal.ClosePastBudgetsAsync(state.Budget.IdBuilding, state.Budget.BudgetDate);
                     }
                 }
 

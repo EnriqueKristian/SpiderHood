@@ -30,7 +30,8 @@
         </div>
 
         <div class="page-header-actions">
-            <button class="btn btn-primary d-flex align-items-center">
+            <button class="btn btn-primary d-flex align-items-center"
+                    @onclick="() => AbrirModal(new Models.RealEstateUnit(), 0, Models.OpenType.Create)">
                 <i class="bi bi-plus-circle me-2"></i>Nueva Unidad
             </button>
             <button class="btn btn-outline-secondary d-flex align-items-center">

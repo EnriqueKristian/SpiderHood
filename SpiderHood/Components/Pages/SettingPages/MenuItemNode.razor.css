@@ -1,0 +1,81 @@
+/* CSS for MenuItemNode component */
+
+/* Estilos de la fila del árbol de menú. Viven aquí (no en MenuItems.razor.css)
+   porque el <tr>/<td> los renderiza este componente hijo: el aislamiento de CSS
+   de Blazor solo aplica el atributo de scope a los elementos que un archivo
+   .razor.css authored directamente en su propio componente, así que las reglas
+   definidas en el padre nunca llegaban a estas celdas (el checkbox quedaba sin
+   centrar/alinear respecto a la columna de menú). */
+
+.menu-node-row td {
+    padding: 12px 8px;
+    vertical-align: middle !important;
+    border: 1px solid var(--sh-border-strong);
+}
+
+.menu-item-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.menu-indent {
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.expander-icon {
+    cursor: pointer;
+    width: 20px;
+    text-align: center;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.role-checkbox-container {
+    text-align: center;
+    vertical-align: middle;
+    padding: 8px 4px !important;
+}
+
+    .role-checkbox-container input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        cursor: pointer;
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+.actions-container {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.badge-group {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.pending-change {
+    background-color: var(--sh-warning-light) !important;
+}
+
+.menu-node-row:hover td {
+    background-color: var(--sh-surface-muted);
+}
+
+@media (max-width: 768px) {
+    .role-checkbox-container input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+    }
+
+    .actions-container {
+        flex-direction: column;
+    }
+}

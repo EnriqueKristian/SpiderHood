@@ -1,4 +1,4 @@
-﻿@using System.ComponentModel.DataAnnotations
+﻿﻿@using System.ComponentModel.DataAnnotations
 @using SpiderHood.Services
 @inherits LayoutComponentBase
 @inject ParameterService ParameterService
@@ -6,16 +6,18 @@
 @if (ShowModal)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content" >
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
                 <div class="modal-header">
-                    <h5 class="modal-title">@((OpenMode == Models.OpenType.Create) ? "Agregar Propietario" : "Actualizar Propietario")</h5>
+                    <h5 class="modal-title">
+                        <i class="bi bi-person me-2 text-primary"></i>@((OpenMode == Models.OpenType.Create) ? "Agregar Propietario" : "Actualizar Propietario")
+                    </h5>
                     <button type="button" class="btn-close" @onclick="CerrarModal"></button>
                 </div>
                 <EditForm Id="create" Model="@ViewOwner" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
                     <DataAnnotationsValidator />
                     <ValidationSummary class="text-danger" role="alert" />
-                <div class="modal-body">
+                    <div class="modal-body">
                         <table class="table-color">
                             <tr>
                                 <td width="100px"><strong>Tipo Persona</strong></td>
@@ -24,30 +26,30 @@
                                         <tr>
                                             <td>
                                                 <div class="radio-option">
-                                                    <input type="radio" 
-                                                        id="Natural"
-                                                        name="tipoPersona"
-                                                        @onchange="CambiarPersona"
-                                                        value="Natural"
-                                                        checked/>
-                                                        <label for="distFijo" class="radio-label">
-                                                            <span class="radio-title">Natural</span>
-                                                        </label>
+                                                    <input type="radio"
+                                                           id="Natural"
+                                                           name="tipoPersona"
+                                                           @onchange="CambiarPersona"
+                                                           value="Natural"
+                                                           checked />
+                                                    <label for="distFijo" class="radio-label">
+                                                        <span class="radio-title">Natural</span>
+                                                    </label>
                                                 </div>
                                             </td>
                                             <td>
                                                 <div class="radio-option">
-                                                     <input type="radio"
-                                                       id="Juridica"
-                                                       name="tipoPersona"
-                                                       @onchange="CambiarPersona"
-                                                       value="Juridica"/>
-                                                       <label for="distProporcional" class="radio-label">
-                                                           <span class="radio-title">Jurídica</span>
-                                                       </label>
-                                                 </div>
-                                             </td>
-                                       </tr>
+                                                    <input type="radio"
+                                                           id="Juridica"
+                                                           name="tipoPersona"
+                                                           @onchange="CambiarPersona"
+                                                           value="Juridica" />
+                                                    <label for="distProporcional" class="radio-label">
+                                                        <span class="radio-title">Jurídica</span>
+                                                    </label>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     </table>
                                 </td>
                             </tr>
@@ -75,7 +77,7 @@
                                             <ValidationMessage For="() => ViewOwner.Surname" class="text-danger" />
                                         </div>
                                     </td>
-                                </tr> 
+                                </tr>
                             }
                             else
                             {
@@ -90,7 +92,7 @@
                                     <div class="mb-3">
                                         <InputSelect id="typedoc" @bind-Value="ViewOwner.IdTypeIdNumber" class="form-select">
 
-                                            @foreach (var param in ParameterService.ListParameters.Where(c => c.IdParent == Convert.ToInt32( Models.ParamParent.DocumentType)))
+                                            @foreach (var param in ParameterService.ListParameters.Where(c => c.IdParent == Convert.ToInt32(Models.ParamParent.DocumentType)))
                                             {
                                                 <option value="@param.Value" selected>@param.ShortDescription</option>
                                             }
@@ -132,12 +134,16 @@
                                 </td>
                             </tr>
                         </table>
-                    
-                </div>
-                <div class="modal-footer">
-                    <Button Color="ButtonColor.Secondary" @onclick="CerrarModal">Close</Button>
-                    <Button Color="ButtonColor.Primary" form="create" class="btn btn-primary" Type="ButtonType.Submit">@((OpenMode == Models.OpenType.Create) ? "Save" : "Update")</Button>
-                </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
+                            <i class="bi bi-x-lg me-1"></i>Cancelar
+                        </button>
+                        <button type="submit" form="create" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>@((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
+                        </button>
+                    </div>
                 </EditForm>
             </div>
         </div>

@@ -1,15 +1,15 @@
-﻿﻿@using System.ComponentModel.DataAnnotations
+﻿﻿﻿﻿@using System.ComponentModel.DataAnnotations
 
 @inherits LayoutComponentBase
 
 @if (ShowModal)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog">
-            <div class="modal-content">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        @(OpenMode switch
+                        <i class="bi bi-door-open me-2 text-primary"></i>@(OpenMode switch
                         {
                             Models.OpenType.Create => "Agregar Unidad",
                             Models.OpenType.ReadOnly => "Ver Unidad",
@@ -46,10 +46,14 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <Button Color="ButtonColor.Secondary" @onclick="CerrarModal">Close</Button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
+                            <i class="bi bi-x-lg me-1"></i>Cancelar
+                        </button>
                         @if (OpenMode != Models.OpenType.ReadOnly)
                         {
-                            <button type="submit" class="btn btn-primary">@((OpenMode == Models.OpenType.Create) ? "Save" : "Update")</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>@((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
+                            </button>
                         }
                     </div>
                 </EditForm>

@@ -11,9 +11,9 @@
 
 /* Estadísticas */
 .summary-stats {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: linear-gradient(135deg, var(--sh-surface-muted) 0%, var(--sh-border) 100%);
     padding: 1.5rem;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--sh-border-strong);
 }
 
 .stat-card {
@@ -36,7 +36,7 @@
 
 .stat-content h6 {
     font-size: 0.875rem;
-    color: #6c757d;
+    color: var(--sh-secondary);
     margin-bottom: 0.25rem;
 }
 
@@ -53,7 +53,7 @@
 }
 
 .table-header {
-    background: #f8f9fa;
+    background: var(--sh-surface-muted);
 }
 
 /* Badges y elementos visuales */
@@ -79,7 +79,7 @@
 /* Filas seleccionadas */
 .table-row-selected {
     background-color: rgba(13, 110, 253, 0.05) !important;
-    border-left: 4px solid #0d6efd;
+    border-left: 4px solid var(--sh-primary);
 }
 
 .table-row-hover:hover {
@@ -102,14 +102,14 @@
 
 /* Modal styles */
 .owner-summary {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: linear-gradient(135deg, var(--sh-surface-muted) 0%, var(--sh-border) 100%);
 }
 
 .info-card {
     padding: 0.75rem;
     border-radius: 8px;
     background: white;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--sh-border-strong);
 }
 
 .section-header {
@@ -121,7 +121,7 @@
 }
 
 .water-reading-row {
-    border-left: 4px solid #0dcaf0;
+    border-left: 4px solid var(--sh-info);
 }
 
 .water-consumption {
@@ -144,33 +144,33 @@
 }
 
 .badge.type-4 {
-    background: linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%);
+    background: linear-gradient(135deg, var(--sh-info) 0%, #0aa2c0 100%);
 }
 
 /* Total amount */
 .total-amount {
-    color: #0d6efd;
+    color: var(--sh-primary);
     font-weight: 700;
 }
 
 .budget-amount {
-    color: #6c757d;
+    color: var(--sh-secondary);
 }
 
 .quote-amount {
-    color: #198754;
+    color: var(--sh-success);
 }
 
 .water-amount {
-    color: #0dcaf0;
+    color: var(--sh-info);
 }
 
 /* Responsive */
-@@media (max-width: 768px) {
+@media (max-width: 768px) {
     .summary-stats .stat-card {
         margin-bottom: 1rem;
         border-right: none !important;
-        border-bottom: 1px solid #dee2e6;
+        border-bottom: 1px solid var(--sh-border-strong);
     }
 
     .search-box {

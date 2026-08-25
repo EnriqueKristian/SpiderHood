@@ -1,68 +1,70 @@
-﻿@using System.ComponentModel.DataAnnotations
+﻿﻿@using System.ComponentModel.DataAnnotations
 
 @inherits LayoutComponentBase
 
 @if (ShowModal)
 {
-<div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content shadow-lg">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content shadow-lg">
                 <div class="modal-header">
-                    <h5 class="modal-title">@((OpenMode == Models.OpenType.Create) ? "Agregar Gasto" : "Actualizar Gasto")</h5>
+                    <h5 class="modal-title">
+                        <i class="bi bi-cash-coin me-2 text-primary"></i>@((OpenMode == Models.OpenType.Create) ? "Agregar Gasto" : "Actualizar Gasto")
+                    </h5>
                     <button type="button" class="btn-close" @onclick="CerrarModal"></button>
                 </div>
-                
-                    <EditForm Model="@ExpenseView" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
+
+                <EditForm Model="@ExpenseView" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
                     <DataAnnotationsValidator />
                     <ValidationSummary />
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Categoría</label>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Categoría</label>
                             <select class="form-select" @bind="ExpenseView.IdSubCategory">
                                 <option value="">Seleccionar categoría</option>
-                                @foreach(var item in FilteredCategory.Where(c => c.Nivel == 0))
+                                @foreach (var item in FilteredCategory.Where(c => c.Nivel == 0))
                                 {
                                     <optgroup label="@item.ShortDescript">
-                                        @foreach(var subitem in FilteredCategory.Where(c => c.ParentId == item.IdCategory))
-                                    {
-                                        <option value="@subitem.IdCategory">@subitem.ShortDescript</option>
-                                    }
+                                        @foreach (var subitem in FilteredCategory.Where(c => c.ParentId == item.IdCategory))
+                                        {
+                                            <option value="@subitem.IdCategory">@subitem.ShortDescript</option>
+                                        }
                                     </optgroup>
                                 }
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Descripción</label>
-                        <input class="form-control"
-                               placeholder="Ej: Consumo Enero 2025"
-                                   @bind="ExpenseView.ExpenseDescription" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Monto</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            <input type="number"
-                                   class="form-control"
-                                   step="0.01"
-                                   min="0"
-                                       @bind="ExpenseView.TotalAmount" />
+                            </select>
                         </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Fecha</label>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <input class="form-control"
+                                   placeholder="Ej: Consumo Enero 2025"
+                                   @bind="ExpenseView.ExpenseDescription" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Monto</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number"
+                                       class="form-control"
+                                       step="0.01"
+                                       min="0"
+                                       @bind="ExpenseView.TotalAmount" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Fecha</label>
                             <input type="date" class="form-control" @bind="ExpenseView.DueDate" />
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label d-block">Tipo de Distribución</label>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label d-block">Tipo de Distribución</label>
 
-                        <div class="form-check mb-1">
+                            <div class="form-check mb-1">
 
-                                <select class="form-select" aria-label="Default select example"  @bind="ExpenseView.IdDistribution">
+                                <select class="form-select" aria-label="Default select example" @bind="ExpenseView.IdDistribution">
                                     <option selected value=@Models.TypeDistribution.Fija>Fijo</option>
                                     <option value=@Models.TypeDistribution.Proporcional>Proporcional</option>
                                 </select>
 
-                            <div class="form-text">
+                                <div class="form-text">
                                     @if (ExpenseView.IdDistribution == Models.TypeDistribution.Fija)
                                     {
                                         <label>Se divide en partes iguales entre todos</label>
@@ -71,21 +73,22 @@
                                     {
                                         <label>Se divide de manera proporcional </label>
                                     }
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button"
-                            class="btn btn-outline-secondary" @onclick="CerrarModal">Cancelar </button>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
+                            <i class="bi bi-x-lg me-1"></i>Cancelar
+                        </button>
                         <button type="submit" class="btn btn-primary">
-                            @((OpenMode == Models.OpenType.Create) ? "Save" : "Update")
-                    </button>
-                </div>
+                            <i class="bi bi-check-lg me-1"></i>@((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
+                        </button>
+                    </div>
                 </EditForm>
+            </div>
         </div>
     </div>
-</div>
 }
 
 @code {
@@ -93,7 +96,7 @@
     [Parameter] public Models.OpenType OpenMode { get; set; }
     [Parameter] public Models.Expense ExpenseView { get; set; }
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
-    [Parameter] public EventCallback<Models.Expense> OnSaveItem{ get; set; }
+    [Parameter] public EventCallback<Models.Expense> OnSaveItem { get; set; }
     [Parameter] public List<Models.Category> FilteredCategory { get; set; }
 
     private async Task Guardar()

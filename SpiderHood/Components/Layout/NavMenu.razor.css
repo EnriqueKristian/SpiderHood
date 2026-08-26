@@ -59,6 +59,7 @@
     text-transform: uppercase;
     color: #7dd3fc;
     margin-top: 2px;
+    white-space: normal;
 }
 
 .bi {

@@ -10,6 +10,7 @@
 @using SpiderHood.Services
 @inject NavigationManager Navigation // Inyecta el servicio de navegación
 @inject ParameterService ParameterService
+@inject AuthService AuthService
 @using Microsoft.AspNetCore.Components.Forms
 @inject IJSRuntime JSRuntime
 
@@ -43,7 +44,23 @@
                 </div>
 
                 <div class="card-body p-4">
-                    @if (isLoaded) { 
+                    @if (isLoaded) {
+                    <!-- Selección de cuenta bancaria -->
+                    <div class="mb-4">
+                        <label class="form-label">Cuenta Bancaria *</label>
+                        <select class="form-select" @bind="selectedBankAccountId">
+                            <option value="@Guid.Empty">Seleccionar cuenta...</option>
+                            @foreach (var cuenta in cuentasBancarias)
+                            {
+                                <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
+                            }
+                        </select>
+                        @if (!cuentasBancarias.Any())
+                        {
+                            <small class="text-muted">No hay cuentas bancarias registradas para este edificio.</small>
+                        }
+                    </div>
+
                     <!-- Sección de carga de archivo -->
                     <div class="mb-5">
                         <div class="file-upload-area border-2 border-dashed rounded-3 p-5 text-center mb-4"
@@ -441,6 +458,9 @@
     [Inject]
     private IBankAccountService BankAccountService { get; set; } = default!;
 
+    private List<BankAccount> cuentasBancarias = new();
+    private Guid selectedBankAccountId = Guid.Empty;
+
     private InputFile? fileInput;
     private string fileName = string.Empty;
     private long fileSize = 0;
@@ -509,9 +529,13 @@
 
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
+        if (selectedBankAccountId == Guid.Empty)
+        {
+            mensaje = "Selecciona una cuenta bancaria antes de cargar el archivo.";
+            return;
+        }
 
-        Guid IdBankAccount = Guid.Parse("F5AD1992-5229-47F1-AF6B-52457EE65618");
-
+        Guid IdBankAccount = selectedBankAccountId;
 
         // Verificar que haya archivos
         if (e.FileCount == 0 || e.File == null)
@@ -557,7 +581,7 @@
         DateTime maxValue = datos.Max(d => d.StatementDate);
 
         // Traer claves existentes en BD
-        var Movements = BankAccountService.GetTransactionsDetailsAsync(IdBankAccount, minValue, maxValue).Result;
+        var Movements = await BankAccountService.GetTransactionsDetailsAsync(IdBankAccount, minValue, maxValue);
         var clavesBD = Movements.Select(md => $"{md.StatementDate:yyyyMMdd}|{md.Description}|{md.Amount}"); // Para búsqueda rápida
 
         int iCont = 0;
@@ -576,13 +600,22 @@
             return;
         }
 
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        if (currentUser == null)
+        {
+            mensaje = "No se pudo identificar al usuario actual. Vuelve a iniciar sesión.";
+            isLoading = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         movement.IdStatementHeader = Guid.NewGuid();
         movement.FileName = file.Name;
         movement.UploadDate = DateTime.Now;
         movement.Details = datos.ToList();
         movement.TotalRecords = movement.Details.Where(c => c.Validation == "Ok").Count();
         movement.UploadState = 1;
-        movement.IdUser = Guid.Parse("BCD5E9DE-0FD2-431D-AB16-B4B9BB19DDC7");//  ParameterService.IdUser;
+        movement.IdUser = currentUser.IdUser;
         movement.IdBankAccount = IdBankAccount;
 
 
@@ -657,9 +690,16 @@
         return lista;
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Aquí cargarías los parámetros desde tu API o servicio
+        if (ParameterService.CurrentBuilding != null)
+        {
+            cuentasBancarias = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            if (cuentasBancarias.Count == 1)
+            {
+                selectedBankAccountId = cuentasBancarias[0].IdBankAccount;
+            }
+        }
     }
 
     private async Task AddItem(Models.TransactionBankDetail item)

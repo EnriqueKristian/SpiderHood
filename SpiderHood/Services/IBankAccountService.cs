@@ -49,6 +49,7 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al crear la cuenta bancaria: {ex.Message}");
+                throw;
             }
         }
 
@@ -90,6 +91,7 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al crear la cabecera de la transaccion : {ex.Message}");
+                throw;
             }
 
         }

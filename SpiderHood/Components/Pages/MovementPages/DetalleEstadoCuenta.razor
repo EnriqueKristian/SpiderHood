@@ -83,6 +83,7 @@
                                         <th>Descripción</th>
                                         <th>Moneda</th>
                                         <th>Monto</th>
+                                        <th>Estado</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -97,6 +98,20 @@
                                             <td class="fw-semibold @(item.Amount >= 0 ? "text-success" : "text-danger")">
                                                 @item.Amount.ToString("C",
                                                     System.Globalization.CultureInfo.CreateSpecificCulture(item.Currency == "USD" ? "en-US" : "es-PE"))
+                                            </td>
+                                            <td>
+                                                @if (item.ReconciliationStatus == ConcilationType.Conciliada)
+                                                {
+                                                    <span class="badge bg-success"><i class="bi bi-check me-1"></i>Conciliado</span>
+                                                }
+                                                else if (item.ReconciliationStatus == ConcilationType.Parcial)
+                                                {
+                                                    <span class="badge bg-info text-dark"><i class="bi bi-hourglass-split me-1"></i>Parcial</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Pendiente</span>
+                                                }
                                             </td>
                                         </tr>
                                     }

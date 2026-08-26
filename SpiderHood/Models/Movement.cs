@@ -90,10 +90,10 @@ namespace SpiderHood.Models
     }
 
     // Forma liviana para listar el detalle de una carga de estado de cuenta (solo lectura).
-    // A propósito NO reutiliza TransactionBankDetail: esa entidad exige que el SP devuelva
-    // TODAS sus columnas mapeadas (incluyendo ReconciliationStatus, que en BD es BIT pero
-    // en el modelo es un enum de 4 valores — un desajuste de tipo esperando a romperse) y
-    // aquí solo necesitamos mostrar lo que se cargó, no su estado de conciliación.
+    // A propósito NO reutiliza TransactionBankDetail: esa entidad trae columnas (Balance,
+    // AmountPaid, IdGroupUnit, PosiblesMatches, etc.) que no aplican a esta vista de solo
+    // lectura. ReconciliationStatus/ReconciliationDate sí se incluyen porque el usuario
+    // necesita ver desde acá si cada movimiento ya fue conciliado.
     public class AccountStatementDetailView
     {
         public Guid IdStatementDetail { get; set; }
@@ -104,6 +104,8 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal Amount { get; set; }
         public int SequenceNumber { get; set; }
+        public ConcilationType ReconciliationStatus { get; set; }
+        public DateTime? ReconciliationDate { get; set; }
     }
 
     public class MovDetKey

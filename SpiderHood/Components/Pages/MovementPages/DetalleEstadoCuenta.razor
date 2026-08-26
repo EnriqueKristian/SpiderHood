@@ -57,6 +57,23 @@
                     }
                     else
                     {
+                        <!-- Encabezado con estadísticas y selector de página -->
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                            <p class="text-muted mb-0">
+                                Mostrando @startRecord - @endRecord de @totalRecords registros
+                            </p>
+                            <div class="d-flex align-items-center">
+                                <label class="me-2 text-muted">Mostrar:</label>
+                                <select class="form-select form-select-sm" style="width: auto;"
+                                        @onchange="(e) => ChangePageSize(Convert.ToInt32(e.Value))">
+                                    <option value="10" selected="@(pageSize == 10)">10</option>
+                                    <option value="25" selected="@(pageSize == 25)">25</option>
+                                    <option value="50" selected="@(pageSize == 50)">50</option>
+                                    <option value="100" selected="@(pageSize == 100)">100</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div class="table-responsive rounded-3 border">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
@@ -68,7 +85,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var item in detalles.OrderBy(d => d.StatementDate).ThenBy(d => d.SequenceNumber))
+                                    @foreach (var item in currentPageData)
                                     {
                                         <tr>
                                             <td class="ps-3">@item.StatementDate.ToString("dd/MM/yyyy")</td>
@@ -85,7 +102,74 @@
                                 </tbody>
                             </table>
                         </div>
-                        <p class="text-muted mt-3 mb-0">@detalles.Count registro(s)</p>
+
+                        <!-- Paginación -->
+                        @if (totalPages > 1)
+                        {
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 border-top">
+                                <div class="text-muted">
+                                    Página @currentPage de @totalPages
+                                </div>
+
+                                <nav aria-label="Paginación de resultados">
+                                    <ul class="pagination pagination-sm mb-0">
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link" @onclick="GoToFirstPage" title="Primera página">
+                                                <i class="bi bi-chevron-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link" @onclick="GoToPreviousPage" title="Página anterior">
+                                                <i class="bi bi-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        @foreach (var pageNum in GetPageNumbers())
+                                        {
+                                            if (pageNum == -1)
+                                            {
+                                                <li class="page-item disabled">
+                                                    <span class="page-link">...</span>
+                                                </li>
+                                            }
+                                            else
+                                            {
+                                                <li class="page-item @(pageNum == currentPage ? "active" : "")">
+                                                    <a class="page-link" @onclick="() => GoToPage(pageNum)">
+                                                        @pageNum
+                                                    </a>
+                                                </li>
+                                            }
+                                        }
+
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link" @onclick="GoToNextPage" title="Página siguiente">
+                                                <i class="bi bi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <a class="page-link" @onclick="GoToLastPage" title="Última página">
+                                                <i class="bi bi-chevron-double-right"></i>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </nav>
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="text-muted">Ir a:</span>
+                                    <input type="number" class="form-control form-control-sm"
+                                           style="width: 70px;"
+                                           min="1" max="@totalPages"
+                                           @bind="jumpToPage"
+                                           @bind:event="oninput" />
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="JumpToPage"
+                                            disabled="@(jumpToPage < 1 || jumpToPage > totalPages)">
+                                        Ir
+                                    </button>
+                                </div>
+                            </div>
+                        }
                     }
                 </div>
             </div>
@@ -111,8 +195,13 @@
             header = headers.FirstOrDefault(h => h.IdStatementHeader == IdStatementHeader);
         }
 
-        detalles = await BankAccountService.GetStatementDetailsAsync(IdStatementHeader);
+        detalles = (await BankAccountService.GetStatementDetailsAsync(IdStatementHeader))
+            .OrderBy(d => d.StatementDate)
+            .ThenBy(d => d.SequenceNumber)
+            .ToList();
         cargando = false;
+
+        UpdatePagination();
     }
 
     private string GetNombreCuenta(Guid idBankAccount)
@@ -124,5 +213,111 @@
     private void Volver()
     {
         Navigation.NavigateTo("/movement");
+    }
+
+    // Variables para paginación
+    private List<AccountStatementDetailView> currentPageData = new();
+    private int currentPage = 1;
+    private int pageSize = 25;
+    private int totalPages = 0;
+    private int totalRecords = 0;
+    private int startRecord = 0;
+    private int endRecord = 0;
+    private int jumpToPage = 1;
+
+    private void UpdatePagination()
+    {
+        totalRecords = detalles.Count;
+        totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+        if (currentPage > totalPages && totalPages > 0)
+        {
+            currentPage = totalPages;
+        }
+        else if (currentPage < 1 && totalPages > 0)
+        {
+            currentPage = 1;
+        }
+
+        startRecord = totalRecords > 0 ? ((currentPage - 1) * pageSize) + 1 : 0;
+        endRecord = Math.Min(currentPage * pageSize, totalRecords);
+
+        currentPageData = detalles
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        jumpToPage = currentPage;
+    }
+
+    private void GoToPage(int page)
+    {
+        if (page >= 1 && page <= totalPages)
+        {
+            currentPage = page;
+            UpdatePagination();
+        }
+    }
+
+    private void GoToFirstPage() => GoToPage(1);
+    private void GoToPreviousPage() => GoToPage(currentPage - 1);
+    private void GoToNextPage() => GoToPage(currentPage + 1);
+    private void GoToLastPage() => GoToPage(totalPages);
+
+    private void JumpToPage()
+    {
+        GoToPage(jumpToPage);
+    }
+
+    private void ChangePageSize(int newSize)
+    {
+        pageSize = newSize;
+        currentPage = 1;
+        UpdatePagination();
+    }
+
+    private List<int> GetPageNumbers()
+    {
+        var pages = new List<int>();
+        int maxPagesToShow = 5;
+
+        if (totalPages <= maxPagesToShow)
+        {
+            for (int i = 1; i <= totalPages; i++)
+            {
+                pages.Add(i);
+            }
+        }
+        else if (currentPage <= 3)
+        {
+            for (int i = 1; i <= 4; i++)
+            {
+                pages.Add(i);
+            }
+            pages.Add(-1);
+            pages.Add(totalPages);
+        }
+        else if (currentPage >= totalPages - 2)
+        {
+            pages.Add(1);
+            pages.Add(-1);
+            for (int i = totalPages - 3; i <= totalPages; i++)
+            {
+                pages.Add(i);
+            }
+        }
+        else
+        {
+            pages.Add(1);
+            pages.Add(-1);
+            for (int i = currentPage - 1; i <= currentPage + 1; i++)
+            {
+                pages.Add(i);
+            }
+            pages.Add(-1);
+            pages.Add(totalPages);
+        }
+
+        return pages;
     }
 }

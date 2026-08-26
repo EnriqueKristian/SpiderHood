@@ -530,6 +530,18 @@ namespace SpiderHood.Data
             }, "GetMovementByFileName", cancellationToken);
         }
 
+        // idBankAccount == null trae todas las cuentas del edificio ("Todos"); con valor,
+        // filtra a esa cuenta bancaria únicamente.
+        public async Task<List<TransactionBankHeader>> GetMovementHeadersAsync(Guid idBuilding, Guid? idBankAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<TransactionBankHeader>(
+                    StoredProcedures.GET_MovementHeaders,
+                    idBuilding, idBankAccount);
+            }, "GetMovementHeaders", cancellationToken);
+        }
+
         public async Task<List<MovDetKey>> GetAllMovementDetailAsync(Guid idBankAccout, DateTime star, DateTime end, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

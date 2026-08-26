@@ -20,6 +20,7 @@ namespace SpiderHood.Services
         Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
         Task InstallmentConciliationAsync(TransactionBankDetail transaccion, Installment cuota);
         Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBuilding);
+        Task<List<TransactionBankHeader>> GetMovementHeadersAsync(Guid idBuilding, Guid? idBankAccount);
         Task<List<MovDetKey>> GetTransactionsDetailsAsync(Guid IdBankAccount, DateTime minValue, DateTime maxValue);
         Task AddTransactionFromEECCAsync(TransactionBankDetail newtransaction);
         Task AddTransactionBankHeaderAsync(TransactionBankHeader newtransaction);
@@ -79,6 +80,19 @@ namespace SpiderHood.Services
                 return [];
             }
 
+        }
+
+        public async Task<List<TransactionBankHeader>> GetMovementHeadersAsync(Guid idBuilding, Guid? idBankAccount)
+        {
+            try
+            {
+                return await ec.GetMovementHeadersAsync(idBuilding, idBankAccount);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al obtener los estados de cuenta cargados : {ex.Message}");
+                return [];
+            }
         }
 
 

@@ -1,452 +1,106 @@
-﻿@page "/movement"
+@page "/movement"
 @rendermode InteractiveServer
-@using ClosedXML.Excel
-@using Microsoft.AspNetCore.Components.QuickGrid
-@using Microsoft.EntityFrameworkCore
-@using Microsoft.EntityFrameworkCore.Metadata.Internal
-@using SpiderHood.Components.Pages.ParameterPages
-@using SpiderHood.Data
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject NavigationManager Navigation // Inyecta el servicio de navegación
+@inject NavigationManager Navigation
 @inject ParameterService ParameterService
-@inject AuthService AuthService
-@using Microsoft.AspNetCore.Components.Forms
-@inject IJSRuntime JSRuntime
+@inject IBankAccountService BankAccountService
 
-<PageTitle>Cargar Estado de Cuenta</PageTitle>
-
-<!-- Script para manejar la carga -->
-<script>
-    function handleFileUpload(event) {
-        const file = event.target.files[0];
-        if (file) {
-            alert(`Archivo seleccionado: ${file.name}`);
-            // Aquí puedes agregar lógica para subir el archivo al servidor
-        }
-    }
-</script>
+<PageTitle>Estados de Cuenta</PageTitle>
 
 <div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-lg-12 col-xl-10">
-            <!-- Card principal -->
             <div class="card shadow-lg border-0">
-                <!-- Header con icono -->
                 <div class="card-header bg-gradient-primary text-white py-4">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-upload display-6  me-2"></i>
-                        <div>
-                            <h1 class="h3 mb-1">Cargar Estado de Cuenta</h1>
-                            <p class="mb-0 opacity-75">Sube tu archivo Excel para procesar movimientos bancarios</p>
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-bank display-6 me-2"></i>
+                            <div>
+                                <h1 class="h3 mb-1">Estados de Cuenta</h1>
+                                <p class="mb-0 opacity-75">Historial de estados de cuenta cargados</p>
+                            </div>
                         </div>
+                        <button class="btn btn-light" @onclick="IrACargar">
+                            <i class="bi bi-upload me-2"></i>Cargar Estado de Cuenta
+                        </button>
                     </div>
                 </div>
 
                 <div class="card-body p-4">
-                    @if (isLoaded) {
-                    <!-- Selección de cuenta bancaria -->
-                    <div class="mb-4">
-                        <label class="form-label">Cuenta Bancaria *</label>
-                        <select class="form-select" @bind="selectedBankAccountId">
-                            <option value="@Guid.Empty">Seleccionar cuenta...</option>
-                            @foreach (var cuenta in cuentasBancarias)
-                            {
-                                <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
-                            }
-                        </select>
-                        @if (!cuentasBancarias.Any())
-                        {
-                            <small class="text-muted">No hay cuentas bancarias registradas para este edificio.</small>
-                        }
-                    </div>
-
-                    <!-- Sección de carga de archivo -->
-                    <div class="mb-5">
-                        <div class="file-upload-area border-2 border-dashed rounded-3 p-5 text-center mb-4"
-                             onclick="document.getElementById('fileInput').click()" style="cursor: pointer; border-color: #dee2e6; background-color: #f8f9fa;">
-                            <div class="mb-3">
-                                <i class="bi bi-file-earmark-excel display-1 text-primary"></i>
-                            </div>
-                            <h4 class="mb-3">Arrastra y suelta tu archivo aquí</h4>
-                            <p class="text-muted mb-4">O haz clic para seleccionar un archivo Excel (.xlsx, .xls)</p>
-
-                            <InputFile class="d-none"
-                                       @ref="fileInput"
-                                       id="fileInput"
-                                       OnChange="HandleFileSelected"
-                                       accept=".xlsx,.xls,.csv" />
-
-                            <button class="btn btn-lg btn-primary px-4">
-                                <i class="bi bi-folder2-open me-2"></i>Seleccionar Archivo
-                            </button>
-
-                            @if (!string.IsNullOrEmpty(fileName))
-                            {
-                                <div class="mt-3 alert alert-success alert-dismissible fade show d-flex align-items-center" role="alert">
-                                    <i class="bi bi-check-circle-fill me-2"></i>
-                                    <div>
-                                        <strong>Archivo seleccionado:</strong> @fileName
-                                        <br>
-                                        <small class="text-muted">Tamaño: @fileSize.ToString("N0") bytes</small>
-                                    </div>
-                                    <button type="button" class="btn-close" @onclick="ClearFile"></button>
-                                </div>
-                            }
-                        </div>
-
-                        <!-- Información de ayuda -->
-                        <div class="alert alert-info">
-                            <div class="d-flex">
-                                <i class="bi bi-info-circle-fill  me-2 mt-1"></i>
-                                <div>
-                                    <h6 class="alert-heading mb-2">Formato requerido</h6>
-                                    <p class="mb-1">El archivo Excel debe contener las siguientes columnas en el orden indicado:</p>
-                                    <ol class="mb-0">
-                                        <li><strong>Fecha:</strong> Fecha del movimiento (formato fecha)</li>
-                                        <li><strong>Descripción:</strong> Descripción del movimiento</li>
-                                        <li><strong>ITF:</strong> Impuesto a las Transacciones Financieras</li>
-                                        <li><strong>Moneda:</strong> Tipo de moneda (PEN, USD)</li>
-                                        <li><strong>Monto:</strong> Importe de la transacción</li>
-                                    </ol>
-                                </div>
-                            </div>
+                    <!-- Filtro por cuenta -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label">Cuenta Bancaria</label>
+                            <select class="form-select" @bind="selectedBankAccountId" @bind:after="CargarEstadosDeCuentaAsync">
+                                <option value="@Guid.Empty">Todos</option>
+                                @foreach (var cuenta in cuentasBancarias)
+                                {
+                                    <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
+                                }
+                            </select>
                         </div>
                     </div>
-                    }
-                    <!-- Spinner de carga -->
-                    @if (isLoading)
+
+                    @if (cargando)
                     {
-                        <div class="text-center py-4">
-                            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
-                                <span class="visually-hidden">Procesando archivo...</span>
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
                             </div>
-                            <p class="mt-3 text-primary fw-semibold">Procesando archivo, por favor espere...</p>
                         </div>
                     }
-
-                    <!-- Mensajes de estado -->
-                    @if (!string.IsNullOrEmpty(mensaje))
+                    else if (!estadosDeCuenta.Any())
                     {
-                        <div class="alert @(mensaje.Contains("éxito") ? "alert-success" : mensaje.Contains("Error") ? "alert-danger" : "alert-warning") alert-dismissible fade show">
-                            <div class="d-flex align-items-center">
-                                <i class="bi @(mensaje.Contains("éxito") ? "bi-check-circle-fill" : mensaje.Contains("Error") ? "bi-exclamation-triangle-fill" : "bi-info-circle-fill") me-2"></i>
-                                <div>@mensaje</div>
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            No hay estados de cuenta cargados@(selectedBankAccountId == Guid.Empty ? "" : " para la cuenta seleccionada").
+                            <div class="mt-3">
+                                <button class="btn btn-primary" @onclick="IrACargar">
+                                    <i class="bi bi-upload me-2"></i>Cargar Estado de Cuenta
+                                </button>
                             </div>
-                            <button type="button" class="btn-close" @onclick="() => mensaje = string.Empty"></button>
                         </div>
                     }
-
-
-                    <!-- Tabla de resultados con paginación -->
-                    @if (datos != null && datos.Any())
+                    else
                     {
-                        <div class="mt-5">
-                            <!-- Encabezado de tabla con estadísticas -->
-                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
-                                <div>
-                                    <h3 class="h5 mb-0">
-                                        <i class="bi bi-table me-2"></i>Vista previa de datos
-                                    </h3>
-                                    <p class="text-muted mb-0 mt-1">
-                                        Mostrando @startRecord - @endRecord de @totalRecords registros
-                                    </p>
-                                </div>
-
-                                <div class="d-flex align-items-center gap-3 mt-2 mt-md-0">
-                                    <!-- Filtro por estado -->
-                                    <div class="dropdown">
-                                        <button class="btn btn-outline-secondary dropdown-toggle" type="button"
-                                                data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="bi bi-funnel me-1"></i>
-                                            @(selectedFilter == "all" ? "Todos" :
-                                                                                    selectedFilter == "valid" ? "Válidos" :
-                                                                                    selectedFilter == "duplicate" ? "Duplicados" :
-                                                                                    "Con error")
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            @foreach (var filter in filters)
-                                            {
-                                                <li>
-                                                    <a class="dropdown-item @(selectedFilter == filter ? "active" : "")"
-                                                       @onclick="() => ChangeFilter(filter)">
-                                                        @GetFilterLabel(filter)
-                                                    </a>
-                                                </li>
-                                            }
-                                        </ul>
-                                    </div>
-
-                                    <!-- Selector de página -->
-                                    <div class="d-flex align-items-center">
-                                        <label class="me-2 text-muted">Mostrar:</label>
-                                        <select class="form-select form-select-sm" style="width: auto;"
-                                                @onchange="(e) => ChangePageSize(Convert.ToInt32(e.Value))">
-                                            <!option value="10" selected="@(pageSize == 10)">10</!option>
-                                            <!option value="25" selected="@(pageSize == 25)">25</!option>
-                                            <!option value="50" selected="@(pageSize == 50)">50</!option>
-                                            <!option value="100" selected="@(pageSize == 100)">100</!option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Tabla responsive -->
-                            <div class="table-responsive rounded-3 border">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
+                        <div class="table-responsive rounded-3 border">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3">Archivo</th>
+                                        <th>Cuenta Bancaria</th>
+                                        <th>Fecha de Carga</th>
+                                        <th class="text-center">Registros</th>
+                                        <th class="text-center">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var header in estadosDeCuenta.OrderByDescending(h => h.UploadDate))
+                                    {
                                         <tr>
-                                            @foreach (var col in columns)
-                                            {
-                                                <th class="ps-3" style="width: 120px;">
-                                                    <a @onclick="() => SortByColumn(col)"  class="text-decoration-none text-dark">@col
-                                                        <i class="bi @(sortAscending ? "bi-sort-down" : "bi-sort-up") ms-1"></i>
-                                                </a>
-                                            </th>                                                
-                                            }
-                                            <th class="text-center" style="width: 120px;">Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @if (!filteredData.Any())
-                                        {
-                                            <tr>
-                                                <td colspan="6" class="text-center py-4 text-muted">
-                                                    <i class="bi bi-inbox display-4 d-block mb-2"></i>
-                                                    No hay registros que coincidan con el filtro seleccionado
-                                                </td>
-                                            </tr>
-                                        }
-                                        else
-                                        {
-                                            @foreach (var item in currentPageData)
-                                            {
-                                                <tr class="@(item.Validation == "Duplicado" ? "table-warning" : item.Validation != "Ok" ? "table-danger" : "")"
-                                                    @onclick="() => SelectRow(item)"
-                                                    style="cursor: pointer;">
-                                                    <td class="ps-3">@item.StatementDate.ToString("dd/MM/yyyy")</td>
-                                                    <td>
-                                                        <div class="text-truncate" style="max-width: 300px;"
-                                                             title="@item.Description">
-                                                            @item.Description
-                                                        </div>
-                                                    </td>
-                                                    <td>@item.ITF.ToString("N2")</td>
-                                                    <td>
-                                                        <span class="badge @(item.Currency == "PEN" ? "bg-success" : "bg-info")">
-                                                            @item.Currency
-                                                        </span>
-                                                    </td>
-                                                    <td class="fw-semibold @(item.Amount >= 0 ? "text-success" : "text-danger")">
-                                                        @item.Amount.ToString("C",
-                                                        System.Globalization.CultureInfo.CreateSpecificCulture(
-                                                        item.Currency == "USD" ? "en-US" : "es-PE"))
-                                        </td>
-                                        <td class="text-center">
-                                            @if (item.Validation == "Ok")
-                                                        {
-                                                            <span class="badge bg-success">
-                                                                <i class="bi bi-check-circle me-1"></i>Válido
-                                                            </span>
-                                                        }
-                                                        else if (item.Validation == "Duplicado")
-                                                        {
-                                                            <span class="badge bg-warning text-dark">
-                                                                <i class="bi bi-exclamation-triangle me-1"></i>Duplicado
-                                                            </span>
-                                                        }
-                                                        else
-                                                        {
-                                                            <span class="badge bg-danger">
-                                                                <i class="bi bi-x-circle me-1"></i>Error
-                                                            </span>
-                                                        }
-                                                    </td>
-                                                </tr>
-                                            }
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <!-- Paginación -->
-                            @if (totalPages > 1)
-                            {
-                                <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 border-top">
-                                    <!-- Información de página -->
-                                    <div class="text-muted">
-                                        Página @currentPage de @totalPages
-                                        <span class="d-none d-md-inline">• @filteredData.Count() registros filtrados</span>
-                                    </div>
-
-                                    <!-- Controles de paginación -->
-                                    <nav aria-label="Paginación de resultados">
-                                        <ul class="pagination pagination-sm mb-0">
-                                            <!-- Primera página -->
-                                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                                                <a class="page-link" @onclick="GoToFirstPage"
-                                                   title="Primera página">
-                                                    <i class="bi bi-chevron-double-left"></i>
-                                                </a>
-                                            </li>
-
-                                            <!-- Página anterior -->
-                                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                                                <a class="page-link" @onclick="GoToPreviousPage"
-                                                   title="Página anterior">
-                                                    <i class="bi bi-chevron-left"></i>
-                                                </a>
-                                            </li>
-
-                                            <!-- Páginas numeradas -->
-                                            @foreach (var pageNum in GetPageNumbers())
-                                            {
-                                                if (pageNum == -1)
+                                            <td class="ps-3">
+                                                <i class="bi bi-file-earmark-excel text-success me-2"></i>@header.FileName
+                                            </td>
+                                            <td>@GetNombreCuenta(header.IdBankAccount)</td>
+                                            <td>@header.UploadDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td class="text-center">@header.TotalRecords</td>
+                                            <td class="text-center">
+                                                @if (header.UploadState == 1)
                                                 {
-                                                    <li class="page-item disabled">
-                                                        <span class="page-link">...</span>
-                                                    </li>
+                                                    <span class="badge bg-success">Cargado</span>
                                                 }
                                                 else
                                                 {
-                                                    <li class="page-item @(pageNum == currentPage ? "active" : "")">
-                                                        <a class="page-link" @onclick="() => GoToPage(pageNum)">
-                                                            @pageNum
-                                                        </a>
-                                                    </li>
+                                                    <span class="badge bg-secondary">Estado @header.UploadState</span>
                                                 }
-                                            }
-
-                                            <!-- Página siguiente -->
-                                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                                                <a class="page-link" @onclick="GoToNextPage"
-                                                   title="Página siguiente">
-                                                    <i class="bi bi-chevron-right"></i>
-                                                </a>
-                                            </li>
-
-                                            <!-- Última página -->
-                                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                                                <a class="page-link" @onclick="GoToLastPage"
-                                                   title="Última página">
-                                                    <i class="bi bi-chevron-double-right"></i>
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </nav>
-
-                                    <!-- Salto a página -->
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="text-muted">Ir a:</span>
-                                        <input type="number" class="form-control form-control-sm"
-                                               style="width: 70px;"
-                                               min="1" max="@totalPages"
-                                               @bind="jumpToPage"
-                                               @bind:event="oninput" />
-                                        <button class="btn btn-sm btn-outline-primary"
-                                                @onclick="JumpToPage"
-                                                disabled="@(jumpToPage < 1 || jumpToPage > totalPages)">
-                                            Ir
-                                        </button>
-                                    </div>
-                                </div>
-                            }
-
-                            <!-- Resumen de validación -->
-                            <div class="row mt-4">
-                                <div class="col-md-4">
-                                    <div class="card border-success border-start border-4">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center">
-                                                <div class="flex-shrink-0">
-                                                    <i class="bi bi-check-circle-fill text-success fs-2"></i>
-                                                </div>
-                                                <div class="flex-grow-1 ms-3">
-                                                    <h5 class="card-title text-success mb-1">Válidos</h5>
-                                                    <p class="card-text fs-4 fw-bold mb-0">@datos.Count(d => d.Validation == "Ok")</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card border-warning border-start border-4">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center">
-                                                <div class="flex-shrink-0">
-                                                    <i class="bi bi-exclamation-triangle-fill text-warning fs-2"></i>
-                                                </div>
-                                                <div class="flex-grow-1 ms-3">
-                                                    <h5 class="card-title text-warning mb-1">Duplicados</h5>
-                                                    <p class="card-text fs-4 fw-bold mb-0">@datos.Count(d => d.Validation == "Duplicado")</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card border-danger border-start border-4">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center">
-                                                <div class="flex-shrink-0">
-                                                    <i class="bi bi-x-circle-fill text-danger fs-2"></i>
-                                                </div>
-                                                <div class="flex-grow-1 ms-3">
-                                                    <h5 class="card-title text-danger mb-1">Errores</h5>
-                                                    <p class="card-text fs-4 fw-bold mb-0">@datos.Count(d => d.Validation != "Ok" && d.Validation != "Duplicado")</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Botones de acción -->
-                            <div class="d-flex justify-content-between mt-5 pt-3 border-top">
-                                <button class="btn btn-outline-secondary" @onclick="ClearData">
-                                    <i class="bi bi-trash me-2"></i>Limpiar datos
-                                </button>
-
-                                <div>
-                                    <button class="btn btn-outline-primary me-2" @onclick="DownloadReport">
-                                        <i class="bi bi-download me-2"></i>Descargar reporte
-                                    </button>
-
-                                    <button class="btn btn-primary" @onclick="SaveData"
-                                            disabled="@(isLoading || datos.Count(d => d.Validation == "Ok") == 0)">
-                                        @if (isLoading)
-                                        {
-                                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                            <label>Guardando...</label>
-                                                                        }
-                                        else
-                                        {
-                                            <i class="bi bi-save me-2"></i>
-                                            <label>Guardar en base de datos</label>
-                                                                        }
-                                    </button>
-                                </div>
-                            </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
                         </div>
                     }
-                </div>
-
-                <!-- Footer con información -->
-                <div class="card-footer bg-light py-3">
-                    <div class="row align-items-center">
-                        <div class="col-md-6">
-                            <small class="text-muted">
-                                <i class="bi bi-shield-check me-1"></i>
-                                Tus datos están seguros y encriptados
-                            </small>
-                        </div>
-                        <div class="col-md-6 text-md-end">
-                            <small class="text-muted">
-                                <i class="bi bi-clock-history me-1"></i>
-                                Última actualización: @DateTime.Now.ToString("dd/MM/yyyy HH:mm")
-                            </small>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -454,538 +108,47 @@
 </div>
 
 @code {
-
-    [Inject]
-    private IBankAccountService BankAccountService { get; set; } = default!;
-
     private List<BankAccount> cuentasBancarias = new();
+    private List<TransactionBankHeader> estadosDeCuenta = new();
     private Guid selectedBankAccountId = Guid.Empty;
-
-    private InputFile? fileInput;
-    private string fileName = string.Empty;
-    private long fileSize = 0;
-    private bool isLoading = false;
-    private bool isLoaded = true;
-    private string mensaje = string.Empty;
-    private IQueryable<Models.TransactionBankDetail> datos = Enumerable.Empty<Models.TransactionBankDetail>().AsQueryable();
-    private List<string> errores = new();
-    private TransactionBankHeader movement = new TransactionBankHeader
-    {
-        Details = new List<TransactionBankDetail>()
-    };
-
-    private void ClearFile()
-    {
-        fileName = string.Empty;
-        fileSize = 0;
-        datos = new List<TransactionBankDetail>().AsQueryable();
-        filteredData = new List<TransactionBankDetail>();
-        currentPageData = new List<TransactionBankDetail>();
-        mensaje = string.Empty;
-        isLoaded = true;
-    }
-
-    private void ClearData()
-    {
-        datos = new List<TransactionBankDetail>().AsQueryable();
-        filteredData = new List<TransactionBankDetail>();
-        currentPageData = new List<TransactionBankDetail>();
-        mensaje = string.Empty;
-        isLoaded = true;
-        InitializePagination();
-    }
-
-    private async Task DownloadReport()
-    {
-        await JSRuntime.InvokeVoidAsync("alert", "Función de descarga aún no implementada");
-    }
-
-    private async Task SaveData()
-    {
-        isLoading = true;
-        StateHasChanged();
-
-        try
-        {
-            // Tu lógica de guardado aquí
-            await SaveItemAsync(movement); 
-            mensaje = "Datos guardados exitosamente en la base de datos";
-        }
-        catch (Exception ex)
-        {
-            mensaje = $"Error al guardar: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
-    }
-
-    private void ShowAll()
-    {
-        // Lógica para mostrar todos los registros
-    }
-
-    private async Task HandleFileSelected(InputFileChangeEventArgs e)
-    {
-        if (selectedBankAccountId == Guid.Empty)
-        {
-            mensaje = "Selecciona una cuenta bancaria antes de cargar el archivo.";
-            return;
-        }
-
-        Guid IdBankAccount = selectedBankAccountId;
-
-        // Verificar que haya archivos
-        if (e.FileCount == 0 || e.File == null)
-            return;
-
-        var file = e.File;
-
-        // Validar tamaño del archivo (ejemplo: máximo 5MB)
-        const long maxFileSize = 5 * 1024 * 1024;
-        if (file.Size > maxFileSize)
-        {
-            mensaje = $"El archivo es demasiado grande. Tamaño máximo: {maxFileSize / 1024 / 1024}MB";
-            return;
-        }
-
-        isLoading = true; // Mostrar spinner
-        StateHasChanged(); // Actualizar U
-
-        errores.Clear();
-        mensaje = "";
-
-        // Forzar actualización UI
-        await InvokeAsync(StateHasChanged);
-
-        // Verificar si el archivo ya fue procesado
-        var existingHeaders = await BankAccountService.GetTransactionsByFileNameAsync(file.Name, ParameterService.CurrentBuilding.IdBuilding);
-
-        if (existingHeaders.Count > 0)
-        {
-            mensaje = $"El archivo '{file.Name}' ya fue cargado anteriormente. Por favor seleccione otro archivo.";
-            isLoading = false;
-            await InvokeAsync(StateHasChanged);
-            return;
-        }
-
-        using var stream = file.OpenReadStream();
-        using var memoryStream = new MemoryStream();
-        await stream.CopyToAsync(memoryStream);
-
-        datos = LeerExcel(memoryStream).AsQueryable();
-
-        DateTime minValue = datos.Min(d => d.StatementDate);
-        DateTime maxValue = datos.Max(d => d.StatementDate);
-
-        // Traer claves existentes en BD
-        var Movements = await BankAccountService.GetTransactionsDetailsAsync(IdBankAccount, minValue, maxValue);
-        var clavesBD = Movements.Select(md => $"{md.StatementDate:yyyyMMdd}|{md.Description}|{md.Amount}"); // Para búsqueda rápida
-
-        int iCont = 0;
-
-        foreach (TransactionBankDetail item in datos.Where(d => clavesBD.Contains(d.KeyDuplicate)).ToList())
-        {
-            item.Validation = "Duplicado";
-            iCont++;
-        }
-
-        if (errores.Any())
-        {
-            mensaje = "No se guardaron datos debido a errores.";
-            isLoading = false;
-            await InvokeAsync(StateHasChanged);
-            return;
-        }
-
-        var currentUser = await AuthService.GetCurrentUserAsync();
-        if (currentUser == null)
-        {
-            mensaje = "No se pudo identificar al usuario actual. Vuelve a iniciar sesión.";
-            isLoading = false;
-            await InvokeAsync(StateHasChanged);
-            return;
-        }
-
-        movement.IdStatementHeader = Guid.NewGuid();
-        movement.FileName = file.Name;
-        movement.UploadDate = DateTime.Now;
-        movement.Details = datos.ToList();
-        movement.TotalRecords = movement.Details.Where(c => c.Validation == "Ok").Count();
-        movement.UploadState = 1;
-        movement.IdUser = currentUser.IdUser;
-        movement.IdBankAccount = IdBankAccount;
-
-
-        isLoading = false; // Ocultar spinner
-        isLoaded = false; //Ocultar Seleccion de Archivo
-        StateHasChanged();
-
-        InitializePagination();
-    }
-
-    private List<TransactionBankDetail> LeerExcel(MemoryStream stream)
-    {
-        var lista = new List<TransactionBankDetail>();
-        using var workbook = new ClosedXML.Excel.XLWorkbook(stream);
-        var worksheet = workbook.Worksheet(1);
-
-        int fila = 2; // Comienza después del encabezado
-        foreach (var row in worksheet.RowsUsed().Skip(1))
-        {
-            var fechaStr = row.Cell(1).GetValue<string>();
-            var descripcion = row.Cell(2).GetValue<string>()?.Trim();
-            var itfStr = row.Cell(3).GetValue<string>()?.Trim();
-            var moneda = row.Cell(4).GetValue<string>()?.Trim();
-            var montoStr = row.Cell(5).GetValue<string>();
-            decimal itf = 0;
-            string strCheck = "Ok";
-
-            // Validaciones
-            if (!DateTime.TryParse(fechaStr, out DateTime fecha))
-                errores.Add($"Fila {fila}: Fecha inválida");
-            else if (fecha > DateTime.Today)
-                errores.Add($"Fila {fila}: Fecha futura no permitida");
-
-            if (string.IsNullOrWhiteSpace(descripcion))
-                errores.Add($"Fila {fila}: Descripción vacía");
-
-            if (!string.IsNullOrWhiteSpace(itfStr))
-            {
-                if (!decimal.TryParse(itfStr, out itf))
-                {
-                    errores.Add($"Fila {fila}: ITF inválido (debe ser un número positivo)");
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(moneda) || !new[] { "S/", "PEN", "USD" }.Contains(moneda))
-                errores.Add($"Fila {fila}: Moneda inválida (solo PEN o USD)");
-
-            if (!decimal.TryParse(montoStr, out decimal monto) )
-                errores.Add($"Fila {fila}: Monto inválido");
-
-            // Si no hay errores en esta fila, agregar a la lista
-            if (errores.Any(e => e.Contains($"Fila {fila}")))
-            {
-                strCheck = "Error de Dato";
-            }
-
-            lista.Add(new TransactionBankDetail
-            {
-                IdStatementHeader = movement.IdStatementHeader,
-                IdStatementDetail = Guid.NewGuid(),
-                StatementDate = fecha,
-                Description = descripcion!,
-                ITF = itf,
-                Currency = moneda!,
-                Amount = monto,
-                Validation = strCheck,
-                Origen = TransactionOrigen.BankAccountState
-            });
-
-            fila++;
-        }
-        return lista;
-    }
+    private bool cargando = true;
 
     protected override async Task OnInitializedAsync()
     {
         if (ParameterService.CurrentBuilding != null)
         {
             cuentasBancarias = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
-            if (cuentasBancarias.Count == 1)
-            {
-                selectedBankAccountId = cuentasBancarias[0].IdBankAccount;
-            }
         }
+
+        await CargarEstadosDeCuentaAsync();
     }
 
-    private async Task AddItem(Models.TransactionBankDetail item)
+    private async Task CargarEstadosDeCuentaAsync()
     {
-        await BankAccountService.AddTransactionFromEECCAsync(item);
-        //await ParameterService.Context.SaveChangesAsync();
-    }
-
-    private void DeleteItem(Models.TransactionBankDetail item)
-    {
-        //AllExpenses.Remove(item);
-    }
-
-    // En tu método SaveItemAsync, usa esto en lugar de AddRangeAsync genérico:
-    private async Task<bool> SaveItemAsync(TransactionBankHeader item)
-    {
-
-        using var context = await ParameterService.ContextFactory().CreateDbContextAsync();
-        using var transaction = await context.Database.BeginTransactionAsync();
-
-        using (transaction)
+        if (ParameterService.CurrentBuilding == null)
         {
-            try
-            {
-                // 1. Guardar header
-                await BankAccountService.AddTransactionBankHeaderAsync(item);
-                //await ParameterService.Context.SaveChangesAsync();
-
-                // 2. Guardar detalles - USAR EL DBSET ESPECÍFICO
-                var validDetails = item.Details?
-                    .Where(d => d.Validation == "Ok")
-                    .ToList();
-
-                if (validDetails != null && validDetails.Any())
-                {
-                    // Establecer relaciones
-                    foreach (TransactionBankDetail detail in item.Details!.Where(c => c.Validation == "Ok"))
-                    {
-                        detail.IdStatementHeader = item.IdStatementHeader;
-                        await AddItem(detail);
-                    }
-
-                    //await ParameterService.Context.SaveChangesAsync();
-                }
-
-                await transaction.CommitAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                // Log del error
-                Console.WriteLine($"Error: {ex.Message}");
-                throw;
-            }
-        }
-    }
-
-
-    // Variables para paginación
-    private List<TransactionBankDetail> filteredData = new();
-    private List<TransactionBankDetail> currentPageData = new();
-    private int currentPage = 1;
-    private int pageSize = 25;
-    private int totalPages = 0;
-    private int totalRecords = 0;
-    private int startRecord = 0;
-    private int endRecord = 0;
-    private int jumpToPage = 1;
-
-    // Variables para ordenamiento
-    private string sortColumn = "MovDate";
-    private bool sortAscending = true;
-
-    // Variables para filtrado
-    private string selectedFilter = "all";
-
-    // Métodos de paginación
-    private void InitializePagination()
-    {
-        currentPage = 1;
-        UpdateFilteredData();
-        UpdatePagination();
-    }
-
-    private void UpdateFilteredData()
-    {
-        if (datos == null || !datos.Any())
-        {
-            filteredData = new List<TransactionBankDetail>();
+            estadosDeCuenta = new();
+            cargando = false;
             return;
         }
 
-        // Aplicar filtro
-        filteredData = selectedFilter switch
-        {
-            "valid" => datos.Where(d => d.Validation == "Ok").ToList(),
-            "duplicate" => datos.Where(d => d.Validation == "Duplicado").ToList(),
-            "error" => datos.Where(d => d.Validation != "Ok" && d.Validation != "Duplicado").ToList(),
-            _ => datos.ToList()
-        };
+        cargando = true;
+        StateHasChanged();
 
-        // Aplicar ordenamiento
-        filteredData = sortColumn switch
-        {
-            "MovDate" => sortAscending
-                ? filteredData.OrderBy(d => d.StatementDate).ToList()
-                : filteredData.OrderByDescending(d => d.StatementDate).ToList(),
-            "Description" => sortAscending
-                ? filteredData.OrderBy(d => d.Description).ToList()
-                : filteredData.OrderByDescending(d => d.Description).ToList(),
-            "ITF" => sortAscending
-                ? filteredData.OrderBy(d => d.ITF).ToList()
-                : filteredData.OrderByDescending(d => d.ITF).ToList(),
-            "Currency" => sortAscending
-                ? filteredData.OrderBy(d => d.Currency).ToList()
-                : filteredData.OrderByDescending(d => d.Currency).ToList(),
-            "Amount" => sortAscending
-                ? filteredData.OrderBy(d => d.Amount).ToList()
-                : filteredData.OrderByDescending(d => d.Amount).ToList(),
-            _ => filteredData
-        };
+        Guid? filtroCuenta = selectedBankAccountId == Guid.Empty ? null : selectedBankAccountId;
+        estadosDeCuenta = await BankAccountService.GetMovementHeadersAsync(ParameterService.CurrentBuilding.IdBuilding, filtroCuenta);
+
+        cargando = false;
     }
 
-    private void UpdatePagination()
+    private string GetNombreCuenta(Guid idBankAccount)
     {
-        totalRecords = filteredData.Count;
-        totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
-
-        // Ajustar página actual si es necesario
-        if (currentPage > totalPages && totalPages > 0)
-        {
-            currentPage = totalPages;
-        }
-        else if (currentPage < 1 && totalPages > 0)
-        {
-            currentPage = 1;
-        }
-
-        // Calcular registros a mostrar
-        startRecord = totalRecords > 0 ? ((currentPage - 1) * pageSize) + 1 : 0;
-        endRecord = Math.Min(currentPage * pageSize, totalRecords);
-
-        // Obtener datos de la página actual
-        currentPageData = filteredData
-            .Skip((currentPage - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-
-        // Actualizar jumpToPage
-        jumpToPage = currentPage;
+        var cuenta = cuentasBancarias.FirstOrDefault(c => c.IdBankAccount == idBankAccount);
+        return cuenta != null ? $"{cuenta.BankName} ({cuenta.AccountNumber})" : "—";
     }
 
-    private void GoToPage(int page)
+    private void IrACargar()
     {
-        if (page >= 1 && page <= totalPages)
-        {
-            currentPage = page;
-            UpdatePagination();
-        }
+        Navigation.NavigateTo("/movement/cargar");
     }
-
-    private void GoToFirstPage()
-    {
-        GoToPage(1);
-    }
-
-    private void GoToPreviousPage()
-    {
-        GoToPage(currentPage - 1);
-    }
-
-    private void GoToNextPage()
-    {
-        GoToPage(currentPage + 1);
-    }
-
-    private void GoToLastPage()
-    {
-        GoToPage(totalPages);
-    }
-
-    private void JumpToPage()
-    {
-        GoToPage(jumpToPage);
-    }
-
-    private void ChangePageSize(int newSize)
-    {
-        pageSize = newSize;
-        currentPage = 1;
-        UpdatePagination();
-    }
-
-    private void ChangeFilter(string filter)
-    {
-        selectedFilter = filter;
-        InitializePagination();
-    }
-
-    private void SortByColumn(string column)
-    {
-        if (sortColumn == column)
-        {
-            sortAscending = !sortAscending;
-        }
-        else
-        {
-            sortColumn = column;
-            sortAscending = true;
-        }
-
-        UpdateFilteredData();
-        UpdatePagination();
-    }
-
-    private List<int> GetPageNumbers()
-    {
-        var pages = new List<int>();
-        int maxPagesToShow = 5;
-
-        if (totalPages <= maxPagesToShow)
-        {
-            // Mostrar todas las páginas
-            for (int i = 1; i <= totalPages; i++)
-            {
-                pages.Add(i);
-            }
-        }
-        else
-        {
-            // Lógica para mostrar páginas con elipsis
-            if (currentPage <= 3)
-            {
-                // Primeras páginas
-                for (int i = 1; i <= 4; i++)
-                {
-                    pages.Add(i);
-                }
-                pages.Add(-1); // Elipsis
-                pages.Add(totalPages);
-            }
-            else if (currentPage >= totalPages - 2)
-            {
-                // Últimas páginas
-                pages.Add(1);
-                pages.Add(-1); // Elipsis
-                for (int i = totalPages - 3; i <= totalPages; i++)
-                {
-                    pages.Add(i);
-                }
-            }
-            else
-            {
-                // En medio
-                pages.Add(1);
-                pages.Add(-1); // Elipsis
-                for (int i = currentPage - 1; i <= currentPage + 1; i++)
-                {
-                    pages.Add(i);
-                }
-                pages.Add(-1); // Elipsis
-                pages.Add(totalPages);
-            }
-        }
-
-        return pages;
-    }
-
-    private void SelectRow(TransactionBankDetail item)
-    {
-        // Método para seleccionar una fila (puedes expandirla o mostrar detalles)
-        // Por ahora solo muestra un mensaje
-        mensaje = $"Seleccionado: {item.Description} - {item.Amount:C}";
-    }
-
-    private List<string> filters = new() { "all", "valid", "duplicate", "error" };
-    private List<string> columns = new() { "MovDate", "Description", "ITF", "Currency", "Amount" };
-
-    private string GetFilterLabel(string filter) => filter switch
-    {
-        "all" => "Todos",
-        "valid" => "Válidos",
-        "duplicate" => "Duplicados",
-        "error" => "Con error",
-        _ => filter
-    };
-
 }

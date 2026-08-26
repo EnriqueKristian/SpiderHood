@@ -23,34 +23,42 @@
 }
 
 .navbar-brand {
-    font-size: 1.15rem;
     color: #f8fafc;
     letter-spacing: -0.3px;
 }
 
 .brand-icon {
     flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, #2563eb, #7c3aed);
     color: #fff;
-    font-size: 0.95rem;
-    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.45);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
 }
 
-.version-badge {
-    background: rgba(255, 255, 255, 0.14);
-    color: #e2e8f0;
-    font-size: 0.65rem;
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.15;
+}
+
+.brand-name {
+    font-size: 1.15rem;
     font-weight: 700;
-    letter-spacing: 0.3px;
-    padding: 0.2rem 0.5rem;
-    border-radius: 10px;
-    vertical-align: middle;
+}
+
+.brand-subtitle {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #7dd3fc;
+    margin-top: 2px;
 }
 
 .bi {

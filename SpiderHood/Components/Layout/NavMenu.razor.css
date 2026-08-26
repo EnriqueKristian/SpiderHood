@@ -22,6 +22,11 @@
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
 }
 
+    .top-row .container-fluid {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
 .navbar-brand {
     color: #f8fafc;
     letter-spacing: -0.3px;

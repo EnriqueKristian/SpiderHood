@@ -23,8 +23,9 @@
 }
 
     .top-row .container-fluid {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        margin-left: 0 !important;
     }
 
 .navbar-brand {

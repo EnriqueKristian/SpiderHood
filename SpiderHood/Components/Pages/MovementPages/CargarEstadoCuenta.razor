@@ -405,28 +405,37 @@
 
                             <!-- Botones de acción -->
                             <div class="d-flex justify-content-between mt-5 pt-3 border-top">
-                                <button class="btn btn-outline-secondary" @onclick="ClearData">
+                                <button class="btn btn-outline-secondary" @onclick="ClearData" disabled="@guardadoExitoso">
                                     <i class="bi bi-trash me-2"></i>Limpiar datos
                                 </button>
 
                                 <div>
-                                    <button class="btn btn-outline-primary me-2" @onclick="DownloadReport">
-                                        <i class="bi bi-download me-2"></i>Descargar reporte
-                                    </button>
+                                    @if (guardadoExitoso)
+                                    {
+                                        <button class="btn btn-success" @onclick="VolverALista">
+                                            <i class="bi bi-arrow-left me-2"></i>Volver a Estados de Cuenta
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-primary me-2" @onclick="DownloadReport" disabled="@isLoading">
+                                            <i class="bi bi-download me-2"></i>Descargar reporte
+                                        </button>
 
-                                    <button class="btn btn-primary" @onclick="SaveData"
-                                            disabled="@(isLoading || datos.Count(d => d.Validation == "Ok") == 0)">
-                                        @if (isLoading)
-                                        {
-                                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                            <label>Guardando...</label>
-                                                                        }
-                                        else
-                                        {
-                                            <i class="bi bi-save me-2"></i>
-                                            <label>Guardar en base de datos</label>
-                                                                        }
-                                    </button>
+                                        <button class="btn btn-primary" @onclick="SaveData"
+                                                disabled="@(isLoading || datos.Count(d => d.Validation == "Ok") == 0)">
+                                            @if (isLoading)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                                <label>Guardando...</label>
+                                                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-save me-2"></i>
+                                                <label>Guardar en base de datos</label>
+                                                                            }
+                                        </button>
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -468,6 +477,7 @@
     private long fileSize = 0;
     private bool isLoading = false;
     private bool isLoaded = true;
+    private bool guardadoExitoso = false;
     private string mensaje = string.Empty;
     private IQueryable<Models.TransactionBankDetail> datos = Enumerable.Empty<Models.TransactionBankDetail>().AsQueryable();
     private List<string> errores = new();
@@ -512,6 +522,7 @@
             // Tu lógica de guardado aquí
             await SaveItemAsync(movement);
             mensaje = "Datos guardados exitosamente en la base de datos";
+            guardadoExitoso = true;
         }
         catch (Exception ex)
         {
@@ -522,6 +533,11 @@
             isLoading = false;
             StateHasChanged();
         }
+    }
+
+    private void VolverALista()
+    {
+        Navigation.NavigateTo("/movement");
     }
 
     private void ShowAll()

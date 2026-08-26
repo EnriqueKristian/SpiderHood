@@ -542,6 +542,16 @@ namespace SpiderHood.Data
             }, "GetMovementHeaders", cancellationToken);
         }
 
+        public async Task<List<AccountStatementDetailView>> GetAccountStatementDetailByHeaderAsync(Guid idStatementHeader, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<AccountStatementDetailView>(
+                    StoredProcedures.GET_AccountStatementDetailByHeader,
+                    idStatementHeader);
+            }, "GetAccountStatementDetailByHeader", cancellationToken);
+        }
+
         public async Task<List<MovDetKey>> GetAllMovementDetailAsync(Guid idBankAccout, DateTime star, DateTime end, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

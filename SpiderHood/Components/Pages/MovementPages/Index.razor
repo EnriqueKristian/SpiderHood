@@ -73,6 +73,7 @@
                                         <th>Fecha de Carga</th>
                                         <th class="text-center">Registros</th>
                                         <th class="text-center">Estado</th>
+                                        <th class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -94,6 +95,11 @@
                                                 {
                                                     <span class="badge bg-secondary">Estado @header.UploadState</span>
                                                 }
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(header.IdStatementHeader)">
+                                                    <i class="bi bi-eye me-1"></i>Ver detalle
+                                                </button>
                                             </td>
                                         </tr>
                                     }
@@ -150,5 +156,10 @@
     private void IrACargar()
     {
         Navigation.NavigateTo("/movement/cargar");
+    }
+
+    private void VerDetalle(Guid idStatementHeader)
+    {
+        Navigation.NavigateTo($"/movement/detalle/{idStatementHeader}");
     }
 }

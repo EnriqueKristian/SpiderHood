@@ -89,6 +89,23 @@ namespace SpiderHood.Models
         public decimal FinalAmount { get { return ITF + Amount; } }
     }
 
+    // Forma liviana para listar el detalle de una carga de estado de cuenta (solo lectura).
+    // A propósito NO reutiliza TransactionBankDetail: esa entidad exige que el SP devuelva
+    // TODAS sus columnas mapeadas (incluyendo ReconciliationStatus, que en BD es BIT pero
+    // en el modelo es un enum de 4 valores — un desajuste de tipo esperando a romperse) y
+    // aquí solo necesitamos mostrar lo que se cargó, no su estado de conciliación.
+    public class AccountStatementDetailView
+    {
+        public Guid IdStatementDetail { get; set; }
+        public Guid IdStatementHeader { get; set; }
+        public DateTime StatementDate { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public string Currency { get; set; } = string.Empty;
+        [Precision(18, 2)]
+        public decimal Amount { get; set; }
+        public int SequenceNumber { get; set; }
+    }
+
     public class MovDetKey
     {
         public Guid IdStatementDetail { get; set; }

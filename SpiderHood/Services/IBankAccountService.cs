@@ -19,7 +19,9 @@ namespace SpiderHood.Services
         Task GuardarConciliacionAsync(Conciliacion conciliacion);
         Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
         Task InstallmentConciliationAsync(TransactionBankDetail transaccion, Installment cuota);
-        Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBuilding);
+        Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBankAccount);
+        Task<List<TransactionBankHeader>> GetMovementHeadersAsync(Guid idBuilding, Guid? idBankAccount);
+        Task<List<AccountStatementDetailView>> GetStatementDetailsAsync(Guid idStatementHeader);
         Task<List<MovDetKey>> GetTransactionsDetailsAsync(Guid IdBankAccount, DateTime minValue, DateTime maxValue);
         Task AddTransactionFromEECCAsync(TransactionBankDetail newtransaction);
         Task AddTransactionBankHeaderAsync(TransactionBankHeader newtransaction);
@@ -48,7 +50,8 @@ namespace SpiderHood.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al crear la cuenta bancaria: {ex.Message}");
+                Console.WriteLine($"Error al crear la cuenta bancaria: {ex.Message} | Causa real: {ex.GetBaseException().Message}");
+                throw;
             }
         }
 
@@ -66,11 +69,11 @@ namespace SpiderHood.Services
 
         }
 
-        public async Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBuilding)
+        public async Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBankAccount)
         {
             try
             {
-                return await ec.GetMovementByFileNameAsync(filename, IdBuilding);
+                return await ec.GetMovementByFileNameAsync(filename, IdBankAccount);
             }
             catch (Exception ex)
             {
@@ -80,6 +83,31 @@ namespace SpiderHood.Services
 
         }
 
+        public async Task<List<TransactionBankHeader>> GetMovementHeadersAsync(Guid idBuilding, Guid? idBankAccount)
+        {
+            try
+            {
+                return await ec.GetMovementHeadersAsync(idBuilding, idBankAccount);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al obtener los estados de cuenta cargados : {ex.Message}");
+                return [];
+            }
+        }
+
+        public async Task<List<AccountStatementDetailView>> GetStatementDetailsAsync(Guid idStatementHeader)
+        {
+            try
+            {
+                return await ec.GetAccountStatementDetailByHeaderAsync(idStatementHeader);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al obtener el detalle del estado de cuenta : {ex.Message}");
+                return [];
+            }
+        }
 
         public async Task AddTransactionBankHeaderAsync(TransactionBankHeader newtransaction)
         {
@@ -89,7 +117,8 @@ namespace SpiderHood.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al crear la cabecera de la transaccion : {ex.Message}");
+                Console.WriteLine($"Error al crear la cabecera de la transaccion : {ex.Message} | Causa real: {ex.GetBaseException().Message}");
+                throw;
             }
 
         }

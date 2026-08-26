@@ -151,6 +151,8 @@ namespace SpiderHood.Data
             public const string GET_AllMovementDetail = "GET_AllMovementDetail";
             public const string GET_BankTransactionsNoConcilied = "GET_BankTransactionsNoConcilied";
             public const string GET_MovementByName = "GET_MovementByName";
+            public const string GET_MovementHeaders = "GET_MovementHeaders";
+            public const string GET_AccountStatementDetailByHeader = "GET_AccountStatementDetailByHeader";
             public const string GET_UnitsByBuilding = "GET_UnitsByBuilding";
             public const string GET_UnitsByType = "GET_UnitsByType";
             public const string GET_AllParameters = "GET_AllParameters";

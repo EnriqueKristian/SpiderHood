@@ -520,14 +520,36 @@ namespace SpiderHood.Data
             }, "GetExpensesByBuilding", cancellationToken);
         }
 
-        public async Task<List<TransactionBankHeader>> GetMovementByFileNameAsync(string fileName, Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<TransactionBankHeader>> GetMovementByFileNameAsync(string fileName, Guid idBankAccount, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 return await ExecuteQueryListAsync<TransactionBankHeader>(
                     StoredProcedures.GET_MovementByName,
-                    fileName, idBuilding);
+                    fileName, idBankAccount);
             }, "GetMovementByFileName", cancellationToken);
+        }
+
+        // idBankAccount == null trae todas las cuentas del edificio ("Todos"); con valor,
+        // filtra a esa cuenta bancaria únicamente.
+        public async Task<List<TransactionBankHeader>> GetMovementHeadersAsync(Guid idBuilding, Guid? idBankAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<TransactionBankHeader>(
+                    StoredProcedures.GET_MovementHeaders,
+                    idBuilding, idBankAccount);
+            }, "GetMovementHeaders", cancellationToken);
+        }
+
+        public async Task<List<AccountStatementDetailView>> GetAccountStatementDetailByHeaderAsync(Guid idStatementHeader, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<AccountStatementDetailView>(
+                    StoredProcedures.GET_AccountStatementDetailByHeader,
+                    idStatementHeader);
+            }, "GetAccountStatementDetailByHeader", cancellationToken);
         }
 
         public async Task<List<MovDetKey>> GetAllMovementDetailAsync(Guid idBankAccout, DateTime star, DateTime end, CancellationToken cancellationToken = default)

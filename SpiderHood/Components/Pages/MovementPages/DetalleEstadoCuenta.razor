@@ -1,4 +1,4 @@
-﻿@page "/movement"
+﻿@page "/movement/detalle/{IdStatementHeader:guid}"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
@@ -7,42 +7,40 @@
 @inject ParameterService ParameterService
 @inject IBankAccountService BankAccountService
 
-<PageTitle>Estados de Cuenta</PageTitle>
+<PageTitle>Detalle de Estado de Cuenta</PageTitle>
 
 <div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-lg-12 col-xl-10">
+            <nav aria-label="breadcrumb" class="mb-2">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="/movement">Estados de Cuenta</a></li>
+                    <li class="breadcrumb-item active">Detalle</li>
+                </ol>
+            </nav>
+
             <div class="card shadow-lg border-0">
                 <div class="card-header bg-gradient-primary text-white py-4">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                         <div class="d-flex align-items-center">
-                            <i class="bi bi-bank display-6 me-2"></i>
+                            <i class="bi bi-file-earmark-excel display-6 me-2"></i>
                             <div>
-                                <h1 class="h3 mb-1">Estados de Cuenta</h1>
-                                <p class="mb-0 opacity-75">Historial de estados de cuenta cargados</p>
+                                <h1 class="h3 mb-1">@(header?.FileName ?? "Detalle de Carga")</h1>
+                                @if (header != null)
+                                {
+                                    <p class="mb-0 opacity-75">
+                                        @GetNombreCuenta(header.IdBankAccount) &middot; Cargado @header.UploadDate.ToString("dd/MM/yyyy HH:mm")
+                                    </p>
+                                }
                             </div>
                         </div>
-                        <button class="btn btn-light" @onclick="IrACargar">
-                            <i class="bi bi-upload me-2"></i>Cargar Estado de Cuenta
+                        <button class="btn btn-light" @onclick="Volver">
+                            <i class="bi bi-arrow-left me-2"></i>Volver
                         </button>
                     </div>
                 </div>
 
                 <div class="card-body p-4">
-                    <!-- Filtro por cuenta -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <label class="form-label">Cuenta Bancaria</label>
-                            <select class="form-select" @bind="selectedBankAccountId" @bind:after="CargarEstadosDeCuentaAsync">
-                                <option value="@Guid.Empty">Todos</option>
-                                @foreach (var cuenta in cuentasBancarias)
-                                {
-                                    <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
-                                }
-                            </select>
-                        </div>
-                    </div>
-
                     @if (cargando)
                     {
                         <div class="text-center py-5">
@@ -55,12 +53,7 @@
                     {
                         <div class="text-center py-5 text-muted">
                             <i class="bi bi-inbox display-4 d-block mb-3"></i>
-                            No hay estados de cuenta cargados@(selectedBankAccountId == Guid.Empty ? "" : " para la cuenta seleccionada").
-                            <div class="mt-3">
-                                <button class="btn btn-primary" @onclick="IrACargar">
-                                    <i class="bi bi-upload me-2"></i>Cargar Estado de Cuenta
-                                </button>
-                            </div>
+                            No hay movimientos para este estado de cuenta
                         </div>
                     }
                     else
@@ -86,38 +79,24 @@
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th class="ps-3">Archivo</th>
-                                        <th>Cuenta Bancaria</th>
-                                        <th>Fecha de Carga</th>
-                                        <th class="text-center">Registros</th>
-                                        <th class="text-center">Estado</th>
-                                        <th class="text-center">Acciones</th>
+                                        <th class="ps-3">Fecha</th>
+                                        <th>Descripción</th>
+                                        <th>Moneda</th>
+                                        <th>Monto</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var header in pagination.CurrentPageData)
+                                    @foreach (var item in pagination.CurrentPageData)
                                     {
                                         <tr>
-                                            <td class="ps-3">
-                                                <i class="bi bi-file-earmark-excel text-success me-2"></i>@header.FileName
+                                            <td class="ps-3">@item.StatementDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@item.Description</td>
+                                            <td>
+                                                <span class="badge @(item.Currency == "USD" ? "bg-info" : "bg-success")">@item.Currency</span>
                                             </td>
-                                            <td>@GetNombreCuenta(header.IdBankAccount)</td>
-                                            <td>@header.UploadDate.ToString("dd/MM/yyyy HH:mm")</td>
-                                            <td class="text-center">@header.TotalRecords</td>
-                                            <td class="text-center">
-                                                @if (header.UploadState == 1)
-                                                {
-                                                    <span class="badge bg-success">Cargado</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-secondary">Estado @header.UploadState</span>
-                                                }
-                                            </td>
-                                            <td class="text-center">
-                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(header.IdStatementHeader)">
-                                                    <i class="bi bi-eye me-1"></i>Ver detalle
-                                                </button>
+                                            <td class="fw-semibold @(item.Amount >= 0 ? "text-success" : "text-danger")">
+                                                @item.Amount.ToString("C",
+                                                    System.Globalization.CultureInfo.CreateSpecificCulture(item.Currency == "USD" ? "en-US" : "es-PE"))
                                             </td>
                                         </tr>
                                     }
@@ -200,12 +179,14 @@
 </div>
 
 @code {
+    [Parameter] public Guid IdStatementHeader { get; set; }
+
+    private TransactionBankHeader? header;
     private List<BankAccount> cuentasBancarias = new();
-    private Guid selectedBankAccountId = Guid.Empty;
     private bool cargando = true;
 
     // Paginación reutilizando la clase genérica de Models/PaginationClass.cs
-    private PaginationClass<TransactionBankHeader> pagination = new();
+    private PaginationClass<AccountStatementDetailView> pagination = new();
     private int jumpToPage = 1;
 
     protected override async Task OnInitializedAsync()
@@ -215,34 +196,18 @@
         if (ParameterService.CurrentBuilding != null)
         {
             cuentasBancarias = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+            var headers = await BankAccountService.GetMovementHeadersAsync(ParameterService.CurrentBuilding.IdBuilding, null);
+            header = headers.FirstOrDefault(h => h.IdStatementHeader == IdStatementHeader);
         }
 
-        await CargarEstadosDeCuentaAsync();
-    }
+        var detalles = (await BankAccountService.GetStatementDetailsAsync(IdStatementHeader))
+            .OrderBy(d => d.StatementDate)
+            .ThenBy(d => d.SequenceNumber)
+            .ToList();
 
-    private async Task CargarEstadosDeCuentaAsync()
-    {
-        if (ParameterService.CurrentBuilding == null)
-        {
-            pagination.Initialize(new List<TransactionBankHeader>());
-            cargando = false;
-            return;
-        }
-
-        cargando = true;
-        StateHasChanged();
-
-        Guid? filtroCuenta = selectedBankAccountId == Guid.Empty ? null : selectedBankAccountId;
-        var estadosDeCuenta = await BankAccountService.GetMovementHeadersAsync(ParameterService.CurrentBuilding.IdBuilding, filtroCuenta);
-
-        pagination.Initialize(estadosDeCuenta.OrderByDescending(h => h.UploadDate).ToList());
-
+        pagination.Initialize(detalles);
         cargando = false;
-    }
-
-    private void JumpToPage()
-    {
-        pagination.GoToPage(jumpToPage);
     }
 
     private string GetNombreCuenta(Guid idBankAccount)
@@ -251,13 +216,13 @@
         return cuenta != null ? $"{cuenta.BankName} ({cuenta.AccountNumber})" : "—";
     }
 
-    private void IrACargar()
+    private void Volver()
     {
-        Navigation.NavigateTo("/movement/cargar");
+        Navigation.NavigateTo("/movement");
     }
 
-    private void VerDetalle(Guid idStatementHeader)
+    private void JumpToPage()
     {
-        Navigation.NavigateTo($"/movement/detalle/{idStatementHeader}");
+        pagination.GoToPage(jumpToPage);
     }
 }

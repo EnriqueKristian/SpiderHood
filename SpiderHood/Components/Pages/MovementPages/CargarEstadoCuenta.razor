@@ -515,7 +515,7 @@
         }
         catch (Exception ex)
         {
-            mensaje = $"Error al guardar: {ex.Message}";
+            mensaje = $"Error al guardar: {ex.GetBaseException().Message}";
         }
         finally
         {

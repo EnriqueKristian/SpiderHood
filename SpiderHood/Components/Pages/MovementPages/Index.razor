@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
+@using SpiderHood.Utilities
 @inject NavigationManager Navigation
 @inject ParameterService ParameterService
 @inject IBankAccountService BankAccountService
@@ -50,7 +51,7 @@
                             </div>
                         </div>
                     }
-                    else if (!estadosDeCuenta.Any())
+                    else if (!pagination.AllData.Any())
                     {
                         <div class="text-center py-5 text-muted">
                             <i class="bi bi-inbox display-4 d-block mb-3"></i>
@@ -64,6 +65,23 @@
                     }
                     else
                     {
+                        <!-- Encabezado con estadísticas y selector de página -->
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                            <p class="text-muted mb-0">
+                                Mostrando @pagination.StartRecord - @pagination.EndRecord de @pagination.TotalRecords registros
+                            </p>
+                            <div class="d-flex align-items-center">
+                                <label class="me-2 text-muted">Mostrar:</label>
+                                <select class="form-select form-select-sm" style="width: auto;"
+                                        @onchange="(e) => pagination.ChangePageSize(Convert.ToInt32(e.Value))">
+                                    <option value="10" selected="@(pagination.PageSize == 10)">10</option>
+                                    <option value="25" selected="@(pagination.PageSize == 25)">25</option>
+                                    <option value="50" selected="@(pagination.PageSize == 50)">50</option>
+                                    <option value="100" selected="@(pagination.PageSize == 100)">100</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div class="table-responsive rounded-3 border">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
@@ -77,7 +95,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var header in estadosDeCuenta.OrderByDescending(h => h.UploadDate))
+                                    @foreach (var header in pagination.CurrentPageData)
                                     {
                                         <tr>
                                             <td class="ps-3">
@@ -106,6 +124,74 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        <!-- Paginación -->
+                        @if (pagination.TotalPages > 1)
+                        {
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 border-top">
+                                <div class="text-muted">
+                                    Página @pagination.CurrentPage de @pagination.TotalPages
+                                </div>
+
+                                <nav aria-label="Paginación de resultados">
+                                    <ul class="pagination pagination-sm mb-0">
+                                        <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link" @onclick="pagination.GoToFirstPage" title="Primera página">
+                                                <i class="bi bi-chevron-double-left"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                            <a class="page-link" @onclick="pagination.GoToPreviousPage" title="Página anterior">
+                                                <i class="bi bi-chevron-left"></i>
+                                            </a>
+                                        </li>
+
+                                        @foreach (var pageNum in pagination.GetPageNumbers())
+                                        {
+                                            if (pageNum == -1)
+                                            {
+                                                <li class="page-item disabled">
+                                                    <span class="page-link">...</span>
+                                                </li>
+                                            }
+                                            else
+                                            {
+                                                <li class="page-item @(pageNum == pagination.CurrentPage ? "active" : "")">
+                                                    <a class="page-link" @onclick="() => pagination.GoToPage(pageNum)">
+                                                        @pageNum
+                                                    </a>
+                                                </li>
+                                            }
+                                        }
+
+                                        <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                            <a class="page-link" @onclick="pagination.GoToNextPage" title="Página siguiente">
+                                                <i class="bi bi-chevron-right"></i>
+                                            </a>
+                                        </li>
+                                        <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                            <a class="page-link" @onclick="pagination.GoToLastPage" title="Última página">
+                                                <i class="bi bi-chevron-double-right"></i>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </nav>
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="text-muted">Ir a:</span>
+                                    <input type="number" class="form-control form-control-sm"
+                                           style="width: 70px;"
+                                           min="1" max="@pagination.TotalPages"
+                                           @bind="jumpToPage"
+                                           @bind:event="oninput" />
+                                    <button class="btn btn-sm btn-outline-primary"
+                                            @onclick="JumpToPage"
+                                            disabled="@(jumpToPage < 1 || jumpToPage > pagination.TotalPages)">
+                                        Ir
+                                    </button>
+                                </div>
+                            </div>
+                        }
                     }
                 </div>
             </div>
@@ -115,12 +201,17 @@
 
 @code {
     private List<BankAccount> cuentasBancarias = new();
-    private List<TransactionBankHeader> estadosDeCuenta = new();
     private Guid selectedBankAccountId = Guid.Empty;
     private bool cargando = true;
 
+    // Paginación reutilizando la clase genérica de Models/PaginationClass.cs
+    private PaginationClass<TransactionBankHeader> pagination = new();
+    private int jumpToPage = 1;
+
     protected override async Task OnInitializedAsync()
     {
+        pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
+
         if (ParameterService.CurrentBuilding != null)
         {
             cuentasBancarias = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
@@ -133,7 +224,7 @@
     {
         if (ParameterService.CurrentBuilding == null)
         {
-            estadosDeCuenta = new();
+            pagination.Initialize(new List<TransactionBankHeader>());
             cargando = false;
             return;
         }
@@ -142,9 +233,16 @@
         StateHasChanged();
 
         Guid? filtroCuenta = selectedBankAccountId == Guid.Empty ? null : selectedBankAccountId;
-        estadosDeCuenta = await BankAccountService.GetMovementHeadersAsync(ParameterService.CurrentBuilding.IdBuilding, filtroCuenta);
+        var estadosDeCuenta = await BankAccountService.GetMovementHeadersAsync(ParameterService.CurrentBuilding.IdBuilding, filtroCuenta);
+
+        pagination.Initialize(estadosDeCuenta.OrderByDescending(h => h.UploadDate).ToList());
 
         cargando = false;
+    }
+
+    private void JumpToPage()
+    {
+        pagination.GoToPage(jumpToPage);
     }
 
     private string GetNombreCuenta(Guid idBankAccount)

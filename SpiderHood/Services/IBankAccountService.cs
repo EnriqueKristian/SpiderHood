@@ -19,7 +19,7 @@ namespace SpiderHood.Services
         Task GuardarConciliacionAsync(Conciliacion conciliacion);
         Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
         Task InstallmentConciliationAsync(TransactionBankDetail transaccion, Installment cuota);
-        Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBuilding);
+        Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBankAccount);
         Task<List<TransactionBankHeader>> GetMovementHeadersAsync(Guid idBuilding, Guid? idBankAccount);
         Task<List<MovDetKey>> GetTransactionsDetailsAsync(Guid IdBankAccount, DateTime minValue, DateTime maxValue);
         Task AddTransactionFromEECCAsync(TransactionBankDetail newtransaction);
@@ -68,11 +68,11 @@ namespace SpiderHood.Services
 
         }
 
-        public async Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBuilding)
+        public async Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBankAccount)
         {
             try
             {
-                return await ec.GetMovementByFileNameAsync(filename, IdBuilding);
+                return await ec.GetMovementByFileNameAsync(filename, IdBankAccount);
             }
             catch (Exception ex)
             {

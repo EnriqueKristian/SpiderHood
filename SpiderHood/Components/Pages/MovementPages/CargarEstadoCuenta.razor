@@ -562,8 +562,8 @@
         // Forzar actualización UI
         await InvokeAsync(StateHasChanged);
 
-        // Verificar si el archivo ya fue procesado
-        var existingHeaders = await BankAccountService.GetTransactionsByFileNameAsync(file.Name, ParameterService.CurrentBuilding.IdBuilding);
+        // Verificar si el archivo ya fue procesado para esta cuenta bancaria
+        var existingHeaders = await BankAccountService.GetTransactionsByFileNameAsync(file.Name, IdBankAccount);
 
         if (existingHeaders.Count > 0)
         {

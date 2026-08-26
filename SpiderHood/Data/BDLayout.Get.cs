@@ -520,13 +520,13 @@ namespace SpiderHood.Data
             }, "GetExpensesByBuilding", cancellationToken);
         }
 
-        public async Task<List<TransactionBankHeader>> GetMovementByFileNameAsync(string fileName, Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<TransactionBankHeader>> GetMovementByFileNameAsync(string fileName, Guid idBankAccount, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 return await ExecuteQueryListAsync<TransactionBankHeader>(
                     StoredProcedures.GET_MovementByName,
-                    fileName, idBuilding);
+                    fileName, idBankAccount);
             }, "GetMovementByFileName", cancellationToken);
         }
 

@@ -83,24 +83,23 @@
                         
                         <div class="col-md-4">
                             <label class="form-label">Período</label>
-                            <select class="form-select" @bind="periodoSeleccionado">
-                                <!-- @onchange="CambiarPeriodo"-->
+                            <select class="form-select" @bind="periodoSeleccionado" @bind:after="CambiarPeriodo">
                                 <option value="mesActual">Mes Actual</option>
                                 <option value="mesAnterior">Mes Anterior</option>
                                 <option value="trimestreActual">Trimestre Actual</option>
                                 <option value="personalizado">Personalizado</option>
                             </select>
                         </div>
-                        
+
                         @if (periodoSeleccionado == "personalizado")
                         {
                             <div class="col-md-2">
                                 <label class="form-label">Desde</label>
-                                <input type="date" class="form-control" @bind="fechaDesde" />
+                                <input type="date" class="form-control" @bind="fechaDesde" @bind:after="CambiarPeriodo" />
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Hasta</label>
-                                <input type="date" class="form-control" @bind="fechaHasta" />
+                                <input type="date" class="form-control" @bind="fechaHasta" @bind:after="CambiarPeriodo" />
                             </div>
                         }
                     </div>

@@ -8,6 +8,7 @@
 @using SpiderHood.Data
 @using SpiderHood.Models
 @using SpiderHood.Services
+@using SpiderHood.Utilities
 @inject NavigationManager Navigation // Inyecta el servicio de navegación
 @inject ParameterService ParameterService
 @inject AuthService AuthService
@@ -151,7 +152,7 @@
                                         <i class="bi bi-table me-2"></i>Vista previa de datos
                                     </h3>
                                     <p class="text-muted mb-0 mt-1">
-                                        Mostrando @startRecord - @endRecord de @totalRecords registros
+                                        Mostrando @pagination.StartRecord - @pagination.EndRecord de @pagination.TotalRecords registros
                                     </p>
                                 </div>
 
@@ -161,18 +162,15 @@
                                         <button class="btn btn-outline-secondary dropdown-toggle" type="button"
                                                 data-bs-toggle="dropdown" aria-expanded="false">
                                             <i class="bi bi-funnel me-1"></i>
-                                            @(selectedFilter == "all" ? "Todos" :
-                                                                                    selectedFilter == "valid" ? "Válidos" :
-                                                                                    selectedFilter == "duplicate" ? "Duplicados" :
-                                                                                    "Con error")
+                                            @(pagination.GetFilterOptions().TryGetValue(selectedFilter, out var filterLabel) ? filterLabel : selectedFilter)
                                         </button>
                                         <ul class="dropdown-menu">
-                                            @foreach (var filter in filters)
+                                            @foreach (var filter in pagination.GetFilterOptions())
                                             {
                                                 <li>
-                                                    <a class="dropdown-item @(selectedFilter == filter ? "active" : "")"
-                                                       @onclick="() => ChangeFilter(filter)">
-                                                        @GetFilterLabel(filter)
+                                                    <a class="dropdown-item @(selectedFilter == filter.Key ? "active" : "")"
+                                                       @onclick="() => ChangeFilter(filter.Key)">
+                                                        @filter.Value
                                                     </a>
                                                 </li>
                                             }
@@ -184,10 +182,10 @@
                                         <label class="me-2 text-muted">Mostrar:</label>
                                         <select class="form-select form-select-sm" style="width: auto;"
                                                 @onchange="(e) => ChangePageSize(Convert.ToInt32(e.Value))">
-                                            <!option value="10" selected="@(pageSize == 10)">10</!option>
-                                            <!option value="25" selected="@(pageSize == 25)">25</!option>
-                                            <!option value="50" selected="@(pageSize == 50)">50</!option>
-                                            <!option value="100" selected="@(pageSize == 100)">100</!option>
+                                            <option value="10" selected="@(pagination.PageSize == 10)">10</option>
+                                            <option value="25" selected="@(pagination.PageSize == 25)">25</option>
+                                            <option value="50" selected="@(pagination.PageSize == 50)">50</option>
+                                            <option value="100" selected="@(pagination.PageSize == 100)">100</option>
                                         </select>
                                     </div>
                                 </div>
@@ -202,7 +200,7 @@
                                             {
                                                 <th class="ps-3" style="width: 120px;">
                                                     <a @onclick="() => SortByColumn(col)"  class="text-decoration-none text-dark">@col
-                                                        <i class="bi @(sortAscending ? "bi-sort-down" : "bi-sort-up") ms-1"></i>
+                                                        <i class="bi @(pagination.SortAscending ? "bi-sort-down" : "bi-sort-up") ms-1"></i>
                                                     </a>
                                                 </th>
                                             }
@@ -210,7 +208,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @if (!filteredData.Any())
+                                        @if (!pagination.FilteredData.Any())
                                         {
                                             <tr>
                                                 <td colspan="6" class="text-center py-4 text-muted">
@@ -221,7 +219,7 @@
                                         }
                                         else
                                         {
-                                            @foreach (var item in currentPageData)
+                                            @foreach (var item in pagination.CurrentPageData)
                                             {
                                                 <tr class="@(item.Validation == "Duplicado" ? "table-warning" : item.Validation != "Ok" ? "table-danger" : "")"
                                                     @onclick="() => SelectRow(item)"
@@ -272,36 +270,36 @@
                             </div>
 
                             <!-- Paginación -->
-                            @if (totalPages > 1)
+                            @if (pagination.TotalPages > 1)
                             {
                                 <div class="d-flex flex-wrap justify-content-between align-items-center mt-4 pt-3 border-top">
                                     <!-- Información de página -->
                                     <div class="text-muted">
-                                        Página @currentPage de @totalPages
-                                        <span class="d-none d-md-inline">• @filteredData.Count() registros filtrados</span>
+                                        Página @pagination.CurrentPage de @pagination.TotalPages
+                                        <span class="d-none d-md-inline">• @pagination.FilteredData.Count registros filtrados</span>
                                     </div>
 
                                     <!-- Controles de paginación -->
                                     <nav aria-label="Paginación de resultados">
                                         <ul class="pagination pagination-sm mb-0">
                                             <!-- Primera página -->
-                                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                                                <a class="page-link" @onclick="GoToFirstPage"
+                                            <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToFirstPage"
                                                    title="Primera página">
                                                     <i class="bi bi-chevron-double-left"></i>
                                                 </a>
                                             </li>
 
                                             <!-- Página anterior -->
-                                            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
-                                                <a class="page-link" @onclick="GoToPreviousPage"
+                                            <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToPreviousPage"
                                                    title="Página anterior">
                                                     <i class="bi bi-chevron-left"></i>
                                                 </a>
                                             </li>
 
                                             <!-- Páginas numeradas -->
-                                            @foreach (var pageNum in GetPageNumbers())
+                                            @foreach (var pageNum in pagination.GetPageNumbers())
                                             {
                                                 if (pageNum == -1)
                                                 {
@@ -311,8 +309,8 @@
                                                 }
                                                 else
                                                 {
-                                                    <li class="page-item @(pageNum == currentPage ? "active" : "")">
-                                                        <a class="page-link" @onclick="() => GoToPage(pageNum)">
+                                                    <li class="page-item @(pageNum == pagination.CurrentPage ? "active" : "")">
+                                                        <a class="page-link" @onclick="() => pagination.GoToPage(pageNum)">
                                                             @pageNum
                                                         </a>
                                                     </li>
@@ -320,16 +318,16 @@
                                             }
 
                                             <!-- Página siguiente -->
-                                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                                                <a class="page-link" @onclick="GoToNextPage"
+                                            <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToNextPage"
                                                    title="Página siguiente">
                                                     <i class="bi bi-chevron-right"></i>
                                                 </a>
                                             </li>
 
                                             <!-- Última página -->
-                                            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
-                                                <a class="page-link" @onclick="GoToLastPage"
+                                            <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToLastPage"
                                                    title="Última página">
                                                     <i class="bi bi-chevron-double-right"></i>
                                                 </a>
@@ -342,12 +340,12 @@
                                         <span class="text-muted">Ir a:</span>
                                         <input type="number" class="form-control form-control-sm"
                                                style="width: 70px;"
-                                               min="1" max="@totalPages"
+                                               min="1" max="@pagination.TotalPages"
                                                @bind="jumpToPage"
                                                @bind:event="oninput" />
                                         <button class="btn btn-sm btn-outline-primary"
                                                 @onclick="JumpToPage"
-                                                disabled="@(jumpToPage < 1 || jumpToPage > totalPages)">
+                                                disabled="@(jumpToPage < 1 || jumpToPage > pagination.TotalPages)">
                                             Ir
                                         </button>
                                     </div>
@@ -486,13 +484,18 @@
         Details = new List<TransactionBankDetail>()
     };
 
+    // Paginación/orden/filtro reutilizando la clase genérica de Models/PaginationClass.cs
+    private TransactionBankDetailPagination pagination = new();
+    private int jumpToPage = 1;
+    private string selectedFilter = "all";
+    private List<string> columns = new() { "StatementDate", "Description", "ITF", "Currency", "Amount" };
+
     private void ClearFile()
     {
         fileName = string.Empty;
         fileSize = 0;
         datos = new List<TransactionBankDetail>().AsQueryable();
-        filteredData = new List<TransactionBankDetail>();
-        currentPageData = new List<TransactionBankDetail>();
+        pagination.Initialize(new List<TransactionBankDetail>());
         mensaje = string.Empty;
         isLoaded = true;
     }
@@ -500,11 +503,9 @@
     private void ClearData()
     {
         datos = new List<TransactionBankDetail>().AsQueryable();
-        filteredData = new List<TransactionBankDetail>();
-        currentPageData = new List<TransactionBankDetail>();
         mensaje = string.Empty;
         isLoaded = true;
-        InitializePagination();
+        pagination.Initialize(new List<TransactionBankDetail>());
     }
 
     private async Task DownloadReport()
@@ -641,7 +642,7 @@
         isLoaded = false; //Ocultar Seleccion de Archivo
         StateHasChanged();
 
-        InitializePagination();
+        pagination.Initialize(datos.ToList());
     }
 
     private List<TransactionBankDetail> LeerExcel(MemoryStream stream)
@@ -710,6 +711,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
+
         if (ParameterService.CurrentBuilding != null)
         {
             cuentasBancarias = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
@@ -776,215 +779,25 @@
         }
     }
 
-
-    // Variables para paginación
-    private List<TransactionBankDetail> filteredData = new();
-    private List<TransactionBankDetail> currentPageData = new();
-    private int currentPage = 1;
-    private int pageSize = 25;
-    private int totalPages = 0;
-    private int totalRecords = 0;
-    private int startRecord = 0;
-    private int endRecord = 0;
-    private int jumpToPage = 1;
-
-    // Variables para ordenamiento
-    private string sortColumn = "MovDate";
-    private bool sortAscending = true;
-
-    // Variables para filtrado
-    private string selectedFilter = "all";
-
-    // Métodos de paginación
-    private void InitializePagination()
-    {
-        currentPage = 1;
-        UpdateFilteredData();
-        UpdatePagination();
-    }
-
-    private void UpdateFilteredData()
-    {
-        if (datos == null || !datos.Any())
-        {
-            filteredData = new List<TransactionBankDetail>();
-            return;
-        }
-
-        // Aplicar filtro
-        filteredData = selectedFilter switch
-        {
-            "valid" => datos.Where(d => d.Validation == "Ok").ToList(),
-            "duplicate" => datos.Where(d => d.Validation == "Duplicado").ToList(),
-            "error" => datos.Where(d => d.Validation != "Ok" && d.Validation != "Duplicado").ToList(),
-            _ => datos.ToList()
-        };
-
-        // Aplicar ordenamiento
-        filteredData = sortColumn switch
-        {
-            "MovDate" => sortAscending
-                ? filteredData.OrderBy(d => d.StatementDate).ToList()
-                : filteredData.OrderByDescending(d => d.StatementDate).ToList(),
-            "Description" => sortAscending
-                ? filteredData.OrderBy(d => d.Description).ToList()
-                : filteredData.OrderByDescending(d => d.Description).ToList(),
-            "ITF" => sortAscending
-                ? filteredData.OrderBy(d => d.ITF).ToList()
-                : filteredData.OrderByDescending(d => d.ITF).ToList(),
-            "Currency" => sortAscending
-                ? filteredData.OrderBy(d => d.Currency).ToList()
-                : filteredData.OrderByDescending(d => d.Currency).ToList(),
-            "Amount" => sortAscending
-                ? filteredData.OrderBy(d => d.Amount).ToList()
-                : filteredData.OrderByDescending(d => d.Amount).ToList(),
-            _ => filteredData
-        };
-    }
-
-    private void UpdatePagination()
-    {
-        totalRecords = filteredData.Count;
-        totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
-
-        // Ajustar página actual si es necesario
-        if (currentPage > totalPages && totalPages > 0)
-        {
-            currentPage = totalPages;
-        }
-        else if (currentPage < 1 && totalPages > 0)
-        {
-            currentPage = 1;
-        }
-
-        // Calcular registros a mostrar
-        startRecord = totalRecords > 0 ? ((currentPage - 1) * pageSize) + 1 : 0;
-        endRecord = Math.Min(currentPage * pageSize, totalRecords);
-
-        // Obtener datos de la página actual
-        currentPageData = filteredData
-            .Skip((currentPage - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-
-        // Actualizar jumpToPage
-        jumpToPage = currentPage;
-    }
-
-    private void GoToPage(int page)
-    {
-        if (page >= 1 && page <= totalPages)
-        {
-            currentPage = page;
-            UpdatePagination();
-        }
-    }
-
-    private void GoToFirstPage()
-    {
-        GoToPage(1);
-    }
-
-    private void GoToPreviousPage()
-    {
-        GoToPage(currentPage - 1);
-    }
-
-    private void GoToNextPage()
-    {
-        GoToPage(currentPage + 1);
-    }
-
-    private void GoToLastPage()
-    {
-        GoToPage(totalPages);
-    }
-
     private void JumpToPage()
     {
-        GoToPage(jumpToPage);
+        pagination.GoToPage(jumpToPage);
     }
 
     private void ChangePageSize(int newSize)
     {
-        pageSize = newSize;
-        currentPage = 1;
-        UpdatePagination();
+        pagination.ChangePageSize(newSize);
     }
 
     private void ChangeFilter(string filter)
     {
         selectedFilter = filter;
-        InitializePagination();
+        pagination.ApplyValidationFilter(filter);
     }
 
     private void SortByColumn(string column)
     {
-        if (sortColumn == column)
-        {
-            sortAscending = !sortAscending;
-        }
-        else
-        {
-            sortColumn = column;
-            sortAscending = true;
-        }
-
-        UpdateFilteredData();
-        UpdatePagination();
-    }
-
-    private List<int> GetPageNumbers()
-    {
-        var pages = new List<int>();
-        int maxPagesToShow = 5;
-
-        if (totalPages <= maxPagesToShow)
-        {
-            // Mostrar todas las páginas
-            for (int i = 1; i <= totalPages; i++)
-            {
-                pages.Add(i);
-            }
-        }
-        else
-        {
-            // Lógica para mostrar páginas con elipsis
-            if (currentPage <= 3)
-            {
-                // Primeras páginas
-                for (int i = 1; i <= 4; i++)
-                {
-                    pages.Add(i);
-                }
-                pages.Add(-1); // Elipsis
-                pages.Add(totalPages);
-            }
-            else if (currentPage >= totalPages - 2)
-            {
-                // Últimas páginas
-                pages.Add(1);
-                pages.Add(-1); // Elipsis
-                for (int i = totalPages - 3; i <= totalPages; i++)
-                {
-                    pages.Add(i);
-                }
-            }
-            else
-            {
-                // En medio
-                pages.Add(1);
-                pages.Add(-1); // Elipsis
-                for (int i = currentPage - 1; i <= currentPage + 1; i++)
-                {
-                    pages.Add(i);
-                }
-                pages.Add(-1); // Elipsis
-                pages.Add(totalPages);
-            }
-        }
-
-        return pages;
+        pagination.SortByColumn(column);
     }
 
     private void SelectRow(TransactionBankDetail item)
@@ -993,17 +806,5 @@
         // Por ahora solo muestra un mensaje
         mensaje = $"Seleccionado: {item.Description} - {item.Amount:C}";
     }
-
-    private List<string> filters = new() { "all", "valid", "duplicate", "error" };
-    private List<string> columns = new() { "MovDate", "Description", "ITF", "Currency", "Amount" };
-
-    private string GetFilterLabel(string filter) => filter switch
-    {
-        "all" => "Todos",
-        "valid" => "Válidos",
-        "duplicate" => "Duplicados",
-        "error" => "Con error",
-        _ => filter
-    };
 
 }

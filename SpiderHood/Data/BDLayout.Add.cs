@@ -619,6 +619,43 @@ namespace SpiderHood.Data
                 return budgetDetail;
             }, "AddBudgetDetail", cancellationToken);
         }
+
+        public async Task<Models.Workflow> AddNewRecordAsync(Models.Workflow workflow, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(workflow, nameof(workflow));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Workflow,
+                    cancellationToken,
+                    workflow.IdWorkflow,
+                    workflow.Name,
+                    workflow.Description,
+                    (int)workflow.Status);
+                return workflow;
+            }, "AddWorkflow", cancellationToken);
+        }
+
+        public async Task<Models.WorkflowStep> AddNewRecordAsync(Models.WorkflowStep step, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(step, nameof(step));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_WorkflowStep,
+                    cancellationToken,
+                    step.IdWorkflowStep,
+                    step.IdWorkflow,
+                    step.StepOrder,
+                    step.Name,
+                    step.Description,
+                    step.Responsible,
+                    step.IsImplemented);
+                return step;
+            }, "AddWorkflowStep", cancellationToken);
+        }
         #endregion
     }
 }

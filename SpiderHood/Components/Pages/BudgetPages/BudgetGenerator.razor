@@ -482,7 +482,7 @@
         var attempts = 0;
         while (ParameterService.CurrentBuilding == null && attempts < 20)
         {
-            await Task.Delay(150);
+            await Task.Delay(20);
             attempts++;
         }
 

@@ -1,5 +1,4 @@
 /* CSS for Index component */
-
 /* wwwroot/css/workflow.css */
 .workflow-container {
     padding: 20px;
@@ -271,7 +270,7 @@
     }
 
 /* Responsive */
-media (max-width: 768px) {
+@*media (max-width: 768px) {
     .workflow-diagram {
         transform: scale(0.8);
     }

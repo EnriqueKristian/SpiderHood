@@ -23,6 +23,7 @@ namespace SpiderHood.Services
         Task<List<MovDetKey>> GetTransactionsDetailsAsync(Guid IdBankAccount, DateTime minValue, DateTime maxValue);
         Task AddTransactionFromEECCAsync(TransactionBankDetail newtransaction);
         Task AddTransactionBankHeaderAsync(TransactionBankHeader newtransaction);
+        Task CrearTransaccionSobranteAsync(TransactionBankDetail paidexcesc);
     }
 
     public class BankAccountService : IBankAccountService

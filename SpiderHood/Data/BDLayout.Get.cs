@@ -719,7 +719,21 @@ namespace SpiderHood.Data
             }, "GetBudgetById", cancellationToken);
         }
 
+        public async Task<List<Models.Workflow>> GetWorkflowsAsync(CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Workflow>(StoredProcedures.GET_Workflows);
+            }, "GetWorkflows", cancellationToken);
+        }
 
+        public async Task<List<Models.WorkflowStep>> GetWorkflowStepsByWorkflowAsync(Guid idWorkflow, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.WorkflowStep>(StoredProcedures.GET_WorkflowStepsByWorkflow, idWorkflow);
+            }, "GetWorkflowStepsByWorkflow", cancellationToken);
+        }
         #endregion
     }
 }

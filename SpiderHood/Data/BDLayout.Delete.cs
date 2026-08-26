@@ -40,6 +40,15 @@ namespace SpiderHood.Data
             }, "DeleteUserRoleByUser", cancellationToken);
         }
 
+        public async Task<bool> DeleteInstallmentPaidByTransactionAsync(Guid idTransaction, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_InstallmentPaidByTransaction, cancellationToken, idTransaction);
+                return true;
+            }, "DeleteInstallmentPaidByTransaction", cancellationToken);
+        }
+
         public async Task<bool> DeleteRecordAsync(MenuPermissions item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

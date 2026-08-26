@@ -19,6 +19,10 @@ namespace SpiderHood.Services
         // como el único camino para conciliar Ingresos: cubre pago menor, igual y mayor (incluso
         // cubriendo varias cuotas) con la misma lógica, sin duplicarla en cada página que la usa.
         Task AplicarPagoAsync(TransactionBankDetail pago, List<Installment> cuotasSeleccionadas, Services.IBankAccountService BankService, bool automatico = false);
+
+        // Deshace AplicarPagoAsync: borra los InstallmentPaid ligados a este pago y devuelve
+        // tanto el pago como las cuotas afectadas a NoConciliada.
+        Task RevertirPagoAsync(TransactionBankDetail pago, List<InstallmentPaid> pagosDeEstaTransaccion, Services.IBankAccountService BankService);
     }
 
     public class InstallmentService : IInstallmentService
@@ -73,7 +77,7 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al guardar Pago de Cuota: {ex.Message}");
-                return new Models.InstallmentPaid();
+                throw;
             }
         }
 
@@ -377,6 +381,25 @@ namespace SpiderHood.Services
             pago.Balance = saldoRestante;
             pago.ReconciliationStatus = saldoRestante <= 0 ? ConcilationType.Conciliada : ConcilationType.Parcial;
             pago.ReconciliationDate = DateTime.Now;
+        }
+
+        public async Task RevertirPagoAsync(TransactionBankDetail pago, List<InstallmentPaid> pagosDeEstaTransaccion, Services.IBankAccountService BankService)
+        {
+            if (pago == null) throw new ArgumentNullException(nameof(pago));
+            if (pagosDeEstaTransaccion == null || !pagosDeEstaTransaccion.Any()) return;
+
+            await ec.DeleteInstallmentPaidByTransactionAsync(pago.IdStatementDetail);
+
+            pago.ReconciliationStatus = ConcilationType.NoConciliada;
+            pago.ReconciliationDate = null;
+            pago.Balance = 0;
+            pago.IdGroupUnit = Guid.Empty;
+
+            foreach (var idInstallment in pagosDeEstaTransaccion.Select(p => p.IdInstallment).Distinct())
+            {
+                var cuotaLiberada = new Installment { IdInstallment = idInstallment, Status = ConcilationType.NoConciliada };
+                await BankService.InstallmentConciliationAsync(pago, cuotaLiberada);
+            }
         }
     }
 

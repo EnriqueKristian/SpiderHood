@@ -195,6 +195,7 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al Conciliar Transaccion con Cuota: {ex.Message}");
+                throw;
             }
 
         }

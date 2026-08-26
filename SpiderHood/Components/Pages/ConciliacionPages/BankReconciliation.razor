@@ -987,7 +987,6 @@
     public List<ViewExpense> gastosPendientes = new();
     public List<Installment> cuotaspendientes = new();
     private List<InstallmentPaid> pagosCuotas = new();
-    private List<TransactionBankDetail> transaccionesPendientes = new();
     private List<Models.Category> FilteredCategory = new();
 
     // Paginación reutilizando la clase genérica de Models/PaginationClass.cs
@@ -1280,17 +1279,12 @@
 
     private async Task ActualizarListasPendientes()
     {
-        // Remover transacción conciliada de pendientes
-        var transaccionConciliada = transaccionesPendientes
-            .FirstOrDefault(t => t.ReconciliationStatus == ConcilationType.Conciliada);
+        if (ParameterService.CurrentBuilding == null) return;
 
-        if (transaccionConciliada != null)
-        {
-            transaccionesPendientes.Remove(transaccionConciliada);
-        }
-
-        // Opcional: Recargar cuotas pendientes desde el servidor
-        // cuotaspendientes = await InstallmentService.ObtenerCuotasPendientesAsync();
+        // Recargar cuotas pendientes y pagos ya registrados para que "Ver Detalle"
+        // refleje los InstallmentPaid recién creados por AplicarPagoAsync.
+        cuotaspendientes = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+        pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
     }
 
     private async Task ManejarErrorConciliacion(Exception ex)
@@ -1329,9 +1323,15 @@
 
     private async Task DesconciliarTransaccion(TransactionBankDetail transaccion)
     {
+        if (transaccion.Tipo == "Ingreso")
+        {
+            await DesconciliarPagoIngreso(transaccion);
+            return;
+        }
+
         if (transaccion.GastoConciliado == null) return;
 
-        if (await JSRuntime.InvokeAsync<bool>("confirm", 
+        if (await JSRuntime.InvokeAsync<bool>("confirm",
             $"¿Desconciliar transacción '{transaccion.Description}' con gasto '{transaccion.GastoConciliado.Description}'?"))
         {
             try
@@ -1356,6 +1356,38 @@
             {
                 mensajeError = $"Error al desconciliar: {ex.Message}";
             }
+        }
+    }
+
+    private async Task DesconciliarPagoIngreso(TransactionBankDetail transaccion)
+    {
+        var pagosDeEstaTransaccion = pagosCuotas.Where(p => p.IdTransaction == transaccion.IdStatementDetail).ToList();
+        if (!pagosDeEstaTransaccion.Any())
+        {
+            mensajeError = "Este pago no tiene cuotas asociadas para desconciliar.";
+            return;
+        }
+
+        if (!await JSRuntime.InvokeAsync<bool>("confirm",
+            $"¿Desconciliar el pago '{transaccion.Description}' y liberar {pagosDeEstaTransaccion.Count} cuota(s) asociada(s)?"))
+        {
+            return;
+        }
+
+        try
+        {
+            await InstallmentService.RevertirPagoAsync(transaccion, pagosDeEstaTransaccion, BankService);
+
+            CalcularEstadisticas();
+            ActualizarPaginacion();
+            await ActualizarListasPendientes();
+
+            mensajeExito = "Pago desconciliado y cuota(s) liberada(s)";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al desconciliar: {ex.Message}";
         }
     }
 

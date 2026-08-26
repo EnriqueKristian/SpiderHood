@@ -875,11 +875,32 @@
 <!-- Modal para Conciliar Manualmente un Pago (Ingreso) con una o varias cuotas -->
 @if (mostrarModalConciliarCuota && transaccionParaCuota != null)
 {
-    <ConciliarPagoCuotasModal Pago="transaccionParaCuota"
-                              CuotasDisponibles="cuotaspendientes"
-                              ErrorExterno="mensajeError"
-                              OnClose="CerrarModalConciliarCuota"
-                              OnConfirmar="ConfirmarConciliarCuotas" />
+    <ErrorBoundary @ref="conciliarCuotaErrorBoundary">
+        <ChildContent>
+            <ConciliarPagoCuotasModal Pago="transaccionParaCuota"
+                                      CuotasDisponibles="cuotaspendientes"
+                                      ErrorExterno="mensajeError"
+                                      OnClose="CerrarModalConciliarCuota"
+                                      OnConfirmar="ConfirmarConciliarCuotas" />
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <div class="modal-backdrop show"></div>
+            <div class="modal show d-block" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title text-danger">Error al abrir el modal de conciliación</h5>
+                            <button type="button" class="btn-close" @onclick="CerrarModalConciliarCuota"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="fw-bold">@ex.GetType().Name: @ex.Message</p>
+                            <pre class="small text-muted" style="white-space: pre-wrap;">@ex.StackTrace</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
 }
 
 
@@ -995,6 +1016,7 @@
 
     private bool mostrarModalConciliarCuota = false;
     private TransactionBankDetail? transaccionParaCuota = null;
+    private ErrorBoundary? conciliarCuotaErrorBoundary;
     private bool mostrarModalVerDetalleIngreso = false;
     private TransactionBankDetail? transaccionDetalleIngreso = null;
 
@@ -1361,6 +1383,7 @@
 
     private void MostrarModalConciliarCuota(TransactionBankDetail transaccion)
     {
+        conciliarCuotaErrorBoundary?.Recover();
         transaccionParaCuota = transaccion;
         mostrarModalConciliarCuota = true;
     }

@@ -168,13 +168,12 @@ namespace SpiderHood.Services
         {
             try
             {
-                // Generar transacciones de ejemplo
                 return await ec.GetBankTransactionsNoConciliedAsync(cuentaId, desde, hasta);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al obtener transacciones: {ex.Message}");
-                return new List<TransactionBankDetail>();
+                throw;
             }
         }
 
@@ -194,6 +193,7 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al Conciliar Transaccion con Cuota: {ex.Message}");
+                throw;
             }
 
         }

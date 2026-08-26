@@ -134,6 +134,7 @@ namespace SpiderHood.Data
             public const string DEL_Role = "DEL_Role";
             public const string DEL_RolePermissionsByRole = "DEL_RolePermissionsByRole";
             public const string DEL_UserRoleByUser = "DEL_UserRoleByUser";
+            public const string DEL_InstallmentPaidByTransaction = "DEL_InstallmentPaidByTransaction";
 
             // Get Procedures
             public const string GET_AllMenuPemission = "GET_AllMenuPemission";

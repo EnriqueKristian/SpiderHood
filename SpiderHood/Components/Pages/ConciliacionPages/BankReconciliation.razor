@@ -2,6 +2,7 @@
 @page "/ReconcileExpenses/{accountId:guid}"
 @using SpiderHood.Models
 @using SpiderHood.Services
+@using SpiderHood.Utilities
 @inject IExpenseService ExpenseService
 @inject IBankAccountService BankService
 @inject IJSRuntime JSRuntime
@@ -82,24 +83,23 @@
                         
                         <div class="col-md-4">
                             <label class="form-label">Período</label>
-                            <select class="form-select" @bind="periodoSeleccionado">
-                                <!-- @onchange="CambiarPeriodo"-->
+                            <select class="form-select" @bind="periodoSeleccionado" @bind:after="CambiarPeriodo">
                                 <option value="mesActual">Mes Actual</option>
                                 <option value="mesAnterior">Mes Anterior</option>
                                 <option value="trimestreActual">Trimestre Actual</option>
                                 <option value="personalizado">Personalizado</option>
                             </select>
                         </div>
-                        
+
                         @if (periodoSeleccionado == "personalizado")
                         {
                             <div class="col-md-2">
                                 <label class="form-label">Desde</label>
-                                <input type="date" class="form-control" @bind="fechaDesde" />
+                                <input type="date" class="form-control" @bind="fechaDesde" @bind:after="CambiarPeriodo" />
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label">Hasta</label>
-                                <input type="date" class="form-control" @bind="fechaHasta" />
+                                <input type="date" class="form-control" @bind="fechaHasta" @bind:after="CambiarPeriodo" />
                             </div>
                         }
                     </div>
@@ -159,10 +159,11 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex gap-3 align-items-center">
                                 <div class="form-check">
-                                    <input class="form-check-input" 
-                                           type="checkbox" 
+                                    <input class="form-check-input"
+                                           type="checkbox"
                                            id="showOnlyUnmatched"
-                                           @bind="mostrarSoloNoConciliados" />
+                                           @bind="mostrarSoloNoConciliados"
+                                           @bind:after="ActualizarPaginacion" />
                                     <label class="form-check-label" for="showOnlyUnmatched">
                                         Mostrar solo no conciliados
                                     </label>
@@ -192,11 +193,12 @@
                                     <span class="input-group-text">
                                         <i class="bi bi-search"></i>
                                     </span>
-                                    <input type="text" 
-                                           class="form-control" 
+                                    <input type="text"
+                                           class="form-control"
                                            placeholder="Buscar descripción, referencia..."
                                            @bind="textoBusqueda"
-                                           @bind:event="oninput" />
+                                           @bind:event="oninput"
+                                           @bind:after="ActualizarPaginacion" />
                                 </div>
                                 
                                 <button class="btn btn-outline-secondary" @onclick="LimpiarFiltros">
@@ -242,6 +244,23 @@
                         </ul>
                         
                         <div class="tab-content">
+                            <!-- Paginación: encabezado con estadísticas y selector de página -->
+                            <div class="d-flex flex-wrap justify-content-between align-items-center px-3 pt-3">
+                                <p class="text-muted mb-0">
+                                    Mostrando @pagination.StartRecord - @pagination.EndRecord de @pagination.TotalRecords transacciones
+                                </p>
+                                <div class="d-flex align-items-center">
+                                    <label class="me-2 text-muted">Mostrar:</label>
+                                    <select class="form-select form-select-sm" style="width: auto;"
+                                            @onchange="(e) => pagination.ChangePageSize(Convert.ToInt32(e.Value))">
+                                        <option value="10" selected="@(pagination.PageSize == 10)">10</option>
+                                        <option value="25" selected="@(pagination.PageSize == 25)">25</option>
+                                        <option value="50" selected="@(pagination.PageSize == 50)">50</option>
+                                        <option value="100" selected="@(pagination.PageSize == 100)">100</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <!-- Tabla de Transacciones -->
                             <div class="table-responsive" style="max-height: 600px;">
                                 <table class="table table-hover mb-0">
@@ -263,7 +282,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach (var transaccion in transaccionesFiltradas)
+                                        @foreach (var transaccion in pagination.CurrentPageData)
                                         {
                                             <tr class="@(transaccion.Selected ? "table-primary" : "")">
                                                 <td>
@@ -390,7 +409,7 @@
                                                                                         <span>@match.OwnerName</span>
                                                                                         <span class="text-muted">@match.Amount.ToString("C")</span>
                                                                                     </div>
-                                                                                    <small class="text-muted">@match.Number</small>
+                                                                                    <small class="text-muted">Unidad @match.UnitName &middot; Cuota #@match.Number</small>
                                                                                 </a>
                                                                             </li>
                                                                         }
@@ -415,6 +434,12 @@
                                                             <i class="bi bi-check me-1"></i> Conciliado
                                                         </span>
                                                     }
+                                                    else if (transaccion.ReconciliationStatus == ConcilationType.Parcial)
+                                                    {
+                                                        <span class="badge bg-info text-dark">
+                                                            <i class="bi bi-hourglass-split me-1"></i> Conciliado Parcialmente
+                                                        </span>
+                                                    }
                                                     else
                                                     {
                                                         <span class="badge bg-warning">
@@ -424,14 +449,25 @@
                                                 </td>
                                                 <td class="text-center">
                                                     <div class="btn-group btn-group-sm" role="group">
-                                                        @if (transaccion.ReconciliationStatus == ConcilationType.NoConciliada)
+                                                        @if (transaccion.Tipo == "Ingreso")
                                                         {
-                                                            <button class="btn btn-outline-primary" 
+                                                            @if (transaccion.ReconciliationStatus == ConcilationType.NoConciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial)
+                                                            {
+                                                                <button class="btn btn-outline-primary"
+                                                                        title="Conciliar manualmente"
+                                                                        @onclick="() => MostrarModalConciliarCuota(transaccion)">
+                                                                    <i class="bi bi-link-45deg"></i>
+                                                                </button>
+                                                            }
+                                                        }
+                                                        else if (transaccion.ReconciliationStatus == ConcilationType.NoConciliada)
+                                                        {
+                                                            <button class="btn btn-outline-primary"
                                                                     title="Conciliar manualmente"
                                                                     @onclick="() => MostrarModalConciliar(transaccion)">
                                                                 <i class="bi bi-link-45deg"></i>
                                                             </button>
-                                                            <button class="btn btn-outline-success" 
+                                                            <button class="btn btn-outline-success"
                                                                     title="Crear gasto desde transacción"
                                                                     @onclick="() => CrearGastoDesdeTransaccion(transaccion)">
                                                                 <i class="bi bi-plus-circle"></i>
@@ -457,7 +493,7 @@
                                     </tbody>
                                 </table>
                                 
-                                @if (!transaccionesFiltradas.Any())
+                                @if (pagination.TotalRecords == 0)
                                 {
                                     <div class="text-center py-5">
                                         <i class="bi bi-search bi-3x text-muted mb-3"></i>
@@ -466,9 +502,66 @@
                                     </div>
                                 }
                             </div>
+
+                            <!-- Paginación: controles -->
+                            @if (pagination.TotalPages > 1)
+                            {
+                                <div class="d-flex flex-wrap justify-content-between align-items-center p-3 border-top">
+                                    <div class="text-muted">
+                                        Página @pagination.CurrentPage de @pagination.TotalPages
+                                    </div>
+                                    <nav aria-label="Paginación de resultados">
+                                        <ul class="pagination pagination-sm mb-0">
+                                            <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToFirstPage" title="Primera página">
+                                                    <i class="bi bi-chevron-double-left"></i>
+                                                </a>
+                                            </li>
+                                            <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToPreviousPage" title="Página anterior">
+                                                    <i class="bi bi-chevron-left"></i>
+                                                </a>
+                                            </li>
+                                            @foreach (var pageNum in pagination.GetPageNumbers())
+                                            {
+                                                if (pageNum == -1)
+                                                {
+                                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                                }
+                                                else
+                                                {
+                                                    <li class="page-item @(pageNum == pagination.CurrentPage ? "active" : "")">
+                                                        <a class="page-link" @onclick="() => pagination.GoToPage(pageNum)">@pageNum</a>
+                                                    </li>
+                                                }
+                                            }
+                                            <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToNextPage" title="Página siguiente">
+                                                    <i class="bi bi-chevron-right"></i>
+                                                </a>
+                                            </li>
+                                            <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToLastPage" title="Última página">
+                                                    <i class="bi bi-chevron-double-right"></i>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="text-muted">Ir a:</span>
+                                        <input type="number" class="form-control form-control-sm" style="width: 70px;"
+                                               min="1" max="@pagination.TotalPages"
+                                               @bind="jumpToPage" @bind:event="oninput" />
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="JumpToPage"
+                                                disabled="@(jumpToPage < 1 || jumpToPage > pagination.TotalPages)">
+                                            Ir
+                                        </button>
+                                    </div>
+                                </div>
+                            }
                         </div>
                     </div>
-                    
+
                     <!-- Pie de tabla con acciones masivas -->
                     @if (transaccionesNoConciliadas.Any(t => t.Selected))
                     {
@@ -778,6 +871,102 @@
 }
 
 
+<!-- Modal para Conciliar Manualmente un Pago (Ingreso) con una o varias cuotas -->
+@if (mostrarModalConciliarCuota && transaccionParaCuota != null)
+{
+    <ErrorBoundary @ref="conciliarCuotaErrorBoundary">
+        <ChildContent>
+            <ConciliarPagoCuotasModal Pago="transaccionParaCuota"
+                                      CuotasDisponibles="cuotaspendientes"
+                                      ErrorExterno="@mensajeError"
+                                      OnClose="CerrarModalConciliarCuota"
+                                      OnConfirmar="ConfirmarConciliarCuotas" />
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <div class="modal-backdrop show"></div>
+            <div class="modal show d-block" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title text-danger">Error al abrir el modal de conciliación</h5>
+                            <button type="button" class="btn-close" @onclick="CerrarModalConciliarCuota"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="fw-bold">@ex.GetType().Name: @ex.Message</p>
+                            <pre class="small text-muted" style="white-space: pre-wrap;">@ex.StackTrace</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
+}
+
+
+<!-- Modal para Ver Detalle de un pago (Ingreso) ya conciliado -->
+@if (mostrarModalVerDetalleIngreso && transaccionDetalleIngreso != null)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-eye me-2"></i>Cuotas asociadas al pago
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalVerDetalleIngreso"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="row mb-3">
+                        <dt class="col-sm-4">Fecha:</dt>
+                        <dd class="col-sm-8">@transaccionDetalleIngreso.StatementDate.ToString("dd/MM/yyyy")</dd>
+                        <dt class="col-sm-4">Descripción:</dt>
+                        <dd class="col-sm-8">@transaccionDetalleIngreso.Description</dd>
+                        <dt class="col-sm-4">Monto:</dt>
+                        <dd class="col-sm-8 fw-bold text-success">@Math.Abs(transaccionDetalleIngreso.Amount).ToString("C")</dd>
+                        <dt class="col-sm-4">Saldo sin aplicar:</dt>
+                        <dd class="col-sm-8">@Math.Abs(transaccionDetalleIngreso.Balance).ToString("C")</dd>
+                    </dl>
+
+                    @{
+                        var pagosDeEstaTransaccion = pagosCuotas.Where(p => p.IdTransaction == transaccionDetalleIngreso.IdStatementDetail).ToList();
+                    }
+                    @if (!pagosDeEstaTransaccion.Any())
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            No se encontraron cuotas asociadas a este pago.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="list-group">
+                            @foreach (var pago in pagosDeEstaTransaccion)
+                            {
+                                var cuota = cuotaspendientes.FirstOrDefault(c => c.IdInstallment == pago.IdInstallment);
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="fw-bold">@(cuota != null ? $"{cuota.OwnerName} (Unidad {cuota.UnitName})" : $"Cuota {pago.IdInstallment}")</span>
+                                        <span class="fw-bold text-success">@pago.Amount.ToString("C")</span>
+                                    </div>
+                                    <small class="text-muted">
+                                        @pago.PaymentDate.ToString("dd/MM/yyyy")
+                                        @if (pago.IsPartialPayment)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1">Pago parcial de la cuota</span>
+                                        }
+                                    </small>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
 @code {
     [Parameter]
     public Guid AccountId { get; set; }
@@ -796,8 +985,12 @@
     private List<TransactionBankDetail> transacciones = new();
     public List<ViewExpense> gastosPendientes = new();
     public List<Installment> cuotaspendientes = new();
-    private List<TransactionBankDetail> transaccionesPendientes = new();
+    private List<InstallmentPaid> pagosCuotas = new();
     private List<Models.Category> FilteredCategory = new();
+
+    // Paginación reutilizando la clase genérica de Models/PaginationClass.cs
+    private PaginationClass<TransactionBankDetail> pagination = new();
+    private int jumpToPage = 1;
 
     // Filtros y estado
     private Guid cuentaSeleccionadaId = Guid.Empty;
@@ -818,6 +1011,12 @@
     private TransactionBankDetail? transaccionSeleccionada = null;
     private TransactionBankDetail? transaccionParaGasto = null;
     private List<ViewExpense> gastosParaConciliar = new();
+
+    private bool mostrarModalConciliarCuota = false;
+    private TransactionBankDetail? transaccionParaCuota = null;
+    private ErrorBoundary? conciliarCuotaErrorBoundary;
+    private bool mostrarModalVerDetalleIngreso = false;
+    private TransactionBankDetail? transaccionDetalleIngreso = null;
 
     // Mensajes
     private string? mensajeExito = null;
@@ -842,7 +1041,6 @@
     private string Ingreso = "Ingreso";
 
     // Propiedades calculadas
-    private List<TransactionBankDetail> transaccionesFiltradas => GetTransaccionesFiltradas();
     private List<TransactionBankDetail> transaccionesConciliadas =>
         transacciones.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada).ToList();
     private List<TransactionBankDetail> transaccionesNoConciliadas =>
@@ -850,6 +1048,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
+
         await CargarDatosIniciales();
         //AccountId = 1;
 
@@ -858,6 +1058,16 @@
             cuentaSeleccionadaId = AccountId;
             await CargarTransacciones();
         }
+    }
+
+    private void ActualizarPaginacion()
+    {
+        pagination.Initialize(GetTransaccionesFiltradas());
+    }
+
+    private void JumpToPage()
+    {
+        pagination.GoToPage(jumpToPage);
     }
 
     private async Task CargarDatosIniciales()
@@ -905,11 +1115,15 @@
             // Cargar Cuotas pendientes del mismo período
             cuotaspendientes = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
+            // Cargar pagos de cuotas ya registrados (para "Ver Detalle" de ingresos conciliados)
+            pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
+
             // Buscar coincidencias automáticas
             await BuscarCoincidencias();
 
             // Calcular estadísticas
             CalcularEstadisticas();
+            ActualizarPaginacion();
 
             mensajeExito = $"Cargadas {transacciones.Count} transacciones";
         }
@@ -998,6 +1212,7 @@
 
             // Recalcular estadísticas
             CalcularEstadisticas();
+            ActualizarPaginacion();
 
             if (!automatico)
             {
@@ -1013,158 +1228,38 @@
         }
     }
 
+    // Único camino para conciliar un Ingreso contra una o varias cuotas: cubre pago menor,
+    // igual y mayor (incluso cubriendo varias cuotas) con la misma lógica de
+    // InstallmentService.AplicarPagoAsync, en vez de mantener una copia local divergente.
     private async Task ConciliarConCuota(TransactionBankDetail transaccion, Installment cuota, bool automatico = false)
+    {
+        await AplicarPagoACuotas(transaccion, new List<Installment> { cuota }, automatico);
+    }
+
+    private async Task<bool> AplicarPagoACuotas(TransactionBankDetail transaccion, List<Installment> cuotas, bool automatico = false)
     {
         try
         {
-            // Validaciones iniciales
             if (transaccion == null) throw new ArgumentNullException(nameof(transaccion));
-            if (cuota == null) throw new ArgumentNullException(nameof(cuota));
+            if (cuotas == null || !cuotas.Any()) throw new ArgumentException("Debe seleccionar al menos una cuota");
 
-            // Calcular saldo pendiente de la cuota
-            var saldoCuotaPendiente = cuota.Amount - cuota.Paids?.Sum(p => p.Amount) ?? 0;
-            var montoTransaccion = Math.Abs(transaccion.Amount);
+            await InstallmentService.AplicarPagoAsync(transaccion, cuotas, BankService, automatico);
 
-            // Caso 1: Montos iguales - Conciliación total
-            if (Math.Abs(montoTransaccion - saldoCuotaPendiente) < 0.01m)
-            {
-                await ConciliarTotalmente(transaccion, cuota, montoTransaccion, automatico);
-            }
-            // Caso 2: Transacción menor a cuota - Conciliación parcial
-            else if (montoTransaccion < saldoCuotaPendiente)
-            {
-                await ConciliarParcialmente(transaccion, cuota, montoTransaccion, automatico);
-            }
-            // Caso 3: Transacción mayor a cuota - Conciliación con sobrante
-            else
-            {
-                await ConciliarConSobrante(transaccion, cuota, saldoCuotaPendiente, automatico);
-            }
-
-            // Actualizar UI y estado
             await ActualizarEstadoPostConciliacion(automatico);
+            return true;
         }
         catch (Exception ex)
         {
             await ManejarErrorConciliacion(ex);
+            return false;
         }
-    }
-
-    private async Task ConciliarTotalmente(TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
-    {
-        // Crear registro de pago
-        var pago = new InstallmentPaid
-        {
-            IdInstallment = cuota.IdInstallment,
-            Amount = monto,
-            PaymentDate = DateTime.Now,
-            IdTransaction = transaccion.IdStatementDetail,
-            IsAutoReconcile = automatico
-        };
-
-        // Actualizar estado de la transacción
-        transaccion.ReconciliationStatus = ConcilationType.Conciliada;
-
-        //transaccion.IdInstallment = cuota.IdInstallment;
-
-        transaccion.ReconciliationDate = DateTime.Now;
-
-        // Actualizar estado de la cuota
-        cuota.Reconciled = true;
-        cuota.ReconciledTransactionId = transaccion.IdStatementDetail;
-        cuota.AutoReconcile = automatico;
-
-        // Guardar en base de datos
-        await InstallmentService.AgregarPagoAsync(pago);
-        await BankService.InstallmentConciliationAsync(transaccion, cuota);
-    }
-
-    private async Task ConciliarParcialmente(TransactionBankDetail transaccion, Installment cuota, decimal monto, bool automatico)
-    {
-        // Crear registro de pago parcial
-        var pagoParcial = new InstallmentPaid
-        {
-            IdPaid = Guid.NewGuid(),
-            IdInstallment = cuota.IdInstallment,
-            Amount = monto,
-            PaymentDate = DateTime.Now,
-            IdTransaction = transaccion.IdStatementDetail,
-            IsAutoReconcile = automatico,
-            IsPartialPayment = true,
-            Status = ConcilationType.Conciliada
-        };
-
-        // Actualizar estado de la transacción (totalmente conciliada)
-        transaccion.ReconciliationStatus = ConcilationType.Conciliada;
-        //transaccion.IdInstallment = cuota.IdInstallment;
-        transaccion.ReconciliationDate = DateTime.Now;
-
-        // Cuota queda parcialmente pagada (no marcamos como Reconciled = true)
-        cuota.LastPartialPaymentDate = DateTime.Now;
-        cuota.AutoReconcile = automatico;
-        cuota.Status = ConcilationType.Parcial;
-
-        // Guardar en base de datos
-        await InstallmentService.AgregarPagoAsync(pagoParcial);
-        await BankService.InstallmentConciliationAsync(transaccion, cuota);
-    }
-
-    private async Task ConciliarConSobrante(TransactionBankDetail transaccion, Installment cuota, decimal saldoCuota, bool automatico)
-    {
-        // 1. Conciliar el saldo pendiente de la cuota
-        var pagoCompleto = new InstallmentPaid
-        {
-            IdPaid = Guid.NewGuid(),
-            IdInstallment = cuota.IdInstallment,
-            Amount = saldoCuota,
-            PaymentDate = DateTime.Now,
-            IdTransaction = transaccion.IdStatementDetail,
-            IsAutoReconcile = automatico,
-            Status = ConcilationType.Conciliada
-        };
-
-        // 2. Actualizar cuota como totalmente conciliada
-        transaccion.ReconciliationStatus = ConcilationType.Parcial;
-        //transaccion.IdInstallment = cuota.IdInstallment;
-        transaccion.ReconciliationDate = DateTime.Now;
-        cuota.Status = ConcilationType.Conciliada;
-
-        cuota.Reconciled = true;
-        cuota.ReconciledTransactionId = transaccion.IdStatementDetail;
-        cuota.AutoReconcile = automatico;
-
-        // 3. Crear transacción sobrante
-        var montoSobrante = Math.Abs(transaccion.Amount) - saldoCuota;
-        var transaccionSobrante = new TransactionBankDetail
-        {
-            Amount = transaccion.Amount > 0 ? montoSobrante : -montoSobrante,
-            StatementDate = transaccion.StatementDate,
-            Description = $"Sobrante de conciliación: {transaccion.Description}",
-            //OriginalDescription = transaccion.OriginalDescription,
-            ReconciliationStatus = ConcilationType.NoConciliada,
-            IdStatementHeader = transaccion.IdStatementHeader,
-            IdStatementDetail = Guid.NewGuid(), // Nuevo ID para la transacción sobrante
-            IdParent = transaccion.IdStatementDetail,
-            Origen = TransactionOrigen.ExcessPayment,
-            SequenceNumber = transaccion.SequenceNumber + 1,
-            Currency = transaccion.Currency
-            // Copiar otras propiedades relevantes
-        };
-
-        // 4. Guardar en base de datos
-        await InstallmentService.AgregarPagoAsync(pagoCompleto);
-        await BankService.InstallmentConciliationAsync(transaccion, cuota);
-        await BankService.CrearTransaccionSobranteAsync(transaccionSobrante);
-
-        // 5. Agregar transacción sobrante a la lista pendiente
-        transaccionesPendientes.Add(transaccionSobrante);
-        transacciones.Add(transaccionSobrante);
     }
 
     private async Task ActualizarEstadoPostConciliacion(bool automatico)
     {
         // Recalcular estadísticas
         CalcularEstadisticas();
+        ActualizarPaginacion();
 
         // Actualizar listas pendientes
         await ActualizarListasPendientes();
@@ -1183,17 +1278,12 @@
 
     private async Task ActualizarListasPendientes()
     {
-        // Remover transacción conciliada de pendientes
-        var transaccionConciliada = transaccionesPendientes
-            .FirstOrDefault(t => t.ReconciliationStatus == ConcilationType.Conciliada);
+        if (ParameterService.CurrentBuilding == null) return;
 
-        if (transaccionConciliada != null)
-        {
-            transaccionesPendientes.Remove(transaccionConciliada);
-        }
-
-        // Opcional: Recargar cuotas pendientes desde el servidor
-        // cuotaspendientes = await InstallmentService.ObtenerCuotasPendientesAsync();
+        // Recargar cuotas pendientes y pagos ya registrados para que "Ver Detalle"
+        // refleje los InstallmentPaid recién creados por AplicarPagoAsync.
+        cuotaspendientes = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+        pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
     }
 
     private async Task ManejarErrorConciliacion(Exception ex)
@@ -1232,9 +1322,15 @@
 
     private async Task DesconciliarTransaccion(TransactionBankDetail transaccion)
     {
+        if (transaccion.Tipo == "Ingreso")
+        {
+            await DesconciliarPagoIngreso(transaccion);
+            return;
+        }
+
         if (transaccion.GastoConciliado == null) return;
 
-        if (await JSRuntime.InvokeAsync<bool>("confirm", 
+        if (await JSRuntime.InvokeAsync<bool>("confirm",
             $"¿Desconciliar transacción '{transaccion.Description}' con gasto '{transaccion.GastoConciliado.Description}'?"))
         {
             try
@@ -1262,6 +1358,38 @@
         }
     }
 
+    private async Task DesconciliarPagoIngreso(TransactionBankDetail transaccion)
+    {
+        var pagosDeEstaTransaccion = pagosCuotas.Where(p => p.IdTransaction == transaccion.IdStatementDetail).ToList();
+        if (!pagosDeEstaTransaccion.Any())
+        {
+            mensajeError = "Este pago no tiene cuotas asociadas para desconciliar.";
+            return;
+        }
+
+        if (!await JSRuntime.InvokeAsync<bool>("confirm",
+            $"¿Desconciliar el pago '{transaccion.Description}' y liberar {pagosDeEstaTransaccion.Count} cuota(s) asociada(s)?"))
+        {
+            return;
+        }
+
+        try
+        {
+            await InstallmentService.RevertirPagoAsync(transaccion, pagosDeEstaTransaccion, BankService);
+
+            CalcularEstadisticas();
+            ActualizarPaginacion();
+            await ActualizarListasPendientes();
+
+            mensajeExito = "Pago desconciliado y cuota(s) liberada(s)";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al desconciliar: {ex.Message}";
+        }
+    }
+
     private void MostrarModalConciliar(TransactionBankDetail transaccion)
     {
         transaccionSeleccionada = transaccion;
@@ -1282,6 +1410,36 @@
         mostrarModalConciliar = false;
         transaccionSeleccionada = null;
         gastosParaConciliar.Clear();
+    }
+
+    private void MostrarModalConciliarCuota(TransactionBankDetail transaccion)
+    {
+        conciliarCuotaErrorBoundary?.Recover();
+        transaccionParaCuota = transaccion;
+        mostrarModalConciliarCuota = true;
+    }
+
+    private void CerrarModalConciliarCuota()
+    {
+        mostrarModalConciliarCuota = false;
+        transaccionParaCuota = null;
+    }
+
+    private async Task ConfirmarConciliarCuotas(List<Installment> cuotasSeleccionadas)
+    {
+        if (transaccionParaCuota == null) return;
+
+        mensajeError = null;
+        var exito = await AplicarPagoACuotas(transaccionParaCuota, cuotasSeleccionadas, automatico: false);
+        if (exito)
+        {
+            mensajeExito = "Pago conciliado con la(s) cuota(s) seleccionada(s)";
+            CerrarModalConciliarCuota();
+        }
+        // Si falló, el modal se queda abierto y mensajeError (seteado por ManejarErrorConciliacion)
+        // le explica al usuario por qué, en vez de mostrar éxito y cerrar de todos modos.
+
+        StateHasChanged();
     }
 
     private void CrearGastoDesdeTransaccion(TransactionBankDetail transaccion)
@@ -1483,6 +1641,7 @@
         try
         {
             await BuscarCoincidencias();
+            ActualizarPaginacion();
             mensajeExito = "Búsqueda de coincidencias completada";
         }
         catch (Exception ex)
@@ -1630,11 +1789,13 @@
     private void CambiarTab(string tab)
     {
         tabActiva = tab;
+        ActualizarPaginacion();
     }
 
     private void FiltrarPorTipo(string? tipo)
     {
         filtroTipo = tipo;
+        ActualizarPaginacion();
     }
 
     private void LimpiarFiltros()
@@ -1642,6 +1803,7 @@
         filtroTipo = null;
         textoBusqueda = "";
         mostrarSoloNoConciliados = false;
+        ActualizarPaginacion();
         DeseleccionarTodo();
     }
 
@@ -1671,6 +1833,7 @@
 
         // Recalcular estadísticas
         CalcularEstadisticas();
+        ActualizarPaginacion();
 
         mensajeExito = $"Se cargaron {nuevasTransacciones.Count} nuevas transacciones";
         CerrarModalCargarEstado();
@@ -1678,7 +1841,14 @@
 
     private void VerDetallesTransaccion(TransactionBankDetail transaccion)
     {
-        // Implementar vista de detalles
+        if (transaccion.Tipo == "Ingreso" && transaccion.ReconciliationStatus != ConcilationType.NoConciliada)
+        {
+            transaccionDetalleIngreso = transaccion;
+            mostrarModalVerDetalleIngreso = true;
+            return;
+        }
+
+        // Gasto (o Ingreso sin conciliar todavía): vista simple existente
         var detalles = $"Fecha: {transaccion.StatementDate:dd/MM/yyyy}\n" +
               $"Descripción: {transaccion.Description}\n" +
               $"Monto: {transaccion.Amount:C}\n" +
@@ -1689,9 +1859,14 @@
         JSRuntime.InvokeVoidAsync("alert", detalles);
     }
 
+    private void CerrarModalVerDetalleIngreso()
+    {
+        mostrarModalVerDetalleIngreso = false;
+        transaccionDetalleIngreso = null;
+    }
+
     public void Dispose()
     {
         // Limpiar recursos si es necesario
     }
-
 }

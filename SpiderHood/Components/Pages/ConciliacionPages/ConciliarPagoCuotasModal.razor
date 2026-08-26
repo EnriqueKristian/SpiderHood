@@ -1,0 +1,175 @@
+﻿@using SpiderHood.Models
+
+<div class="modal-backdrop show"></div>
+<div class="modal show d-block" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-link-45deg me-2"></i>Conciliar Pago con Cuota(s)
+                </h5>
+                <button type="button" class="btn-close" @onclick="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="card">
+                        <div class="card-body py-2">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-3">Fecha:</dt>
+                                <dd class="col-sm-9">@Pago!.StatementDate.ToString("dd/MM/yyyy")</dd>
+                                <dt class="col-sm-3">Descripción:</dt>
+                                <dd class="col-sm-9">@Pago.Description</dd>
+                                <dt class="col-sm-3">Saldo del pago:</dt>
+                                <dd class="col-sm-9 fw-bold text-success">@SaldoPago.ToString("C")</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group mb-3">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control" placeholder="Buscar por propietario o unidad..."
+                           @bind="textoBusqueda" @bind:event="oninput" />
+                </div>
+
+                @if (!CuotasFiltradas.Any())
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        No se encontraron cuotas pendientes que coincidan.
+                    </div>
+                }
+                else
+                {
+                    <div class="list-group" style="max-height: 320px; overflow-y: auto;">
+                        @foreach (var cuota in CuotasFiltradas)
+                        {
+                            <label class="list-group-item d-flex align-items-center gap-3">
+                                <input type="checkbox" class="form-check-input flex-shrink-0"
+                                       checked="@seleccionadas.Contains(cuota)"
+                                       @onchange="(e) => ToggleCuota(cuota, (bool)e.Value!)" />
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="fw-bold">@cuota.OwnerName</span>
+                                        <span class="fw-bold @(cuota.Debt <= 0 ? "text-success" : "text-warning")">
+                                            @cuota.Debt.ToString("C")
+                                        </span>
+                                    </div>
+                                    <small class="text-muted">
+                                        Unidad @cuota.UnitName &middot; Cuota #@cuota.Number &middot; Vence @cuota.DueDate.ToString("dd/MM/yyyy")
+                                        @if (cuota.Status == ConcilationType.Parcial)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1">Parcial</span>
+                                        }
+                                    </small>
+                                </div>
+                            </label>
+                        }
+                    </div>
+                }
+
+                <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
+                    <div>
+                        <span class="text-muted">Total seleccionado:</span>
+                        <span class="fw-bold @(totalSeleccionado > SaldoPago ? "text-danger" : "")">@totalSeleccionado.ToString("C")</span>
+                        <span class="text-muted"> de @SaldoPago.ToString("C")</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(mensajeError))
+                    {
+                        <span class="text-danger small">@mensajeError</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(ErrorExterno))
+                {
+                    <div class="alert alert-danger mt-3 mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>@ErrorExterno
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" @onclick="Cerrar">Cancelar</button>
+                <button class="btn btn-primary" disabled="@(!seleccionadas.Any())" @onclick="Confirmar">
+                    <i class="bi bi-check2 me-2"></i>Conciliar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public TransactionBankDetail? Pago { get; set; }
+    [Parameter] public List<Installment> CuotasDisponibles { get; set; } = new();
+    [Parameter] public string? ErrorExterno { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<List<Installment>> OnConfirmar { get; set; }
+
+    private HashSet<Installment> seleccionadas = new();
+    private string textoBusqueda = "";
+    private string? mensajeError;
+
+    private decimal SaldoPago => Pago == null ? 0 : (Pago.Balance != 0 ? Math.Abs(Pago.Balance) : Math.Abs(Pago.Amount));
+
+    private decimal totalSeleccionado => seleccionadas.Sum(c => c.Debt);
+
+    private IEnumerable<Installment> CuotasFiltradas
+    {
+        get
+        {
+            var candidatas = CuotasDisponibles.Where(c => c.Debt > 0);
+
+            if (Pago != null && Pago.IdGroupUnit != Guid.Empty)
+            {
+                candidatas = candidatas.Where(c => c.IdGroupUnit == Pago.IdGroupUnit);
+            }
+
+            if (!string.IsNullOrWhiteSpace(textoBusqueda))
+            {
+                var termino = textoBusqueda.ToLower();
+                candidatas = candidatas.Where(c =>
+                    c.OwnerName.ToLower().Contains(termino) ||
+                    c.UnitName.ToLower().Contains(termino));
+            }
+
+            return candidatas.OrderBy(c => c.DueDate);
+        }
+    }
+
+    private void ToggleCuota(Installment cuota, bool marcada)
+    {
+        mensajeError = null;
+
+        if (marcada)
+        {
+            if (seleccionadas.Any() && seleccionadas.First().IdGroupUnit != cuota.IdGroupUnit)
+            {
+                mensajeError = "Solo puedes seleccionar cuotas del mismo propietario o grupo de unidad.";
+                return;
+            }
+
+            seleccionadas.Add(cuota);
+        }
+        else
+        {
+            seleccionadas.Remove(cuota);
+        }
+    }
+
+    private async Task Confirmar()
+    {
+        if (!seleccionadas.Any()) return;
+
+        await OnConfirmar.InvokeAsync(seleccionadas.ToList());
+        seleccionadas.Clear();
+        textoBusqueda = "";
+        mensajeError = null;
+    }
+
+    private async Task Cerrar()
+    {
+        seleccionadas.Clear();
+        textoBusqueda = "";
+        mensajeError = null;
+        await OnClose.InvokeAsync();
+    }
+}

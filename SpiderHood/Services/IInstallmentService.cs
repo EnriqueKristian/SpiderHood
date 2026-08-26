@@ -13,6 +13,12 @@ namespace SpiderHood.Services
         Task<List<Models.InstallmentPaid>> GetInstallmentsPaidAsync(Guid IdBuilding);
         Task<int> BuscarCoincidencias(List<Installment> Installments, List<TransactionBankDetail> transacciones);
         Task ConciliarConCuota(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, bool automatico = false);
+
+        // Aplica un pago (transacción bancaria) contra una o varias cuotas seleccionadas.
+        // Reemplaza a ConciliarConCuota/ConciliarTotalmente/ConciliarParcialmente/ConciliarConSobrante
+        // como el único camino para conciliar Ingresos: cubre pago menor, igual y mayor (incluso
+        // cubriendo varias cuotas) con la misma lógica, sin duplicarla en cada página que la usa.
+        Task AplicarPagoAsync(TransactionBankDetail pago, List<Installment> cuotasSeleccionadas, Services.IBankAccountService BankService, bool automatico = false);
     }
 
     public class InstallmentService : IInstallmentService
@@ -311,6 +317,66 @@ namespace SpiderHood.Services
             y!.Balance = y!.Amount - saldoCuota;
             y!.IdGroupUnit = cuota.IdGroupUnit;
             y!.ReconciliationStatus = transaccion.ReconciliationStatus;
+        }
+
+        public async Task AplicarPagoAsync(TransactionBankDetail pago, List<Installment> cuotasSeleccionadas, Services.IBankAccountService BankService, bool automatico = false)
+        {
+            if (pago == null) throw new ArgumentNullException(nameof(pago));
+            if (cuotasSeleccionadas == null || !cuotasSeleccionadas.Any())
+                throw new ArgumentException("Debe seleccionar al menos una cuota para conciliar el pago.");
+
+            // Regla: un pago solo puede asociarse a un propietario o Grupo de Unidad.
+            var idGroupUnit = cuotasSeleccionadas.First().IdGroupUnit;
+            if (cuotasSeleccionadas.Any(c => c.IdGroupUnit != idGroupUnit))
+                throw new InvalidOperationException("Todas las cuotas seleccionadas deben pertenecer al mismo propietario o grupo de unidad.");
+            if (pago.IdGroupUnit != Guid.Empty && pago.IdGroupUnit != idGroupUnit)
+                throw new InvalidOperationException("Este pago ya fue asociado a otro propietario o grupo de unidad.");
+
+            // Saldo disponible del pago: si ya se le aplicó algo antes, Balance ya refleja lo
+            // restante; si es la primera aplicación, Balance todavía no se ha inicializado.
+            var saldoRestante = pago.Balance != 0 ? Math.Abs(pago.Balance) : Math.Abs(pago.Amount);
+
+            foreach (var cuota in cuotasSeleccionadas.OrderBy(c => c.DueDate).ThenBy(c => c.Number))
+            {
+                if (saldoRestante <= 0) break;
+                if (cuota.Debt <= 0) continue;
+
+                var montoAplicado = Math.Min(cuota.Debt, saldoRestante);
+                var esPagoParcialDeCuota = montoAplicado < cuota.Debt;
+
+                var pagoCuota = new InstallmentPaid
+                {
+                    IdPaid = Guid.NewGuid(),
+                    IdInstallment = cuota.IdInstallment,
+                    Amount = montoAplicado,
+                    PaymentDate = DateTime.Now,
+                    IdTransaction = pago.IdStatementDetail,
+                    IsAutoReconcile = automatico,
+                    IsPartialPayment = esPagoParcialDeCuota,
+                    Status = ConcilationType.Conciliada
+                };
+
+                // Cuota: Conciliada si el pago cubrió toda su deuda, Parcial si quedó un resto.
+                cuota.Status = esPagoParcialDeCuota ? ConcilationType.Parcial : ConcilationType.Conciliada;
+                cuota.Debt -= montoAplicado;
+                cuota.AmountPaid += montoAplicado;
+                cuota.Reconciled = !esPagoParcialDeCuota;
+                cuota.ReconciledTransactionId = pago.IdStatementDetail;
+                cuota.AutoReconcile = automatico;
+                if (esPagoParcialDeCuota) cuota.LastPartialPaymentDate = DateTime.Now;
+
+                await AgregarPagoAsync(pagoCuota);
+                await BankService.InstallmentConciliationAsync(pago, cuota);
+
+                saldoRestante -= montoAplicado;
+            }
+
+            // El pago queda ligado a este propietario/grupo de unidad; mientras tenga saldo
+            // disponible puede seguir cubriendo más cuotas del mismo grupo más adelante.
+            pago.IdGroupUnit = idGroupUnit;
+            pago.Balance = saldoRestante;
+            pago.ReconciliationStatus = saldoRestante <= 0 ? ConcilationType.Conciliada : ConcilationType.Parcial;
+            pago.ReconciliationDate = DateTime.Now;
         }
     }
 

@@ -112,7 +112,7 @@ namespace SpiderHood.Data
                     installment.Status,
                     transaction.ReconciliationStatus);
                 return true;
-            }, "ClosePastBudgets", cancellationToken);
+            }, "ConciliarInstallment", cancellationToken);
         }
 
         public async Task<bool> AcceptInvitationAsync(UserBuildingAssociation invitation, CancellationToken cancellationToken = default)

@@ -369,18 +369,23 @@ namespace SpiderHood.Services
                 cuota.AutoReconcile = automatico;
                 if (esPagoParcialDeCuota) cuota.LastPartialPaymentDate = DateTime.Now;
 
+                saldoRestante -= montoAplicado;
+
+                // El pago queda ligado a este propietario/grupo de unidad; mientras tenga saldo
+                // disponible puede seguir cubriendo más cuotas del mismo grupo más adelante.
+                // Esto se actualiza ANTES de persistir: InstallmentConciliationAsync escribe
+                // pago.ReconciliationStatus tal cual está en este momento, así que si se deja
+                // el valor viejo (NoConciliada) hasta después del loop, la BD nunca se entera
+                // de que el pago quedó Conciliada/Parcial y una recarga lo muestra otra vez
+                // como Pendiente aunque en memoria ya se viera bien.
+                pago.IdGroupUnit = idGroupUnit;
+                pago.Balance = saldoRestante;
+                pago.ReconciliationStatus = saldoRestante <= 0 ? ConcilationType.Conciliada : ConcilationType.Parcial;
+                pago.ReconciliationDate = DateTime.Now;
+
                 await AgregarPagoAsync(pagoCuota);
                 await BankService.InstallmentConciliationAsync(pago, cuota);
-
-                saldoRestante -= montoAplicado;
             }
-
-            // El pago queda ligado a este propietario/grupo de unidad; mientras tenga saldo
-            // disponible puede seguir cubriendo más cuotas del mismo grupo más adelante.
-            pago.IdGroupUnit = idGroupUnit;
-            pago.Balance = saldoRestante;
-            pago.ReconciliationStatus = saldoRestante <= 0 ? ConcilationType.Conciliada : ConcilationType.Parcial;
-            pago.ReconciliationDate = DateTime.Now;
         }
 
         public async Task RevertirPagoAsync(TransactionBankDetail pago, List<InstallmentPaid> pagosDeEstaTransaccion, Services.IBankAccountService BankService)

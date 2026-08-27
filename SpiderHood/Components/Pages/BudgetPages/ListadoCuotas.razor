@@ -3,10 +3,9 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @using SpiderHood.Utilities
-@inject NavigationManager Navigation
 @inject ParameterService ParameterService
 @inject IInstallmentService InstallmentService
-@inject IBudgetService BudgetService
+@inject IBankAccountService BankAccountService
 
 <PageTitle>Listado de Cuotas</PageTitle>
 
@@ -175,22 +174,11 @@
                                                     <span class="@GetDeudaClass(item)">S/ @item.Debt.ToString("N2")</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    @if (item.Status == ConcilationType.Conciliada)
-                                                    {
-                                                        <span class="badge bg-success">Pagada</span>
-                                                    }
-                                                    else if (item.Status == ConcilationType.Parcial)
-                                                    {
-                                                        <span class="badge bg-info text-dark">Parcial</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="badge bg-warning">Pendiente</span>
-                                                    }
+                                                    <span class="@EstadoBadgeClass(item)">@EstadoBadgeText(item)</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => IrAlPresupuesto(item)">
-                                                        <i class="bi bi-box-arrow-up-right me-1"></i>Ir al Presupuesto
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(item)">
+                                                        <i class="bi bi-eye me-1"></i>Ver Detalle
                                                     </button>
                                                 </td>
                                             </tr>
@@ -269,6 +257,92 @@
     </div>
 </div>
 
+<Modal @ref="detalleModal" Title="Detalle de Cuota" Size="ModalSize.Large">
+    <BodyTemplate>
+        @if (selectedInstallment != null)
+        {
+            <div class="row g-3 mb-2">
+                <div class="col-md-6">
+                    <small class="text-muted d-block">Unidad</small>
+                    <span class="fw-bold">@selectedInstallment.UnitName</span>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted d-block">Propietario</small>
+                    <span class="fw-bold">@selectedInstallment.OwnerName</span>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Periodo</small>
+                    @selectedInstallment.Period.ToString("MMM-yy")
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Vencimiento</small>
+                    @selectedInstallment.DueDate.ToString("dd/MM/yyyy")
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Estado</small>
+                    <span class="@EstadoBadgeClass(selectedInstallment)">@EstadoBadgeText(selectedInstallment)</span>
+                </div>
+                <div class="col-md-3">
+                    <small class="text-muted d-block">Total Cuota</small>
+                    S/ @selectedInstallment.Amount.ToString("N2")
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Pagado</small>
+                    S/ @selectedInstallment.AmountPaid.ToString("N2")
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Deuda</small>
+                    <span class="@GetDeudaClass(selectedInstallment)">S/ @selectedInstallment.Debt.ToString("N2")</span>
+                </div>
+            </div>
+
+            @if (selectedInstallment.Status == ConcilationType.Parcial || selectedInstallment.Status == ConcilationType.Conciliada)
+            {
+                <hr />
+                <h6 class="mb-2"><i class="bi bi-link-45deg me-1"></i>Transacción asociada</h6>
+
+                @if (cargandoTransacciones)
+                {
+                    <div class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    </div>
+                }
+                else if (!transaccionesAsociadas.Any())
+                {
+                    <p class="text-muted mb-0">No se encontró la transacción asociada.</p>
+                }
+                else
+                {
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Monto aplicado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var pago in transaccionesAsociadas)
+                            {
+                                <tr>
+                                    <td>@pago.Fecha.ToString("dd/MM/yyyy")</td>
+                                    <td>@pago.Descripcion</td>
+                                    <td class="text-end">S/ @pago.Monto.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            }
+        }
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-secondary" @onclick="() => detalleModal.HideAsync()">
+            <i class="bi bi-x-lg me-1"></i>Cerrar
+        </button>
+    </FooterTemplate>
+</Modal>
+
 @code {
     private List<Installment> allInstallments = new();
     private InstallmentPagination pagination = new();
@@ -276,6 +350,11 @@
     private string searchTerm = string.Empty;
     private string filtroEstado = "todos";
     private DateTime? filtroPeriodo = null;
+
+    private Modal detalleModal = null!;
+    private Installment? selectedInstallment;
+    private bool cargandoTransacciones;
+    private List<PagoAsociado> transaccionesAsociadas = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -365,15 +444,55 @@
             });
     }
 
-    private async Task IrAlPresupuesto(Installment item)
+    private string EstadoBadgeClass(Installment item) => item.Status switch
     {
-        var presupuesto = await BudgetService.GetPresupuestoByIdAsync(item.IdBudgetHeader);
-        if (presupuesto == null)
-        {
-            return;
-        }
+        ConcilationType.Conciliada => "badge bg-success",
+        ConcilationType.Parcial => "badge bg-info text-dark",
+        _ => "badge bg-warning"
+    };
 
-        BudgetService._SelectedBudget = presupuesto;
-        Navigation.NavigateTo("/budgetgenerator");
+    private string EstadoBadgeText(Installment item) => item.Status switch
+    {
+        ConcilationType.Conciliada => "Pagada",
+        ConcilationType.Parcial => "Parcial",
+        _ => "Pendiente"
+    };
+
+    private async Task VerDetalle(Installment item)
+    {
+        selectedInstallment = item;
+        transaccionesAsociadas = new();
+
+        var tieneConciliacion = item.Status == ConcilationType.Parcial || item.Status == ConcilationType.Conciliada;
+        cargandoTransacciones = tieneConciliacion;
+
+        await detalleModal.ShowAsync();
+
+        if (tieneConciliacion && ParameterService.CurrentBuilding != null)
+        {
+            var pagos = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
+            var pagosDeEstaCuota = pagos.Where(p => p.IdInstallment == item.IdInstallment).ToList();
+
+            if (pagosDeEstaCuota.Any())
+            {
+                // GetStatementDetailsByBuildingAsync ya lo usa la pestaña Detalle de /movement
+                // para resolver la transacción bancaria detrás de un pago (no hay un
+                // "GetTransactionByIdAsync" suelto en el servicio).
+                var detalles = await BankAccountService.GetStatementDetailsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding, null);
+
+                transaccionesAsociadas = pagosDeEstaCuota
+                    .Select(p => new PagoAsociado(
+                        p.PaymentDate,
+                        detalles.FirstOrDefault(d => d.IdStatementDetail == p.IdTransaction)?.Description ?? "Transacción no encontrada",
+                        p.Amount))
+                    .OrderByDescending(p => p.Fecha)
+                    .ToList();
+            }
+
+            cargandoTransacciones = false;
+            StateHasChanged();
+        }
     }
+
+    private record PagoAsociado(DateTime Fecha, string Descripcion, decimal Monto);
 }

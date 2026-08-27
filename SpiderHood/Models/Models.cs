@@ -123,6 +123,7 @@ namespace SpiderHood.Models
         public Guid IdBankAccount { get; set; }
         public string AccountName { get; set; } = "";
         public string AccountNumber { get; set; } = "";
+        public string CCI { get; set; } = "";
         public string BankName { get; set; } = "";
         public int AccountType { get; set; }  // Ahorros, Corriente, etc.
         [Precision(18, 2)]
@@ -1001,7 +1002,6 @@ namespace SpiderHood.Models
         public string ParentPermissionKey { get; set; } = string.Empty;
     }
 
-    
     public class RolePermissionCheck
     {
         public Guid IdRole { get; set; }

@@ -230,12 +230,15 @@
                                                         {
                                                             var index = i;
                                                             <div class="d-flex align-items-center mb-2">
-                                                                <InputText @bind-Value="SelectedBuilding.Configuration.BankAccounts[index].BankName" 
-                                                                           class="form-control form-control-sm me-2" 
+                                                                <InputText @bind-Value="SelectedBuilding.Configuration.BankAccounts[index].BankName"
+                                                                           class="form-control form-control-sm me-2"
                                                                            placeholder="Nombre del banco" />
-                                                                <InputText @bind-Value="SelectedBuilding.Configuration.BankAccounts[index].AccountNumber" 
-                                                                           class="form-control form-control-sm" 
+                                                                <InputText @bind-Value="SelectedBuilding.Configuration.BankAccounts[index].AccountNumber"
+                                                                           class="form-control form-control-sm me-2"
                                                                            placeholder="Número de cuenta" />
+                                                                <InputText @bind-Value="SelectedBuilding.Configuration.BankAccounts[index].AccountName"
+                                                                           class="form-control form-control-sm"
+                                                                           placeholder="Titular de la cuenta" />
                                                                 @if (SelectedBuilding.Configuration.BankAccounts.Count > 1)
                                                                 {
                                                                     <button type = "button" class= "btn btn-outline-secondary"
@@ -285,6 +288,14 @@
                                                             <div>
                                                                 <div class="fw-semibold">@account.BankName</div>
                                                                 <div class="text-muted small">Cuenta: @account.AccountNumber</div>
+                                                                @if (!string.IsNullOrWhiteSpace(account.AccountName))
+                                                                {
+                                                                    <div class="text-muted small">Titular: @account.AccountName</div>
+                                                                }
+                                                                @if (!string.IsNullOrWhiteSpace(account.CCI))
+                                                                {
+                                                                    <div class="text-muted small">CCI: @account.CCI</div>
+                                                                }
                                                             </div>
                                                         </div>
                                                     }
@@ -475,8 +486,19 @@
                                                             </div>
                                                         </div>
                                                     </div>
+                                                    <div class="col-12">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Texto del pie del recibo</label>
+                                                            <textarea class="form-control form-control-sm" rows="2"
+                                                                      placeholder="Ej: Depositar en {Banco} Cta. {NroCta} - Titular: {Titular}. Consultas: {CorreoADM}"
+                                                                      @bind="SelectedBuilding.Configuration.ReceiptFooterText"></textarea>
+                                                            <small class="text-muted">
+                                                                Placeholders disponibles: {DPTO}, {Propietario}, {NroCta}, {Banco}, {Titular}, {Administrador}, {CorreoADM}.
+                                                            </small>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                
+
                                                 <div class="action-buttons">
                                                     <button type="button" class="btn btn-sm btn-primary" @onclick='() => SaveSection("fines")'>
                                                         <i class="bi bi-check"></i> Guardar
@@ -523,6 +545,12 @@
                                                 <div class="col-md-6">
                                                     <label class="form-label small text-muted">Deuda crítica (rojo)</label>
                                                     <div class="fw-semibold">Después de @SelectedBuilding.Configuration.DebtCriticalDays días</div>
+                                                </div>
+                                                <div class="col-12">
+                                                    <label class="form-label small text-muted">Texto del pie del recibo</label>
+                                                    <div class="fw-semibold">
+                                                        @(string.IsNullOrWhiteSpace(SelectedBuilding.Configuration.ReceiptFooterText) ? "(sin configurar)" : SelectedBuilding.Configuration.ReceiptFooterText)
+                                                    </div>
                                                 </div>
                                             </div>
                                         }
@@ -1213,6 +1241,18 @@
                         <label class="form-label">Nro. de cuenta *</label>
                         <InputText @bind-Value="_editingBankAccout.AccountNumber" class="form-control" />
                         <ValidationMessage For="@(() => _editingBankAccout.AccountNumber)" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Titular</label>
+                        <InputText @bind-Value="_editingBankAccout.AccountName" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">CCI</label>
+                        <InputText @bind-Value="_editingBankAccout.CCI" class="form-control" />
                     </div>
                 </div>
                 <div class="col-md-6">

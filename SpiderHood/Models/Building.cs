@@ -70,6 +70,13 @@ namespace SpiderHood.Models
         public int DebtWarningDays { get; set; } = 30;
         public int DebtCriticalDays { get; set; } = 60;
 
+        // Texto configurable del pie del recibo de mantenimiento (PDF), con placeholders
+        // {DPTO}, {Propietario}, {NroCta}, {Banco}, {Titular}, {CCI}, {Administrador},
+        // {CorreoADM} resueltos por InstallmentExportService al generar el recibo ({CCI}
+        // sale de BankAccount.CCI). Vacío = se omite (el recibo solo muestra "Generado
+        // el: ..."). Columna agregada por
+        public string ReceiptFooterText { get; set; } = "";
+
         [NotMapped]
         public Contact AdminContact { get; set; } = new();
         [NotMapped]

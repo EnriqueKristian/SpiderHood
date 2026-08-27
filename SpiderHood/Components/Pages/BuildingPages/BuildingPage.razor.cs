@@ -416,6 +416,17 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
                 await BuildingService.UpdateConfigurationAsync(SelectedBuilding.Configuration);
 
+                // ParameterService.CurrentBuilding se carga una sola vez al iniciar sesión
+                // (HeaderMainLayout) y no se refresca solo — sin este sync, un cambio como
+                // el pie del recibo o el CCI quedaba guardado en BD pero el resto de la app
+                // (p.ej. el recibo PDF, que lee ParameterService.CurrentBuilding.Configuration)
+                // seguía viendo el valor viejo hasta un relogin.
+                if (ParameterService.CurrentBuilding != null &&
+                    ParameterService.CurrentBuilding.IdBuilding == SelectedBuilding.IdBuilding)
+                {
+                    ParameterService.CurrentBuilding.Configuration = SelectedBuilding.Configuration.Clone();
+                }
+
                 _editingSection = "";
                 StateHasChanged();
             }

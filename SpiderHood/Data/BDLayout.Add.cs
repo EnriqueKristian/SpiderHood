@@ -376,9 +376,10 @@ namespace SpiderHood.Data
                     bankaccount.BankName!,
                     bankaccount.AccountType!,
                     bankaccount.IdBuilding!,
-                    bankaccount.Status!);
+                    bankaccount.Status!,
+                    bankaccount.CCI!);
                 return bankaccount;
-            }, "AddExoneration", cancellationToken);
+            }, "AddBankAccount", cancellationToken);
         }
 
         public async Task<Exoneration> AddNewRecordAsync(Exoneration exoneration, CancellationToken cancellationToken = default)
@@ -523,7 +524,8 @@ namespace SpiderHood.Data
                     category.Distribution,
                     category.ParentId! == Guid.Empty ? null! : category.ParentId!,
                     category.IdBuilding,
-                    category.Nivel);
+                    category.Nivel,
+                    category.ShowDetailInReceipt);
                 return category;
             }, "AddCategory", cancellationToken);
         }

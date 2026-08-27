@@ -163,7 +163,10 @@ namespace SpiderHood.Data
                     configuration.DefaultFixedCharge!,
                     configuration.DefaultCategory!,
                     configuration.WaterReadingDefault!,
-                    configuration.IdBuilding!);
+                    configuration.IdBuilding!,
+                    configuration.DebtWarningDays!,
+                    configuration.DebtCriticalDays!,
+                    configuration.ReceiptFooterText!);
                 return configuration;
             }, "UpdateBuildingConfiguration", cancellationToken);
         }
@@ -182,7 +185,8 @@ namespace SpiderHood.Data
                     bankaccount.AccountNumber!,
                     bankaccount.BankName!,
                     bankaccount.AccountType!,
-                    bankaccount.Status!);
+                    bankaccount.Status!,
+                    bankaccount.CCI!);
                 return bankaccount;
             }, "UpdateBankAccount", cancellationToken);
         }
@@ -259,7 +263,8 @@ namespace SpiderHood.Data
                     category.ShortDescript!,
                     category.Color!,
                     category.Icon!,
-                    category.Distribution!);
+                    category.Distribution!,
+                    category.ShowDetailInReceipt);
                 return category;
             }, "UpdateCategory", cancellationToken);
         }

@@ -65,8 +65,7 @@ namespace SpiderHood.Models
         // Días de atraso (desde la fecha de vencimiento) que definen cómo se resalta la
         // deuda de una cuota en el Listado de Cuotas: <= DebtWarningDays sin color,
         // entre DebtWarningDays y DebtCriticalDays en naranja, > DebtCriticalDays en rojo.
-        // NOTA: por ahora solo viven en memoria - UPD_BuildingConfiguration todavía no los
-        // guarda, falta actualizar el stored procedure/columna en la base de datos.
+        // Columnas agregadas por Database/Migrations/2026-08-27_BuildingConfiguration_DebtThresholds.sql.
         public int DebtWarningDays { get; set; } = 30;
         public int DebtCriticalDays { get; set; } = 60;
 

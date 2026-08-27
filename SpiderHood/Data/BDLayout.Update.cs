@@ -163,7 +163,9 @@ namespace SpiderHood.Data
                     configuration.DefaultFixedCharge!,
                     configuration.DefaultCategory!,
                     configuration.WaterReadingDefault!,
-                    configuration.IdBuilding!);
+                    configuration.IdBuilding!,
+                    configuration.DebtWarningDays!,
+                    configuration.DebtCriticalDays!);
                 return configuration;
             }, "UpdateBuildingConfiguration", cancellationToken);
         }

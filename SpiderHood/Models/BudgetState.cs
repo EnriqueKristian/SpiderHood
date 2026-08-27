@@ -118,6 +118,7 @@ namespace SpiderHood.Models
                     IdInstallment = Guid.NewGuid(),
                     IdBudgetHeader = _state.Budget.IdBudgetHeader,
                     CreationDate = DateTime.Now, //_Budget.BudgetDate;
+                    Period = _state.Budget.BudgetDate,
                     TotalArea = unit.TotalArea,
                     UnitName = unit.UnitNumber,
                      Number = int.Parse(unit.UnitNumber),

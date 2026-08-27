@@ -947,15 +947,28 @@ public class InstallmentExportService
                 {
                     page.Size(PageSizes.A4);
                     page.Margin(20);
-                    page.DefaultTextStyle(x => x.FontSize(10));
+                    page.DefaultTextStyle(x => x.FontSize(9));
 
-                    page.Header().Element(ComposeHeader);
-                    page.Content().Element(ComposeContent);
-                    page.Footer().Element(ComposeFooter);
+                    page.Content().Element(ComposeReceipt);
                 });
             });
 
             return document.GeneratePdf();
+        }
+
+        // Todo el recibo (cabecera, datos del propietario, tabla y pie) se arma en un
+        // solo bloque con un borde exterior continuo, igual que el recibo de referencia
+        // (una hoja enmarcada de punta a punta) — antes se usaba page.Header()/Footer()
+        // por separado, lo que dejaba cajas independientes que no calzaban visualmente.
+        private void ComposeReceipt(IContainer container)
+        {
+            container.Border(1).BorderColor(Colors.Black).Column(column =>
+            {
+                column.Item().Element(ComposeHeader);
+                column.Item().Element(ComposeOwnerRow);
+                column.Item().Padding(10).Element(ComposeTable);
+                column.Item().Element(ComposeFooter);
+            });
         }
 
         private void ComposeHeader(IContainer container)
@@ -964,115 +977,129 @@ public class InstallmentExportService
                 ? _building.Name.ToUpper()
                 : $"{_building.Name} - {_building.Location}".ToUpper();
 
-            container.Column(column =>
+            var periodo = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
+
+            container.BorderBottom(1).BorderColor(Colors.Black).Padding(10).Row(row =>
             {
-                column.Item().AlignCenter().Text(titulo)
-                    .FontSize(14).Bold();
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().AlignCenter().Text(titulo).FontSize(14).Bold();
+                    col.Item().AlignCenter().Text("Recibo de Mantenimiento").FontSize(12).Bold();
+                });
 
-                column.Item().AlignCenter().Text("Recibo de Mantenimiento")
-                    .FontSize(12).Bold().FontColor(Colors.Blue.Medium);
-
-                column.Item().Height(2).LineHorizontal(1);
+                row.ConstantItem(110).Column(col =>
+                {
+                    col.Item().AlignRight().Text("FECHA:").FontSize(8).Bold();
+                    col.Item().AlignRight().Text(periodo).FontSize(11).Bold();
+                });
             });
         }
 
-        private void ComposeContent(IContainer container)
+        private void ComposeOwnerRow(IContainer container)
         {
-            container.PaddingVertical(10).Column(column =>
+            container.BorderBottom(1).BorderColor(Colors.Black).Padding(10).Row(row =>
             {
-                // Información del propietario
-                column.Item().Row(row =>
+                row.RelativeItem().Text($"NOMBRE: {_installment.OwnerName.ToUpper()}")
+                    .FontSize(10).Bold();
+
+                row.ConstantItem(90).Background(Colors.Grey.Lighten3).AlignCenter()
+                    .Text($"DPTO {_installment.UnitName}").FontSize(10).Bold();
+
+                row.ConstantItem(90).AlignRight().Text($"Part.: {_installment.Percent:N2}%")
+                    .FontSize(10).Bold();
+            });
+        }
+
+        private void ComposeTable(IContainer container)
+        {
+            container.Table(table =>
+            {
+                // Definir columnas
+                table.ColumnsDefinition(columns =>
                 {
-                    row.RelativeItem().Text($"NOMBRE: {_installment.OwnerName.ToUpper()}")
-                        .FontSize(11).Bold();
-
-                    row.ConstantItem(100).AlignRight().Text($"DPTO: {_installment.UnitName}")
-                        .FontSize(11).Bold();
-
-                    row.ConstantItem(100).AlignRight().Text($"Part.: {_installment.Percent:N2}%")
-                        .FontSize(11).Bold();
+                    columns.RelativeColumn(3); // DESCRIPCION
+                    columns.ConstantColumn(80); // PRESUP
+                    columns.ConstantColumn(80); // CUOTA
+                    columns.ConstantColumn(80); // DISTRIB.
                 });
 
-                column.Item().Height(10);
-
-                // Tabla principal
-                column.Item().Table(table =>
+                // Encabezado de la tabla
+                table.Header(header =>
                 {
-                    // Definir columnas
-                    table.ColumnsDefinition(columns =>
+                    header.Cell().ColumnSpan(4).PaddingBottom(5);
+
+                    header.Cell().Text("DESCRIPCION").Bold();
+                    header.Cell().AlignRight().Text("PRESUP").Bold();
+                    header.Cell().AlignRight().Text("CUOTA").Bold();
+                    header.Cell().AlignRight().Text("DISTRIB.").Bold();
+                });
+
+                decimal totalCuota = 0;
+
+                // Secciones reales del presupuesto de este edificio (headers de
+                // BudgetDetail), en vez de las 6 categorías con GUIDs hardcodeados de
+                // un único edificio que traía este generador antes — mismo criterio de
+                // agrupación que ya usa InstallmentDetailModal.GetSections().
+                foreach (var section in GetSections())
+                {
+                    var sectionItems = _budget.Details
+                        .Where(x => x.IdSection == section.Id && !x.IsHeader)
+                        .ToList();
+
+                    if (!sectionItems.Any())
                     {
-                        columns.RelativeColumn(3); // DESCRIPCION
-                        columns.ConstantColumn(80); // PRESUP
-                        columns.ConstantColumn(80); // CUOTA
-                        columns.ConstantColumn(80); // DISTRIB.
-                    });
+                        continue;
+                    }
 
-                    // Encabezado de la tabla
-                    table.Header(header =>
+                    AddSectionHeader(table, section.Name);
+
+                    // Subtotal por sección (PRESUP y CUOTA), igual que el recibo de
+                    // referencia — cada bloque cierra con su propia línea de totales.
+                    decimal sectionPresup = 0;
+                    decimal sectionCuota = 0;
+
+                    foreach (var item in sectionItems)
                     {
-                        header.Cell().ColumnSpan(4).PaddingBottom(5);
+                        var amount = CalculateItemAmount(item);
+                        totalCuota += amount;
+                        sectionPresup += item.MonthlyAmount;
+                        sectionCuota += amount;
+                        AddTableRow(table, item.Description,
+                            item.MonthlyAmount, amount, item.Type);
 
-                        header.Cell().Text("DESCRIPCION").Bold();
-                        header.Cell().AlignRight().Text("PRESUP").Bold();
-                        header.Cell().AlignRight().Text("CUOTA").Bold();
-                        header.Cell().AlignRight().Text("DISTRIB.").Bold();
-                    });
-
-                    decimal totalCuota = 0;
-
-                    // Secciones reales del presupuesto de este edificio (headers de
-                    // BudgetDetail), en vez de las 6 categorías con GUIDs hardcodeados de
-                    // un único edificio que traía este generador antes — mismo criterio de
-                    // agrupación que ya usa InstallmentDetailModal.GetSections().
-                    foreach (var section in GetSections())
-                    {
-                        var sectionItems = _budget.Details
-                            .Where(x => x.IdSection == section.Id && !x.IsHeader)
-                            .ToList();
-
-                        if (!sectionItems.Any())
+                        // Fila de detalle de consumo (Lectura Anterior/Actual/m³) del
+                        // ítem de agua por departamento, igual que en el modal de detalle.
+                        if (item.IdCategory == _building.Configuration.WaterReadingDefault)
                         {
-                            continue;
-                        }
+                            var waterReading = _waterReadings?
+                                .FirstOrDefault(w => w.IdGroupUnit == _installment.IdGroupUnit);
 
-                        AddSectionHeader(table, section.Name);
-
-                        foreach (var item in sectionItems)
-                        {
-                            var amount = CalculateItemAmount(item);
-                            totalCuota += amount;
-                            AddTableRow(table, item.Description,
-                                item.MonthlyAmount, amount, item.Type);
-
-                            // Fila de detalle de consumo (Lectura Anterior/Actual/m³) del
-                            // ítem de agua por departamento, igual que en el modal de detalle.
-                            if (item.IdCategory == _building.Configuration.WaterReadingDefault)
+                            if (waterReading != null)
                             {
-                                var waterReading = _waterReadings?
-                                    .FirstOrDefault(w => w.IdGroupUnit == _installment.IdGroupUnit);
-
-                                if (waterReading != null)
-                                {
-                                    totalCuota += waterReading.CalculatedAmount;
-                                    AddTableRow(table,
-                                        $"Lectura de Agua (Ant: {waterReading.PreviousReading} / Act: {waterReading.CurrentReading} / Consumo: {waterReading.Consumption} m³)",
-                                        0, waterReading.CalculatedAmount, 3);
-                                }
+                                totalCuota += waterReading.CalculatedAmount;
+                                sectionCuota += waterReading.CalculatedAmount;
+                                AddTableRow(table,
+                                    $"Lectura de Agua (Ant: {waterReading.PreviousReading} / Act: {waterReading.CurrentReading} / Consumo: {waterReading.Consumption} m³)",
+                                    0, waterReading.CalculatedAmount, 3);
                             }
                         }
                     }
 
-                    // TOTAL CUOTA
-                    var periodo = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
-                    table.Cell().ColumnSpan(4).PaddingTop(10);
-                    table.Cell().ColumnSpan(3).Text($"TOTAL CUOTA {periodo}").Bold();
-                    table.Cell().AlignRight().Text($"S/ {totalCuota:N2}").Bold().FontSize(11);
+                    AddSectionSubtotal(table, sectionPresup, sectionCuota);
+                }
 
-                    // "DEUDAS ANTERIORES" (cuotas ordinarias/extraordinarias de periodos
-                    // previos, histórico de agua) queda pendiente: hoy no existe ninguna
-                    // consulta que traiga cuotas de un mismo IdGroupUnit a través de varios
-                    // periodos — se retoma en una fase aparte en vez de mostrar "S/ 0.00" fijo.
-                });
+                // TOTAL CUOTA, en una barra sombreada como en la referencia.
+                var periodo = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
+                table.Cell().ColumnSpan(4).PaddingTop(10);
+                table.Cell().ColumnSpan(3).Background(Colors.Grey.Lighten3).Padding(5)
+                    .Text($"TOTAL CUOTA {periodo}").Bold();
+                table.Cell().Background(Colors.Grey.Lighten3).Padding(5).AlignRight()
+                    .Text($"S/ {totalCuota:N2}").Bold().FontSize(11);
+
+                // "DEUDAS ANTERIORES" (cuotas ordinarias/extraordinarias de periodos
+                // previos, histórico de agua) queda pendiente: hoy no existe ninguna
+                // consulta que traiga cuotas de un mismo IdGroupUnit a través de varios
+                // periodos — se retoma en una fase aparte en vez de mostrar "S/ 0.00" fijo.
             });
         }
 
@@ -1080,16 +1107,16 @@ public class InstallmentExportService
         {
             var footerText = ResolveFooterText();
 
-            container.AlignCenter().Column(column =>
+            container.Padding(10).Column(column =>
             {
-                column.Item().PaddingTop(10).LineHorizontal(1);
-
                 if (!string.IsNullOrWhiteSpace(footerText))
                 {
-                    column.Item().PaddingTop(5).Text(footerText).FontSize(8);
+                    column.Item().Border(1).BorderColor(Colors.Black).Padding(8)
+                        .Text(footerText).FontSize(8).Italic();
+                    column.Item().Height(6);
                 }
 
-                column.Item().PaddingTop(5).Text(text =>
+                column.Item().AlignCenter().Text(text =>
                 {
                     text.Span("Generado el: ").FontSize(8);
                     text.Span($"{DateTime.Now:dd/MM/yyyy HH:mm}").Bold().FontSize(8);
@@ -1123,7 +1150,19 @@ public class InstallmentExportService
         private void AddSectionHeader(TableDescriptor table, string title)
         {
             table.Cell().ColumnSpan(4).PaddingTop(10).Text(title)
-                .Bold().FontSize(11).FontColor(Colors.Blue.Medium);
+                .Bold().FontSize(10);
+        }
+
+        // Línea de cierre de cada sección con sus totales de PRESUP y CUOTA, como en el
+        // recibo de referencia (cada bloque termina con una raya y su subtotal).
+        private void AddSectionSubtotal(TableDescriptor table, decimal presupTotal, decimal cuotaTotal)
+        {
+            table.Cell().BorderTop(1).BorderColor(Colors.Black).Text("");
+            table.Cell().BorderTop(1).BorderColor(Colors.Black).AlignRight()
+                .Text($"S/ {presupTotal:N2}").Bold();
+            table.Cell().BorderTop(1).BorderColor(Colors.Black).AlignRight()
+                .Text($"S/ {cuotaTotal:N2}").Bold();
+            table.Cell().BorderTop(1).BorderColor(Colors.Black).Text("");
         }
 
         private void AddTableRow(TableDescriptor table, string description,

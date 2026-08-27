@@ -1,6 +1,7 @@
 -- Agrega los umbrales de días de atraso (para colorear la Deuda en /cuotas) a
 -- BuildingConfiguration, configurables por edificio en Configuración > Defaults,
--- Multas y Mora.
+-- Multas y Mora. De paso corrige un JOIN mal escrito en GET_AllBuildingsConfig
+-- (ver el paso 3 más abajo).
 --
 -- Ejecutar en orden, contra la base de datos de SpiderHood (SSMS / Azure Data Studio / sqlcmd).
 
@@ -53,8 +54,14 @@ GO
 
 -- 3) GET_AllBuildingsConfig: lista columnas explícitas, hay que sumar las 2 nuevas o
 --    EF Core (FromSqlRaw<BuildingConfiguration>) truena buscándolas en el resultado.
---    Se deja intacto el resto del procedimiento (incluyendo el JOIN Building existente)
---    para no cambiar ningún comportamiento fuera de esto.
+--    De paso se corrige "JOIN Building b ON c.IdBuilding = c.IdBuilding": comparaba la
+--    columna consigo misma (siempre true), así que el JOIN a Building no filtraba nada
+--    y la consulta devolvía la configuración de TODOS los edificios (duplicada una vez
+--    por cada edificio asociado al usuario), no solo la de sus propios edificios. El
+--    llamador (AuthenticationService, en el login) hoy blinda el resultado final
+--    re-filtrando por IdBuilding en C#, así que no se veían datos de otros edificios en
+--    pantalla, pero la consulta hacía trabajo de más y quedaba expuesta a filtrar mal si
+--    ese re-filtro cambia. Se corrige a la condición real: c.IdBuilding = b.IdBuilding.
 ALTER PROCEDURE [dbo].[GET_AllBuildingsConfig]
 @IdUser UNIQUEIDENTIFIER
 AS
@@ -75,7 +82,7 @@ BEGIN
             c.DebtWarningDays,
             c.DebtCriticalDays
     FROM    BuildingConfiguration c
-    JOIN    Building b ON c.IdBuilding = c.IdBuilding
+    JOIN    Building b ON c.IdBuilding = b.IdBuilding
     JOIN    UserBuildingAssociation ub ON b.IdBuilding = ub.IdBuilding
     WHERE   ub.IdUser = @IdUser
 END

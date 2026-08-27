@@ -71,8 +71,9 @@ namespace SpiderHood.Models
 
         // Texto configurable del pie del recibo de mantenimiento (PDF), con placeholders
         // {DPTO}, {Propietario}, {NroCta}, {Banco}, {Titular}, {CCI}, {Administrador},
-        // {CorreoADM} resueltos por InstallmentExportService al generar el recibo. Vacío =
-        // se omite (el recibo solo muestra "Generado el: ..."). Columna agregada por
+        // {CorreoADM} resueltos por InstallmentExportService al generar el recibo ({CCI}
+        // sale de BankAccount.CCI). Vacío = se omite (el recibo solo muestra "Generado
+        // el: ..."). Columna agregada por
         // Database/Migrations/2026-08-27c_BuildingConfiguration_ReceiptFooterText.sql.
         public string ReceiptFooterText { get; set; } = "";
 

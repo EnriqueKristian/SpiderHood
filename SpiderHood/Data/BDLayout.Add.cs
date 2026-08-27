@@ -376,7 +376,8 @@ namespace SpiderHood.Data
                     bankaccount.BankName!,
                     bankaccount.AccountType!,
                     bankaccount.IdBuilding!,
-                    bankaccount.Status!);
+                    bankaccount.Status!,
+                    bankaccount.CCI!);
                 return bankaccount;
             }, "AddExoneration", cancellationToken);
         }

@@ -185,7 +185,8 @@ namespace SpiderHood.Data
                     bankaccount.AccountNumber!,
                     bankaccount.BankName!,
                     bankaccount.AccountType!,
-                    bankaccount.Status!);
+                    bankaccount.Status!,
+                    bankaccount.CCI!);
                 return bankaccount;
             }, "UpdateBankAccount", cancellationToken);
         }

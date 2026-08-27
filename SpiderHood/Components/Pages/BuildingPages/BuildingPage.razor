@@ -292,6 +292,10 @@
                                                                 {
                                                                     <div class="text-muted small">Titular: @account.AccountName</div>
                                                                 }
+                                                                @if (!string.IsNullOrWhiteSpace(account.CCI))
+                                                                {
+                                                                    <div class="text-muted small">CCI: @account.CCI</div>
+                                                                }
                                                             </div>
                                                         </div>
                                                     }
@@ -1243,6 +1247,12 @@
                     <div class="form-group">
                         <label class="form-label">Titular</label>
                         <InputText @bind-Value="_editingBankAccout.AccountName" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">CCI</label>
+                        <InputText @bind-Value="_editingBankAccout.CCI" class="form-control" />
                     </div>
                 </div>
                 <div class="col-md-6">

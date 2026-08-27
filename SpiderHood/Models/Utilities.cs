@@ -1098,8 +1098,7 @@ public class InstallmentExportService
         }
 
         // Resuelve el texto configurable de Configuración del Edificio (Fase 2), reemplazando
-        // los placeholders por los datos de esta cuota/edificio. {CCI} queda vacío por ahora:
-        // BankAccount todavía no tiene ese campo (pendiente de una migración aparte).
+        // los placeholders por los datos de esta cuota/edificio.
         private string ResolveFooterText()
         {
             var template = _building.Configuration.ReceiptFooterText;
@@ -1116,7 +1115,7 @@ public class InstallmentExportService
                 .Replace("{NroCta}", cuenta?.AccountNumber ?? "")
                 .Replace("{Banco}", cuenta?.BankName ?? "")
                 .Replace("{Titular}", cuenta?.AccountName ?? "")
-                .Replace("{CCI}", "")
+                .Replace("{CCI}", cuenta?.CCI ?? "")
                 .Replace("{Administrador}", _building.Configuration.AdminContact.Name)
                 .Replace("{CorreoADM}", _building.Configuration.AdminContact.Email);
         }

@@ -95,7 +95,9 @@
                         <table class="table table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Orden</th>
+                                    <th title="El orden es relativo a sus hermanos: los hijos de un mismo padre vuelven a contar desde 1.">
+                                        Orden
+                                    </th>
                                     <th>Icono</th>
                                     <th>Título</th>
                                     <th>URL</th>
@@ -111,7 +113,7 @@
                             <tbody>
                                 @foreach (var item in _flatItemsWithRoles)
                                 {
-                                    <tr>
+                                    <tr class="@(item.IdParent == null ? "table-light fw-bold" : "")">
                                         <td>
                                             <input type="number" class="form-control form-control-sm"
                                                    style="width: 70px;"
@@ -119,7 +121,13 @@
                                                    @onchange='(e) => UpdateOrder(item.IdMenu, int.Parse(e.Value?.ToString() ?? "0"))' />
                                         </td>
                                         <td><i class="@item.Icon"></i></td>
-                                        <td>@item.Title</td>
+                                        <td>
+                                            @if (item.IdParent != null)
+                                            {
+                                                <span class="text-muted me-1">↳</span>
+                                            }
+                                            @item.Title
+                                        </td>
                                         <td>@item.Url</td>
                                         <td>@item.ParentTitle</td>
                                         @foreach (var role in _allRoles)
@@ -253,7 +261,23 @@
             _flatItemsWithRoles.Add(itemWithRoles);
         }
 
-        _flatItemsWithRoles = _flatItemsWithRoles.OrderBy(i => i.DisplayOrder).ToList();
+        // El Orden de cada item es relativo a sus hermanos (los hijos de un mismo padre
+        // vuelven a contar desde 1), así que ordenar la lista plana solo por DisplayOrder
+        // mezcla hijos de padres distintos que coinciden en el número y hace parecer que
+        // todos comparten "el orden del padre". Se agrupa cada item bajo su padre (en el
+        // orden en que el padre aparece en el menú) y, dentro de cada grupo, por su propio
+        // Orden — así los hermanos quedan juntos y el campo es editable con sentido.
+        var rootOrderById = _flatItemsWithRoles
+            .Where(i => i.IdParent == null)
+            .ToDictionary(i => i.IdMenu, i => i.DisplayOrder);
+
+        _flatItemsWithRoles = _flatItemsWithRoles
+            .OrderBy(i => i.IdParent.HasValue && rootOrderById.TryGetValue(i.IdParent.Value, out var parentOrder)
+                ? parentOrder
+                : i.DisplayOrder)
+            .ThenBy(i => i.IdParent.HasValue ? 1 : 0)
+            .ThenBy(i => i.DisplayOrder)
+            .ToList();
     }
 
     // Manejador para el componente jerárquico (recibe tupla)

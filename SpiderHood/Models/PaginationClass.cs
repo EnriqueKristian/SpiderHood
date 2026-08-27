@@ -514,7 +514,32 @@ namespace SpiderHood.Utilities
                 ApplyCustomFilter(x => x.IsPaid);
             }
         }
+    }
 
+    public class AccountStatementDetailViewPagination : PaginationClass<AccountStatementDetailView>
+    {
+        public AccountStatementDetailViewPagination() : base()
+        {
+            var sortExpressions = new Dictionary<string, Func<AccountStatementDetailView, object>>
+        {
+            { "StatementDate", x => x.StatementDate },
+            { "Description", x => x.Description },
+            { "Currency", x => x.Currency },
+            { "Amount", x => x.Amount }
+        };
+
+            InitializeConfiguration(new Dictionary<string, string>(), sortExpressions, "StatementDate");
+        }
+
+        // Búsqueda por transacción (descripción) o monto, tal como indica el placeholder del buscador.
+        protected override List<AccountStatementDetailView> ApplySearch(List<AccountStatementDetailView> data, string searchTerm)
+        {
+            return data.Where(item =>
+                (!string.IsNullOrEmpty(item.Description) &&
+                 item.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                item.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture).Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
     }
 
     public class PeriodPagination : PaginationClass<Models.Period>

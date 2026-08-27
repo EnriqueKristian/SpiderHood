@@ -1,4 +1,4 @@
-﻿﻿﻿@* Pages/Settings/MenuItems.razor *@
+﻿﻿﻿﻿@* Pages/Settings/MenuItems.razor *@
 @page "/Settings/MenuItems"
 @rendermode InteractiveServer
 @using SpiderHood.Models
@@ -95,7 +95,9 @@
                         <table class="table table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Orden</th>
+                                    <th title="El orden es relativo a sus hermanos: los hijos de un mismo padre vuelven a contar desde 1.">
+                                        Orden
+                                    </th>
                                     <th>Icono</th>
                                     <th>Título</th>
                                     <th>URL</th>
@@ -111,7 +113,7 @@
                             <tbody>
                                 @foreach (var item in _flatItemsWithRoles)
                                 {
-                                    <tr>
+                                    <tr class="@(IsRootMenuItem(item) ? "table-light fw-bold" : "")">
                                         <td>
                                             <input type="number" class="form-control form-control-sm"
                                                    style="width: 70px;"
@@ -119,7 +121,13 @@
                                                    @onchange='(e) => UpdateOrder(item.IdMenu, int.Parse(e.Value?.ToString() ?? "0"))' />
                                         </td>
                                         <td><i class="@item.Icon"></i></td>
-                                        <td>@item.Title</td>
+                                        <td>
+                                            @if (!IsRootMenuItem(item))
+                                            {
+                                                <span class="text-muted me-1">↳</span>
+                                            }
+                                            @item.Title
+                                        </td>
                                         <td>@item.Url</td>
                                         <td>@item.ParentTitle</td>
                                         @foreach (var role in _allRoles)
@@ -132,7 +140,7 @@
                                                            class="form-check-input role-permission-checkbox"
                                                            checked="@(rolePerm?.CanView ?? false)"
                                                            @onchange='(e) => HandleListRolePermissionChanged(
-                                                                                                           item.IdMenu, role.Id, (bool)(e.Value ?? false))' />
+                                                                                                                                                               item.IdMenu, role.Id, (bool)(e.Value ?? false))' />
                                                 }
                                             </td>
                                         }
@@ -253,7 +261,28 @@
             _flatItemsWithRoles.Add(itemWithRoles);
         }
 
-        _flatItemsWithRoles = _flatItemsWithRoles.OrderBy(i => i.DisplayOrder).ToList();
+        // El Orden de cada item es relativo a sus hermanos (los hijos de un mismo padre
+        // vuelven a contar desde 1), así que ordenar la lista plana solo por DisplayOrder
+        // mezcla hijos de padres distintos que coinciden en el número y hace parecer que
+        // todos comparten "el orden del padre". Se agrupa cada item bajo su padre (en el
+        // orden en que el padre aparece en el menú) y, dentro de cada grupo, por su propio
+        // Orden — así los hermanos quedan juntos y el campo es editable con sentido.
+        //
+        // Los items raíz NO tienen IdParent en null: MenuAdminService.GetRootMenuItemsAsync/
+        // GetAvailableParentsAsync los identifica con IdParent == Guid.Empty. Comparar con
+        // null (como hacía esta versión antes) nunca matcheaba nada, así que el agrupamiento
+        // no agrupaba: cada item volvía a ordenarse por su propio DisplayOrder.
+        var rootOrderById = _flatItemsWithRoles
+            .Where(i => IsRootMenuItem(i))
+            .ToDictionary(i => i.IdMenu, i => i.DisplayOrder);
+
+        _flatItemsWithRoles = _flatItemsWithRoles
+            .OrderBy(i => !IsRootMenuItem(i) && rootOrderById.TryGetValue(i.IdParent!.Value, out var parentOrder)
+                ? parentOrder
+                : i.DisplayOrder)
+            .ThenBy(i => IsRootMenuItem(i) ? 0 : 1)
+            .ThenBy(i => i.DisplayOrder)
+            .ToList();
     }
 
     // Manejador para el componente jerárquico (recibe tupla)
@@ -443,4 +472,10 @@
         }
         return null;
     }
+
+    // MenuAdminService representa "sin padre" con IdParent == Guid.Empty, no con null
+    // (ver GetRootMenuItemsAsync/GetAvailableParentsAsync) — se acepta también null por
+    // si acaso, pero Guid.Empty es el valor real que trae la data.
+    private static bool IsRootMenuItem(MenuItemWithRoles item) =>
+        item.IdParent == null || item.IdParent == Guid.Empty;
 }

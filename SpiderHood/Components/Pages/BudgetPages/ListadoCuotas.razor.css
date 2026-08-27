@@ -1,5 +1,4 @@
-/* CSS for InstallmentTable component */
-/* Estilos generales */
+/* Mismos estilos que InstallmentTable.razor.css (tabla de cuotas de Generación de Presupuesto) */
 .card {
     border-radius: 12px;
     overflow: hidden;
@@ -9,7 +8,6 @@
     border-bottom: none;
 }
 
-/* Estadísticas */
 .summary-stats {
     background: linear-gradient(135deg, var(--sh-surface-muted) 0%, var(--sh-border) 100%);
     padding: 1.5rem;
@@ -47,7 +45,6 @@
     color: #343a40;
 }
 
-/* Tabla principal */
 .table-container {
     background: white;
 }
@@ -56,7 +53,6 @@
     background: var(--sh-surface-muted);
 }
 
-/* Badges y elementos visuales */
 .apartment-badge {
     width: 40px;
     height: 40px;
@@ -67,54 +63,25 @@
     font-weight: bold;
 }
 
-.amount-badge {
-    background: linear-gradient(135deg, #20c997 0%, #099268 100%);
-    color: white;
-    padding: 0.375rem 1rem;
-    border-radius: 20px;
-    font-weight: 600;
-    display: inline-block;
+/* Deuda: sin color hasta DebtWarningDays, naranja hasta DebtCriticalDays, rojo después
+   (umbrales configurables en Configuración del Edificio). */
+.text-debt-warning {
+    color: #b45f06;
 }
 
-/* Filas seleccionadas */
-.table-row-selected {
-    background-color: rgba(13, 110, 253, 0.05) !important;
-    border-left: 4px solid var(--sh-primary);
+.text-debt-critical {
+    color: #c0392b;
 }
 
-.table-row-hover:hover {
-    background-color: rgba(13, 110, 253, 0.08) !important;
-    transform: translateY(-1px);
-    transition: all 0.2s ease;
-}
+/* El modal "Detalle de Cuota" (InstallmentDetailModal) trae sus propios estilos —
+   Components/InstallmentDetailModal.razor.css — al ser un componente compartido con
+   Generación de Presupuesto. */
 
-/* Progress bars */
-.progress-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-}
-
-    .progress-wrapper .progress {
-        width: 100%;
-        margin-bottom: 0.25rem;
-    }
-
-/* Los estilos del modal "Detalle de Cuota" viven ahora en
-   Components/InstallmentDetailModal.razor.css — el modal se extrajo a ese componente
-   compartido para no duplicar la lógica en ListadoCuotas.razor (/cuotas). */
-
-/* Responsive */
 @media (max-width: 768px) {
     .summary-stats .stat-card {
         margin-bottom: 1rem;
         border-right: none !important;
         border-bottom: 1px solid var(--sh-border-strong);
-    }
-
-    .search-box {
-        width: 100%;
-        margin-top: 1rem;
     }
 
     .table-header {

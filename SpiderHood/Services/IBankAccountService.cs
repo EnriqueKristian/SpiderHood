@@ -22,6 +22,7 @@ namespace SpiderHood.Services
         Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBankAccount);
         Task<List<TransactionBankHeader>> GetMovementHeadersAsync(Guid idBuilding, Guid? idBankAccount);
         Task<List<AccountStatementDetailView>> GetStatementDetailsAsync(Guid idStatementHeader);
+        Task<List<AccountStatementDetailView>> GetStatementDetailsByBuildingAsync(Guid idBuilding, Guid? idBankAccount);
         Task<List<MovDetKey>> GetTransactionsDetailsAsync(Guid IdBankAccount, DateTime minValue, DateTime maxValue);
         Task AddTransactionFromEECCAsync(TransactionBankDetail newtransaction);
         Task AddTransactionBankHeaderAsync(TransactionBankHeader newtransaction);
@@ -105,6 +106,26 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al obtener el detalle del estado de cuenta : {ex.Message}");
+                return [];
+            }
+        }
+
+        // No existe un stored procedure que traiga el detalle ya filtrado por edificio/cuenta,
+        // así que se agregan las cabeceras filtradas (mismo filtro que la pestaña "Cargas")
+        // trayendo el detalle de cada una.
+        public async Task<List<AccountStatementDetailView>> GetStatementDetailsByBuildingAsync(Guid idBuilding, Guid? idBankAccount)
+        {
+            try
+            {
+                var headers = await ec.GetMovementHeadersAsync(idBuilding, idBankAccount);
+                var detallesPorHeader = await Task.WhenAll(
+                    headers.Select(h => ec.GetAccountStatementDetailByHeaderAsync(h.IdStatementHeader)));
+
+                return detallesPorHeader.SelectMany(d => d).ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al obtener el detalle de estados de cuenta del edificio : {ex.Message}");
                 return [];
             }
         }

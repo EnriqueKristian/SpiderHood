@@ -448,9 +448,31 @@
                                                     <div class="col-12">
                                                         <div class="form-group">
                                                             <label class="form-label">Día de Emisión Recibos</label>
-                                                            <InputNumber @bind-Value="SelectedBuilding.Configuration.InvoiceDay" 
-                                                                        class="form-control form-control-sm" 
+                                                            <InputNumber @bind-Value="SelectedBuilding.Configuration.InvoiceDay"
+                                                                        class="form-control form-control-sm"
                                                                         min="1" max="31" />
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Días para alerta de deuda (naranja)</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <InputNumber @bind-Value="SelectedBuilding.Configuration.DebtWarningDays"
+                                                                            class="form-control"
+                                                                            min="1" />
+                                                                <span class="input-group-text">días</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Días para deuda crítica (rojo)</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <InputNumber @bind-Value="SelectedBuilding.Configuration.DebtCriticalDays"
+                                                                            class="form-control"
+                                                                            min="1" />
+                                                                <span class="input-group-text">días</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -493,6 +515,14 @@
                                                 <div class="col-12">
                                                     <label class="form-label small text-muted">Día de Emisión Recibos</label>
                                                     <div class="fw-semibold">@SelectedBuilding.Configuration.InvoiceDay de cada mes</div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label small text-muted">Alerta de deuda (naranja)</label>
+                                                    <div class="fw-semibold">Después de @SelectedBuilding.Configuration.DebtWarningDays días</div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label small text-muted">Deuda crítica (rojo)</label>
+                                                    <div class="fw-semibold">Después de @SelectedBuilding.Configuration.DebtCriticalDays días</div>
                                                 </div>
                                             </div>
                                         }

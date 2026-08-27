@@ -61,6 +61,15 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal LateInterestRate { get; set; } = 2.00m;
         public int InvoiceDay { get; set; } = 1;
+
+        // Días de atraso (desde la fecha de vencimiento) que definen cómo se resalta la
+        // deuda de una cuota en el Listado de Cuotas: <= DebtWarningDays sin color,
+        // entre DebtWarningDays y DebtCriticalDays en naranja, > DebtCriticalDays en rojo.
+        // NOTA: por ahora solo viven en memoria - UPD_BuildingConfiguration todavía no los
+        // guarda, falta actualizar el stored procedure/columna en la base de datos.
+        public int DebtWarningDays { get; set; } = 30;
+        public int DebtCriticalDays { get; set; } = 60;
+
         [NotMapped]
         public Contact AdminContact { get; set; } = new();
         [NotMapped]
@@ -85,6 +94,8 @@ namespace SpiderHood.Models
                 FineAmount = this.FineAmount,
                 LateInterestRate = this.LateInterestRate,
                 InvoiceDay = this.InvoiceDay,
+                DebtWarningDays = this.DebtWarningDays,
+                DebtCriticalDays = this.DebtCriticalDays,
                 AdminContact = this.AdminContact.Clone(),
                 RealEstateCompany = this.RealEstateCompany.Clone(),
                 MaintenanceCompany = this.MaintenanceCompany.Clone(),

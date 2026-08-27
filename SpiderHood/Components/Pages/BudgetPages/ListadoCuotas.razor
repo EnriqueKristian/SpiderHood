@@ -172,7 +172,7 @@
                                                 <td class="text-end">S/ @item.Amount.ToString("N2")</td>
                                                 <td class="text-end">S/ @item.AmountPaid.ToString("N2")</td>
                                                 <td class="text-end">
-                                                    <span class="amount-badge">S/ @item.Debt.ToString("N2")</span>
+                                                    <span class="@GetDeudaClass(item)">S/ @item.Debt.ToString("N2")</span>
                                                 </td>
                                                 <td class="text-center">
                                                     @if (item.Status == ConcilationType.Conciliada)
@@ -301,6 +301,33 @@
         AplicarFiltros();
 
         cargando = false;
+    }
+
+    // Resalta la deuda según los días de atraso desde el vencimiento, con los umbrales
+    // configurados en el edificio (Configuración > Defaults, Multas y Mora).
+    private string GetDeudaClass(Installment item)
+    {
+        if (item.Debt <= 0)
+        {
+            return "text-muted";
+        }
+
+        var diasAtraso = (DateTime.Today - item.DueDate.Date).Days;
+        var config = ParameterService.CurrentBuilding?.Configuration;
+        var diasAlerta = config?.DebtWarningDays ?? 30;
+        var diasCritico = config?.DebtCriticalDays ?? 60;
+
+        if (diasAtraso > diasCritico)
+        {
+            return "fw-bold text-debt-critical";
+        }
+
+        if (diasAtraso > diasAlerta)
+        {
+            return "fw-bold text-debt-warning";
+        }
+
+        return "fw-bold";
     }
 
     private IEnumerable<DateTime> PeriodosDisponibles() =>

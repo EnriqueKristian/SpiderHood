@@ -63,13 +63,14 @@
     font-weight: bold;
 }
 
-.amount-badge {
-    background: linear-gradient(135deg, #20c997 0%, #099268 100%);
-    color: white;
-    padding: 0.375rem 1rem;
-    border-radius: 20px;
-    font-weight: 600;
-    display: inline-block;
+/* Deuda: sin color hasta DebtWarningDays, naranja hasta DebtCriticalDays, rojo después
+   (umbrales configurables en Configuración del Edificio). */
+.text-debt-warning {
+    color: #b45f06;
+}
+
+.text-debt-critical {
+    color: #c0392b;
 }
 
 @media (max-width: 768px) {

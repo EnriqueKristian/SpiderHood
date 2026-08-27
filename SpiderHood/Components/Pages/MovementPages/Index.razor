@@ -60,14 +60,23 @@
 
                         @if (activeTab == "detalle")
                         {
-                            <div class="input-group input-group-sm" style="width: 280px;">
-                                <span class="input-group-text bg-transparent border-end-0">
-                                    <i class="bi bi-search text-muted"></i>
-                                </span>
-                                <input type="text" class="form-control border-start-0"
-                                       placeholder="Buscar por transacción o monto"
-                                       value="@searchTermDetalle"
-                                       @oninput="OnSearchDetalleInput" />
+                            <div class="d-flex align-items-center gap-2">
+                                <select class="form-select form-select-sm" style="width: auto;"
+                                        @onchange="OnFiltroTipoDetalleChanged">
+                                    <option value="todos" selected="@(filtroTipoDetalle == "todos")">Todos</option>
+                                    <option value="ingresos" selected="@(filtroTipoDetalle == "ingresos")">Ingresos</option>
+                                    <option value="egresos" selected="@(filtroTipoDetalle == "egresos")">Egresos</option>
+                                </select>
+
+                                <div class="input-group input-group-sm" style="width: 280px;">
+                                    <span class="input-group-text bg-transparent border-end-0">
+                                        <i class="bi bi-search text-muted"></i>
+                                    </span>
+                                    <input type="text" class="form-control border-start-0"
+                                           placeholder="Buscar por transacción o monto"
+                                           value="@searchTermDetalle"
+                                           @oninput="OnSearchDetalleInput" />
+                                </div>
                             </div>
                         }
                     </div>
@@ -398,6 +407,7 @@
     private bool cargandoDetalle = true;
     private bool detalleCargado = false;
     private string searchTermDetalle = string.Empty;
+    private string filtroTipoDetalle = "todos";
 
     protected override async Task OnInitializedAsync()
     {
@@ -484,6 +494,24 @@
     {
         searchTermDetalle = e.Value?.ToString() ?? string.Empty;
         paginationDetalle.Search(searchTermDetalle);
+    }
+
+    private void OnFiltroTipoDetalleChanged(ChangeEventArgs e)
+    {
+        filtroTipoDetalle = e.Value?.ToString() ?? "todos";
+
+        switch (filtroTipoDetalle)
+        {
+            case "ingresos":
+                paginationDetalle.ApplyCustomFilter(x => x.Amount >= 0);
+                break;
+            case "egresos":
+                paginationDetalle.ApplyCustomFilter(x => x.Amount < 0);
+                break;
+            default:
+                paginationDetalle.ApplyCustomFilter(null);
+                break;
+        }
     }
 
     private string GetArchivo(Guid idStatementHeader)

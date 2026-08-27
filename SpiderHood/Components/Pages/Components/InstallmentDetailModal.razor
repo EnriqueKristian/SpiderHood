@@ -3,30 +3,49 @@
    ListadoCuotas.razor (/cuotas) sin duplicar la lógica de cálculo. *@
 @using SpiderHood.Models
 @inject SpiderHood.Services.ParameterService ParameterService
+@inject SpiderHood.Services.IBuildingService BuildingService
 
 <Modal @ref="_modal" Title="@TituloModal" Size="ModalSize.ExtraLarge">
     <BodyTemplate>
         <div class="modal-body p-0">
             <!-- Información del Propietario: una sola franja compacta, no una tarjeta grande -->
-            <div class="owner-summary d-flex flex-wrap align-items-center justify-content-between gap-3 px-4 py-2 border-bottom">
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-primary-subtle text-primary">DPTO @_installment?.UnitName</span>
-                    <span class="fw-bold"><i class="bi bi-person me-1"></i>@_installment?.OwnerName</span>
+            <div class="owner-summary d-flex flex-column gap-1 px-4 py-2 border-bottom">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary-subtle text-primary">DPTO @_installment?.UnitName</span>
+                        <span class="fw-bold"><i class="bi bi-person me-1"></i>@_installment?.OwnerName</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-4">
+                        <div class="text-center">
+                            <small class="text-muted d-block">Área</small>
+                            <span class="fw-semibold">@_installment?.TotalArea.ToString("N2") m²</span>
+                        </div>
+                        <div class="text-center">
+                            <small class="text-muted d-block">% Distr.</small>
+                            <span class="fw-semibold">@_installment?.Percent.ToString("N2")%</span>
+                        </div>
+                        <div class="text-center">
+                            <small class="text-muted d-block">Total Cuota</small>
+                            <span class="fw-bold text-primary fs-5">S/ @(_installment?.Amount.ToString("N2"))</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="d-flex align-items-center gap-4">
-                    <div class="text-center">
-                        <small class="text-muted d-block">Área</small>
-                        <span class="fw-semibold">@_installment?.TotalArea.ToString("N2") m²</span>
+
+                @* El Área de arriba es la suma del grupo (DPTO + cochera + depósito, etc.) —
+                   se lista de qué unidades sale, igual que la columna Unidad de Residentes. *@
+                @if (_unidadesGrupo.Count > 1)
+                {
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <small class="text-muted">Área compuesta por:</small>
+                        @foreach (var unidad in _unidadesGrupo)
+                        {
+                            <span class="badge @GetUnitTypeBadge(unidad.TypeUnit)">
+                                @ParameterService.GetChildParameterDescription(4, unidad.TypeUnit) @unidad.UnitNumber
+                                · @unidad.Area.ToString("N2") m²
+                            </span>
+                        }
                     </div>
-                    <div class="text-center">
-                        <small class="text-muted d-block">% Distr.</small>
-                        <span class="fw-semibold">@_installment?.Percent.ToString("N2")%</span>
-                    </div>
-                    <div class="text-center">
-                        <small class="text-muted d-block">Total Cuota</small>
-                        <span class="fw-bold text-primary fs-5">S/ @(_installment?.Amount.ToString("N2"))</span>
-                    </div>
-                </div>
+                }
             </div>
 
             @if (_budget == null)
@@ -216,6 +235,10 @@
     private decimal _inverseNroGroupUnit;
     private decimal _totalWaterConsumption => _waterReadings?.Sum(w => w.CalculatedAmount) ?? 0;
 
+    // Unidades que componen el grupo (DPTO + cochera + depósito, etc.) — el Área Total de
+    // arriba es la suma de todas, así que se listan para que sea informativo de dónde sale.
+    private List<OwnerUnitView> _unidadesGrupo = new();
+
     // Modal (BlazorBootstrap) solo pinta el header a partir de Title — un HeaderTemplate
     // custom se ignora — así que el DPTO va acá.
     private string TituloModal => _installment != null
@@ -239,10 +262,31 @@
             ? 1m / ParameterService.CurrentBuilding.Apartments
             : 0;
 
+        _unidadesGrupo = new();
+        if (ParameterService.CurrentBuilding != null)
+        {
+            // Misma fuente que Owners.razor (Residentes): una fila por unidad del grupo,
+            // Role == 1 evita traer una fila repetida por cada propietario asociado.
+            var unidadesDelEdificio = await BuildingService.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+            _unidadesGrupo = unidadesDelEdificio
+                .Where(u => u.IdGroupUnit == installment.IdGroupUnit && u.Role == 1)
+                .OrderBy(u => u.TypeUnit)
+                .ToList();
+        }
+
         await _modal.ShowAsync();
     }
 
     public Task HideAsync() => _modal.HideAsync();
+
+    private string GetUnitTypeBadge(int tipoUnidad) => tipoUnidad switch
+    {
+        1 => "bg-primary",
+        2 => "bg-success",
+        3 => "bg-warning",
+        4 => "bg-info",
+        _ => "bg-secondary"
+    };
 
     private List<SectionInfo> GetSections()
     {

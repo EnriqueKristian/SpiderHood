@@ -773,18 +773,29 @@ public class InstallmentExportService
 
         private void ComposeHeader(IContainer container)
         {
-            var titulo = string.IsNullOrWhiteSpace(_building.Location)
-                ? _building.Name.ToUpper()
-                : $"{_building.Name} - {_building.Location}".ToUpper();
-
             var periodo = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
+
+            // "Recibo de Mantenimiento - Enero 2026": nombre del mes con la primera letra
+            // en mayúscula (la cultura es-* devuelve el mes en minúscula por defecto).
+            var mesAno = _installment.Period.ToString("MMMM yyyy", CultureInfo.CurrentCulture);
+            mesAno = char.ToUpper(mesAno[0]) + mesAno.Substring(1);
 
             container.BorderBottom(2).BorderColor(Colors.Blue.Darken2).Padding(10).Row(row =>
             {
                 row.RelativeItem().Column(col =>
                 {
-                    col.Item().AlignCenter().Text(titulo).FontSize(14).Bold();
-                    col.Item().AlignCenter().Text("Recibo de Mantenimiento")
+                    col.Item().AlignCenter().Text(_building.Name.ToUpper()).FontSize(14).Bold();
+
+                    // La dirección va más chica que el título de abajo (11pt) — es un dato
+                    // secundario, no debería competir con el nombre del edificio ni con
+                    // "Recibo de Mantenimiento".
+                    if (!string.IsNullOrWhiteSpace(_building.Location))
+                    {
+                        col.Item().AlignCenter().Text(_building.Location)
+                            .FontSize(8).FontColor(Colors.Grey.Darken1);
+                    }
+
+                    col.Item().AlignCenter().Text($"Recibo de Mantenimiento - {mesAno}")
                         .FontSize(11).Bold().FontColor(Colors.Blue.Darken2);
                 });
 

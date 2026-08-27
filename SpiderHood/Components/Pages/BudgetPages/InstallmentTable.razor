@@ -7,6 +7,7 @@
 @inject IJSRuntime JSRuntime
 @inject Services.IBankAccountService BankService
 @inject Services.ICategoryService CategoryService
+@inject Services.IBuildingService BuildingService
 
 <div class="row">
     <div class="col-12">
@@ -441,6 +442,19 @@
             _pagination.OnPaginationChanged += StateHasChanged;
 
             if (Conciliar) await BuscarCoincidencias();
+
+            // ParameterService.CurrentBuilding.Configuration viene del login (GET_AllBuildingsConfig),
+            // que NO trae BankAccounts ni AdminContact (se cargan aparte, solo cuando se
+            // visita y guarda Configuración del Edificio) — por eso el pie del recibo a
+            // veces salía con {Banco}/{Titular}/{CorreoADM} vacíos. Se refresca acá con la
+            // config completa (BuildingService.GetConfigurationAsync ya arma BankAccounts +
+            // contactos + ReceiptFooterText en un solo lugar, mismo método que usa
+            // Configuración del Edificio) para que el recibo siempre tenga los datos reales.
+            if (ParameterService.CurrentBuilding != null)
+            {
+                ParameterService.CurrentBuilding.Configuration =
+                    await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
+            }
 
             // Categorías raíz (secciones) del edificio — el generador de recibos las usa
             // para saber si una sección se imprime con detalle o colapsada (ShowDetailInReceipt).

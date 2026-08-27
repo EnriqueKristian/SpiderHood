@@ -13,6 +13,7 @@
 @inject IExpenseService ExpenseService
 @inject SpiderHood.Services.IExceptionService _exceptionService
 @inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IBuildingService BuildingService
 
 <div class="expense-calculation">
     <!-- Header -->
@@ -1374,6 +1375,15 @@
                     // Guarda el presupuesto y genera las Installment en BD (SaveBudgetAsync
                     // las persiste porque el estado ya quedó en Active).
                     await SaveCalculation();
+
+                    // ParameterService.CurrentBuilding.Configuration viene del login
+                    // (GET_AllBuildingsConfig), que NO trae BankAccounts ni AdminContact
+                    // (se cargan aparte, solo cuando se visita y guarda Configuración del
+                    // Edificio) — por eso el pie del recibo a veces salía con
+                    // {Banco}/{Titular}/{CorreoADM} vacíos. Se refresca acá con la config
+                    // completa antes de generar los recibos.
+                    ParameterService.CurrentBuilding!.Configuration =
+                        await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
 
                     // Genera el recibo (PDF) de cada unidad y los descarga en un solo ZIP.
                     var exportService = new InstallmentExportService(

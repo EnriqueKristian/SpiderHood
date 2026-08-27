@@ -9,6 +9,7 @@
 @inject IBankAccountService BankAccountService
 @inject IBudgetService BudgetService
 @inject IServiceReadingService ServiceReadingService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Listado de Cuotas</PageTitle>
 
@@ -260,7 +261,7 @@
     </div>
 </div>
 
-<InstallmentDetailModal @ref="detalleModal">
+<InstallmentDetailModal @ref="detalleModal" OnImprimir="ImprimirCuota" OnEnviarAlPropietario="EnviarAlPropietario">
     <ExtraContent>
         @if (selectedInstallment != null)
         {
@@ -326,6 +327,14 @@
     private Installment? selectedInstallment;
     private bool cargandoTransacciones;
     private List<PagoAsociado> transaccionesAsociadas = new();
+
+    // Presupuesto/lecturas/excepciones de la cuota actualmente abierta en el modal de
+    // detalle — cargados on-demand en VerDetalle (acá no hay un único presupuesto
+    // "activo": cada fila puede ser de un periodo distinto) y reusados por Imprimir para
+    // no volver a pedirlos.
+    private BudgetHeader? budgetActual;
+    private List<ServiceReadingDetail> waterReadingsActual = new();
+    private List<Exoneration> exonerationsActual = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -456,6 +465,10 @@
         var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period);
         var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(item.IdBudgetHeader);
 
+        budgetActual = budget;
+        waterReadingsActual = waterReadings;
+        exonerationsActual = exonerations;
+
         await detalleModal.ShowAsync(item, budget, waterReadings, exonerations);
 
         if (tieneConciliacion && ParameterService.CurrentBuilding != null)
@@ -482,6 +495,41 @@
             cargandoTransacciones = false;
             StateHasChanged();
         }
+    }
+
+    private async Task ImprimirCuota(Installment item)
+    {
+        if (budgetActual == null || ParameterService.CurrentBuilding == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var exportService = new InstallmentExportService(
+                new List<Installment> { item },
+                budgetActual,
+                waterReadingsActual,
+                exonerationsActual,
+                ParameterService.CurrentBuilding);
+
+            var pdfBytes = exportService.GenerateReceipt(item);
+
+            await JSRuntime.InvokeVoidAsync("downloadFile",
+                Convert.ToBase64String(pdfBytes),
+                $"Recibo_{item.UnitName}_{item.Period:yyyyMM}.pdf",
+                "application/pdf");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al generar el recibo: {ex.Message}");
+        }
+    }
+
+    private void EnviarAlPropietario(Installment item)
+    {
+        Console.WriteLine($"Enviando cuota al propietario: {item.OwnerName}");
+        // Lógica para enviar por email pendiente de implementación (igual que en InstallmentTable.razor).
     }
 
     private record PagoAsociado(DateTime Fecha, string Descripcion, decimal Monto);

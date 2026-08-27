@@ -165,7 +165,8 @@ namespace SpiderHood.Data
                     configuration.WaterReadingDefault!,
                     configuration.IdBuilding!,
                     configuration.DebtWarningDays!,
-                    configuration.DebtCriticalDays!);
+                    configuration.DebtCriticalDays!,
+                    configuration.ReceiptFooterText!);
                 return configuration;
             }, "UpdateBuildingConfiguration", cancellationToken);
         }

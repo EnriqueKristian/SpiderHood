@@ -378,18 +378,6 @@
     <ManualIntalmentConciliation cuota="selectedInstallment" transacciones="transacciones!.Where(x => x.Balance > 0).ToList()" ShowModalChanged="CloseModalManual" OnSaveReading="OnSaveManualConciliation" />
 }
 
-<script language="javascript">
-    // En tu archivo .js o en línea
-    function downloadFile(base64String, fileName, contentType) {
-        const link = document.createElement('a');
-        link.download = fileName;
-        link.href = `data:${contentType};base64,${base64String}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-</script>
-
 @code {
 
     private void CloseModalManual()
@@ -459,7 +447,7 @@
             Budget!,
             WaterReadings!,
             Exonerations!,
-            null!
+            ParameterService.CurrentBuilding!
         );
 
 

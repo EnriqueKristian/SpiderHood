@@ -2,6 +2,7 @@
 using OfficeOpenXml;
 using SpiderHood.Components.Pages.Components;
 using System.ComponentModel;
+using System.Globalization;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -600,20 +601,20 @@ public class InstallmentExportService
         private readonly BudgetHeader _budget;
         private readonly List<ServiceReadingDetail> _waterReadings;
         private readonly List<Exoneration> _exonerations;
-        private readonly BuildingConfiguration _configuration;
+        private readonly Building _building;
 
         public InstallmentExportService(
             List<Installment> installments,
             BudgetHeader budget,
             List<ServiceReadingDetail> waterReadings,
             List<Exoneration> exonerations,
-            BuildingConfiguration configuration)
+            Building building)
         {
             _installments = installments;
             _budget = budget;
             _waterReadings = waterReadings;
             _exonerations = exonerations;
-            _configuration = configuration;
+            _building = building;
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
@@ -959,9 +960,13 @@ public class InstallmentExportService
 
         private void ComposeHeader(IContainer container)
         {
+            var titulo = string.IsNullOrWhiteSpace(_building.Location)
+                ? _building.Name.ToUpper()
+                : $"{_building.Name} - {_building.Location}".ToUpper();
+
             container.Column(column =>
             {
-                column.Item().AlignCenter().Text("RESIDENCIAL NOVA ALZAMORA - SURQUILLO - LIMA")
+                column.Item().AlignCenter().Text(titulo)
                     .FontSize(14).Bold();
 
                 column.Item().AlignCenter().Text("Recibo de Mantenimiento")
@@ -1015,193 +1020,105 @@ public class InstallmentExportService
 
                     decimal totalCuota = 0;
 
-                    // 1. SERVICIOS BASICOS
-                    AddSectionHeader(table, "SERVICIOS BASICOS");
-
-                    // Agua áreas comunes
-                    var waterCommon = _budget.Details
-                        .FirstOrDefault(x => x.Description.Contains("Agua Areas comunes"));
-                    if (waterCommon != null)
+                    // Secciones reales del presupuesto de este edificio (headers de
+                    // BudgetDetail), en vez de las 6 categorías con GUIDs hardcodeados de
+                    // un único edificio que traía este generador antes — mismo criterio de
+                    // agrupación que ya usa InstallmentDetailModal.GetSections().
+                    foreach (var section in GetSections())
                     {
-                        var amount = CalculateItemAmount(waterCommon);
-                        totalCuota += amount;
-                        AddTableRow(table, "Agua Areas comunes",
-                            waterCommon.MonthlyAmount, amount, waterCommon.Type);
-                    }
+                        var sectionItems = _budget.Details
+                            .Where(x => x.IdSection == section.Id && !x.IsHeader)
+                            .ToList();
 
-                    // Consumo de luz
-                    var luzItems = _budget.Details
-                        .Where(x => x.Description.Contains("Consumo de Luz"))
-                        .ToList();
-
-                    foreach (var luz in luzItems)
-                    {
-                        var amount = CalculateItemAmount(luz);
-                        totalCuota += amount;
-                        AddTableRow(table, luz.Description,
-                            luz.MonthlyAmount, amount, luz.Type);
-                    }
-
-                    // Lectura de agua por departamento (si existe)
-                    /*if (_waterReading != null)
-                    {
-                        table.Cell().ColumnSpan(4).PaddingTop(5).PaddingBottom(5);
-
-                        table.Cell().ColumnSpan(4).Table(waterTable =>
+                        if (!sectionItems.Any())
                         {
-                            waterTable.ColumnsDefinition(columns =>
-                            {
-                                columns.RelativeColumn();
-                                columns.ConstantColumn(60);
-                                columns.ConstantColumn(60);
-                                columns.ConstantColumn(60);
-                            });
+                            continue;
+                        }
 
-                            waterTable.Cell().Text("Lectura de Agua por Dpto").Bold();
-                            waterTable.Cell().Text("Anterior");
-                            waterTable.Cell().Text("Actual");
-                            waterTable.Cell().Text("Dif.");
+                        AddSectionHeader(table, section.Name);
 
-                            waterTable.Cell().Text("");
-                            waterTable.Cell().Text(_waterReading.PreviousReading.ToString());
-                            waterTable.Cell().Text(_waterReading.CurrentReading.ToString());
-                            waterTable.Cell().Text(_waterReading.Consumption.ToString());
-                        });
-                    }*/
-
-                    // 2. PERSONAL ADMINISTRATIVO
-                    AddSectionHeader(table, "PERSONAL ADMINISTRATIVO");
-
-                    var personalItems = _budget.Details
-                        .Where(x => x.IdCategory == GetCategoryId("PERSONAL"))
-                        .ToList();
-
-                    foreach (var item in personalItems)
-                    {
-                        var amount = CalculateItemAmount(item);
-                        totalCuota += amount;
-                        AddTableRow(table, item.Description,
-                            item.MonthlyAmount, amount, item.Type);
-                    }
-
-                    // 3. PROVISIÓN MANTENIMIENTO
-                    AddSectionHeader(table, "PROVISIÓN MANTENIMIENTO DE EQUIPOS E INSTALACIONES");
-
-                    var mantenimientoItems = _budget.Details
-                        .Where(x => x.IdCategory == GetCategoryId("MANTENIMIENTO"))
-                        .ToList();
-
-                    foreach (var item in mantenimientoItems)
-                    {
-                        var amount = CalculateItemAmount(item);
-                        totalCuota += amount;
-                        AddTableRow(table, $"• {item.Description}",
-                            item.MonthlyAmount, amount, item.Type);
-                    }
-
-                    // SUMINISTROS DIVERSOS
-                    AddSectionHeader(table, "SUMINISTROS DIVERSOS");
-
-                    var suministrosItems = _budget.Details
-                        .Where(x => x.IdCategory == GetCategoryId("SUMINISTROS"))
-                        .ToList();
-
-                    foreach (var item in suministrosItems)
-                    {
-                        var amount = CalculateItemAmount(item);
-                        totalCuota += amount;
-                        AddTableRow(table, item.Description,
-                            item.MonthlyAmount, amount, item.Type);
-                    }
-
-                    // 4. ADMINISTRACIÓN
-                    AddSectionHeader(table, "ADMINISTRACIÓN");
-
-                    var adminItems = _budget.Details
-                        .Where(x => x.IdCategory == GetCategoryId("ADMINISTRACION"))
-                        .ToList();
-
-                    foreach (var item in adminItems)
-                    {
-                        var amount = CalculateItemAmount(item);
-                        totalCuota += amount;
-                        AddTableRow(table, item.Description,
-                            item.MonthlyAmount, amount, item.Type);
-                    }
-
-                    // 5. GASTOS EXTRAORDINARIOS
-                    AddSectionHeader(table, "GASTOS EXTRAORDINARIOS");
-
-                    var extraordinariosItems = _budget.Details
-                        .Where(x => x.IdCategory == GetCategoryId("EXTRAORDINARIOS"))
-                        .ToList();
-
-                    if (!extraordinariosItems.Any())
-                    {
-                        AddTableRow(table, "-", 0, 0, 1);
-                    }
-                    else
-                    {
-                        foreach (var item in extraordinariosItems)
+                        foreach (var item in sectionItems)
                         {
                             var amount = CalculateItemAmount(item);
                             totalCuota += amount;
                             AddTableRow(table, item.Description,
                                 item.MonthlyAmount, amount, item.Type);
+
+                            // Fila de detalle de consumo (Lectura Anterior/Actual/m³) del
+                            // ítem de agua por departamento, igual que en el modal de detalle.
+                            if (item.IdCategory == _building.Configuration.WaterReadingDefault)
+                            {
+                                var waterReading = _waterReadings?
+                                    .FirstOrDefault(w => w.IdGroupUnit == _installment.IdGroupUnit);
+
+                                if (waterReading != null)
+                                {
+                                    totalCuota += waterReading.CalculatedAmount;
+                                    AddTableRow(table,
+                                        $"Lectura de Agua (Ant: {waterReading.PreviousReading} / Act: {waterReading.CurrentReading} / Consumo: {waterReading.Consumption} m³)",
+                                        0, waterReading.CalculatedAmount, 3);
+                                }
+                            }
                         }
                     }
 
-                    // 6. RESERVAS INTANGIBLES
-                    AddSectionHeader(table, "RESERVAS INTANGIBLES");
-
-                    var reservasItems = _budget.Details
-                        .Where(x => x.IdCategory == GetCategoryId("RESERVAS"))
-                        .ToList();
-
-                    foreach (var item in reservasItems)
-                    {
-                        var amount = CalculateItemAmount(item);
-                        totalCuota += amount;
-                        AddTableRow(table, item.Description,
-                            item.MonthlyAmount, amount, item.Type);
-                    }
-
                     // TOTAL CUOTA
+                    var periodo = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
                     table.Cell().ColumnSpan(4).PaddingTop(10);
-                    table.Cell().ColumnSpan(3).Text("TOTAL CUOTA AUGUST-23").Bold();
+                    table.Cell().ColumnSpan(3).Text($"TOTAL CUOTA {periodo}").Bold();
                     table.Cell().AlignRight().Text($"S/ {totalCuota:N2}").Bold().FontSize(11);
 
-                    // DEUDAS ANTERIORES
-                    AddSectionHeader(table, "DEUDAS ANTERIORES");
-
-                    // Lectura de Agua - Regularización
-                    AddDebtRow(table, "Lectura de Agua - Regularización", 0);
-
-                    // Cuotas Ordinarias
-                    AddDebtRow(table, "Cuotas Ordinarias", 0);
-
-                    // Cuotas Extraordinarias
-                    AddDebtRow(table, "Cuotas Extraordinarias", 0);
-
-                    // DEUDA TOTAL
-                    table.Cell().ColumnSpan(4).PaddingTop(10);
-                    table.Cell().ColumnSpan(3).Text("DEUDA TOTAL").Bold().FontSize(11);
-                    table.Cell().AlignRight().Text($"S/ {totalCuota:N2}").Bold().FontSize(11);
+                    // "DEUDAS ANTERIORES" (cuotas ordinarias/extraordinarias de periodos
+                    // previos, histórico de agua) queda pendiente: hoy no existe ninguna
+                    // consulta que traiga cuotas de un mismo IdGroupUnit a través de varios
+                    // periodos — se retoma en una fase aparte en vez de mostrar "S/ 0.00" fijo.
                 });
             });
         }
 
         private void ComposeFooter(IContainer container)
         {
+            var footerText = ResolveFooterText();
+
             container.AlignCenter().Column(column =>
             {
                 column.Item().PaddingTop(10).LineHorizontal(1);
+
+                if (!string.IsNullOrWhiteSpace(footerText))
+                {
+                    column.Item().PaddingTop(5).Text(footerText).FontSize(8);
+                }
+
                 column.Item().PaddingTop(5).Text(text =>
                 {
                     text.Span("Generado el: ").FontSize(8);
                     text.Span($"{DateTime.Now:dd/MM/yyyy HH:mm}").Bold().FontSize(8);
                 });
             });
+        }
+
+        // Resuelve el texto configurable de Configuración del Edificio (Fase 2), reemplazando
+        // los placeholders por los datos de esta cuota/edificio. {CCI} queda vacío por ahora:
+        // BankAccount todavía no tiene ese campo (pendiente de una migración aparte).
+        private string ResolveFooterText()
+        {
+            var template = _building.Configuration.ReceiptFooterText;
+            if (string.IsNullOrWhiteSpace(template))
+            {
+                return "";
+            }
+
+            var cuenta = _building.Configuration.BankAccounts.FirstOrDefault();
+
+            return template
+                .Replace("{DPTO}", _installment.UnitName)
+                .Replace("{Propietario}", _installment.OwnerName)
+                .Replace("{NroCta}", cuenta?.AccountNumber ?? "")
+                .Replace("{Banco}", cuenta?.BankName ?? "")
+                .Replace("{Titular}", cuenta?.AccountName ?? "")
+                .Replace("{CCI}", "")
+                .Replace("{Administrador}", _building.Configuration.AdminContact.Name)
+                .Replace("{CorreoADM}", _building.Configuration.AdminContact.Email);
         }
 
         private void AddSectionHeader(TableDescriptor table, string title)
@@ -1219,42 +1136,36 @@ public class InstallmentExportService
             table.Cell().AlignRight().Text(GetDistributionType(tipo));
         }
 
-        private void AddDebtRow(TableDescriptor table, string description, decimal amount)
-        {
-            table.Cell().Text(description);
-            table.Cell().ColumnSpan(2); // Saltar PRESUP y CUOTA
-            table.Cell().AlignRight().Text(amount > 0 ? $"S/ {amount:N2}" : "-");
-        }
-
+        // Misma fórmula que InstallmentDetailModal.CalculateQuote, para que el PDF cuadre
+        // exactamente con lo que ya se ve en pantalla en el detalle de cuota.
         private decimal CalculateItemAmount(BudgetDetail item)
         {
-            // Lógica para calcular el monto según el tipo de distribución
-            if (item.Type == 1) // Por unidad
+            if (item.IdCategory == _building.Configuration.WaterReadingDefault && _waterReadings.Any())
             {
-                // Distribución equitativa
-                return item.MonthlyAmount / GetTotalUnits();
+                var totalWaterConsumption = _waterReadings.Sum(w => w.CalculatedAmount);
+                var inverseNroGroupUnit = GetTotalUnits() > 0 ? 1m / GetTotalUnits() : 0;
+                return Math.Round(Math.Abs(item.MonthlyAmount - totalWaterConsumption) * inverseNroGroupUnit, 2);
             }
-            else if (item.Type == 2) // Por área
+
+            var idGroupUnitExonerado = _exonerations
+                .Where(c => c.IdCategory == item.IdCategory)
+                .Select(c => c.IdGroupUnit)
+                .FirstOrDefault();
+
+            if (_installment.IdGroupUnit == idGroupUnitExonerado)
             {
-                // Distribución proporcional al área
-                return item.MonthlyAmount * (_installment.Percent / 100);
-            }
-            else if (item.Type == 3) // Por consumo (agua)
-            {
-                // Para agua, usar el consumo real
-                //return _waterReading?.CalculatedAmount ?? 0;
                 return 0;
             }
 
-            return 0;
+            var nroExcepciones = _exonerations.Count(c => c.IdCategory == item.IdCategory);
+            var total = item.Type == 1
+                ? item.MonthlyAmount / (GetTotalUnits() - nroExcepciones)
+                : item.MonthlyAmount * (_installment.Percent / 100);
+
+            return Math.Round(total, 2);
         }
 
-        private int GetTotalUnits()
-        {
-            // Obtener el número total de unidades
-            // Esto debería venir de tu base de datos
-            return 29; // Ejemplo
-        }
+        private int GetTotalUnits() => _building.Apartments;
 
         private string GetDistributionType(int tipo)
         {
@@ -1267,21 +1178,21 @@ public class InstallmentExportService
             };
         }
 
-        private Guid GetCategoryId(string categoryName)
+        // Secciones reales del presupuesto (headers de BudgetDetail), mismo criterio que
+        // InstallmentDetailModal.GetSections() — reemplaza el mapeo de 6 categorías con
+        // GUIDs hardcodeados de un único edificio que traía este generador antes.
+        private List<SectionInfo> GetSections()
         {
-            // Mapear nombres de categoría a IDs
-            // Deberías tener esta información en tu base de datos
-            var categories = new Dictionary<string, Guid>
-        {
-            { "PERSONAL", Guid.Parse("F0FE93B2-4D64-4D2D-8A35-C9178B45F9F7") },
-            { "MANTENIMIENTO", Guid.Parse("AA335DE7-9CC1-42B8-A48B-A0746A111463") },
-            { "SUMINISTROS", Guid.Parse("0A4BF2FE-2753-4CCB-A403-DB98E4D4464F") },
-            { "ADMINISTRACION", Guid.Parse("0A4BF2FE-2753-4CCB-A403-DB98E4D4464F") },
-            { "EXTRAORDINARIOS", Guid.Parse("0870DAFB-E08F-40E1-AE8A-860D11DAD0E2") },
-            { "RESERVAS", Guid.Parse("90A66508-F4D2-4AAE-BE01-86B24F3304D2") }
-        };
+            if (_budget?.Details == null)
+            {
+                return new();
+            }
 
-            return categories.TryGetValue(categoryName, out Guid id) ? id : Guid.Empty;
+            return _budget.Details
+                .Where(x => x.IsHeader)
+                .Select(x => new SectionInfo { Id = x.IdSection, Name = x.Description, IdCategory = x.IdCategory })
+                .OrderBy(x => x.Id)
+                .ToList();
         }
 
 

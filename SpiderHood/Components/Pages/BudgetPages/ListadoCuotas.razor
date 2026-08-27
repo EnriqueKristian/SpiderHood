@@ -345,6 +345,15 @@
         cargando = true;
         StateHasChanged();
 
+        // GetDistributionType (usado por InstallmentDetailModal para la columna Tipo) lee
+        // de ParameterService.ListParameters, que arranca vacía hasta que alguna página
+        // llama a LoadParametersAsync — hoy lo hacen /budgetlist, Home, etc., pero no
+        // /cuotas. Si el usuario entra directo acá sin haber pasado antes por una de esas
+        // páginas en esta sesión, la columna Tipo del detalle mostraba "No se encontró
+        // coincidencia". LoadParametersAsync ya cachea 5 min por edificio, así que llamarlo
+        // de nuevo en cada visita es barato.
+        await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
+
         allInstallments = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         pagination.Initialize(allInstallments.OrderByDescending(i => i.Period).ThenBy(i => i.UnitName).ToList());

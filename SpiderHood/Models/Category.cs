@@ -27,6 +27,14 @@ namespace SpiderHood.Models
         public string ParentName { get; set; } = null!;
         public int Nivel { get; set; }
         public TypeDistribution Distribution { get; set; } = TypeDistribution.Fija;
+
+        // Solo aplica a categorías raíz (Nivel == 0, una sección del recibo). Controla
+        // únicamente el PDF del recibo de mantenimiento (InstallmentExportService): si es
+        // false, esa sección se imprime colapsada (nombre + subtotal, sin desglosar cada
+        // ítem) — el "Ver Detalle" en pantalla (InstallmentDetailModal) no se ve afectado,
+        // siempre muestra el desglose completo. Columna agregada por
+        // Database/Migrations/2026-08-27f_Category_ShowDetailInReceipt.sql.
+        public bool ShowDetailInReceipt { get; set; } = true;
     }
 
 

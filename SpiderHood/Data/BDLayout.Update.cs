@@ -263,7 +263,8 @@ namespace SpiderHood.Data
                     category.ShortDescript!,
                     category.Color!,
                     category.Icon!,
-                    category.Distribution!);
+                    category.Distribution!,
+                    category.ShowDetailInReceipt);
                 return category;
             }, "UpdateCategory", cancellationToken);
         }

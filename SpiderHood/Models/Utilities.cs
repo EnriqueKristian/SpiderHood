@@ -602,19 +602,22 @@ public class InstallmentExportService
         private readonly List<ServiceReadingDetail> _waterReadings;
         private readonly List<Exoneration> _exonerations;
         private readonly Building _building;
+        private readonly List<Category> _categories;
 
         public InstallmentExportService(
             List<Installment> installments,
             BudgetHeader budget,
             List<ServiceReadingDetail> waterReadings,
             List<Exoneration> exonerations,
-            Building building)
+            Building building,
+            List<Category> categories)
         {
             _installments = installments;
             _budget = budget;
             _waterReadings = waterReadings;
             _exonerations = exonerations;
             _building = building;
+            _categories = categories;
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
@@ -1055,6 +1058,14 @@ public class InstallmentExportService
 
                     AddSectionHeader(table, section.Name);
 
+                    // Categoría raíz de esta sección: si tiene ShowDetailInReceipt=false
+                    // (configurable en /category, solo para categorías raíz), la sección
+                    // se imprime colapsada — solo nombre + subtotal, sin desglosar cada
+                    // ítem. El "Ver Detalle" en pantalla (InstallmentDetailModal) no lee
+                    // este flag, siempre muestra el desglose completo.
+                    var showDetail = _categories
+                        .FirstOrDefault(c => c.IdCategory == section.IdCategory)?.ShowDetailInReceipt ?? true;
+
                     // Subtotal por sección (PRESUP y CUOTA), igual que el recibo de
                     // referencia — cada bloque cierra con su propia línea de totales.
                     decimal sectionPresup = 0;
@@ -1066,8 +1077,12 @@ public class InstallmentExportService
                         totalCuota += amount;
                         sectionPresup += item.MonthlyAmount;
                         sectionCuota += amount;
-                        AddTableRow(table, item.Description,
-                            item.MonthlyAmount, amount, item.Type, rowIndex++ % 2 == 1);
+
+                        if (showDetail)
+                        {
+                            AddTableRow(table, item.Description,
+                                item.MonthlyAmount, amount, item.Type, rowIndex++ % 2 == 1);
+                        }
 
                         // Recuadro de consumo (Lectura Anterior/Actual/m³) del ítem de agua
                         // por departamento, igual que en el recibo de referencia.
@@ -1080,7 +1095,11 @@ public class InstallmentExportService
                             {
                                 totalCuota += waterReading.CalculatedAmount;
                                 sectionCuota += waterReading.CalculatedAmount;
-                                AddWaterReadingBox(table, waterReading);
+
+                                if (showDetail)
+                                {
+                                    AddWaterReadingBox(table, waterReading);
+                                }
                             }
                         }
                     }

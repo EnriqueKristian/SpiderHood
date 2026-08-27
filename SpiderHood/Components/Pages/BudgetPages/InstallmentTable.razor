@@ -6,6 +6,7 @@
 @inject SpiderHood.Services.ParameterService ParameterService
 @inject IJSRuntime JSRuntime
 @inject Services.IBankAccountService BankService
+@inject Services.ICategoryService CategoryService
 
 <div class="row">
     <div class="col-12">
@@ -441,13 +442,20 @@
 
             if (Conciliar) await BuscarCoincidencias();
 
+            // Categorías raíz (secciones) del edificio — el generador de recibos las usa
+            // para saber si una sección se imprime con detalle o colapsada (ShowDetailInReceipt).
+            var categorias = ParameterService.CurrentBuilding != null
+                ? await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding)
+                : new List<Category>();
+
             // Inicializar servicio de exportación
             _exportService = new InstallmentExportService(
             Installments!,
             Budget!,
             WaterReadings!,
             Exonerations!,
-            ParameterService.CurrentBuilding!
+            ParameterService.CurrentBuilding!,
+            categorias
         );
 
 

@@ -506,12 +506,17 @@
 
         try
         {
+            // Categorías raíz (secciones) del edificio — el generador de recibos las usa
+            // para saber si una sección se imprime con detalle o colapsada (ShowDetailInReceipt).
+            var categorias = await BudgetService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding);
+
             var exportService = new InstallmentExportService(
                 new List<Installment> { item },
                 budgetActual,
                 waterReadingsActual,
                 exonerationsActual,
-                ParameterService.CurrentBuilding);
+                ParameterService.CurrentBuilding,
+                categorias);
 
             var pdfBytes = exportService.GenerateReceipt(item);
 

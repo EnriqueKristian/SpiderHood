@@ -61,6 +61,19 @@
                                 </div>
                                 <ValidationMessage For="@(() => ViewCategory.Color)" />
                             </div>
+
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="showDetailInReceipt"
+                                       @bind="ViewCategory.ShowDetailInReceipt" />
+                                <label class="form-check-label" for="showDetailInReceipt">
+                                    Mostrar detalle en el recibo impreso
+                                </label>
+                                <p class="form-description">
+                                    Si se desactiva, el recibo de mantenimiento (PDF) solo muestra el
+                                    nombre de esta sección y su subtotal, sin desglosar cada ítem. La
+                                    pantalla "Ver Detalle" siempre muestra el desglose completo.
+                                </p>
+                            </div>
                         }
                         else
                         {

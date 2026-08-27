@@ -36,10 +36,9 @@ namespace SpiderHood.Models
                 Budget.Status = value;
             }
         }
-        public bool IsReadOnly => !(Status == BudgetStatus.Rejected || Status == BudgetStatus.Created);
+
         public bool IsNewBudget { get; set; } = true;
         public DateTime LastPeriod { get; set; }
-        public bool AddNewSection => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
         public bool AddSampleData => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
         public bool LoadServiceReading => !(Budget.Details.Count > 0);
         public bool IsWaterReadingReady => (WaterReadings.Count > 0);
@@ -48,13 +47,7 @@ namespace SpiderHood.Models
             return (Status == BudgetStatus.Rejected || Status == BudgetStatus.Created)
                    && Budget.Details.Count > 0;
         }
-        public bool PublishBudget() {
 
-            if (IsNewBudget)
-                return false;
-            else 
-                return true;
-        }
         public bool GenerateReport() {
             return Budget.Details.Count == 0;
         }
@@ -127,6 +120,7 @@ namespace SpiderHood.Models
                     IdInstallment = Guid.NewGuid(),
                     IdBudgetHeader = _state.Budget.IdBudgetHeader,
                     CreationDate = DateTime.Now, //_Budget.BudgetDate;
+                    Period = _state.Budget.BudgetDate,
                     TotalArea = unit.TotalArea,
                     UnitName = unit.UnitNumber,
                      Number = int.Parse(unit.UnitNumber),

@@ -12,6 +12,8 @@
 @inject ParameterService ParameterService
 @inject IExpenseService ExpenseService
 @inject SpiderHood.Services.IExceptionService _exceptionService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IBuildingService BuildingService
 
 <div class="expense-calculation">
     <!-- Header -->
@@ -27,28 +29,49 @@
         <div class="@(showorNot ? "col-md-8" : "col-md-11") transition-all">
             <div class="card card-hover">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">@_textCabecera</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="mb-0">@_textCabecera</h5>
+                        @if (_BudgetState.Budget.IdBudgetHeader != Guid.Empty)
+                        {
+                            <span class="badge @GetStatusBadgeClass()">@GetStatusLabel()</span>
+                        }
+                    </div>
                     <div style="width:20%"></div>
 
                     @if (_BudgetState.Budget.IdBudgetHeader != Guid.Empty)
                     {
                         <div class="d-flex gap-2">
-                            @if (_BudgetState.AddNewSection)
+                            @if (CanEdit)
                             {
                                 <button class="btn btn-sm btn-outline-primary" @onclick="AddNewSection">
                                     <i class="bi bi-plus-lg me-1"></i>Nueva Sección
                                 </button>
                             }
-                            @if (_BudgetState.PublishBudget())
+                            @if ((_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected) && IsAdministrador)
                             {
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="PublishBudget">
-                                    <i class="@_icon"></i>&nbsp@_msjButtonWorflow
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="EnviarAAprobacion">
+                                    <i class="bi bi-list-check"></i>&nbsp;Enviar a Aprobación
                                 </button>
                             }
-                            @if (_Status == BudgetStatus.Check)
+                            @if (_Status == BudgetStatus.Check && IsJunta)
                             {
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="RejectBudget">
-                                    <i class="bi bi-slash-circle"></i>&nbspRechazar
+                                <button class="btn btn-sm btn-success" @onclick="AprobarPresupuesto">
+                                    <i class="bi bi-check-circle"></i>&nbsp;Aprobar
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="RechazarPresupuesto">
+                                    <i class="bi bi-slash-circle"></i>&nbsp;Rechazar
+                                </button>
+                            }
+                            @if (_Status == BudgetStatus.Approved && IsAdministrador)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="PublicarPresupuesto">
+                                    <i class="bi bi-upload"></i>&nbsp;Publicar
+                                </button>
+                            }
+                            @if (_Status == BudgetStatus.Active && IsAdministrador)
+                            {
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="CerrarPresupuesto">
+                                    <i class="bi bi-folder"></i>&nbsp;Cerrar
                                 </button>
                             }
                         </div>
@@ -81,9 +104,9 @@
                                             <td colspan="7">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <strong>@GetSectionName(section.Id)</strong>
-                                                    @if (_BudgetState.AddNewSection)
+                                                    @if (CanEdit)
                                                     {
-                                                        var _disable = !_BudgetState.AddNewSection;
+                                                        var _disable = !CanEdit;
                                                         <button class="btn btn-sm btn-outline-primary add-item-btn" disabled="@_disable"
                                                                 @onclick="() => AddExpenseItemToSection(section.Id)">
                                                             <i class="bi bi-plus me-1"></i>Agregar Item
@@ -113,14 +136,14 @@
                                                         <span>@item.ItemNumber</span>
                                                     </td>
                                                     <td>
-                                                        <InputText @bind-Value="item.Description" readonly="@_BudgetState.IsReadOnly"
+                                                        <InputText @bind-Value="item.Description" readonly="@(!CanEdit)"
                                                                    class="form-control form-control-sm"
                                                                    @onchange="CalculateTotals" />
                                                     </td>
                                                     <td>
                                                         <div class="currency-input">
                                                             <span class="currency-symbol" style="font-size:0.6em">S/</span>
-                                                            <input @bind="item.MonthlyAmount" readonly="@_BudgetState.IsReadOnly"
+                                                            <input @bind="item.MonthlyAmount" readonly="@(!CanEdit)"
                                                                    class="form-control form-control-sm"
                                                                    step="0.01"
                                                                    style="justify-items:right"
@@ -138,7 +161,7 @@
                                                         </div>
                                                     </td>
                                                     <td>
-                                                        <select @bind="item.Frequency" disabled="@_BudgetState.IsReadOnly"
+                                                        <select @bind="item.Frequency" disabled="@(!CanEdit)"
                                                                 @bind:event="onchange"
                                                                 @bind:after="() => UpdateFrequency(item)"
                                                                 class="form-select form-select-sm">
@@ -150,7 +173,7 @@
                                                         </select>
                                                     </td>
                                                     <td>
-                                                        <select @bind="item.Type" @bind:event="onchange" disabled="@_BudgetState.IsReadOnly"
+                                                        <select @bind="item.Type" @bind:event="onchange" disabled="@(!CanEdit)"
                                                                 @bind:after="() => CalculateTotals()"
                                                                 class="form-select form-select-sm">
                                                             @foreach (var frec in filteredParameters.Where(c => c.IdParent == 8))
@@ -162,7 +185,7 @@
                                                     <td>
                                                         <div class="btn-group btn-group-sm" role="group">
                                                             @{
-                                                                var _RemoveExpenseItem = !_BudgetState.AddNewSection;
+                                                                var _RemoveExpenseItem = !CanEdit;
                                                             }
                                                             <button class="btn btn-outline-danger" disabled="@_RemoveExpenseItem"
                                                                     @onclick="() => RemoveExpenseItem(item.IdBudgetDetail)">
@@ -185,7 +208,7 @@
                                                 <td></td>
                                                 <td>
                                                     @{
-                                                        var _RemoveSection = !_BudgetState.AddNewSection;
+                                                        var _RemoveSection = !CanEdit;
                                                     }
                                                     <button class="btn btn-sm btn-outline-secondary" disabled="@_RemoveSection"
                                                             @onclick="() => RemoveSection(section.Id)"
@@ -411,6 +434,15 @@
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
 
     private BudgetStatus _Status = BudgetStatus.Created;
+    private UserSession currentUser = new();
+
+    // Workflow: Administrador crea/envía a aprobación/publica/cierra, Junta de
+    // Propietarios aprueba/rechaza. currentUser.Role ya viene resuelto para el
+    // edificio+rol actualmente seleccionado (Services/AuthService.GetCurrentUserAsync,
+    // mismo patrón que BuildingPage.razor.cs).
+    private bool IsAdministrador => currentUser?.Role == "Administrador";
+    private bool IsJunta => currentUser?.Role == "Junta";
+    private bool CanEdit => IsAdministrador && (_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected);
 
     private NewCalculation _newCalculation = new();
     private NewSection _newSection = new();
@@ -425,8 +457,6 @@
     private string class2 = "card card-hover";
     private string class5 = "bi bi-arrow-bar-right";
     private bool showorNot = true;
-    private string _msjButtonWorflow = "Sol. Aprob.";
-    private string _icon = "bi bi-list-check";
     private string _textCabecera = "Detalle de Gastos - ";
 
     private List<SelectListItem> _availableMonths = new();
@@ -441,36 +471,34 @@
 
     private BudgetState _BudgetState = new();
 
-    private BudgetStatus ValidateParameter(BudgetStatus value)
-    {
-        switch (value)
-        {
-            case BudgetStatus.Created or BudgetStatus.Rejected:
-                break;
-            case BudgetStatus.Check:
-                SetWorkflowState("Aprobar", "bi bi-file-earmark", true);
-                break;
-            case BudgetStatus.Approved:
-                SetWorkflowState("Publicar", "bi bi-upload", true);
-                break;
-            case BudgetStatus.Active:
-                SetWorkflowState("Cerrar", "bi bi-folder", true);
-                break;
-            case BudgetStatus.Closed:
-                SetWorkflowState("Cerrado", "bi bi-lock", true);
-                break;
-            case BudgetStatus.All:
-                value = BudgetStatus.Created;
-                break;
-        }
-        return value;
-    }
+    private BudgetStatus ValidateParameter(BudgetStatus value) =>
+        value == BudgetStatus.All ? BudgetStatus.Created : value;
 
-    private void SetWorkflowState(string message, string icon, bool isReadonly)
+    // Nombre/color del badge de estado junto al header — necesario ahora que los
+    // botones de acción dependen del rol: sin esto, un usuario que no tiene ningún
+    // botón visible (p.ej. Junta viendo un presupuesto en Creado) no tendría forma de
+    // saber en qué estado está el presupuesto.
+    private string GetStatusLabel() => _Status switch
     {
-        _msjButtonWorflow = message;
-        _icon = icon;
-    }
+        BudgetStatus.Created => "Creado",
+        BudgetStatus.Check => "En revisión",
+        BudgetStatus.Approved => "Aprobado",
+        BudgetStatus.Active => "Publicado",
+        BudgetStatus.Rejected => "Rechazado",
+        BudgetStatus.Closed => "Cerrado",
+        _ => _Status.ToString()
+    };
+
+    private string GetStatusBadgeClass() => _Status switch
+    {
+        BudgetStatus.Created => "bg-secondary",
+        BudgetStatus.Check => "bg-warning text-dark",
+        BudgetStatus.Approved => "bg-info text-dark",
+        BudgetStatus.Active => "bg-success",
+        BudgetStatus.Rejected => "bg-danger",
+        BudgetStatus.Closed => "bg-dark",
+        _ => "bg-secondary"
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -488,6 +516,8 @@
 
         if (ParameterService.CurrentBuilding == null)
             return;
+
+        currentUser = await AuthService.GetCurrentUserAsync();
 
         //Obtiene el presupuesto de la pagina de lista de presupuestos
         _Status = ValidateParameter(presupuestoService._SelectedBudget.Status);
@@ -1002,48 +1032,45 @@
         _periods = await ParameterService.GetPeriodsAsync(ParameterService.CurrentBuilding.IdBuilding);
     }
 
-    private async Task PublishBudget1(MouseEventArgs args)
+    // La Junta aprueba: Check -> Approved. No vuelve a correr las validaciones de
+    // contenido (secciones/montos/agua) — eso ya se validó al enviar a aprobación, y la
+    // Junta no edita el presupuesto.
+    private async Task AprobarPresupuesto()
     {
-        //Implementar lógica para validar:
-        // Cada Seccion debe tener al menos un item
-        // Se debe tener cargada la lectura de Agua
+        if (!IsJunta || _Status != BudgetStatus.Check) return;
 
-        UpdateBudgetStatus();
+        _Status = BudgetStatus.Approved;
         _BudgetState.Status = _Status;
         await SaveCalculation();
+        await ShowToast("Éxito", $"Presupuesto{getStatusNameMessage(_Status)} correctamente", "success");
         StateHasChanged();
     }
 
-    private void UpdateBudgetStatus()
+    // La Junta rechaza: Check -> Rejected (antes volvía directo a Created, perdiendo el
+    // registro de que había sido rechazado). Rejected se trata igual que Created para
+    // edición (ver CanEdit), así que el Administrador puede corregirlo y reenviarlo a
+    // aprobación.
+    private async Task RechazarPresupuesto()
     {
-        switch (_Status)
-        {
-            case BudgetStatus.Created or BudgetStatus.Rejected:
-                _Status = BudgetStatus.Check;
-                SetWorkflowState("Aprobar", "bi bi-file-earmark", true);
-                break;
-            case BudgetStatus.Check:
-                _Status = BudgetStatus.Approved;
-                SetWorkflowState("Publicar", "bi bi-upload", true);
-                break;
-            case BudgetStatus.Approved:
-                _Status = BudgetStatus.Active;
-                SetWorkflowState("Cerrar", "bi bi-folder", true);
-                break;
-            case BudgetStatus.Active:
-                _Status = BudgetStatus.Closed;
-                SetWorkflowState("Cerrado", "bi bi-lock", true);
-                break;
-        }
-    }
+        if (!IsJunta || _Status != BudgetStatus.Check) return;
 
-    private async Task RejectBudget(MouseEventArgs args)
-    {
-        SetWorkflowState("Sol. Aprob.", "bi bi-list-check", false);
-        _Status = BudgetStatus.Created;
-
+        _Status = BudgetStatus.Rejected;
         _BudgetState.Status = _Status;
         await SaveCalculation();
+        await ShowToast("Info", $"Presupuesto{getStatusNameMessage(_Status)}", "warning");
+        StateHasChanged();
+    }
+
+    // El Administrador cierra: Active -> Closed. Sin cambios de fondo respecto al
+    // comportamiento anterior, solo se le agrega el gate de rol.
+    private async Task CerrarPresupuesto()
+    {
+        if (!IsAdministrador || _Status != BudgetStatus.Active) return;
+
+        _Status = BudgetStatus.Closed;
+        _BudgetState.Status = _Status;
+        await SaveCalculation();
+        await ShowToast("Éxito", $"Presupuesto{getStatusNameMessage(_Status)} correctamente", "success");
         StateHasChanged();
     }
     #endregion
@@ -1119,232 +1146,276 @@
         _ = CalculateTotals();
     }
 
-    private async Task PublishBudget(MouseEventArgs args)
+    // Valida el CONTENIDO del presupuesto (secciones con items, montos, lectura de agua
+    // completa). blocked=true corta el flujo de una vez (ya se mostró el toast de error);
+    // blocked=false con warnings.Any() son problemas "blandos" que el Administrador puede
+    // decidir ignorar vía el modal de confirmación. Se usa tanto al enviar a aprobación
+    // como, de nuevo, al publicar (último resguardo antes de generar cuotas reales en BD).
+    private async Task<(bool blocked, List<string> warnings)> ValidarPresupuestoParaAprobacion()
     {
-        try
+        // 1. Validar que haya secciones en el presupuesto
+        if (_BudgetState.Budget!.Details == null || !_BudgetState.Budget.Details.Any())
         {
-            // 1. Validar que haya secciones en el presupuesto
-            if (_BudgetState.Budget!.Details == null || !_BudgetState.Budget.Details.Any())
-            {
-                await ShowToast("Error", "El presupuesto no tiene detalles. Agregue secciones e items primero.", "danger");
-                return;
-            }
+            await ShowToast("Error", "El presupuesto no tiene detalles. Agregue secciones e items primero.", "danger");
+            return (true, new());
+        }
 
-            // 2. Obtener secciones únicas (headers)
-            var sections = _BudgetState.Budget.Details
-                .Where(x => x.IsHeader)
-                .Select(x => new { x.IdSection, x.Description })
-                .Distinct()
+        // 2. Obtener secciones únicas (headers)
+        var sections = _BudgetState.Budget.Details
+            .Where(x => x.IsHeader)
+            .Select(x => new { x.IdSection, x.Description })
+            .Distinct()
+            .ToList();
+
+        if (!sections.Any())
+        {
+            await ShowToast("Error", "El presupuesto no tiene secciones definidas.", "danger");
+            return (true, new());
+        }
+
+        // 3. Validar que cada sección tenga al menos un item
+        var sectionsWithoutItems = new List<string>();
+        var sectionsWithZeroAmount = new List<string>();
+
+        foreach (var section in sections)
+        {
+            var sectionItems = _BudgetState.Budget.Details
+                .Where(x => x.IdSection == section.IdSection && !x.IsHeader)
                 .ToList();
 
-            if (!sections.Any())
+            // Verificar si la sección tiene items
+            if (!sectionItems.Any())
             {
-                await ShowToast("Error", "El presupuesto no tiene secciones definidas.", "danger");
-                return;
+                sectionsWithoutItems.Add(section.Description);
+                continue;
             }
 
-            // 3. Validar que cada sección tenga al menos un item
-            var sectionsWithoutItems = new List<string>();
-            var sectionsWithZeroAmount = new List<string>();
-
-            foreach (var section in sections)
+            // Verificar si los items tienen montos válidos
+            var totalSectionAmount = sectionItems.Sum(x => x.MonthlyAmount);
+            if (totalSectionAmount <= 0)
             {
-                var sectionItems = _BudgetState.Budget.Details
-                    .Where(x => x.IdSection == section.IdSection && !x.IsHeader)
-                    .ToList();
-
-                // Verificar si la sección tiene items
-                if (!sectionItems.Any())
-                {
-                    sectionsWithoutItems.Add(section.Description);
-                    continue;
-                }
-
-                // Verificar si los items tienen montos válidos
-                var totalSectionAmount = sectionItems.Sum(x => x.MonthlyAmount);
-                if (totalSectionAmount <= 0)
-                {
-                    sectionsWithZeroAmount.Add(section.Description);
-                }
+                sectionsWithZeroAmount.Add(section.Description);
             }
+        }
 
-            // 4. Validar lectura de agua
-            var waterCategoryId = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
-            var hasWaterSection = sections.Any(s =>
-                _BudgetState.Budget.Details.Any(d => d.IdSection == s.IdSection &&
-                                      d.IdCategory == waterCategoryId &&
-                                      !d.IsHeader));
+        // 4. Validar lectura de agua
+        var waterCategoryId = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
+        var hasWaterSection = sections.Any(s =>
+            _BudgetState.Budget.Details.Any(d => d.IdSection == s.IdSection &&
+                                  d.IdCategory == waterCategoryId &&
+                                  !d.IsHeader));
 
-            bool waterReadingValid = false;
-            string waterReadingMessage = string.Empty;
+        bool waterReadingValid = false;
+        string waterReadingMessage = string.Empty;
 
-            if (hasWaterSection)
+        if (hasWaterSection)
+        {
+            // Validar que existan lecturas de agua
+            if (_BudgetState.WaterReadings == null || !_BudgetState.WaterReadings.Any())
             {
-                // Validar que existan lecturas de agua
-                if (_BudgetState.WaterReadings == null || !_BudgetState.WaterReadings.Any())
+                waterReadingValid = false;
+                waterReadingMessage = "No hay lecturas de agua cargadas para el mes actual.";
+            }
+            else
+            {
+                // Validar que todas las unidades tengan lectura
+                var unitsWithoutReading = new List<string>();
+                var readingsWithErrors = new List<string>();
+
+                foreach (var reading in _BudgetState.WaterReadings)
                 {
+                    // Validar lecturas válidas
+                    /*if (reading.CurrentReading <= reading.PreviousReading)
+                    {
+                        readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Lectura actual debe ser mayor a la anterior");
+                        }*/
+
+                    if (reading.Consumption <= 0)
+                    {
+                        readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Consumo inválido");
+                    }
+                }
+
+                // Verificar unidades sin lectura
+                var allUnits = Installments?.Select(i => i.IdGroupUnit).Distinct().ToList() ?? new List<Guid>();
+                var unitsWithReading = _BudgetState.WaterReadings.Select(r => r.IdGroupUnit).Distinct().ToList();
+                var missingUnits = allUnits.Except(unitsWithReading).ToList();
+
+                if (missingUnits.Any())
+                {
+                    var unitNames = Installments?
+                        .Where(i => missingUnits.Contains(i.IdGroupUnit))
+                        .Select(i => i.UnitName)
+                        .ToList() ?? new List<string>();
+
+                    waterReadingMessage = $"Faltan lecturas para: {string.Join(", ", unitNames)}";
                     waterReadingValid = false;
-                    waterReadingMessage = "No hay lecturas de agua cargadas para el mes actual.";
+                }
+                else if (readingsWithErrors.Any())
+                {
+                    waterReadingMessage = $"Errores en lecturas: {string.Join("; ", readingsWithErrors)}";
+                    waterReadingValid = false;
                 }
                 else
                 {
-                    // Validar que todas las unidades tengan lectura
-                    var unitsWithoutReading = new List<string>();
-                    var readingsWithErrors = new List<string>();
-
-                    foreach (var reading in _BudgetState.WaterReadings)
-                    {
-                        // Validar lecturas válidas
-                        /*if (reading.CurrentReading <= reading.PreviousReading)
-                        {
-                            readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Lectura actual debe ser mayor a la anterior");
-                            }*/
-
-                        if (reading.Consumption <= 0)
-                        {
-                            readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Consumo inválido");
-                        }
-                    }
-
-                    // Verificar unidades sin lectura
-                    var allUnits = Installments?.Select(i => i.IdGroupUnit).Distinct().ToList() ?? new List<Guid>();
-                    var unitsWithReading = _BudgetState.WaterReadings.Select(r => r.IdGroupUnit).Distinct().ToList();
-                    var missingUnits = allUnits.Except(unitsWithReading).ToList();
-
-                    if (missingUnits.Any())
-                    {
-                        var unitNames = Installments?
-                            .Where(i => missingUnits.Contains(i.IdGroupUnit))
-                            .Select(i => i.UnitName)
-                            .ToList() ?? new List<string>();
-
-                        waterReadingMessage = $"Faltan lecturas para: {string.Join(", ", unitNames)}";
-                        waterReadingValid = false;
-                    }
-                    else if (readingsWithErrors.Any())
-                    {
-                        waterReadingMessage = $"Errores en lecturas: {string.Join("; ", readingsWithErrors)}";
-                        waterReadingValid = false;
-                    }
-                    else
-                    {
-                        waterReadingValid = true;
-                    }
+                    waterReadingValid = true;
                 }
             }
-            else
+        }
+        else
+        {
+            // No hay sección de agua, no es necesario validar lecturas
+            waterReadingValid = true;
+        }
+
+        // 5. Validar montos totales
+        var totalBudgetAmount = _BudgetState.Budget.Details
+            .Where(x => !x.IsHeader)
+            .Sum(x => x.MonthlyAmount);
+
+        if (totalBudgetAmount <= 0)
+        {
+            await ShowToast("Error", "El presupuesto total debe ser mayor a cero.", "danger");
+            return (true, new());
+        }
+
+        // 6. Preparar mensajes de advertencia combinados
+        var warnings = new List<string>();
+
+        if (sectionsWithoutItems.Any())
+        {
+            warnings.Add($"Secciones sin items: {string.Join(", ", sectionsWithoutItems)}");
+        }
+
+        if (sectionsWithZeroAmount.Any())
+        {
+            warnings.Add($"Secciones con monto cero: {string.Join(", ", sectionsWithZeroAmount)}");
+        }
+
+        if (!waterReadingValid)
+        {
+            warnings.Add($"Lectura de agua: {waterReadingMessage}");
+        }
+
+        return (false, warnings);
+    }
+
+    // Muestra el modal de confirmación cuando hay advertencias "blandas", o procede
+    // directamente si el presupuesto está limpio. Reusado por Enviar a Aprobación y Publicar.
+    private async Task ConfirmarYProceder(List<string> warnings, Func<Task> proceed)
+    {
+        if (warnings.Any())
+        {
+            var errorDetails = string.Join("\n• ", warnings);
+            var message = $"Se encontraron los siguientes problemas:\n\n• {errorDetails}\n\n¿Desea continuar de todos modos?";
+            await util.ExecuteWithConfirmation(proceed, "actionName", _confirmationModal, message, "danger", true);
+        }
+        else
+        {
+            await proceed();
+        }
+    }
+
+    // El Administrador envía a aprobación: Created/Rejected -> Check.
+    private async Task EnviarAAprobacion()
+    {
+        if (!IsAdministrador || !(_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected)) return;
+
+        try
+        {
+            var (blocked, warnings) = await ValidarPresupuestoParaAprobacion();
+            if (blocked) return;
+
+            await ConfirmarYProceder(warnings, async () =>
             {
-                // No hay sección de agua, no es necesario validar lecturas
-                waterReadingValid = true;
-            }
-
-            // 5. Validar montos totales
-            var totalBudgetAmount = _BudgetState.Budget.Details
-                .Where(x => !x.IsHeader)
-                .Sum(x => x.MonthlyAmount);
-
-            if (totalBudgetAmount <= 0)
-            {
-                await ShowToast("Error", "El presupuesto total debe ser mayor a cero.", "danger");
-                return;
-            }
-
-            // 6. Preparar mensajes de error combinados
-            var errorMessages = new List<string>();
-
-            if (sectionsWithoutItems.Any())
-            {
-                errorMessages.Add($"Secciones sin items: {string.Join(", ", sectionsWithoutItems)}");
-            }
-
-            if (sectionsWithZeroAmount.Any())
-            {
-                errorMessages.Add($"Secciones con monto cero: {string.Join(", ", sectionsWithZeroAmount)}");
-            }
-
-            if (!waterReadingValid)
-            {
-                errorMessages.Add($"Lectura de agua: {waterReadingMessage}");
-            }
-
-            /* var exceptions = await _exceptionService.GetExceptionsByBudgetAsync(_BudgetState.Budget!.IdBudgetHeader);
-            if (exceptions.Any())
-            {
-                var unitsWithFullExceptions = exceptions
-                .Where(e => e.PercentageExcluded == 100)
-                .Select(e => GetUnitName(e.IdGroupUnit))
-                .Distinct()
-                .ToList();
-
-                if (unitsWithFullExceptions.Any())
+                try
                 {
-                    var exceptionDetails = $"Departamentos con excepciones totales: {string.Join(", ", unitsWithFullExceptions)}";
-                    await ShowToast("Info", exceptionDetails, "info");
-                    }
-                }*/
+                    await ShowLoading("Enviando a aprobación...");
+                    _Status = BudgetStatus.Check;
+                    _BudgetState.Status = _Status;
+                    await SaveCalculation();
+                    await HideLoading();
+                    await ShowToast("Éxito", $"Presupuesto{getStatusNameMessage(_Status)} correctamente", "success");
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    await HideLoading();
+                    await ShowToast("Error", $"Error al enviar a aprobación: {ex.Message}", "danger");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            await ShowToast("Error", $"Error al enviar a aprobación: {ex.Message}", "danger");
+        }
+    }
 
+    // El Administrador publica: Approved -> Active. Recién acá se generan las cuotas en
+    // BD (SaveBudgetAsync ya lo hace automáticamente al ver Status == Active) y se
+    // generan/descargan todos los recibos (PDF) en un solo ZIP.
+    private async Task PublicarPresupuesto()
+    {
+        if (!IsAdministrador || _Status != BudgetStatus.Approved) return;
 
-            // 7. Mostrar errores si los hay
-            if (errorMessages.Any())
+        try
+        {
+            var (blocked, warnings) = await ValidarPresupuestoParaAprobacion();
+            if (blocked) return;
+
+            await ConfirmarYProceder(warnings, async () =>
             {
-                var errorDetails = string.Join("\n• ", errorMessages);
+                try
+                {
+                    await ShowLoading("Publicando presupuesto...");
 
-                var message = $"Se encontraron los siguientes problemas:\n\n• {errorDetails}\n\n¿Desea continuar de todos modos?";
+                    _Status = BudgetStatus.Active;
+                    _BudgetState.Status = _Status;
 
-                await util.ExecuteWithConfirmation(Sample, "actionName", _confirmationModal, message, "danger", true);
-            }
-            else
-            {
-                //8. Proceder con la publicación si todo está válido
-                await ProceedWithPublish();
-            }
+                    // Guarda el presupuesto y genera las Installment en BD (SaveBudgetAsync
+                    // las persiste porque el estado ya quedó en Active).
+                    await SaveCalculation();
+
+                    // ParameterService.CurrentBuilding.Configuration viene del login
+                    // (GET_AllBuildingsConfig), que NO trae BankAccounts ni AdminContact
+                    // (se cargan aparte, solo cuando se visita y guarda Configuración del
+                    // Edificio) — por eso el pie del recibo a veces salía con
+                    // {Banco}/{Titular}/{CorreoADM} vacíos. Se refresca acá con la config
+                    // completa antes de generar los recibos.
+                    ParameterService.CurrentBuilding!.Configuration =
+                        await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+                    // Genera el recibo (PDF) de cada unidad y los descarga en un solo ZIP.
+                    var exportService = new InstallmentExportService(
+                        _BudgetState.Installments,
+                        _BudgetState.Budget,
+                        _BudgetState.WaterReadings,
+                        _BudgetState.Exonerations,
+                        ParameterService.CurrentBuilding!,
+                        filteredCategories);
+
+                    var zipBytes = exportService.GenerateAllReceiptsZip();
+                    await JSRuntime.InvokeVoidAsync("downloadFile",
+                        Convert.ToBase64String(zipBytes),
+                        $"Recibos_{_BudgetState.Budget.BudgetDate:yyyyMM}.zip",
+                        "application/zip");
+
+                    await RegisterAuditLog();
+
+                    await HideLoading();
+                    await ShowToast("Éxito", $"Presupuesto{getStatusNameMessage(_Status)} correctamente", "success");
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    await HideLoading();
+                    await ShowToast("Error", $"Error al procesar la publicación: {ex.Message}", "danger");
+                }
+            });
         }
         catch (Exception ex)
         {
             await ShowToast("Error", $"Error al publicar presupuesto: {ex.Message}", "danger");
-        }
-    }
-
-    private async Task ProceedWithPublish()
-    {
-        try
-        {
-            // Mostrar indicador de carga
-            await ShowLoading("Publicando presupuesto...");
-
-            // 1. Actualizar estado del presupuesto
-            UpdateBudgetStatus();
-            _BudgetState.Status = _Status;
-
-            // 2. Guardar cálculo
-            await SaveCalculation();
-
-            // 3. Generar cuotas para cada departamento
-            //await GenerateInstallments();
-
-            // 4. Registrar auditoría
-            await RegisterAuditLog();
-
-            // 5. Notificar a propietarios (opcional)
-            if (await ShouldNotifyOwners())
-            {
-                await NotifyOwners();
-            }
-
-            // 6. Mostrar éxito
-            await HideLoading();
-            await ShowToast("Éxito", $"Presupuesto {getStatusNameMessage(_Status)} correctamente", "success");
-
-            // 7. Actualizar UI
-            StateHasChanged();
-
-            // 8. Opcional: Redirigir o limpiar formulario
-            //await OnBudgetPublished.InvokeAsync(Budget);
-        }
-        catch (Exception ex)
-        {
-            await HideLoading();
-            await ShowToast("Error", $"Error al procesar la publicación: {ex.Message}", "danger");
         }
     }
 
@@ -1465,13 +1536,6 @@
     }
 
     // Métodos auxiliares de UI (debes implementarlos o ajustar según tu framework)
-
-    private Task Sample()
-    {
-        // Aquí procesas lo que el modal envió
-        _ = ProceedWithPublish();
-        return Task.CompletedTask;
-    }
 
 
     private async Task<bool> ShowConfirmationDialog(string title, string message, string confirmText,

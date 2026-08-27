@@ -692,235 +692,11 @@ namespace SpiderHood.Models
             return stream.ToArray();
         }
 
-        // Generar PDF individual (como el ejemplo)
-
-        public byte[] GenerateSinglePdf(Installment installment)
-        {
-            var document = Document.Create(container =>
-            {
-                container.Page(page =>
-                {
-                    page.Size(PageSizes.A4);
-                    page.Margin(30);
-
-                    page.Header().Element(Header);
-                    page.Content().Element(content => Content(content, installment));
-                    page.Footer().Element(Footer);
-                });
-            });
-
-            return document.GeneratePdf();
-        }
-
-        private void Header(IContainer container)
-        {
-            container.Row(row =>
-            {
-                row.RelativeItem().Column(column =>
-                {
-                    column.Item().Text("RESIDENCIAL NOVA ALZAMORA - SURQUILLO - LIMA")
-                        .FontSize(14).Bold();
-
-                    column.Item().Text("REPORTE DE DEUDAS")
-                        .FontSize(12);
-                });
-
-                //row.ConstantItem(100).Image("logo.png");
-            });
-        }
-
-        private void Content(IContainer container, Installment installment)
-        {
-            container.Column(column =>
-            {
-                // Información del departamento
-                column.Item().PaddingBottom(20).Row(row =>
-                {
-                    row.RelativeItem().Column(col =>
-                    {
-                        col.Item().Text($"DPTO: {installment.UnitName}")
-                            .FontSize(16).Bold();
-                        col.Item().Text($"Propietario: {installment.OwnerName}")
-                            .FontSize(12);
-                        col.Item().Text($"Período: {DateTime.Now:MMMM yyyy}")
-                            .FontSize(12);
-                    });
-
-                    row.ConstantItem(200).Column(col =>
-                    {
-                        col.Item().Text("Área Total:").FontSize(10);
-                        col.Item().Text($"{installment.TotalArea:N2} m²").Bold();
-
-                        col.Item().Text("% Distribución:").FontSize(10);
-                        col.Item().Text($"{installment.Percent:N2}%").Bold();
-                    });
-                });
-
-                // Histórico de deudas (como en el PDF ejemplo)
-                column.Item().PaddingBottom(20).Table(table =>
-                {
-                    table.ColumnsDefinition(columns =>
-                    {
-                        columns.RelativeColumn();
-                        columns.ConstantColumn(60);
-                        columns.ConstantColumn(60);
-                        columns.ConstantColumn(60);
-                        columns.ConstantColumn(60);
-                    });
-
-                    table.Header(header =>
-                    {
-                        header.Cell().Text("Año").Bold();
-                        header.Cell().Text("Ene").Bold();
-                        header.Cell().Text("Feb").Bold();
-                        header.Cell().Text("Mar").Bold();
-                        header.Cell().Text("Abr").Bold();
-                    });
-
-                    // Aquí irían los datos históricos
-                    for (int i = 2023; i >= 2017; i--)
-                    {
-                        table.Cell().Text(i.ToString());
-                        table.Cell().Text("-");
-                        table.Cell().Text("-");
-                        table.Cell().Text("-");
-                        table.Cell().Text("-");
-                    }
-                });
-
-                // Detalle de la cuota actual
-                column.Item().PaddingBottom(20).Table(table =>
-                {
-                    table.ColumnsDefinition(columns =>
-                    {
-                        columns.RelativeColumn();
-                        columns.ConstantColumn(100);
-                        columns.ConstantColumn(100);
-                    });
-
-                    table.Header(header =>
-                    {
-                        header.Cell().Text("DESCRIPCIÓN").Bold();
-                        header.Cell().AlignRight().Text("PRESUPUESTO").Bold();
-                        header.Cell().AlignRight().Text("CUOTA").Bold();
-                    });
-
-                    decimal total = 0;
-                    foreach (var item in _budget.Details.Where(d => !d.IsHeader))
-                    {
-                        var amount = CalculateItemAmount(item, installment);
-                        total += amount;
-
-                        table.Cell().Text(item.Description);
-                        table.Cell().AlignRight().Text($"S/ {item.MonthlyAmount:N2}");
-                        table.Cell().AlignRight().Text($"S/ {amount:N2}");
-                    }
-
-                    // Agua
-                    var waterReading = _waterReadings?
-                        .FirstOrDefault(w => w.IdGroupUnit == installment.IdGroupUnit);
-
-                    if (waterReading != null)
-                    {
-                        table.Cell().Text("CONSUMO DE AGUA").Bold();
-                        table.Cell().AlignRight().Text("-");
-                        table.Cell().AlignRight().Text($"S/ {waterReading.CalculatedAmount:N2}");
-                        total += waterReading.CalculatedAmount;
-                    }
-
-                    // Total
-                    table.Cell().ColumnSpan(2).Text("TOTAL").Bold();
-                    table.Cell().AlignRight().Text($"S/ {total:N2}").Bold();
-                });
-
-                // Tabla de cálculo de agua (como en el ejemplo)
-                column.Item().Table(table =>
-                {
-                    table.ColumnsDefinition(columns =>
-                    {
-                        columns.ConstantColumn(100);
-                        columns.ConstantColumn(60);
-                        columns.ConstantColumn(60);
-                        columns.ConstantColumn(60);
-                        columns.ConstantColumn(60);
-                        columns.ConstantColumn(60);
-                        columns.ConstantColumn(60);
-                        columns.ConstantColumn(60);
-                    });
-
-                    table.Header(header =>
-                    {
-                        header.Cell().Text("Rango m³").Bold();
-                        header.Cell().Text("Mín").Bold();
-                        header.Cell().Text("Potable").Bold();
-                        header.Cell().Text("Alcant.").Bold();
-                        header.Cell().Text("Total").Bold();
-                        header.Cell().Text("Dif.").Bold();
-                        header.Cell().Text("Consumo").Bold();
-                        header.Cell().Text("Monto").Bold();
-                    });
-
-                    // Aquí irían las tarifas de agua por rangos
-                });
-            });
-        }
-
-        private void Footer(IContainer container)
-        {
-            container.AlignCenter().Text(text =>
-            {
-                text.Span("Generado el: ").FontSize(8);
-                text.Span($"{DateTime.Now:dd/MM/yyyy HH:mm}").FontSize(8).Bold();
-            });
-        }
-
-
-        // Generar todos los PDFs (uno por departamento)
-        public Dictionary<string, byte[]> GenerateAllPdfs()
-        {
-            var pdfs = new Dictionary<string, byte[]>();
-
-            foreach (var installment in _installments)
-            {
-                var pdfBytes = GenerateSinglePdf(installment);
-                pdfs.Add($"Cuota_{installment.UnitName}_{DateTime.Now:yyyyMM}.pdf", pdfBytes);
-            }
-
-            return pdfs;
-        }
-
-        // Generar ZIP con todos los PDFs
-        public byte[] GenerateZipWithAllPdfs()
-        {
-            var pdfs = GenerateAllPdfs();
-
-            using var memoryStream = new MemoryStream();
-            using (var archive = new System.IO.Compression.ZipArchive(memoryStream,
-                System.IO.Compression.ZipArchiveMode.Create, true))
-            {
-                foreach (var pdf in pdfs)
-                {
-                    var entry = archive.CreateEntry(pdf.Key);
-                    using var entryStream = entry.Open();
-                    entryStream.Write(pdf.Value, 0, pdf.Value.Length);
-                }
-            }
-
-            return memoryStream.ToArray();
-        }
-
         // Métodos auxiliares
         private decimal CalculateInstallmentAmount(Installment installment)
         {
             // Lógica para calcular el monto de la cuota
             return installment.Amount;
-        }
-
-        private decimal CalculateItemAmount(BudgetDetail item, Installment installment)
-        {
-            // Lógica para calcular el monto por item
-            // Similar a lo que ya tienes en tu código
-            return item.MonthlyAmount * (installment.Percent / 100);
         }
 
         private string GetStatusText(int status)
@@ -959,6 +735,27 @@ namespace SpiderHood.Models
             return document.GeneratePdf();
         }
 
+        // Un PDF por cuota (el mismo GenerateReceipt que usa "Imprimir"), empaquetados
+        // en un solo ZIP — usado al publicar un presupuesto (BudgetGenerator.razor),
+        // para entregar todos los recibos del periodo de una sola vez.
+        public byte[] GenerateAllReceiptsZip()
+        {
+            using var memoryStream = new MemoryStream();
+            using (var archive = new System.IO.Compression.ZipArchive(memoryStream,
+                System.IO.Compression.ZipArchiveMode.Create, true))
+            {
+                foreach (var installment in _installments)
+                {
+                    var pdfBytes = GenerateReceipt(installment);
+                    var entry = archive.CreateEntry($"Recibo_{installment.UnitName}_{installment.Period:yyyyMM}.pdf");
+                    using var entryStream = entry.Open();
+                    entryStream.Write(pdfBytes, 0, pdfBytes.Length);
+                }
+            }
+
+            return memoryStream.ToArray();
+        }
+
         // Todo el recibo (cabecera, datos del propietario, tabla y pie) se arma en un
         // solo bloque con un borde exterior continuo, igual que el recibo de referencia
         // (una hoja enmarcada de punta a punta) — antes se usaba page.Header()/Footer()
@@ -976,18 +773,29 @@ namespace SpiderHood.Models
 
         private void ComposeHeader(IContainer container)
         {
-            var titulo = string.IsNullOrWhiteSpace(_building.Location)
-                ? _building.Name.ToUpper()
-                : $"{_building.Name} - {_building.Location}".ToUpper();
-
             var periodo = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
+
+            // "Recibo de Mantenimiento - Enero 2026": nombre del mes con la primera letra
+            // en mayúscula (la cultura es-* devuelve el mes en minúscula por defecto).
+            var mesAno = _installment.Period.ToString("MMMM yyyy", CultureInfo.CurrentCulture);
+            mesAno = char.ToUpper(mesAno[0]) + mesAno.Substring(1);
 
             container.BorderBottom(2).BorderColor(Colors.Blue.Darken2).Padding(10).Row(row =>
             {
                 row.RelativeItem().Column(col =>
                 {
-                    col.Item().AlignCenter().Text(titulo).FontSize(14).Bold();
-                    col.Item().AlignCenter().Text("Recibo de Mantenimiento")
+                    col.Item().AlignCenter().Text(_building.Name.ToUpper()).FontSize(14).Bold();
+
+                    // La dirección va más chica que el título de abajo (11pt) — es un dato
+                    // secundario, no debería competir con el nombre del edificio ni con
+                    // "Recibo de Mantenimiento".
+                    if (!string.IsNullOrWhiteSpace(_building.Location))
+                    {
+                        col.Item().AlignCenter().Text(_building.Location)
+                            .FontSize(8).FontColor(Colors.Grey.Darken1);
+                    }
+
+                    col.Item().AlignCenter().Text($"Recibo de Mantenimiento - {mesAno}")
                         .FontSize(11).Bold().FontColor(Colors.Blue.Darken2);
                 });
 

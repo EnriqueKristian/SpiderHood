@@ -4,50 +4,27 @@
 @using SpiderHood.Models
 @inject SpiderHood.Services.ParameterService ParameterService
 
-<Modal @ref="_modal" Title="Detalle de Cuota" Size="ModalSize.ExtraLarge">
-    <HeaderTemplate>
-        <div class="modal-header bg-gradient-primary text-white">
-            <h5 class="modal-title">
-                <i class="bi bi-receipt me-2"></i>
-                Detalle de Cuota - DPTO @_installment?.UnitName
-            </h5>
-            <button type="button" class="btn-close btn-close-white"
-                    @onclick="() => _modal.HideAsync()"
-                    aria-label="Close"></button>
-        </div>
-    </HeaderTemplate>
+<Modal @ref="_modal" Title="@TituloModal" Size="ModalSize.ExtraLarge">
     <BodyTemplate>
         <div class="modal-body p-0">
-            <!-- Información del Propietario -->
-            <div class="owner-summary p-4 bg-light border-bottom">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6><i class="bi bi-person me-2"></i>Propietario</h6>
-                        <p class="fs-5 fw-bold">@_installment?.OwnerName</p>
+            <!-- Información del Propietario: una sola franja compacta, no una tarjeta grande -->
+            <div class="owner-summary d-flex flex-wrap align-items-center justify-content-between gap-3 px-4 py-2 border-bottom">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary-subtle text-primary">DPTO @_installment?.UnitName</span>
+                    <span class="fw-bold"><i class="bi bi-person me-1"></i>@_installment?.OwnerName</span>
+                </div>
+                <div class="d-flex align-items-center gap-4">
+                    <div class="text-center">
+                        <small class="text-muted d-block">Área</small>
+                        <span class="fw-semibold">@_installment?.TotalArea.ToString("N2") m²</span>
                     </div>
-                    <div class="col-md-6">
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="info-card">
-                                    <small class="text-muted">Área Total</small>
-                                    <p class="fw-bold mb-0">@_installment?.TotalArea.ToString("N2") m²</p>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="info-card">
-                                    <small class="text-muted">% Distribución</small>
-                                    <p class="fw-bold mb-0">@_installment?.Percent.ToString("N2")%</p>
-                                </div>
-                            </div>
-                            <div class="col-12 mt-3">
-                                <div class="info-card bg-primary-subtle">
-                                    <small class="text-muted">Total Cuota</small>
-                                    <p class="fs-4 fw-bold text-primary mb-0">
-                                        S/ @(_installment?.Amount.ToString("N2"))
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="text-center">
+                        <small class="text-muted d-block">% Distr.</small>
+                        <span class="fw-semibold">@_installment?.Percent.ToString("N2")%</span>
+                    </div>
+                    <div class="text-center">
+                        <small class="text-muted d-block">Total Cuota</small>
+                        <span class="fw-bold text-primary fs-5">S/ @(_installment?.Amount.ToString("N2"))</span>
                     </div>
                 </div>
             </div>
@@ -238,6 +215,12 @@
     private int _waterReadingsCount;
     private decimal _inverseNroGroupUnit;
     private decimal _totalWaterConsumption => _waterReadings?.Sum(w => w.CalculatedAmount) ?? 0;
+
+    // Modal (BlazorBootstrap) solo pinta el header a partir de Title — un HeaderTemplate
+    // custom se ignora — así que el DPTO va acá.
+    private string TituloModal => _installment != null
+        ? $"Detalle de Cuota - DPTO {_installment.UnitName}"
+        : "Detalle de Cuota";
 
     public async Task ShowAsync(
         Installment installment,

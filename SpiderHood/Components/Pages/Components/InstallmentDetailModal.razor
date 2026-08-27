@@ -13,6 +13,9 @@
                 <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                     <div class="d-flex align-items-center gap-2">
                         <span class="badge bg-primary-subtle text-primary">DPTO @_installment?.UnitName</span>
+                        <span class="badge bg-secondary-subtle text-secondary">
+                            <i class="bi bi-calendar3 me-1"></i>@_installment?.Period.ToString("MMMM yyyy")
+                        </span>
                         <span class="fw-bold"><i class="bi bi-person me-1"></i>@_installment?.OwnerName</span>
                     </div>
                     <div class="d-flex align-items-center gap-4">

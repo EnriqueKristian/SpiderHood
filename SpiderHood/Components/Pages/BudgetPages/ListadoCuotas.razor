@@ -1,0 +1,352 @@
+@page "/cuotas"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+@inject NavigationManager Navigation
+@inject ParameterService ParameterService
+@inject IInstallmentService InstallmentService
+@inject IBudgetService BudgetService
+
+<PageTitle>Listado de Cuotas</PageTitle>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-12 col-xl-11">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white py-4">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-receipt display-6 me-2"></i>
+                        <div>
+                            <h1 class="h3 mb-1">Listado de Cuotas</h1>
+                            <p class="mb-0 opacity-75">Cuotas pendientes de pago de todos los periodos</p>
+                        </div>
+                    </div>
+                </div>
+
+                @if (cargando)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Resumen Estadístico -->
+                    <div class="row g-0 summary-stats">
+                        <div class="col-md-3">
+                            <div class="stat-card border-end">
+                                <div class="stat-icon bg-info">
+                                    <i class="bi bi-building"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h6>Unidades</h6>
+                                    <p class="stat-value">@allInstallments.Select(i => i.IdGroupUnit).Distinct().Count()</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card border-end">
+                                <div class="stat-icon bg-primary">
+                                    <i class="bi bi-cash-coin"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h6>Total Cuotas</h6>
+                                    <p class="stat-value">S/ @allInstallments.Sum(i => i.Amount).ToString("N2")</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card border-end">
+                                <div class="stat-icon bg-success">
+                                    <i class="bi bi-check-circle"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h6>Total Pagado</h6>
+                                    <p class="stat-value">S/ @allInstallments.Sum(i => i.AmountPaid).ToString("N2")</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card">
+                                <div class="stat-icon bg-warning">
+                                    <i class="bi bi-exclamation-circle"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h6>Deuda Total</h6>
+                                    <p class="stat-value">S/ @allInstallments.Sum(i => i.Debt).ToString("N2")</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <!-- Filtros -->
+                        <div class="table-header d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 border-bottom">
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroPeriodoChanged">
+                                    <option value="">Todos los periodos</option>
+                                    @foreach (var periodo in PeriodosDisponibles())
+                                    {
+                                        <option value="@periodo.ToString("yyyy-MM-dd")" selected="@(filtroPeriodo == periodo)">
+                                            @periodo.ToString("MMM-yy")
+                                        </option>
+                                    }
+                                </select>
+
+                                <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroEstadoChanged">
+                                    <option value="todos" selected="@(filtroEstado == "todos")">Todos los estados</option>
+                                    <option value="pendiente" selected="@(filtroEstado == "pendiente")">Pendientes</option>
+                                    <option value="parcial" selected="@(filtroEstado == "parcial")">Parciales</option>
+                                    <option value="pagada" selected="@(filtroEstado == "pagada")">Pagadas</option>
+                                </select>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="search-box">
+                                    <input type="text"
+                                           class="form-control form-control-sm"
+                                           placeholder="Buscar unidad, propietario..."
+                                           value="@searchTerm"
+                                           @oninput="OnSearchInput" />
+                                </div>
+                                <label class="text-muted mb-0">Mostrar:</label>
+                                <select class="form-select form-select-sm" style="width: auto;"
+                                        @onchange="(e) => pagination.ChangePageSize(Convert.ToInt32(e.Value))">
+                                    <option value="10" selected="@(pagination.PageSize == 10)">10</option>
+                                    <option value="25" selected="@(pagination.PageSize == 25)">25</option>
+                                    <option value="50" selected="@(pagination.PageSize == 50)">50</option>
+                                    <option value="100" selected="@(pagination.PageSize == 100)">100</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        @if (!pagination.AllData.Any())
+                        {
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                                No hay cuotas registradas.
+                            </div>
+                        }
+                        else if (!pagination.FilteredData.Any())
+                        {
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-search display-4 d-block mb-3"></i>
+                                No se encontraron cuotas con los filtros seleccionados.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th class="ps-3">Unidad</th>
+                                            <th>Propietario</th>
+                                            <th class="text-end">Periodo</th>
+                                            <th class="text-end">Vencimiento</th>
+                                            <th class="text-end">Total Cuota</th>
+                                            <th class="text-end">Pagado</th>
+                                            <th class="text-end">Deuda</th>
+                                            <th class="text-center">Estado</th>
+                                            <th class="text-center">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in pagination.CurrentPageData)
+                                        {
+                                            <tr>
+                                                <td class="ps-3">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="apartment-badge bg-primary-subtle text-primary rounded-circle me-2">
+                                                            DPTO
+                                                        </div>
+                                                        <strong>@item.UnitName</strong>
+                                                    </div>
+                                                </td>
+                                                <td>@item.OwnerName</td>
+                                                <td class="text-end">@item.Period.ToString("MMM-yy")</td>
+                                                <td class="text-end">@item.DueDate.ToString("dd/MM/yyyy")</td>
+                                                <td class="text-end">S/ @item.Amount.ToString("N2")</td>
+                                                <td class="text-end">S/ @item.AmountPaid.ToString("N2")</td>
+                                                <td class="text-end">
+                                                    <span class="amount-badge">S/ @item.Debt.ToString("N2")</span>
+                                                </td>
+                                                <td class="text-center">
+                                                    @if (item.Status == ConcilationType.Conciliada)
+                                                    {
+                                                        <span class="badge bg-success">Pagada</span>
+                                                    }
+                                                    else if (item.Status == ConcilationType.Parcial)
+                                                    {
+                                                        <span class="badge bg-info text-dark">Parcial</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-warning">Pendiente</span>
+                                                    }
+                                                </td>
+                                                <td class="text-center">
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => IrAlPresupuesto(item)">
+                                                        <i class="bi bi-box-arrow-up-right me-1"></i>Ir al Presupuesto
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot class="table-light">
+                                        <tr>
+                                            <td colspan="4" class="text-end fw-bold">Totales de la página:</td>
+                                            <td class="text-end fw-bold">S/ @pagination.CurrentPageData.Sum(i => i.Amount).ToString("N2")</td>
+                                            <td class="text-end fw-bold">S/ @pagination.CurrentPageData.Sum(i => i.AmountPaid).ToString("N2")</td>
+                                            <td class="text-end fw-bold text-primary">S/ @pagination.CurrentPageData.Sum(i => i.Debt).ToString("N2")</td>
+                                            <td colspan="2"></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            <!-- Paginación -->
+                            @if (pagination.TotalPages > 1)
+                            {
+                                <div class="d-flex flex-wrap justify-content-between align-items-center p-3 border-top">
+                                    <div class="text-muted">
+                                        Mostrando @pagination.StartRecord - @pagination.EndRecord de @pagination.TotalRecords cuotas
+                                    </div>
+
+                                    <nav aria-label="Paginación de resultados">
+                                        <ul class="pagination pagination-sm mb-0">
+                                            <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToFirstPage" title="Primera página">
+                                                    <i class="bi bi-chevron-double-left"></i>
+                                                </a>
+                                            </li>
+                                            <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToPreviousPage" title="Página anterior">
+                                                    <i class="bi bi-chevron-left"></i>
+                                                </a>
+                                            </li>
+
+                                            @foreach (var pageNum in pagination.GetPageNumbers())
+                                            {
+                                                if (pageNum == -1)
+                                                {
+                                                    <li class="page-item disabled">
+                                                        <span class="page-link">...</span>
+                                                    </li>
+                                                }
+                                                else
+                                                {
+                                                    <li class="page-item @(pageNum == pagination.CurrentPage ? "active" : "")">
+                                                        <a class="page-link" @onclick="() => pagination.GoToPage(pageNum)">
+                                                            @pageNum
+                                                        </a>
+                                                    </li>
+                                                }
+                                            }
+
+                                            <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToNextPage" title="Página siguiente">
+                                                    <i class="bi bi-chevron-right"></i>
+                                                </a>
+                                            </li>
+                                            <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToLastPage" title="Última página">
+                                                    <i class="bi bi-chevron-double-right"></i>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Installment> allInstallments = new();
+    private InstallmentPagination pagination = new();
+    private bool cargando = true;
+    private string searchTerm = string.Empty;
+    private string filtroEstado = "todos";
+    private DateTime? filtroPeriodo = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        pagination.OnPaginationChanged += StateHasChanged;
+        await CargarCuotasAsync();
+    }
+
+    private async Task CargarCuotasAsync()
+    {
+        if (ParameterService.CurrentBuilding == null)
+        {
+            pagination.Initialize(new List<Installment>());
+            cargando = false;
+            return;
+        }
+
+        cargando = true;
+        StateHasChanged();
+
+        allInstallments = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+        pagination.Initialize(allInstallments.OrderByDescending(i => i.Period).ThenBy(i => i.UnitName).ToList());
+        AplicarFiltros();
+
+        cargando = false;
+    }
+
+    private IEnumerable<DateTime> PeriodosDisponibles() =>
+        allInstallments.Select(i => i.Period.Date).Distinct().OrderByDescending(p => p);
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        pagination.Search(searchTerm);
+    }
+
+    private void OnFiltroPeriodoChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        filtroPeriodo = string.IsNullOrEmpty(value) ? null : DateTime.Parse(value);
+        AplicarFiltros();
+    }
+
+    private void OnFiltroEstadoChanged(ChangeEventArgs e)
+    {
+        filtroEstado = e.Value?.ToString() ?? "todos";
+        AplicarFiltros();
+    }
+
+    private void AplicarFiltros()
+    {
+        pagination.ApplyCustomFilter(item =>
+            (filtroPeriodo == null || item.Period.Date == filtroPeriodo.Value.Date)
+            && filtroEstado switch
+            {
+                "pendiente" => item.Status == ConcilationType.NoConciliada,
+                "parcial" => item.Status == ConcilationType.Parcial,
+                "pagada" => item.Status == ConcilationType.Conciliada,
+                _ => true
+            });
+    }
+
+    private async Task IrAlPresupuesto(Installment item)
+    {
+        var presupuesto = await BudgetService.GetPresupuestoByIdAsync(item.IdBudgetHeader);
+        if (presupuesto == null)
+        {
+            return;
+        }
+
+        BudgetService._SelectedBudget = presupuesto;
+        Navigation.NavigateTo("/budgetgenerator");
+    }
+}

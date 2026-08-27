@@ -44,42 +44,75 @@
                     </div>
 
                     <!-- Tabs: cargas realizadas / detalle de movimientos -->
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                        <ul class="nav nav-tabs border-0 flex-grow-1">
-                            <li class="nav-item">
-                                <button type="button" class="nav-link @(activeTab == "cargas" ? "active" : "")" @onclick='() => SetActiveTab("cargas")'>
-                                    Cargas
-                                </button>
-                            </li>
-                            <li class="nav-item">
-                                <button type="button" class="nav-link @(activeTab == "detalle" ? "active" : "")" @onclick='() => SetActiveTab("detalle")'>
-                                    Detalle
-                                </button>
-                            </li>
-                        </ul>
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button type="button" class="nav-link @(activeTab == "cargas" ? "active" : "")" @onclick='() => SetActiveTab("cargas")'>
+                                Cargas
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link @(activeTab == "detalle" ? "active" : "")" @onclick='() => SetActiveTab("detalle")'>
+                                Detalle
+                            </button>
+                        </li>
+                    </ul>
 
-                        @if (activeTab == "detalle")
-                        {
-                            <div class="d-flex align-items-center gap-2">
-                                <select class="form-select form-select-sm" style="width: auto;"
-                                        @onchange="OnFiltroTipoDetalleChanged">
-                                    <option value="todos" selected="@(filtroTipoDetalle == "todos")">Todos</option>
-                                    <option value="ingresos" selected="@(filtroTipoDetalle == "ingresos")">Ingresos</option>
-                                    <option value="egresos" selected="@(filtroTipoDetalle == "egresos")">Egresos</option>
-                                </select>
+                    @if (activeTab == "detalle")
+                    {
+                        <!-- Filtros y búsqueda del detalle (mismo estilo que la conciliación bancaria) -->
+                        <div class="card mb-3">
+                            <div class="card-body py-2">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                                        <div class="form-check">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   id="soloNoConciliadosDetalle"
+                                                   @bind="soloNoConciliadosDetalle"
+                                                   @bind:after="AplicarFiltrosDetalle">
+                                            <label class="form-check-label" for="soloNoConciliadosDetalle">
+                                                Mostrar solo no conciliados
+                                            </label>
+                                        </div>
 
-                                <div class="input-group input-group-sm" style="width: 280px;">
-                                    <span class="input-group-text bg-transparent border-end-0">
-                                        <i class="bi bi-search text-muted"></i>
-                                    </span>
-                                    <input type="text" class="form-control border-start-0"
-                                           placeholder="Buscar por transacción o monto"
-                                           value="@searchTermDetalle"
-                                           @oninput="OnSearchDetalleInput" />
+                                        <div class="vr"></div>
+
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn @(filtroTipoDetalle == "todos" ? "btn-primary" : "btn-outline-primary")"
+                                                    @onclick='() => FiltrarTipoDetalle("todos")'>
+                                                Todas (@paginationDetalle.AllData.Count)
+                                            </button>
+                                            <button type="button" class="btn @(filtroTipoDetalle == "egresos" ? "btn-primary" : "btn-outline-primary")"
+                                                    @onclick='() => FiltrarTipoDetalle("egresos")'>
+                                                Gastos (@paginationDetalle.AllData.Count(d => d.Amount < 0))
+                                            </button>
+                                            <button type="button" class="btn @(filtroTipoDetalle == "ingresos" ? "btn-primary" : "btn-outline-primary")"
+                                                    @onclick='() => FiltrarTipoDetalle("ingresos")'>
+                                                Ingresos (@paginationDetalle.AllData.Count(d => d.Amount >= 0))
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <div class="input-group" style="width: 300px;">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-search"></i>
+                                            </span>
+                                            <input type="text"
+                                                   class="form-control"
+                                                   placeholder="Buscar descripción o monto..."
+                                                   value="@searchTermDetalle"
+                                                   @oninput="OnSearchDetalleInput" />
+                                        </div>
+
+                                        <button class="btn btn-outline-secondary" @onclick="LimpiarFiltrosDetalle">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        }
-                    </div>
+                        </div>
+                    }
 
                     @if (activeTab == "cargas")
                     {
@@ -408,6 +441,7 @@
     private bool detalleCargado = false;
     private string searchTermDetalle = string.Empty;
     private string filtroTipoDetalle = "todos";
+    private bool soloNoConciliadosDetalle = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -496,22 +530,30 @@
         paginationDetalle.Search(searchTermDetalle);
     }
 
-    private void OnFiltroTipoDetalleChanged(ChangeEventArgs e)
+    private void FiltrarTipoDetalle(string tipo)
     {
-        filtroTipoDetalle = e.Value?.ToString() ?? "todos";
+        filtroTipoDetalle = tipo;
+        AplicarFiltrosDetalle();
+    }
 
-        switch (filtroTipoDetalle)
-        {
-            case "ingresos":
-                paginationDetalle.ApplyCustomFilter(x => x.Amount >= 0);
-                break;
-            case "egresos":
-                paginationDetalle.ApplyCustomFilter(x => x.Amount < 0);
-                break;
-            default:
-                paginationDetalle.ApplyCustomFilter(null);
-                break;
-        }
+    private void AplicarFiltrosDetalle()
+    {
+        paginationDetalle.ApplyCustomFilter(item =>
+            filtroTipoDetalle switch
+            {
+                "ingresos" => item.Amount >= 0,
+                "egresos" => item.Amount < 0,
+                _ => true
+            }
+            && (!soloNoConciliadosDetalle || item.ReconciliationStatus != ConcilationType.Conciliada));
+    }
+
+    private void LimpiarFiltrosDetalle()
+    {
+        searchTermDetalle = string.Empty;
+        filtroTipoDetalle = "todos";
+        soloNoConciliadosDetalle = false;
+        paginationDetalle.ClearFilters();
     }
 
     private string GetArchivo(Guid idStatementHeader)

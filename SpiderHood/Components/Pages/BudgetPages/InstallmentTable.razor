@@ -371,208 +371,7 @@
     </div>
 </div>
 
-<Modal @ref="viewinstallment" Title="Detalle de Cuota" Size="ModalSize.ExtraLarge">
-    <HeaderTemplate>
-        <div class="modal-header bg-gradient-primary text-white">
-            <h5 class="modal-title">
-                <i class="bi bi-receipt me-2"></i>
-                Detalle de Cuota - DPTO @selectedInstallment?.UnitName
-            </h5>
-            <button type="button" class="btn-close btn-close-white"
-                    @onclick="() => viewinstallment.HideAsync()"
-                    aria-label="Close"></button>
-        </div>
-    </HeaderTemplate>
-    <BodyTemplate>
-        <div class="modal-body p-0">
-            <!-- Información del Propietario -->
-            <div class="owner-summary p-4 bg-light border-bottom">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6><i class="bi bi-person me-2"></i>Propietario</h6>
-                        <p class="fs-5 fw-bold">@selectedInstallment?.OwnerName</p>
-                        <p class="text-muted">
-                            <i class="bi bi-telephone me-1"></i>
-                            982322319 @*GetOwnerPhone(selectedInstallment?.IdGroupUnit)*@
-                        </p>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="info-card">
-                                    <small class="text-muted">Área Total</small>
-                                    <p class="fw-bold mb-0">@selectedInstallment?.TotalArea.ToString("N2") m²</p>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="info-card">
-                                    <small class="text-muted">% Distribución</small>
-                                    <p class="fw-bold mb-0">@selectedInstallment?.Percent.ToString("N2")%</p>
-                                </div>
-                            </div>
-                            <div class="col-12 mt-3">
-                                <div class="info-card bg-primary-subtle">
-                                    <small class="text-muted">Total Cuota</small>
-                                    <p class="fs-4 fw-bold text-primary mb-0">
-                                        S/ @CalculateInstallmentTotal(selectedInstallment!).ToString("N2")
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabla de Detalles -->
-            <div class="table-container p-4">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width: 5%">#</th>
-                                <th style="width: 40%">Descripción</th>
-                                <th style="width: 15%" class="text-end">Presupuesto</th>
-                                <th style="width: 15%" class="text-end">Cuota</th>
-                                <th style="width: 15%" class="text-center">Tipo</th>
-                                <th style="width: 10%" class="text-center">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @{
-                                decimal _TotalAmount = 0;
-                            }
-
-                            @foreach (var section in GetSections())
-                            {
-                                var sectionItems = Budget!.Details
-                                .Where(x => x.IdSection == section.Id && !x.IsHeader)
-                                .ToList();
-
-                                @if (sectionItems.Any())
-                                {
-                                    <!-- Section Header -->
-                                    <tr class="section-header">
-                                        <td colspan="6" class="bg-light">
-                                            <div class="d-flex align-items-center py-2">
-                                                <i class="bi bi-folder me-2 text-primary"></i>
-                                                <strong class="text-primary">@GetSectionName(section.Id)</strong>
-                                                <span class="badge bg-secondary ms-2">
-                                                    @sectionItems.Count items
-                                                </span>
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                    @foreach (var item in sectionItems)
-                                    {
-                                        var itemAmount = CalculateQuote(item, selectedInstallment!);
-                                        _TotalAmount += itemAmount;
-
-                                        <tr class="item-row">
-                                            <td class="text-center">
-                                                <span class="badge bg-secondary">@item.ItemNumber</span>
-                                            </td>
-                                            <td>
-                                                <div class="item-description">
-                                                    <strong>@item.Description</strong>
-                                                </div>
-                                            </td>
-                                            <td class="text-end">
-                                                <span class="budget-amount">S/ @item.MonthlyAmount.ToString("N2")</span>
-                                            </td>
-                                            <td class="text-end">
-                                                <span class="quote-amount fw-bold">S/ @itemAmount.ToString("N2")</span>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge @GetTypeBadgeClass(item.Type)">
-                                                    @GetDistributionType(item.Type)
-                                                </span>
-                                            </td>
-                                            <td class="text-center">
-                                                <i class="bi bi-check-circle text-success"></i>
-                                            </td>
-                                        </tr>
-
-                                        @if (item.IdCategory == ParameterService.CurrentBuilding.Configuration.WaterReadingDefault)
-                                        {
-                                            var waterReading = WaterReadings?
-                                            .FirstOrDefault(c => c.IdGroupUnit == selectedInstallment!.IdGroupUnit);
-
-                                            if (waterReading != null)
-                                            {
-                                                _TotalAmount += waterReading.CalculatedAmount;
-
-                                                <tr class="water-reading-row bg-info-subtle">
-                                                    <td></td>
-                                                    <td colspan="2">
-                                                        <div class="water-consumption">
-                                                            <h6 class="mb-2"><i class="bi bi-droplet-fill me-2"></i>Consumo de Agua</h6>
-                                                            <div class="row">
-                                                                <div class="col-4">
-                                                                    <small class="text-muted">Lectura Anterior</small>
-                                                                    <p class="fw-bold mb-0">@waterReading.PreviousReading</p>
-                                                                </div>
-                                                                <div class="col-4">
-                                                                    <small class="text-muted">Lectura Actual</small>
-                                                                    <p class="fw-bold mb-0">@waterReading.CurrentReading</p>
-                                                                </div>
-                                                                <div class="col-4">
-                                                                    <small class="text-muted">Consumo</small>
-                                                                    <p class="fw-bold mb-0">@waterReading.Consumption m³</p>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td class="text-end" valign="middle">
-                                                        <span class="water-amount fw-bold">
-                                                            S/ @waterReading.CalculatedAmount.ToString("N2")
-                                                        </span>
-                                                    </td>
-                                                    <td class="text-center" valign="middle">
-                                                        <span class="badge bg-info">
-                                                            <i class="bi bi-droplet-fill me-1"></i>Agua
-                                                        </span>
-                                                    </td>
-                                                    <td></td>
-                                                </tr>
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        </tbody>
-                        <tfoot class="table-light">
-                            <tr>
-                                <td colspan="3" class="text-end fw-bold py-3">
-                                    <i class="bi bi-calculator me-2"></i>TOTAL CUOTA:
-                                </td>
-                                <td class="text-end py-3">
-                                    <span class="total-amount fs-5 fw-bold text-primary">
-                                        S/ @_TotalAmount.ToString("N2")
-                                    </span>
-                                </td>
-                                <td colspan="2"></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </BodyTemplate>
-    <FooterTemplate>
-        <div class="modal-footer bg-light">
-            <button class="btn btn-secondary" @onclick="() => viewinstallment.HideAsync()">
-                <i class="bi bi-x-lg me-1"></i>Cerrar
-            </button>
-            <button class="btn btn-outline-primary" @onclick="PrintSingleInstallment">
-                <i class="bi bi-printer me-1"></i>Imprimir
-            </button>
-            <button class="btn btn-primary" @onclick="SendToOwner">
-                <i class="bi bi-send me-1"></i>Enviar al Propietario
-            </button>
-        </div>
-    </FooterTemplate>
-</Modal>
+<InstallmentDetailModal @ref="viewinstallment" OnImprimir="PrintSingleInstallment" OnEnviarAlPropietario="SendToOwner" />
 
 @if (ShowModalManual)
 {
@@ -630,13 +429,10 @@
     public Services.IInstallmentService InstallmentService { get; set; } = default!;
 
     private Installment? selectedInstallment = null;
-    private Modal viewinstallment = null!;
-    private decimal _distr;
+    private InstallmentDetailModal viewinstallment = null!;
     private decimal _TotalInstallments => Installments!.Sum(x => x.Amount);
     private decimal _totalWaterConsumption => WaterReadings!.Sum(x => x.CalculatedAmount);
 
-    private int _waterReadingsCount;
-    private decimal _inverseNroGroupUnit;
     private string searchTerm = string.Empty;
     private List<Installment> filteredInstallments = new();
     private InstallmentExportService? _exportService;
@@ -680,21 +476,20 @@
         return CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(mes);
     }
 
-    private void PrintSingleInstallment()
+    private void PrintSingleInstallment(Installment item)
     {
         // Lógica para exportar a PDF
         //_ = ExportToExcel();
-        _ = ExportToSinglePdf();
+        _ = ExportToSinglePdf(item);
         Console.WriteLine("Exportando a PDF...");
     }
 
-    private async Task ExportToSinglePdf()
+    private async Task ExportToSinglePdf(Installment item)
     {
         try
         {
             // Crear PDF resumen
-            //var pdfBytes = _exportService!.GenerateSinglePdf(Installments!.First());
-            var pdfBytes = _exportService!.GenerateReceipt(Installments!.First());
+            var pdfBytes = _exportService!.GenerateReceipt(item);
 
             await JSRuntime.InvokeVoidAsync("downloadFile",
                 Convert.ToBase64String(pdfBytes),
@@ -716,11 +511,7 @@
     private void VerDetalle(Installment _installment)
     {
         selectedInstallment = _installment;
-        _distr = _installment.Percent / 100;
-        _waterReadingsCount = WaterReadings?.Count ?? 0;
-        _inverseNroGroupUnit = 1m / ParameterService.CurrentBuilding.Apartments;
-        //_TotalAmount = 0;
-        viewinstallment.ShowAsync();
+        _ = viewinstallment.ShowAsync(_installment, Budget, WaterReadings, Exonerations);
     }
 
     private void installementSelected(Installment item)
@@ -742,93 +533,16 @@
         return string.Join(" ", classes);
     }
 
-    private string GetTypeBadgeClass(int type)
-    {
-        return type switch
-        {
-            1 => "type-1",
-            2 => "type-2",
-            3 => "type-3",
-            4 => "type-4",
-            _ => "bg-secondary"
-        };
-    }
-
-    private List<SectionInfo> GetSections()
-    {
-        return Budget!.Details!
-            .Where(x => x.IsHeader)
-            .Select(x => new SectionInfo { Id = x.IdSection, Name = x.Description, IdCategory = x.IdCategory })
-            .OrderBy(x => x.Id)
-            .ToList();
-    }
-
-    private string GetSectionName(int sectionId)
-    {
-        var header = Budget!.Details!.FirstOrDefault(x => x.IdSection == sectionId && x.IsHeader);
-        return header?.Description ?? $"Sección {sectionId}";
-    }
-
-    private decimal CalculateQuote(BudgetDetail item, Installment _selectedInstallment)
-    {
-        var _total = 0m;
-
-        if (item.IdCategory == ParameterService.CurrentBuilding.Configuration.WaterReadingDefault && _waterReadingsCount > 0)
-        {
-            _total += Math.Abs(item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit;//wateritem!.CalculatedAmount;
-        }
-        else
-        {
-            var _nroException = Exonerations!.Count(c => c.IdCategory == item.IdCategory);
-
-            if (_selectedInstallment!.IdGroupUnit == Exonerations!.Where(c => c.IdCategory == item.IdCategory).Select(c => c.IdGroupUnit).FirstOrDefault())
-            {
-                _total += 0;
-            }
-            else
-            {
-                _total += item.Type == 1 ? item.MonthlyAmount / (ParameterService.CurrentBuilding.Apartments - _nroException) : item.MonthlyAmount * _distr;
-            }
-        }
-        return Math.Round(_total, 2);
-        //return _total;
-
-    }
-
-    private decimal CalculateInstallmentTotal(Installment _installment)
-    {
-        return _installment.Amount;
-    }
-
     private void OnSearch(ChangeEventArgs e)
     {
         searchTerm = e.Value?.ToString() ?? string.Empty;
         _pagination.Search(searchTerm);
     }
 
-    private void ImprimirDetalle()
+    private void SendToOwner(Installment item)
     {
-        Console.WriteLine("Imprimiendo detalle...");
-        // Lógica para imprimir
-    }
-
-    private void SendToOwner()
-    {
-        Console.WriteLine("Enviando cuota al propietario...");
+        Console.WriteLine($"Enviando cuota al propietario: {item.OwnerName}");
         // Lógica para enviar por email
-    }
-
-    private class SectionInfo
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public Guid IdCategory { get; set; }
-    }
-
-    private string GetDistributionType(int value)
-    {
-        //PADRE
-        return ParameterService.GetChildParameterDescription(8, value);
     }
 
     private async Task BuscarCoincidencias()

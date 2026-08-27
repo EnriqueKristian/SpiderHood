@@ -73,31 +73,9 @@
     color: #c0392b;
 }
 
-/* Modal "Detalle de Cuota" (mismo desglose que InstallmentTable.razor.css) */
-.owner-summary {
-    background: linear-gradient(135deg, var(--sh-surface-muted) 0%, var(--sh-border) 100%);
-}
-
-.info-card {
-    padding: 0.75rem;
-    border-radius: 8px;
-    background: white;
-    border: 1px solid var(--sh-border-strong);
-}
-
-.section-header {
-    background: linear-gradient(135deg, #f1f3f4 0%, #e8eaed 100%) !important;
-}
-
-.water-reading-row {
-    border-left: 4px solid var(--sh-info);
-}
-
-.water-consumption {
-    padding: 0.75rem;
-    border-radius: 8px;
-    background: rgba(13, 202, 240, 0.1);
-}
+/* El modal "Detalle de Cuota" (InstallmentDetailModal) trae sus propios estilos —
+   Components/InstallmentDetailModal.razor.css — al ser un componente compartido con
+   Generación de Presupuesto. */
 
 @media (max-width: 768px) {
     .summary-stats .stat-card {

@@ -100,70 +100,9 @@
         margin-bottom: 0.25rem;
     }
 
-/* Modal styles */
-.owner-summary {
-    background: linear-gradient(135deg, var(--sh-surface-muted) 0%, var(--sh-border) 100%);
-}
-
-.info-card {
-    padding: 0.75rem;
-    border-radius: 8px;
-    background: white;
-    border: 1px solid var(--sh-border-strong);
-}
-
-.section-header {
-    background: linear-gradient(135deg, #f1f3f4 0%, #e8eaed 100%) !important;
-}
-
-.item-row:hover {
-    background-color: rgba(13, 110, 253, 0.05);
-}
-
-.water-reading-row {
-    border-left: 4px solid var(--sh-info);
-}
-
-.water-consumption {
-    padding: 0.75rem;
-    border-radius: 8px;
-    background: rgba(13, 202, 240, 0.1);
-}
-
-/* Badges de tipo */
-.badge.type-1 {
-    background: linear-gradient(135deg, #20c997 0%, #099268 100%);
-}
-
-.badge.type-2 {
-    background: linear-gradient(135deg, #6f42c1 0%, #4a1d96 100%);
-}
-
-.badge.type-3 {
-    background: linear-gradient(135deg, #fd7e14 0%, #d9480f 100%);
-}
-
-.badge.type-4 {
-    background: linear-gradient(135deg, var(--sh-info) 0%, #0aa2c0 100%);
-}
-
-/* Total amount */
-.total-amount {
-    color: var(--sh-primary);
-    font-weight: 700;
-}
-
-.budget-amount {
-    color: var(--sh-secondary);
-}
-
-.quote-amount {
-    color: var(--sh-success);
-}
-
-.water-amount {
-    color: var(--sh-info);
-}
+/* Los estilos del modal "Detalle de Cuota" viven ahora en
+   Components/InstallmentDetailModal.razor.css — el modal se extrajo a ese componente
+   compartido para no duplicar la lógica en ListadoCuotas.razor (/cuotas). */
 
 /* Responsive */
 @media (max-width: 768px) {

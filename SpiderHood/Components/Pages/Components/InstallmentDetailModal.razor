@@ -1,0 +1,335 @@
+@* Modal "Detalle de Cuota": desglose por item del presupuesto para una unidad puntual.
+   Extraído de InstallmentTable.razor (Generación de Presupuesto) para que también lo use
+   ListadoCuotas.razor (/cuotas) sin duplicar la lógica de cálculo. *@
+@using SpiderHood.Models
+@inject SpiderHood.Services.ParameterService ParameterService
+
+<Modal @ref="_modal" Title="Detalle de Cuota" Size="ModalSize.ExtraLarge">
+    <HeaderTemplate>
+        <div class="modal-header bg-gradient-primary text-white">
+            <h5 class="modal-title">
+                <i class="bi bi-receipt me-2"></i>
+                Detalle de Cuota - DPTO @_installment?.UnitName
+            </h5>
+            <button type="button" class="btn-close btn-close-white"
+                    @onclick="() => _modal.HideAsync()"
+                    aria-label="Close"></button>
+        </div>
+    </HeaderTemplate>
+    <BodyTemplate>
+        <div class="modal-body p-0">
+            <!-- Información del Propietario -->
+            <div class="owner-summary p-4 bg-light border-bottom">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="bi bi-person me-2"></i>Propietario</h6>
+                        <p class="fs-5 fw-bold">@_installment?.OwnerName</p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="info-card">
+                                    <small class="text-muted">Área Total</small>
+                                    <p class="fw-bold mb-0">@_installment?.TotalArea.ToString("N2") m²</p>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="info-card">
+                                    <small class="text-muted">% Distribución</small>
+                                    <p class="fw-bold mb-0">@_installment?.Percent.ToString("N2")%</p>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-3">
+                                <div class="info-card bg-primary-subtle">
+                                    <small class="text-muted">Total Cuota</small>
+                                    <p class="fs-4 fw-bold text-primary mb-0">
+                                        S/ @(_installment?.Amount.ToString("N2"))
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (_budget == null)
+            {
+                <p class="text-muted p-4 mb-0">No se encontró el presupuesto de este periodo para desglosar la cuota.</p>
+            }
+            else
+            {
+                <!-- Tabla de Detalles -->
+                <div class="table-container p-4">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%">#</th>
+                                    <th style="width: 40%">Descripción</th>
+                                    <th style="width: 15%" class="text-end">Presupuesto</th>
+                                    <th style="width: 15%" class="text-end">Cuota</th>
+                                    <th style="width: 15%" class="text-center">Tipo</th>
+                                    <th style="width: 10%" class="text-center">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @{
+                                    decimal _TotalAmount = 0;
+                                }
+
+                                @foreach (var section in GetSections())
+                                {
+                                    var sectionItems = _budget.Details
+                                    .Where(x => x.IdSection == section.Id && !x.IsHeader)
+                                    .ToList();
+
+                                    @if (sectionItems.Any())
+                                    {
+                                        <!-- Section Header -->
+                                        <tr class="section-header">
+                                            <td colspan="6" class="bg-light">
+                                                <div class="d-flex align-items-center py-2">
+                                                    <i class="bi bi-folder me-2 text-primary"></i>
+                                                    <strong class="text-primary">@section.Name</strong>
+                                                    <span class="badge bg-secondary ms-2">
+                                                        @sectionItems.Count items
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+
+                                        @foreach (var item in sectionItems)
+                                        {
+                                            var itemAmount = CalculateQuote(item);
+                                            _TotalAmount += itemAmount;
+
+                                            <tr class="item-row">
+                                                <td class="text-center">
+                                                    <span class="badge bg-secondary">@item.ItemNumber</span>
+                                                </td>
+                                                <td>
+                                                    <div class="item-description">
+                                                        <strong>@item.Description</strong>
+                                                    </div>
+                                                </td>
+                                                <td class="text-end">
+                                                    <span class="budget-amount">S/ @item.MonthlyAmount.ToString("N2")</span>
+                                                </td>
+                                                <td class="text-end">
+                                                    <span class="quote-amount fw-bold">S/ @itemAmount.ToString("N2")</span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge @GetTypeBadgeClass(item.Type)">
+                                                        @GetDistributionType(item.Type)
+                                                    </span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <i class="bi bi-check-circle text-success"></i>
+                                                </td>
+                                            </tr>
+
+                                            @if (item.IdCategory == ParameterService.CurrentBuilding!.Configuration.WaterReadingDefault)
+                                            {
+                                                var waterReading = _waterReadings?
+                                                .FirstOrDefault(c => c.IdGroupUnit == _installment!.IdGroupUnit);
+
+                                                if (waterReading != null)
+                                                {
+                                                    _TotalAmount += waterReading.CalculatedAmount;
+
+                                                    <tr class="water-reading-row bg-info-subtle">
+                                                        <td></td>
+                                                        <td colspan="2">
+                                                            <div class="water-consumption">
+                                                                <h6 class="mb-2"><i class="bi bi-droplet-fill me-2"></i>Consumo de Agua</h6>
+                                                                <div class="row">
+                                                                    <div class="col-4">
+                                                                        <small class="text-muted">Lectura Anterior</small>
+                                                                        <p class="fw-bold mb-0">@waterReading.PreviousReading</p>
+                                                                    </div>
+                                                                    <div class="col-4">
+                                                                        <small class="text-muted">Lectura Actual</small>
+                                                                        <p class="fw-bold mb-0">@waterReading.CurrentReading</p>
+                                                                    </div>
+                                                                    <div class="col-4">
+                                                                        <small class="text-muted">Consumo</small>
+                                                                        <p class="fw-bold mb-0">@waterReading.Consumption m³</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td class="text-end" valign="middle">
+                                                            <span class="water-amount fw-bold">
+                                                                S/ @waterReading.CalculatedAmount.ToString("N2")
+                                                            </span>
+                                                        </td>
+                                                        <td class="text-center" valign="middle">
+                                                            <span class="badge bg-info">
+                                                                <i class="bi bi-droplet-fill me-1"></i>Agua
+                                                            </span>
+                                                        </td>
+                                                        <td></td>
+                                                    </tr>
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="3" class="text-end fw-bold py-3">
+                                        <i class="bi bi-calculator me-2"></i>TOTAL CUOTA:
+                                    </td>
+                                    <td class="text-end py-3">
+                                        <span class="total-amount fs-5 fw-bold text-primary">
+                                            S/ @_TotalAmount.ToString("N2")
+                                        </span>
+                                    </td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            }
+
+            @if (ExtraContent != null)
+            {
+                <div class="p-4 pt-0">
+                    @ExtraContent
+                </div>
+            }
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <div class="modal-footer bg-light">
+            <button class="btn btn-secondary" @onclick="() => _modal.HideAsync()">
+                <i class="bi bi-x-lg me-1"></i>Cerrar
+            </button>
+            <button class="btn btn-outline-primary" @onclick="HandleImprimirClick">
+                <i class="bi bi-printer me-1"></i>Imprimir
+            </button>
+            <button class="btn btn-primary" @onclick="HandleEnviarClick">
+                <i class="bi bi-send me-1"></i>Enviar al Propietario
+            </button>
+        </div>
+    </FooterTemplate>
+</Modal>
+
+@code {
+    // Contenido extra que agrega el llamador debajo del desglose (ej. la sección
+    // "Transacción asociada" que muestra ListadoCuotas.razor).
+    [Parameter] public RenderFragment? ExtraContent { get; set; }
+
+    // Ninguno de los dos tiene implementación real todavía (ver PrintSingleInstallment/
+    // SendToOwner original en InstallmentTable.razor) — quien use el modal decide si los
+    // conecta a algo; si no hay handler, el botón simplemente no hace nada.
+    [Parameter] public EventCallback<Installment> OnImprimir { get; set; }
+    [Parameter] public EventCallback<Installment> OnEnviarAlPropietario { get; set; }
+
+    private Modal _modal = null!;
+    private Installment? _installment;
+    private BudgetHeader? _budget;
+    private List<ServiceReadingDetail>? _waterReadings;
+    private List<Exoneration> _exonerations = new();
+
+    private decimal _distr;
+    private int _waterReadingsCount;
+    private decimal _inverseNroGroupUnit;
+    private decimal _totalWaterConsumption => _waterReadings?.Sum(w => w.CalculatedAmount) ?? 0;
+
+    public async Task ShowAsync(
+        Installment installment,
+        BudgetHeader? budget,
+        List<ServiceReadingDetail>? waterReadings,
+        List<Exoneration>? exonerations)
+    {
+        _installment = installment;
+        _budget = budget;
+        _waterReadings = waterReadings;
+        _exonerations = exonerations ?? new();
+
+        _distr = installment.Percent / 100;
+        _waterReadingsCount = waterReadings?.Count ?? 0;
+        _inverseNroGroupUnit = ParameterService.CurrentBuilding!.Apartments > 0
+            ? 1m / ParameterService.CurrentBuilding.Apartments
+            : 0;
+
+        await _modal.ShowAsync();
+    }
+
+    public Task HideAsync() => _modal.HideAsync();
+
+    private List<SectionInfo> GetSections()
+    {
+        if (_budget?.Details == null)
+        {
+            return new();
+        }
+
+        return _budget.Details
+            .Where(x => x.IsHeader)
+            .Select(x => new SectionInfo { Id = x.IdSection, Name = x.Description, IdCategory = x.IdCategory })
+            .OrderBy(x => x.Id)
+            .ToList();
+    }
+
+    // Misma fórmula que el CalculateQuote original de InstallmentTable.razor.
+    private decimal CalculateQuote(BudgetDetail item)
+    {
+        if (_installment == null)
+        {
+            return 0;
+        }
+
+        if (item.IdCategory == ParameterService.CurrentBuilding!.Configuration.WaterReadingDefault && _waterReadingsCount > 0)
+        {
+            return Math.Round(Math.Abs(item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit, 2);
+        }
+
+        var idGroupUnitExonerado = _exonerations
+            .Where(c => c.IdCategory == item.IdCategory)
+            .Select(c => c.IdGroupUnit)
+            .FirstOrDefault();
+
+        if (_installment.IdGroupUnit == idGroupUnitExonerado)
+        {
+            return 0;
+        }
+
+        var nroExcepciones = _exonerations.Count(c => c.IdCategory == item.IdCategory);
+        var total = item.Type == 1
+            ? item.MonthlyAmount / (ParameterService.CurrentBuilding.Apartments - nroExcepciones)
+            : item.MonthlyAmount * _distr;
+
+        return Math.Round(total, 2);
+    }
+
+    private string GetTypeBadgeClass(int type) => type switch
+    {
+        1 => "type-1",
+        2 => "type-2",
+        3 => "type-3",
+        4 => "type-4",
+        _ => "bg-secondary"
+    };
+
+    private string GetDistributionType(int value) => ParameterService.GetChildParameterDescription(8, value);
+
+    private async Task HandleImprimirClick()
+    {
+        if (_installment != null && OnImprimir.HasDelegate)
+        {
+            await OnImprimir.InvokeAsync(_installment);
+        }
+    }
+
+    private async Task HandleEnviarClick()
+    {
+        if (_installment != null && OnEnviarAlPropietario.HasDelegate)
+        {
+            await OnEnviarAlPropietario.InvokeAsync(_installment);
+        }
+    }
+}

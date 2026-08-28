@@ -229,7 +229,13 @@
                                         <strong>@lectura.CurrentReading.ToString("F3")</strong>
                                     </td>
                                     <td align="right">
-                                        @if (lectura.Procesed)
+                                        @if (!string.IsNullOrEmpty(lectura.ImportError))
+                                        {
+                                            <span class="badge bg-danger" title="@lectura.ImportError">
+                                                <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;Error de importación
+                                            </span>
+                                        }
+                                        else if (lectura.Procesed)
                                         {
                                             <span class="badge @(!lectura.Minimum ? "bg-primary" : "bg-danger")">
                                                 @lectura.Consumption.ToString("F2") m³
@@ -273,11 +279,22 @@
                                         </strong>
                                     </td>
                                     <td>
-                                        <button @onclick="() => SeleccionarLectura(lectura)"
-                                                class="btn btn-info btn-sm mr-1"
-                                                title="Ver detalle">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
+                                        @if (!string.IsNullOrEmpty(lectura.ImportError))
+                                        {
+                                            <button @onclick="() => QuitarLecturaConError(lectura)"
+                                                    class="btn btn-outline-danger btn-sm mr-1"
+                                                    title="Quitar esta fila (no se puede guardar así). Corrija el archivo y vuelva a importarlo si prefiere.">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button @onclick="() => SeleccionarLectura(lectura)"
+                                                    class="btn btn-info btn-sm mr-1"
+                                                    title="Ver detalle">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                        }
                                     </td>
                                 </tr>
                             }
@@ -719,9 +736,24 @@
         StateHasChanged();
     }
 
+    // Permite descartar sólo la fila inválida (Dpto. no encontrado, fecha mal
+    // formateada, etc.) sin perder el resto de lecturas ya cargadas del archivo — la
+    // alternativa era volver a importar todo el Excel después de corregirlo.
+    private void QuitarLecturaConError(ServiceReadingDetail lectura)
+    {
+        _ServiceReadingState.CurrentReadingDetail.Remove(lectura);
+        _lecturasCargadas.Remove(lectura);
+        _pagination.Initialize(_ServiceReadingState.CurrentReadingDetail);
+        StateHasChanged();
+    }
+
     private void MarcarTodasComoProcesadas()
     {
-        foreach (var lectura in _ServiceReadingState.CurrentReadingDetail)
+        // Las filas con ImportError (Dpto. no encontrado, fecha inválida, etc.) no se
+        // "procesan" nunca acá — sus datos no son confiables (p.ej. IdGroupUnit puede
+        // venir vacío) y quedan bloqueadas hasta que se corrija el archivo original y se
+        // vuelva a importar.
+        foreach (var lectura in _ServiceReadingState.CurrentReadingDetail.Where(l => string.IsNullOrEmpty(l.ImportError)))
         {
             lectura.Procesed = true;
             lectura.Minimum = lectura.Minimum ? lectura.Minimum : lectura.Consumption <= 0;
@@ -1198,6 +1230,9 @@
 
     private string GetRowClass(ServiceReadingDetail lectura)
     {
+        if (!string.IsNullOrEmpty(lectura.ImportError))
+            return "table-danger";
+
         if (!lectura.Procesed)
             return "table-warning";
 
@@ -1212,6 +1247,9 @@
 
     private string GetRowTooltip(ServiceReadingDetail lectura)
     {
+        if (!string.IsNullOrEmpty(lectura.ImportError))
+            return lectura.ImportError;
+
         if (!lectura.Procesed)
             return "Lectura pendiente de procesar";
 

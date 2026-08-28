@@ -302,10 +302,12 @@ namespace SpiderHood.Services
                 // Validaciones
                 WaterReadingValidator _validator = new WaterReadingValidator();
 
+                int erroresPrevios = readingValidation!.Errors.Count();
                 readingValidation = _validator.ValidateLoadExcelReading(readExcel, readingValidation, esPrimeraCarga);
 
                 Guid idGroupUnit = Guid.Empty;
                 double lecturaAnterior = 0;
+                string etiquetaFila = $"Dpto. {(string.IsNullOrWhiteSpace(readExcel.Aparment) ? "(vacío)" : readExcel.Aparment)} (Fila {readExcel.row})";
 
                 if (esPrimeraCarga)
                 {
@@ -317,7 +319,7 @@ namespace SpiderHood.Services
                     if (unidad == null)
                     {
                         readingValidation!.AddError("DPTO_NO_ENCONTRADO",
-                            $"Fila {readExcel.row - 1}: No se encontró la unidad {readExcel.Aparment} en el edificio.");
+                            $"{etiquetaFila}: No se encontró la unidad en el edificio.");
                         readExcel.Procesed = false;
                     }
                     else
@@ -336,7 +338,7 @@ namespace SpiderHood.Services
                     if (prev == null)
                     {
                         readingValidation!.AddError("SIN_LECTURA_ANTERIOR",
-                            $"Fila {readExcel.row - 1}: No hay una lectura anterior registrada para el Dpto. {readExcel.Aparment} — cargue primero su lectura inicial.");
+                            $"{etiquetaFila}: No hay una lectura anterior registrada — cargue primero su lectura inicial.");
                         readExcel.Procesed = false;
                     }
                     else
@@ -346,25 +348,30 @@ namespace SpiderHood.Services
                     }
                 }
 
-                if (readExcel.Procesed)
+                // Antes una fila inválida se descartaba acá silenciosamente (nunca
+                // llegaba a `lecturas`), así que la Vista Previa no daba ninguna pista de
+                // cuál era — sólo quedaba el resumen de arriba. Ahora se agrega siempre,
+                // marcada con ImportError cuando corresponde, para que la UI la resalte
+                // en rojo en el lugar donde realmente está.
+                var lectura = new Models.ServiceReadingDetail
                 {
-                    var lectura = new Models.ServiceReadingDetail
-                    {
 
-                        IdServiceReadingDetail = Guid.NewGuid(),
-                        IdServiceReading = reading.IdServiceReading,
-                        IdGroupUnit = idGroupUnit,
-                        GroupNumber = readExcel.Number,
-                        Code = readExcel.Aparment + reading.Period.Month + reading.Period.Year,
-                        CurrentReading = readExcel.ReadingValue,
-                        PreviousReading = lecturaAnterior,
-                        ReadingDate = readExcel.DateReading,
-                        Period = reading.Period,
-                        CalculatedAmount = 0,
-                        Procesed = readExcel.Procesed
-                    };
-                    lecturas.Add(lectura);
-                }
+                    IdServiceReadingDetail = Guid.NewGuid(),
+                    IdServiceReading = reading.IdServiceReading,
+                    IdGroupUnit = idGroupUnit,
+                    GroupNumber = readExcel.Number,
+                    Code = readExcel.Aparment + reading.Period.Month + reading.Period.Year,
+                    CurrentReading = readExcel.ReadingValue,
+                    PreviousReading = lecturaAnterior,
+                    ReadingDate = readExcel.DateReading,
+                    Period = reading.Period,
+                    CalculatedAmount = 0,
+                    Procesed = readExcel.Procesed,
+                    ImportError = readExcel.Procesed
+                        ? null
+                        : string.Join(" ", readingValidation!.Errors.Skip(erroresPrevios).Select(e => e.Message))
+                };
+                lecturas.Add(lectura);
 
                 fila++;
             }
@@ -507,44 +514,47 @@ namespace SpiderHood.Services
         {
             //var result = new ValidationResult();
 
+            // Antes cada mensaje decía sólo "Fila {row - 1}": el "-1" era un error de
+            // cálculo (reading.row YA es el número de fila real de Excel, contando el
+            // encabezado como fila 1 — restarle 1 lo corría una fila hacia arriba) y,
+            // además, no había forma de ubicar esa fila en la Vista Previa (que no
+            // muestra números de fila y excluye justamente las filas con error). Ahora
+            // se referencia por Dpto. — visible en pantalla — junto con el número de
+            // fila real del archivo Excel.
+            string etiqueta = $"Dpto. {(string.IsNullOrWhiteSpace(reading.Aparment) ? "(vacío)" : reading.Aparment)} (Fila {reading.row})";
+
             if (!DateTime.TryParse(reading.Period, out DateTime periodo))
             {
-                //errores.Add($"Fila {.row - 1}: Periodo inválido");
-                result!.AddError("PERIODO_INVALIDO", $"Fila {reading.row - 1}: Periodo inválido");
+                result!.AddError("PERIODO_INVALIDO", $"{etiqueta}: Periodo inválido");
                 reading.Procesed = false;
             }
             else if (periodo > DateTime.Today)
             {
-                //errores.Add($"Fila {fila - 1}: Fecha futura no permitida");
-                result!.AddError("PERIODO_INVALIDO", $"Fila {reading.row - 1}: Periodo con Fecha Futura");
+                result!.AddError("PERIODO_INVALIDO", $"{etiqueta}: Periodo con Fecha Futura");
                 reading.Procesed = false;
             }
 
             if (!DateTime.TryParse(reading.sDateReading, out DateTime fecha))
             {
-                result!.AddError("FECHA_LECTURA", $"Fila {reading.row - 1}: Fecha inválida");
+                result!.AddError("FECHA_LECTURA", $"{etiqueta}: Fecha inválida");
                 reading.Procesed = false;
-                //errores.Add($"Fila {fila - 1}: Fecha inválida");
             }
             else if (fecha > DateTime.Today)
             {
-                result!.AddError("FECHA_LECTURA", $"Fila {reading.row - 1}: Fecha futura no permitida");
+                result!.AddError("FECHA_LECTURA", $"{etiqueta}: Fecha futura no permitida");
                 reading.Procesed = false;
-                //errores.Add($"Fila {fila - 1}: Fecha futura no permitida");
             }
 
             if (!int.TryParse(reading.Aparment, out int Number))
             {
-                result!.AddError("DPTO_INVALIDO", $"Fila {reading.row - 1}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
+                result!.AddError("DPTO_INVALIDO", $"{etiqueta}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
                 reading.Procesed = false;
-                //errores.Add($"Fila {fila - 1}: Formato inválido. Debe indicar el un número de Dpto: 101, 102");
             }
 
             if (!double.TryParse(reading.Reading, out double value))
             {
-                result!.AddError("LECTURA_INVALIDO", $"Fila {reading.row - 1}: Lectura Actual inválido (debe ser un número positivo)");
+                result!.AddError("LECTURA_INVALIDO", $"{etiqueta}: Lectura Actual inválido (debe ser un número positivo)");
                 reading.Procesed = false;
-                //errores.Add($"Fila {fila - 1}: Lectura Actual inválido (debe ser un número positivo)");
             }
 
             // Primera Carga del edificio (sin ninguna lectura anterior guardada): la
@@ -554,12 +564,12 @@ namespace SpiderHood.Services
             {
                 if (!double.TryParse(reading.InitialReading, out double valorInicial))
                 {
-                    result!.AddError("LECTURA_INICIAL_INVALIDA", $"Fila {reading.row - 1}: Lectura Inicial inválida (debe ser un número positivo)");
+                    result!.AddError("LECTURA_INICIAL_INVALIDA", $"{etiqueta}: Lectura Inicial inválida (debe ser un número positivo)");
                     reading.Procesed = false;
                 }
                 else if (value < valorInicial)
                 {
-                    result!.AddError("LECTURA_INICIAL_MAYOR", $"Fila {reading.row - 1}: La Lectura Final no puede ser menor que la Lectura Inicial");
+                    result!.AddError("LECTURA_INICIAL_MAYOR", $"{etiqueta}: La Lectura Final no puede ser menor que la Lectura Inicial");
                     reading.Procesed = false;
                 }
             }

@@ -104,7 +104,11 @@ namespace SpiderHood.Services
         Task<CalculoResultado> CalcularConsumoAsync(double consumo, decimal cargoFijo);
         Task<List<ConsumoHistorico>> ObtenerHistoricoAsync(int departamentoId);
         Task GuardarLecturaAsync(Departamento departamento);
-        Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous);
+        // unidades: lista de unidades del edificio (para resolver IdGroupUnit en la
+        // Primera Carga, donde no hay ninguna lectura anterior de la que tomarlo).
+        // esPrimeraCarga cambia el layout de columnas esperado — ver
+        // ExcelExportService.ExportarPlantillaVacia, que genera ambos formatos.
+        Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous, List<Models.UnitView> unidades, bool esPrimeraCarga = false);
         Task<List<Models.ServiceReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.ServiceReadingDetail> lecturas, decimal cargoFijo);
         Task<Models.ServiceReading> ObtenerLecturaPorPeriodoAsync(DateTime period);
         Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(DateTime period);
@@ -255,7 +259,7 @@ namespace SpiderHood.Services
             return Task.CompletedTask;
         }
 
-        public Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous)
+        public Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous, List<Models.UnitView> unidades, bool esPrimeraCarga = false)
         {
 
             //ServiceReading reading = new();
@@ -273,29 +277,73 @@ namespace SpiderHood.Services
             int fila = 2; // Comienza después del encabezado
             foreach (var row in worksheet.RowsUsed().Skip(1))
             {
-
+                readExcel.row = fila;
                 readExcel.Aparment = row.Cell(1).GetValue<string>();
                 readExcel.Period = row.Cell(2).GetValue<string>().Trim();
-                readExcel.Reading = row.Cell(3).GetValue<string>().Trim();
-                readExcel.sDateReading = row.Cell(4).GetValue<string>().Trim();
+
+                // Primera Carga: Dpto./Periodo/Lectura Inicial/Lectura Final/Fecha Lectura.
+                // Cargas siguientes (ya con historial): Dpto./Periodo/Lectura Final/Fecha
+                // Lectura, como antes — ExportarPlantillaVacia genera el layout que
+                // corresponda para que siempre calcen.
+                if (esPrimeraCarga)
+                {
+                    readExcel.InitialReading = row.Cell(3).GetValue<string>().Trim();
+                    readExcel.Reading = row.Cell(4).GetValue<string>().Trim();
+                    readExcel.sDateReading = row.Cell(5).GetValue<string>().Trim();
+                }
+                else
+                {
+                    readExcel.Reading = row.Cell(3).GetValue<string>().Trim();
+                    readExcel.sDateReading = row.Cell(4).GetValue<string>().Trim();
+                }
+
                 readExcel.Procesed = true;
 
                 // Validaciones
                 WaterReadingValidator _validator = new WaterReadingValidator();
 
-                readingValidation = _validator.ValidateLoadExcelReading(readExcel, readingValidation);
+                readingValidation = _validator.ValidateLoadExcelReading(readExcel, readingValidation, esPrimeraCarga);
 
-                var prev = previous.Where(c => c.GroupNumber == readExcel.Number).FirstOrDefault();
+                Guid idGroupUnit = Guid.Empty;
+                double lecturaAnterior = 0;
 
-                // Sin lectura anterior para esta unidad (primera carga real del edificio,
-                // o una unidad nueva que nunca se leyó) prev queda null — antes esto
-                // tronaba con NullReferenceException en prev!.IdGroupUnit/CurrentReading
-                // en vez de avisar cuál fila falló.
-                if (prev == null)
+                if (esPrimeraCarga)
                 {
-                    readingValidation!.AddError("SIN_LECTURA_ANTERIOR",
-                        $"Fila {fila - 1}: No hay una lectura anterior registrada para el Dpto. {readExcel.Aparment} — cargue primero su lectura inicial.");
-                    readExcel.Procesed = false;
+                    // No hay historial del que sacar la unidad — se resuelve contra la
+                    // lista de unidades del edificio, y la "lectura anterior" es la
+                    // Lectura Inicial que trae la propia fila (no 0, para no cobrar de
+                    // golpe todo el consumo acumulado del medidor hasta hoy).
+                    var unidad = unidades.FirstOrDefault(u => u.Number == readExcel.Number);
+                    if (unidad == null)
+                    {
+                        readingValidation!.AddError("DPTO_NO_ENCONTRADO",
+                            $"Fila {readExcel.row - 1}: No se encontró la unidad {readExcel.Aparment} en el edificio.");
+                        readExcel.Procesed = false;
+                    }
+                    else
+                    {
+                        idGroupUnit = unidad.IdGroupUnit;
+                    }
+                    lecturaAnterior = readExcel.InitialReadingValue;
+                }
+                else
+                {
+                    var prev = previous.Where(c => c.GroupNumber == readExcel.Number).FirstOrDefault();
+
+                    // Sin lectura anterior para esta unidad (una unidad nueva que nunca
+                    // se leyó, por ejemplo) prev queda null — antes esto tronaba con
+                    // NullReferenceException en vez de avisar cuál fila falló.
+                    if (prev == null)
+                    {
+                        readingValidation!.AddError("SIN_LECTURA_ANTERIOR",
+                            $"Fila {readExcel.row - 1}: No hay una lectura anterior registrada para el Dpto. {readExcel.Aparment} — cargue primero su lectura inicial.");
+                        readExcel.Procesed = false;
+                    }
+                    else
+                    {
+                        idGroupUnit = prev.IdGroupUnit;
+                        lecturaAnterior = prev.CurrentReading;
+                    }
                 }
 
                 if (readExcel.Procesed)
@@ -305,12 +353,11 @@ namespace SpiderHood.Services
 
                         IdServiceReadingDetail = Guid.NewGuid(),
                         IdServiceReading = reading.IdServiceReading,
-                        IdGroupUnit = prev!.IdGroupUnit,
+                        IdGroupUnit = idGroupUnit,
                         GroupNumber = readExcel.Number,
                         Code = readExcel.Aparment + reading.Period.Month + reading.Period.Year,
                         CurrentReading = readExcel.ReadingValue,
-                        PreviousReading = prev!.CurrentReading,
-                        //PreviousReading = prev!.PreviousReading,
+                        PreviousReading = lecturaAnterior,
                         ReadingDate = readExcel.DateReading,
                         Period = reading.Period,
                         CalculatedAmount = 0,
@@ -322,7 +369,11 @@ namespace SpiderHood.Services
                 fila++;
             }
 
-            foreach (var item in previous)
+            // Solo aplica a cargas siguientes: unidades del edificio que no vinieron en
+            // el archivo se completan con su lectura anterior repetida (consumo 0). En
+            // la Primera Carga no hay "previous" del que completar nada.
+            var pendientesPorCompletar = esPrimeraCarga ? new List<Models.ServiceReadingDetail>() : previous;
+            foreach (var item in pendientesPorCompletar)
             {
 
                 int exists = lecturas.Count(c => c.GroupNumber == item.GroupNumber);
@@ -404,11 +455,15 @@ namespace SpiderHood.Services
         public string Period { get; set; } = string.Empty;
         public string Reading { get; set; } = string.Empty;
         public string sDateReading { get; set; } = string.Empty;
+        // Solo se usa/valida cuando la carga es la Primera Carga del edificio (sin
+        // ninguna lectura anterior guardada) — ver ImportarDesdeExcelAsync.
+        public string InitialReading { get; set; } = string.Empty;
 
         public int row = 0;
         public bool Procesed = true;
         public DateTime DateReading => DateTime.TryParse(sDateReading, out DateTime date) ? date : DateTime.MinValue;
         public double ReadingValue => double.TryParse(Reading, out double value) ? value : 0;
+        public double InitialReadingValue => double.TryParse(InitialReading, out double value) ? value : 0;
         public int Number => int.TryParse(Aparment, out int num) ? num : 0;
 
     }
@@ -448,7 +503,7 @@ namespace SpiderHood.Services
             return result;
         }
 
-        public ValidationResult ValidateLoadExcelReading(ServiceLoadExcel reading, ValidationResult result)
+        public ValidationResult ValidateLoadExcelReading(ServiceLoadExcel reading, ValidationResult result, bool esPrimeraCarga = false)
         {
             //var result = new ValidationResult();
 
@@ -490,6 +545,23 @@ namespace SpiderHood.Services
                 result!.AddError("LECTURA_INVALIDO", $"Fila {reading.row - 1}: Lectura Actual inválido (debe ser un número positivo)");
                 reading.Procesed = false;
                 //errores.Add($"Fila {fila - 1}: Lectura Actual inválido (debe ser un número positivo)");
+            }
+
+            // Primera Carga del edificio (sin ninguna lectura anterior guardada): la
+            // plantilla trae además "Lectura Inicial", para no cobrarle a cada unidad el
+            // consumo acumulado de toda la vida del medidor en su primer recibo.
+            if (esPrimeraCarga)
+            {
+                if (!double.TryParse(reading.InitialReading, out double valorInicial))
+                {
+                    result!.AddError("LECTURA_INICIAL_INVALIDA", $"Fila {reading.row - 1}: Lectura Inicial inválida (debe ser un número positivo)");
+                    reading.Procesed = false;
+                }
+                else if (value < valorInicial)
+                {
+                    result!.AddError("LECTURA_INICIAL_MAYOR", $"Fila {reading.row - 1}: La Lectura Final no puede ser menor que la Lectura Inicial");
+                    reading.Procesed = false;
+                }
             }
 
             return result!;

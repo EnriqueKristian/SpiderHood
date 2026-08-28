@@ -637,15 +637,22 @@
             _ServiceReadingState.CurrentReading.FileName = _archivoNombre;
             _ServiceReadingState.CurrentReading.Period = _periodoActual;
 
-            if (_ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any())
-            {
-                _ServiceReadingState.PreviousReadingDetail = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.CurrentBuilding.IdBuilding);
-            }
+            // Primera Carga del edificio = no hay ninguna lectura anterior guardada
+            // todavía. Se decide ANTES de tocar PreviousReadingDetail, porque el layout
+            // de columnas que espera el importador depende de esto (ver
+            // ExportarPlantillaVacia / ImportarDesdeExcelAsync) — reemplaza al fallback
+            // GetFirstWaterReadingDetailList que había acá, que sólo tapaba el síntoma
+            // (evitaba el crash con un "previous" cualquiera) sin resolver que la
+            // Primera Carga necesita Lectura Inicial además de la Final.
+            var esPrimeraCarga = _ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any();
+            var unidadesDelEdificio = await ObtenerUnidadesDelEdificio();
 
             _ServiceReadingState.CurrentReading = await CalculoService.ImportarDesdeExcelAsync(
                 memoryStream,
                 _ServiceReadingState.CurrentReading,
-                _ServiceReadingState.PreviousReadingDetail);
+                _ServiceReadingState.PreviousReadingDetail ?? new List<ServiceReadingDetail>(),
+                unidadesDelEdificio,
+                esPrimeraCarga);
 
             _lecturasCargadas = _ServiceReadingState.CurrentReading.WaterReadingDetail ?? new List<ServiceReadingDetail>();
 
@@ -657,7 +664,9 @@
                     + Environment.NewLine
                     + $"Se encontraron ({erroresEncontrados}) errores."
                     + Environment.NewLine
-                    + "El formato debe ser: DPTO | Periodo | Lectura Actual | Fecha Lectura";
+                    + (esPrimeraCarga
+                        ? "El formato debe ser: DPTO | Periodo | Lectura Inicial | Lectura Final | Fecha Lectura"
+                        : "El formato debe ser: DPTO | Periodo | Lectura Final | Fecha Lectura");
             }
 
             //errorProcesamiento = _lecturaActual.errors;
@@ -1050,11 +1059,12 @@
             Models.ExcelExportService excelService = new Models.ExcelExportService();
 
             var unidades = await ObtenerUnidadesDelEdificio();
+            var esPrimeraCarga = _ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any();
 
             MemoryStream memoryStream = new MemoryStream();
             string fileName = "";
 
-            (fileName, memoryStream) = await excelService.ExportarPlantillaVacia(_ServiceReadingState, unidades);
+            (fileName, memoryStream) = await excelService.ExportarPlantillaVacia(_ServiceReadingState, unidades, esPrimeraCarga);
             await DescargarArchivo(fileName, memoryStream.ToArray());
 
             await MostrarMensajeExito("Plantilla descargada exitosamente");

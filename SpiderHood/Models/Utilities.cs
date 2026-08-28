@@ -115,16 +115,17 @@ namespace SpiderHood.Models
 
         // La plantilla tiene que calzar exactamente con lo que CalculoService.
         // ImportarDesdeExcelAsync espera al leerla de vuelta: hoja 1, fila 1 = encabezado
-        // (se descarta con RowsUsed().Skip(1), sin importar su contenido), y desde la fila
-        // 2 en adelante, EXACTAMENTE 4 columnas en este orden — Dpto. (Cell 1), Periodo
-        // (Cell 2, fecha obligatoria y no futura), Lectura Actual (Cell 3, numérico) y
-        // Fecha de Lectura (Cell 4, fecha obligatoria y no futura); ver
-        // WaterReadingValidator.ValidateLoadExcelReading. La versión anterior de este
-        // método no coincidía en nada de esto — encabezados en la fila 3 en vez de la 1,
-        // solo 3 columnas (sin "Periodo" propio de cada fila), y filas de "INSTRUCCIONES"
-        // sueltas más abajo que RowsUsed() barría igual como si fueran datos — así que
-        // ninguna fila lograba pasar la validación al reimportarla.
-        public async Task<(string Filename, MemoryStream Stream)> ExportarPlantillaVacia(ServiceReadingState state, List<UnitView> unidades)
+        // (se descarta con RowsUsed().Skip(1), sin importar su contenido), y desde la
+        // fila 2 en adelante, EXACTAMENTE las columnas del layout correspondiente — ver
+        // WaterReadingValidator.ValidateLoadExcelReading. Dos layouts posibles:
+        //   - Primera Carga (esPrimeraCarga=true, sin ninguna lectura anterior guardada
+        //     para el edificio): Dpto./Periodo/Lectura Inicial/Lectura Final/Fecha
+        //     Lectura (5 columnas) — la Inicial es necesaria para no cobrarle a cada
+        //     unidad el consumo acumulado de toda la vida del medidor en su primer recibo.
+        //   - Cargas siguientes (ya con historial): Dpto./Periodo/Lectura Final/Fecha
+        //     Lectura (4 columnas) — el sistema toma la Lectura Final ya guardada de la
+        //     carga anterior como "anterior" de esta.
+        public async Task<(string Filename, MemoryStream Stream)> ExportarPlantillaVacia(ServiceReadingState state, List<UnitView> unidades, bool esPrimeraCarga = false)
         {
             try
             {
@@ -136,7 +137,9 @@ namespace SpiderHood.Models
 
                     // Encabezado en la fila 1 — es la única fila que el importador se salta,
                     // así que tiene que ser justo esta, sin nada de "Periodo" suelto arriba.
-                    var headers = new[] { "Dpto.", "Periodo", "Lectura Actual", "Fecha Lectura" };
+                    var headers = esPrimeraCarga
+                        ? new[] { "Dpto.", "Periodo", "Lectura Inicial", "Lectura Final", "Fecha Lectura" }
+                        : new[] { "Dpto.", "Periodo", "Lectura Final", "Fecha Lectura" };
 
                     for (int i = 0; i < headers.Length; i++)
                     {
@@ -149,7 +152,7 @@ namespace SpiderHood.Models
                     // el usuario escriba se guarda tal cual, sin que Excel lo reformatee a su
                     // propio formato regional al vuelo — mismo criterio que ya usaba la
                     // columna 1 para no perder ceros a la izquierda del Dpto.
-                    worksheet.Columns(1, 4).Style.NumberFormat.Format = "@";
+                    worksheet.Columns(1, headers.Length).Style.NumberFormat.Format = "@";
 
                     var periodoTexto = state.CurrentReading.Period.ToString("yyyy-MM-dd");
                     var fechaLecturaSugerida = DateTime.Today.ToString("yyyy-MM-dd");
@@ -161,10 +164,18 @@ namespace SpiderHood.Models
                         // Precargado — es el mismo periodo para todas las unidades y es
                         // obligatorio para que la fila pase la validación al importar.
                         worksheet.Cell(row, 2).Value = periodoTexto;
-                        worksheet.Cell(row, 3).Value = ""; // Lectura actual — a completar
-                        // Sugerido con la fecha de hoy (también obligatorio); el usuario lo
-                        // puede cambiar si tomó la lectura otro día.
-                        worksheet.Cell(row, 4).Value = fechaLecturaSugerida;
+
+                        if (esPrimeraCarga)
+                        {
+                            worksheet.Cell(row, 3).Value = ""; // Lectura inicial — a completar
+                            worksheet.Cell(row, 4).Value = ""; // Lectura final — a completar
+                            worksheet.Cell(row, 5).Value = fechaLecturaSugerida;
+                        }
+                        else
+                        {
+                            worksheet.Cell(row, 3).Value = ""; // Lectura final — a completar
+                            worksheet.Cell(row, 4).Value = fechaLecturaSugerida;
+                        }
                         row++;
                     }
 
@@ -176,11 +187,28 @@ namespace SpiderHood.Models
                     var hojaInstrucciones = workbook.Worksheets.Add("Instrucciones");
                     hojaInstrucciones.Cell(1, 1).Value = "INSTRUCCIONES";
                     hojaInstrucciones.Cell(1, 1).Style.Font.Bold = true;
-                    hojaInstrucciones.Cell(2, 1).Value = "1. No modifique la columna 'Dpto.' ni el orden de las columnas.";
-                    hojaInstrucciones.Cell(3, 1).Value = "2. Complete 'Lectura Actual' con la lectura del medidor de cada unidad.";
-                    hojaInstrucciones.Cell(4, 1).Value = "3. 'Periodo' y 'Fecha Lectura' ya vienen precargados — solo ajuste 'Fecha Lectura' si tomó la lectura otro día.";
-                    hojaInstrucciones.Cell(5, 1).Value = "4. Ambas fechas deben tener formato AAAA-MM-DD (ej: 2026-03-15) y no pueden ser una fecha futura.";
-                    hojaInstrucciones.Cell(6, 1).Value = "5. Guarde el archivo y cárguelo en el sistema con 'Importar Lecturas de Agua'.";
+
+                    var instrucciones = esPrimeraCarga
+                        ? new[]
+                        {
+                            "1. No modifique la columna 'Dpto.' ni el orden de las columnas.",
+                            "2. Esta es la Primera Carga del edificio: complete 'Lectura Inicial' con la lectura del medidor al momento de empezar a operar el sistema, y 'Lectura Final' con la lectura de este periodo. El consumo se calcula como Final - Inicial.",
+                            "3. 'Periodo' y 'Fecha Lectura' ya vienen precargados — solo ajuste 'Fecha Lectura' si tomó la lectura otro día.",
+                            "4. Las fechas deben tener formato AAAA-MM-DD (ej: 2026-03-15) y no pueden ser una fecha futura.",
+                            "5. Guarde el archivo y cárguelo en el sistema con 'Importar Lecturas de Agua'.",
+                        }
+                        : new[]
+                        {
+                            "1. No modifique la columna 'Dpto.' ni el orden de las columnas.",
+                            "2. Complete 'Lectura Final' con la lectura del medidor de cada unidad — el sistema calcula el consumo contra la última lectura guardada.",
+                            "3. 'Periodo' y 'Fecha Lectura' ya vienen precargados — solo ajuste 'Fecha Lectura' si tomó la lectura otro día.",
+                            "4. Las fechas deben tener formato AAAA-MM-DD (ej: 2026-03-15) y no pueden ser una fecha futura.",
+                            "5. Guarde el archivo y cárguelo en el sistema con 'Importar Lecturas de Agua'.",
+                        };
+
+                    for (int i = 0; i < instrucciones.Length; i++)
+                        hojaInstrucciones.Cell(i + 2, 1).Value = instrucciones[i];
+
                     hojaInstrucciones.Columns().AdjustToContents();
 
                     workbook.SaveAs(memoryStream);

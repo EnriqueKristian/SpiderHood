@@ -52,7 +52,8 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Periodo</label>
-                                <input type="month" class="form-control" @bind="periodoTexto" />
+                                <input type="month" class="form-control" value="@periodoTexto"
+                                       @onchange="@((ChangeEventArgs e) => periodoTexto = e.Value?.ToString() ?? periodoTexto)" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Fecha de Vencimiento</label>

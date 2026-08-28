@@ -1,7 +1,7 @@
 ﻿<div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="mb-1"><i class="bi bi-calculator-fill"></i>Cálculo de Presupuesto Mensual</h1>
-        <p class="text-muted mb-0">Calcule los gastos mensuales y determine la cuota por departamento</p>
+        <h1 class="mb-1"><i class="bi @IconoPagina"></i>@TituloPagina</h1>
+        <p class="text-muted mb-0">@SubtituloPagina</p>
     </div>
     <div class="d-flex gap-2">
         @if (_budgetState!.Budget.IdBudgetHeader != Guid.Empty)
@@ -34,13 +34,25 @@
 
 <!-- Summary Cards -->
 <div class="row g-4 mb-4">
-    <div class="col-md-3">
+    <div class="@ColClass">
         <div class="card card-hover">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted text-uppercase small">Total Mensual</h6>
-                        <h2 class="mb-0">S/ @_budgetState!.TotalMonthly.ToString("N2")</h2>
+                        @if (EsCuotaEspecial)
+                        {
+                            <!-- Una Cuota Extraordinaria/Cargos no tiene BudgetDetail (secciones/
+                                 items) — TotalMonthly/TotalAnnual salen de ahí y siempre dan
+                                 S/ 0.00 acá. El monto real por unidad ya está en Installments,
+                                 el mismo total que se ve en "Total Cuotas" más abajo. -->
+                            <h6 class="text-muted text-uppercase small">Total Cuotas</h6>
+                            <h2 class="mb-0">S/ @_budgetState!.TotalInstallments.ToString("N2")</h2>
+                        }
+                        else
+                        {
+                            <h6 class="text-muted text-uppercase small">Total Mensual</h6>
+                            <h2 class="mb-0">S/ @_budgetState!.TotalMonthly.ToString("N2")</h2>
+                        }
                     </div>
                     <div style="color: #3b82f6;">
                         <i class="bi bi-calculator-fill" style="font-size: 1.2rem;"></i>
@@ -50,23 +62,26 @@
         </div>
     </div>
 
-    <div class="col-md-3">
-        <div class="card card-hover">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-muted text-uppercase small">Total Anual</h6>
-                        <h2 class="mb-0">S/ @_budgetState!.TotalAnnual.ToString("N2")</h2>
-                    </div>
-                    <div style="color: #10b981;">
-                        <i class="bi bi-calendar-check-fill" style="font-size: 1.2rem;"></i>
+    @if (!EsCuotaEspecial)
+    {
+        <div class="col-md-3">
+            <div class="card card-hover">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted text-uppercase small">Total Anual</h6>
+                            <h2 class="mb-0">S/ @_budgetState!.TotalAnnual.ToString("N2")</h2>
+                        </div>
+                        <div style="color: #10b981;">
+                            <i class="bi bi-calendar-check-fill" style="font-size: 1.2rem;"></i>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    }
 
-    <div class="col-md-3">
+    <div class="@ColClass">
         <div class="card card-hover">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
@@ -82,7 +97,7 @@
         </div>
     </div>
 
-    <div class="col-md-3">
+    <div class="@ColClass">
         <div class="card card-hover">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
@@ -94,9 +109,15 @@
                                     <i class="bi bi-save me-1"></i>Guardar
                                 </button>
                             }
-                            <button disabled="@_budgetState!.LoadServiceReading" class="btn btn-outline-success" @onclick="() => OnServiceReading.InvokeAsync()">
-                                <i class="bi bi-droplet-fill"></i>&nbsp;Cal. Agua
-                                </button>
+                            @if (!EsCuotaEspecial)
+                            {
+                                <!-- El cálculo de agua es parte del ciclo Ordinario mensual — no
+                                     aplica a una Cuota Extraordinaria ni a los Cargos de Multas/
+                                     Mora, que no dependen de ninguna lectura de consumo. -->
+                                <button disabled="@_budgetState!.LoadServiceReading" class="btn btn-outline-success" @onclick="() => OnServiceReading.InvokeAsync()">
+                                    <i class="bi bi-droplet-fill"></i>&nbsp;Cal. Agua
+                                    </button>
+                            }
                         </div>
                         @if (_budgetState!.SaveBudget())
                         {
@@ -136,6 +157,33 @@
     public EventCallback OnServiceReading { get; set; }
 
     private bool TieneDetalles => _budgetState!.Budget.Details.Any(d => !d.IsHeader);
+
+    // Una Cuota Extraordinaria o los Cargos de Multas/Mora no son un presupuesto
+    // Ordinario por secciones/items — este encabezado (título, tarjetas de resumen,
+    // botón de Cal. Agua) muestra información distinta según el tipo.
+    private bool EsCuotaEspecial => !string.IsNullOrEmpty(_budgetState!.Budget.BudgetType);
+    private string ColClass => EsCuotaEspecial ? "col-md-4" : "col-md-3";
+
+    private string TituloPagina => _budgetState!.Budget.BudgetType switch
+    {
+        "Extraordinario" => "Cuota Extraordinaria",
+        "Cargos" => "Cargos por Multas y Mora",
+        _ => "Cálculo de Presupuesto Mensual"
+    };
+
+    private string SubtituloPagina => _budgetState!.Budget.BudgetType switch
+    {
+        "Extraordinario" => "Detalle de la cuota por departamento",
+        "Cargos" => "Detalle de multas e intereses moratorios por departamento",
+        _ => "Calcule los gastos mensuales y determine la cuota por departamento"
+    };
+
+    private string IconoPagina => _budgetState!.Budget.BudgetType switch
+    {
+        "Extraordinario" => "bi-cash-stack",
+        "Cargos" => "bi-exclamation-triangle-fill",
+        _ => "bi-calculator-fill"
+    };
 
     // Mientras se está creando/editando un presupuesto en borrador (Created/Rejected),
     // "Nuevo Presupuesto" desaparece del header — abrir otro sin haber guardado o

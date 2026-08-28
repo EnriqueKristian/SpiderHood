@@ -265,7 +265,7 @@
                                 <span>Primero debe Crear el Presupuesto</span>
                                 <p />
                                 <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="ShowNewCalculationModal">
-                                    <i class="bi bi-plus-circle me-2"></i>Nuevo Cálculo
+                                    <i class="bi bi-plus-circle me-2"></i>Nuevo Presupuesto
                                 </button>
                             }
 
@@ -450,7 +450,11 @@
     // Propietarios aprueba/rechaza. currentUser.Role ya viene resuelto para el
     // edificio+rol actualmente seleccionado (Services/AuthService.GetCurrentUserAsync,
     // mismo patrón que BuildingPage.razor.cs).
-    private bool IsAdministrador => currentUser?.Role == "Administrador";
+    // SysAdmin es un rol aparte de Administrador en este sistema (ver LeftMenu.razor,
+    // Components/Pages/AccessPages/Index.razor) pero debe poder hacer todo lo que puede
+    // un Administrador — si no, un usuario SysAdmin ve los campos del presupuesto pero
+    // no puede tocarlos (CanEdit daba false) sin ningún aviso de por qué.
+    private bool IsAdministrador => currentUser?.Role == "Administrador" || currentUser?.Role == "SysAdmin";
     private bool IsJunta => currentUser?.Role == "Junta";
     private bool CanEdit => IsAdministrador && (_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected);
 
@@ -1083,8 +1087,64 @@
         //_BudgetState.IsDisabled = false;
         _BudgetState.Status = BudgetStatus.Created;
         _textCabecera = "Detalle de Gastos - " + @GetMonthName(_selectedPeriod.Month) + " " + _selectedPeriod.Year;
+
+        // Si se eligió una plantilla (o copiar el mes anterior) en el modal, cargar los
+        // datos ahora — antes quedaba el presupuesto vacío y había que acordarse de
+        // apretar "Cargar Plantilla" aparte, un paso extra que no tenía por qué existir
+        // si ya se había elegido la plantilla al crear.
+        switch (_newCalculation.Template)
+        {
+            case "basic":
+            case "complete":
+                await LoadSampleData();
+                break;
+            case "previous":
+                await CopiarPresupuestoMesAnterior();
+                break;
+        }
+
         await _newCalcModal.HideAsync();
         StateHasChanged();
+    }
+
+    // "Copiar mes anterior": trae el desglose del último presupuesto Ordinario previo al
+    // periodo seleccionado y lo clona como punto de partida (nuevos IdBudgetDetail, sin
+    // IsNewItem para no recrear categorías que ya existen).
+    private async Task CopiarPresupuestoMesAnterior()
+    {
+        var anterior = presupuestoService._Budgets
+            .Where(b => string.IsNullOrEmpty(b.BudgetType) && b.BudgetDate < _selectedPeriod)
+            .OrderByDescending(b => b.BudgetDate)
+            .FirstOrDefault();
+
+        if (anterior == null)
+        {
+            await ShowToast("Sin mes anterior",
+                "No hay un presupuesto anterior para copiar. Usa una plantilla o crea las secciones manualmente.",
+                "warning");
+            return;
+        }
+
+        var detallesAnteriores = await presupuestoService.GetBudgetDetailAsync(anterior.IdBudgetHeader);
+
+        _BudgetState.Budget.Details = detallesAnteriores.Select(d => new BudgetDetail
+        {
+            IdBudgetDetail = Guid.NewGuid(),
+            IdCategory = d.IdCategory,
+            IdSection = d.IdSection,
+            ItemNumber = d.ItemNumber,
+            Description = d.Description,
+            MonthlyAmount = d.MonthlyAmount,
+            AnnualAmount = d.AnnualAmount,
+            Frequency = d.Frequency,
+            Type = d.Type,
+            IsHeader = d.IsHeader,
+            IdBudgetHeader = _BudgetState.Budget.IdBudgetHeader,
+            IsNewItem = false,
+            IdParent = d.IdParent
+        }).ToList();
+
+        _BudgetState.CalculateTotals();
     }
 
     /*  SECCION SAVE   */

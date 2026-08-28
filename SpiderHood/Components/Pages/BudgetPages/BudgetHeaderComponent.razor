@@ -6,22 +6,29 @@
     <div class="d-flex gap-2">
         @if (_budgetState!.Budget.IdBudgetHeader != Guid.Empty)
         {
-            @if (_budgetState!.AddSampleData)
+            @if (_budgetState!.AddSampleData && !TieneDetalles)
             {
+                <!-- Solo mientras el presupuesto está realmente vacío: una vez cargados
+                     los datos (por plantilla, copia del mes anterior o a mano) este botón
+                     desaparece — repetirlo acá quedaba confuso al lado del que ya ofrece
+                     el estado vacío de la tabla más abajo. -->
                 <button class="btn btn-outline-primary" @onclick="() => OnLoadTemplate.InvokeAsync()">
                     <i class="bi bi-upload me-1"></i>Cargar Plantilla
                 </button>
             }
-            else
+            else if (!_budgetState!.AddSampleData)
             {
                 <button disabled="@_budgetState!.GenerateReport" class="btn btn-outline-success" @onclick="() => OnGenerateReport.InvokeAsync()">
                     <i class="bi bi-file-pdf me-1"></i>Generar Reporte
                 </button>
             }
         }
-        <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="() => OnNewCalculation.InvokeAsync()">
-            <i class="bi bi-plus-circle me-2"></i>Nuevo Cálculo
-        </button>
+        @if (!OcultarNuevoPresupuesto)
+        {
+            <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="() => OnNewCalculation.InvokeAsync()">
+                <i class="bi bi-plus-circle me-2"></i>Nuevo Presupuesto
+            </button>
+        }
     </div>
 </div>
 
@@ -79,16 +86,26 @@
         <div class="card card-hover">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex gap-2">
+                    <div class="d-flex flex-column gap-1">
+                        <div class="d-flex gap-2">
+                            @if (_budgetState!.SaveBudget())
+                            {
+                                <button class="btn btn-outline-success" @onclick="() => OnSave.InvokeAsync()">
+                                    <i class="bi bi-save me-1"></i>Guardar
+                                </button>
+                            }
+                            <button disabled="@_budgetState!.LoadServiceReading" class="btn btn-outline-success" @onclick="() => OnServiceReading.InvokeAsync()">
+                                <i class="bi bi-droplet-fill"></i>&nbsp;Cal. Agua
+                                </button>
+                        </div>
                         @if (_budgetState!.SaveBudget())
                         {
-                            <button class="btn btn-outline-success" @onclick="() => OnSave.InvokeAsync()">
-                                <i class="bi bi-save me-1"></i>Guardar
-                            </button>
+                            <!-- Hasta acá todo vive solo en memoria (BudgetState) — nada se
+                                 escribe en la base de datos hasta apretar Guardar. -->
+                            <small class="text-warning">
+                                <i class="bi bi-exclamation-circle me-1"></i>Sin guardar todavía
+                            </small>
                         }
-                        <button disabled="@_budgetState!.LoadServiceReading" class="btn btn-outline-success" @onclick="() => OnServiceReading.InvokeAsync()">
-                            <i class="bi bi-droplet-fill"></i>&nbsp;Cal. Agua
-                            </button>
                     </div>
                 </div>
             </div>
@@ -114,5 +131,15 @@
 
     [Parameter]
     public EventCallback OnServiceReading { get; set; }
-    
+
+    private bool TieneDetalles => _budgetState!.Budget.Details.Any(d => !d.IsHeader);
+
+    // Mientras se está creando/editando un presupuesto en borrador (Created/Rejected),
+    // "Nuevo Presupuesto" desaparece del header — abrir otro sin haber guardado o
+    // terminado este era justo la confusión reportada. Reaparece una vez que el
+    // presupuesto ya está publicado (Active) o en cualquier otro estado posterior, para
+    // poder arrancar el siguiente ciclo.
+    private bool OcultarNuevoPresupuesto =>
+        _budgetState!.Budget.IdBudgetHeader != Guid.Empty &&
+        (_budgetState.Status == Models.BudgetStatus.Created || _budgetState.Status == Models.BudgetStatus.Rejected);
 }

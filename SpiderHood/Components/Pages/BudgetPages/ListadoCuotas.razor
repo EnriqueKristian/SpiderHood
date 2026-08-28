@@ -11,6 +11,7 @@
 @inject IServiceReadingService ServiceReadingService
 @inject IJSRuntime JSRuntime
 @inject IBuildingService BuildingService
+@inject IExtraChargeService ExtraChargeService
 
 <PageTitle>Listado de Cuotas</PageTitle>
 
@@ -564,13 +565,20 @@
             // para saber si una sección se imprime con detalle o colapsada (ShowDetailInReceipt).
             var categorias = await BudgetService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding);
 
+            // Cuotas Extraordinarias/Multas/Mora de esta unidad, para que el recibo
+            // muestre lo mismo que "Ver Detalle" (solo aplica sobre cuotas Ordinarias).
+            var cargosAdicionales = item.Type == InstallmentType.Ordinaria
+                ? await ExtraChargeService.GetCargosAdicionalesAsync(ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { item })
+                : new List<Installment>();
+
             var exportService = new InstallmentExportService(
                 new List<Installment> { item },
                 budgetActual,
                 waterReadingsActual,
                 exonerationsActual,
                 ParameterService.CurrentBuilding,
-                categorias);
+                categorias,
+                cargosAdicionales);
 
             var pdfBytes = exportService.GenerateReceipt(item);
 

@@ -27,6 +27,21 @@
                     {
                         <div class="alert alert-warning">Selecciona un edificio para continuar.</div>
                     }
+                    else if (cargandoPresupuesto)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                    }
+                    else if (presupuestoActivo == null)
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            No hay un presupuesto Ordinario Activo para este edificio. Genere y publique el presupuesto
+                            del mes (Generación de Presupuesto) antes de crear una cuota extraordinaria — se aplica
+                            siempre al ciclo vigente, no se puede aplicar retroactivamente.
+                        </div>
+                    }
                     else
                     {
                         @if (!string.IsNullOrEmpty(mensajeResultado))
@@ -44,20 +59,20 @@
                             </button>
                         }
 
+                        <div class="alert alert-light border mb-3">
+                            <i class="bi bi-calendar-check me-1"></i>
+                            Se aplicará al presupuesto Activo vigente: <strong>@presupuestoActivo.BudgetDate.ToString("MMMM yyyy")</strong>
+                        </div>
+
                         <div class="row g-3 mb-3">
-                            <div class="col-md-6">
+                            <div class="col-md-8">
                                 <label class="form-label">Descripción / Concepto</label>
                                 <input type="text" class="form-control" placeholder="Ej: Fondo de obras - Pintado de fachada"
                                        @bind="descripcion" />
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Periodo</label>
-                                <input type="month" class="form-control" value="@periodoTexto"
-                                       @onchange="@((ChangeEventArgs e) => periodoTexto = e.Value?.ToString() ?? periodoTexto)" />
-                            </div>
-                            <div class="col-md-3">
+                            <div class="col-md-4">
                                 <label class="form-label">Fecha de Vencimiento</label>
-                                <input type="date" class="form-control" @bind="fechaVencimiento" />
+                                <input type="date" class="form-control" @bind="fechaVencimiento" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
                             </div>
                         </div>
 
@@ -165,7 +180,6 @@
     private enum ModoReparto { PartesIguales, Manual }
 
     private string descripcion = string.Empty;
-    private string periodoTexto = DateTime.Today.ToString("yyyy-MM");
     private DateTime fechaVencimiento = DateTime.Today.AddDays(15);
     private ModoReparto modo = ModoReparto.PartesIguales;
     private decimal montoTotal = 0;
@@ -174,9 +188,11 @@
     private Dictionary<Guid, decimal> montosPorUnidad = new();
 
     private bool cargando = false;
+    private bool cargandoPresupuesto = true;
     private bool generando = false;
     private string mensajeResultado = string.Empty;
     private bool exito = false;
+    private BudgetHeader? presupuestoActivo;
 
     [CascadingParameter]
     private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
@@ -184,6 +200,18 @@
     private string Moneda => ParameterService.CurrentBuilding?.Configuration.Currency == "PEN" ? "S/" : "$";
 
     private decimal TotalAsignado => montosPorUnidad.Values.Sum();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ParameterService.CurrentBuilding == null)
+        {
+            cargandoPresupuesto = false;
+            return;
+        }
+
+        presupuestoActivo = await ExtraChargeService.GetPresupuestoActivoAsync(ParameterService.CurrentBuilding.IdBuilding);
+        cargandoPresupuesto = false;
+    }
 
     private async Task CargarUnidades()
     {
@@ -251,13 +279,9 @@
             usuario = authState.User.Identity?.Name ?? usuario;
         }
 
-        if (!DateTime.TryParse(periodoTexto + "-01", out var periodo))
-            periodo = DateTime.Today;
-
         var resultado = await ExtraChargeService.GenerarCuotaExtraordinariaAsync(
             ParameterService.CurrentBuilding.IdBuilding,
             descripcion,
-            periodo,
             fechaVencimiento,
             montosPorUnidad,
             usuario);

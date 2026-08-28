@@ -603,6 +603,9 @@ namespace SpiderHood.Models
         private readonly List<Exoneration> _exonerations;
         private readonly Building _building;
         private readonly List<Category> _categories;
+        // Cuotas Extraordinarias/Multas/Mora de cualquier unidad de este lote — se
+        // filtran por IdGroupUnit al armar cada recibo, igual que _waterReadings.
+        private readonly List<Installment> _cargosAdicionales;
 
         public InstallmentExportService(
             List<Installment> installments,
@@ -610,7 +613,8 @@ namespace SpiderHood.Models
             List<ServiceReadingDetail> waterReadings,
             List<Exoneration> exonerations,
             Building building,
-            List<Category> categories)
+            List<Category> categories,
+            List<Installment>? cargosAdicionales = null)
         {
             _installments = installments;
             _budget = budget;
@@ -618,6 +622,7 @@ namespace SpiderHood.Models
             _exonerations = exonerations;
             _building = building;
             _categories = categories;
+            _cargosAdicionales = cargosAdicionales ?? new();
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
@@ -936,13 +941,37 @@ namespace SpiderHood.Models
                     AddSectionSubtotal(table, sectionPresup, sectionCuota);
                 }
 
-                // TOTAL CUOTA, en una barra de color como en la referencia.
+                // TOTAL CUOTA ORDINARIA, en una barra de color como en la referencia.
                 var periodo = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
                 table.Cell().ColumnSpan(4).PaddingTop(10);
                 table.Cell().ColumnSpan(3).Background(Colors.Blue.Darken2).Padding(6)
-                    .Text($"TOTAL CUOTA {periodo}").Bold().FontColor(Colors.White);
+                    .Text($"TOTAL CUOTA ORDINARIA {periodo}").Bold().FontColor(Colors.White);
                 table.Cell().Background(Colors.Blue.Darken2).Padding(6).AlignRight()
                     .Text($"S/ {totalCuota:N2}").Bold().FontSize(12).FontColor(Colors.White);
+
+                // Cuotas Extraordinarias/Multas/Mora de esta misma unidad, listadas aparte
+                // del desglose de arriba (igual que en "Ver Detalle" en pantalla) y sumadas
+                // a un total general — mismo criterio que InstallmentDetailModal.
+                var cargosUnidad = _cargosAdicionales.Where(c => c.IdGroupUnit == _installment.IdGroupUnit).ToList();
+                if (cargosUnidad.Any())
+                {
+                    AddSectionHeader(table, "CUOTAS EXTRAORDINARIAS, MULTAS Y MORA");
+
+                    var totalAdicionales = 0m;
+                    foreach (var cargo in cargosUnidad)
+                    {
+                        totalAdicionales += cargo.Amount;
+                        AddTableRow(table,
+                            string.IsNullOrWhiteSpace(cargo.Concept) ? TipoDescripcion(cargo.Type) : cargo.Concept,
+                            0, cargo.Amount, 0, false);
+                    }
+
+                    table.Cell().ColumnSpan(4).PaddingTop(6);
+                    table.Cell().ColumnSpan(3).Background(Colors.Grey.Darken2).Padding(6)
+                        .Text("TOTAL GENERAL (Ordinaria + Adicionales)").Bold().FontColor(Colors.White);
+                    table.Cell().Background(Colors.Grey.Darken2).Padding(6).AlignRight()
+                        .Text($"S/ {(totalCuota + totalAdicionales):N2}").Bold().FontSize(12).FontColor(Colors.White);
+                }
 
                 // "DEUDAS ANTERIORES" (cuotas ordinarias/extraordinarias de periodos
                 // previos, histórico de agua) queda pendiente: hoy no existe ninguna

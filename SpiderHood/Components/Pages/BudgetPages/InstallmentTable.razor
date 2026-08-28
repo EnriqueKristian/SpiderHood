@@ -8,6 +8,7 @@
 @inject Services.IBankAccountService BankService
 @inject Services.ICategoryService CategoryService
 @inject Services.IBuildingService BuildingService
+@inject Services.IExtraChargeService ExtraChargeService
 
 <div class="row">
     <div class="col-12">
@@ -462,6 +463,13 @@
                 ? await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding)
                 : new List<Category>();
 
+            // Cuotas Extraordinarias/Multas/Mora de las unidades de este lote, para que
+            // el recibo muestre lo mismo que "Ver Detalle" (una sola consulta para todas
+            // las unidades, filtrada por IdGroupUnit al armar cada recibo individual).
+            var cargosAdicionales = ParameterService.CurrentBuilding != null
+                ? await ExtraChargeService.GetCargosAdicionalesAsync(ParameterService.CurrentBuilding.IdBuilding, Installments ?? new())
+                : new List<Installment>();
+
             // Inicializar servicio de exportación
             _exportService = new InstallmentExportService(
             Installments!,
@@ -469,7 +477,8 @@
             WaterReadings!,
             Exonerations!,
             ParameterService.CurrentBuilding!,
-            categorias
+            categorias,
+            cargosAdicionales
         );
 
 

@@ -35,12 +35,19 @@ namespace SpiderHood.Services
         // de una cuota extraordinaria (partes iguales o monto manual por unidad).
         Task<List<OwnerUnitView>> GetUnidadesAsync(Guid idBuilding);
 
+        // El presupuesto Ordinario (BudgetType vacío) vigente del edificio — el ciclo
+        // mensual normal, distinto de los BudgetHeader "Extraordinario"/"Cargos" que usa
+        // este mismo servicio. Null si el edificio no tiene ninguno Activo todavía.
+        Task<BudgetHeader?> GetPresupuestoActivoAsync(Guid idBuilding);
+
         // Crea un BudgetHeader (BudgetType = "Extraordinario") y una cuota (Installment,
-        // Type = Extraordinaria) por cada unidad con monto > 0 en montosPorUnidad.
+        // Type = Extraordinaria) por cada unidad con monto > 0 en montosPorUnidad. El
+        // periodo de la cuota SIEMPRE es el del presupuesto Ordinario Activo del
+        // edificio — no se puede elegir un periodo distinto ni aplicar retroactivamente
+        // (falla si no hay presupuesto Activo o si fechaVencimiento ya pasó).
         Task<CuotaExtraordinariaResultado> GenerarCuotaExtraordinariaAsync(
             Guid idBuilding,
             string descripcion,
-            DateTime periodo,
             DateTime fechaVencimiento,
             Dictionary<Guid, decimal> montosPorUnidad,
             string usuario);
@@ -55,6 +62,12 @@ namespace SpiderHood.Services
         // TasaInterésMora% x meses de atraso, cobrando solo el incremento respecto de lo
         // ya generado en corridas anteriores para esa misma cuota (sin duplicar).
         Task<AplicacionCargosResultado> AplicarMultasYMoraAsync(Building building, string usuario);
+
+        // Cuotas Extraordinarias (mismo mes/año que cada cuota Ordinaria) y Multas/Mora
+        // (SourceInstallmentId apuntando a esa cuota Ordinaria) asociadas a las cuotas
+        // dadas — para mostrarlas como items adicionales en "Ver Detalle" y en el recibo
+        // de una cuota Ordinaria, sin mezclarlas con su desglose de BudgetDetail.
+        Task<List<Installment>> GetCargosAdicionalesAsync(Guid idBuilding, List<Installment> cuotasOrdinarias);
     }
 
     public class ExtraChargeService : IExtraChargeService
@@ -74,10 +87,15 @@ namespace SpiderHood.Services
             return unidades.Where(c => c.Role == 1 && c.TypeUnit == 1).OrderBy(u => u.Number).ToList();
         }
 
+        public async Task<BudgetHeader?> GetPresupuestoActivoAsync(Guid idBuilding)
+        {
+            var presupuestos = await ec.GetBudgetsAsync(idBuilding);
+            return presupuestos.FirstOrDefault(b => b.Status == BudgetStatus.Active && string.IsNullOrEmpty(b.BudgetType));
+        }
+
         public async Task<CuotaExtraordinariaResultado> GenerarCuotaExtraordinariaAsync(
             Guid idBuilding,
             string descripcion,
-            DateTime periodo,
             DateTime fechaVencimiento,
             Dictionary<Guid, decimal> montosPorUnidad,
             string usuario)
@@ -96,15 +114,31 @@ namespace SpiderHood.Services
                 return resultado;
             }
 
+            if (fechaVencimiento.Date < DateTime.Today)
+            {
+                resultado.Mensaje = "La fecha de vencimiento no puede ser una fecha pasada.";
+                return resultado;
+            }
+
+            var presupuestoActivo = await GetPresupuestoActivoAsync(idBuilding);
+            if (presupuestoActivo == null)
+            {
+                resultado.Mensaje = "No hay un presupuesto Ordinario Activo para este edificio. " +
+                    "Genere y publique el presupuesto del mes (Generación de Presupuesto) antes de crear una cuota extraordinaria.";
+                return resultado;
+            }
+
             try
             {
                 var unidades = await GetUnidadesAsync(idBuilding);
 
+                // El periodo SIEMPRE es el del presupuesto Activo — la cuota extraordinaria
+                // se aplica al ciclo vigente, nunca a uno pasado ni futuro elegido a mano.
                 var header = new BudgetHeader
                 {
                     IdBudgetHeader = Guid.NewGuid(),
                     BudgetName = descripcion,
-                    BudgetDate = periodo,
+                    BudgetDate = presupuestoActivo.BudgetDate,
                     BudgetType = "Extraordinario",
                     IdBuilding = idBuilding,
                     Status = BudgetStatus.Active,
@@ -181,6 +215,41 @@ namespace SpiderHood.Services
                 .OrderBy(i => i.DueDate)
                 .ThenBy(i => i.UnitName)
                 .ToList();
+        }
+
+        public async Task<List<Installment>> GetCargosAdicionalesAsync(Guid idBuilding, List<Installment> cuotasOrdinarias)
+        {
+            var resultado = new List<Installment>();
+            if (cuotasOrdinarias == null || !cuotasOrdinarias.Any())
+                return resultado;
+
+            var idsOrdinarias = cuotasOrdinarias.Select(c => c.IdInstallment).ToHashSet();
+            var idsGroupUnit = cuotasOrdinarias.Select(c => c.IdGroupUnit).ToHashSet();
+            var periodos = cuotasOrdinarias.Select(c => (c.Period.Year, c.Period.Month)).ToHashSet();
+
+            var presupuestos = await ec.GetBudgetsAsync(idBuilding);
+
+            // Cuotas Extraordinarias del mismo mes/año que la(s) cuota(s) Ordinaria(s) —
+            // puede haber más de una campaña generada para el mismo periodo.
+            var extraordinarios = presupuestos
+                .Where(b => b.BudgetType == "Extraordinario" && periodos.Contains((b.BudgetDate.Year, b.BudgetDate.Month)))
+                .ToList();
+
+            foreach (var header in extraordinarios)
+            {
+                var installments = await ec.GetInstallmentsByBudgetAsync(header.IdBudgetHeader);
+                resultado.AddRange(installments.Where(i => idsGroupUnit.Contains(i.IdGroupUnit)));
+            }
+
+            // Multas y Mora generadas específicamente contra estas cuotas Ordinarias.
+            var cargosHeader = presupuestos.FirstOrDefault(b => b.BudgetType == "Cargos");
+            if (cargosHeader != null)
+            {
+                var cargos = await ec.GetInstallmentsByBudgetAsync(cargosHeader.IdBudgetHeader);
+                resultado.AddRange(cargos.Where(c => idsOrdinarias.Contains(c.SourceInstallmentId)));
+            }
+
+            return resultado.OrderBy(i => i.Type).ThenBy(i => i.CreationDate).ToList();
         }
 
         public async Task<AplicacionCargosResultado> AplicarMultasYMoraAsync(Building building, string usuario)

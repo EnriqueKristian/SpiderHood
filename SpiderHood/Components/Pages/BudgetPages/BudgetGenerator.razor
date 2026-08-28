@@ -432,6 +432,7 @@
     [Inject] private IInstallmentService InstallmentService { get; set; } = default!;
     [Inject] private IServiceReadingService ServiceReadingService { get; set; } = default!;
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
+    [Inject] private IExtraChargeService ExtraChargeService { get; set; } = default!;
 
     private BudgetStatus _Status = BudgetStatus.Created;
     private UserSession currentUser = new();
@@ -1385,6 +1386,13 @@
                     ParameterService.CurrentBuilding!.Configuration =
                         await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
 
+                    // Cuotas Extraordinarias/Multas/Mora de las unidades de este lote —
+                    // normalmente vacío en este punto (recién se está publicando el
+                    // presupuesto), pero se consulta igual para que el recibo salga
+                    // consistente con "Ver Detalle" si ya hubiera cargos generados.
+                    var cargosAdicionales = await ExtraChargeService.GetCargosAdicionalesAsync(
+                        ParameterService.CurrentBuilding!.IdBuilding, _BudgetState.Installments);
+
                     // Genera el recibo (PDF) de cada unidad y los descarga en un solo ZIP.
                     var exportService = new InstallmentExportService(
                         _BudgetState.Installments,
@@ -1392,7 +1400,8 @@
                         _BudgetState.WaterReadings,
                         _BudgetState.Exonerations,
                         ParameterService.CurrentBuilding!,
-                        filteredCategories);
+                        filteredCategories,
+                        cargosAdicionales);
 
                     var zipBytes = exportService.GenerateAllReceiptsZip();
                     await JSRuntime.InvokeVoidAsync("downloadFile",

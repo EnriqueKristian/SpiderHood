@@ -4,6 +4,7 @@
 @using SpiderHood.Models
 @inject SpiderHood.Services.ParameterService ParameterService
 @inject SpiderHood.Services.IBuildingService BuildingService
+@inject SpiderHood.Services.IExtraChargeService ExtraChargeService
 
 <Modal @ref="_modal" Title="@TituloModal" Size="ModalSize.ExtraLarge">
     <BodyTemplate>
@@ -58,7 +59,7 @@
                    se explica el concepto en vez de mostrar una tabla vacía. *@
                 <div class="p-4">
                     <div class="alert alert-light border mb-0">
-                        <span class="@TipoBadgeClass() me-2">@TipoBadgeText()</span>
+                        <span class="@TipoBadgeClass(_installment) me-2">@TipoBadgeText(_installment)</span>
                         @(string.IsNullOrWhiteSpace(_installment.Concept) ? "Sin concepto adicional." : _installment.Concept)
                     </div>
                 </div>
@@ -190,7 +191,7 @@
                             <tfoot class="table-light">
                                 <tr>
                                     <td colspan="3" class="text-end fw-bold py-3">
-                                        <i class="bi bi-calculator me-2"></i>TOTAL CUOTA:
+                                        <i class="bi bi-calculator me-2"></i>TOTAL CUOTA ORDINARIA:
                                     </td>
                                     <td class="text-end py-3">
                                         <span class="total-amount fs-5 fw-bold text-primary">
@@ -198,6 +199,54 @@
                                         </span>
                                     </td>
                                     <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            }
+
+            @* Cuotas Extraordinarias / Multas / Mora asociadas a esta misma unidad —
+               solo aplica cuando se ve el detalle de una cuota Ordinaria (ShowAsync las
+               carga vía ExtraChargeService.GetCargosAdicionalesAsync); se listan aparte
+               del desglose de arriba y se suman a un Total General. *@
+            @if (_cargosAdicionales.Any())
+            {
+                <div class="table-container px-4 pb-4">
+                    <h6 class="mb-2"><i class="bi bi-plus-circle me-1"></i>Cuotas Extraordinarias, Multas y Mora</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 15%">Tipo</th>
+                                    <th>Concepto</th>
+                                    <th style="width: 20%" class="text-end">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var cargo in _cargosAdicionales)
+                                {
+                                    <tr>
+                                        <td><span class="@TipoBadgeClass(cargo)">@TipoBadgeText(cargo)</span></td>
+                                        <td>@(string.IsNullOrWhiteSpace(cargo.Concept) ? TipoBadgeText(cargo) : cargo.Concept)</td>
+                                        <td class="text-end">S/ @cargo.Amount.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="2" class="text-end fw-bold py-2">Total Adicionales:</td>
+                                    <td class="text-end fw-bold py-2">S/ @_cargosAdicionales.Sum(c => c.Amount).ToString("N2")</td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td colspan="2" class="text-end fw-bold py-3">
+                                        <i class="bi bi-calculator me-2"></i>TOTAL GENERAL (Ordinaria + Adicionales):
+                                    </td>
+                                    <td class="text-end py-3">
+                                        <span class="fs-5 fw-bold">
+                                            S/ @((_installment!.Amount + _cargosAdicionales.Sum(c => c.Amount)).ToString("N2"))
+                                        </span>
+                                    </td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -239,7 +288,7 @@
     [Parameter] public EventCallback<Installment> OnImprimir { get; set; }
     [Parameter] public EventCallback<Installment> OnEnviarAlPropietario { get; set; }
 
-    private string TipoBadgeClass() => _installment?.Type switch
+    private string TipoBadgeClass(Installment? item) => item?.Type switch
     {
         InstallmentType.Extraordinaria => "badge bg-primary",
         InstallmentType.Multa => "badge bg-danger",
@@ -247,7 +296,7 @@
         _ => "badge bg-secondary"
     };
 
-    private string TipoBadgeText() => _installment?.Type switch
+    private string TipoBadgeText(Installment? item) => item?.Type switch
     {
         InstallmentType.Extraordinaria => "Extraordinaria",
         InstallmentType.Multa => "Multa",
@@ -260,6 +309,9 @@
     private BudgetHeader? _budget;
     private List<ServiceReadingDetail>? _waterReadings;
     private List<Exoneration> _exonerations = new();
+    // Cuotas Extraordinarias/Multas/Mora de esta misma unidad — vacía salvo cuando el
+    // detalle mostrado es de una cuota Ordinaria (ver ShowAsync).
+    private List<Installment> _cargosAdicionales = new();
 
     private decimal _distr;
     private int _waterReadingsCount;
@@ -294,6 +346,7 @@
             : 0;
 
         _unidadesGrupo = new();
+        _cargosAdicionales = new();
         if (ParameterService.CurrentBuilding != null)
         {
             // Misma fuente que Owners.razor (Residentes): una fila por unidad del grupo,
@@ -303,6 +356,12 @@
                 .Where(u => u.IdGroupUnit == installment.IdGroupUnit && u.Role == 1)
                 .OrderBy(u => u.TypeUnit)
                 .ToList();
+
+            if (installment.Type == InstallmentType.Ordinaria)
+            {
+                _cargosAdicionales = await ExtraChargeService.GetCargosAdicionalesAsync(
+                    ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { installment });
+            }
         }
 
         await _modal.ShowAsync();

@@ -52,6 +52,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private UserSession currentUser = new();
         private bool _loaded = false;
         private bool _canEditBuilding;
+        private bool _canCreateBuilding;
 
         protected override async Task OnInitializedAsync()
         {
@@ -59,6 +60,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
             if (currentUser == null) return;
 
             _canEditBuilding = await PermissionService.HasPermissionAsync(currentUser, "edit_building");
+            _canCreateBuilding = await PermissionService.HasPermissionAsync(currentUser, "create_building");
         }
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -134,6 +136,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task EditBuilding(Building building)
         {
+            if (!_canEditBuilding) return;
             _editingBuilding = building.Clone();
             _isEditingBuilding = true;
             await _buildingModal.ShowAsync();
@@ -141,6 +144,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task ShowCreateModal()
         {
+            if (!_canCreateBuilding) return;
             _editingBuilding = new Building
             {
                 IdBuilding = Guid.NewGuid(),
@@ -172,6 +176,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task SaveBuilding()
         {
+            if (_isEditingBuilding ? !_canEditBuilding : !_canCreateBuilding) return;
             try
             {
                 if (_isEditingBuilding)

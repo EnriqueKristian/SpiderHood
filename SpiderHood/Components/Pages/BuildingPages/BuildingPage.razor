@@ -23,9 +23,12 @@
             </div>
         </div>
         <div class="page-header-actions">
-            <button class="btn btn-primary" @onclick="ShowCreateModal">
-                <i class="bi bi-building-add me-2"></i>Nuevo Edificio
-            </button>
+            @if (_canCreateBuilding)
+            {
+                <button class="btn btn-primary" @onclick="ShowCreateModal">
+                    <i class="bi bi-building-add me-2"></i>Nuevo Edificio
+                </button>
+            }
         </div>
     </div>
 
@@ -135,13 +138,16 @@
                                             </div>
                                         </div>
                                         <div class="building-actions">
-                                            <button class="btn btn-sm btn-outline-primary" 
-                                                    title="Editar" 
-                                                    @onclick="() => EditBuilding(building)"
-                                                    @onclick:stopPropagation>
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-secondary" 
+                                            @if (_canEditBuilding)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        title="Editar"
+                                                        @onclick="() => EditBuilding(building)"
+                                                        @onclick:stopPropagation>
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            }
+                                            <button class="btn btn-sm btn-outline-secondary"
                                                     title="Configuración Rápida"
                                                     @onclick="() => ShowQuickConfig(building)"
                                                     @onclick:stopPropagation>
@@ -159,9 +165,12 @@
                             <i class="bi bi-buildings"></i>
                             <h4 class="mb-2">No hay edificios registrados</h4>
                             <p class="text-muted mb-3">Comienza agregando tu primer edificio</p>
-                            <button class="btn btn-primary" style="border-radius: 50px;" @onclick="ShowCreateModal">
-                                <i class="bi bi-building-add me-2"></i>Crear Primer Edificio
-                            </button>
+                            @if (_canCreateBuilding)
+                            {
+                                <button class="btn btn-primary" style="border-radius: 50px;" @onclick="ShowCreateModal">
+                                    <i class="bi bi-building-add me-2"></i>Crear Primer Edificio
+                                </button>
+                            }
                         </div>
                     }
                 </div>

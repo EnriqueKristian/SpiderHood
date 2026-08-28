@@ -287,6 +287,17 @@ namespace SpiderHood.Services
 
                 var prev = previous.Where(c => c.GroupNumber == readExcel.Number).FirstOrDefault();
 
+                // Sin lectura anterior para esta unidad (primera carga real del edificio,
+                // o una unidad nueva que nunca se leyó) prev queda null — antes esto
+                // tronaba con NullReferenceException en prev!.IdGroupUnit/CurrentReading
+                // en vez de avisar cuál fila falló.
+                if (prev == null)
+                {
+                    readingValidation!.AddError("SIN_LECTURA_ANTERIOR",
+                        $"Fila {fila - 1}: No hay una lectura anterior registrada para el Dpto. {readExcel.Aparment} — cargue primero su lectura inicial.");
+                    readExcel.Procesed = false;
+                }
+
                 if (readExcel.Procesed)
                 {
                     var lectura = new Models.ServiceReadingDetail

@@ -542,7 +542,7 @@
 
     private async Task CrearNuevoPeriodo()
     {
-        Period newPeriod = ParameterService.CreateNewPeriod(_ultimoPeriodo, ParameterService.CurrentBuilding.IdBuilding).Result;
+        Period newPeriod = await ParameterService.CreateNewPeriod(_ultimoPeriodo, ParameterService.CurrentBuilding.IdBuilding);
         _periods.Add(newPeriod);
         _currentPeriod = newPeriod;
     }
@@ -1094,8 +1094,11 @@
 
     private async Task<List<Models.UnitView>> ObtenerUnidadesDelEdificio()
     {
-        // Implementación para obtener las unidades del edificio: TODO PADRE
-        return BuildingService.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1).Result;
+        // .Result sobre un Task desde un método async en Blazor Server puede
+        // deadlockear (el hilo que espera el resultado es el mismo que necesita
+        // liberarse para completar la continuación) — es lo que dejaba el botón
+        // "Descargar plantilla" colgado sin ningún error visible.
+        return await BuildingService.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1);
     }
 
     #endregion

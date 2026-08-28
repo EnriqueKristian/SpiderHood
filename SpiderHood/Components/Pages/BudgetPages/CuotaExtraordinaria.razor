@@ -5,6 +5,8 @@
 @inject ParameterService ParameterService
 @inject IExtraChargeService ExtraChargeService
 @inject NavigationManager Navigation
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
 
 <PageTitle>Cuota Extraordinaria</PageTitle>
 
@@ -26,6 +28,13 @@
                     @if (ParameterService.CurrentBuilding == null)
                     {
                         <div class="alert alert-warning">Selecciona un edificio para continuar.</div>
+                    }
+                    else if (!cargandoPresupuesto && !_canCreateExtraordinaryFee)
+                    {
+                        <div class="alert alert-danger">
+                            <i class="bi bi-shield-lock me-1"></i>
+                            No tienes permiso para generar cuotas extraordinarias.
+                        </div>
                     }
                     else if (cargandoPresupuesto)
                     {
@@ -193,6 +202,7 @@
     private string mensajeResultado = string.Empty;
     private bool exito = false;
     private Period? periodoActivo;
+    private bool _canCreateExtraordinaryFee;
 
     [CascadingParameter]
     private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
@@ -208,6 +218,9 @@
             cargandoPresupuesto = false;
             return;
         }
+
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canCreateExtraordinaryFee = await PermissionService.HasPermissionAsync(currentUser, "create_extraordinary_fee");
 
         periodoActivo = await ExtraChargeService.GetPeriodoActivoAsync(ParameterService.CurrentBuilding.IdBuilding);
         cargandoPresupuesto = false;
@@ -267,7 +280,7 @@
 
     private async Task Generar()
     {
-        if (ParameterService.CurrentBuilding == null) return;
+        if (ParameterService.CurrentBuilding == null || !_canCreateExtraordinaryFee) return;
 
         generando = true;
         StateHasChanged();

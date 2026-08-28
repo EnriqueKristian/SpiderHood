@@ -138,8 +138,11 @@
     [Parameter]
     public Models.BudgetState? _budgetState { get; set; }
 
+    // Antes se llamaba IsAdministrador; en realidad sólo gatea la visibilidad de
+    // "Nuevo Presupuesto", así que ahora refleja la clave de permiso real que
+    // representa (create_budget) en vez de asumir un nombre de rol fijo.
     [Parameter]
-    public bool IsAdministrador { get; set; } = true;
+    public bool CanCreateBudget { get; set; } = true;
 
     [Parameter]
     public EventCallback OnNewCalculation { get; set; }
@@ -190,10 +193,10 @@
     // terminado este era justo la confusión reportada. Reaparece una vez que el
     // presupuesto ya está publicado (Active) o en cualquier otro estado posterior, para
     // poder arrancar el siguiente ciclo.
-    // Sólo el Administrador crea presupuestos nuevos — la Junta llega a esta página
-    // únicamente para aprobar/rechazar los que ya están en revisión.
+    // Sólo quien tiene create_budget crea presupuestos nuevos — la Junta llega a esta
+    // página únicamente para aprobar/rechazar los que ya están en revisión.
     private bool OcultarNuevoPresupuesto =>
-        !IsAdministrador ||
+        !CanCreateBudget ||
         (_budgetState!.Budget.IdBudgetHeader != Guid.Empty &&
         (_budgetState.Status == Models.BudgetStatus.Created || _budgetState.Status == Models.BudgetStatus.Rejected));
 }

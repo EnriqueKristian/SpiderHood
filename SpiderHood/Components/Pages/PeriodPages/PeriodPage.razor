@@ -31,6 +31,16 @@
         </div>
     </div>
 
+    @if (MostrarAvisoSinPeriodos)
+    {
+        <div class="alert alert-warning alert-dismissible fade show mb-4">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Este edificio todavía no tiene ningún periodo registrado. Antes de poder generar un presupuesto, crea el
+            <strong>periodo inicial</strong> — el mes desde el cual el sistema empezará a operar.
+            <button type="button" class="btn-close" @onclick="() => MostrarAvisoSinPeriodos = false"></button>
+        </div>
+    }
+
     <!-- Summary Cards -->
     <div class="row g-4 mb-4">
         <div class="col-md-3">
@@ -205,6 +215,15 @@
     [Parameter]
     public Guid BuildingId { get; set; }
 
+    // Llega desde BudgetGenerator ("Nuevo Presupuesto") cuando el edificio no tiene
+    // ningún periodo todavía — explica por qué se redirigió acá en vez de mostrar el
+    // toast justo antes de navegar (poco confiable: la transición de página puede
+    // llevárselo antes de que el usuario lo vea).
+    [SupplyParameterFromQuery(Name = "sinPeriodos")]
+    [Parameter]
+    public string? SinPeriodosQuery { get; set; }
+
+    private bool MostrarAvisoSinPeriodos = false;
 
     private bool ShowModal = false;
     private bool isNew = false;
@@ -221,6 +240,8 @@
         // de la página (carga inicial, cambio de BuildingId, después de guardar/eliminar) y
         // volver a suscribirse ahí acumulaba handlers duplicados en OnPaginationChanged.
         _pagination.OnPaginationChanged += StateHasChanged;
+
+        MostrarAvisoSinPeriodos = SinPeriodosQuery == "1";
 
         if (ParameterService.CurrentBuilding == null)
             return;

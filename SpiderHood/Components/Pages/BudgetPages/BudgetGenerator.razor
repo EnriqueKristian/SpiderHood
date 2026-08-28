@@ -984,10 +984,10 @@
         // del periodo inicial y le corresponde al usuario en /periods, no a este modal.
         if (!_periods.Any())
         {
-            await ShowToast("Selecciona el periodo inicial",
-                "Este edificio todavía no tiene ningún periodo. Antes de generar un presupuesto, indica desde cuándo arranca a operar en Periodos.",
-                "warning");
-            Navigation.NavigateTo("/periods");
+            // Un toast justo antes de navegar no es confiable (la transición de página
+            // puede llevárselo antes de que el usuario lo vea) — el aviso se muestra en
+            // /periods al llegar, vía el query string ?sinPeriodos=1.
+            Navigation.NavigateTo("/periods?sinPeriodos=1");
             return;
         }
 

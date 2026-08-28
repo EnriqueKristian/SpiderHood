@@ -279,5 +279,6 @@
         period.EndDate = start.AddMonths(meses).AddDays(-1);
         period.ClosingDate = start.AddMonths(meses).AddDays(15);
         period.Name = start.ToString("MMMM-yy", System.Globalization.CultureInfo.InvariantCulture);
+        period.Description = $"Período generado automáticamente para {start.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}";
     }
 }

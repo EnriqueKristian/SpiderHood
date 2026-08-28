@@ -3,6 +3,7 @@
 @using SpiderHood.Services
 @inject ParameterService ParameterService
 @inject NavigationManager Navigation
+@inject SpiderHood.Services.AuthService AuthService
 @rendermode InteractiveServer
 
 <PageTitle>SpiderHood - Gestión de Presupuestos</PageTitle>
@@ -20,9 +21,12 @@
             <button class="btn btn-outline-primary" @onclick="ExportarPresupuestos">
                 <i class="bi bi-upload me-1"></i>Exportar
             </button>
-            <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="NuevoPresupuesto">
-                <i class="bi bi-plus-circle me-2"></i>Nuevo Presupuesto
-            </button>
+            @if (IsAdministrador)
+            {
+                <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="NuevoPresupuesto">
+                    <i class="bi bi-plus-circle me-2"></i>Nuevo Presupuesto
+                </button>
+            }
         </div>
     </div>
 
@@ -144,9 +148,12 @@
                                 <i class="bi bi-receipt bi-3x"></i>
                                 <h3>No hay presupuestos</h3>
                                 <p>No se encontraron presupuestos con los filtros aplicados.</p>
-                                <button class="btn btn-primary" @onclick="NuevoPresupuesto">
-                                    <i class="bi bi-plus"></i> Crear Primer Presupuesto
-                                </button>
+                                @if (IsAdministrador)
+                                {
+                                    <button class="btn btn-primary" @onclick="NuevoPresupuesto">
+                                        <i class="bi bi-plus"></i> Crear Primer Presupuesto
+                                    </button>
+                                }
                             </div>
                         }
                         else
@@ -209,25 +216,27 @@
                                                             <i class="bi bi-eye"></i>
                                                         </button>
                                                         <button class="btn btn-outline-secondary"
-                                                                title="Editar Presupuesto"
+                                                                title="@(IsAdministrador ? "Editar Presupuesto" : "Ver / Aprobar Presupuesto")"
                                                                 @onclick:stopPropagation @onclick="() => EditarPresupuesto(presupuesto)">
                                                             <i class="bi bi-pencil"></i>
                                                         </button>
-                                                        @if (presupuesto.Status == BudgetStatus.Created || presupuesto.Status == BudgetStatus.Rejected || presupuesto.Status == BudgetStatus.Check)
+                                                        @if (IsAdministrador)
                                                         {
-                                                            <button class="btn btn-outline-danger"
-                                                                    title="Elimnar Presupuesto"
-                                                                    @onclick:stopPropagation @onclick="() => EliminarPresupuesto(presupuesto)">
-                                                                <i class="bi bi-trash"></i>
+                                                            @if (presupuesto.Status == BudgetStatus.Created || presupuesto.Status == BudgetStatus.Rejected || presupuesto.Status == BudgetStatus.Check)
+                                                            {
+                                                                <button class="btn btn-outline-danger"
+                                                                        title="Elimnar Presupuesto"
+                                                                        @onclick:stopPropagation @onclick="() => EliminarPresupuesto(presupuesto)">
+                                                                    <i class="bi bi-trash"></i>
+                                                                </button>
+                                                            }
+
+                                                            <button class="btn btn-outline-success"
+                                                                    title="Clonar Presupuesto"
+                                                                    @onclick:stopPropagation @onclick="() => ClonarPresupuesto(presupuesto)">
+                                                                <i class="bi bi-copy"></i>
                                                             </button>
                                                         }
-
-                                                    
-                                                        <button class="btn btn-outline-success"
-                                                                title="Clonar Presupuesto"
-                                                                @onclick:stopPropagation @onclick="() => ClonarPresupuesto(presupuesto)">
-                                                            <i class="bi bi-copy"></i>
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -376,6 +385,12 @@
     // Servicios inyectados
     [Inject] private IBudgetService budgetService { get; set; } = null!;
 
+    // Sólo el Administrador puede crear/editar/eliminar/clonar presupuestos. La Junta
+    // llega a esta lista sólo para ver y, dentro de /budgetgenerator, aprobar o rechazar
+    // los que estén en revisión (Check) — ese flujo lo sigue gateando IsJunta allá.
+    private UserSession currentUser = new();
+    private bool IsAdministrador => currentUser?.Role == "Administrador" || currentUser?.Role == "SysAdmin";
+
     // Variables de estado
     private bool isLoading = true;
     private List<Category> categoriasActivas = new();
@@ -440,6 +455,7 @@
         // viendo el HTML prerenderizado sin cambios durante los ~3s que dura el retry.
         isLoading = true;
         StateHasChanged();
+        currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
         var attempts = 0;
         while (ParameterService.CurrentBuilding == null && attempts < 20)
         {
@@ -645,6 +661,7 @@
     // Métodos de acciones
     private void NuevoPresupuesto()
     {
+        if (!IsAdministrador) return;
         Navigation.NavigateTo($"/budgetgenerator");
     }
 
@@ -676,6 +693,7 @@
 
     private async Task DeleteItem()
     {
+        if (!IsAdministrador) { await modal.HideAsync(); return; }
         // Lógica adicional después de cerrar el modal, si es necesario
         try
         {
@@ -696,12 +714,14 @@
 
     private async void EliminarPresupuesto(BudgetHeader _budget)
     {
+        if (!IsAdministrador) return;
         selectedBudget = _budget;
         await modal.ShowAsync();
     }
 
     private async void ClonarPresupuesto(BudgetHeader _budget)
     {
+        if (!IsAdministrador) return;
         try
         {
             // Crear nuevo presupuesto basado en el existente

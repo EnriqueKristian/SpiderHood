@@ -118,6 +118,9 @@
     public Models.BudgetState? _budgetState { get; set; }
 
     [Parameter]
+    public bool IsAdministrador { get; set; } = true;
+
+    [Parameter]
     public EventCallback OnNewCalculation { get; set; }
 
     [Parameter]
@@ -139,7 +142,10 @@
     // terminado este era justo la confusión reportada. Reaparece una vez que el
     // presupuesto ya está publicado (Active) o en cualquier otro estado posterior, para
     // poder arrancar el siguiente ciclo.
+    // Sólo el Administrador crea presupuestos nuevos — la Junta llega a esta página
+    // únicamente para aprobar/rechazar los que ya están en revisión.
     private bool OcultarNuevoPresupuesto =>
-        _budgetState!.Budget.IdBudgetHeader != Guid.Empty &&
-        (_budgetState.Status == Models.BudgetStatus.Created || _budgetState.Status == Models.BudgetStatus.Rejected);
+        !IsAdministrador ||
+        (_budgetState!.Budget.IdBudgetHeader != Guid.Empty &&
+        (_budgetState.Status == Models.BudgetStatus.Created || _budgetState.Status == Models.BudgetStatus.Rejected));
 }

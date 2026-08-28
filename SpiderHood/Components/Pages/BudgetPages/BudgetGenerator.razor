@@ -18,6 +18,7 @@
 <div class="expense-calculation">
     <!-- Header -->
     <BudgetHeaderComponent _budgetState="_BudgetState"
+                           IsAdministrador="IsAdministrador"
                            OnNewCalculation="ShowNewCalculationModal"
                            OnLoadTemplate="LoadSampleData"
                            OnSave="SaveCalculation"
@@ -260,13 +261,17 @@
                                     </button>
                                 </div>
                             }
-                            else
+                            else if (IsAdministrador)
                             {
                                 <span>Primero debe Crear el Presupuesto</span>
                                 <p />
                                 <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="ShowNewCalculationModal">
                                     <i class="bi bi-plus-circle me-2"></i>Nuevo Presupuesto
                                 </button>
+                            }
+                            else
+                            {
+                                <span>Todavía no hay un presupuesto creado. Solo el Administrador puede crearlo.</span>
                             }
 
                         </div>
@@ -980,6 +985,9 @@
 
     private async Task ShowNewCalculationModal()
     {
+        // Sólo el Administrador crea presupuestos — la Junta sólo aprueba/rechaza los que
+        // ya están en revisión (ver IsJunta más abajo).
+        if (!IsAdministrador) return;
         if (_newCalcModal == null) return;
 
         // Edificio sin NINGÚN periodo todavía: no hay nada de qué partir para "sugerir
@@ -1070,6 +1078,7 @@
 
     private async Task CreateNewCalculation()
     {
+        if (!IsAdministrador) return;
         if (_selectedPeriod == DateTime.MinValue) return;
 
         // Implementar lógica para crear nuevo cálculo

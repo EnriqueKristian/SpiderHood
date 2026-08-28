@@ -40,11 +40,18 @@ namespace SpiderHood.Services
         // este mismo servicio. Null si el edificio no tiene ninguno Activo todavía.
         Task<BudgetHeader?> GetPresupuestoActivoAsync(Guid idBuilding);
 
+        // El periodo marcado como "Actual" en /periods (Period.IsCurrentPeriod) — el
+        // ciclo vigente del edificio para aplicar una cuota extraordinaria, sin
+        // depender de si el presupuesto Ordinario de ese periodo ya fue publicado
+        // (Activo) o todavía está en borrador/revisión. Null si el edificio no tiene
+        // ningún periodo marcado como actual.
+        Task<Models.Period?> GetPeriodoActivoAsync(Guid idBuilding);
+
         // Crea un BudgetHeader (BudgetType = "Extraordinario") y una cuota (Installment,
         // Type = Extraordinaria) por cada unidad con monto > 0 en montosPorUnidad. El
-        // periodo de la cuota SIEMPRE es el del presupuesto Ordinario Activo del
-        // edificio — no se puede elegir un periodo distinto ni aplicar retroactivamente
-        // (falla si no hay presupuesto Activo o si fechaVencimiento ya pasó).
+        // periodo de la cuota SIEMPRE es el periodo marcado como Actual del edificio —
+        // no se puede elegir un periodo distinto ni aplicar retroactivamente (falla si
+        // no hay periodo Actual o si fechaVencimiento ya pasó).
         Task<CuotaExtraordinariaResultado> GenerarCuotaExtraordinariaAsync(
             Guid idBuilding,
             string descripcion,
@@ -93,6 +100,12 @@ namespace SpiderHood.Services
             return presupuestos.FirstOrDefault(b => b.Status == BudgetStatus.Active && string.IsNullOrEmpty(b.BudgetType));
         }
 
+        public async Task<Models.Period?> GetPeriodoActivoAsync(Guid idBuilding)
+        {
+            var periodos = await ec.GetPeriodsByBuildingAsync(idBuilding);
+            return periodos.FirstOrDefault(p => p.IsCurrentPeriod);
+        }
+
         public async Task<CuotaExtraordinariaResultado> GenerarCuotaExtraordinariaAsync(
             Guid idBuilding,
             string descripcion,
@@ -120,11 +133,11 @@ namespace SpiderHood.Services
                 return resultado;
             }
 
-            var presupuestoActivo = await GetPresupuestoActivoAsync(idBuilding);
-            if (presupuestoActivo == null)
+            var periodoActivo = await GetPeriodoActivoAsync(idBuilding);
+            if (periodoActivo == null)
             {
-                resultado.Mensaje = "No hay un presupuesto Ordinario Activo para este edificio. " +
-                    "Genere y publique el presupuesto del mes (Generación de Presupuesto) antes de crear una cuota extraordinaria.";
+                resultado.Mensaje = "No hay un periodo marcado como Actual para este edificio. " +
+                    "Configure el periodo vigente en Periodos antes de crear una cuota extraordinaria.";
                 return resultado;
             }
 
@@ -132,15 +145,18 @@ namespace SpiderHood.Services
             {
                 var unidades = await GetUnidadesAsync(idBuilding);
 
-                // El periodo SIEMPRE es el del presupuesto Activo — la cuota extraordinaria
-                // se aplica al ciclo vigente, nunca a uno pasado ni futuro elegido a mano.
+                // El periodo SIEMPRE es el marcado como Actual — la cuota extraordinaria se
+                // aplica al ciclo vigente, nunca a uno pasado ni futuro elegido a mano. No
+                // depende de que el presupuesto Ordinario de ese periodo ya esté publicado
+                // (Activo): son cargos independientes, sólo comparten el mismo ciclo.
                 var header = new BudgetHeader
                 {
                     IdBudgetHeader = Guid.NewGuid(),
                     BudgetName = descripcion,
-                    BudgetDate = presupuestoActivo.BudgetDate,
+                    BudgetDate = periodoActivo.StartDate,
                     BudgetType = "Extraordinario",
                     IdBuilding = idBuilding,
+                    IdPeriod = periodoActivo.IdPeriod,
                     Status = BudgetStatus.Active,
                     CreatedBy = usuario,
                     CreatedOn = DateTime.Now

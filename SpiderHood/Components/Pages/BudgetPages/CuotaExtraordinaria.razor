@@ -33,12 +33,12 @@
                             <div class="spinner-border text-primary" role="status"></div>
                         </div>
                     }
-                    else if (presupuestoActivo == null)
+                    else if (periodoActivo == null)
                     {
                         <div class="alert alert-warning">
                             <i class="bi bi-exclamation-triangle me-1"></i>
-                            No hay un presupuesto Ordinario Activo para este edificio. Genere y publique el presupuesto
-                            del mes (Generación de Presupuesto) antes de crear una cuota extraordinaria — se aplica
+                            No hay un periodo marcado como Actual para este edificio. Configure el periodo vigente en
+                            <a href="/periods">Periodos</a> antes de crear una cuota extraordinaria — se aplica
                             siempre al ciclo vigente, no se puede aplicar retroactivamente.
                         </div>
                     }
@@ -61,7 +61,7 @@
 
                         <div class="alert alert-light border mb-3">
                             <i class="bi bi-calendar-check me-1"></i>
-                            Se aplicará al presupuesto Activo vigente: <strong>@presupuestoActivo.BudgetDate.ToString("MMMM yyyy")</strong>
+                            Se aplicará al periodo Actual vigente: <strong>@periodoActivo.StartDate.ToString("MMMM yyyy")</strong>
                         </div>
 
                         <div class="row g-3 mb-3">
@@ -192,7 +192,7 @@
     private bool generando = false;
     private string mensajeResultado = string.Empty;
     private bool exito = false;
-    private BudgetHeader? presupuestoActivo;
+    private Period? periodoActivo;
 
     [CascadingParameter]
     private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
@@ -209,7 +209,7 @@
             return;
         }
 
-        presupuestoActivo = await ExtraChargeService.GetPresupuestoActivoAsync(ParameterService.CurrentBuilding.IdBuilding);
+        periodoActivo = await ExtraChargeService.GetPeriodoActivoAsync(ParameterService.CurrentBuilding.IdBuilding);
         cargandoPresupuesto = false;
     }
 

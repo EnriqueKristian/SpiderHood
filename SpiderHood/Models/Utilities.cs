@@ -849,6 +849,27 @@ namespace SpiderHood.Models
                 decimal totalCuota = 0;
                 var rowIndex = 0;
 
+                // Extraordinaria/Multa/Mora no salen de un desglose de BudgetDetail por
+                // categoría (su BudgetHeader no tiene Details) — se imprime una sola fila
+                // con el Concepto y el monto de la cuota en vez de iterar secciones vacías.
+                if (_installment.Type != InstallmentType.Ordinaria)
+                {
+                    AddSectionHeader(table, TipoDescripcion(_installment.Type));
+                    AddTableRow(table,
+                        string.IsNullOrWhiteSpace(_installment.Concept) ? TipoDescripcion(_installment.Type) : _installment.Concept,
+                        0, _installment.Amount, 0, false);
+                    totalCuota = _installment.Amount;
+
+                    var periodoExtra = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
+                    table.Cell().ColumnSpan(4).PaddingTop(10);
+                    table.Cell().ColumnSpan(3).Background(Colors.Blue.Darken2).Padding(6)
+                        .Text($"TOTAL CUOTA {periodoExtra}").Bold().FontColor(Colors.White);
+                    table.Cell().Background(Colors.Blue.Darken2).Padding(6).AlignRight()
+                        .Text($"S/ {totalCuota:N2}").Bold().FontSize(12).FontColor(Colors.White);
+
+                    return;
+                }
+
                 // Secciones reales del presupuesto de este edificio (headers de
                 // BudgetDetail), en vez de las 6 categorías con GUIDs hardcodeados de
                 // un único edificio que traía este generador antes — mismo criterio de
@@ -1070,6 +1091,14 @@ namespace SpiderHood.Models
         }
 
         private int GetTotalUnits() => _building.Apartments;
+
+        private string TipoDescripcion(InstallmentType tipo) => tipo switch
+        {
+            InstallmentType.Extraordinaria => "CUOTA EXTRAORDINARIA",
+            InstallmentType.Multa => "MULTA",
+            InstallmentType.Mora => "MORA",
+            _ => "CUOTA ORDINARIA"
+        };
 
         private string GetDistributionType(int tipo)
         {

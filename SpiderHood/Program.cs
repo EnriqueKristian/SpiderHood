@@ -75,6 +75,7 @@ builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IPermissionAdminService, PermissionAdminService>();
 builder.Services.AddScoped<IMenuAdminService, MenuAdminService>();
 builder.Services.AddScoped<IServiceReadingService, ServiceReadingService>();
+builder.Services.AddScoped<IExtraChargeService, ExtraChargeService>();
 builder.Services.AddHttpClient();
 
 var app = builder.Build();

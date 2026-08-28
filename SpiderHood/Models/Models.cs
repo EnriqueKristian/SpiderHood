@@ -194,6 +194,19 @@ namespace SpiderHood.Models
         [Precision(18, 2)] public decimal Debt { get; set; }
         public Guid IdGroupUnit { get; set; }
         public DateTime DueDate { get; set; }
+        // Ordinaria (default, cuota mensual normal) vs. Extraordinaria/Multa/Mora,
+        // generadas por ExtraChargeService bajo su propio BudgetHeader. Requiere la
+        // columna Installment.Type — ver
+        // Database/Migrations/2026-08-28_CuotasExtraordinarias_MultasMora.sql.
+        public InstallmentType Type { get; set; } = InstallmentType.Ordinaria;
+        // Descripción libre para cuotas que no vienen de BudgetDetail (p.ej. "Fondo de
+        // obras - pintado fachada", "Mora (2 meses de atraso) - Cuota Jun-2026"). Las
+        // Ordinarias la dejan vacía porque su desglose sale de BudgetHeader.Details.
+        public string Concept { get; set; } = string.Empty;
+        // Para Multa/Mora: IdInstallment de la cuota Ordinaria vencida que originó el
+        // cargo. Permite calcular mora incremental (cuánto ya se cobró de más contra
+        // esa cuota) sin duplicar ni necesitar UPDATE. Guid.Empty para Ordinaria/Extraordinaria.
+        public Guid SourceInstallmentId { get; set; } = Guid.Empty;
         [NotMapped]
         public bool IsPaid { get; set; } = false;
         [NotMapped]

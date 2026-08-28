@@ -172,7 +172,10 @@ namespace SpiderHood.Data
                     installment.Status,
                     installment.IdGroupUnit,
                     installment.DueDate,
-                    installment.Number);
+                    installment.Number,
+                    installment.Type,
+                    installment.Concept,
+                    installment.SourceInstallmentId);
                 return installment;
             }, "AddInstallment", cancellationToken);
         }

@@ -51,7 +51,19 @@
                 }
             </div>
 
-            @if (_budget == null)
+            @if (_installment != null && _installment.Type != InstallmentType.Ordinaria)
+            {
+                @* Extraordinaria/Multa/Mora no vienen de un desglose de BudgetDetail por
+                   categoría — el "Total Cuota" de arriba ya es el monto completo, acá solo
+                   se explica el concepto en vez de mostrar una tabla vacía. *@
+                <div class="p-4">
+                    <div class="alert alert-light border mb-0">
+                        <span class="@TipoBadgeClass() me-2">@TipoBadgeText()</span>
+                        @(string.IsNullOrWhiteSpace(_installment.Concept) ? "Sin concepto adicional." : _installment.Concept)
+                    </div>
+                </div>
+            }
+            else if (_budget == null)
             {
                 <p class="text-muted p-4 mb-0">No se encontró el presupuesto de este periodo para desglosar la cuota.</p>
             }
@@ -226,6 +238,22 @@
     // conecta a algo; si no hay handler, el botón simplemente no hace nada.
     [Parameter] public EventCallback<Installment> OnImprimir { get; set; }
     [Parameter] public EventCallback<Installment> OnEnviarAlPropietario { get; set; }
+
+    private string TipoBadgeClass() => _installment?.Type switch
+    {
+        InstallmentType.Extraordinaria => "badge bg-primary",
+        InstallmentType.Multa => "badge bg-danger",
+        InstallmentType.Mora => "badge bg-warning text-dark",
+        _ => "badge bg-secondary"
+    };
+
+    private string TipoBadgeText() => _installment?.Type switch
+    {
+        InstallmentType.Extraordinaria => "Extraordinaria",
+        InstallmentType.Multa => "Multa",
+        InstallmentType.Mora => "Mora",
+        _ => "Ordinaria"
+    };
 
     private Modal _modal = null!;
     private Installment? _installment;

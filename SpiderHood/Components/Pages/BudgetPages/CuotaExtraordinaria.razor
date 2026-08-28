@@ -1,0 +1,279 @@
+@page "/cuotaextraordinaria"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject ParameterService ParameterService
+@inject IExtraChargeService ExtraChargeService
+@inject NavigationManager Navigation
+
+<PageTitle>Cuota Extraordinaria</PageTitle>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-12 col-xl-11">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white py-4">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-cash-stack display-6 me-2"></i>
+                        <div>
+                            <h1 class="h3 mb-1">Generar Cuota Extraordinaria</h1>
+                            <p class="mb-0 opacity-75">Fondo de obras, cuotas especiales u otros cargos únicos repartidos entre las unidades</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    @if (ParameterService.CurrentBuilding == null)
+                    {
+                        <div class="alert alert-warning">Selecciona un edificio para continuar.</div>
+                    }
+                    else
+                    {
+                        @if (!string.IsNullOrEmpty(mensajeResultado))
+                        {
+                            <div class="alert @(exito ? "alert-success" : "alert-danger") alert-dismissible fade show">
+                                @mensajeResultado
+                                <button type="button" class="btn-close" @onclick="() => mensajeResultado = string.Empty"></button>
+                            </div>
+                        }
+
+                        @if (exito)
+                        {
+                            <button class="btn btn-outline-primary mb-3" @onclick='() => Navigation.NavigateTo("/cuotas")'>
+                                <i class="bi bi-list-check"></i> Ver Listado de Cuotas
+                            </button>
+                        }
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Descripción / Concepto</label>
+                                <input type="text" class="form-control" placeholder="Ej: Fondo de obras - Pintado de fachada"
+                                       @bind="descripcion" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Periodo</label>
+                                <input type="month" class="form-control" @bind="periodoTexto" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Fecha de Vencimiento</label>
+                                <input type="date" class="form-control" @bind="fechaVencimiento" />
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3 align-items-end">
+                            <div class="col-md-6">
+                                <label class="form-label d-block">Modo de reparto</label>
+                                <div class="btn-group" role="group">
+                                    <input type="radio" class="btn-check" name="modoReparto" id="modoIgual" checked="@(modo == ModoReparto.PartesIguales)" @onchange='() => CambiarModo(ModoReparto.PartesIguales)' />
+                                    <label class="btn btn-outline-primary" for="modoIgual">Partes iguales</label>
+
+                                    <input type="radio" class="btn-check" name="modoReparto" id="modoManual" checked="@(modo == ModoReparto.Manual)" @onchange='() => CambiarModo(ModoReparto.Manual)' />
+                                    <label class="btn btn-outline-primary" for="modoManual">Monto manual por unidad</label>
+                                </div>
+                            </div>
+
+                            @if (modo == ModoReparto.PartesIguales)
+                            {
+                                <div class="col-md-4">
+                                    <label class="form-label">Monto Total a Repartir</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">@Moneda</span>
+                                        <input type="number" step="0.01" min="0" class="form-control"
+                                               @bind="montoTotal" @bind:after="DistribuirPartesIguales" />
+                                    </div>
+                                </div>
+                            }
+
+                            <div class="col-md-2">
+                                <button class="btn btn-outline-secondary w-100" @onclick="CargarUnidades" disabled="@cargando">
+                                    <i class="bi bi-arrow-repeat"></i> @(unidades.Any() ? "Recargar" : "Cargar Unidades")
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (cargando)
+                        {
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                            </div>
+                        }
+                        else if (unidades.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Unidad</th>
+                                            <th>Propietario</th>
+                                            <th class="text-end">Área m²</th>
+                                            <th class="text-end" style="width: 200px;">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var unidad in unidades)
+                                        {
+                                            <tr>
+                                                <td><strong>@unidad.UnitNumber</strong></td>
+                                                <td>@unidad.FirstName</td>
+                                                <td class="text-end">@unidad.TotalArea.ToString("N2")</td>
+                                                <td class="text-end">
+                                                    @if (modo == ModoReparto.Manual)
+                                                    {
+                                                        <div class="input-group input-group-sm">
+                                                            <span class="input-group-text">@Moneda</span>
+                                                            <input type="number" step="0.01" min="0" class="form-control text-end"
+                                                                   value="@ObtenerMonto(unidad.IdGroupUnit)"
+                                                                   @onchange="@((e) => ActualizarMontoManual(unidad.IdGroupUnit, e.Value))" />
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>@Moneda @ObtenerMonto(unidad.IdGroupUnit).ToString("N2")</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot class="table-light">
+                                        <tr>
+                                            <td colspan="3" class="text-end fw-bold">Total a repartir:</td>
+                                            <td class="text-end fw-bold">@Moneda @TotalAsignado.ToString("N2")</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+
+                            <div class="mt-3">
+                                <button class="btn btn-success" @onclick="Generar" disabled="@(generando || TotalAsignado <= 0 || string.IsNullOrWhiteSpace(descripcion))">
+                                    @if (generando)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="bi bi-calculator"></i> Generar Cuota Extraordinaria
+                                </button>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private enum ModoReparto { PartesIguales, Manual }
+
+    private string descripcion = string.Empty;
+    private string periodoTexto = DateTime.Today.ToString("yyyy-MM");
+    private DateTime fechaVencimiento = DateTime.Today.AddDays(15);
+    private ModoReparto modo = ModoReparto.PartesIguales;
+    private decimal montoTotal = 0;
+
+    private List<OwnerUnitView> unidades = new();
+    private Dictionary<Guid, decimal> montosPorUnidad = new();
+
+    private bool cargando = false;
+    private bool generando = false;
+    private string mensajeResultado = string.Empty;
+    private bool exito = false;
+
+    [CascadingParameter]
+    private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private string Moneda => ParameterService.CurrentBuilding?.Configuration.Currency == "PEN" ? "S/" : "$";
+
+    private decimal TotalAsignado => montosPorUnidad.Values.Sum();
+
+    private async Task CargarUnidades()
+    {
+        if (ParameterService.CurrentBuilding == null) return;
+
+        cargando = true;
+        StateHasChanged();
+
+        unidades = await ExtraChargeService.GetUnidadesAsync(ParameterService.CurrentBuilding.IdBuilding);
+        montosPorUnidad = unidades.ToDictionary(u => u.IdGroupUnit, u => 0m);
+
+        if (modo == ModoReparto.PartesIguales)
+            DistribuirPartesIguales();
+
+        cargando = false;
+    }
+
+    private void CambiarModo(ModoReparto nuevoModo)
+    {
+        modo = nuevoModo;
+        if (modo == ModoReparto.PartesIguales && unidades.Any())
+            DistribuirPartesIguales();
+    }
+
+    // Reparto en partes iguales con ajuste de redondeo en la última unidad, para que la
+    // suma de las cuotas individuales cuadre exactamente con el monto total ingresado.
+    private void DistribuirPartesIguales()
+    {
+        if (!unidades.Any()) return;
+
+        var montoPorUnidad = Math.Round(montoTotal / unidades.Count, 2);
+        var totalDistribuido = montoPorUnidad * unidades.Count;
+        var diferencia = montoTotal - totalDistribuido;
+
+        for (int i = 0; i < unidades.Count; i++)
+        {
+            var monto = montoPorUnidad;
+            if (i == unidades.Count - 1)
+                monto += diferencia;
+
+            montosPorUnidad[unidades[i].IdGroupUnit] = monto;
+        }
+    }
+
+    private decimal ObtenerMonto(Guid idGroupUnit) =>
+        montosPorUnidad.TryGetValue(idGroupUnit, out var monto) ? monto : 0m;
+
+    private void ActualizarMontoManual(Guid idGroupUnit, object? valor)
+    {
+        if (decimal.TryParse(valor?.ToString(), out var monto) && monto >= 0)
+            montosPorUnidad[idGroupUnit] = monto;
+    }
+
+    private async Task Generar()
+    {
+        if (ParameterService.CurrentBuilding == null) return;
+
+        generando = true;
+        StateHasChanged();
+
+        var usuario = "Sistema";
+        if (AuthStateTask != null)
+        {
+            var authState = await AuthStateTask;
+            usuario = authState.User.Identity?.Name ?? usuario;
+        }
+
+        if (!DateTime.TryParse(periodoTexto + "-01", out var periodo))
+            periodo = DateTime.Today;
+
+        var resultado = await ExtraChargeService.GenerarCuotaExtraordinariaAsync(
+            ParameterService.CurrentBuilding.IdBuilding,
+            descripcion,
+            periodo,
+            fechaVencimiento,
+            montosPorUnidad,
+            usuario);
+
+        exito = resultado.Exito;
+        mensajeResultado = resultado.Exito
+            ? $"{resultado.Mensaje} Se generaron cuotas para {resultado.UnidadesConCargo} unidad(es) por un total de {Moneda} {resultado.TotalRepartido:N2}."
+            : resultado.Mensaje;
+
+        generando = false;
+
+        if (resultado.Exito)
+        {
+            unidades.Clear();
+            montosPorUnidad.Clear();
+            descripcion = string.Empty;
+            montoTotal = 0;
+        }
+    }
+}

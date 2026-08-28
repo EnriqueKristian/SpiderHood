@@ -118,13 +118,13 @@
             @if (!string.IsNullOrEmpty(mensaje))
             {
                 <p></p>
-                <div class="alert @(mensaje.Contains("éxito") ? "alert-success" : mensaje.Contains("Error") ? "alert-danger" : "alert-warning") alert-dismissible fade show">
+                <div class="alert @(_tipoMensaje == "success" ? "alert-success" : _tipoMensaje == "danger" ? "alert-danger" : "alert-warning") alert-dismissible fade show">
                     <div class="d-flex align-items-center">
-                        <i class="bi @(mensaje.Contains("éxito") ? "bi-check-circle-fill" : mensaje.Contains("Error") ? "bi-exclamation-triangle-fill" : "bi-info-circle-fill") me-2"></i>
+                        <i class="bi @(_tipoMensaje == "success" ? "bi-check-circle-fill" : _tipoMensaje == "danger" ? "bi-exclamation-triangle-fill" : "bi-info-circle-fill") me-2"></i>
                         <div>
                             <strong>@mensaje</strong>
                             <br />
-                            @if (mensaje.Contains("Error"))
+                            @if (_tipoMensaje == "danger" && _ServiceReadingState.CurrentReading.HasErrors)
                             {
                                 @foreach (var error in _ServiceReadingState.CurrentReading.ValidationErrors!.Errors)
                                 {
@@ -441,6 +441,13 @@
 
     //private bool _esPrimeraCarga = false;
     private string mensaje = "";
+    // Antes el color/ícono del banner y la lista de errores detallados se decidían
+    // buscando las palabras "éxito"/"Error" DENTRO del texto de `mensaje` — cualquier
+    // mensaje que no las contuviera exactamente (p.ej. "con errores" en minúscula, o
+    // "Lectura eliminada") caía silenciosamente al estado warning/genérico y, peor, la
+    // lista de errores por fila (fila X: motivo) nunca se mostraba aunque existiera.
+    // Ahora el tipo se fija explícitamente junto con el mensaje.
+    private string _tipoMensaje = "warning"; // success | danger | warning
     private double _anotherValue = 0;
 
     private List<Period> _periods = new();
@@ -660,13 +667,10 @@
             {
                 int erroresEncontrados = _ServiceReadingState.CurrentReading.ValidationErrors!.Errors.Count();
 
+                _tipoMensaje = "danger";
                 mensaje = $"Archivo '{_archivoNombre}' con errores. "
                     + Environment.NewLine
-                    + $"Se encontraron ({erroresEncontrados}) errores."
-                    + Environment.NewLine
-                    + (esPrimeraCarga
-                        ? "El formato debe ser: DPTO | Periodo | Lectura Inicial | Lectura Final | Fecha Lectura"
-                        : "El formato debe ser: DPTO | Periodo | Lectura Final | Fecha Lectura");
+                    + $"Se encontraron ({erroresEncontrados}) errores. Detalle abajo:";
             }
 
             //errorProcesamiento = _lecturaActual.errors;
@@ -841,6 +845,7 @@
     private async Task MostrarMensajeExito(string _mensaje)
     {
         // TODO: Implementar notificación de éxito (usar Toast, Snackbar, etc.)
+        _tipoMensaje = "success";
         mensaje = _mensaje;
         Console.WriteLine($"Éxito: {mensaje}");
         await Task.CompletedTask;
@@ -849,6 +854,7 @@
     private async Task MostrarMensajeError(string _mensaje)
     {
         // TODO: Implementar notificación de error
+        _tipoMensaje = "danger";
         mensaje = _mensaje;
         Console.WriteLine($"Error: {mensaje}");
         await Task.CompletedTask;

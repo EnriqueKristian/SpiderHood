@@ -25,6 +25,40 @@
                            OnGenerateReport="GenerateReport"
                            OnServiceReading="ShowServiceReadingModal" />
 
+    @if (_BudgetState.Budget.IdBudgetHeader != Guid.Empty && !string.IsNullOrEmpty(_BudgetState.Budget.BudgetType))
+    {
+        <!-- Cuota Extraordinaria / Cargos (Multas y Mora): a diferencia del presupuesto
+             Ordinario, estos BudgetHeader no tienen BudgetDetail (secciones/items) — el
+             monto por unidad ya se generó de una vez como Installment al crearlos (ver
+             ExtraChargeService). Mostrar acá la tabla de items/secciones de abajo (con
+             "Cargar Plantilla"/"Crear Primera Sección") era engañoso: parecía que faltaba
+             armar un presupuesto cuando en realidad el detalle real son las cuotas por
+             unidad que ya se muestran en la tabla de Cuotas, más abajo. -->
+        <div class="card card-hover mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0">@_BudgetState.Budget.BudgetName</h5>
+                    <span class="badge @GetStatusBadgeClass()">@GetStatusLabel()</span>
+                </div>
+                @if (_Status == BudgetStatus.Active && IsAdministrador)
+                {
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="CerrarPresupuesto">
+                        <i class="bi bi-folder"></i>&nbsp;Cerrar
+                    </button>
+                }
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    @(_BudgetState.Budget.BudgetType == "Cargos" ? "Cargos por Multas y Mora" : "Cuota Extraordinaria")
+                    correspondiente a @_BudgetState.Budget.BudgetDate.ToString("MMMM yyyy") — por S/ @_BudgetState.Budget.Amount.ToString("N2")
+                    en total. No tiene secciones ni items: el detalle por unidad está en la tabla de Cuotas, más abajo.
+                </p>
+            </div>
+        </div>
+    }
+    else
+    {
     <div class="row">
         <!-- Expenses Table -->
         <div class="@(showorNot ? "col-md-8" : "col-md-11") transition-all">
@@ -295,6 +329,7 @@
                                   OnShoworNot="ShoworNot" />
 
     </div>
+    }
 </div>
 
 <!-- Modal for New Calculation -->

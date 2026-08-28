@@ -3,6 +3,7 @@
 @using SpiderHood.Services
 @inject ParameterService ParameterService
 @inject NavigationManager Navigation
+@inject SpiderHood.Services.AuthService AuthService
 @rendermode InteractiveServer
 
 <PageTitle>SpiderHood - Gestión de Presupuestos</PageTitle>
@@ -20,9 +21,12 @@
             <button class="btn btn-outline-primary" @onclick="ExportarPresupuestos">
                 <i class="bi bi-upload me-1"></i>Exportar
             </button>
-            <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="NuevoPresupuesto">
-                <i class="bi bi-plus-circle me-2"></i>Nuevo Presupuesto
-            </button>
+            @if (IsAdministrador)
+            {
+                <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="NuevoPresupuesto">
+                    <i class="bi bi-plus-circle me-2"></i>Nuevo Presupuesto
+                </button>
+            }
         </div>
     </div>
 
@@ -144,9 +148,12 @@
                                 <i class="bi bi-receipt bi-3x"></i>
                                 <h3>No hay presupuestos</h3>
                                 <p>No se encontraron presupuestos con los filtros aplicados.</p>
-                                <button class="btn btn-primary" @onclick="NuevoPresupuesto">
-                                    <i class="bi bi-plus"></i> Crear Primer Presupuesto
-                                </button>
+                                @if (IsAdministrador)
+                                {
+                                    <button class="btn btn-primary" @onclick="NuevoPresupuesto">
+                                        <i class="bi bi-plus"></i> Crear Primer Presupuesto
+                                    </button>
+                                }
                             </div>
                         }
                         else
@@ -158,6 +165,7 @@
                                             <!--<th class="col-codigo">CÓDIGO</th>-->
                                             <th class="col-mes">MES</th>
                                             <th class="col-descripcion">DESCRIPCIÓN</th>
+                                            <th class="col-tipo">TIPO</th>
 
                                             <!-- Columnas dinámicas de categorías -->
                                             @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
@@ -182,6 +190,9 @@
                                 </td>-->
                                                 <td class="col-mes">@presupuesto.Mes</td>
                                                 <td class="col-descripcion">@presupuesto.BudgetName</td>
+                                                <td class="col-tipo">
+                                                    <span class="@TipoBadgeClass(presupuesto)" title="@TipoBadgeTitle(presupuesto)">@TipoBadgeText(presupuesto)</span>
+                                                </td>
 
                                                 <!-- Montos por categoría -->
                                                 @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
@@ -209,25 +220,27 @@
                                                             <i class="bi bi-eye"></i>
                                                         </button>
                                                         <button class="btn btn-outline-secondary"
-                                                                title="Editar Presupuesto"
+                                                                title="@(IsAdministrador ? "Editar Presupuesto" : "Ver / Aprobar Presupuesto")"
                                                                 @onclick:stopPropagation @onclick="() => EditarPresupuesto(presupuesto)">
                                                             <i class="bi bi-pencil"></i>
                                                         </button>
-                                                        @if (presupuesto.Status == BudgetStatus.Created || presupuesto.Status == BudgetStatus.Rejected || presupuesto.Status == BudgetStatus.Check)
+                                                        @if (IsAdministrador)
                                                         {
-                                                            <button class="btn btn-outline-danger"
-                                                                    title="Elimnar Presupuesto"
-                                                                    @onclick:stopPropagation @onclick="() => EliminarPresupuesto(presupuesto)">
-                                                                <i class="bi bi-trash"></i>
+                                                            @if (presupuesto.Status == BudgetStatus.Created || presupuesto.Status == BudgetStatus.Rejected || presupuesto.Status == BudgetStatus.Check)
+                                                            {
+                                                                <button class="btn btn-outline-danger"
+                                                                        title="Elimnar Presupuesto"
+                                                                        @onclick:stopPropagation @onclick="() => EliminarPresupuesto(presupuesto)">
+                                                                    <i class="bi bi-trash"></i>
+                                                                </button>
+                                                            }
+
+                                                            <button class="btn btn-outline-success"
+                                                                    title="Clonar Presupuesto"
+                                                                    @onclick:stopPropagation @onclick="() => ClonarPresupuesto(presupuesto)">
+                                                                <i class="bi bi-copy"></i>
                                                             </button>
                                                         }
-
-                                                    
-                                                        <button class="btn btn-outline-success"
-                                                                title="Clonar Presupuesto"
-                                                                @onclick:stopPropagation @onclick="() => ClonarPresupuesto(presupuesto)">
-                                                            <i class="bi bi-copy"></i>
-                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -235,7 +248,7 @@
                                     </tbody>
                                     <tfoot>
                                         <tr class="total-row">
-                                            <td colspan="2" class="text-right"><strong>TOTALES:</strong></td>
+                                            <td colspan="3" class="text-right"><strong>TOTALES:</strong></td>
 
                                             <!-- Totales por categoría -->
                                             @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
@@ -376,6 +389,12 @@
     // Servicios inyectados
     [Inject] private IBudgetService budgetService { get; set; } = null!;
 
+    // Sólo el Administrador puede crear/editar/eliminar/clonar presupuestos. La Junta
+    // llega a esta lista sólo para ver y, dentro de /budgetgenerator, aprobar o rechazar
+    // los que estén en revisión (Check) — ese flujo lo sigue gateando IsJunta allá.
+    private UserSession currentUser = new();
+    private bool IsAdministrador => currentUser?.Role == "Administrador" || currentUser?.Role == "SysAdmin";
+
     // Variables de estado
     private bool isLoading = true;
     private List<Category> categoriasActivas = new();
@@ -440,6 +459,7 @@
         // viendo el HTML prerenderizado sin cambios durante los ~3s que dura el retry.
         isLoading = true;
         StateHasChanged();
+        currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
         var attempts = 0;
         while (ParameterService.CurrentBuilding == null && attempts < 20)
         {
@@ -506,7 +526,13 @@
 
     private async Task CalcularTotales()
     {
-        foreach (var presupuesto in filteredbudgets)
+        // SumCategory sale de sumar BudgetDetail por categoría — sólo el presupuesto
+        // Ordinario tiene BudgetDetail (secciones/items). Una Cuota Extraordinaria o los
+        // Cargos de Multas/Mora no tienen ninguno (su monto ya se fijó una sola vez en
+        // BudgetHeader.Amount al crearse, como Installments) así que esta suma siempre da
+        // 0 para ellos — pisar Amount acá los dejaba en S/ 0.00 en el listado y en el
+        // TOTAL GENERAL, aunque el monto real ya estuviera correcto en BD.
+        foreach (var presupuesto in filteredbudgets.Where(p => string.IsNullOrEmpty(p.BudgetType)))
         {
             // Cargar detalles del presupuesto
             var detalles = SumCategory.Where(c => c.IdBudgetHeader == presupuesto.IdBudgetHeader);
@@ -515,6 +541,30 @@
             presupuesto.Amount = detalles.Sum(d => d.SumCategory);
         }
     }
+
+    // BudgetType es "" para el presupuesto Ordinario normal (no hay un valor propio
+    // guardado para ese caso), "Extraordinario" para una Cuota Extraordinaria y "Cargos"
+    // para el header compartido de Multas y Mora — ver ExtraChargeService.
+    private string TipoBadgeClass(BudgetHeader presupuesto) => presupuesto.BudgetType switch
+    {
+        "Extraordinario" => "badge bg-primary",
+        "Cargos" => "badge bg-danger",
+        _ => "badge bg-secondary-subtle text-secondary-emphasis"
+    };
+
+    private string TipoBadgeText(BudgetHeader presupuesto) => presupuesto.BudgetType switch
+    {
+        "Extraordinario" => "CE",
+        "Cargos" => "Cargos",
+        _ => "Ordinario"
+    };
+
+    private string TipoBadgeTitle(BudgetHeader presupuesto) => presupuesto.BudgetType switch
+    {
+        "Extraordinario" => "Cuota Extraordinaria",
+        "Cargos" => "Cargos por Multas y Mora",
+        _ => "Presupuesto Ordinario"
+    };
 
     private decimal GetMontoCategoria(BudgetHeader _budget, Guid categoriaId)
     {
@@ -645,6 +695,7 @@
     // Métodos de acciones
     private void NuevoPresupuesto()
     {
+        if (!IsAdministrador) return;
         Navigation.NavigateTo($"/budgetgenerator");
     }
 
@@ -676,6 +727,7 @@
 
     private async Task DeleteItem()
     {
+        if (!IsAdministrador) { await modal.HideAsync(); return; }
         // Lógica adicional después de cerrar el modal, si es necesario
         try
         {
@@ -696,12 +748,14 @@
 
     private async void EliminarPresupuesto(BudgetHeader _budget)
     {
+        if (!IsAdministrador) return;
         selectedBudget = _budget;
         await modal.ShowAsync();
     }
 
     private async void ClonarPresupuesto(BudgetHeader _budget)
     {
+        if (!IsAdministrador) return;
         try
         {
             // Crear nuevo presupuesto basado en el existente

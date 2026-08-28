@@ -15,7 +15,6 @@ namespace SpiderHood.Models
 
     }
 
-
     public class ConfirmationUtil
     {
         //private ConfirmationModal? _confirmationModal;
@@ -113,7 +112,19 @@ namespace SpiderHood.Models
             // TODO: Implementar descarga
         }
 
-        public async Task<(string Filename, MemoryStream Stream)> ExportarPlantillaVacia(ServiceReadingState state, List<UnitView> unidades)
+        // La plantilla tiene que calzar exactamente con lo que CalculoService.
+        // ImportarDesdeExcelAsync espera al leerla de vuelta: hoja 1, fila 1 = encabezado
+        // (se descarta con RowsUsed().Skip(1), sin importar su contenido), y desde la
+        // fila 2 en adelante, EXACTAMENTE las columnas del layout correspondiente — ver
+        // WaterReadingValidator.ValidateLoadExcelReading. Dos layouts posibles:
+        //   - Primera Carga (esPrimeraCarga=true, sin ninguna lectura anterior guardada
+        //     para el edificio): Dpto./Periodo/Lectura Inicial/Lectura Final/Fecha
+        //     Lectura (5 columnas) — la Inicial es necesaria para no cobrarle a cada
+        //     unidad el consumo acumulado de toda la vida del medidor en su primer recibo.
+        //   - Cargas siguientes (ya con historial): Dpto./Periodo/Lectura Final/Fecha
+        //     Lectura (4 columnas) — el sistema toma la Lectura Final ya guardada de la
+        //     carga anterior como "anterior" de esta.
+        public async Task<(string Filename, MemoryStream Stream)> ExportarPlantillaVacia(ServiceReadingState state, List<UnitView> unidades, bool esPrimeraCarga = false)
         {
             try
             {
@@ -123,44 +134,81 @@ namespace SpiderHood.Models
                 {
                     var worksheet = workbook.Worksheets.Add("Plantilla");
 
-                    worksheet.Cell(1, 1).Value = "Periodo";
-                    worksheet.Cell(1, 1).Style.Font.Bold = true;
-                    worksheet.Cell(1, 1).Style.Fill.BackgroundColor = XLColor.LightGray;
-
-                    worksheet.Cell(1, 2).Value = state.CurrentReading.Period;
-
-                    // Encabezados
-                    var headers = new[] { "Dpto.", "Lect. Actual", "Fecha. Lectura" };
+                    // Encabezado en la fila 1 — es la única fila que el importador se salta,
+                    // así que tiene que ser justo esta, sin nada de "Periodo" suelto arriba.
+                    var headers = esPrimeraCarga
+                        ? new[] { "Dpto.", "Periodo", "Lectura Inicial", "Lectura Final", "Fecha Lectura" }
+                        : new[] { "Dpto.", "Periodo", "Lectura Final", "Fecha Lectura" };
 
                     for (int i = 0; i < headers.Length; i++)
                     {
-                        worksheet.Cell(3, i + 1).Value = headers[i];
-                        worksheet.Cell(3, i + 1).Style.Font.Bold = true;
-                        worksheet.Cell(3, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+                        worksheet.Cell(1, i + 1).Value = headers[i];
+                        worksheet.Cell(1, i + 1).Style.Font.Bold = true;
+                        worksheet.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
                     }
 
-                    // Formato para ID de unidad
-                    worksheet.Column(1).Style.NumberFormat.Format = "@"; // Texto
+                    // Texto plano en todas las columnas (incluidas las de fecha): así lo que
+                    // el usuario escriba se guarda tal cual, sin que Excel lo reformatee a su
+                    // propio formato regional al vuelo — mismo criterio que ya usaba la
+                    // columna 1 para no perder ceros a la izquierda del Dpto.
+                    worksheet.Columns(1, headers.Length).Style.NumberFormat.Format = "@";
 
-                    // Agregar algunas unidades como ejemplo
-                    //var unidades = await ObtenerUnidadesDelEdificio();
-                    int row = 4;
+                    var periodoTexto = state.CurrentReading.Period.ToString("yyyy-MM-dd");
+                    var fechaLecturaSugerida = DateTime.Today.ToString("yyyy-MM-dd");
 
+                    int row = 2;
                     foreach (var unidad in unidades)
                     {
-                        worksheet.Cell(row, 1).Value = unidad.Number;
-                        worksheet.Cell(row, 2).Value = ""; // Lectura actual vacía
-                        worksheet.Cell(row, 3).Value = ""; // Observaciones vacías
+                        worksheet.Cell(row, 1).Value = unidad.Number.ToString();
+                        // Precargado — es el mismo periodo para todas las unidades y es
+                        // obligatorio para que la fila pase la validación al importar.
+                        worksheet.Cell(row, 2).Value = periodoTexto;
+
+                        if (esPrimeraCarga)
+                        {
+                            worksheet.Cell(row, 3).Value = ""; // Lectura inicial — a completar
+                            worksheet.Cell(row, 4).Value = ""; // Lectura final — a completar
+                            worksheet.Cell(row, 5).Value = fechaLecturaSugerida;
+                        }
+                        else
+                        {
+                            worksheet.Cell(row, 3).Value = ""; // Lectura final — a completar
+                            worksheet.Cell(row, 4).Value = fechaLecturaSugerida;
+                        }
                         row++;
                     }
 
-                    // Instrucciones
-                    worksheet.Cell(row + 2, 1).Value = "INSTRUCCIONES:";
-                    worksheet.Cell(row + 2, 1).Style.Font.Bold = true;
-                    worksheet.Cell(row + 3, 1).Value = "1. Complete la columna 'CurrentReading' con la lectura actual";
-                    worksheet.Cell(row + 4, 1).Value = "2. No modifique la columna 'Dpto.'";
-                    worksheet.Cell(row + 5, 1).Value = "3. Elimine seccion de INSTRUCCIONES";
-                    worksheet.Cell(row + 6, 1).Value = "4. Guarde el archivo y cárguelo en el sistema";
+                    worksheet.Columns().AdjustToContents();
+
+                    // Las instrucciones van en una hoja aparte — CalculoService.
+                    // ImportarDesdeExcelAsync solo lee workbook.Worksheet(1) (la primera),
+                    // así que esto no interfiere para nada con la importación.
+                    var hojaInstrucciones = workbook.Worksheets.Add("Instrucciones");
+                    hojaInstrucciones.Cell(1, 1).Value = "INSTRUCCIONES";
+                    hojaInstrucciones.Cell(1, 1).Style.Font.Bold = true;
+
+                    var instrucciones = esPrimeraCarga
+                        ? new[]
+                        {
+                            "1. No modifique la columna 'Dpto.' ni el orden de las columnas.",
+                            "2. Esta es la Primera Carga del edificio: complete 'Lectura Inicial' con la lectura del medidor al momento de empezar a operar el sistema, y 'Lectura Final' con la lectura de este periodo. El consumo se calcula como Final - Inicial.",
+                            "3. 'Periodo' y 'Fecha Lectura' ya vienen precargados — solo ajuste 'Fecha Lectura' si tomó la lectura otro día.",
+                            "4. Las fechas deben tener formato AAAA-MM-DD (ej: 2026-03-15) y no pueden ser una fecha futura.",
+                            "5. Guarde el archivo y cárguelo en el sistema con 'Importar Lecturas de Agua'.",
+                        }
+                        : new[]
+                        {
+                            "1. No modifique la columna 'Dpto.' ni el orden de las columnas.",
+                            "2. Complete 'Lectura Final' con la lectura del medidor de cada unidad — el sistema calcula el consumo contra la última lectura guardada.",
+                            "3. 'Periodo' y 'Fecha Lectura' ya vienen precargados — solo ajuste 'Fecha Lectura' si tomó la lectura otro día.",
+                            "4. Las fechas deben tener formato AAAA-MM-DD (ej: 2026-03-15) y no pueden ser una fecha futura.",
+                            "5. Guarde el archivo y cárguelo en el sistema con 'Importar Lecturas de Agua'.",
+                        };
+
+                    for (int i = 0; i < instrucciones.Length; i++)
+                        hojaInstrucciones.Cell(i + 2, 1).Value = instrucciones[i];
+
+                    hojaInstrucciones.Columns().AdjustToContents();
 
                     workbook.SaveAs(memoryStream);
                 }
@@ -168,13 +216,9 @@ namespace SpiderHood.Models
                 var fileName = $"Plantilla_Lecturas_{DateTime.Now:yyyyMMdd}.xlsx";
 
                 return (fileName, memoryStream);
-                //await DescargarArchivo(fileName, memoryStream.ToArray());
-
-                //await MostrarMensajeExito("Plantilla descargada exitosamente");
             }
             catch (Exception ex)
             {
-                //await MostrarMensajeError($"Error al generar plantilla: {ex.Message}");
                 throw new Exception($"Error al generar plantilla: {ex.Message}", ex);
             }
         }
@@ -592,9 +636,6 @@ namespace SpiderHood.Models
     }
 
     // InstallmentExportService.cs
-
-
-
     public class InstallmentExportService
     {
         private readonly List<Installment> _installments;
@@ -603,6 +644,9 @@ namespace SpiderHood.Models
         private readonly List<Exoneration> _exonerations;
         private readonly Building _building;
         private readonly List<Category> _categories;
+        // Cuotas Extraordinarias/Multas/Mora de cualquier unidad de este lote — se
+        // filtran por IdGroupUnit al armar cada recibo, igual que _waterReadings.
+        private readonly List<Installment> _cargosAdicionales;
 
         public InstallmentExportService(
             List<Installment> installments,
@@ -610,7 +654,8 @@ namespace SpiderHood.Models
             List<ServiceReadingDetail> waterReadings,
             List<Exoneration> exonerations,
             Building building,
-            List<Category> categories)
+            List<Category> categories,
+            List<Installment>? cargosAdicionales = null)
         {
             _installments = installments;
             _budget = budget;
@@ -618,6 +663,7 @@ namespace SpiderHood.Models
             _exonerations = exonerations;
             _building = building;
             _categories = categories;
+            _cargosAdicionales = cargosAdicionales ?? new();
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
@@ -709,9 +755,6 @@ namespace SpiderHood.Models
                 _ => "Desconocido"
             };
         }
-
-
-
 
         private Installment _installment = new();
 
@@ -849,6 +892,27 @@ namespace SpiderHood.Models
                 decimal totalCuota = 0;
                 var rowIndex = 0;
 
+                // Extraordinaria/Multa/Mora no salen de un desglose de BudgetDetail por
+                // categoría (su BudgetHeader no tiene Details) — se imprime una sola fila
+                // con el Concepto y el monto de la cuota en vez de iterar secciones vacías.
+                if (_installment.Type != InstallmentType.Ordinaria)
+                {
+                    AddSectionHeader(table, TipoDescripcion(_installment.Type));
+                    AddTableRow(table,
+                        string.IsNullOrWhiteSpace(_installment.Concept) ? TipoDescripcion(_installment.Type) : _installment.Concept,
+                        0, _installment.Amount, 0, false);
+                    totalCuota = _installment.Amount;
+
+                    var periodoExtra = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
+                    table.Cell().ColumnSpan(4).PaddingTop(10);
+                    table.Cell().ColumnSpan(3).Background(Colors.Blue.Darken2).Padding(6)
+                        .Text($"TOTAL CUOTA {periodoExtra}").Bold().FontColor(Colors.White);
+                    table.Cell().Background(Colors.Blue.Darken2).Padding(6).AlignRight()
+                        .Text($"S/ {totalCuota:N2}").Bold().FontSize(12).FontColor(Colors.White);
+
+                    return;
+                }
+
                 // Secciones reales del presupuesto de este edificio (headers de
                 // BudgetDetail), en vez de las 6 categorías con GUIDs hardcodeados de
                 // un único edificio que traía este generador antes — mismo criterio de
@@ -915,13 +979,37 @@ namespace SpiderHood.Models
                     AddSectionSubtotal(table, sectionPresup, sectionCuota);
                 }
 
-                // TOTAL CUOTA, en una barra de color como en la referencia.
+                // TOTAL CUOTA ORDINARIA, en una barra de color como en la referencia.
                 var periodo = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
                 table.Cell().ColumnSpan(4).PaddingTop(10);
                 table.Cell().ColumnSpan(3).Background(Colors.Blue.Darken2).Padding(6)
-                    .Text($"TOTAL CUOTA {periodo}").Bold().FontColor(Colors.White);
+                    .Text($"TOTAL CUOTA ORDINARIA {periodo}").Bold().FontColor(Colors.White);
                 table.Cell().Background(Colors.Blue.Darken2).Padding(6).AlignRight()
                     .Text($"S/ {totalCuota:N2}").Bold().FontSize(12).FontColor(Colors.White);
+
+                // Cuotas Extraordinarias/Multas/Mora de esta misma unidad, listadas aparte
+                // del desglose de arriba (igual que en "Ver Detalle" en pantalla) y sumadas
+                // a un total general — mismo criterio que InstallmentDetailModal.
+                var cargosUnidad = _cargosAdicionales.Where(c => c.IdGroupUnit == _installment.IdGroupUnit).ToList();
+                if (cargosUnidad.Any())
+                {
+                    AddSectionHeader(table, "CUOTAS EXTRAORDINARIAS, MULTAS Y MORA");
+
+                    var totalAdicionales = 0m;
+                    foreach (var cargo in cargosUnidad)
+                    {
+                        totalAdicionales += cargo.Amount;
+                        AddTableRow(table,
+                            string.IsNullOrWhiteSpace(cargo.Concept) ? TipoDescripcion(cargo.Type) : cargo.Concept,
+                            0, cargo.Amount, 0, false);
+                    }
+
+                    table.Cell().ColumnSpan(4).PaddingTop(6);
+                    table.Cell().ColumnSpan(3).Background(Colors.Grey.Darken2).Padding(6)
+                        .Text("TOTAL GENERAL (Ordinaria + Adicionales)").Bold().FontColor(Colors.White);
+                    table.Cell().Background(Colors.Grey.Darken2).Padding(6).AlignRight()
+                        .Text($"S/ {(totalCuota + totalAdicionales):N2}").Bold().FontSize(12).FontColor(Colors.White);
+                }
 
                 // "DEUDAS ANTERIORES" (cuotas ordinarias/extraordinarias de periodos
                 // previos, histórico de agua) queda pendiente: hoy no existe ninguna
@@ -1070,6 +1158,14 @@ namespace SpiderHood.Models
         }
 
         private int GetTotalUnits() => _building.Apartments;
+
+        private string TipoDescripcion(InstallmentType tipo) => tipo switch
+        {
+            InstallmentType.Extraordinaria => "CUOTA EXTRAORDINARIA",
+            InstallmentType.Multa => "MULTA",
+            InstallmentType.Mora => "MORA",
+            _ => "CUOTA ORDINARIA"
+        };
 
         private string GetDistributionType(int tipo)
         {

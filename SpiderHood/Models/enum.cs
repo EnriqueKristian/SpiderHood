@@ -75,4 +75,17 @@
         Rejected = 5,
         Closed = 6
     }
+
+    // Distingue el origen de una cuota (Installment): las Ordinarias vienen del ciclo
+    // mensual normal (BudgetGenerator); Extraordinaria, Multa y Mora se generan aparte
+    // (ExtraChargeService) y quedan agrupadas bajo su propio BudgetHeader
+    // (BudgetType = "Extraordinario" / "Cargos") en vez de mezclarse con el presupuesto
+    // mensual.
+    public enum InstallmentType
+    {
+        Ordinaria = 0,
+        Extraordinaria = 1,
+        Multa = 2,
+        Mora = 3
+    }
 }

@@ -194,6 +194,19 @@ namespace SpiderHood.Models
         [Precision(18, 2)] public decimal Debt { get; set; }
         public Guid IdGroupUnit { get; set; }
         public DateTime DueDate { get; set; }
+        // Ordinaria (default, cuota mensual normal) vs. Extraordinaria/Multa/Mora,
+        // generadas por ExtraChargeService bajo su propio BudgetHeader. Requiere la
+        // columna Installment.Type — ver
+        // Database/Migrations/2026-08-28_CuotasExtraordinarias_MultasMora.sql.
+        public InstallmentType Type { get; set; } = InstallmentType.Ordinaria;
+        // Descripción libre para cuotas que no vienen de BudgetDetail (p.ej. "Fondo de
+        // obras - pintado fachada", "Mora (2 meses de atraso) - Cuota Jun-2026"). Las
+        // Ordinarias la dejan vacía porque su desglose sale de BudgetHeader.Details.
+        public string Concept { get; set; } = string.Empty;
+        // Para Multa/Mora: IdInstallment de la cuota Ordinaria vencida que originó el
+        // cargo. Permite calcular mora incremental (cuánto ya se cobró de más contra
+        // esa cuota) sin duplicar ni necesitar UPDATE. Guid.Empty para Ordinaria/Extraordinaria.
+        public Guid SourceInstallmentId { get; set; } = Guid.Empty;
         [NotMapped]
         public bool IsPaid { get; set; } = false;
         [NotMapped]
@@ -1055,100 +1068,3 @@ namespace SpiderHood.Models
     }
 
 }
-
-/*
-
-namespace SpiderHood.Data
-{
-    public static class SeedData
-    {
-        public static async Task InitializeAsync(SpiderHoodContext context)
-        {
-            // Verificar si ya hay datos
-            if (context.Categorias.Any() || context.Presupuestos.Any())
-            {
-                return; // DB ya tiene datos
-            }
-
-            // Crear categorías por defecto si no existen
-            if (!context.Categorias.Any())
-            {
-                var categorias = new List<Categoria>
-                {
-                    new Categoria { Codigo = "SERV", Nombre = "Servicios Básicos",
-                        Descripcion = "Agua, luz, gas, internet", Tipo = "Gasto",
-                        Color = "#3498db", Orden = 1, Activo = true },
-                    new Categoria { Codigo = "MANT", Nombre = "Mantenimiento",
-                        Descripcion = "Reparaciones y mantenimiento general", Tipo = "Gasto",
-                        Color = "#e74c3c", Orden = 2, Activo = true },
-                    new Categoria { Codigo = "ADMIN", Nombre = "Administración",
-                        Descripcion = "Honorarios administrativos", Tipo = "Gasto",
-                        Color = "#f39c12", Orden = 3, Activo = true },
-                    new Categoria { Codigo = "DIV", Nombre = "Diversos",
-                        Descripcion = "Gastos varios y extraordinarios", Tipo = "Gasto",
-                        Color = "#9b59b6", Orden = 4, Activo = true },
-                    new Categoria { Codigo = "RESV", Nombre = "Reservas",
-                        Descripcion = "Fondo de reserva y contingencia", Tipo = "Gasto",
-                        Color = "#1abc9c", Orden = 5, Activo = true }
-                };
-
-                await context.Categorias.AddRangeAsync(categorias);
-                await context.SaveChangesAsync();
-            }
-
-            // Crear un presupuesto de ejemplo
-            if (!context.Presupuestos.Any())
-            {
-                var categorias = await context.Categorias.ToListAsync();
-
-                var presupuesto = new Presupuesto
-                {
-                    Codigo = "PRES-2024-001",
-                    Mes = "Enero 2024",
-                    BudgetName = "Presupuesto de ejemplo para el mes de enero",
-                    Status = 1,//"Activo",
-                    CreatedBy = "Sistema",
-                    CreatedOn = DateTime.Now
-                };
-
-                await context.Presupuestos.AddAsync(presupuesto);
-                await context.SaveChangesAsync();
-
-                // Crear detalles de ejemplo
-                var detalles = new List<PresupuestoDetalle>
-                {
-                    new PresupuestoDetalle { PresupuestoId = presupuesto.Id,
-                        CategoriaId = categorias[0].Id, Descripcion = "Agua y luz",
-                        Monto = 2500.00m },
-                    new PresupuestoDetalle { PresupuestoId = presupuesto.Id,
-                        CategoriaId = categorias[1].Id, Descripcion = "Mantenimiento áreas comunes",
-                        Monto = 1800.00m },
-                    new PresupuestoDetalle { PresupuestoId = presupuesto.Id,
-                        CategoriaId = categorias[2].Id, Descripcion = "Honorarios administrador",
-                        Monto = 1200.00m }
-                };
-
-                await context.PresupuestoDetalles.AddRangeAsync(detalles);
-                await context.SaveChangesAsync();
-
-                // Calcular y actualizar total
-                presupuesto.Amount = detalles.Sum(d => d.Monto);
-                context.Presupuestos.Update(presupuesto);
-                await context.SaveChangesAsync();
-
-                // Crear relaciones presupuesto-categoría
-                var presupuestoCategorias = categorias.Select(c => new PresupuestoCategoria
-                {
-                    PresupuestoId = presupuesto.Id,
-                    CategoriaId = c.Id,
-                    MontoAsignado = detalles.Where(d => d.CategoriaId == c.Id).Sum(d => d.Monto),
-                    MontoEjecutado = 0
-                }).ToList();
-
-                await context.PresupuestoCategorias.AddRangeAsync(presupuestoCategorias);
-                await context.SaveChangesAsync();
-            }
-        }
-    }
-}
-*/

@@ -1,4 +1,4 @@
-﻿@using SpiderHood.Models
+﻿﻿@using SpiderHood.Models
 @using SpiderHood.Services
 @inject ParameterService ParameterService
 @inject Services.IPeriodService PeriodService
@@ -6,102 +6,122 @@
 
 @if (ShowModal)
 {
-<div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
-        <div class="modal-content shadow-lg">
-            <div class="modal-header">
-                    <i class="bi bi-droplet mr-2"></i><h5 class="modal-title">&nbsp;Nuevo / Editar Periodo</h5>
-                <button type="button" class="btn-close" @onclick="CerrarModal"></button>
-            </div>
-            <div class="modal-body">
-                <EditForm Model="period" OnValidSubmit="HandleValidSubmit">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="name">Nombre del Periodo *</label>
-                            <InputText id="name" class="form-control" @bind-Value="period!.Name" />
-                            <ValidationMessage For="@(() => period.Name)" />
-                        </div>
-                    </div>
-
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label for="periodType">Tipo de Periodo *</label>
-                            <InputSelect id="periodType" class="form-control" @bind-Value="period.PeriodType">
-                                <option value="">Seleccione...</option>
-                                <option value="1">Mensual</option>
-                                <option value="2">Bimestral</option>
-                                <option value="3">Trimestral</option>
-                                <option value="4">Semestral</option>
-                                <option value="5">Anual</option>
-                            </InputSelect>
-                            <ValidationMessage For="@(() => period.PeriodType)" />
-                        </div>
-                    </div>
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <i class="bi bi-droplet mr-2"></i><h5 class="modal-title">&nbsp;@TituloModal</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
                 </div>
+                <div class="modal-body">
+                    <EditForm Model="period" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
 
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="startDate">Fecha Inicio *</label>
-                                    <InputDate id="startDate" class="form-control" @bind-Value="period.StartDate" @oninput="onChangeValues" />
-                            <ValidationMessage For="@(() => period.StartDate)" />
+                        @if (isNew && CamposFechaTipoEditables)
+                        {
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Este será el <strong>periodo inicial</strong> del edificio — elige libremente desde cuándo
+                                empezar a operar (ej. Marzo si tienes data desde esa fecha). Los periodos siguientes se
+                                calcularán automáticamente en secuencia a partir de este.
+                            </div>
+                        }
+                        else if (isNew && !CamposFechaTipoEditables)
+                        {
+                            <div class="alert alert-light border">
+                                <i class="bi bi-calendar-check me-1"></i>
+                                Fecha de Inicio y Tipo de Periodo se calculan automáticamente a partir del último periodo
+                                existente, para mantener la secuencia — no se pueden elegir a mano ni duplicar un periodo ya creado.
+                            </div>
+                        }
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="name">Nombre del Periodo *</label>
+                                    <InputText id="name" class="form-control" @bind-Value="period!.Name" />
+                                    <ValidationMessage For="@(() => period.Name)" />
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="periodType">Tipo de Periodo *</label>
+                                    <InputSelect id="periodType" class="form-control" @bind-Value="period.PeriodType"
+                                                 @bind-Value:after="RecalcularFechas" disabled="@(!CamposFechaTipoEditables)">
+                                        <option value="">Seleccione...</option>
+                                        <option value="1">Mensual</option>
+                                        <option value="2">Bimestral</option>
+                                        <option value="3">Trimestral</option>
+                                        <option value="4">Semestral</option>
+                                        <option value="5">Anual</option>
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => period.PeriodType)" />
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="endDate">Fecha Fin *</label>
-                            <InputDate id="endDate" class="form-control" @bind-Value="period.EndDate" readonly="true" />
-                            <ValidationMessage For="@(() => period.EndDate)" />
-                        </div>
-                    </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="startDate">Fecha Inicio *</label>
+                                    <InputDate id="startDate" class="form-control" @bind-Value="period.StartDate"
+                                               @bind-Value:after="RecalcularFechas" disabled="@(!CamposFechaTipoEditables)" />
+                                    <ValidationMessage For="@(() => period.StartDate)" />
+                                </div>
+                            </div>
 
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label for="closingDate">Fecha de Cierre *</label>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="endDate">Fecha Fin *</label>
+                                    <InputDate id="endDate" class="form-control" @bind-Value="period.EndDate" readonly="true" />
+                                    <ValidationMessage For="@(() => period.EndDate)" />
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="closingDate">Fecha de Cierre *</label>
                                     <InputDate id="closingDate" class="form-control" @bind-Value="period.ClosingDate" readonly="true" />
-                            <ValidationMessage For="@(() => period.ClosingDate)" />
-                            <small class="form-text text-muted">
-                                Fecha límite para registrar lecturas y gastos
-                            </small>
+                                    <ValidationMessage For="@(() => period.ClosingDate)" />
+                                    <small class="form-text text-muted">
+                                        Fecha límite para registrar lecturas y gastos
+                                    </small>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
 
-                <div class="row">
-                    <div class="col-md-6">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="status">Estado *</label>
+                                    <InputSelect id="status" class="form-control" @bind-Value="period.Status">
+                                        <option value="0">Inactivo</option>
+                                        <option value="1">Activo</option>
+                                        <option value="2">Cerrado</option>
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => period.Status)" />
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check mt-4">
+                                    <InputCheckbox id="isCurrent" class="form-check-input" @bind-Value="period.IsCurrentPeriod" />
+                                    <label for="isCurrent" class="form-check-label">
+                                        ¿Es el periodo actual?
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group">
-                            <label for="status">Estado *</label>
-                            <InputSelect id="status" class="form-control" @bind-Value="period.Status">
-                                <option value="0">Inactivo</option>
-                                <option value="1">Activo</option>
-                                <option value="2">Cerrado</option>
-                            </InputSelect>
-                            <ValidationMessage For="@(() => period.Status)" />
+                            <label for="description">Descripción</label>
+                            <InputTextArea id="description" class="form-control" rows="3"
+                                           @bind-Value="period.Description" />
                         </div>
-                    </div>
 
-                    <div class="col-md-6">
-                        <div class="form-check mt-4">
-                            <InputCheckbox id="isCurrent" class="form-check-input" @bind-Value="period.IsCurrentPeriod" />
-                            <label for="isCurrent" class="form-check-label">
-                                ¿Es el periodo actual?
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="description">Descripción</label>
-                    <InputTextArea id="description" class="form-control" rows="3"
-                                   @bind-Value="period.Description" />
-                </div>
-
-            </EditForm>
+                    </EditForm>
                 </div>
                 <div class="modal-footer">
                     <button type="button"
@@ -126,7 +146,22 @@
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
     [Parameter] public EventCallback<Models.Period> OnSave { get; set; }
 
+    // false cuando ya existe al menos un periodo y se está creando uno nuevo (no
+    // editando uno existente) — ahí Fecha de Inicio y Tipo de Periodo quedan
+    // bloqueados porque PeriodPage ya los calculó como "el siguiente" en la
+    // secuencia. true para el periodo inicial del edificio (todavía no hay ninguno,
+    // el usuario elige libremente desde cuándo arrancar) y para editar cualquier
+    // periodo ya existente.
+    [Parameter] public bool CamposFechaTipoEditables { get; set; } = true;
+
     [Inject] private IJSRuntime JSRuntime { get; set; } = null!;
+
+    private string TituloModal => (isNew, CamposFechaTipoEditables) switch
+    {
+        (true, true) => "Nuevo Periodo Inicial",
+        (true, false) => "Nuevo Periodo",
+        _ => "Editar Periodo"
+    };
 
     private void InitializeNewPeriod()
     {
@@ -169,21 +204,26 @@
 
             if (isNew)
             {
-                success = await PeriodService.CreatePeriodAsync(period); 
-                if (success)
+                success = await PeriodService.CreatePeriodAsync(period);
+                if (!success)
                 {
-                    //await SweetAlert.FireAsync("¡Actualizado!", "El periodo ha sido actualizado correctamente", SweetAlertIcon.Success);
-                    await ShowToast("¡Creado!", "El periodo ha sido creado correctamente", "success");
+                    // CreatePeriodAsync devuelve false tanto por superposición de fechas
+                    // (CHK_Period_CheckOverlap) como por cualquier otro error — antes esto
+                    // se ignoraba y el modal se cerraba igual como si hubiera funcionado.
+                    await ShowToast("Error", "No se pudo crear el periodo: se superpone con uno existente o ya fue creado.", "danger");
+                    return;
                 }
+                await ShowToast("¡Creado!", "El periodo ha sido creado correctamente", "success");
             }
             else
             {
                 success = await PeriodService.UpdatePeriodAsync(period);
-                if (success)
+                if (!success)
                 {
-                    //await SweetAlert.FireAsync("¡Creado!", "El periodo ha sido creado correctamente", SweetAlertIcon.Success);
-                    await ShowToast("¡Actualizado!", "El periodo ha sido actualizado correctamente", "success");
+                    await ShowToast("Error", "No se pudo actualizar el periodo: se superpone con uno existente.", "danger");
+                    return;
                 }
+                await ShowToast("¡Actualizado!", "El periodo ha sido actualizado correctamente", "success");
             }
             period.IsNewPeriod = false;
             await OnSave.InvokeAsync(period);
@@ -216,12 +256,29 @@
         }
     }
 
-    private Task onChangeValues(ChangeEventArgs args)
+    // Recalcula Fecha Fin, Fecha de Cierre y Nombre a partir de Fecha Inicio + Tipo de
+    // Periodo (Mensual/Bimestral/Trimestral/Semestral/Anual) — se dispara al cambiar
+    // cualquiera de esos dos campos. Reemplaza al onChangeValues anterior, que llamaba
+    // a ParameterService.CreateNewPeriod y de paso reseteaba el Tipo de Periodo elegido
+    // de vuelta a Mensual cada vez que se tocaba la fecha.
+    private void RecalcularFechas()
     {
-        if (DateTime.TryParse(args.Value?.ToString(), out var date))
+        if (period == null) return;
+
+        var meses = period.PeriodType switch
         {
-            period = ParameterService.CreateNewPeriod(date, ParameterService.CurrentBuilding.IdBuilding).Result;
-        }
-        return Task.CompletedTask;
+            2 => 2,
+            3 => 3,
+            4 => 6,
+            5 => 12,
+            _ => 1
+        };
+
+        var start = new DateTime(period.StartDate.Year, period.StartDate.Month, 1);
+        period.StartDate = start;
+        period.EndDate = start.AddMonths(meses).AddDays(-1);
+        period.ClosingDate = start.AddMonths(meses).AddDays(15);
+        period.Name = start.ToString("MMMM-yy", System.Globalization.CultureInfo.InvariantCulture);
+        period.Description = $"Período generado automáticamente para {start.ToString("MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)}";
     }
 }

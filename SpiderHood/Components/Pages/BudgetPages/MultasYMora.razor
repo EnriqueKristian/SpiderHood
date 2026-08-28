@@ -1,0 +1,267 @@
+﻿@page "/multasymora"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+@inject ParameterService ParameterService
+@inject IExtraChargeService ExtraChargeService
+@inject NavigationManager Navigation
+
+<PageTitle>Multas y Mora</PageTitle>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-12 col-xl-11">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white py-4">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-exclamation-triangle display-6 me-2"></i>
+                        <div>
+                            <h1 class="h3 mb-1">Multas y Mora</h1>
+                            <p class="mb-0 opacity-75">Aplica los cargos por atraso a las cuotas ordinarias vencidas</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body p-4">
+                    @if (ParameterService.CurrentBuilding == null)
+                    {
+                        <div class="alert alert-warning">Selecciona un edificio para continuar.</div>
+                    }
+                    else
+                    {
+                        var config = ParameterService.CurrentBuilding.Configuration;
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="card bg-light border-0 h-100">
+                                    <div class="card-body">
+                                        <h6 class="text-muted mb-2">Configuración vigente del edificio</h6>
+                                        <div>Multa fija: <strong>@Moneda @config.FineAmount.ToString("N2")</strong> (una sola vez por cuota vencida)</div>
+                                        <div>Tasa de interés mora: <strong>@config.LateInterestRate.ToString("N2")% mensual</strong> sobre la deuda</div>
+                                        <small class="text-muted">
+                                            Editable en Configuración del Edificio &gt; Defaults, Multas y Mora.
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(mensajeResultado))
+                        {
+                            <div class="alert @ClaseAlerta alert-dismissible fade show">
+                                @mensajeResultado
+                                <button type="button" class="btn-close" @onclick="() => mensajeResultado = string.Empty"></button>
+                            </div>
+
+                            @if (resultado != null && resultado.Detalle.Any())
+                            {
+                                <ul class="list-group mb-3">
+                                    @foreach (var linea in resultado.Detalle)
+                                    {
+                                        <li class="list-group-item small">@linea</li>
+                                    }
+                                </ul>
+                            }
+                        }
+
+                        @if (cargando)
+                        {
+                            <div class="text-center py-5">
+                                <div class="spinner-border text-primary" role="status"></div>
+                            </div>
+                        }
+                        else if (!vencidas.Any())
+                        {
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-check-circle display-4 d-block mb-3"></i>
+                                No hay cuotas ordinarias vencidas en este momento.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                <h6 class="mb-0">Cuotas vencidas (@vencidas.Count)</h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="text-muted mb-0">Mostrar:</label>
+                                    <select class="form-select form-select-sm" style="width: auto;"
+                                            @onchange="(e) => pagination.ChangePageSize(Convert.ToInt32(e.Value))">
+                                        <option value="10" selected="@(pagination.PageSize == 10)">10</option>
+                                        <option value="25" selected="@(pagination.PageSize == 25)">25</option>
+                                        <option value="50" selected="@(pagination.PageSize == 50)">50</option>
+                                        <option value="100" selected="@(pagination.PageSize == 100)">100</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive mb-3">
+                                <table class="table table-hover table-sm">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Unidad</th>
+                                            <th>Propietario</th>
+                                            <th class="text-end">Periodo</th>
+                                            <th class="text-end">Vencimiento</th>
+                                            <th class="text-end">Días de atraso</th>
+                                            <th class="text-end">Deuda</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in pagination.CurrentPageData)
+                                        {
+                                            <tr>
+                                                <td><strong>@item.UnitName</strong></td>
+                                                <td>@item.OwnerName</td>
+                                                <td class="text-end">@item.Period.ToString("MMM-yy")</td>
+                                                <td class="text-end">@item.DueDate.ToString("dd/MM/yyyy")</td>
+                                                <td class="text-end">@((DateTime.Today - item.DueDate.Date).Days)</td>
+                                                <td class="text-end">@Moneda @item.Debt.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            @if (pagination.TotalPages > 1)
+                            {
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                                    <div class="text-muted small">
+                                        Mostrando @pagination.StartRecord - @pagination.EndRecord de @pagination.TotalRecords cuotas vencidas
+                                    </div>
+
+                                    <nav aria-label="Paginación de resultados">
+                                        <ul class="pagination pagination-sm mb-0">
+                                            <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToFirstPage" title="Primera página">
+                                                    <i class="bi bi-chevron-double-left"></i>
+                                                </a>
+                                            </li>
+                                            <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToPreviousPage" title="Página anterior">
+                                                    <i class="bi bi-chevron-left"></i>
+                                                </a>
+                                            </li>
+
+                                            @foreach (var pageNum in pagination.GetPageNumbers())
+                                            {
+                                                if (pageNum == -1)
+                                                {
+                                                    <li class="page-item disabled">
+                                                        <span class="page-link">...</span>
+                                                    </li>
+                                                }
+                                                else
+                                                {
+                                                    <li class="page-item @(pageNum == pagination.CurrentPage ? "active" : "")">
+                                                        <a class="page-link" @onclick="() => pagination.GoToPage(pageNum)">
+                                                            @pageNum
+                                                        </a>
+                                                    </li>
+                                                }
+                                            }
+
+                                            <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToNextPage" title="Página siguiente">
+                                                    <i class="bi bi-chevron-right"></i>
+                                                </a>
+                                            </li>
+                                            <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                                <a class="page-link" @onclick="pagination.GoToLastPage" title="Última página">
+                                                    <i class="bi bi-chevron-double-right"></i>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                </div>
+                            }
+
+                            <button class="btn btn-warning" @onclick="Aplicar" disabled="@aplicando">
+                                @if (aplicando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                <i class="bi bi-lightning-charge"></i> Aplicar Multas y Mora
+                            </button>
+                            <small class="d-block text-muted mt-2">
+                                Genera los cargos correspondientes bajo "Cargos por Multas y Mora" en el Listado de Cuotas.
+                                Se puede correr varias veces: la multa solo se cobra una vez por cuota y la mora solo suma
+                                el incremento desde la última vez que se aplicó.
+                            </small>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Installment> vencidas = new();
+    private InstallmentPagination pagination = new();
+    private bool cargando = true;
+    private bool aplicando = false;
+    private string mensajeResultado = string.Empty;
+    private AplicacionCargosResultado? resultado;
+
+    [CascadingParameter]
+    private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private string Moneda => ParameterService.CurrentBuilding?.Configuration.Currency == "PEN" ? "S/" : "$";
+
+    protected override async Task OnInitializedAsync()
+    {
+        pagination.OnPaginationChanged += StateHasChanged;
+        await CargarVencidas();
+    }
+
+    private async Task CargarVencidas()
+    {
+        if (ParameterService.CurrentBuilding == null)
+        {
+            cargando = false;
+            return;
+        }
+
+        cargando = true;
+        StateHasChanged();
+
+        vencidas = await ExtraChargeService.GetCuotasVencidasAsync(ParameterService.CurrentBuilding.IdBuilding);
+        pagination.Initialize(vencidas);
+        cargando = false;
+    }
+
+    private async Task Aplicar()
+    {
+        if (ParameterService.CurrentBuilding == null) return;
+
+        aplicando = true;
+        StateHasChanged();
+
+        var usuario = "Sistema";
+        if (AuthStateTask != null)
+        {
+            var authState = await AuthStateTask;
+            usuario = authState.User.Identity?.Name ?? usuario;
+        }
+
+        resultado = await ExtraChargeService.AplicarMultasYMoraAsync(ParameterService.CurrentBuilding, usuario);
+
+        mensajeResultado = !resultado.Exito
+            ? resultado.Mensaje
+            : resultado.UnidadesConMulta > 0 || resultado.UnidadesConMora > 0
+                ? $"Se revisaron {resultado.CuotasRevisadas} cuota(s) vencida(s): " +
+                  $"{resultado.UnidadesConMulta} multa(s) por {Moneda} {resultado.TotalMultas:N2} y " +
+                  $"{resultado.UnidadesConMora} cargo(s) de mora por {Moneda} {resultado.TotalMora:N2}."
+                : $"Se revisaron {resultado.CuotasRevisadas} cuota(s) vencida(s) y no se generaron cargos nuevos (ya estaban al día o la configuración de multa/mora está en cero).";
+
+        aplicando = false;
+        await CargarVencidas();
+    }
+
+    private string ClaseAlerta =>
+        resultado != null && !resultado.Exito
+            ? "alert-danger"
+            : resultado != null && (resultado.UnidadesConMulta > 0 || resultado.UnidadesConMora > 0)
+                ? "alert-success"
+                : "alert-info";
+}

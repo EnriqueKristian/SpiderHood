@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 
-
 namespace SpiderHood.Services
 {
     // Services/IPresupuestoService.cs
@@ -409,9 +408,18 @@ namespace SpiderHood.Services
 
         private async Task SaveCategoriesAsync(BDLayout ecLocal, BudgetState state)
         {
-            foreach (var header in state.Details.Where(c => c.IsHeader && c.IsNewItem))
+            // Antes este método sólo recorría headers NUEVOS (IsHeader && IsNewItem), así
+            // que un item nuevo agregado bajo una sección ya existente nunca pasaba por acá
+            // y su Category jamás se creaba en BD — el INSERT del BudgetDetail fallaba
+            // después con FK_BudgetDetail_Category porque el Idcategory referenciado no
+            // existía. Ahora se recorren TODOS los headers (nuevos o existentes) para poder
+            // detectar sus items nuevos, pero el header en sí sólo se guarda si es nuevo.
+            foreach (var header in state.Details.Where(c => c.IsHeader))
             {
-                await SaveCategoryAsync(ecLocal, header, Guid.Empty, state.Budget.IdBuilding);
+                if (header.IsNewItem)
+                {
+                    await SaveCategoryAsync(ecLocal, header, Guid.Empty, state.Budget.IdBuilding);
+                }
 
                 foreach (var subItem in state.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader && c.IsNewItem))
                 {

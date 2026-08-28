@@ -53,6 +53,13 @@ namespace SpiderHood.Models
         public bool Procesed { get; set; } = false;
         [NotMapped]
         public CalculoResultado? CalculationDetail { get; set; }
+        // Motivo por el que esta fila NO pasó la validación al importar el Excel (ej.
+        // "Dpto. no encontrado", "Lectura Final menor que Inicial"). Null/vacío = fila
+        // válida. Se muestra resaltada en rojo en la vista previa para que el usuario la
+        // ubique sin tener que contar filas ni adivinar a qué Dpto corresponde el error
+        // del resumen de arriba — antes estas filas ni siquiera se agregaban a la lista.
+        [NotMapped]
+        public string? ImportError { get; set; }
 
         public ServiceReadingDetail Clone()
         {
@@ -71,7 +78,8 @@ namespace SpiderHood.Models
                 IdServiceReading = this.IdServiceReading,
                 Period = this.Period,
                 Procesed = this.Procesed,
-                CalculationDetail = this.CalculationDetail // Shallow copy; deep copy if needed
+                CalculationDetail = this.CalculationDetail, // Shallow copy; deep copy if needed
+                ImportError = this.ImportError
             };
         }
     }
@@ -90,12 +98,13 @@ namespace SpiderHood.Models
         public decimal TotalAmount { get; set; }
 
         [NotMapped]
-        public ValidationResult? ValidationErrors { get; set; } 
+        public ValidationResult? ValidationErrors { get; set; }
         [NotMapped]
-        public bool HasErrors => ValidationErrors == null ? false :  ValidationErrors!.Errors.Count > 0;
+        public bool HasErrors => ValidationErrors == null ? false : ValidationErrors!.Errors.Count > 0;
     }
 
-    public class ServiceReadingState{
+    public class ServiceReadingState
+    {
         public ServiceReading CurrentReading { get; set; } = new();
 
         private List<ServiceReadingDetail> _currentReadingDetail = new List<ServiceReadingDetail>();
@@ -130,7 +139,7 @@ namespace SpiderHood.Models
                 {
                     return false;
                 }
-                
+
             }
         }
 

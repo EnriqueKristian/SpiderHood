@@ -1,4 +1,4 @@
-﻿﻿﻿@using SpiderHood.Models
+﻿@using SpiderHood.Models
 @using System.Globalization
 @using SpiderHood.Components.Pages.Components
 @using SpiderHood.Utilities
@@ -8,6 +8,7 @@
 @inject Services.IBankAccountService BankService
 @inject Services.ICategoryService CategoryService
 @inject Services.IBuildingService BuildingService
+@inject Services.IExtraChargeService ExtraChargeService
 
 <div class="row">
     <div class="col-12">
@@ -37,7 +38,7 @@
                 {
                     <!-- Resumen Estadístico -->
                     <div class="row g-0 summary-stats">
-                        <div class="col-md-3">
+                        <div class="@StatColClass">
                             <div class="stat-card border-end">
                                 <div class="stat-icon bg-info">
                                     <i class="bi bi-building"></i>
@@ -48,29 +49,39 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="stat-card border-end">
-                                <div class="stat-icon bg-success">
-                                    <i class="bi bi-calculator"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h6>Total Presupuesto</h6>
-                                    <p class="stat-value">S/ @TotalBudget.ToString("N2")</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stat-card border-end">
-                                <div class="stat-icon bg-warning">
-                                    <i class="bi bi-droplet-fill"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h6>Consumo Agua</h6>
-                                    <p class="stat-value">@_totalWaterConsumption.ToString("N2") m³</p>
+                        @if (!EsCuotaEspecial)
+                        {
+                            <!-- "Total Presupuesto" sale de BudgetDetail (secciones/items) del
+                                 presupuesto Ordinario — una Cuota Extraordinaria o los Cargos de
+                                 Multas/Mora no tienen ninguno, así que siempre daba S/ 0.00 y
+                                 además es redundante con "Total Cuotas" (mismo total, calculado
+                                 desde las cuotas generadas en vez de desde los items). -->
+                            <div class="col-md-3">
+                                <div class="stat-card border-end">
+                                    <div class="stat-icon bg-success">
+                                        <i class="bi bi-calculator"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h6>Total Presupuesto</h6>
+                                        <p class="stat-value">S/ @TotalBudget.ToString("N2")</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="col-md-3">
+                            <!-- El consumo de agua es parte del ciclo Ordinario mensual, no
+                                 aplica a una Cuota Extraordinaria ni a Cargos de Multas/Mora. -->
+                            <div class="col-md-3">
+                                <div class="stat-card border-end">
+                                    <div class="stat-icon bg-warning">
+                                        <i class="bi bi-droplet-fill"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h6>Consumo Agua</h6>
+                                        <p class="stat-value">@_totalWaterConsumption.ToString("N2") m³</p>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        <div class="@StatColClass">
                             <div class="stat-card">
                                 <div class="stat-icon bg-primary">
                                     <i class="bi bi-cash-coin"></i>
@@ -423,6 +434,9 @@
     private decimal _TotalInstallments => Installments!.Sum(x => x.Amount);
     private decimal _totalWaterConsumption => WaterReadings!.Sum(x => x.CalculatedAmount);
 
+    private bool EsCuotaEspecial => !string.IsNullOrEmpty(Budget?.BudgetType);
+    private string StatColClass => EsCuotaEspecial ? "col-md-6" : "col-md-3";
+
     private string searchTerm = string.Empty;
     private List<Installment> filteredInstallments = new();
     private InstallmentExportService? _exportService;
@@ -462,6 +476,13 @@
                 ? await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding)
                 : new List<Category>();
 
+            // Cuotas Extraordinarias/Multas/Mora de las unidades de este lote, para que
+            // el recibo muestre lo mismo que "Ver Detalle" (una sola consulta para todas
+            // las unidades, filtrada por IdGroupUnit al armar cada recibo individual).
+            var cargosAdicionales = ParameterService.CurrentBuilding != null
+                ? await ExtraChargeService.GetCargosAdicionalesAsync(ParameterService.CurrentBuilding.IdBuilding, Installments ?? new())
+                : new List<Installment>();
+
             // Inicializar servicio de exportación
             _exportService = new InstallmentExportService(
             Installments!,
@@ -469,7 +490,8 @@
             WaterReadings!,
             Exonerations!,
             ParameterService.CurrentBuilding!,
-            categorias
+            categorias,
+            cargosAdicionales
         );
 
 
@@ -512,11 +534,7 @@
         }
     }
 
-    private void ExportarExcel()
-    {
-        // Lógica para exportar a Excel
-        Console.WriteLine("Exportando a Excel...");
-    }
+    private async Task ExportarExcel() => await ExportToExcel();
 
     private void VerDetalle(Installment _installment)
     {
@@ -678,9 +696,25 @@
         Console.WriteLine($"Mostrando excepciones para: {installment.OwnerName}");
     }
 
-    private Task ExportarPDF(MouseEventArgs args)
+    // Antes tiraba NotImplementedException apenas se apretaba el botón "PDF" del
+    // encabezado — nunca se había terminado de conectar con GenerateAllReceiptsZip
+    // (el mismo generador de recibos que ya se usa al publicar el presupuesto y al
+    // imprimir uno solo desde "Ver Detalle"), quedaba ahí desde el prototipo inicial.
+    private async Task ExportarPDF()
     {
-        throw new NotImplementedException();
+        try
+        {
+            var zipBytes = _exportService!.GenerateAllReceiptsZip();
+
+            await JSRuntime.InvokeVoidAsync("downloadFile",
+                Convert.ToBase64String(zipBytes),
+                $"Recibos_{GetNombreMes(Budget!.BudgetDate.Month)}_{Budget.BudgetDate.Year}.zip",
+                "application/zip");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al exportar recibos a PDF: {ex.Message}");
+        }
     }
 
     private MemoryStream? excelStream;

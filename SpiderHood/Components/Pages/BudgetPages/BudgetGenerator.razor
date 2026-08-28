@@ -18,12 +18,47 @@
 <div class="expense-calculation">
     <!-- Header -->
     <BudgetHeaderComponent _budgetState="_BudgetState"
+                           IsAdministrador="IsAdministrador"
                            OnNewCalculation="ShowNewCalculationModal"
                            OnLoadTemplate="LoadSampleData"
                            OnSave="SaveCalculation"
                            OnGenerateReport="GenerateReport"
                            OnServiceReading="ShowServiceReadingModal" />
 
+    @if (_BudgetState.Budget.IdBudgetHeader != Guid.Empty && !string.IsNullOrEmpty(_BudgetState.Budget.BudgetType))
+    {
+        <!-- Cuota Extraordinaria / Cargos (Multas y Mora): a diferencia del presupuesto
+             Ordinario, estos BudgetHeader no tienen BudgetDetail (secciones/items) — el
+             monto por unidad ya se generó de una vez como Installment al crearlos (ver
+             ExtraChargeService). Mostrar acá la tabla de items/secciones de abajo (con
+             "Cargar Plantilla"/"Crear Primera Sección") era engañoso: parecía que faltaba
+             armar un presupuesto cuando en realidad el detalle real son las cuotas por
+             unidad que ya se muestran en la tabla de Cuotas, más abajo. -->
+        <div class="card card-hover mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="mb-0">@_BudgetState.Budget.BudgetName</h5>
+                    <span class="badge @GetStatusBadgeClass()">@GetStatusLabel()</span>
+                </div>
+                @if (_Status == BudgetStatus.Active && IsAdministrador)
+                {
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="CerrarPresupuesto">
+                        <i class="bi bi-folder"></i>&nbsp;Cerrar
+                    </button>
+                }
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    @(_BudgetState.Budget.BudgetType == "Cargos" ? "Cargos por Multas y Mora" : "Cuota Extraordinaria")
+                    correspondiente a @_BudgetState.Budget.BudgetDate.ToString("MMMM yyyy") — por S/ @_BudgetState.Budget.Amount.ToString("N2")
+                    en total. No tiene secciones ni items: el detalle por unidad está en la tabla de Cuotas, más abajo.
+                </p>
+            </div>
+        </div>
+    }
+    else
+    {
     <div class="row">
         <!-- Expenses Table -->
         <div class="@(showorNot ? "col-md-8" : "col-md-11") transition-all">
@@ -260,13 +295,17 @@
                                     </button>
                                 </div>
                             }
-                            else
+                            else if (IsAdministrador)
                             {
                                 <span>Primero debe Crear el Presupuesto</span>
                                 <p />
                                 <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="ShowNewCalculationModal">
-                                    <i class="bi bi-plus-circle me-2"></i>Nuevo Cálculo
+                                    <i class="bi bi-plus-circle me-2"></i>Nuevo Presupuesto
                                 </button>
+                            }
+                            else
+                            {
+                                <span>Todavía no hay un presupuesto creado. Solo el Administrador puede crearlo.</span>
                             }
 
                         </div>
@@ -290,11 +329,12 @@
                                   OnShoworNot="ShoworNot" />
 
     </div>
+    }
 </div>
 
 <!-- Modal for New Calculation -->
 <Modal @ref="_newCalcModal"
-       Title="Nuevo Cálculo de Gastos"
+       Title="Nuevo Presupuesto"
        Size="ModalSize.Regular"
        ShowCloseButton="false">
     <!-- Cambiado a false -->
@@ -308,15 +348,22 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label class="form-label">Periodo *</label>
-                        <select class="form-select"
-                                @bind="_selectedPeriod"
-                                @bind:event="onchange"
-                                @bind:after="() => OnSelectedCalculationChanged()">
-                            @foreach (var item in _periods.Where(c => c.StartDate > _ultimoPeriodo))
-                            {
-                                <option value="@item.StartDate">@item.StartDate.ToString("MMM-yy")</option>
-                            }
-                        </select>
+                        <div class="input-group">
+                            <select class="form-select"
+                                    @bind="_selectedPeriodKey"
+                                    @bind:event="onchange"
+                                    @bind:after="() => OnSelectedCalculationChanged()">
+                                <option value="">Selecciona un periodo</option>
+                                @foreach (var item in PeriodosDisponibles())
+                                {
+                                    <option value="@ClavePeriodo(item.StartDate)">@item.StartDate.ToString("MMM-yy")</option>
+                                }
+                            </select>
+                            <button class="btn btn-outline-secondary" type="button"
+                                    @onclick="CrearYSeleccionarNuevoPeriodo" title="Crear un nuevo periodo">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                         <ValidationMessage For="@(() => _newCalculation.Month)" />
                     </div>
                 </div>
@@ -325,7 +372,8 @@
                         <label class="form-label">Descripción</label>
                         <textarea @bind="_newCalculation.Description"
                                   class="form-control"
-                                  rows="3"></textarea>
+                                  rows="3"
+                                  placeholder="@(_selectedPeriod == DateTime.MinValue ? "Selecciona un periodo primero" : "")"></textarea>
                     </div>
                 </div>
 
@@ -346,7 +394,7 @@
         </EditForm>
     </BodyTemplate>
     <FooterTemplate>
-        <button class="btn btn-primary" @onclick="CreateNewCalculation">
+        <button class="btn btn-primary" @onclick="CreateNewCalculation" disabled="@(_selectedPeriod == DateTime.MinValue)">
             <i class="bi bi-check me-1"></i>Crear
         </button>
         <button class="btn btn-secondary" @onclick="() => _newCalcModal.HideAsync()">
@@ -432,6 +480,8 @@
     [Inject] private IInstallmentService InstallmentService { get; set; } = default!;
     [Inject] private IServiceReadingService ServiceReadingService { get; set; } = default!;
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
+    [Inject] private IExtraChargeService ExtraChargeService { get; set; } = default!;
+    [Inject] private IPeriodService PeriodService { get; set; } = default!;
 
     private BudgetStatus _Status = BudgetStatus.Created;
     private UserSession currentUser = new();
@@ -440,7 +490,11 @@
     // Propietarios aprueba/rechaza. currentUser.Role ya viene resuelto para el
     // edificio+rol actualmente seleccionado (Services/AuthService.GetCurrentUserAsync,
     // mismo patrón que BuildingPage.razor.cs).
-    private bool IsAdministrador => currentUser?.Role == "Administrador";
+    // SysAdmin es un rol aparte de Administrador en este sistema (ver LeftMenu.razor,
+    // Components/Pages/AccessPages/Index.razor) pero debe poder hacer todo lo que puede
+    // un Administrador — si no, un usuario SysAdmin ve los campos del presupuesto pero
+    // no puede tocarlos (CanEdit daba false) sin ningún aviso de por qué.
+    private bool IsAdministrador => currentUser?.Role == "Administrador" || currentUser?.Role == "SysAdmin";
     private bool IsJunta => currentUser?.Role == "Junta";
     private bool CanEdit => IsAdministrador && (_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected);
 
@@ -466,8 +520,15 @@
 
     private List<Period> _periods = new();
     private Period _currentPeriod = new();
-    private DateTime _ultimoPeriodo;
     private DateTime _selectedPeriod;
+    // Clave string del <select> de Periodo — @bind sobre un DateTime directo no
+    // funcionaba: la opción se renderiza con DateTime.ToString() (formato de cultura)
+    // pero Blazor reparsea ese texto al seleccionar, y ambos no siempre coinciden, así
+    // que la selección nunca se aplicaba visualmente. Con una clave string fija
+    // (yyyy-MM-dd) no hay ambigüedad de formato que resolver.
+    private string _selectedPeriodKey = string.Empty;
+
+    private static string ClavePeriodo(DateTime fecha) => fecha.ToString("yyyy-MM-dd");
 
     private BudgetState _BudgetState = new();
 
@@ -959,43 +1020,102 @@
 
     private async Task ShowNewCalculationModal()
     {
+        // Sólo el Administrador crea presupuestos — la Junta sólo aprueba/rechaza los que
+        // ya están en revisión (ver IsJunta más abajo).
+        if (!IsAdministrador) return;
         if (_newCalcModal == null) return;
 
-        // Si el edificio todavía no tiene ningún periodo (típico en un edificio recién
-        // creado), _periods viene vacío: FirstOrDefault()! y Max() de más abajo tronaban
-        // con NullReferenceException/InvalidOperationException en cuanto alguien intentaba
-        // crear su primer presupuesto. Si no hay periodos, arrancamos desde hoy y dejamos
-        // que CrearNuevoPeriodo cree el primero.
-        _ultimoPeriodo = presupuestoService._Budgets.Count > 0
-    ? presupuestoService._Budgets.Max(c => c.BudgetDate)
-    : (_periods.Any() ? _periods.First().StartDate : DateTime.Now);
-
-        //NOTE: Deberia validar que el presupuesto que se quiere crear no exista
-        if (!_periods.Any() || _ultimoPeriodo >= _periods.Max(p => p.StartDate))
+        // Edificio sin NINGÚN periodo todavía: no hay nada de qué partir para "sugerir
+        // el siguiente", y menos aún asumir el mes en curso — esa elección (desde
+        // cuándo arranca a operar el edificio, ej. Marzo si hay data desde ahí) es la
+        // del periodo inicial y le corresponde al usuario en /periods, no a este modal.
+        if (!_periods.Any())
         {
-            await CrearNuevoPeriodo(_periods.Any() ? _ultimoPeriodo.AddMonths(1) : _ultimoPeriodo);
+            // Un toast justo antes de navegar no es confiable (la transición de página
+            // puede llevárselo antes de que el usuario lo vea) — el aviso se muestra en
+            // /periods al llegar, vía el query string ?sinPeriodos=1.
+            Navigation.NavigateTo("/periods?sinPeriodos=1");
+            return;
         }
 
+        // Ya existe al menos un periodo, pero todos tienen presupuesto Ordinario
+        // (típico justo después de crear el último disponible): acá sí se sugiere
+        // automáticamente el siguiente en la secuencia — el usuario igual puede crear
+        // otro distinto con el botón "+" si este no es el que necesita.
+        if (!PeriodosDisponibles().Any())
+        {
+            var siguiente = _periods.Max(p => p.StartDate).AddMonths(1);
+            await CrearNuevoPeriodo(siguiente);
+        }
+
+        // Arranca sin periodo elegido: la Descripción (y el botón Crear) quedan
+        // deshabilitados hasta que el usuario seleccione uno explícitamente —
+        // OnSelectedCalculationChanged es quien la completa recién ahí.
+        _selectedPeriodKey = string.Empty;
+        _selectedPeriod = DateTime.MinValue;
         _newCalculation = new NewCalculation
         {
-            Month = _currentPeriod.StartDate.Month,
-            Year = _currentPeriod.StartDate.Year,
             TotalApartments = _BudgetState.TotalApartments,
-            Description = "Presupuesto - " + @GetMonthName(_currentPeriod.StartDate.Month) + " " + _currentPeriod.StartDate.Year
+            Description = string.Empty
         };
 
         await _newCalcModal.ShowAsync();
     }
 
-    private async Task CrearNuevoPeriodo(DateTime newperiod)
+    // Periodos que todavía no tienen un presupuesto Ordinario creado — los únicos que
+    // tiene sentido ofrecer en "Nuevo Presupuesto" (evita crear dos presupuestos para
+    // el mismo mes). No filtra por fecha "mayor a la última" (ese criterio excluía por
+    // error el periodo recién auto-creado cuando su StartDate, normalizado al día 1,
+    // quedaba antes que la marca de tiempo exacta usada para crearlo).
+    private List<Period> PeriodosDisponibles() =>
+        _periods.Where(p => !presupuestoService._Budgets.Any(b =>
+            string.IsNullOrEmpty(b.BudgetType) && b.BudgetDate.Date == p.StartDate.Date)).ToList();
+
+    // Se persiste al toque vía PeriodService.CreatePeriodAsync — el mismo servicio que
+    // usa /periods — en vez de solo agregarlo a la lista _periods en memoria. Antes el
+    // periodo quedaba "fantasma": existía únicamente en el estado de esta página hasta
+    // que se guardaba el presupuesto completo (SaveBudgetAsync es quien insertaba los
+    // periodos IsNewPeriod recién ahí), así que /periods no lo mostraba y, si se volvía
+    // a abrir el modal sin guardar, se ofrecía crear el mismo mes de nuevo.
+    private async Task<bool> CrearNuevoPeriodo(DateTime newperiod)
     {
         Period newPeriod = await ParameterService.CreateNewPeriod(newperiod, ParameterService.CurrentBuilding.IdBuilding);
+
+        var creado = await PeriodService.CreatePeriodAsync(newPeriod);
+        if (!creado)
+        {
+            await ShowToast("Error", "No se pudo crear el periodo (puede que se superponga con uno existente). Revisa /periods.", "danger");
+            return false;
+        }
+
+        // Ya quedó insertado — que SaveBudgetAsync no lo vuelva a insertar al guardar
+        // el presupuesto (ver BudgetService.SaveBudgetAsync: solo inserta los periodos
+        // con IsNewPeriod = true).
+        newPeriod.IsNewPeriod = false;
+
         _periods.Add(newPeriod);
         _currentPeriod = newPeriod;
+        return true;
+    }
+
+    // Botón "+" junto a Periodo: crea el siguiente periodo después del más reciente que
+    // ya exista (tenga o no presupuesto) y lo deja seleccionado — para cuando el
+    // sugerido automáticamente al abrir el modal no es el que se necesita.
+    private async Task CrearYSeleccionarNuevoPeriodo()
+    {
+        var siguiente = _periods.Any() ? _periods.Max(p => p.StartDate).AddMonths(1) : DateTime.Today;
+        if (!await CrearNuevoPeriodo(siguiente))
+            return;
+
+        _selectedPeriodKey = ClavePeriodo(_currentPeriod.StartDate);
+        await OnSelectedCalculationChanged();
     }
 
     private async Task CreateNewCalculation()
     {
+        if (!IsAdministrador) return;
+        if (_selectedPeriod == DateTime.MinValue) return;
+
         // Implementar lógica para crear nuevo cálculo
         _BudgetState.Budget = new BudgetHeader
         {
@@ -1011,8 +1131,64 @@
         //_BudgetState.IsDisabled = false;
         _BudgetState.Status = BudgetStatus.Created;
         _textCabecera = "Detalle de Gastos - " + @GetMonthName(_selectedPeriod.Month) + " " + _selectedPeriod.Year;
+
+        // Si se eligió una plantilla (o copiar el mes anterior) en el modal, cargar los
+        // datos ahora — antes quedaba el presupuesto vacío y había que acordarse de
+        // apretar "Cargar Plantilla" aparte, un paso extra que no tenía por qué existir
+        // si ya se había elegido la plantilla al crear.
+        switch (_newCalculation.Template)
+        {
+            case "basic":
+            case "complete":
+                await LoadSampleData();
+                break;
+            case "previous":
+                await CopiarPresupuestoMesAnterior();
+                break;
+        }
+
         await _newCalcModal.HideAsync();
         StateHasChanged();
+    }
+
+    // "Copiar mes anterior": trae el desglose del último presupuesto Ordinario previo al
+    // periodo seleccionado y lo clona como punto de partida (nuevos IdBudgetDetail, sin
+    // IsNewItem para no recrear categorías que ya existen).
+    private async Task CopiarPresupuestoMesAnterior()
+    {
+        var anterior = presupuestoService._Budgets
+            .Where(b => string.IsNullOrEmpty(b.BudgetType) && b.BudgetDate < _selectedPeriod)
+            .OrderByDescending(b => b.BudgetDate)
+            .FirstOrDefault();
+
+        if (anterior == null)
+        {
+            await ShowToast("Sin mes anterior",
+                "No hay un presupuesto anterior para copiar. Usa una plantilla o crea las secciones manualmente.",
+                "warning");
+            return;
+        }
+
+        var detallesAnteriores = await presupuestoService.GetBudgetDetailAsync(anterior.IdBudgetHeader);
+
+        _BudgetState.Budget.Details = detallesAnteriores.Select(d => new BudgetDetail
+        {
+            IdBudgetDetail = Guid.NewGuid(),
+            IdCategory = d.IdCategory,
+            IdSection = d.IdSection,
+            ItemNumber = d.ItemNumber,
+            Description = d.Description,
+            MonthlyAmount = d.MonthlyAmount,
+            AnnualAmount = d.AnnualAmount,
+            Frequency = d.Frequency,
+            Type = d.Type,
+            IsHeader = d.IsHeader,
+            IdBudgetHeader = _BudgetState.Budget.IdBudgetHeader,
+            IsNewItem = false,
+            IdParent = d.IdParent
+        }).ToList();
+
+        _BudgetState.CalculateTotals();
     }
 
     /*  SECCION SAVE   */
@@ -1095,10 +1271,24 @@
         StateHasChanged();
     }
 
-    private async Task OnSelectedCalculationChanged()
+    private Task OnSelectedCalculationChanged()
     {
+        if (string.IsNullOrEmpty(_selectedPeriodKey) || !DateTime.TryParse(_selectedPeriodKey, out var periodo))
+        {
+            // Sin periodo seleccionado (placeholder "Selecciona un periodo") no debe
+            // quedar ningún texto sugerido en la Descripción.
+            _selectedPeriod = DateTime.MinValue;
+            _newCalculation.Description = string.Empty;
+            _BudgetState.Budget.BudgetName = string.Empty;
+            return Task.CompletedTask;
+        }
+
+        _selectedPeriod = periodo;
+        _newCalculation.Month = _selectedPeriod.Month;
+        _newCalculation.Year = _selectedPeriod.Year;
         _newCalculation.Description = $"Presupuesto - {GetMonthName(_selectedPeriod.Month)} {_selectedPeriod.Year}";
         _BudgetState.Budget.BudgetName = _newCalculation.Description;
+        return Task.CompletedTask;
     }
 
     private void SeleccionarCategoria(Models.Category category)
@@ -1385,6 +1575,13 @@
                     ParameterService.CurrentBuilding!.Configuration =
                         await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
 
+                    // Cuotas Extraordinarias/Multas/Mora de las unidades de este lote —
+                    // normalmente vacío en este punto (recién se está publicando el
+                    // presupuesto), pero se consulta igual para que el recibo salga
+                    // consistente con "Ver Detalle" si ya hubiera cargos generados.
+                    var cargosAdicionales = await ExtraChargeService.GetCargosAdicionalesAsync(
+                        ParameterService.CurrentBuilding!.IdBuilding, _BudgetState.Installments);
+
                     // Genera el recibo (PDF) de cada unidad y los descarga en un solo ZIP.
                     var exportService = new InstallmentExportService(
                         _BudgetState.Installments,
@@ -1392,7 +1589,8 @@
                         _BudgetState.WaterReadings,
                         _BudgetState.Exonerations,
                         ParameterService.CurrentBuilding!,
-                        filteredCategories);
+                        filteredCategories,
+                        cargosAdicionales);
 
                     var zipBytes = exportService.GenerateAllReceiptsZip();
                     await JSRuntime.InvokeVoidAsync("downloadFile",

@@ -1,4 +1,4 @@
-﻿﻿@using SpiderHood.Components.Pages.Components
+﻿@using SpiderHood.Components.Pages.Components
 @using SpiderHood.Components.Pages.PeriodPages
 @using SpiderHood.Models
 @using SpiderHood.Services
@@ -118,13 +118,13 @@
             @if (!string.IsNullOrEmpty(mensaje))
             {
                 <p></p>
-                <div class="alert @(mensaje.Contains("éxito") ? "alert-success" : mensaje.Contains("Error") ? "alert-danger" : "alert-warning") alert-dismissible fade show">
+                <div class="alert @(_tipoMensaje == "success" ? "alert-success" : _tipoMensaje == "danger" ? "alert-danger" : "alert-warning") alert-dismissible fade show">
                     <div class="d-flex align-items-center">
-                        <i class="bi @(mensaje.Contains("éxito") ? "bi-check-circle-fill" : mensaje.Contains("Error") ? "bi-exclamation-triangle-fill" : "bi-info-circle-fill") me-2"></i>
+                        <i class="bi @(_tipoMensaje == "success" ? "bi-check-circle-fill" : _tipoMensaje == "danger" ? "bi-exclamation-triangle-fill" : "bi-info-circle-fill") me-2"></i>
                         <div>
                             <strong>@mensaje</strong>
                             <br />
-                            @if (mensaje.Contains("Error"))
+                            @if (_tipoMensaje == "danger" && _ServiceReadingState.CurrentReading.HasErrors)
                             {
                                 @foreach (var error in _ServiceReadingState.CurrentReading.ValidationErrors!.Errors)
                                 {
@@ -229,7 +229,13 @@
                                         <strong>@lectura.CurrentReading.ToString("F3")</strong>
                                     </td>
                                     <td align="right">
-                                        @if (lectura.Procesed)
+                                        @if (!string.IsNullOrEmpty(lectura.ImportError))
+                                        {
+                                            <span class="badge bg-danger" title="@lectura.ImportError">
+                                                <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;Error de importación
+                                            </span>
+                                        }
+                                        else if (lectura.Procesed)
                                         {
                                             <span class="badge @(!lectura.Minimum ? "bg-primary" : "bg-danger")">
                                                 @lectura.Consumption.ToString("F2") m³
@@ -273,11 +279,22 @@
                                         </strong>
                                     </td>
                                     <td>
-                                        <button @onclick="() => SeleccionarLectura(lectura)"
-                                                class="btn btn-info btn-sm mr-1"
-                                                title="Ver detalle">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
+                                        @if (!string.IsNullOrEmpty(lectura.ImportError))
+                                        {
+                                            <button @onclick="() => QuitarLecturaConError(lectura)"
+                                                    class="btn btn-outline-danger btn-sm mr-1"
+                                                    title="Quitar esta fila (no se puede guardar así). Corrija el archivo y vuelva a importarlo si prefiere.">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button @onclick="() => SeleccionarLectura(lectura)"
+                                                    class="btn btn-info btn-sm mr-1"
+                                                    title="Ver detalle">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                        }
                                     </td>
                                 </tr>
                             }
@@ -303,16 +320,27 @@
                 @if (!_ServiceReadingState.OpenFromModal && _ServiceReadingState.CurrentReading.Status < 2)
                 {
                     <!-- Botones de acción -->
-                    <div class="d-flex justify-content-between">
+                    <div class="d-flex justify-content-between align-items-center">
                         <button @onclick="ExportarAExcel" class="btn btn-success">
                             <i class="bi bi-file-earmark-excel mr-2"></i>&nbsp;Exportar a Excel
                         </button>
-                        @if (_ServiceReadingState.ShowSaveReadings) // !_error )
-                        {
-                            <button @onclick="GuardarLecturas" class="btn btn-primary">
+                        <div class="d-flex align-items-center gap-2">
+                            @if (!_ServiceReadingState.ShowSaveReadings)
+                            {
+                                <!-- Antes el botón directamente desaparecía hasta que todo
+                                     quedara resuelto (filas pendientes de mínimo, errores de
+                                     importación) — igual que "Crear" en el modal Nuevo
+                                     Presupuesto, ahora queda siempre visible pero deshabilitado,
+                                     con el motivo, para que no parezca que falta algo por
+                                     cargar. -->
+                                <small class="text-muted">
+                                    <i class="bi bi-exclamation-circle me-1"></i>Resuelva las filas pendientes o con error para poder guardar
+                                </small>
+                            }
+                            <button @onclick="GuardarLecturas" class="btn btn-primary" disabled="@(!_ServiceReadingState.ShowSaveReadings)">
                                 <i class="bi bi-floppy mr-2"></i>&nbsp;Guardar Lecturas
                             </button>
-                        }
+                        </div>
                         <button @onclick="LimpiarDatos" class="btn btn-danger">
                             <i class="bi bi-trash mr-2"></i>&nbsp;Limpiar Todo
                         </button>
@@ -441,6 +469,13 @@
 
     //private bool _esPrimeraCarga = false;
     private string mensaje = "";
+    // Antes el color/ícono del banner y la lista de errores detallados se decidían
+    // buscando las palabras "éxito"/"Error" DENTRO del texto de `mensaje` — cualquier
+    // mensaje que no las contuviera exactamente (p.ej. "con errores" en minúscula, o
+    // "Lectura eliminada") caía silenciosamente al estado warning/genérico y, peor, la
+    // lista de errores por fila (fila X: motivo) nunca se mostraba aunque existiera.
+    // Ahora el tipo se fija explícitamente junto con el mensaje.
+    private string _tipoMensaje = "warning"; // success | danger | warning
     private double _anotherValue = 0;
 
     private List<Period> _periods = new();
@@ -542,7 +577,7 @@
 
     private async Task CrearNuevoPeriodo()
     {
-        Period newPeriod = ParameterService.CreateNewPeriod(_ultimoPeriodo, ParameterService.CurrentBuilding.IdBuilding).Result;
+        Period newPeriod = await ParameterService.CreateNewPeriod(_ultimoPeriodo, ParameterService.CurrentBuilding.IdBuilding);
         _periods.Add(newPeriod);
         _currentPeriod = newPeriod;
     }
@@ -637,15 +672,22 @@
             _ServiceReadingState.CurrentReading.FileName = _archivoNombre;
             _ServiceReadingState.CurrentReading.Period = _periodoActual;
 
-            if (_ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any())
-            {
-                _ServiceReadingState.PreviousReadingDetail = await CalculoService.GetFirstWaterReadingDetailList(ParameterService.CurrentBuilding.IdBuilding);
-            }
+            // Primera Carga del edificio = no hay ninguna lectura anterior guardada
+            // todavía. Se decide ANTES de tocar PreviousReadingDetail, porque el layout
+            // de columnas que espera el importador depende de esto (ver
+            // ExportarPlantillaVacia / ImportarDesdeExcelAsync) — reemplaza al fallback
+            // GetFirstWaterReadingDetailList que había acá, que sólo tapaba el síntoma
+            // (evitaba el crash con un "previous" cualquiera) sin resolver que la
+            // Primera Carga necesita Lectura Inicial además de la Final.
+            var esPrimeraCarga = _ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any();
+            var unidadesDelEdificio = await ObtenerUnidadesDelEdificio();
 
             _ServiceReadingState.CurrentReading = await CalculoService.ImportarDesdeExcelAsync(
                 memoryStream,
                 _ServiceReadingState.CurrentReading,
-                _ServiceReadingState.PreviousReadingDetail);
+                _ServiceReadingState.PreviousReadingDetail ?? new List<ServiceReadingDetail>(),
+                unidadesDelEdificio,
+                esPrimeraCarga);
 
             _lecturasCargadas = _ServiceReadingState.CurrentReading.WaterReadingDetail ?? new List<ServiceReadingDetail>();
 
@@ -653,11 +695,10 @@
             {
                 int erroresEncontrados = _ServiceReadingState.CurrentReading.ValidationErrors!.Errors.Count();
 
+                _tipoMensaje = "danger";
                 mensaje = $"Archivo '{_archivoNombre}' con errores. "
                     + Environment.NewLine
-                    + $"Se encontraron ({erroresEncontrados}) errores."
-                    + Environment.NewLine
-                    + "El formato debe ser: DPTO | Periodo | Lectura Actual | Fecha Lectura";
+                    + $"Se encontraron ({erroresEncontrados}) errores. Detalle abajo:";
             }
 
             //errorProcesamiento = _lecturaActual.errors;
@@ -706,9 +747,24 @@
         StateHasChanged();
     }
 
+    // Permite descartar sólo la fila inválida (Dpto. no encontrado, fecha mal
+    // formateada, etc.) sin perder el resto de lecturas ya cargadas del archivo — la
+    // alternativa era volver a importar todo el Excel después de corregirlo.
+    private void QuitarLecturaConError(ServiceReadingDetail lectura)
+    {
+        _ServiceReadingState.CurrentReadingDetail.Remove(lectura);
+        _lecturasCargadas.Remove(lectura);
+        _pagination.Initialize(_ServiceReadingState.CurrentReadingDetail);
+        StateHasChanged();
+    }
+
     private void MarcarTodasComoProcesadas()
     {
-        foreach (var lectura in _ServiceReadingState.CurrentReadingDetail)
+        // Las filas con ImportError (Dpto. no encontrado, fecha inválida, etc.) no se
+        // "procesan" nunca acá — sus datos no son confiables (p.ej. IdGroupUnit puede
+        // venir vacío) y quedan bloqueadas hasta que se corrija el archivo original y se
+        // vuelva a importar.
+        foreach (var lectura in _ServiceReadingState.CurrentReadingDetail.Where(l => string.IsNullOrEmpty(l.ImportError)))
         {
             lectura.Procesed = true;
             lectura.Minimum = lectura.Minimum ? lectura.Minimum : lectura.Consumption <= 0;
@@ -832,6 +888,7 @@
     private async Task MostrarMensajeExito(string _mensaje)
     {
         // TODO: Implementar notificación de éxito (usar Toast, Snackbar, etc.)
+        _tipoMensaje = "success";
         mensaje = _mensaje;
         Console.WriteLine($"Éxito: {mensaje}");
         await Task.CompletedTask;
@@ -840,6 +897,7 @@
     private async Task MostrarMensajeError(string _mensaje)
     {
         // TODO: Implementar notificación de error
+        _tipoMensaje = "danger";
         mensaje = _mensaje;
         Console.WriteLine($"Error: {mensaje}");
         await Task.CompletedTask;
@@ -1050,11 +1108,12 @@
             Models.ExcelExportService excelService = new Models.ExcelExportService();
 
             var unidades = await ObtenerUnidadesDelEdificio();
+            var esPrimeraCarga = _ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any();
 
             MemoryStream memoryStream = new MemoryStream();
             string fileName = "";
 
-            (fileName, memoryStream) = await excelService.ExportarPlantillaVacia(_ServiceReadingState, unidades);
+            (fileName, memoryStream) = await excelService.ExportarPlantillaVacia(_ServiceReadingState, unidades, esPrimeraCarga);
             await DescargarArchivo(fileName, memoryStream.ToArray());
 
             await MostrarMensajeExito("Plantilla descargada exitosamente");
@@ -1094,8 +1153,11 @@
 
     private async Task<List<Models.UnitView>> ObtenerUnidadesDelEdificio()
     {
-        // Implementación para obtener las unidades del edificio: TODO PADRE
-        return BuildingService.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1).Result;
+        // .Result sobre un Task desde un método async en Blazor Server puede
+        // deadlockear (el hilo que espera el resultado es el mismo que necesita
+        // liberarse para completar la continuación) — es lo que dejaba el botón
+        // "Descargar plantilla" colgado sin ningún error visible.
+        return await BuildingService.GetGroupUnitsByTypeAsync(ParameterService.CurrentBuilding.IdBuilding, 1);
     }
 
     #endregion
@@ -1179,6 +1241,9 @@
 
     private string GetRowClass(ServiceReadingDetail lectura)
     {
+        if (!string.IsNullOrEmpty(lectura.ImportError))
+            return "table-danger";
+
         if (!lectura.Procesed)
             return "table-warning";
 
@@ -1193,6 +1258,9 @@
 
     private string GetRowTooltip(ServiceReadingDetail lectura)
     {
+        if (!string.IsNullOrEmpty(lectura.ImportError))
+            return lectura.ImportError;
+
         if (!lectura.Procesed)
             return "Lectura pendiente de procesar";
 

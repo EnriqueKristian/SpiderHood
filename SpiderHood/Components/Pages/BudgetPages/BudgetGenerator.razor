@@ -978,14 +978,26 @@
     {
         if (_newCalcModal == null) return;
 
-        // Si no hay ningún periodo todavía sin presupuesto Ordinario (típico en un
-        // edificio recién creado, o justo después de crear el último disponible), se
-        // sugiere automáticamente el siguiente para que el desplegable no arranque
-        // vacío — el usuario igual puede crear otro distinto con el botón "+" si este
-        // no es el que necesita.
+        // Edificio sin NINGÚN periodo todavía: no hay nada de qué partir para "sugerir
+        // el siguiente", y menos aún asumir el mes en curso — esa elección (desde
+        // cuándo arranca a operar el edificio, ej. Marzo si hay data desde ahí) es la
+        // del periodo inicial y le corresponde al usuario en /periods, no a este modal.
+        if (!_periods.Any())
+        {
+            await ShowToast("Selecciona el periodo inicial",
+                "Este edificio todavía no tiene ningún periodo. Antes de generar un presupuesto, indica desde cuándo arranca a operar en Periodos.",
+                "warning");
+            Navigation.NavigateTo("/periods");
+            return;
+        }
+
+        // Ya existe al menos un periodo, pero todos tienen presupuesto Ordinario
+        // (típico justo después de crear el último disponible): acá sí se sugiere
+        // automáticamente el siguiente en la secuencia — el usuario igual puede crear
+        // otro distinto con el botón "+" si este no es el que necesita.
         if (!PeriodosDisponibles().Any())
         {
-            var siguiente = _periods.Any() ? _periods.Max(p => p.StartDate).AddMonths(1) : DateTime.Today;
+            var siguiente = _periods.Max(p => p.StartDate).AddMonths(1);
             await CrearNuevoPeriodo(siguiente);
         }
 

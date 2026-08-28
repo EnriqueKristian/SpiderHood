@@ -441,6 +441,7 @@
     [Inject] private IServiceReadingService ServiceReadingService { get; set; } = default!;
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
     [Inject] private IExtraChargeService ExtraChargeService { get; set; } = default!;
+    [Inject] private IPeriodService PeriodService { get; set; } = default!;
 
     private BudgetStatus _Status = BudgetStatus.Created;
     private UserSession currentUser = new();
@@ -1011,11 +1012,31 @@
         _periods.Where(p => !presupuestoService._Budgets.Any(b =>
             string.IsNullOrEmpty(b.BudgetType) && b.BudgetDate.Date == p.StartDate.Date)).ToList();
 
-    private async Task CrearNuevoPeriodo(DateTime newperiod)
+    // Se persiste al toque vía PeriodService.CreatePeriodAsync — el mismo servicio que
+    // usa /periods — en vez de solo agregarlo a la lista _periods en memoria. Antes el
+    // periodo quedaba "fantasma": existía únicamente en el estado de esta página hasta
+    // que se guardaba el presupuesto completo (SaveBudgetAsync es quien insertaba los
+    // periodos IsNewPeriod recién ahí), así que /periods no lo mostraba y, si se volvía
+    // a abrir el modal sin guardar, se ofrecía crear el mismo mes de nuevo.
+    private async Task<bool> CrearNuevoPeriodo(DateTime newperiod)
     {
         Period newPeriod = await ParameterService.CreateNewPeriod(newperiod, ParameterService.CurrentBuilding.IdBuilding);
+
+        var creado = await PeriodService.CreatePeriodAsync(newPeriod);
+        if (!creado)
+        {
+            await ShowToast("Error", "No se pudo crear el periodo (puede que se superponga con uno existente). Revisa /periods.", "danger");
+            return false;
+        }
+
+        // Ya quedó insertado — que SaveBudgetAsync no lo vuelva a insertar al guardar
+        // el presupuesto (ver BudgetService.SaveBudgetAsync: solo inserta los periodos
+        // con IsNewPeriod = true).
+        newPeriod.IsNewPeriod = false;
+
         _periods.Add(newPeriod);
         _currentPeriod = newPeriod;
+        return true;
     }
 
     // Botón "+" junto a Periodo: crea el siguiente periodo después del más reciente que
@@ -1024,7 +1045,9 @@
     private async Task CrearYSeleccionarNuevoPeriodo()
     {
         var siguiente = _periods.Any() ? _periods.Max(p => p.StartDate).AddMonths(1) : DateTime.Today;
-        await CrearNuevoPeriodo(siguiente);
+        if (!await CrearNuevoPeriodo(siguiente))
+            return;
+
         _selectedPeriodKey = ClavePeriodo(_currentPeriod.StartDate);
         await OnSelectedCalculationChanged();
     }

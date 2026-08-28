@@ -50,6 +50,11 @@
     min-width: 260px;
 }
 
+.col-tipo {
+    width: 110px;
+    text-align: center;
+}
+
 .col-categoria {
     min-width: 120px;
 }

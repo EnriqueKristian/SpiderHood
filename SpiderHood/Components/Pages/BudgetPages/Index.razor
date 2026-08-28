@@ -165,6 +165,7 @@
                                             <!--<th class="col-codigo">CÓDIGO</th>-->
                                             <th class="col-mes">MES</th>
                                             <th class="col-descripcion">DESCRIPCIÓN</th>
+                                            <th class="col-tipo">TIPO</th>
 
                                             <!-- Columnas dinámicas de categorías -->
                                             @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
@@ -189,6 +190,9 @@
                                 </td>-->
                                                 <td class="col-mes">@presupuesto.Mes</td>
                                                 <td class="col-descripcion">@presupuesto.BudgetName</td>
+                                                <td class="col-tipo">
+                                                    <span class="@TipoBadgeClass(presupuesto)" title="@TipoBadgeTitle(presupuesto)">@TipoBadgeText(presupuesto)</span>
+                                                </td>
 
                                                 <!-- Montos por categoría -->
                                                 @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
@@ -244,7 +248,7 @@
                                     </tbody>
                                     <tfoot>
                                         <tr class="total-row">
-                                            <td colspan="2" class="text-right"><strong>TOTALES:</strong></td>
+                                            <td colspan="3" class="text-right"><strong>TOTALES:</strong></td>
 
                                             <!-- Totales por categoría -->
                                             @foreach (var categoria in categoriasActivas.OrderBy(c => c.Nivel))
@@ -522,7 +526,13 @@
 
     private async Task CalcularTotales()
     {
-        foreach (var presupuesto in filteredbudgets)
+        // SumCategory sale de sumar BudgetDetail por categoría — sólo el presupuesto
+        // Ordinario tiene BudgetDetail (secciones/items). Una Cuota Extraordinaria o los
+        // Cargos de Multas/Mora no tienen ninguno (su monto ya se fijó una sola vez en
+        // BudgetHeader.Amount al crearse, como Installments) así que esta suma siempre da
+        // 0 para ellos — pisar Amount acá los dejaba en S/ 0.00 en el listado y en el
+        // TOTAL GENERAL, aunque el monto real ya estuviera correcto en BD.
+        foreach (var presupuesto in filteredbudgets.Where(p => string.IsNullOrEmpty(p.BudgetType)))
         {
             // Cargar detalles del presupuesto
             var detalles = SumCategory.Where(c => c.IdBudgetHeader == presupuesto.IdBudgetHeader);
@@ -531,6 +541,30 @@
             presupuesto.Amount = detalles.Sum(d => d.SumCategory);
         }
     }
+
+    // BudgetType es "" para el presupuesto Ordinario normal (no hay un valor propio
+    // guardado para ese caso), "Extraordinario" para una Cuota Extraordinaria y "Cargos"
+    // para el header compartido de Multas y Mora — ver ExtraChargeService.
+    private string TipoBadgeClass(BudgetHeader presupuesto) => presupuesto.BudgetType switch
+    {
+        "Extraordinario" => "badge bg-primary",
+        "Cargos" => "badge bg-danger",
+        _ => "badge bg-secondary-subtle text-secondary-emphasis"
+    };
+
+    private string TipoBadgeText(BudgetHeader presupuesto) => presupuesto.BudgetType switch
+    {
+        "Extraordinario" => "CE",
+        "Cargos" => "Cargos",
+        _ => "Ordinario"
+    };
+
+    private string TipoBadgeTitle(BudgetHeader presupuesto) => presupuesto.BudgetType switch
+    {
+        "Extraordinario" => "Cuota Extraordinaria",
+        "Cargos" => "Cargos por Multas y Mora",
+        _ => "Presupuesto Ordinario"
+    };
 
     private decimal GetMontoCategoria(BudgetHeader _budget, Guid categoriaId)
     {

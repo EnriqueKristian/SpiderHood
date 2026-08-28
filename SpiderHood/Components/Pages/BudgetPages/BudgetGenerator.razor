@@ -294,7 +294,7 @@
 
 <!-- Modal for New Calculation -->
 <Modal @ref="_newCalcModal"
-       Title="Nuevo Cálculo de Gastos"
+       Title="Nuevo Presupuesto"
        Size="ModalSize.Regular"
        ShowCloseButton="false">
     <!-- Cambiado a false -->
@@ -308,15 +308,22 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label class="form-label">Periodo *</label>
-                        <select class="form-select"
-                                @bind="_selectedPeriod"
-                                @bind:event="onchange"
-                                @bind:after="() => OnSelectedCalculationChanged()">
-                            @foreach (var item in _periods.Where(c => c.StartDate > _ultimoPeriodo))
-                            {
-                                <option value="@item.StartDate">@item.StartDate.ToString("MMM-yy")</option>
-                            }
-                        </select>
+                        <div class="input-group">
+                            <select class="form-select"
+                                    @bind="_selectedPeriod"
+                                    @bind:event="onchange"
+                                    @bind:after="() => OnSelectedCalculationChanged()">
+                                <option value="@DateTime.MinValue">Selecciona un periodo</option>
+                                @foreach (var item in PeriodosDisponibles())
+                                {
+                                    <option value="@item.StartDate">@item.StartDate.ToString("MMM-yy")</option>
+                                }
+                            </select>
+                            <button class="btn btn-outline-secondary" type="button"
+                                    @onclick="CrearYSeleccionarNuevoPeriodo" title="Crear un nuevo periodo">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                         <ValidationMessage For="@(() => _newCalculation.Month)" />
                     </div>
                 </div>
@@ -325,7 +332,8 @@
                         <label class="form-label">Descripción</label>
                         <textarea @bind="_newCalculation.Description"
                                   class="form-control"
-                                  rows="3"></textarea>
+                                  rows="3"
+                                  placeholder="@(_selectedPeriod == DateTime.MinValue ? "Selecciona un periodo primero" : "")"></textarea>
                     </div>
                 </div>
 
@@ -346,7 +354,7 @@
         </EditForm>
     </BodyTemplate>
     <FooterTemplate>
-        <button class="btn btn-primary" @onclick="CreateNewCalculation">
+        <button class="btn btn-primary" @onclick="CreateNewCalculation" disabled="@(_selectedPeriod == DateTime.MinValue)">
             <i class="bi bi-check me-1"></i>Crear
         </button>
         <button class="btn btn-secondary" @onclick="() => _newCalcModal.HideAsync()">
@@ -467,7 +475,6 @@
 
     private List<Period> _periods = new();
     private Period _currentPeriod = new();
-    private DateTime _ultimoPeriodo;
     private DateTime _selectedPeriod;
 
     private BudgetState _BudgetState = new();
@@ -962,31 +969,38 @@
     {
         if (_newCalcModal == null) return;
 
-        // Si el edificio todavía no tiene ningún periodo (típico en un edificio recién
-        // creado), _periods viene vacío: FirstOrDefault()! y Max() de más abajo tronaban
-        // con NullReferenceException/InvalidOperationException en cuanto alguien intentaba
-        // crear su primer presupuesto. Si no hay periodos, arrancamos desde hoy y dejamos
-        // que CrearNuevoPeriodo cree el primero.
-        _ultimoPeriodo = presupuestoService._Budgets.Count > 0
-    ? presupuestoService._Budgets.Max(c => c.BudgetDate)
-    : (_periods.Any() ? _periods.First().StartDate : DateTime.Now);
-
-        //NOTE: Deberia validar que el presupuesto que se quiere crear no exista
-        if (!_periods.Any() || _ultimoPeriodo >= _periods.Max(p => p.StartDate))
+        // Si no hay ningún periodo todavía sin presupuesto Ordinario (típico en un
+        // edificio recién creado, o justo después de crear el último disponible), se
+        // sugiere automáticamente el siguiente para que el desplegable no arranque
+        // vacío — el usuario igual puede crear otro distinto con el botón "+" si este
+        // no es el que necesita.
+        if (!PeriodosDisponibles().Any())
         {
-            await CrearNuevoPeriodo(_periods.Any() ? _ultimoPeriodo.AddMonths(1) : _ultimoPeriodo);
+            var siguiente = _periods.Any() ? _periods.Max(p => p.StartDate).AddMonths(1) : DateTime.Today;
+            await CrearNuevoPeriodo(siguiente);
         }
 
+        // Arranca sin periodo elegido: la Descripción (y el botón Crear) quedan
+        // deshabilitados hasta que el usuario seleccione uno explícitamente —
+        // OnSelectedCalculationChanged es quien la completa recién ahí.
+        _selectedPeriod = DateTime.MinValue;
         _newCalculation = new NewCalculation
         {
-            Month = _currentPeriod.StartDate.Month,
-            Year = _currentPeriod.StartDate.Year,
             TotalApartments = _BudgetState.TotalApartments,
-            Description = "Presupuesto - " + @GetMonthName(_currentPeriod.StartDate.Month) + " " + _currentPeriod.StartDate.Year
+            Description = string.Empty
         };
 
         await _newCalcModal.ShowAsync();
     }
+
+    // Periodos que todavía no tienen un presupuesto Ordinario creado — los únicos que
+    // tiene sentido ofrecer en "Nuevo Presupuesto" (evita crear dos presupuestos para
+    // el mismo mes). No filtra por fecha "mayor a la última" (ese criterio excluía por
+    // error el periodo recién auto-creado cuando su StartDate, normalizado al día 1,
+    // quedaba antes que la marca de tiempo exacta usada para crearlo).
+    private List<Period> PeriodosDisponibles() =>
+        _periods.Where(p => !presupuestoService._Budgets.Any(b =>
+            string.IsNullOrEmpty(b.BudgetType) && b.BudgetDate.Date == p.StartDate.Date)).ToList();
 
     private async Task CrearNuevoPeriodo(DateTime newperiod)
     {
@@ -995,8 +1009,21 @@
         _currentPeriod = newPeriod;
     }
 
+    // Botón "+" junto a Periodo: crea el siguiente periodo después del más reciente que
+    // ya exista (tenga o no presupuesto) y lo deja seleccionado — para cuando el
+    // sugerido automáticamente al abrir el modal no es el que se necesita.
+    private async Task CrearYSeleccionarNuevoPeriodo()
+    {
+        var siguiente = _periods.Any() ? _periods.Max(p => p.StartDate).AddMonths(1) : DateTime.Today;
+        await CrearNuevoPeriodo(siguiente);
+        _selectedPeriod = _currentPeriod.StartDate;
+        await OnSelectedCalculationChanged();
+    }
+
     private async Task CreateNewCalculation()
     {
+        if (_selectedPeriod == DateTime.MinValue) return;
+
         // Implementar lógica para crear nuevo cálculo
         _BudgetState.Budget = new BudgetHeader
         {
@@ -1096,10 +1123,22 @@
         StateHasChanged();
     }
 
-    private async Task OnSelectedCalculationChanged()
+    private Task OnSelectedCalculationChanged()
     {
+        if (_selectedPeriod == DateTime.MinValue)
+        {
+            // Sin periodo seleccionado (placeholder "Selecciona un periodo") no debe
+            // quedar ningún texto sugerido en la Descripción.
+            _newCalculation.Description = string.Empty;
+            _BudgetState.Budget.BudgetName = string.Empty;
+            return Task.CompletedTask;
+        }
+
+        _newCalculation.Month = _selectedPeriod.Month;
+        _newCalculation.Year = _selectedPeriod.Year;
         _newCalculation.Description = $"Presupuesto - {GetMonthName(_selectedPeriod.Month)} {_selectedPeriod.Year}";
         _BudgetState.Budget.BudgetName = _newCalculation.Description;
+        return Task.CompletedTask;
     }
 
     private void SeleccionarCategoria(Models.Category category)

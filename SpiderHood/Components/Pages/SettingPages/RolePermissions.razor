@@ -4,11 +4,23 @@
 @using SpiderHood.Models
 @inject Services.IPermissionAdminService PermissionAdminService
 @inject Services.IPermissionService PermissionService
+@inject Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Asignar Permisos</PageTitle>
 
+@if (!_loading && !_canManageRoles)
+{
+    <div class="container-fluid">
+        <div class="alert alert-danger m-4">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para gestionar roles y permisos.
+        </div>
+    </div>
+}
+else
+{
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
@@ -108,6 +120,7 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     [Parameter] public Guid? RoleId { get; set; } = Guid.Empty;
@@ -119,10 +132,18 @@
     private bool _saving;
     private string _searchTerm = string.Empty;
 
+    // La página más sensible del sistema: desde acá se le puede asignar cualquier
+    // permiso a cualquier rol, incluido Administrador. Gateada con su propia clave
+    // (manage_roles) en vez de reusar alguna genérica, y a nivel de página completa
+    // (no sólo el botón Guardar) — ver Database/Migrations/2026-08-28_Permiso_ManageRoles.sql.
+    private bool _canManageRoles;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageRoles = await PermissionService.HasPermissionAsync(currentUser, "manage_roles");
             await LoadDataAsync();
         }
     }
@@ -217,6 +238,7 @@
 
     private async Task SavePermissions()
     {
+        if (!_canManageRoles) return;
         try
         {
             _saving = true;

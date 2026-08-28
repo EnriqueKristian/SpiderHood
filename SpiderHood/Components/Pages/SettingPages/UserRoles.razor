@@ -3,10 +3,23 @@
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @inject Services.IPermissionAdminService PermissionAdminService
+@inject Services.IPermissionService PermissionService
+@inject Services.AuthService AuthService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Asignar Roles a Usuarios</PageTitle>
 
+@if (!_loading && !_canManageRoles)
+{
+    <div class="container-fluid">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para asignar roles a usuarios.
+        </div>
+    </div>
+}
+else
+{
 <div class="container-fluid">
     <div class="card shadow">
         <div class="card-header bg-primary text-white">
@@ -75,6 +88,7 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     private List<RoleAssignment> _assignments = new();
@@ -82,11 +96,17 @@
 
     private bool _initialized = false;
 
+    // Misma clave que Roles.razor/RolePermissions.razor — ver
+    // Database/Migrations/2026-08-28_Permiso_ManageRoles.sql.
+    private bool _canManageRoles;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && !_initialized)
         {
             _initialized = true;
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageRoles = await PermissionService.HasPermissionAsync(currentUser, "manage_roles");
             await LoadDataAsync();
             StateHasChanged();
         }
@@ -111,6 +131,7 @@
 
     private async Task ChangeUserRole(Guid userId, Guid newRole)
     {
+        if (!_canManageRoles) return;
         if (newRole != Guid.Empty)
         {
             try

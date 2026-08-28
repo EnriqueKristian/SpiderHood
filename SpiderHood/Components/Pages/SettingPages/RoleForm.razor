@@ -4,11 +4,24 @@
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @inject Services.IPermissionAdminService PermissionAdminService
+@inject Services.IPermissionService PermissionService
+@inject Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
 <PageTitle>@(_isEdit ? "Editar Rol" : "Nuevo Rol")</PageTitle>
 
+@if (!_checkingPermission && !_canManageRoles)
+{
+    <div class="container">
+        <div class="alert alert-danger mt-4">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para gestionar roles y permisos.
+        </div>
+    </div>
+}
+else
+{
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-8">
@@ -69,6 +82,7 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     [Parameter] public Guid? Id { get; set; }
@@ -77,11 +91,24 @@
     private bool _isEdit;
     private bool _saving;
 
+    // Misma clave que Roles.razor/RolePermissions.razor — ver
+    // Database/Migrations/2026-08-28_Permiso_ManageRoles.sql.
+    private bool _canManageRoles;
+    private bool _checkingPermission = true;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _isEdit)
+        if (firstRender)
         {
-            await LoadRoleAsync();
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageRoles = await PermissionService.HasPermissionAsync(currentUser, "manage_roles");
+            _checkingPermission = false;
+            StateHasChanged();
+
+            if (_isEdit)
+            {
+                await LoadRoleAsync();
+            }
         }
     }
 
@@ -117,6 +144,7 @@
 
     private async Task HandleSubmit()
     {
+        if (!_canManageRoles) return;
         try
         {
             _saving = true;

@@ -3,11 +3,24 @@
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @inject Services.IPermissionAdminService PermissionAdminService
+@inject Services.IPermissionService PermissionService
+@inject Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Gestión de Roles</PageTitle>
 
+@if (!_loading && !_canManageRoles)
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para gestionar roles y permisos.
+        </div>
+    </div>
+}
+else
+{
 <div class="container-fluid px-4 py-3">
     <div class="page-header">
         <div class="page-header-title">
@@ -87,15 +100,22 @@
         </div>
     }
 </div>
+}
 
 @code {
     private List<Role> _roles = new();
     private bool _loading = true;
 
+    // Misma clave que RolePermissions.razor — ver
+    // Database/Migrations/2026-08-28_Permiso_ManageRoles.sql.
+    private bool _canManageRoles;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageRoles = await PermissionService.HasPermissionAsync(currentUser, "manage_roles");
             await LoadRolesAsync();
         }
     }
@@ -124,6 +144,7 @@
 
     private async Task DeleteRole(Role role)
     {
+        if (!_canManageRoles) return;
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             $"¿Está seguro de eliminar el rol '{role.RoleName}'?");
 

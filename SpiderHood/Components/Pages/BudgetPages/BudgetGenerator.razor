@@ -310,13 +310,13 @@
                         <label class="form-label">Periodo *</label>
                         <div class="input-group">
                             <select class="form-select"
-                                    @bind="_selectedPeriod"
+                                    @bind="_selectedPeriodKey"
                                     @bind:event="onchange"
                                     @bind:after="() => OnSelectedCalculationChanged()">
-                                <option value="@DateTime.MinValue">Selecciona un periodo</option>
+                                <option value="">Selecciona un periodo</option>
                                 @foreach (var item in PeriodosDisponibles())
                                 {
-                                    <option value="@item.StartDate">@item.StartDate.ToString("MMM-yy")</option>
+                                    <option value="@ClavePeriodo(item.StartDate)">@item.StartDate.ToString("MMM-yy")</option>
                                 }
                             </select>
                             <button class="btn btn-outline-secondary" type="button"
@@ -476,6 +476,14 @@
     private List<Period> _periods = new();
     private Period _currentPeriod = new();
     private DateTime _selectedPeriod;
+    // Clave string del <select> de Periodo — @bind sobre un DateTime directo no
+    // funcionaba: la opción se renderiza con DateTime.ToString() (formato de cultura)
+    // pero Blazor reparsea ese texto al seleccionar, y ambos no siempre coinciden, así
+    // que la selección nunca se aplicaba visualmente. Con una clave string fija
+    // (yyyy-MM-dd) no hay ambigüedad de formato que resolver.
+    private string _selectedPeriodKey = string.Empty;
+
+    private static string ClavePeriodo(DateTime fecha) => fecha.ToString("yyyy-MM-dd");
 
     private BudgetState _BudgetState = new();
 
@@ -983,6 +991,7 @@
         // Arranca sin periodo elegido: la Descripción (y el botón Crear) quedan
         // deshabilitados hasta que el usuario seleccione uno explícitamente —
         // OnSelectedCalculationChanged es quien la completa recién ahí.
+        _selectedPeriodKey = string.Empty;
         _selectedPeriod = DateTime.MinValue;
         _newCalculation = new NewCalculation
         {
@@ -1016,7 +1025,7 @@
     {
         var siguiente = _periods.Any() ? _periods.Max(p => p.StartDate).AddMonths(1) : DateTime.Today;
         await CrearNuevoPeriodo(siguiente);
-        _selectedPeriod = _currentPeriod.StartDate;
+        _selectedPeriodKey = ClavePeriodo(_currentPeriod.StartDate);
         await OnSelectedCalculationChanged();
     }
 
@@ -1125,15 +1134,17 @@
 
     private Task OnSelectedCalculationChanged()
     {
-        if (_selectedPeriod == DateTime.MinValue)
+        if (string.IsNullOrEmpty(_selectedPeriodKey) || !DateTime.TryParse(_selectedPeriodKey, out var periodo))
         {
             // Sin periodo seleccionado (placeholder "Selecciona un periodo") no debe
             // quedar ningún texto sugerido en la Descripción.
+            _selectedPeriod = DateTime.MinValue;
             _newCalculation.Description = string.Empty;
             _BudgetState.Budget.BudgetName = string.Empty;
             return Task.CompletedTask;
         }
 
+        _selectedPeriod = periodo;
         _newCalculation.Month = _selectedPeriod.Month;
         _newCalculation.Year = _selectedPeriod.Year;
         _newCalculation.Description = $"Presupuesto - {GetMonthName(_selectedPeriod.Month)} {_selectedPeriod.Year}";

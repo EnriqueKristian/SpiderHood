@@ -320,16 +320,27 @@
                 @if (!_ServiceReadingState.OpenFromModal && _ServiceReadingState.CurrentReading.Status < 2)
                 {
                     <!-- Botones de acción -->
-                    <div class="d-flex justify-content-between">
+                    <div class="d-flex justify-content-between align-items-center">
                         <button @onclick="ExportarAExcel" class="btn btn-success">
                             <i class="bi bi-file-earmark-excel mr-2"></i>&nbsp;Exportar a Excel
                         </button>
-                        @if (_ServiceReadingState.ShowSaveReadings) // !_error )
-                        {
-                            <button @onclick="GuardarLecturas" class="btn btn-primary">
+                        <div class="d-flex align-items-center gap-2">
+                            @if (!_ServiceReadingState.ShowSaveReadings)
+                            {
+                                <!-- Antes el botón directamente desaparecía hasta que todo
+                                     quedara resuelto (filas pendientes de mínimo, errores de
+                                     importación) — igual que "Crear" en el modal Nuevo
+                                     Presupuesto, ahora queda siempre visible pero deshabilitado,
+                                     con el motivo, para que no parezca que falta algo por
+                                     cargar. -->
+                                <small class="text-muted">
+                                    <i class="bi bi-exclamation-circle me-1"></i>Resuelva las filas pendientes o con error para poder guardar
+                                </small>
+                            }
+                            <button @onclick="GuardarLecturas" class="btn btn-primary" disabled="@(!_ServiceReadingState.ShowSaveReadings)">
                                 <i class="bi bi-floppy mr-2"></i>&nbsp;Guardar Lecturas
                             </button>
-                        }
+                        </div>
                         <button @onclick="LimpiarDatos" class="btn btn-danger">
                             <i class="bi bi-trash mr-2"></i>&nbsp;Limpiar Todo
                         </button>

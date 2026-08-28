@@ -113,6 +113,17 @@ namespace SpiderHood.Models
             // TODO: Implementar descarga
         }
 
+        // La plantilla tiene que calzar exactamente con lo que CalculoService.
+        // ImportarDesdeExcelAsync espera al leerla de vuelta: hoja 1, fila 1 = encabezado
+        // (se descarta con RowsUsed().Skip(1), sin importar su contenido), y desde la fila
+        // 2 en adelante, EXACTAMENTE 4 columnas en este orden — Dpto. (Cell 1), Periodo
+        // (Cell 2, fecha obligatoria y no futura), Lectura Actual (Cell 3, numérico) y
+        // Fecha de Lectura (Cell 4, fecha obligatoria y no futura); ver
+        // WaterReadingValidator.ValidateLoadExcelReading. La versión anterior de este
+        // método no coincidía en nada de esto — encabezados en la fila 3 en vez de la 1,
+        // solo 3 columnas (sin "Periodo" propio de cada fila), y filas de "INSTRUCCIONES"
+        // sueltas más abajo que RowsUsed() barría igual como si fueran datos — así que
+        // ninguna fila lograba pasar la validación al reimportarla.
         public async Task<(string Filename, MemoryStream Stream)> ExportarPlantillaVacia(ServiceReadingState state, List<UnitView> unidades)
         {
             try
@@ -123,44 +134,54 @@ namespace SpiderHood.Models
                 {
                     var worksheet = workbook.Worksheets.Add("Plantilla");
 
-                    worksheet.Cell(1, 1).Value = "Periodo";
-                    worksheet.Cell(1, 1).Style.Font.Bold = true;
-                    worksheet.Cell(1, 1).Style.Fill.BackgroundColor = XLColor.LightGray;
-
-                    worksheet.Cell(1, 2).Value = state.CurrentReading.Period;
-
-                    // Encabezados
-                    var headers = new[] { "Dpto.", "Lect. Actual", "Fecha. Lectura" };
+                    // Encabezado en la fila 1 — es la única fila que el importador se salta,
+                    // así que tiene que ser justo esta, sin nada de "Periodo" suelto arriba.
+                    var headers = new[] { "Dpto.", "Periodo", "Lectura Actual", "Fecha Lectura" };
 
                     for (int i = 0; i < headers.Length; i++)
                     {
-                        worksheet.Cell(3, i + 1).Value = headers[i];
-                        worksheet.Cell(3, i + 1).Style.Font.Bold = true;
-                        worksheet.Cell(3, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+                        worksheet.Cell(1, i + 1).Value = headers[i];
+                        worksheet.Cell(1, i + 1).Style.Font.Bold = true;
+                        worksheet.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
                     }
 
-                    // Formato para ID de unidad
-                    worksheet.Column(1).Style.NumberFormat.Format = "@"; // Texto
+                    // Texto plano en todas las columnas (incluidas las de fecha): así lo que
+                    // el usuario escriba se guarda tal cual, sin que Excel lo reformatee a su
+                    // propio formato regional al vuelo — mismo criterio que ya usaba la
+                    // columna 1 para no perder ceros a la izquierda del Dpto.
+                    worksheet.Columns(1, 4).Style.NumberFormat.Format = "@";
 
-                    // Agregar algunas unidades como ejemplo
-                    //var unidades = await ObtenerUnidadesDelEdificio();
-                    int row = 4;
+                    var periodoTexto = state.CurrentReading.Period.ToString("yyyy-MM-dd");
+                    var fechaLecturaSugerida = DateTime.Today.ToString("yyyy-MM-dd");
 
+                    int row = 2;
                     foreach (var unidad in unidades)
                     {
-                        worksheet.Cell(row, 1).Value = unidad.Number;
-                        worksheet.Cell(row, 2).Value = ""; // Lectura actual vacía
-                        worksheet.Cell(row, 3).Value = ""; // Observaciones vacías
+                        worksheet.Cell(row, 1).Value = unidad.Number.ToString();
+                        // Precargado — es el mismo periodo para todas las unidades y es
+                        // obligatorio para que la fila pase la validación al importar.
+                        worksheet.Cell(row, 2).Value = periodoTexto;
+                        worksheet.Cell(row, 3).Value = ""; // Lectura actual — a completar
+                        // Sugerido con la fecha de hoy (también obligatorio); el usuario lo
+                        // puede cambiar si tomó la lectura otro día.
+                        worksheet.Cell(row, 4).Value = fechaLecturaSugerida;
                         row++;
                     }
 
-                    // Instrucciones
-                    worksheet.Cell(row + 2, 1).Value = "INSTRUCCIONES:";
-                    worksheet.Cell(row + 2, 1).Style.Font.Bold = true;
-                    worksheet.Cell(row + 3, 1).Value = "1. Complete la columna 'CurrentReading' con la lectura actual";
-                    worksheet.Cell(row + 4, 1).Value = "2. No modifique la columna 'Dpto.'";
-                    worksheet.Cell(row + 5, 1).Value = "3. Elimine seccion de INSTRUCCIONES";
-                    worksheet.Cell(row + 6, 1).Value = "4. Guarde el archivo y cárguelo en el sistema";
+                    worksheet.Columns().AdjustToContents();
+
+                    // Las instrucciones van en una hoja aparte — CalculoService.
+                    // ImportarDesdeExcelAsync solo lee workbook.Worksheet(1) (la primera),
+                    // así que esto no interfiere para nada con la importación.
+                    var hojaInstrucciones = workbook.Worksheets.Add("Instrucciones");
+                    hojaInstrucciones.Cell(1, 1).Value = "INSTRUCCIONES";
+                    hojaInstrucciones.Cell(1, 1).Style.Font.Bold = true;
+                    hojaInstrucciones.Cell(2, 1).Value = "1. No modifique la columna 'Dpto.' ni el orden de las columnas.";
+                    hojaInstrucciones.Cell(3, 1).Value = "2. Complete 'Lectura Actual' con la lectura del medidor de cada unidad.";
+                    hojaInstrucciones.Cell(4, 1).Value = "3. 'Periodo' y 'Fecha Lectura' ya vienen precargados — solo ajuste 'Fecha Lectura' si tomó la lectura otro día.";
+                    hojaInstrucciones.Cell(5, 1).Value = "4. Ambas fechas deben tener formato AAAA-MM-DD (ej: 2026-03-15) y no pueden ser una fecha futura.";
+                    hojaInstrucciones.Cell(6, 1).Value = "5. Guarde el archivo y cárguelo en el sistema con 'Importar Lecturas de Agua'.";
+                    hojaInstrucciones.Columns().AdjustToContents();
 
                     workbook.SaveAs(memoryStream);
                 }
@@ -168,13 +189,9 @@ namespace SpiderHood.Models
                 var fileName = $"Plantilla_Lecturas_{DateTime.Now:yyyyMMdd}.xlsx";
 
                 return (fileName, memoryStream);
-                //await DescargarArchivo(fileName, memoryStream.ToArray());
-
-                //await MostrarMensajeExito("Plantilla descargada exitosamente");
             }
             catch (Exception ex)
             {
-                //await MostrarMensajeError($"Error al generar plantilla: {ex.Message}");
                 throw new Exception($"Error al generar plantilla: {ex.Message}", ex);
             }
         }

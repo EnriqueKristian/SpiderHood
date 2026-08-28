@@ -197,7 +197,8 @@
         </div>
     </div>
 
-    <PeriodForm ShowModal="ShowModal" ShowModalChanged="@((valor) => ShowModal = valor)" isNew="@isNew" OnSave="SavePeriod" period="period" />
+    <PeriodForm ShowModal="ShowModal" ShowModalChanged="@((valor) => ShowModal = valor)" isNew="@isNew" OnSave="SavePeriod" period="period"
+                CamposFechaTipoEditables="@(!isNew || !periods.Any())" />
 </div>
 
 @code {
@@ -247,7 +248,50 @@
     {
         ShowModal = true;
         isNew = true;
-        period = ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding).Result;
+
+        if (!periods.Any())
+        {
+            // Primer periodo del edificio: el usuario elige libremente desde cuándo
+            // arranca a operar el sistema (ej. Marzo, si tiene data desde esa fecha).
+            period = ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding).Result;
+        }
+        else
+        {
+            // A partir del primero, todo periodo nuevo es siempre "el siguiente" según
+            // el Tipo de Periodo con el que arrancó — no se deja elegir una fecha libre,
+            // así se evita por construcción crear uno anterior o duplicar uno existente.
+            var ultimo = periods.OrderByDescending(p => p.StartDate).First();
+            period = CalcularSiguientePeriodo(ultimo);
+        }
+    }
+
+    private Models.Period CalcularSiguientePeriodo(Models.Period ultimo)
+    {
+        var meses = ultimo.PeriodType switch
+        {
+            2 => 2,
+            3 => 3,
+            4 => 6,
+            5 => 12,
+            _ => 1
+        };
+
+        var start = ultimo.StartDate.AddMonths(meses);
+
+        return new Models.Period
+        {
+            IdPeriod = Guid.NewGuid(),
+            IdBuilding = ultimo.IdBuilding,
+            Name = start.ToString("MMMM-yy", System.Globalization.CultureInfo.InvariantCulture),
+            PeriodType = ultimo.PeriodType,
+            StartDate = start,
+            EndDate = start.AddMonths(meses).AddDays(-1),
+            ClosingDate = start.AddMonths(meses).AddDays(15),
+            Status = 1,
+            IsCurrentPeriod = false,
+            IsNewPeriod = true,
+            Description = $"Periodo generado automáticamente para {start:MMMM yyyy}"
+        };
     }
 
     private void EditPeriod(Models.Period _period)

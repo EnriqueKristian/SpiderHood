@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Claude Code local session data (worktrees for background agents, etc.) — never
+# part of the project itself.
+.claude/

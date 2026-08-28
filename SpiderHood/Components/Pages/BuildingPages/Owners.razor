@@ -8,6 +8,7 @@
 @inject ParameterService ParameterService
 @inject IOwnerService OwnerService
 @inject Services.AuthService AuthService
+@inject IPermissionService PermissionService
 @using Microsoft.AspNetCore.Components
 @using System.ComponentModel.DataAnnotations.Schema
 @inject IJSRuntime JSRuntime
@@ -60,9 +61,12 @@
             <button class="btn btn-outline-secondary" @onclick="ExportToExcel">
                 <i class="bi bi-file-earmark-excel me-2"></i>Exportar
             </button>
-            <button class="btn btn-primary" @onclick="ShowAddOwnerModal">
-                <i class="bi bi-plus-circle me-2"></i>Nuevo Propietario
-            </button>
+            @if (_canCreateOwner)
+            {
+                <button class="btn btn-primary" @onclick="ShowAddOwnerModal">
+                    <i class="bi bi-plus-circle me-2"></i>Nuevo Propietario
+                </button>
+            }
         </div>
     </div>
 
@@ -274,16 +278,22 @@
                                                             @onclick:stopPropagation @onclick="() => ViewOwnerDetails(owner)">
                                                         <i class="bi bi-eye"></i>
                                                     </button>
-                                                    <button class="btn btn-outline-secondary"
-                                                            title="Editar"
-                                                            @onclick:stopPropagation @onclick="() => EditOwner(owner)">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-success"
-                                                            title="Agregar residente"
-                                                            @onclick:stopPropagation @onclick="() => AddResident(owner)">
-                                                        <i class="bi bi-person-plus"></i>
-                                                    </button>
+                                                    @if (_canEditOwner)
+                                                    {
+                                                        <button class="btn btn-outline-secondary"
+                                                                title="Editar"
+                                                                @onclick:stopPropagation @onclick="() => EditOwner(owner)">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                    }
+                                                    @if (_canCreateOwner)
+                                                    {
+                                                        <button class="btn btn-outline-success"
+                                                                title="Agregar residente"
+                                                                @onclick:stopPropagation @onclick="() => AddResident(owner)">
+                                                            <i class="bi bi-person-plus"></i>
+                                                        </button>
+                                                    }
                                                     <button class="btn btn-outline-info"
                                                             title="Asignar unidades"
                                                             @onclick:stopPropagation @onclick="() => GoToAssignUnits(owner)">
@@ -349,9 +359,12 @@
                             </div>
                             <h5 class="text-muted mb-2">No hay propietarios registrados</h5>
                             <p class="text-muted mb-3">Para los filtros seleccionados</p>
-                            <button class="btn btn-primary" @onclick="ShowAddOwnerModal">
-                                <i class="bi bi-plus-circle me-2"></i>Agregar Primer Propietario
-                            </button>
+                            @if (_canCreateOwner)
+                            {
+                                <button class="btn btn-primary" @onclick="ShowAddOwnerModal">
+                                    <i class="bi bi-plus-circle me-2"></i>Agregar Primer Propietario
+                                </button>
+                            }
                         </div>
                     }
                 </div>
@@ -549,11 +562,20 @@
     private List<GroupUnit1> currentPageData = new();
     private UserSession? currentUser = new();
 
+    private bool _canCreateOwner;
+    private bool _canEditOwner;
+    private bool _canDeleteOwner;
+    private bool _canAssignUnits;
 
     protected override async Task OnInitializedAsync()
     {
         currentUser = await AuthService.GetCurrentUserAsync();
         if (currentUser == null) return;
+
+        _canCreateOwner = await PermissionService.HasPermissionAsync(currentUser, "create_owner");
+        _canEditOwner = await PermissionService.HasPermissionAsync(currentUser, "edit_owner");
+        _canDeleteOwner = await PermissionService.HasPermissionAsync(currentUser, "delete_owner");
+        _canAssignUnits = await PermissionService.HasPermissionAsync(currentUser, "assign_units");
 
         await LoadDataAsync();
     }
@@ -882,6 +904,7 @@
 
     private void ShowAddOwnerModal()
     {
+        if (!_canCreateOwner) return;
         _residentGroupId = null;
         _Owner = new Models.Owner { IdBuilding = currentUser?.CurrentBuildingId ?? Guid.Empty };
         OpenMode = Models.OpenType.Create;
@@ -890,6 +913,7 @@
 
     private void SelectOwner(GroupUnit1 owner)
     {
+        if (!_canAssignUnits) return;
         AbrirModalProp(owner, OpenType.Update);
     }
 
@@ -900,6 +924,7 @@
 
     private void EditOwner(GroupUnit1 owner)
     {
+        if (!_canEditOwner) return;
         var titular = owner.Owners.FirstOrDefault();
         if (titular == null) return;
 
@@ -924,6 +949,7 @@
 
     private void AddResident(GroupUnit1 owner)
     {
+        if (!_canCreateOwner) return;
         _residentGroupId = owner.IdGroupUnit;
         _Owner = new Models.Owner { IdBuilding = currentUser?.CurrentBuildingId ?? Guid.Empty };
         OpenMode = Models.OpenType.Create;
@@ -966,6 +992,7 @@
 
     private async Task OnShowModalDelete(Guid IdOwner)
     {
+        if (!_canDeleteOwner) return;
         _Owner = new Models.Owner();
         _Owner.IdOwner = IdOwner;
         await modal.ShowAsync();
@@ -980,6 +1007,9 @@
 
     private async Task SaveItem(SpiderHood.Models.Owner _item)
     {
+        if (OpenMode == Models.OpenType.Create && !_canCreateOwner) return;
+        if (OpenMode == Models.OpenType.Update && !_canEditOwner) return;
+
         await (OpenMode switch
         {
             Models.OpenType.Update => UpdateItem(_item),
@@ -1020,6 +1050,7 @@
 
     private async Task DeleteItem()
     {
+        if (!_canDeleteOwner) { await modal.HideAsync(); return; }
         // Lógica adicional después de cerrar el modal, si es necesario
         await OwnerService.DeleteOwnerAsync(_Owner);
         await modal.HideAsync();
@@ -1035,6 +1066,7 @@
 
     private void AbrirModalProp(GroupUnit1 _own, Models.OpenType _mode)
     {
+        if (!_canAssignUnits) return;
         //throw new NotImplementedException();
         MostrarModalUnit = true;
         OpenMode = _mode;
@@ -1047,6 +1079,7 @@
 
     private async Task SaveGroupUnit(List<Models.RealEstateUnit> _Units)
     {
+        if (!_canAssignUnits) return;
         //if (OpenMode == TipoEdicion.Editar)
         //{
         // Update existing category logic here

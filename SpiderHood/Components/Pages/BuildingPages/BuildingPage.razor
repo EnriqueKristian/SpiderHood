@@ -8,6 +8,7 @@
 @inject Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject Services.ParameterService ParameterService
+@inject Services.IPermissionService PermissionService
 
 <div class="building-management">
     <!-- Header -->
@@ -195,12 +196,15 @@
                                 <!-- Sección Moneda y Bancos -->
                                 <div class="card card-hover config-card @(_editingSection == "currency" ? "edit-mode" : "")">
                                     <div class="card-body">
-                                        <div class="edit-button">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick='() => StartEditSection("currency")'>
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </div>
+                                        @if (_canEditBuilding)
+                                        {
+                                            <div class="edit-button">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick='() => StartEditSection("currency")'>
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                        }
                                         
                                         <h6 class="section-title">
                                             <i class="bi bi-currency-exchange me-2"></i>Moneda y Cuentas
@@ -308,12 +312,15 @@
                                 <!-- Sección Pagos -->
                                 <div class="card card-hover config-card @(_editingSection == "payments" ? "edit-mode" : "")">
                                     <div class="card-body">
-                                        <div class="edit-button">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick='() => StartEditSection("payments")'>
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </div>
+                                        @if (_canEditBuilding)
+                                        {
+                                            <div class="edit-button">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick='() => StartEditSection("payments")'>
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                        }
                                         
                                         <h6 class="section-title">
                                             <i class="bi bi-credit-card me-2"></i>Configuración de Pagos
@@ -396,12 +403,15 @@
                                 <!-- Sección Multas y Mora -->
                                 <div class="card card-hover config-card @(_editingSection == "fines" ? "edit-mode" : "")">
                                     <div class="card-body">
-                                        <div class="edit-button">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick='() => StartEditSection("fines")'>
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </div>
+                                        @if (_canEditBuilding)
+                                        {
+                                            <div class="edit-button">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick='() => StartEditSection("fines")'>
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                        }
                                         
                                         <h6 class="section-title">
                                             <i class="bi bi-exclamation-triangle me-2"></i>Defaults, Multas y Mora
@@ -560,12 +570,15 @@
                                 <!-- Sección Contactos -->
                                 <div class="card card-hover config-card @(_editingSection == "admin" ? "edit-mode" : "")">
                                     <div class="card-body">
-                                        <div class="edit-button">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick='() => StartEditSection("admin")'>
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </div>
+                                        @if (_canEditBuilding)
+                                        {
+                                            <div class="edit-button">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick='() => StartEditSection("admin")'>
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                        }
                                         
                                         <h6 class="section-title">
                                             <i class="bi bi-person-lines-fill me-2"></i>Contacto Administración
@@ -642,12 +655,15 @@
                                 <!-- Sección Inmobiliaria -->
                                 <div class="card card-hover config-card @(_editingSection == "realty" ? "edit-mode" : "")">
                                     <div class="card-body">
-                                        <div class="edit-button">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick='() => StartEditSection("realty")'>
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </div>
+                                        @if (_canEditBuilding)
+                                        {
+                                            <div class="edit-button">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick='() => StartEditSection("realty")'>
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                        }
                                         
                                         <h6 class="section-title">
                                             <i class="bi bi-building me-2"></i>Inmobiliaria
@@ -721,12 +737,15 @@
                                 <!-- Sección Mantenimiento -->
                                 <div class="card card-hover config-card @(_editingSection == "maintenance" ? "edit-mode" : "")">
                                     <div class="card-body">
-                                        <div class="edit-button">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick='() => StartEditSection("maintenance")'>
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </div>
+                                        @if (_canEditBuilding)
+                                        {
+                                            <div class="edit-button">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick='() => StartEditSection("maintenance")'>
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                        }
                                         
                                         <h6 class="section-title">
                                             <i class="bi bi-tools me-2"></i>Empresa de Mantenimiento
@@ -810,12 +829,15 @@
                                  <!-- Sección Categoría Default -->
                                 <div class="card card-hover config-card @(_editingSection == "category" ? "edit-mode" : "")">
                                     <div class="card-body">
-                                        <div class="edit-button">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" 
-                                                    @onclick='() => StartEditSection("category")'>
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </div>
+                                        @if (_canEditBuilding)
+                                        {
+                                            <div class="edit-button">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick='() => StartEditSection("category")'>
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                        }
                                     
                                         <h6 class="section-title">
                                             <i class="bi bi-tags me-2"></i>Categorías Default
@@ -906,12 +928,15 @@
                                <!-- Sección Excepciones de Pago -->
                                 <div class="card card-hover config-card @(_editingSection == "exception" ? "edit-mode" : "")">
                                     <div class="card-body">
-                                        <div class="edit-button">
-                                            <button type="button" class="btn btn-sm btn-outline-primary"
-                                                    @onclick='() => StartEditSection("exception")'>
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                        </div>
+                                        @if (_canEditBuilding)
+                                        {
+                                            <div class="edit-button">
+                                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        @onclick='() => StartEditSection("exception")'>
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                        }
 
                                         <h6 class="section-title">
                                             <i class="bi bi-currency-exchange me-2"></i>Excepciones de Pago

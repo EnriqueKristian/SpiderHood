@@ -51,11 +51,14 @@ namespace SpiderHood.Components.Pages.BuildingPages
         //private Guid IdBuilding = Guid.Empty;
         private UserSession currentUser = new();
         private bool _loaded = false;
+        private bool _canEditBuilding;
 
         protected override async Task OnInitializedAsync()
         {
             currentUser = await AuthService.GetCurrentUserAsync();
             if (currentUser == null) return;
+
+            _canEditBuilding = await PermissionService.HasPermissionAsync(currentUser, "edit_building");
         }
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -262,6 +265,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private void StartEditSection(string section)
         {
+            if (!_canEditBuilding) return;
             if (SelectedBuilding != null)
             {
                 _configurationBackup = SelectedBuilding.Configuration.Clone();
@@ -280,6 +284,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task SaveSection(string section)
         {
+            if (!_canEditBuilding) return;
             try
             {
                 // Aquí iría la lógica para guardar en la base de datos

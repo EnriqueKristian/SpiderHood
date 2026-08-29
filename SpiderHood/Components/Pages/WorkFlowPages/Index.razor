@@ -4,9 +4,22 @@
 @using SpiderHood.Services
 @inject IWorkflowService WorkflowService
 @inject IJSRuntime JSRuntime
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
 
 <PageTitle>Catálogo de Workflows</PageTitle>
 
+@if (!_loading && !_canManageWorkflow)
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para acceder al catálogo de workflows.
+        </div>
+    </div>
+}
+else
+{
 <div class="container-fluid px-4 py-3">
     <div class="page-header">
         <div class="page-header-title">
@@ -309,6 +322,7 @@
         </div>
     </div>
 }
+}
 
 @code {
     private List<Workflow> _workflows = new();
@@ -324,8 +338,13 @@
     private WorkflowStep _stepForm = new();
     private Guid _stepFormWorkflowId;
 
+    private bool _canManageWorkflow;
+
     protected override async Task OnInitializedAsync()
     {
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canManageWorkflow = await PermissionService.HasPermissionAsync(currentUser, "manage_workflow");
+
         await LoadWorkflows();
     }
 
@@ -389,6 +408,7 @@
 
     private async Task SaveWorkflow()
     {
+        if (!_canManageWorkflow) return;
         if (_isNewWorkflow)
         {
             await WorkflowService.CreateWorkflowAsync(_workflowForm);
@@ -404,6 +424,7 @@
 
     private async Task ConfirmDeleteWorkflow(Workflow workflow)
     {
+        if (!_canManageWorkflow) return;
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             $"¿Eliminar el workflow \"{workflow.Name}\"? También se eliminarán todos sus pasos.");
 
@@ -451,6 +472,7 @@
 
     private async Task SaveStep()
     {
+        if (!_canManageWorkflow) return;
         if (_isNewStep)
         {
             await WorkflowService.AddStepAsync(_stepForm);
@@ -467,6 +489,7 @@
 
     private async Task ConfirmDeleteStep(Workflow workflow, WorkflowStep step)
     {
+        if (!_canManageWorkflow) return;
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar el paso \"{step.Name}\"?");
         if (!confirmed) return;
 

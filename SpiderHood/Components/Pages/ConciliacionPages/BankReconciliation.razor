@@ -9,6 +9,8 @@
 @implements IDisposable
 @rendermode InteractiveServer
 @inject ParameterService ParameterService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
 
 <PageTitle>SpiderHood - Conciliación Bancaria</PageTitle>
 
@@ -451,7 +453,7 @@
                                                     <div class="btn-group btn-group-sm" role="group">
                                                         @if (transaccion.Tipo == "Ingreso")
                                                         {
-                                                            @if (transaccion.ReconciliationStatus == ConcilationType.NoConciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial)
+                                                            @if (_canReconcileInstallments && (transaccion.ReconciliationStatus == ConcilationType.NoConciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial))
                                                             {
                                                                 <button class="btn btn-outline-primary"
                                                                         title="Conciliar manualmente"
@@ -460,7 +462,7 @@
                                                                 </button>
                                                             }
                                                         }
-                                                        else if (transaccion.ReconciliationStatus == ConcilationType.NoConciliada)
+                                                        else if (_canReconcileExpenses && transaccion.ReconciliationStatus == ConcilationType.NoConciliada)
                                                         {
                                                             <button class="btn btn-outline-primary"
                                                                     title="Conciliar manualmente"
@@ -473,14 +475,14 @@
                                                                 <i class="bi bi-plus-circle"></i>
                                                             </button>
                                                         }
-                                                        <button class="btn btn-outline-info" 
+                                                        <button class="btn btn-outline-info"
                                                                 title="Ver detalles"
                                                                 @onclick="() => VerDetallesTransaccion(transaccion)">
                                                             <i class="bi bi-eye"></i>
                                                         </button>
-                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada && ((transaccion.Tipo == "Ingreso" && _canReconcileInstallments) || (transaccion.Tipo != "Ingreso" && _canReconcileExpenses)))
                                                         {
-                                                            <button class="btn btn-outline-danger" 
+                                                            <button class="btn btn-outline-danger"
                                                                     title="Desconciliar"
                                                                     @onclick="() => DesconciliarTransaccion(transaccion)">
                                                                 <i class="bi bi-x-circle"></i>
@@ -576,30 +578,33 @@
                                     <button class="btn btn-outline-secondary" @onclick="DeseleccionarTodo">
                                         Deseleccionar todo
                                     </button>
-                                    <div class="dropdown">
-                                        <button class="btn btn-primary dropdown-toggle" 
-                                                type="button" 
-                                                data-bs-toggle="dropdown">
-                                            <i class="bi bi-lightning-charge me-2"></i>Acciones masivas
-                                        </button>
-                                        <ul class="dropdown-menu">
-                                            <li>
-                                                <a class="dropdown-item" @onclick="ConciliarSeleccionadas">
-                                                    <i class="bi bi-link-45deg me-2"></i>Conciliar seleccionadas
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item" @onclick="GenerarGastosSeleccionados">
-                                                    <i class="bi bi-plus-circle me-2"></i>Generar gastos
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item" @onclick="IgnorarSeleccionadas">
-                                                    <i class="bi bi-slash-circle me-2"></i>Ignorar transacciones
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </div>
+                                    @if (_canReconcileExpenses)
+                                    {
+                                        <div class="dropdown">
+                                            <button class="btn btn-primary dropdown-toggle"
+                                                    type="button"
+                                                    data-bs-toggle="dropdown">
+                                                <i class="bi bi-lightning-charge me-2"></i>Acciones masivas
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item" @onclick="ConciliarSeleccionadas">
+                                                        <i class="bi bi-link-45deg me-2"></i>Conciliar seleccionadas
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" @onclick="GenerarGastosSeleccionados">
+                                                        <i class="bi bi-plus-circle me-2"></i>Generar gastos
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item" @onclick="IgnorarSeleccionadas">
+                                                        <i class="bi bi-slash-circle me-2"></i>Ignorar transacciones
+                                                    </a>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -691,9 +696,12 @@
                     </div>
                     <div class="card-body">
                         <div class="d-grid gap-2">
-                            <button class="btn btn-success" @onclick="FinalizarConciliacion">
-                                <i class="bi bi-check2-all me-2"></i>Finalizar Conciliación
-                            </button>
+                            @if (_canReconcileExpenses)
+                            {
+                                <button class="btn btn-success" @onclick="FinalizarConciliacion">
+                                    <i class="bi bi-check2-all me-2"></i>Finalizar Conciliación
+                                </button>
+                            }
                             <button class="btn btn-outline-primary" @onclick="BuscarCoincidenciasAutomaticas">
                                 <i class="bi bi-search me-2"></i>Buscar Coincidencias Automáticas
                             </button>
@@ -833,11 +841,14 @@
                             </div>
                         }
                         
-                        <div class="text-center mt-3">
-                            <button class="btn btn-outline-primary" @onclick="() => CrearGastoDesdeTransaccion(transaccionSeleccionada)">
-                                <i class="bi bi-plus-circle me-2"></i>Crear nuevo gasto
-                            </button>
-                        </div>
+                        @if (_canReconcileExpenses)
+                        {
+                            <div class="text-center mt-3">
+                                <button class="btn btn-outline-primary" @onclick="() => CrearGastoDesdeTransaccion(transaccionSeleccionada)">
+                                    <i class="bi bi-plus-circle me-2"></i>Crear nuevo gasto
+                                </button>
+                            </div>
+                        }
                     </div>
                 </div>
             </div>
@@ -1034,6 +1045,10 @@
     private int totalCoincidenciasI = 0;
     private Conciliacion? ultimaConciliacion = null;
 
+    // Claves ya existentes en BD (ver mapeo de permisos), sin necesidad de script nuevo.
+    private bool _canReconcileExpenses;
+    private bool _canReconcileInstallments;
+
     private string conciliados = "conciliados";
     private string noConciliados = "noConciliados";
     private string todos = "todos";
@@ -1048,6 +1063,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canReconcileExpenses = await PermissionService.HasPermissionAsync(currentUser, "reconcile_expenses");
+        _canReconcileInstallments = await PermissionService.HasPermissionAsync(currentUser, "reconcile_installments");
+
         pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
 
         await CargarDatosIniciales();
@@ -1191,6 +1210,7 @@
 
     private async Task ConciliarConGasto(TransactionBankDetail transaccion, ViewExpense gasto, bool automatico = false)
     {
+        if (!_canReconcileExpenses) return;
         try
         {
             // Conciliar transacción con gasto
@@ -1238,6 +1258,7 @@
 
     private async Task<bool> AplicarPagoACuotas(TransactionBankDetail transaccion, List<Installment> cuotas, bool automatico = false)
     {
+        if (!_canReconcileInstallments) return false;
         try
         {
             if (transaccion == null) throw new ArgumentNullException(nameof(transaccion));
@@ -1328,6 +1349,7 @@
             return;
         }
 
+        if (!_canReconcileExpenses) return;
         if (transaccion.GastoConciliado == null) return;
 
         if (await JSRuntime.InvokeAsync<bool>("confirm",
@@ -1360,6 +1382,7 @@
 
     private async Task DesconciliarPagoIngreso(TransactionBankDetail transaccion)
     {
+        if (!_canReconcileInstallments) return;
         var pagosDeEstaTransaccion = pagosCuotas.Where(p => p.IdTransaction == transaccion.IdStatementDetail).ToList();
         if (!pagosDeEstaTransaccion.Any())
         {
@@ -1392,6 +1415,7 @@
 
     private void MostrarModalConciliar(TransactionBankDetail transaccion)
     {
+        if (!_canReconcileExpenses) return;
         transaccionSeleccionada = transaccion;
 
         // Filtrar gastos pendientes para esta transacción
@@ -1414,6 +1438,7 @@
 
     private void MostrarModalConciliarCuota(TransactionBankDetail transaccion)
     {
+        if (!_canReconcileInstallments) return;
         conciliarCuotaErrorBoundary?.Recover();
         transaccionParaCuota = transaccion;
         mostrarModalConciliarCuota = true;
@@ -1427,6 +1452,7 @@
 
     private async Task ConfirmarConciliarCuotas(List<Installment> cuotasSeleccionadas)
     {
+        if (!_canReconcileInstallments) return;
         if (transaccionParaCuota == null) return;
 
         mensajeError = null;
@@ -1444,6 +1470,7 @@
 
     private void CrearGastoDesdeTransaccion(TransactionBankDetail transaccion)
     {
+        if (!_canReconcileExpenses) return;
         transaccionParaGasto = transaccion;
         mostrarModalCrearGasto = true;
     }
@@ -1456,6 +1483,7 @@
 
     private async Task GastoCreadoExitosamente(ViewExpense nuevoGasto)
     {
+        if (!_canReconcileExpenses) return;
         nuevoGasto.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
         await ExpenseService.AddExpenseAsync(nuevoGasto);
 
@@ -1471,6 +1499,7 @@
 
     private async Task GenerarGastosSeleccionados()
     {
+        if (!_canReconcileExpenses) return;
         var transaccionesSeleccionadas = transaccionesNoConciliadas.Where(t => t.Selected).ToList();
 
         if (!transaccionesSeleccionadas.Any())
@@ -1510,6 +1539,7 @@
 
     private async Task ConciliarSeleccionadas()
     {
+        if (!_canReconcileExpenses) return;
         var transaccionesSeleccionadas = transaccionesNoConciliadas.Where(t => t.Selected).ToList();
 
         if (!transaccionesSeleccionadas.Any())
@@ -1533,6 +1563,7 @@
 
     private async Task IgnorarSeleccionadas()
     {
+        if (!_canReconcileExpenses) return;
         var transaccionesSeleccionadas = transaccionesNoConciliadas.Where(t => t.Selected).ToList();
 
         if (!transaccionesSeleccionadas.Any())
@@ -1577,6 +1608,7 @@
 
     private async Task FinalizarConciliacion()
     {
+        if (!_canReconcileExpenses) return;
         if (transaccionesNoConciliadas.Any())
         {
             if (!await JSRuntime.InvokeAsync<bool>("confirm", 

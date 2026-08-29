@@ -8,6 +8,8 @@
 @using SpiderHood.Services
 @inject NavigationManager Navigation // Inyecta el servicio de navegación
 @inject ParameterService ParameterService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
 
 <section>
     <div class="row">
@@ -43,7 +45,10 @@
                             </select>
                         </td>
                         <td width="20%" align="right">
-                                <button class="w-80 btn btn-primary btn-lg" type="button" @onclick="() => AbrirModal(_newExpense, OpenType.Create)">Agregar Gasto</button>
+                                @if (_canCreateExpense)
+                                {
+                                    <button class="w-80 btn btn-primary btn-lg" type="button" @onclick="() => AbrirModal(_newExpense, OpenType.Create)">Agregar Gasto</button>
+                                }
                         </td>
                     </tr>
                 </table>
@@ -118,11 +123,14 @@
                                             <td class="text-center">@item.Distribution</td>
                                         <td class="text-end">@item.TotalAmount.ToString("C2")</td>
                                         <td class="text-center">
-                                            <button class="btn btn-sm btn-outline-secondary me-1"
-                                                    title="Editar"
-                                                    @onclick="@(() => AbrirModal(item, OpenType.Update))">
-                                                    <i class="bi bi-pencil-square"></i>
-                                            </button>
+                                            @if (_canEditExpense)
+                                            {
+                                                <button class="btn btn-sm btn-outline-secondary me-1"
+                                                        title="Editar"
+                                                        @onclick="@(() => AbrirModal(item, OpenType.Update))">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                </button>
+                                            }
                                             <button class="btn btn-sm btn-outline-danger"
                                                     title="Eliminar"
                                                     @onclick="@(() => DeleteItem(item))">
@@ -165,6 +173,9 @@
     private string SelectedMonth = "2025-01";
     private string SelectedCategory = "all";
 
+    private bool _canCreateExpense;
+    private bool _canEditExpense;
+
     // Totales generales
     private decimal TotalExpenses => FilteredExpenses.Sum(e => e.TotalAmount);
     private int TotalCount => FilteredExpenses.Count();
@@ -186,7 +197,16 @@
         .Count(e => e.IdDistribution == Models.TypeDistribution.Proporcional);
 
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canCreateExpense = await PermissionService.HasPermissionAsync(currentUser, "create_expense");
+        _canEditExpense = await PermissionService.HasPermissionAsync(currentUser, "edit_expense");
+
+        LoadData();
+    }
+
+    private void LoadData()
     {
         if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
             return;
@@ -197,6 +217,9 @@
 
     private void AbrirModal(Models.Expense item, OpenType mode)
     {
+        if (mode == Models.OpenType.Create && !_canCreateExpense) return;
+        if (mode == Models.OpenType.Update && !_canEditExpense) return;
+
         MostrarModal = true;
         OpenMode = mode;
 
@@ -222,10 +245,12 @@
         switch (OpenMode)
         {
             case Models.OpenType.Create:
+                if (!_canCreateExpense) return;
                 await AddItem(item);
                 break;
 
             case Models.OpenType.Update:
+                if (!_canEditExpense) return;
                 await UpdateItem(item);
                 break;
 
@@ -233,7 +258,7 @@
                 throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}");
         }
 
-        OnInitialized();
+        LoadData();
         return;
     }
 

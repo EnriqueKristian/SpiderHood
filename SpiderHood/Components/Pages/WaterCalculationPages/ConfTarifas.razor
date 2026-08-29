@@ -4,7 +4,20 @@
 @using SpiderHood.Services
 @inject ICalculoService CalculoService
 @inject NavigationManager Navigation
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
 
+@if (!_loading && !_canManageWaterReadings)
+{
+    <div class="container mt-4">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para configurar la tarifa de agua.
+        </div>
+    </div>
+}
+else
+{
 <div class="container mt-4">
     <div class="card">
         <div class="card-header bg-dark text-white">
@@ -87,17 +100,25 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     private List<TarifaAgua> tarifas = new();
+    private bool _loading = true;
+    private bool _canManageWaterReadings;
 
     protected override async Task OnInitializedAsync()
     {
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canManageWaterReadings = await PermissionService.HasPermissionAsync(currentUser, "manage_water_readings");
+        _loading = false;
+
         tarifas = await CalculoService.ObtenerTarifasAsync();
     }
 
     private void AgregarTarifa()
     {
+        if (!_canManageWaterReadings) return;
         var nuevaTarifa = new TarifaAgua
         {
             Id = tarifas.Count + 1,
@@ -113,6 +134,7 @@
 
     private void EliminarTarifa(TarifaAgua tarifa)
     {
+        if (!_canManageWaterReadings) return;
         tarifas.Remove(tarifa);
         // Reasignar IDs
         for (int i = 0; i < tarifas.Count; i++)
@@ -123,6 +145,7 @@
 
     private async Task GuardarConfiguracion()
     {
+        if (!_canManageWaterReadings) return;
         await CalculoService.GuardarTarifasAsync(tarifas);
         VolverAlCalculo();
     }

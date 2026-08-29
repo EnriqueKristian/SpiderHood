@@ -388,7 +388,7 @@
 
 @if (ShowModalManual)
 {
-    <ManualIntalmentConciliation cuota="selectedInstallment" transacciones="transacciones!.Where(x => x.Balance > 0).ToList()" ShowModalChanged="CloseModalManual" OnSaveReading="OnSaveManualConciliation" />
+    <ManualInstallmentConciliation cuota="selectedInstallment" transacciones="transacciones!.Where(x => x.Balance > 0).ToList()" ShowModalChanged="CloseModalManual" OnSaveReading="OnSaveManualConciliation" />
 }
 
 @code {

@@ -116,6 +116,7 @@ else
         {
             var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
             _canManageRoles = await PermissionService.HasPermissionAsync(currentUser, "manage_roles");
+            StateHasChanged();
             await LoadRolesAsync();
         }
     }

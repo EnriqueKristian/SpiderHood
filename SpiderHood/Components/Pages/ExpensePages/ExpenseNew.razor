@@ -508,19 +508,19 @@
     private decimal gastosProporcionales => filteredExpenses.Where(e => e.IdDistribution == Models.TypeDistribution.Proporcional).Sum(e => e.TotalAmount);
     private int totalExpenses => filteredExpenses.Count;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         // Expandir todas las categorías al inicio
         if (ParameterService.CurrentBuilding == null) return;
 
-        var _categories = CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        var _categories = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         categories = _categories
                         .Where(c => c.Nivel == 0)
                         .Select(c => c.ShortDescript).ToList();
 
         expandedCategories = new HashSet<string>(categories);
-        expenses = ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        expenses = await ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         FilterExpenses();
     }

@@ -410,7 +410,7 @@ namespace SpiderHood.Services
             return Task.FromResult(reading);
         }
 
-        public Task<List<Models.ServiceReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.ServiceReadingDetail> lecturas, decimal cargoFijo)
+        public async Task<List<Models.ServiceReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.ServiceReadingDetail> lecturas, decimal cargoFijo)
         {
             foreach (var lectura in lecturas.Where(c => c.Procesed))
             {
@@ -419,7 +419,7 @@ namespace SpiderHood.Services
 
                 if (consumo > 0)
                 {
-                    var calculo = CalcularConsumoAsync(consumo, cargoFijo).Result;
+                    var calculo = await CalcularConsumoAsync(consumo, cargoFijo);
                     lectura.CalculationDetail = calculo;
                     lectura.CalculatedAmount = calculo.TotalConIGV;
                     lectura.Consumption = consumo;
@@ -428,7 +428,7 @@ namespace SpiderHood.Services
                 lectura.Procesed = !lectura.Minimum;
             }
 
-            return Task.FromResult(lecturas);
+            return lecturas;
         }
 
         public async Task<ServiceReading> ObtenerLecturaPorPeriodoAsync(DateTime period)

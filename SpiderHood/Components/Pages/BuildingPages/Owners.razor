@@ -911,10 +911,10 @@
         MostrarModal = true;
     }
 
-    private void SelectOwner(GroupUnit1 owner)
+    private async Task SelectOwner(GroupUnit1 owner)
     {
         if (!_canAssignUnits) return;
-        AbrirModalProp(owner, OpenType.Update);
+        await AbrirModalProp(owner, OpenType.Update);
     }
 
     private void ViewOwnerDetails(GroupUnit1 owner)
@@ -1064,13 +1064,13 @@
         //return ParameterService.Context.Owner.Any(e => e.IdOwner == id);
     }
 
-    private void AbrirModalProp(GroupUnit1 _own, Models.OpenType _mode)
+    private async Task AbrirModalProp(GroupUnit1 _own, Models.OpenType _mode)
     {
         if (!_canAssignUnits) return;
         //throw new NotImplementedException();
         MostrarModalUnit = true;
         OpenMode = _mode;
-        FreeUnits = BuildingService.GetUnitsByBuildingAsync(currentUser!.CurrentBuildingId).Result;
+        FreeUnits = await BuildingService.GetUnitsByBuildingAsync(currentUser!.CurrentBuildingId);
 
         _OwnerUnit.IdOwner = _own.Owners.FirstOrDefault()!.IdOwner;
         _OwnerUnit.Names = _own.Owners.FirstOrDefault()!.FullName;

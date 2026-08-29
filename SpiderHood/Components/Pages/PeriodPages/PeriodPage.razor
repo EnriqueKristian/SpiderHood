@@ -284,7 +284,7 @@
         _pagination.Initialize(periods);
     }
 
-    private void CreateNew()
+    private async Task CreateNew()
     {
         if (!_canManagePeriods) return;
         ShowModal = true;
@@ -294,7 +294,7 @@
         {
             // Primer periodo del edificio: el usuario elige libremente desde cuándo
             // arranca a operar el sistema (ej. Marzo, si tiene data desde esa fecha).
-            period = ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding).Result;
+            period = await ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding);
         }
         else
         {

@@ -141,10 +141,10 @@
     {
         if (firstRender)
         {
-            var currentUser = AuthService.GetCurrentUserAsync();
+            var currentUser = await AuthService.GetCurrentUserAsync();
 
             // Verificar si ya hay sesión activa
-            if (currentUser.Result != null)
+            if (currentUser != null)
             {
                 Navigation.NavigateTo("/dashboard");
             }

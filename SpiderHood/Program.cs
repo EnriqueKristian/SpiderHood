@@ -68,45 +68,15 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddDefaultTokenProviders();
 
 // AddIdentity registra IdentityConstants.ApplicationScheme como el scheme de
-// autenticación/challenge por default. El chequeo de autorización que Razor
-// Components hace en SSR (el que impone el FallbackPolicy antes de que exista el
-// circuito interactivo) dispara un challenge contra ese scheme cuando la request no
-// está autenticada — y como esta app NO tiene una sesión basada en cookie (el login
-// real es 100% propio, vía localStorage/CustomAuthenticationStateProvider, nunca pasa
-// por SignInManager — ver nota arriba), HttpContext.User es SIEMPRE anónimo para
-// TODA request SSR, incluida la del propio "/login" pese a estar marcado
-// [AllowAnonymous]. Apuntar LoginPath a "/login" (intento anterior) no alcanzaba:
-// cada visita a "/login" volvía a disparar el challenge contra sí misma, anidando
-// ReturnUrl sin fin.
-//
-// La solución real es que este challenge NUNCA redirija — el único mecanismo de
-// redirección a login que debe existir es el de Blazor (AuthorizeRouteView ->
-// RedirectToLogin en Components/App.razor), que sí conoce la sesión real vía
-// CustomAuthenticationStateProvider. Devolver 401 en vez de redirigir dejar pasar el
-// render de la página (con su <NotAuthorized>) en vez de cortarlo con un 302 ciego.
+// autenticación/challenge por default, con LoginPath = "/Account/Login" — una página
+// que no existe en esta app (el login real es la Razor Component "/login"). El
+// diagnóstico (ver historial del commit) confirmó que "/login" en sí misma NO
+// dispara este challenge — su [AllowAnonymous] se respeta correctamente — así que el
+// loop que se veía antes no era por esto. Apuntar LoginPath a la página real alcanza.
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.Events.OnRedirectToLogin = context =>
-    {
-        // DIAGNÓSTICO TEMPORAL: para confirmar qué endpoint/metadata ve este challenge
-        // cuando se dispara sobre una request a una página marcada [AllowAnonymous]
-        // (el caso de "/login" haciendo loop contra sí mismo). Sacar una vez
-        // confirmado el mecanismo real.
-        var endpoint = context.HttpContext.GetEndpoint();
-        var hasAllowAnonymous = endpoint?.Metadata?.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() != null;
-        var metadataTypes = endpoint?.Metadata != null
-            ? string.Join(", ", System.Linq.Enumerable.Select(endpoint.Metadata, m => m.GetType().Name))
-            : "(sin endpoint)";
-        Console.WriteLine($"[DIAG OnRedirectToLogin] Path={context.Request.Path} Endpoint={endpoint?.DisplayName ?? "(null)"} HasAllowAnonymous={hasAllowAnonymous} Metadata=[{metadataTypes}]");
-
-        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        return Task.CompletedTask;
-    };
-    options.Events.OnRedirectToAccessDenied = context =>
-    {
-        context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        return Task.CompletedTask;
-    };
+    options.LoginPath = "/login";
+    options.AccessDeniedPath = "/login";
 });
 
 // Otros servicios
@@ -143,7 +113,15 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseAntiforgery();
-app.MapStaticAssets();
+
+// El diagnóstico confirmó que el FallbackPolicy también le exige sesión a los archivos
+// estáticos (CSS, JS, blazor.web.js, favicon) — ninguno de esos endpoints trae
+// [AllowAnonymous] porque no son componentes Razor, son archivos servidos por
+// MapStaticAssets(). Sin blazor.web.js cargando, el circuito interactivo nunca se
+// establece para ningún usuario, autenticado o no. AllowAnonymous() los excluye del
+// FallbackPolicy.
+app.MapStaticAssets().AllowAnonymous();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

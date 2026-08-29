@@ -8,6 +8,8 @@
 @using SpiderHood.Services
 @inject NavigationManager Navigation // Inyecta el servicio de navegación
 @inject ParameterService ParameterService
+@inject Services.AuthService AuthService
+@inject Services.IPermissionService PermissionService
 
 @layout MainLayout
 @using Microsoft.AspNetCore.Components
@@ -32,9 +34,12 @@
             <button class="btn btn-outline-secondary" @onclick="ExportParameters">
                 <i class="bi bi-download me-2"></i>Exportar
             </button>
-            <button class="btn btn-primary" @onclick="ShowAddModal">
-                <i class="bi bi-plus-circle me-2"></i>Nuevo Parámetro
-            </button>
+            @if (_canManageParameters)
+            {
+                <button class="btn btn-primary" @onclick="ShowAddModal">
+                    <i class="bi bi-plus-circle me-2"></i>Nuevo Parámetro
+                </button>
+            }
         </div>
     </div>
 
@@ -132,20 +137,23 @@
                                         <span class="badge bg-secondary">@group.Key.IdParent</span>
                                     </td>
                                     <td class="text-center">
-                                        <div class="btn-group btn-group-sm">
-                                            <button type="button" class="btn btn-outline-primary"
-                                                    title="Agregar hijo" @onclick="() => ShowAddChildModal(group.Key)">
-                                                <i class="bi bi-plus-lg"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-outline-secondary"
-                                                    title="Editar" @onclick="() => EditParameter(group.Key)">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-outline-danger"
-                                                    title="Eliminar" @onclick="() => DeleteParameter(group.Key)">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
+                                        @if (_canManageParameters)
+                                        {
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-primary"
+                                                        title="Agregar hijo" @onclick="() => ShowAddChildModal(group.Key)">
+                                                    <i class="bi bi-plus-lg"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary"
+                                                        title="Editar" @onclick="() => EditParameter(group.Key)">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger"
+                                                        title="Eliminar" @onclick="() => DeleteParameter(group.Key)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        }
                                     </td>
                                 </tr>
 
@@ -176,16 +184,19 @@
                                             <span class="badge bg-info bg-opacity-10 text-info">@hijo.IdParent</span>
                                         </td>
                                         <td class="text-center">
-                                            <div class="btn-group btn-group-sm">
-                                                <button type="button" class="btn btn-outline-secondary"
-                                                        title="Editar" @onclick="() => EditParameter(hijo)">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-danger"
-                                                        title="Eliminar" @onclick="() => DeleteParameter(hijo)">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </div>
+                                            @if (_canManageParameters)
+                                            {
+                                                <div class="btn-group btn-group-sm">
+                                                    <button type="button" class="btn btn-outline-secondary"
+                                                            title="Editar" @onclick="() => EditParameter(hijo)">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-danger"
+                                                            title="Eliminar" @onclick="() => DeleteParameter(hijo)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -210,9 +221,12 @@
                     </div>
                     <h5 class="text-muted mb-2">No hay parámetros configurados</h5>
                     <p class="text-muted mb-3">Comienza agregando tu primer parámetro del sistema</p>
-                    <button class="btn btn-primary" @onclick="ShowAddModal">
-                        <i class="bi bi-plus-circle me-2"></i>Agregar Primer Parámetro
-                    </button>
+                    @if (_canManageParameters)
+                    {
+                        <button class="btn btn-primary" @onclick="ShowAddModal">
+                            <i class="bi bi-plus-circle me-2"></i>Agregar Primer Parámetro
+                        </button>
+                    }
                 </div>
             }
         </div>
@@ -427,6 +441,8 @@
     // Agrupación de parámetros
     private Dictionary<Models.Parameter, List<Models.Parameter>> groupedParameters = new();
 
+    private bool _canManageParameters;
+
     protected override void OnInitialized()
     {
         // Carga "optimista": si ParameterService.ListParameters ya tiene datos porque otra
@@ -454,6 +470,9 @@
 
             if (ParameterService.CurrentBuilding == null)
                 return;
+
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageParameters = await PermissionService.HasPermissionAsync(currentUser, "manage_parameters");
 
             await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
             OnInitialized();
@@ -531,6 +550,7 @@
 
     private void ShowAddModal()
     {
+        if (!_canManageParameters) return;
         isEditing = false;
         currentParameter = new Parameter { Estado = ParameterEstado.Activo, IdParent = 0 };
         availableParents = parameters.Where(p => p.IdParent == 0).ToList();
@@ -539,6 +559,7 @@
 
     private void ShowAddChildModal(Parameter parent)
     {
+        if (!_canManageParameters) return;
         isEditing = false;
         currentParameter = new Parameter
         {
@@ -551,6 +572,7 @@
 
     private void EditParameter(Parameter parameter)
     {
+        if (!_canManageParameters) return;
         isEditing = true;
         currentParameter = new Parameter
         {
@@ -568,6 +590,7 @@
 
     private async Task SaveParameter()
     {
+        if (!_canManageParameters) return;
         if (isEditing)
         {
             var existing = parameters.FirstOrDefault(p => p.IdTabla == currentParameter.IdTabla);
@@ -595,6 +618,7 @@
 
     private async Task DeleteParameter(Parameter parameter)
     {
+        if (!_canManageParameters) return;
         var children = parameters.Where(p => p.IdParent == parameter.IdTabla).ToList();
 
         var mensaje = children.Any()

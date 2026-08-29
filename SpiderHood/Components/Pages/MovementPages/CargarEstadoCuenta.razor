@@ -12,6 +12,7 @@
 @inject NavigationManager Navigation // Inyecta el servicio de navegación
 @inject ParameterService ParameterService
 @inject AuthService AuthService
+@inject IPermissionService PermissionService
 @using Microsoft.AspNetCore.Components.Forms
 @inject IJSRuntime JSRuntime
 
@@ -423,7 +424,8 @@
                                         </button>
 
                                         <button class="btn btn-primary" @onclick="SaveData"
-                                                disabled="@(isLoading || datos.Count(d => d.Validation == "Ok") == 0)">
+                                                disabled="@(isLoading || !_canUploadStatements || datos.Count(d => d.Validation == "Ok") == 0)"
+                                                title="@(!_canUploadStatements ? "No tienes permiso para guardar estados de cuenta" : null)">
                                             @if (isLoading)
                                             {
                                                 <span class="spinner-border spinner-border-sm me-2" role="status"></span>
@@ -435,6 +437,10 @@
                                                 <label>Guardar en base de datos</label>
                                             }
                                         </button>
+                                        @if (!_canUploadStatements)
+                                        {
+                                            <div class="text-muted small mt-1">No tienes permiso para guardar estados de cuenta en la base de datos.</div>
+                                        }
                                     }
                                 </div>
                             </div>
@@ -492,6 +498,8 @@
     private string selectedFilter = "all";
     private List<string> columns = new() { "StatementDate", "Description", "ITF", "Currency", "Amount" };
 
+    private bool _canUploadStatements;
+
     private void ClearFile()
     {
         fileName = string.Empty;
@@ -517,6 +525,7 @@
 
     private async Task SaveData()
     {
+        if (!_canUploadStatements) return;
         isLoading = true;
         StateHasChanged();
 
@@ -713,6 +722,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canUploadStatements = await PermissionService.HasPermissionAsync(currentUser, "upload_statements");
+
         pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
 
         if (ParameterService.CurrentBuilding != null)

@@ -6,6 +6,8 @@
 @using SpiderHood.Services
 @inject NavigationManager Navigation
 @inject ParameterService ParameterService
+@inject Services.AuthService AuthService
+@inject Services.IPermissionService PermissionService
 
 @implements IDisposable
 
@@ -21,10 +23,13 @@
             </div>
         </div>
         <div class="page-header-actions">
-            <button class="btn btn-primary" type="button"
-                    @onclick="() => OpenModal(new Category(), 0, OpenType.Create)">
-                <i class="bi bi-plus-circle me-2"></i>Agregar Categoría
-            </button>
+            @if (_canManageCategories)
+            {
+                <button class="btn btn-primary" type="button"
+                        @onclick="() => OpenModal(new Category(), 0, OpenType.Create)">
+                    <i class="bi bi-plus-circle me-2"></i>Agregar Categoría
+                </button>
+            }
         </div>
     </div>
 
@@ -106,8 +111,13 @@
     private List<Category> Categories => _categories;
     private List<Category> CatParent => _catParent;
 
+    private bool _canManageCategories;
+
     protected override async Task OnInitializedAsync()
     {
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canManageCategories = await PermissionService.HasPermissionAsync(currentUser, "manage_categories");
+
         await LoadCategories();
     }
 
@@ -140,6 +150,7 @@
 
     private void OpenModal(Category item, int type, OpenType mode)
     {
+        if (!_canManageCategories) return;
         _currentCategory = item;
         _typeCategory = type;
         _openMode = mode;
@@ -148,7 +159,8 @@
 
     private async Task ShowDeleteModal(Guid idCategory)
     {
-        _currentCategory = _categories.FirstOrDefault(c => c.IdCategory == idCategory) 
+        if (!_canManageCategories) return;
+        _currentCategory = _categories.FirstOrDefault(c => c.IdCategory == idCategory)
             ?? new Category { IdCategory = idCategory };
         await _deleteModal.ShowAsync();
     }
@@ -160,6 +172,7 @@
 
     private async Task SaveItem(Category item)
     {
+        if (!_canManageCategories) return;
         try
         {
             if (_openMode == OpenType.Create)
@@ -220,6 +233,7 @@
 
     private async Task DeleteItem()
     {
+        if (!_canManageCategories) { await HideDeleteModal(); return; }
         try
         {
             await CategoryService.DeleteCategoryAsync(_currentCategory);

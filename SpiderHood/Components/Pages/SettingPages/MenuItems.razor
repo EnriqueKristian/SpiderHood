@@ -5,9 +5,22 @@
 @inject Services.IMenuAdminService MenuAdminService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
 
 <PageTitle>Administración del Menú</PageTitle>
 
+@if (!_loading && !_canManageMenuItems)
+{
+    <div class="container-fluid">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para administrar el menú.
+        </div>
+    </div>
+}
+else
+{
 <div class="container-fluid px-4 py-3">
     <div class="page-header">
         <div class="page-header-title">
@@ -188,6 +201,7 @@
         </div>
     }
 </div>
+}
 
 @code {
     private List<MenuItemWithRoles> _rootItemsWithRoles = new();
@@ -197,10 +211,17 @@
     private string _viewMode = "tree";
     private Dictionary<string, bool> _pendingChanges = new();
 
+    // Ver Database/Migrations/2026-08-30_Permiso_ManageMenuItems.sql.
+    private bool _canManageMenuItems;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageMenuItems = await PermissionService.HasPermissionAsync(currentUser, "manage_menu_items");
+            StateHasChanged();
+
             await LoadDataAsync();
         }
     }
@@ -334,6 +355,8 @@
 
     private async Task SaveAllPermissions()
     {
+        if (!_canManageMenuItems) return;
+
         try
         {
             // Agrupar los cambios por MenuItemId
@@ -405,6 +428,8 @@
 
     private async Task DeleteItem(Guid id)
     {
+        if (!_canManageMenuItems) return;
+
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             "¿Está seguro de eliminar este item? También se eliminarán todos sus subitems.");
 
@@ -435,6 +460,8 @@
 
     private async Task SaveOrder()
     {
+        if (!_canManageMenuItems) return;
+
         var itemsToUpdate = _flatItemsWithRoles.Select(i => new MenuItemWithRoles
         {
             IdMenu = i.IdMenu,

@@ -6,9 +6,22 @@
 @inject Services.IMenuAdminService MenuAdminService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
 
 <PageTitle>@(_isEdit ? "Editar Item" : "Nuevo Item")</PageTitle>
 
+@if (!_loading && !_canManageMenuItems)
+{
+    <div class="container-fluid">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para administrar el menú.
+        </div>
+    </div>
+}
+else
+{
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-8">
@@ -152,6 +165,7 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     [Parameter] public Guid? Id { get; set; }
@@ -163,11 +177,21 @@
     private HashSet<Guid> _selectedRoleIds = new();
     private bool _isEdit;
     private bool _saving;
+    private bool _loading = true;
+
+    // Misma clave que MenuItems.razor — ver
+    // Database/Migrations/2026-08-30_Permiso_ManageMenuItems.sql.
+    private bool _canManageMenuItems;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageMenuItems = await PermissionService.HasPermissionAsync(currentUser, "manage_menu_items");
+            _loading = false;
+            StateHasChanged();
+
             await LoadDataAsync();
         }
     }
@@ -232,6 +256,8 @@
 
     private async Task HandleSubmit()
     {
+        if (!_canManageMenuItems) return;
+
         try
         {
             _saving = true;

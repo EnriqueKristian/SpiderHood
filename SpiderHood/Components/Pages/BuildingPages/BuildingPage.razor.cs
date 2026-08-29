@@ -50,7 +50,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         //private Guid IdBuilding = Guid.Empty;
         private UserSession currentUser = new();
-        private bool _loaded = false;
+        //private bool _loaded = false;
         private bool _canEditBuilding;
         private bool _canCreateBuilding;
 
@@ -68,7 +68,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
             if (firstRender)
             {
                 await InicializarPagina();
-                _loaded = true;
+                //_loaded = true;
                 StateHasChanged();
             }
         }

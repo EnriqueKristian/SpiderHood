@@ -34,6 +34,48 @@ namespace SpiderHood.Models
         public double Consumo { get; set; }
     }
 
+    public class TarifaAgua
+    {
+        public int Id { get; set; }
+        public string Rango { get; set; } = string.Empty;
+        public int Minimo { get; set; }
+        public int Maximo { get; set; } // -1 para "más"
+        public decimal Potable { get; set; }
+        public decimal Alcantarillado { get; set; }
+        public decimal Total => Potable + Alcantarillado;
+        public decimal Diferencial { get; set; }
+        public bool Activo { get; set; } = true;
+
+        // Para mostrar en UI
+        public string DescripcionRango
+        {
+            get
+            {
+                if (Maximo == -1)
+                    return $"R{Id}: {Minimo} a más";
+                return $"R{Id}: {Minimo} a {Maximo}";
+            }
+        }
+    }
+
+    public class CalculoResultado
+    {
+        public decimal Subtotal { get; set; }
+        public decimal CargoFijo { get; set; }
+        public decimal TotalSinIGV { get; set; }
+        public decimal IGV { get; set; } = 0.18m; // 18%
+        public decimal TotalConIGV => TotalSinIGV * (1 + IGV);
+        public List<DetalleCalculo> Detalles { get; set; } = [];
+    }
+
+    public class DetalleCalculo
+    {
+        public string Rango { get; set; } = string.Empty;
+        public double Consumo { get; set; }
+        public decimal Tarifa { get; set; }
+        public decimal Monto { get; set; }
+    }
+
     public class ServiceReadingDetail
     {
         public Guid IdServiceReadingDetail { get; set; }

@@ -5,42 +5,6 @@ using System.Globalization;
 
 namespace SpiderHood.Models
 {
-    public class Usuario
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = "";
-        public string Email { get; set; } = "";
-        public string Telefono { get; set; } = "";
-        public string Rol { get; set; } = "";
-        public string Departamento { get; set; } = "";
-        public string Estado { get; set; } = "Activo";
-        public DateTime FechaIngreso { get; set; } = DateTime.Now;
-        public string PasswordHash { get; set; } = "";
-
-        public Usuario Clone()
-        {
-            return (Usuario)this.MemberwiseClone();
-        }
-    }
-
-    public class Rol
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = "";
-        public string Descripcion { get; set; } = "";
-        public int UsuariosAsignados { get; set; }
-        public DateTime FechaCreacion { get; set; } = DateTime.Now;
-    }
-
-    public class Permiso
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = "";
-        public string Descripcion { get; set; } = "";
-        public bool Activo { get; set; }
-        public string Categoria { get; set; } = "";
-    }
-
     public class RegistrationModel
     {
         // Información personal
@@ -316,6 +280,31 @@ namespace SpiderHood.Models
         }
     }
 
+    // Resultado de generar una cuota extraordinaria: cuántas unidades quedaron con
+    // cargo y el total repartido, para mostrar una confirmación en la UI.
+    public class CuotaExtraordinariaResultado
+    {
+        public bool Exito { get; set; }
+        public string Mensaje { get; set; } = string.Empty;
+        public Guid IdBudgetHeader { get; set; }
+        public int UnidadesConCargo { get; set; }
+        public decimal TotalRepartido { get; set; }
+    }
+
+    // Resultado de correr el proceso de Multas y Mora: qué se generó en esta corrida
+    // (no es un acumulado histórico, solo lo que se creó ahora).
+    public class AplicacionCargosResultado
+    {
+        public bool Exito { get; set; } = true;
+        public string Mensaje { get; set; } = string.Empty;
+        public int CuotasRevisadas { get; set; }
+        public int UnidadesConMulta { get; set; }
+        public int UnidadesConMora { get; set; }
+        public decimal TotalMultas { get; set; }
+        public decimal TotalMora { get; set; }
+        public List<string> Detalle { get; set; } = [];
+    }
+
     // Models/ViewModels para la UI
     public class GastoPendienteViewModel
     {
@@ -441,6 +430,46 @@ namespace SpiderHood.Models
         public object? Data { get; set; } = null;
     }
 
+    public class ToastMessage
+    {
+        public Guid Id { get; set; }
+        public string Title { get; set; } = "";
+        public string Message { get; set; } = "";
+        public ToastType Type { get; set; }
+        public int Duration { get; set; } = 3000;
+    }
+
+    public enum ToastType
+    {
+        Success,
+        Error,
+        Warning,
+        Info
+    }
+
+    /// <summary>
+    /// Clase auxiliar para resultados de operaciones
+    /// </summary>
+    public class OperationResult
+    {
+        public bool IsSuccess { get; }
+        public string? ErrorMessage { get; }
+        public object? Data { get; }
+
+        private OperationResult(bool isSuccess, string? errorMessage = null, object? data = null)
+        {
+            IsSuccess = isSuccess;
+            ErrorMessage = errorMessage;
+            Data = data;
+        }
+
+        public static OperationResult Success(object? data = null)
+            => new OperationResult(true, data: data);
+
+        public static OperationResult Failure(string errorMessage)
+            => new OperationResult(false, errorMessage);
+    }
+
     // Models/FiltroCuotas para búsquedas
     public class FiltroCuotas
     {
@@ -468,30 +497,6 @@ namespace SpiderHood.Models
             !string.IsNullOrEmpty(UsuarioGeneracion) ||
             MontoMinimo.HasValue ||
             MontoMaximo.HasValue;
-    }
-
-    // Models/ResultadoPaginado para paginación
-    public class ResultadoPaginado<T>
-    {
-        public List<T> Items { get; set; } = [];
-        public int PaginaActual { get; set; }
-        public int TotalPaginas { get; set; }
-        public int TotalItems { get; set; }
-        public int TamanoPagina { get; set; }
-        public bool TienePaginaAnterior => PaginaActual > 1;
-        public bool TienePaginaSiguiente => PaginaActual < TotalPaginas;
-
-        public static ResultadoPaginado<T> Crear(List<T> items, int pagina, int tamanoPagina, int totalItems)
-        {
-            return new ResultadoPaginado<T>
-            {
-                Items = items,
-                PaginaActual = pagina,
-                TamanoPagina = tamanoPagina,
-                TotalItems = totalItems,
-                TotalPaginas = (int)Math.Ceiling(totalItems / (double)tamanoPagina)
-            };
-        }
     }
 
     // Models/ConfiguracionSistema para parámetros
@@ -763,78 +768,6 @@ namespace SpiderHood.Models
         public Guid IdParent { get; set; }
     }
 
-    public class Presupuesto
-    {
-        public int Id { get; set; }
-        public string Codigo { get; set; } = "";
-        public string Mes { get; set; } = ""; // "Enero 2025"
-        public int Month { get; set; }
-        public int Year { get; set; }
-        public string BudgetName { get; set; } = "";
-        public DateTime CreatedOn { get; set; } = DateTime.Now;
-        public int Status { get; set; } = 1;//"Activo"; // Activo, Cerrado, Pendiente
-        [Precision(18, 2)]
-        public decimal Amount { get; set; }
-        public string CreatedBy { get; set; } = "";
-
-        // Navigation properties
-        [NotMapped]
-        public List<PresupuestoDetalle> Detalles { get; set; } = [];
-        [NotMapped]
-        public List<PresupuestoCategoria> Categorias { get; set; } = [];
-    }
-
-    public class PresupuestoDetalle
-    {
-        public int Id { get; set; }
-        public int PresupuestoId { get; set; }
-        public int CategoriaId { get; set; }
-        public string Descripcion { get; set; } = "";
-        [Precision(18, 2)]
-        public decimal Monto { get; set; }
-        public string Notas { get; set; } = "";
-
-        // Navigation properties
-        [NotMapped]
-        public Presupuesto? Presupuesto { get; set; }
-        [NotMapped]
-        public Categoria? Categoria { get; set; }
-    }
-
-    public class Categoria
-    {
-        public int Id { get; set; }
-        public string Codigo { get; set; } = "";
-        public string Nombre { get; set; } = "";
-        public string Descripcion { get; set; } = "";
-        public string Tipo { get; set; } = "Gasto"; // Gasto, Ingreso
-        public bool Activo { get; set; } = true;
-        public int Orden { get; set; } = 0;
-        public string Color { get; set; } = "#3498db";
-
-        // Navigation properties
-        [NotMapped]
-        public List<PresupuestoDetalle> Detalles { get; set; } = [];
-    }
-
-    public class PresupuestoCategoria
-    {
-        public Guid Id { get; set; }
-        public Guid PresupuestoId { get; set; }
-        public Guid CategoriaId { get; set; }
-        [Precision(18, 2)]
-        public decimal MontoAsignado { get; set; }
-        [Precision(18, 2)]
-        public decimal MontoEjecutado { get; set; }
-
-        // Navigation properties
-        [NotMapped]
-        public Presupuesto? Presupuesto { get; set; }
-        [NotMapped]
-        public Categoria? Categoria { get; set; }
-
-    }
-
     public class SectionInfo
     {
         public int Id { get; set; }
@@ -886,7 +819,7 @@ namespace SpiderHood.Models
 
     public class MenuItem
     {
-        public Guid IdMenu { get; set; } 
+        public Guid IdMenu { get; set; }
         public string Title { get; set; } = string.Empty;
         public string ItemKey { get; set; } = string.Empty;
         public string? Icon { get; set; }
@@ -975,11 +908,11 @@ namespace SpiderHood.Models
         public string? Target { get; set; } // Para collapse ID
         [NotMapped]
         public List<Guid> RequiredPermissions { get; set; } = new();
-        
+
         public bool IsVisible { get; set; } = true;
-        
+
         public string? BadgeText { get; set; }
-        
+
         public string? BadgeColor { get; set; } = "danger";
         [NotMapped]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -991,32 +924,6 @@ namespace SpiderHood.Models
         public List<MenuItemWithRoles> Children { get; set; } = new();
         [NotMapped]
         public MenuItemDefinition? Parent { get; set; }
-    }
-
-    public class MenuModule
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string Icon { get; set; } = "fas fa-folder";
-        public int Order { get; set; }
-        public List<MenuItemDefinition> MenuItems { get; set; } = new();
-    }
-
-    public class MenuItemViewModel
-    {
-        public Guid Id { get; set; } = Guid.Empty;
-        public string ItemKey { get; set; } = string.Empty;
-        public string Title { get; set; } = string.Empty;
-        public string? Icon { get; set; }
-        public string? Url { get; set; }
-        public Guid? ParentId { get; set; }
-        public string? ParentTitle { get; set; }
-        public int Order { get; set; }
-        public List<Guid> RequiredPermissions { get; set; } = new();
-        public bool HasChildren { get; set; }
-        public int ChildrenCount { get; set; }
-        public bool IsVisible { get; set; }
     }
 
     public class PermissionSelection

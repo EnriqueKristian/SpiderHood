@@ -49,35 +49,6 @@ namespace SpiderHood.Data
             }, "SetPeriodAsCurrent", cancellationToken);
         }
 
-        public async Task<bool> UpdateTokenUserAsync(UserModel user, CancellationToken cancellationToken = default)
-        {
-            return await ExecuteWithErrorHandlingAsync(async () =>
-            {
-                await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_UserToken,
-                    cancellationToken,
-                    user.IdUser,
-                    user.Token);
-                return true;
-            }, "ClosePastBudgets", cancellationToken);
-        }
-
-        // Persiste un password hash nuevo (usado para migrar transparentemente
-        // usuarios con hash legado SHA-256 al formato PasswordHasher/PBKDF2
-        // cuando hacen login exitosamente).
-        public async Task<bool> UpdateUserPasswordAsync(Guid idUser, string newPasswordHash, CancellationToken cancellationToken = default)
-        {
-            return await ExecuteWithErrorHandlingAsync(async () =>
-            {
-                await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_UserPassword,
-                    cancellationToken,
-                    idUser,
-                    newPasswordHash);
-                return true;
-            }, "UpdateUserPassword", cancellationToken);
-        }
-
         public async Task<bool> CheckPeriodOverlapAsync(Period period, CancellationToken cancellationToken = default)
         {
             ValidateEntity(period, nameof(period));

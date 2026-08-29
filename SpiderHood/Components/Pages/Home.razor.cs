@@ -142,8 +142,6 @@ namespace SpiderHood.Components.Pages
 
         private string _userName = "";
 
-        private bool _loaded = false;
-
         protected override async Task OnInitializedAsync()
         {
             var currentUser = await AuthService.GetCurrentUserAsync();
@@ -155,7 +153,6 @@ namespace SpiderHood.Components.Pages
             if (firstRender)
             {
                 await InicializarPagina();
-                _loaded = true;
                 StateHasChanged();
             }
         }

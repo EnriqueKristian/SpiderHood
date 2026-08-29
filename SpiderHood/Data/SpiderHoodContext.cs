@@ -42,7 +42,6 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.ViewBudgetDetail>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.BudgetHeader>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.BudgetDetail>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.Presupuesto>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.ServiceReading>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.ServiceReadingDetail>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.UnitView>().HasNoKey(); // If SP doesn't return a primary key

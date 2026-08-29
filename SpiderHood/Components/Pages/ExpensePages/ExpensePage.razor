@@ -1,9 +1,5 @@
 ﻿@page "/expense"
 @rendermode InteractiveServer
-@using Microsoft.EntityFrameworkCore
-@using Microsoft.EntityFrameworkCore.Metadata.Internal
-@using SpiderHood.Components.Pages.ParameterPages
-@using SpiderHood.Data
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject NavigationManager Navigation // Inyecta el servicio de navegación
@@ -257,7 +253,7 @@
                 throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}");
         }
 
-        LoadData();
+        await LoadData();
         return;
     }
 

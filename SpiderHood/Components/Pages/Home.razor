@@ -1,6 +1,6 @@
 ﻿@page "/"
 @page "/DashBoard"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 @layout MainLayout
 @using Microsoft.AspNetCore.Components

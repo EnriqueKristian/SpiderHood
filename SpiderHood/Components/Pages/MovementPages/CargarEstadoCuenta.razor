@@ -1,5 +1,5 @@
 ﻿@page "/movement/cargar"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using ClosedXML.Excel
 @using Microsoft.AspNetCore.Components.QuickGrid
 @using Microsoft.EntityFrameworkCore

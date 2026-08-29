@@ -1,5 +1,5 @@
 ﻿@page "/workflow"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject IWorkflowService WorkflowService

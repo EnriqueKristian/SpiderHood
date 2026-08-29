@@ -1,5 +1,5 @@
 ﻿@page "/Settings"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <link rel="stylesheet" href="MenuTabs.css" />
 <script src=@Assets["js/Tabs.js"]></script>

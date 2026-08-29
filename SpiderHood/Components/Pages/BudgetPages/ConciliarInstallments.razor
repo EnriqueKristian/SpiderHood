@@ -1,5 +1,5 @@
 ﻿@page "/ReconcileInstallments/"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @inject NavigationManager Navigation
 
 @code {

@@ -1,5 +1,5 @@
 ﻿@page "/category"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using System.Threading.Tasks
 @using SpiderHood.Data
 @using SpiderHood.Models

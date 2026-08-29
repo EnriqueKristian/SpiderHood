@@ -1,4 +1,5 @@
 ﻿using Blazored.LocalStorage;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +30,19 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddAuthorizationCore();
+
+// FallbackPolicy: toda página requiere sesión autenticada por default (fail closed).
+// Antes no existía ningún [Authorize] ni FallbackPolicy en la app — AuthorizeRouteView
+// (Components/App.razor) estaba wireado pero no exigía nada, así que cualquiera con la
+// URL entraba a cualquier página sin loguearse. Las páginas que sí deben ser públicas
+// (login, confirmación de email, invitación, error, not-found) llevan
+// `@attribute [AllowAnonymous]` explícito.
+builder.Services.AddAuthorizationCore(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // 2. Identity
 //

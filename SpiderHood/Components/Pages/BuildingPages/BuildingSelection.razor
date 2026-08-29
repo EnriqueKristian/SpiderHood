@@ -1,11 +1,12 @@
 ﻿@page "/invitation"
 @page "/invitation/{invitationCode}"
+@attribute [AllowAnonymous]
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>SpiderHood - Unirse a Edificio</PageTitle>
 

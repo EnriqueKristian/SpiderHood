@@ -1,5 +1,5 @@
 @page "/cuotaextraordinaria"
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject ParameterService ParameterService

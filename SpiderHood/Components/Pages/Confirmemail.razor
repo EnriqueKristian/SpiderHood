@@ -1,10 +1,11 @@
 ﻿@page "/Confirmemail"
+@attribute [AllowAnonymous]
 @using SpiderHood.Services
 @using SpiderHood.Models
 @inject IEmailConfirmationService EmailConfirmationService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
-@rendermode InteractiveServer
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
 
 <PageTitle>SpiderHood - Confirmar Email</PageTitle>
 

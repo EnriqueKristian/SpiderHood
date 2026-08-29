@@ -82,3 +82,31 @@ El usuario corre el script manualmente y confirma el resultado antes de que el c
 que depende de esa clave se considere terminado — si se despliega el código antes de que
 la clave exista/esté asignada, la acción queda bloqueada para todos por defecto (fail
 closed), así que conviene avisar explícitamente en qué orden aplicar cada parte.
+
+## Nomenclatura de Pages y componentes
+
+`Components/Pages/` creció con varios estilos a la vez (inglés/español mezclado, "Modal"
+como prefijo y como sufijo, `Index.razor` repetido en media docena de carpetas). No se
+fuerza una traducción masiva de lo que ya existe — alto riesgo, bajo valor, sin
+`dotnet build` disponible en este entorno para verificar cada cambio — pero todo archivo
+nuevo, y cualquier archivo que se toque de paso, sigue estas reglas:
+
+- **El idioma del nombre lo decide el módulo, no una regla global.** Si la carpeta ya es
+  mayoritariamente español (`BudgetPages`, `ConciliacionPages`, `WaterCalculationPages`),
+  el archivo nuevo va en español; si es mayoritariamente inglés, va en inglés. No
+  traducir nombres de negocio ya establecidos (`Cuota`, `Presupuesto`, `Edificio`) solo
+  por consistencia con otra carpeta.
+- **Nunca `Index.razor`/`Index.razor.cs` fuera de una carpeta de un solo archivo.** El
+  nombre tiene que decir qué lista/gestiona sin depender de la carpeta contenedora (ej.
+  `ListadoPresupuestos.razor`, no `Index.razor` dentro de `BudgetPages/`).
+- **Los modales van con sufijo `...Modal.razor`, nunca con prefijo `Modal...`.** Un
+  componente que no es un modal en sí (ej. contenido que un padre envuelve en su propio
+  `.modal`) no lleva el sufijo — nombrarlo por lo que hace.
+- **Ningún nombre de archivo se repite entre carpetas distintas**, aunque el contenido
+  sea distinto — confunde más de lo que ahorra. Si dos features comparten un nombre
+  natural, uno de los dos suma contexto al nombre (ej. `CargarEstadoCuentaConciliacion.razor`
+  vs. `MovementPages/CargarEstadoCuenta.razor`).
+- Antes de renombrar un archivo existente: `grep` el nombre de la clase/tag en todo el
+  repo (uso como `<Componente>`, no solo el nombre de archivo) y actualizar cada
+  referencia en el mismo commit — el nombre de clase de un `.razor` lo deriva el
+  compilador del nombre de archivo, no hay declaración explícita que editar.

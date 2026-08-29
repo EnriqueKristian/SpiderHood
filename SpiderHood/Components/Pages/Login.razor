@@ -52,7 +52,9 @@
 
                     <InputText id="email"
                                class="@(isEmailValid ? "form-control" : "form-control is-invalid")"
-                               @bind-Value="loginModel.Email"
+                               Value="@loginModel.Email"
+                               ValueChanged="@((string v) => OnEmailChanged(v))"
+                               ValueExpression="@(() => loginModel.Email)"
                                placeholder="admin@spiderhood.com" />
 
 
@@ -139,8 +141,24 @@
                                      loginModel.Password.Length >= 6;
 
 
+    private void OnEmailChanged(string value)
+    {
+        // DIAGNÓSTICO TEMPORAL
+        Console.WriteLine($"[DIAG Login] OnEmailChanged instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} nuevoValor='{value}'");
+        loginModel.Email = value;
+    }
+
+    protected override void OnInitialized()
+    {
+        // DIAGNÓSTICO TEMPORAL
+        Console.WriteLine($"[DIAG Login] OnInitialized instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()}");
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // DIAGNÓSTICO TEMPORAL
+        Console.WriteLine($"[DIAG Login] OnAfterRenderAsync firstRender={firstRender} instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} Email='{loginModel.Email}'");
+
         if (firstRender)
         {
             // Antes esto llamaba a `.Result` sobre GetCurrentUserAsync() (bloqueante, no
@@ -162,6 +180,9 @@
 
     private async Task HandleLogin()
     {
+        // DIAGNÓSTICO TEMPORAL
+        Console.WriteLine($"[DIAG Login] HandleLogin instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} Email='{loginModel.Email}' Password.Length={loginModel.Password?.Length ?? 0}");
+
         try
         {
             isLoading = true;

@@ -55,6 +55,7 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.InstallmentPaid>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.UserModel>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.UserBuildingAssociation>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.UserBuildingRoleAssignment>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.InvitationModel>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.RolePermissions>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.PermissionDefinition>().HasNoKey(); // If SP doesn't return a primary key

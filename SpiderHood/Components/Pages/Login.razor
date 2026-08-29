@@ -6,6 +6,7 @@
 @using System.ComponentModel
 @inject Services.AuthService AuthService
 @inject NavigationManager Navigation
+@inject ILogger<Login> Logger
 @rendermode InteractiveServer
 
 <div class="login-container">
@@ -144,20 +145,20 @@
     private void OnEmailChanged(string value)
     {
         // DIAGNÓSTICO TEMPORAL
-        Console.WriteLine($"[DIAG Login] OnEmailChanged instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} nuevoValor='{value}'");
+        Logger.LogWarning($"[DIAG Login] OnEmailChanged instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} nuevoValor='{value}'");
         loginModel.Email = value;
     }
 
     protected override void OnInitialized()
     {
         // DIAGNÓSTICO TEMPORAL
-        Console.WriteLine($"[DIAG Login] OnInitialized instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()}");
+        Logger.LogWarning($"[DIAG Login] OnInitialized instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()}");
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // DIAGNÓSTICO TEMPORAL
-        Console.WriteLine($"[DIAG Login] OnAfterRenderAsync firstRender={firstRender} instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} Email='{loginModel.Email}'");
+        Logger.LogWarning($"[DIAG Login] OnAfterRenderAsync firstRender={firstRender} instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} Email='{loginModel.Email}'");
 
         if (firstRender)
         {
@@ -181,7 +182,7 @@
     private async Task HandleLogin()
     {
         // DIAGNÓSTICO TEMPORAL
-        Console.WriteLine($"[DIAG Login] HandleLogin instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} Email='{loginModel.Email}' Password.Length={loginModel.Password?.Length ?? 0}");
+        Logger.LogWarning($"[DIAG Login] HandleLogin instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} Email='{loginModel.Email}' Password.Length={loginModel.Password?.Length ?? 0}");
 
         try
         {

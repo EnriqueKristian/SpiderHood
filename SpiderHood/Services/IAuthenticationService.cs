@@ -655,12 +655,37 @@ namespace SpiderHood.Services
             UserBuildingAssociation _association = new UserBuildingAssociation();
             _association.IdUser = User.IdUser;
             _association.IdBuilding = invitation.IdBuilding;
-            _association.Role = invitation.Role;
+            _association.Role = await ResolveValidRoleNameAsync(invitation.Role);
             _association.IsApproved = true;
             _association.RequestedAt = DateTime.Now;
 
             return await Ec.AcceptInvitationAsync(_association);
 
+        }
+
+        // InvitationModel.Role es texto libre (no hay FK a Role al crear la invitación,
+        // y no existe ningún flujo en la app que las genere todavía — sólo se insertan a
+        // mano), así que nada valida que coincida con un rol real antes de llegar acá.
+        // Si no matchea, UserBuildingAssociation.Role queda con un valor que el resto de
+        // la app (menú, permisos) no reconoce: el usuario se registra pero no ve nada
+        // (caso real detectado: una invitación con Role='Visitor', que no es ninguno de
+        // los roles del sistema). Se valida en este único lugar que efectivamente
+        // persiste el valor, en vez de confiar ciegamente en el texto de la invitación.
+        private async Task<string> ResolveValidRoleNameAsync(string invitationRole)
+        {
+            var roles = await Ec.GetAllRolesAsync();
+            var match = roles.FirstOrDefault(r =>
+                string.Equals(r.RoleName, invitationRole, StringComparison.OrdinalIgnoreCase));
+
+            if (match != null)
+            {
+                return match.RoleName;
+            }
+
+            _logger.LogWarning(
+                "Invitación con rol '{InvitationRole}' no coincide con ningún rol del sistema; se usa 'Residente' por default.",
+                invitationRole);
+            return "Residente";
         }
 
         private async Task SendWelcomeEmailAsync(IdentityUser user, string firstName, bool requiresApproval)

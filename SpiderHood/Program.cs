@@ -1,5 +1,4 @@
 ﻿using Blazored.LocalStorage;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -30,19 +29,7 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddCascadingAuthenticationState();
-
-// FallbackPolicy: toda página requiere sesión autenticada por default (fail closed).
-// Antes no existía ningún [Authorize] ni FallbackPolicy en la app — AuthorizeRouteView
-// (Components/App.razor) estaba wireado pero no exigía nada, así que cualquiera con la
-// URL entraba a cualquier página sin loguearse. Las páginas que sí deben ser públicas
-// (login, confirmación de email, invitación, error, not-found) llevan
-// `@attribute [AllowAnonymous]` explícito.
-builder.Services.AddAuthorizationCore(options =>
-{
-    options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
-});
+builder.Services.AddAuthorizationCore();
 
 // 2. Identity
 //
@@ -66,18 +53,6 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 })
 .AddEntityFrameworkStores<SpiderHoodContext>()
 .AddDefaultTokenProviders();
-
-// AddIdentity registra IdentityConstants.ApplicationScheme como el scheme de
-// autenticación/challenge por default, con LoginPath = "/Account/Login" — una página
-// que no existe en esta app (el login real es la Razor Component "/login"). El
-// diagnóstico (ver historial del commit) confirmó que "/login" en sí misma NO
-// dispara este challenge — su [AllowAnonymous] se respeta correctamente — así que el
-// loop que se veía antes no era por esto. Apuntar LoginPath a la página real alcanza.
-builder.Services.ConfigureApplicationCookie(options =>
-{
-    options.LoginPath = "/login";
-    options.AccessDeniedPath = "/login";
-});
 
 // Otros servicios
 builder.Services.AddScoped<ParameterService>();
@@ -113,15 +88,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseAntiforgery();
-
-// El diagnóstico confirmó que el FallbackPolicy también le exige sesión a los archivos
-// estáticos (CSS, JS, blazor.web.js, favicon) — ninguno de esos endpoints trae
-// [AllowAnonymous] porque no son componentes Razor, son archivos servidos por
-// MapStaticAssets(). Sin blazor.web.js cargando, el circuito interactivo nunca se
-// establece para ningún usuario, autenticado o no. AllowAnonymous() los excluye del
-// FallbackPolicy.
-app.MapStaticAssets().AllowAnonymous();
-
+app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

@@ -45,17 +45,21 @@ namespace SpiderHood.Services
                     return CreateAuthenticationState(_staticCurrentUser);
                 }
 
-                // 2. Intentar cargar desde localStorage directamente, en vez de esperar a que
-                // algún componente hijo llame a InitializeClientAsync() desde su propio
-                // OnAfterRenderAsync (eso llega demasiado tarde: AuthorizeRouteView ya evalúa
-                // este resultado durante la inicialización, antes de que cualquier hijo llegue
-                // a post-render). Si estamos en el prerender estático real (sin circuito
-                // todavía), la llamada de JS interop lanza InvalidOperationException y caemos
-                // al anónimo de abajo — mismo comportamiento que antes para ese caso. Pero si
-                // ya hay un circuito interactivo vivo (aunque _isPrerendering siga en true por
-                // default en esta instancia nueva), esto ahora sí puede resolver la sesión real
-                // en la primera llamada, sin depender del orden de renderizado de otros
-                // componentes.
+                // 2. Si estamos en prerendering, retornar anónimo
+                if (_isPrerendering)
+                {
+                    _logger.LogWarning("⚠️ Prerendering - retornando anónimo");
+                    return new AuthenticationState(_anonymous);
+                }
+
+                // 3. Si no estamos en cliente, retornar anónimo
+                if (!_staticIsClientInitialized)
+                {
+                    _logger.LogWarning("⚠️ Cliente no inicializado - retornando anónimo");
+                    return new AuthenticationState(_anonymous);
+                }
+
+                // 4. Intentar cargar desde localStorage
                 _logger.LogWarning("📦 Intentando cargar desde localStorage...");
 
                 try
@@ -72,19 +76,9 @@ namespace SpiderHood.Services
                         {
                             _logger.LogWarning($"✅ Sesión cargada para: {session.Email}");
                             _staticCurrentUser = session;
-                            _isPrerendering = false;
-                            _staticIsClientInitialized = true;
                             return CreateAuthenticationState(session);
                         }
                     }
-
-                    // JS interop funcionó pero no hay sesión guardada: ya sabemos que no
-                    // estamos en el prerender estático (si lo estuviéramos, la llamada de
-                    // arriba habría lanzado), así que podemos marcar el cliente como
-                    // inicializado para que InitializeClientAsync() (llamado más tarde desde
-                    // LeftMenu/HeaderMainLayout/etc.) no repita el trabajo.
-                    _isPrerendering = false;
-                    _staticIsClientInitialized = true;
                 }
                 catch (InvalidOperationException ex)
                 {

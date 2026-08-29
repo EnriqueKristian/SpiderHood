@@ -1,12 +1,9 @@
 ﻿@page "/login"
-@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
-@layout PublicLayout
 @using SpiderHood.Models
 @using System.ComponentModel.DataAnnotations
 @using System.ComponentModel
 @inject Services.AuthService AuthService
 @inject NavigationManager Navigation
-@inject ILogger<Login> Logger
 @rendermode InteractiveServer
 
 <div class="login-container">
@@ -38,17 +35,8 @@
             <EditForm Model="@loginModel"
                       OnValidSubmit="@HandleLogin"
                       OnInvalidSubmit="@HandleInvalidSubmit"
-                      Formname="loginForm"
-                      data-enhance="false">
-                <!-- data-enhance="false": sin esto, la navegación mejorada de
-                     blazor.web.js intercepta el submit como un POST SSR tradicional
-                     (reconstruyendo la página desde cero, sin pasar por el circuito
-                     interactivo), incluso con @rendermode InteractiveServer en la
-                     página. Eso hacía que loginModel llegara siempre vacío a
-                     HandleLogin porque el POST SSR no sabe llenar campos bindeados
-                     con @bind-Value/ValueChanged interactivo (necesitaría
-                     [SupplyParameterFromForm]). Esto fuerza a que el submit se
-                     despache por el circuito en vivo, como el resto de la app. -->
+                      Formname="loginForm">
+                <!-- ← IMPORTANTE -->
                 <!-- Mensajes de validación resumidos -->
                 <div class="validation-summary-errors text-danger mb-3">
                     <ValidationSummary />
@@ -62,9 +50,7 @@
 
                     <InputText id="email"
                                class="@(isEmailValid ? "form-control" : "form-control is-invalid")"
-                               Value="@loginModel.Email"
-                               ValueChanged="@((string v) => OnEmailChanged(v))"
-                               ValueExpression="@(() => loginModel.Email)"
+                               @bind-Value="loginModel.Email"
                                placeholder="admin@spiderhood.com" />
 
 
@@ -151,48 +137,25 @@
                                      loginModel.Password.Length >= 6;
 
 
-    private void OnEmailChanged(string value)
-    {
-        // DIAGNÓSTICO TEMPORAL
-        Logger.LogWarning($"[DIAG Login] OnEmailChanged instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} nuevoValor='{value}'");
-        loginModel.Email = value;
-    }
-
-    protected override void OnInitialized()
-    {
-        // DIAGNÓSTICO TEMPORAL
-        Logger.LogWarning($"[DIAG Login] OnInitialized instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()}");
-    }
-
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // DIAGNÓSTICO TEMPORAL
-        Logger.LogWarning($"[DIAG Login] OnAfterRenderAsync firstRender={firstRender} instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} Email='{loginModel.Email}'");
-
         if (firstRender)
         {
-            // Antes esto llamaba a `.Result` sobre GetCurrentUserAsync() (bloqueante, no
-            // await) y después pisaba loginModel con un LoginModel() nuevo y vacío — si
-            // el navegador autocompletaba el formulario mientras esa llamada bloqueante
-            // todavía estaba resolviendo, el reset ganaba la carrera y vaciaba el email/
-            // contraseña justo antes de que el usuario diera click en "Iniciar Sesión"
-            // (loginModel ya arranca en new() como campo, así que este reset era además
-            // redundante). await en vez de .Result, y sin el reset.
-            var currentUser = await AuthService.GetCurrentUserAsync();
+            var currentUser = AuthService.GetCurrentUserAsync();
 
             // Verificar si ya hay sesión activa
-            if (currentUser != null)
+            if (currentUser.Result != null)
             {
                 Navigation.NavigateTo("/dashboard");
             }
+
+            // Limpiar modelo
+            loginModel = new LoginModel();
         }
     }
 
     private async Task HandleLogin()
     {
-        // DIAGNÓSTICO TEMPORAL
-        Logger.LogWarning($"[DIAG Login] HandleLogin instancia={this.GetHashCode()} loginModel={loginModel.GetHashCode()} Email='{loginModel.Email}' Password.Length={loginModel.Password?.Length ?? 0}");
-
         try
         {
             isLoading = true;

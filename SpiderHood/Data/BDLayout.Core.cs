@@ -92,7 +92,6 @@ namespace SpiderHood.Data
             public const string INS_BudgetHeader = "INS_BudgetHeader";
             public const string INS_BudgetDetail = "INS_BudgetDetail";
             public const string INS_Installment = "INS_Installment";
-            public const string INS_PaidInstallment = "INS_Installment";
             public const string INS_InstallmentPaid = "INS_InstallmentPaid";
 
             // Update Procedures

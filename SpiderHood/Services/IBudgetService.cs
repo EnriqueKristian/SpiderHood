@@ -311,8 +311,6 @@ namespace SpiderHood.Services
                 sequentialNumber += 0.01m;
             }
             state.CalculateTotals();
-
-            Task.CompletedTask.Wait();
         }
 
         public async Task SaveBudgetAsync(BudgetState state, List<Models.Period> _periods)

@@ -203,16 +203,16 @@
         _canCreateExpense = await PermissionService.HasPermissionAsync(currentUser, "create_expense");
         _canEditExpense = await PermissionService.HasPermissionAsync(currentUser, "edit_expense");
 
-        LoadData();
+        await LoadData();
     }
 
-    private void LoadData()
+    private async Task LoadData()
     {
         if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
             return;
         // Aquí cargarías los parámetros desde tu API o servicio
-        FilteredExpenses = ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
-        FilteredCategory = CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding).Result;
+        FilteredExpenses = await ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+        FilteredCategory = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
     }
 
     private void AbrirModal(Models.Expense item, OpenType mode)
@@ -258,7 +258,7 @@
                 throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}");
         }
 
-        LoadData();
+        await LoadData();
         return;
     }
 

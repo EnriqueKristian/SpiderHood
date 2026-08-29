@@ -163,9 +163,9 @@
         _ => "Editar Periodo"
     };
 
-    private void InitializeNewPeriod()
+    private async Task InitializeNewPeriod()
     {
-        period = ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding).Result;
+        period = await ParameterService.CreateNewPeriod(DateTime.Today, ParameterService.CurrentBuilding.IdBuilding);
     }
 
     private async Task LoadPeriod()

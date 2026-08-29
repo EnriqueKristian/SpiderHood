@@ -67,6 +67,22 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<SpiderHoodContext>()
 .AddDefaultTokenProviders();
 
+// AddIdentity registra IdentityConstants.ApplicationScheme como el scheme de
+// autenticación/challenge por default, con LoginPath = "/Account/Login" — una página
+// que no existe en esta app (el login real es la Razor Component "/login", ver nota
+// arriba). El chequeo de autorización de Razor Components en SSR (el que impone el
+// FallbackPolicy antes de que exista el circuito interactivo) dispara un challenge
+// contra ese scheme por default cuando la request no está autenticada, y como
+// "/Account/Login" tampoco existe como página, ese challenge se redirige a sí mismo
+// sin fin (ReturnUrl anidándose en cada vuelta). Apuntar LoginPath/AccessDeniedPath a
+// "/login" hace que ese challenge caiga en la página real, que además está marcada
+// [AllowAnonymous] y corta el loop ahí.
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/login";
+    options.AccessDeniedPath = "/login";
+});
+
 // Otros servicios
 builder.Services.AddScoped<ParameterService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();

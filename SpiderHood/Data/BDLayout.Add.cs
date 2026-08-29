@@ -80,6 +80,21 @@ namespace SpiderHood.Data
             }, "AddUserRole", cancellationToken);
         }
 
+        public async Task AssignUserBuildingRoleAsync(Guid idUser, Guid idBuilding, string role, Guid approvedBy, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_UserBuildingRole,
+                    cancellationToken,
+                    idUser,
+                    idBuilding,
+                    role,
+                    approvedBy);
+                return true;
+            }, "AssignUserBuildingRole", cancellationToken);
+        }
+
         public async Task<Models.RolePermissions> AddNewRecordAsync(Models.RolePermissions permissions, CancellationToken cancellationToken = default)
         {
             ValidateEntity(permissions, nameof(permissions));

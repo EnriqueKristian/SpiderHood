@@ -186,6 +186,9 @@ namespace SpiderHood.Data
             public const string GET_AllBuildingsConfig = "GET_AllBuildingsConfig";
             public const string GET_AllUsersWithRoles = "GET_AllUsersWithRoles";
             public const string GET_RoleByUserId = "GET_RoleByUserId";
+            public const string GET_AllUserBuildingRoles = "GET_AllUserBuildingRoles";
+            public const string INS_UserBuildingRole = "INS_UserBuildingRole";
+            public const string DEL_UserBuildingRole = "DEL_UserBuildingRole";
             public const string INS_Workflow = "INS_Workflow";
             public const string UPD_Workflow = "UPD_Workflow";
             public const string DEL_Workflow = "DEL_Workflow";

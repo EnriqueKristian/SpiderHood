@@ -37,9 +37,7 @@
 
             <EditForm Model="@loginModel"
                       OnValidSubmit="@HandleLogin"
-                      OnInvalidSubmit="@HandleInvalidSubmit"
-                      Formname="loginForm">
-                <!-- ← IMPORTANTE -->
+                      OnInvalidSubmit="@HandleInvalidSubmit">
                 <!-- Mensajes de validación resumidos -->
                 <div class="validation-summary-errors text-danger mb-3">
                     <ValidationSummary />

@@ -88,6 +88,17 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Events.OnRedirectToLogin = context =>
     {
+        // DIAGNÓSTICO TEMPORAL: para confirmar qué endpoint/metadata ve este challenge
+        // cuando se dispara sobre una request a una página marcada [AllowAnonymous]
+        // (el caso de "/login" haciendo loop contra sí mismo). Sacar una vez
+        // confirmado el mecanismo real.
+        var endpoint = context.HttpContext.GetEndpoint();
+        var hasAllowAnonymous = endpoint?.Metadata?.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() != null;
+        var metadataTypes = endpoint?.Metadata != null
+            ? string.Join(", ", System.Linq.Enumerable.Select(endpoint.Metadata, m => m.GetType().Name))
+            : "(sin endpoint)";
+        Console.WriteLine($"[DIAG OnRedirectToLogin] Path={context.Request.Path} Endpoint={endpoint?.DisplayName ?? "(null)"} HasAllowAnonymous={hasAllowAnonymous} Metadata=[{metadataTypes}]");
+
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         return Task.CompletedTask;
     };

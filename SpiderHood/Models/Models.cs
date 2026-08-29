@@ -5,42 +5,6 @@ using System.Globalization;
 
 namespace SpiderHood.Models
 {
-    public class Usuario
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = "";
-        public string Email { get; set; } = "";
-        public string Telefono { get; set; } = "";
-        public string Rol { get; set; } = "";
-        public string Departamento { get; set; } = "";
-        public string Estado { get; set; } = "Activo";
-        public DateTime FechaIngreso { get; set; } = DateTime.Now;
-        public string PasswordHash { get; set; } = "";
-
-        public Usuario Clone()
-        {
-            return (Usuario)this.MemberwiseClone();
-        }
-    }
-
-    public class Rol
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = "";
-        public string Descripcion { get; set; } = "";
-        public int UsuariosAsignados { get; set; }
-        public DateTime FechaCreacion { get; set; } = DateTime.Now;
-    }
-
-    public class Permiso
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = "";
-        public string Descripcion { get; set; } = "";
-        public bool Activo { get; set; }
-        public string Categoria { get; set; } = "";
-    }
-
     public class RegistrationModel
     {
         // Información personal
@@ -895,32 +859,6 @@ namespace SpiderHood.Models
         public List<MenuItemWithRoles> Children { get; set; } = new();
         [NotMapped]
         public MenuItemDefinition? Parent { get; set; }
-    }
-
-    public class MenuModule
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string Icon { get; set; } = "fas fa-folder";
-        public int Order { get; set; }
-        public List<MenuItemDefinition> MenuItems { get; set; } = new();
-    }
-
-    public class MenuItemViewModel
-    {
-        public Guid Id { get; set; } = Guid.Empty;
-        public string ItemKey { get; set; } = string.Empty;
-        public string Title { get; set; } = string.Empty;
-        public string? Icon { get; set; }
-        public string? Url { get; set; }
-        public Guid? ParentId { get; set; }
-        public string? ParentTitle { get; set; }
-        public int Order { get; set; }
-        public List<Guid> RequiredPermissions { get; set; } = new();
-        public bool HasChildren { get; set; }
-        public int ChildrenCount { get; set; }
-        public bool IsVisible { get; set; }
     }
 
     public class PermissionSelection

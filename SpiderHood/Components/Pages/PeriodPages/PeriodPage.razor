@@ -7,6 +7,8 @@
 @inject Services.IPeriodService PeriodService
 @inject Services.ParameterService ParameterService
 @inject IJSRuntime JSRuntime
+@inject Services.AuthService AuthService
+@inject Services.IPermissionService PermissionService
 @using SpiderHood.Components.Pages.Components
 @rendermode InteractiveServer
 
@@ -25,11 +27,15 @@
             </div>
         </div>
         <div class="page-header-actions">
-            <button class="btn btn-primary" @onclick="CreateNew">
-                <i class="bi bi-plus-circle me-2"></i>Nuevo Periodo
-            </button>
+            @if (_canManagePeriods)
+            {
+                <button class="btn btn-primary" @onclick="CreateNew">
+                    <i class="bi bi-plus-circle me-2"></i>Nuevo Periodo
+                </button>
+            }
         </div>
     </div>
+
     @if (MostrarAvisoSinPeriodos)
     {
         <div class="alert alert-warning alert-dismissible fade show mb-4">
@@ -39,6 +45,7 @@
             <button type="button" class="btn-close" @onclick="() => MostrarAvisoSinPeriodos = false"></button>
         </div>
     }
+
     <!-- Summary Cards -->
     <div class="row g-4 mb-4">
         <div class="col-md-3">
@@ -122,9 +129,12 @@
                                 <i class="bi bi-calendar3 text-muted display-4"></i>
                             </div>
                             <h5 class="text-muted mb-2">No hay periodos registrados</h5>
-                            <button class="btn btn-primary" @onclick="CreateNew">
-                                <i class="bi bi-plus-circle me-2"></i>Nuevo Periodo
-                            </button>
+                            @if (_canManagePeriods)
+                            {
+                                <button class="btn btn-primary" @onclick="CreateNew">
+                                    <i class="bi bi-plus-circle me-2"></i>Nuevo Periodo
+                                </button>
+                            }
                         </div>
                     }
                     else
@@ -168,23 +178,26 @@
                                                 }
                                             </td>
                                             <td class="text-center">
-                                                <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-primary" title="Editar"
-                                                            @onclick="() => EditPeriod(period)">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-danger" title="Eliminar"
-                                                            @onclick="() => DeletePeriod(period)">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                    @if (!period.IsCurrentPeriod && period.Status == 1) // Active
-                                                    {
-                                                        <button class="btn btn-outline-success" title="Establecer como actual"
-                                                                @onclick="() => SetAsCurrent(period.IdPeriod)">
-                                                            <i class="bi bi-star-fill"></i>
+                                                @if (_canManagePeriods)
+                                                {
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button class="btn btn-outline-primary" title="Editar"
+                                                                @onclick="() => EditPeriod(period)">
+                                                            <i class="bi bi-pencil"></i>
                                                         </button>
-                                                    }
-                                                </div>
+                                                        <button class="btn btn-outline-danger" title="Eliminar"
+                                                                @onclick="() => DeletePeriod(period)">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                        @if (!period.IsCurrentPeriod && period.Status == 1) // Active
+                                                        {
+                                                            <button class="btn btn-outline-success" title="Establecer como actual"
+                                                                    @onclick="() => SetAsCurrent(period.IdPeriod)">
+                                                                <i class="bi bi-star-fill"></i>
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                }
                                             </td>
                                         </tr>
                                     }
@@ -212,6 +225,7 @@
 @code {
     [Parameter]
     public Guid BuildingId { get; set; }
+
     // Llega desde BudgetGenerator ("Nuevo Presupuesto") cuando el edificio no tiene
     // ningún periodo todavía — explica por qué se redirigió acá en vez de mostrar el
     // toast justo antes de navegar (poco confiable: la transición de página puede
@@ -231,13 +245,22 @@
     private bool loading = true;
     //private string searchTerm = string.Empty;
 
+    // Un solo permiso "manage_periods" cubre crear/editar/eliminar/marcar como actual —
+    // a diferencia de Presupuesto, acá no hay un flujo de aprobación con distintos
+    // actores por paso, así que no se justifica partirlo en varias claves.
+    private bool _canManagePeriods;
+
     protected override async Task OnInitializedAsync()
     {
         // Suscribirse una sola vez: LoadPeriods() se llama repetidas veces durante la vida
         // de la página (carga inicial, cambio de BuildingId, después de guardar/eliminar) y
         // volver a suscribirse ahí acumulaba handlers duplicados en OnPaginationChanged.
         _pagination.OnPaginationChanged += StateHasChanged;
+
         MostrarAvisoSinPeriodos = SinPeriodosQuery == "1";
+
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new Models.UserSession();
+        _canManagePeriods = await PermissionService.HasPermissionAsync(currentUser, "manage_periods");
 
         if (ParameterService.CurrentBuilding == null)
             return;
@@ -263,6 +286,7 @@
 
     private void CreateNew()
     {
+        if (!_canManagePeriods) return;
         ShowModal = true;
         isNew = true;
 
@@ -313,6 +337,7 @@
 
     private void EditPeriod(Models.Period _period)
     {
+        if (!_canManagePeriods) return;
         ShowModal = true;
         isNew = false;
         period = _period;
@@ -329,6 +354,7 @@
 
     private async Task DeletePeriod(Models.Period period)
     {
+        if (!_canManagePeriods) return;
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Desea eliminar el periodo {period.Name}?");
         if (!confirmed) return;
 
@@ -345,6 +371,7 @@
 
     private async Task SetAsCurrent(Guid periodId)
     {
+        if (!_canManagePeriods) return;
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "¿Desea establecer este periodo como el periodo actual?");
         if (!confirmed) return;
 

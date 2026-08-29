@@ -6,6 +6,7 @@
 @inject Services.AuthService AuthService
 @inject IBuildingService BuildingService
 @inject ParameterService ParameterService
+@inject IPermissionService PermissionService
 
 <PageTitle>Asignar Unidades</PageTitle>
 
@@ -110,9 +111,12 @@
             </div>
             <div class="card-footer bg-transparent d-flex justify-content-end gap-2">
                 <button class="btn btn-secondary" @onclick="Volver">Cancelar</button>
-                <button class="btn btn-primary" disabled="@(_selectedUnits.Count == 0 || _saving)" @onclick="Guardar">
-                    <i class="bi bi-check-lg me-2"></i>Asignar Unidades
-                </button>
+                @if (_canAssignUnits)
+                {
+                    <button class="btn btn-primary" disabled="@(_selectedUnits.Count == 0 || _saving)" @onclick="Guardar">
+                        <i class="bi bi-check-lg me-2"></i>Asignar Unidades
+                    </button>
+                }
             </div>
         </div>
     }
@@ -122,6 +126,7 @@
     [Parameter] public Guid IdGroupUnit { get; set; }
 
     private UserSession? currentUser;
+    private bool _canAssignUnits;
     private bool _loading = true;
     private bool _saving = false;
     private string _message = string.Empty;
@@ -144,6 +149,8 @@
             _loading = false;
             return;
         }
+
+        _canAssignUnits = await PermissionService.HasPermissionAsync(currentUser, "assign_units");
 
         await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId);
 
@@ -172,7 +179,7 @@
 
     private async Task Guardar()
     {
-        if (_titular == null || _selectedUnits.Count == 0) return;
+        if (_titular == null || _selectedUnits.Count == 0 || !_canAssignUnits) return;
 
         _saving = true;
 

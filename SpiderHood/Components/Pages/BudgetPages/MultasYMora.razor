@@ -6,6 +6,8 @@
 @inject ParameterService ParameterService
 @inject IExtraChargeService ExtraChargeService
 @inject NavigationManager Navigation
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
 
 <PageTitle>Multas y Mora</PageTitle>
 
@@ -175,18 +177,28 @@
                                 </div>
                             }
 
-                            <button class="btn btn-warning" @onclick="Aplicar" disabled="@aplicando">
-                                @if (aplicando)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-1"></span>
-                                }
-                                <i class="bi bi-lightning-charge"></i> Aplicar Multas y Mora
-                            </button>
-                            <small class="d-block text-muted mt-2">
-                                Genera los cargos correspondientes bajo "Cargos por Multas y Mora" en el Listado de Cuotas.
-                                Se puede correr varias veces: la multa solo se cobra una vez por cuota y la mora solo suma
-                                el incremento desde la última vez que se aplicó.
-                            </small>
+                            @if (_canApplySurcharges)
+                            {
+                                <button class="btn btn-warning" @onclick="Aplicar" disabled="@aplicando">
+                                    @if (aplicando)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    <i class="bi bi-lightning-charge"></i> Aplicar Multas y Mora
+                                </button>
+                                <small class="d-block text-muted mt-2">
+                                    Genera los cargos correspondientes bajo "Cargos por Multas y Mora" en el Listado de Cuotas.
+                                    Se puede correr varias veces: la multa solo se cobra una vez por cuota y la mora solo suma
+                                    el incremento desde la última vez que se aplicó.
+                                </small>
+                            }
+                            else
+                            {
+                                <div class="alert alert-secondary mb-0">
+                                    <i class="bi bi-shield-lock me-1"></i>
+                                    No tienes permiso para aplicar multas y mora. Solo puedes ver el listado.
+                                </div>
+                            }
                         }
                     }
                 </div>
@@ -202,6 +214,7 @@
     private bool aplicando = false;
     private string mensajeResultado = string.Empty;
     private AplicacionCargosResultado? resultado;
+    private bool _canApplySurcharges;
 
     [CascadingParameter]
     private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
@@ -211,6 +224,10 @@
     protected override async Task OnInitializedAsync()
     {
         pagination.OnPaginationChanged += StateHasChanged;
+
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canApplySurcharges = await PermissionService.HasPermissionAsync(currentUser, "apply_surcharges");
+
         await CargarVencidas();
     }
 
@@ -232,7 +249,7 @@
 
     private async Task Aplicar()
     {
-        if (ParameterService.CurrentBuilding == null) return;
+        if (ParameterService.CurrentBuilding == null || !_canApplySurcharges) return;
 
         aplicando = true;
         StateHasChanged();

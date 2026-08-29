@@ -51,11 +51,16 @@ namespace SpiderHood.Components.Pages.BuildingPages
         //private Guid IdBuilding = Guid.Empty;
         private UserSession currentUser = new();
         private bool _loaded = false;
+        private bool _canEditBuilding;
+        private bool _canCreateBuilding;
 
         protected override async Task OnInitializedAsync()
         {
             currentUser = await AuthService.GetCurrentUserAsync();
             if (currentUser == null) return;
+
+            _canEditBuilding = await PermissionService.HasPermissionAsync(currentUser, "edit_building");
+            _canCreateBuilding = await PermissionService.HasPermissionAsync(currentUser, "create_building");
         }
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -67,7 +72,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 StateHasChanged();
             }
         }
-        
+
         protected async Task InicializarPagina()
         {
             // Verificar si ya está inicializado o cancelado
@@ -131,6 +136,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task EditBuilding(Building building)
         {
+            if (!_canEditBuilding) return;
             _editingBuilding = building.Clone();
             _isEditingBuilding = true;
             await _buildingModal.ShowAsync();
@@ -138,6 +144,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task ShowCreateModal()
         {
+            if (!_canCreateBuilding) return;
             _editingBuilding = new Building
             {
                 IdBuilding = Guid.NewGuid(),
@@ -169,6 +176,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task SaveBuilding()
         {
+            if (_isEditingBuilding ? !_canEditBuilding : !_canCreateBuilding) return;
             try
             {
                 if (_isEditingBuilding)
@@ -262,6 +270,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private void StartEditSection(string section)
         {
+            if (!_canEditBuilding) return;
             if (SelectedBuilding != null)
             {
                 _configurationBackup = SelectedBuilding.Configuration.Clone();
@@ -280,6 +289,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task SaveSection(string section)
         {
+            if (!_canEditBuilding) return;
             try
             {
                 // Aquí iría la lógica para guardar en la base de datos

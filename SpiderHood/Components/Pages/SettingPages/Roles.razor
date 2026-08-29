@@ -1,101 +1,121 @@
-﻿@* Pages/Settings/Roles.razor *@
+﻿﻿@* Pages/Settings/Roles.razor *@
 @page "/Settings/Roles"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @inject Services.IPermissionAdminService PermissionAdminService
+@inject Services.IPermissionService PermissionService
+@inject Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Gestión de Roles</PageTitle>
 
-<div class="container-fluid px-4 py-3">
-    <div class="page-header">
-        <div class="page-header-title">
-            <div class="icon-badge">
-                <i class="bi bi-person-badge"></i>
-            </div>
-            <h1 class="h3 fw-bold mb-0">Gestión de Roles y Permisos</h1>
-        </div>
-        <div class="page-header-actions">
-            <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/Settings/Roles/Create")'>
-                <i class="bi bi-plus me-1"></i>Nuevo Rol
-            </button>
+@if (!_loading && !_canManageRoles)
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para gestionar roles y permisos.
         </div>
     </div>
-
-    @if (_loading)
-    {
-        <div class="text-center p-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="page-header">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-person-badge"></i>
+                </div>
+                <h1 class="h3 fw-bold mb-0">Gestión de Roles y Permisos</h1>
+            </div>
+            <div class="page-header-actions">
+                <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/Settings/Roles/Create")'>
+                    <i class="bi bi-plus me-1"></i>Nuevo Rol
+                </button>
             </div>
         </div>
-    }
-    else
-    {
-        <div class="row">
-            @foreach (var role in _roles)
-            {
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 shadow-sm @(role.IsSystem ? "border-primary" : "")">
-                        <div class="card-header @(role.IsSystem ? "bg-primary text-white" : "bg-light")">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">
-                                    <i class="bi bi-shield-check me-2"></i>
-                                    @role.RoleName
-                                </h5>
-                                @if (role.IsSystem)
-                                {
-                                    <span class="badge bg-warning text-dark">Sistema</span>
-                                }
+
+        @if (_loading)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="row">
+                @foreach (var role in _roles)
+                {
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100 shadow-sm @(role.IsSystem ? "border-primary" : "")">
+                            <div class="card-header @(role.IsSystem ? "bg-primary text-white" : "bg-light")">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">
+                                        <i class="bi bi-shield-check me-2"></i>
+                                        @role.RoleName
+                                    </h5>
+                                    @if (role.IsSystem)
+                                    {
+                                        <span class="badge bg-warning text-dark">Sistema</span>
+                                    }
+                                </div>
                             </div>
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text text-muted">@role.Description</p>
-                            <div class="mb-3">
-                                <small class="text-muted">
-                                    <i class="bi bi-key me-1"></i>
-                                    @role.Permissions.Count permisos asignados
-                                </small>
+                            <div class="card-body">
+                                <p class="card-text text-muted">@role.Description</p>
+                                <div class="mb-3">
+                                    <small class="text-muted">
+                                        <i class="bi bi-key me-1"></i>
+                                        @role.Permissions.Count permisos asignados
+                                    </small>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Creado: @role.CreatedAt.ToString("dd/MM/yyyy")</small>
+                                </div>
                             </div>
-                            <div class="mb-2">
-                                <small class="text-muted">Creado: @role.CreatedAt.ToString("dd/MM/yyyy")</small>
-                            </div>
-                        </div>
-                        <div class="card-footer bg-transparent">
-                            <div class="btn-group w-100">
-                                <button class="btn btn-outline-primary btn-sm"
-                                        @onclick='() => Navigation.NavigateTo($"/Settings/Roles/Edit/{role.IdRole}")'>
-                                    <i class="bi bi-pencil-square me-1"></i>Editar
-                                </button>
-                                <button class="btn btn-outline-info btn-sm"
-                                        @onclick='() => Navigation.NavigateTo($"/Settings/Roles/Permissions/{role.IdRole}")'>
-                                    <i class="bi bi-lock me-1"></i>Permisos
-                                </button>
-                                @if (!role.IsSystem)
-                                {
-                                    <button class="btn btn-outline-danger btn-sm"
-                                            @onclick="() => DeleteRole(role)">
-                                        <i class="bi bi-trash me-1"></i>
+                            <div class="card-footer bg-transparent">
+                                <div class="btn-group w-100">
+                                    <button class="btn btn-outline-primary btn-sm"
+                                            @onclick='() => Navigation.NavigateTo($"/Settings/Roles/Edit/{role.IdRole}")'>
+                                        <i class="bi bi-pencil-square me-1"></i>Editar
                                     </button>
-                                }
+                                    <button class="btn btn-outline-info btn-sm"
+                                            @onclick='() => Navigation.NavigateTo($"/Settings/Roles/Permissions/{role.IdRole}")'>
+                                        <i class="bi bi-lock me-1"></i>Permisos
+                                    </button>
+                                    @if (!role.IsSystem)
+                                    {
+                                        <button class="btn btn-outline-danger btn-sm"
+                                                @onclick="() => DeleteRole(role)">
+                                            <i class="bi bi-trash me-1"></i>
+                                        </button>
+                                    }
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            }
-        </div>
-    }
-</div>
+                }
+            </div>
+        }
+    </div>
+}
 
 @code {
     private List<Role> _roles = new();
     private bool _loading = true;
 
+    // Misma clave que RolePermissions.razor — ver
+    // Database/Migrations/2026-08-28_Permiso_ManageRoles.sql.
+    private bool _canManageRoles;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageRoles = await PermissionService.HasPermissionAsync(currentUser, "manage_roles");
             await LoadRolesAsync();
         }
     }
@@ -124,6 +144,7 @@
 
     private async Task DeleteRole(Role role)
     {
+        if (!_canManageRoles) return;
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
             $"¿Está seguro de eliminar el rol '{role.RoleName}'?");
 

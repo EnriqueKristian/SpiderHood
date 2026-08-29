@@ -4,110 +4,123 @@
 @using SpiderHood.Models
 @inject Services.IPermissionAdminService PermissionAdminService
 @inject Services.IPermissionService PermissionService
+@inject Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Asignar Permisos</PageTitle>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0">
-                            <i class="bi bi-lock me-2"></i>
-                            Asignar Permisos - @_role?.RoleName
-                        </h4>
-                        <button class="btn btn-light btn-sm" @onclick="ToggleSelectAll">
-                            <i class="bi fa-@(_allSelected ? "times" : "check-double") me-1"></i>
-                            @(_allSelected ? "Deseleccionar Todos" : "Seleccionar Todos")
-                        </button>
+@if (!_loading && !_canManageRoles)
+{
+    <div class="container-fluid">
+        <div class="alert alert-danger m-4">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para gestionar roles y permisos.
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0">
+                                <i class="bi bi-lock me-2"></i>
+                                Asignar Permisos - @_role?.RoleName
+                            </h4>
+                            <button class="btn btn-light btn-sm" @onclick="ToggleSelectAll">
+                                <i class="bi fa-@(_allSelected ? "times" : "check-double") me-1"></i>
+                                @(_allSelected ? "Deseleccionar Todos" : "Seleccionar Todos")
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                <div class="card-body">
-                    @if (_loading)
-                    {
-                        <div class="text-center p-5">
-                            <div class="spinner-border text-primary"></div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="mb-3">
-                            <input type="text" class="form-control"
-                                   placeholder="Buscar permisos..."
-                                   @bind="_searchTerm"
-                                   @bind:event="oninput" />
-                        </div>
+                    <div class="card-body">
+                        @if (_loading)
+                        {
+                            <div class="text-center p-5">
+                                <div class="spinner-border text-primary"></div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <input type="text" class="form-control"
+                                       placeholder="Buscar permisos..."
+                                       @bind="_searchTerm"
+                                       @bind:event="oninput" />
+                            </div>
 
-                        <div class="row">
-                            @foreach (var group in _permissionGroups)
-                            {
-                                var filteredPermissions = FilterPermissions(group.Permissions);
-                                if (filteredPermissions.Any())
+                            <div class="row">
+                                @foreach (var group in _permissionGroups)
                                 {
-                                    <div class="col-md-6 mb-4">
-                                        <div class="card h-100">
-                                            <div class="card-header bg-light">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <h6 class="mb-0">
-                                                        <i class="@group.Icon me-2"></i>
-                                                        @group.ModuleDisplayName
-                                                    </h6>
-                                                    <button class="btn btn-sm btn-outline-primary"
-                                                            @onclick="() => ToggleGroup(group.Module)">
-                                                        Seleccionar Grupo
-                                                    </button>
+                                    var filteredPermissions = FilterPermissions(group.Permissions);
+                                    if (filteredPermissions.Any())
+                                    {
+                                        <div class="col-md-6 mb-4">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-light">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <h6 class="mb-0">
+                                                            <i class="@group.Icon me-2"></i>
+                                                            @group.ModuleDisplayName
+                                                        </h6>
+                                                        <button class="btn btn-sm btn-outline-primary"
+                                                                @onclick="() => ToggleGroup(group.Module)">
+                                                            Seleccionar Grupo
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                                                    @foreach (var permission in filteredPermissions)
+                                                    {
+                                                        <div class="form-check mb-2">
+                                                            <input type="checkbox"
+                                                                   class="form-check-input"
+                                                                   id="@permission.PermissionId"
+                                                                   @bind="permission.IsSelected"
+                                                                   @bind:after="PermissionChanged" />
+                                                            <label class="form-check-label" for="@permission.PermissionId">
+                                                                <strong>@permission.Name</strong>
+                                                                <br />
+                                                                <small class="text-muted">@permission.Description</small>
+                                                            </label>
+                                                        </div>
+                                                    }
                                                 </div>
                                             </div>
-                                            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
-                                                @foreach (var permission in filteredPermissions)
-                                                {
-                                                    <div class="form-check mb-2">
-                                                        <input type="checkbox"
-                                                               class="form-check-input"
-                                                               id="@permission.PermissionId"
-                                                               @bind="permission.IsSelected"
-                                                               @bind:after="PermissionChanged" />
-                                                        <label class="form-check-label" for="@permission.PermissionId">
-                                                            <strong>@permission.Name</strong>
-                                                            <br />
-                                                            <small class="text-muted">@permission.Description</small>
-                                                        </label>
-                                                    </div>
-                                                }
-                                            </div>
                                         </div>
-                                    </div>
+                                    }
                                 }
-                            }
-                        </div>
+                            </div>
 
-                        <div class="d-flex justify-content-between mt-4">
-                            <button class="btn btn-secondary"
-                                    @onclick='() => Navigation.NavigateTo("/Settings/Roles")'>
-                                <i class="bi bi-arrow-left me-1"></i>Volver
-                            </button>
-                            <button class="btn btn-primary" @onclick="SavePermissions" disabled="@_saving">
-                                @if (_saving)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-1"></span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-floppy me-1"></i>
-                                }
-                                Guardar Permisos
-                            </button>
-                        </div>
-                    }
+                            <div class="d-flex justify-content-between mt-4">
+                                <button class="btn btn-secondary"
+                                        @onclick='() => Navigation.NavigateTo("/Settings/Roles")'>
+                                    <i class="bi bi-arrow-left me-1"></i>Volver
+                                </button>
+                                <button class="btn btn-primary" @onclick="SavePermissions" disabled="@_saving">
+                                    @if (_saving)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-floppy me-1"></i>
+                                    }
+                                    Guardar Permisos
+                                </button>
+                            </div>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
+}
 
 @code {
     [Parameter] public Guid? RoleId { get; set; } = Guid.Empty;
@@ -119,10 +132,18 @@
     private bool _saving;
     private string _searchTerm = string.Empty;
 
+    // La página más sensible del sistema: desde acá se le puede asignar cualquier
+    // permiso a cualquier rol, incluido Administrador. Gateada con su propia clave
+    // (manage_roles) en vez de reusar alguna genérica, y a nivel de página completa
+    // (no sólo el botón Guardar) — ver Database/Migrations/2026-08-28_Permiso_ManageRoles.sql.
+    private bool _canManageRoles;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageRoles = await PermissionService.HasPermissionAsync(currentUser, "manage_roles");
             await LoadDataAsync();
         }
     }
@@ -217,6 +238,7 @@
 
     private async Task SavePermissions()
     {
+        if (!_canManageRoles) return;
         try
         {
             _saving = true;

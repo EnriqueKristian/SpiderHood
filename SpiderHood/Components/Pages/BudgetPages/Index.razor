@@ -4,6 +4,7 @@
 @inject ParameterService ParameterService
 @inject NavigationManager Navigation
 @inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
 @rendermode InteractiveServer
 
 <PageTitle>SpiderHood - Gestión de Presupuestos</PageTitle>
@@ -21,7 +22,7 @@
             <button class="btn btn-outline-primary" @onclick="ExportarPresupuestos">
                 <i class="bi bi-upload me-1"></i>Exportar
             </button>
-            @if (IsAdministrador)
+            @if (_canCreateBudget)
             {
                 <button class="btn btn-primary btn-lg" style="border-radius: 50px;" @onclick="NuevoPresupuesto">
                     <i class="bi bi-plus-circle me-2"></i>Nuevo Presupuesto
@@ -148,7 +149,7 @@
                                 <i class="bi bi-receipt bi-3x"></i>
                                 <h3>No hay presupuestos</h3>
                                 <p>No se encontraron presupuestos con los filtros aplicados.</p>
-                                @if (IsAdministrador)
+                                @if (_canCreateBudget)
                                 {
                                     <button class="btn btn-primary" @onclick="NuevoPresupuesto">
                                         <i class="bi bi-plus"></i> Crear Primer Presupuesto
@@ -220,21 +221,20 @@
                                                             <i class="bi bi-eye"></i>
                                                         </button>
                                                         <button class="btn btn-outline-secondary"
-                                                                title="@(IsAdministrador ? "Editar Presupuesto" : "Ver / Aprobar Presupuesto")"
+                                                                title="@(_canEditBudget ? "Editar Presupuesto" : "Ver / Aprobar Presupuesto")"
                                                                 @onclick:stopPropagation @onclick="() => EditarPresupuesto(presupuesto)">
                                                             <i class="bi bi-pencil"></i>
                                                         </button>
-                                                        @if (IsAdministrador)
+                                                        @if (_canDeleteBudget && (presupuesto.Status == BudgetStatus.Created || presupuesto.Status == BudgetStatus.Rejected || presupuesto.Status == BudgetStatus.Check))
                                                         {
-                                                            @if (presupuesto.Status == BudgetStatus.Created || presupuesto.Status == BudgetStatus.Rejected || presupuesto.Status == BudgetStatus.Check)
-                                                            {
-                                                                <button class="btn btn-outline-danger"
-                                                                        title="Elimnar Presupuesto"
-                                                                        @onclick:stopPropagation @onclick="() => EliminarPresupuesto(presupuesto)">
-                                                                    <i class="bi bi-trash"></i>
-                                                                </button>
-                                                            }
-
+                                                            <button class="btn btn-outline-danger"
+                                                                    title="Elimnar Presupuesto"
+                                                                    @onclick:stopPropagation @onclick="() => EliminarPresupuesto(presupuesto)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        }
+                                                        @if (_canCloneBudget)
+                                                        {
                                                             <button class="btn btn-outline-success"
                                                                     title="Clonar Presupuesto"
                                                                     @onclick:stopPropagation @onclick="() => ClonarPresupuesto(presupuesto)">
@@ -389,11 +389,17 @@
     // Servicios inyectados
     [Inject] private IBudgetService budgetService { get; set; } = null!;
 
-    // Sólo el Administrador puede crear/editar/eliminar/clonar presupuestos. La Junta
-    // llega a esta lista sólo para ver y, dentro de /budgetgenerator, aprobar o rechazar
-    // los que estén en revisión (Check) — ese flujo lo sigue gateando IsJunta allá.
+    // Cada acción de este listado consulta su propia clave de permiso (Acción 2:
+    // configurable desde /Settings/Roles/Permissions, ver
+    // Database/Migrations/2026-08-28_Permisos_Presupuesto_*.sql). Por defecto sólo
+    // Administrador/SysAdmin las tienen; la Junta llega a esta lista sólo para ver y,
+    // dentro de /budgetgenerator, aprobar o rechazar los que estén en revisión (Check)
+    // — ese flujo lo sigue gateando approve_budget allá.
     private UserSession currentUser = new();
-    private bool IsAdministrador => currentUser?.Role == "Administrador" || currentUser?.Role == "SysAdmin";
+    private bool _canCreateBudget;
+    private bool _canEditBudget;
+    private bool _canDeleteBudget;
+    private bool _canCloneBudget;
 
     // Variables de estado
     private bool isLoading = true;
@@ -460,6 +466,10 @@
         isLoading = true;
         StateHasChanged();
         currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canCreateBudget = await PermissionService.HasPermissionAsync(currentUser, "create_budget");
+        _canEditBudget = await PermissionService.HasPermissionAsync(currentUser, "edit_budget");
+        _canDeleteBudget = await PermissionService.HasPermissionAsync(currentUser, "delete_budget");
+        _canCloneBudget = await PermissionService.HasPermissionAsync(currentUser, "clone_budget");
         var attempts = 0;
         while (ParameterService.CurrentBuilding == null && attempts < 20)
         {
@@ -695,7 +705,7 @@
     // Métodos de acciones
     private void NuevoPresupuesto()
     {
-        if (!IsAdministrador) return;
+        if (!_canCreateBudget) return;
         Navigation.NavigateTo($"/budgetgenerator");
     }
 
@@ -727,7 +737,7 @@
 
     private async Task DeleteItem()
     {
-        if (!IsAdministrador) { await modal.HideAsync(); return; }
+        if (!_canDeleteBudget) { await modal.HideAsync(); return; }
         // Lógica adicional después de cerrar el modal, si es necesario
         try
         {
@@ -748,14 +758,14 @@
 
     private async void EliminarPresupuesto(BudgetHeader _budget)
     {
-        if (!IsAdministrador) return;
+        if (!_canDeleteBudget) return;
         selectedBudget = _budget;
         await modal.ShowAsync();
     }
 
     private async void ClonarPresupuesto(BudgetHeader _budget)
     {
-        if (!IsAdministrador) return;
+        if (!_canCloneBudget) return;
         try
         {
             // Crear nuevo presupuesto basado en el existente

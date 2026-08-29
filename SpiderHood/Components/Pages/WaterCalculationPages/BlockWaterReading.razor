@@ -9,6 +9,8 @@
 @inject ParameterService ParameterService
 @using ClosedXML.Excel
 @inject IJSRuntime JSRuntime
+@inject AuthService AuthService
+@inject IPermissionService PermissionService
 
 <div class="lectura-bloque-container">
     <div class="card mb-4">
@@ -43,7 +45,7 @@
                     </div>
                 </div>
 
-                @if (_ServiceReadingState.CurrentReading.Status < 2)
+                @if (_ServiceReadingState.CurrentReading.Status < 2 && _canManageWaterReadings)
                 {
                     <!-- Importar Excel -->
                     <div class="col-md-5">
@@ -518,8 +520,15 @@
         await OnSaveReady.InvokeAsync(_ServiceReadingState);
     }
 
+    // Un solo permiso cubre importar/guardar/limpiar lecturas — no hay un flujo de
+    // aprobación distinto por paso como en Presupuesto.
+    private bool _canManageWaterReadings;
+
     protected override async Task OnInitializedAsync()
     {
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canManageWaterReadings = await PermissionService.HasPermissionAsync(currentUser, "manage_water_readings");
+
         if (ParameterService.CurrentBuilding == null) return;
         await CargarDatosIniciales();
     }
@@ -825,7 +834,7 @@
 
             try
             {
-                if (!PuedeGuardar)
+                if (!PuedeGuardar || !_canManageWaterReadings)
                 {
                     // TODO: Mostrar mensaje de que faltan procesar lecturas
                     return;

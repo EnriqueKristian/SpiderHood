@@ -14,11 +14,12 @@
 @inject SpiderHood.Services.IExceptionService _exceptionService
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IBuildingService BuildingService
+@inject SpiderHood.Services.IPermissionService PermissionService
 
 <div class="expense-calculation">
     <!-- Header -->
     <BudgetHeaderComponent _budgetState="_BudgetState"
-                           IsAdministrador="IsAdministrador"
+                           CanCreateBudget="_canCreateBudget"
                            OnNewCalculation="ShowNewCalculationModal"
                            OnLoadTemplate="LoadSampleData"
                            OnSave="SaveCalculation"
@@ -40,7 +41,7 @@
                     <h5 class="mb-0">@_BudgetState.Budget.BudgetName</h5>
                     <span class="badge @GetStatusBadgeClass()">@GetStatusLabel()</span>
                 </div>
-                @if (_Status == BudgetStatus.Active && IsAdministrador)
+                @if (_Status == BudgetStatus.Active && _canCloseBudget)
                 {
                     <button class="btn btn-sm btn-outline-secondary" @onclick="CerrarPresupuesto">
                         <i class="bi bi-folder"></i>&nbsp;Cerrar
@@ -82,13 +83,13 @@
                                     <i class="bi bi-plus-lg me-1"></i>Nueva Sección
                                 </button>
                             }
-                            @if ((_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected) && IsAdministrador)
+                            @if ((_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected) && _canSubmitBudget)
                             {
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="EnviarAAprobacion">
                                     <i class="bi bi-list-check"></i>&nbsp;Enviar a Aprobación
                                 </button>
                             }
-                            @if (_Status == BudgetStatus.Check && IsJunta)
+                            @if (_Status == BudgetStatus.Check && _canApproveBudget)
                             {
                                 <button class="btn btn-sm btn-success" @onclick="AprobarPresupuesto">
                                     <i class="bi bi-check-circle"></i>&nbsp;Aprobar
@@ -97,13 +98,13 @@
                                     <i class="bi bi-slash-circle"></i>&nbsp;Rechazar
                                 </button>
                             }
-                            @if (_Status == BudgetStatus.Approved && IsAdministrador)
+                            @if (_Status == BudgetStatus.Approved && _canPublishBudget)
                             {
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="PublicarPresupuesto">
                                     <i class="bi bi-upload"></i>&nbsp;Publicar
                                 </button>
                             }
-                            @if (_Status == BudgetStatus.Active && IsAdministrador)
+                            @if (_Status == BudgetStatus.Active && _canCloseBudget)
                             {
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="CerrarPresupuesto">
                                     <i class="bi bi-folder"></i>&nbsp;Cerrar
@@ -295,7 +296,7 @@
                                     </button>
                                 </div>
                             }
-                            else if (IsAdministrador)
+                            else if (_canCreateBudget)
                             {
                                 <span>Primero debe Crear el Presupuesto</span>
                                 <p />
@@ -486,17 +487,20 @@
     private BudgetStatus _Status = BudgetStatus.Created;
     private UserSession currentUser = new();
 
-    // Workflow: Administrador crea/envía a aprobación/publica/cierra, Junta de
-    // Propietarios aprueba/rechaza. currentUser.Role ya viene resuelto para el
-    // edificio+rol actualmente seleccionado (Services/AuthService.GetCurrentUserAsync,
-    // mismo patrón que BuildingPage.razor.cs).
-    // SysAdmin es un rol aparte de Administrador en este sistema (ver LeftMenu.razor,
-    // Components/Pages/AccessPages/Index.razor) pero debe poder hacer todo lo que puede
-    // un Administrador — si no, un usuario SysAdmin ve los campos del presupuesto pero
-    // no puede tocarlos (CanEdit daba false) sin ningún aviso de por qué.
-    private bool IsAdministrador => currentUser?.Role == "Administrador" || currentUser?.Role == "SysAdmin";
-    private bool IsJunta => currentUser?.Role == "Junta";
-    private bool CanEdit => IsAdministrador && (_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected);
+    // Workflow: quien tenga create_budget/edit_budget/submit_budget/publish_budget/
+    // close_budget crea/edita/envía a aprobación/publica/cierra; quien tenga
+    // approve_budget aprueba/rechaza. Antes esto era IsAdministrador/IsJunta
+    // hardcodeado a un nombre de rol — ahora cada acción consulta su propia clave vía
+    // IPermissionService, así que es configurable desde /Settings/Roles/Permissions sin
+    // tocar código (por defecto Administrador y SysAdmin tienen las 6, Junta sólo
+    // approve_budget — ver Database/Migrations/2026-08-28_Permisos_Presupuesto_*.sql).
+    private bool _canCreateBudget;
+    private bool _canEditBudgetPermission;
+    private bool _canSubmitBudget;
+    private bool _canApproveBudget;
+    private bool _canPublishBudget;
+    private bool _canCloseBudget;
+    private bool CanEdit => _canEditBudgetPermission && (_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected);
 
     private NewCalculation _newCalculation = new();
     private NewSection _newSection = new();
@@ -579,6 +583,17 @@
             return;
 
         currentUser = await AuthService.GetCurrentUserAsync();
+
+        // Permisos granulares del módulo Presupuesto (Acción 2: antes esto era todo
+        // IsAdministrador/IsJunta hardcodeado a un nombre de rol; ahora cada botón
+        // consulta su propia clave, configurable desde /Settings/Roles/Permissions sin
+        // tocar código — ver Database/Migrations/2026-08-28_Permisos_Presupuesto_*.sql).
+        _canCreateBudget = await PermissionService.HasPermissionAsync(currentUser, "create_budget");
+        _canEditBudgetPermission = await PermissionService.HasPermissionAsync(currentUser, "edit_budget");
+        _canSubmitBudget = await PermissionService.HasPermissionAsync(currentUser, "submit_budget");
+        _canApproveBudget = await PermissionService.HasPermissionAsync(currentUser, "approve_budget");
+        _canPublishBudget = await PermissionService.HasPermissionAsync(currentUser, "publish_budget");
+        _canCloseBudget = await PermissionService.HasPermissionAsync(currentUser, "close_budget");
 
         //Obtiene el presupuesto de la pagina de lista de presupuestos
         _Status = ValidateParameter(presupuestoService._SelectedBudget.Status);
@@ -1020,9 +1035,9 @@
 
     private async Task ShowNewCalculationModal()
     {
-        // Sólo el Administrador crea presupuestos — la Junta sólo aprueba/rechaza los que
-        // ya están en revisión (ver IsJunta más abajo).
-        if (!IsAdministrador) return;
+        // Requiere create_budget — la Junta sólo aprueba/rechaza los que ya están en
+        // revisión (ver approve_budget más abajo).
+        if (!_canCreateBudget) return;
         if (_newCalcModal == null) return;
 
         // Edificio sin NINGÚN periodo todavía: no hay nada de qué partir para "sugerir
@@ -1113,7 +1128,7 @@
 
     private async Task CreateNewCalculation()
     {
-        if (!IsAdministrador) return;
+        if (!_canCreateBudget) return;
         if (_selectedPeriod == DateTime.MinValue) return;
 
         // Implementar lógica para crear nuevo cálculo
@@ -1213,7 +1228,7 @@
     // Junta no edita el presupuesto.
     private async Task AprobarPresupuesto()
     {
-        if (!IsJunta || _Status != BudgetStatus.Check) return;
+        if (!_canApproveBudget || _Status != BudgetStatus.Check) return;
 
         _Status = BudgetStatus.Approved;
         _BudgetState.Status = _Status;
@@ -1228,7 +1243,7 @@
     // aprobación.
     private async Task RechazarPresupuesto()
     {
-        if (!IsJunta || _Status != BudgetStatus.Check) return;
+        if (!_canApproveBudget || _Status != BudgetStatus.Check) return;
 
         _Status = BudgetStatus.Rejected;
         _BudgetState.Status = _Status;
@@ -1241,7 +1256,7 @@
     // comportamiento anterior, solo se le agrega el gate de rol.
     private async Task CerrarPresupuesto()
     {
-        if (!IsAdministrador || _Status != BudgetStatus.Active) return;
+        if (!_canCloseBudget || _Status != BudgetStatus.Active) return;
 
         _Status = BudgetStatus.Closed;
         _BudgetState.Status = _Status;
@@ -1509,7 +1524,7 @@
     // El Administrador envía a aprobación: Created/Rejected -> Check.
     private async Task EnviarAAprobacion()
     {
-        if (!IsAdministrador || !(_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected)) return;
+        if (!_canSubmitBudget || !(_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected)) return;
 
         try
         {
@@ -1546,7 +1561,7 @@
     // generan/descargan todos los recibos (PDF) en un solo ZIP.
     private async Task PublicarPresupuesto()
     {
-        if (!IsAdministrador || _Status != BudgetStatus.Approved) return;
+        if (!_canPublishBudget || _Status != BudgetStatus.Approved) return;
 
         try
         {

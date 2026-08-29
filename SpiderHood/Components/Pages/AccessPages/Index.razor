@@ -4,10 +4,22 @@
 @using SpiderHood.Services
 @inject Services.AuthService AuthService
 @inject IPermissionAdminService PermissionAdminService
+@inject IPermissionService PermissionService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Gestión de Usuarios</PageTitle>
 
+@if (!_loading && !_canManageUsers)
+{
+    <div class="container-fluid">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para gestionar usuarios.
+        </div>
+    </div>
+}
+else
+{
 <div class="container-fluid">
     <div class="page-header">
         <div class="page-header-title">
@@ -242,6 +254,7 @@
         </div>
     </div>
 }
+}
 
 @code {
     private class UsuarioRow
@@ -271,8 +284,15 @@
     private string strActivo = "Activo";
     private string strInactivo = "Inactivo";
 
+    // Reutiliza manage_users, ya existente y ya asignado sólo a Administrador/SysAdmin
+    // — no hace falta script SQL nuevo para esta página.
+    private bool _canManageUsers;
+
     protected override async Task OnInitializedAsync()
     {
+        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canManageUsers = await PermissionService.HasPermissionAsync(currentUser, "manage_users");
+
         await CargarUsuarios();
         AplicarFiltros();
     }
@@ -380,12 +400,14 @@
 
     private void MostrarModalNuevoUsuario()
     {
+        if (!_canManageUsers) return;
         formModel = new UsuarioFormModel { IsActive = true };
         mostrarModalUsuario = true;
     }
 
     private void EditarUsuario(Guid idUser)
     {
+        if (!_canManageUsers) return;
         var usuario = usuarios.FirstOrDefault(u => u.IdUser == idUser);
         if (usuario == null) return;
 
@@ -405,6 +427,7 @@
 
     private async Task GuardarUsuario(UsuarioFormModel model)
     {
+        if (!_canManageUsers) return;
         try
         {
             if (model.IsEdit)
@@ -469,6 +492,7 @@
 
     private async Task CambiarEstadoUsuario(UsuarioRow usuario)
     {
+        if (!_canManageUsers) return;
         var nuevoEstadoActivo = usuario.Estado != "Activo";
         var accion = nuevoEstadoActivo ? "activar" : "desactivar";
 

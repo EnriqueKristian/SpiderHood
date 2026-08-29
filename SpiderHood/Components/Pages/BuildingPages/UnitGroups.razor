@@ -13,6 +13,7 @@
 @using Microsoft.AspNetCore.Components
 @inject IJSRuntime JSRuntime
 @inject Services.AuthService AuthService
+@inject IPermissionService PermissionService
 
 <PageTitle>Unidades Inmobiliarias</PageTitle>
 
@@ -30,10 +31,13 @@
         </div>
 
         <div class="page-header-actions">
-            <button class="btn btn-primary d-flex align-items-center"
-                    @onclick="() => AbrirModal(new Models.RealEstateUnit(), 0, Models.OpenType.Create)">
-                <i class="bi bi-plus-circle me-2"></i>Nueva Unidad
-            </button>
+            @if (_canCreateUnit)
+            {
+                <button class="btn btn-primary d-flex align-items-center"
+                        @onclick="() => AbrirModal(new Models.RealEstateUnit(), 0, Models.OpenType.Create)">
+                    <i class="bi bi-plus-circle me-2"></i>Nueva Unidad
+                </button>
+            }
             <button class="btn btn-outline-secondary d-flex align-items-center">
                 <i class="bi bi-download me-2"></i>Exportar
             </button>
@@ -159,18 +163,24 @@
                                                 title="Ver detalles" @onclick="() => ViewDetails(unidad)">
                                             <i class="bi bi-eye"></i>
                                         </button>
-                                        <button type="button" class="btn btn-outline-secondary"
-                                                title="Editar" @onclick="() => EditUnit(unidad)">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
+                                        @if (_canEditUnit)
+                                        {
+                                            <button type="button" class="btn btn-outline-secondary"
+                                                    title="Editar" @onclick="() => EditUnit(unidad)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                        }
                                         <button type="button" class="btn btn-outline-success"
                                                 title="Finanzas" @onclick="() => ViewFinances(unidad)">
                                             <i class="bi bi-cash-coin"></i>
                                         </button>
-                                        <button type="button" class="btn btn-outline-danger"
-                                                title="Eliminar" @onclick="() => DeleteUnit(unidad)">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                                        @if (_canDeleteUnit)
+                                        {
+                                            <button type="button" class="btn btn-outline-danger"
+                                                    title="Eliminar" @onclick="() => DeleteUnit(unidad)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        }
                                     </div>
                                 </td>
                             </tr>
@@ -423,6 +433,7 @@
 
     private async Task DeleteUnit(Models.RealEstateUnit unidad)
     {
+        if (!_canDeleteUnit) return;
         _Unit = unidad;
         await modal.ShowAsync();
     }
@@ -537,6 +548,7 @@
 
     private async Task GenerateBlockUnits()
     {
+        if (!_canCreateUnit) return;
         // Lógica adicional después de cerrar el modal, si es necesario
 
         if (_formCreateUnit is not null)
@@ -593,6 +605,10 @@
     private UnidadModel _formCreateUnit = new UnidadModel();
     private UserSession currentUser = new();
 
+    private bool _canCreateUnit;
+    private bool _canEditUnit;
+    private bool _canDeleteUnit;
+
     //  CLASE PARA GENERAR UNIDADES EN BLOQUE
     public class UnidadModel
     {
@@ -642,6 +658,10 @@
                 return;
             }
 
+            _canCreateUnit = await PermissionService.HasPermissionAsync(currentUser, "create_unit");
+            _canEditUnit = await PermissionService.HasPermissionAsync(currentUser, "edit_unit");
+            _canDeleteUnit = await PermissionService.HasPermissionAsync(currentUser, "delete_unit");
+
             await InicializarPagina();
         }
     }
@@ -669,6 +689,9 @@
 
     private void AbrirModal(Models.RealEstateUnit _cat, int type, Models.OpenType mode)
     {
+        if (mode == Models.OpenType.Create && !_canCreateUnit) return;
+        if (mode == Models.OpenType.Update && !_canEditUnit) return;
+
         MostrarModal = true;
         OpenMode = mode;
 
@@ -682,6 +705,9 @@
 
     private async Task SaveItem(SpiderHood.Models.RealEstateUnit item)
     {
+        if (OpenMode == Models.OpenType.Create && !_canCreateUnit) return;
+        if (OpenMode == Models.OpenType.Update && !_canEditUnit) return;
+
         switch (OpenMode)
         {
             case Models.OpenType.Create:

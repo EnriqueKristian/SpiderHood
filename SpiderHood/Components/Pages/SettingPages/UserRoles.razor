@@ -1,80 +1,94 @@
-﻿@* Pages/Settings/UserRoles.razor *@
+﻿﻿@* Pages/Settings/UserRoles.razor *@
 @page "/Settings/UserRoles"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @inject Services.IPermissionAdminService PermissionAdminService
+@inject Services.IPermissionService PermissionService
+@inject Services.AuthService AuthService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Asignar Roles a Usuarios</PageTitle>
 
-<div class="container-fluid">
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">
-                <i class="bi bi-people-fill me-2"></i>
-                Asignación de Roles a Usuarios
-            </h4>
-        </div>
-
-        <div class="card-body">
-            @if (_loading)
-            {
-                <div class="text-center p-5">
-                    <div class="spinner-border text-primary"></div>
-                </div>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Usuario</th>
-                                <th>Email</th>
-                                <th>Rol Actual</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var assignment in _assignments)
-                            {
-                                <tr>
-                                    <td>
-                                        <i class="bi bi-person-circle me-2"></i>
-                                        @assignment.UserName
-                                    </td>
-                                    <td>@assignment.UserEmail</td>
-                                    <td>
-                                        <span class="badge @GetRoleBadgeClass(assignment.CurrentRole)">
-                                            @assignment.CurrentRole
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <select class="form-select form-select-sm" style="width: auto; display: inline-block;"
-                                                @onchange="(e) => ChangeUserRole(assignment.IdUser, Guid.Parse(e.Value!.ToString()!))">
-                                            <option value="">Seleccionar rol...</option>
-                                            @foreach (var role in assignment.AvailableRoles)
-                                            {
-                                                if (role.RoleName == assignment.CurrentRole)
-                                                {
-                                                    <option value="@role.IdRole" selected>@role.RoleName (actual)</option>
-                                                }
-                                                else
-                                                {
-                                                    <option value="@role.IdRole">@role.RoleName</option>
-                                                }
-                                            }
-                                        </select>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
+@if (!_loading && !_canManageRoles)
+{
+    <div class="container-fluid">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tienes permiso para asignar roles a usuarios.
         </div>
     </div>
-</div>
+}
+else
+{
+    <div class="container-fluid">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-people-fill me-2"></i>
+                    Asignación de Roles a Usuarios
+                </h4>
+            </div>
+
+            <div class="card-body">
+                @if (_loading)
+                {
+                    <div class="text-center p-5">
+                        <div class="spinner-border text-primary"></div>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Email</th>
+                                    <th>Rol Actual</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var assignment in _assignments)
+                                {
+                                    <tr>
+                                        <td>
+                                            <i class="bi bi-person-circle me-2"></i>
+                                            @assignment.UserName
+                                        </td>
+                                        <td>@assignment.UserEmail</td>
+                                        <td>
+                                            <span class="badge @GetRoleBadgeClass(assignment.CurrentRole)">
+                                                @assignment.CurrentRole
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <select class="form-select form-select-sm" style="width: auto; display: inline-block;"
+                                                    @onchange="(e) => ChangeUserRole(assignment.IdUser, Guid.Parse(e.Value!.ToString()!))">
+                                                <option value="">Seleccionar rol...</option>
+                                                @foreach (var role in assignment.AvailableRoles)
+                                                {
+                                                    if (role.RoleName == assignment.CurrentRole)
+                                                    {
+                                                        <option value="@role.IdRole" selected>@role.RoleName (actual)</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="@role.IdRole">@role.RoleName</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private List<RoleAssignment> _assignments = new();
@@ -82,11 +96,17 @@
 
     private bool _initialized = false;
 
+    // Misma clave que Roles.razor/RolePermissions.razor — ver
+    // Database/Migrations/2026-08-28_Permiso_ManageRoles.sql.
+    private bool _canManageRoles;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && !_initialized)
         {
             _initialized = true;
+            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canManageRoles = await PermissionService.HasPermissionAsync(currentUser, "manage_roles");
             await LoadDataAsync();
             StateHasChanged();
         }
@@ -111,6 +131,7 @@
 
     private async Task ChangeUserRole(Guid userId, Guid newRole)
     {
+        if (!_canManageRoles) return;
         if (newRole != Guid.Empty)
         {
             try

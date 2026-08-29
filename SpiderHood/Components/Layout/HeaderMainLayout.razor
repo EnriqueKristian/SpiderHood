@@ -63,7 +63,7 @@
             }
             else
             {
-                @foreach (var building in Buildings)
+                @foreach (var building in UniqueBuildings)
                 {
                     <li>
                         <a class="dropdown-item @(IsActiveBuilding(building) ? "active" : "")"
@@ -76,12 +76,15 @@
                     </li>
                 }
             }
-            <li><hr class="dropdown-divider"></li>
-            <li>
-                <a class="dropdown-item" href="/Buildings/Create">
-                    <i class="bi bi-plus me-2"></i>Nuevo Edificio
-                </a>
-            </li>
+            @if (_canCreateBuilding)
+            {
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="/buildings">
+                        <i class="bi bi-plus me-2"></i>Nuevo Edificio
+                    </a>
+                </li>
+            }
         </ul>
 
         <!-- Menú Usuario -->
@@ -119,15 +122,29 @@
     [Inject] private Services.AuthService AuthService { get; set; } = default!;
     [Inject] private Services.CustomAuthenticationStateProvider AuthStateProvider { get; set; } = default!;
     [Inject] private Services.ParameterService ParameterService { get; set; } = default!;
+    [Inject] private Services.IPermissionService PermissionService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<HeaderMainLayout> Logger { get; set; } = default!;
 
     private bool _initialized = false;
     private bool _isLoading = true;
+    private bool _canCreateBuilding;
     private Models.UserSession? _currentUser;
     private List<Models.UserBuilding> Buildings { get; set; } = new();
     private string BuildingName { get; set; } = "Seleccionar Edificio";
     private Guid? CurrentBuildingId { get; set; }
+
+    // Un mismo edificio puede aparecer varias veces en Buildings (una fila por rol al
+    // que el usuario tiene acceso ahí) — este dropdown es sólo un selector de edificio,
+    // no de rol (eso ya lo cubre /select-building), así que se colapsa a una fila por
+    // edificio. Si es el edificio actualmente activo, se muestra el rol con el que se
+    // está usando ahora mismo; para los demás, cualquiera de sus roles sirve como
+    // representante (todos apuntan al mismo edificio).
+    private IEnumerable<Models.UserBuilding> UniqueBuildings =>
+        Buildings
+            .Where(b => b.Building != null)
+            .GroupBy(b => b.Building!.IdBuilding)
+            .Select(g => g.FirstOrDefault(b => b.Building!.IdBuilding == CurrentBuildingId && b.Role == _currentUser?.Role) ?? g.First());
 
     protected override void OnInitialized()
     {
@@ -166,6 +183,11 @@
 
                 await AuthStateProvider.InitializeClientAsync();
                 await LoadUserDataAsync();
+
+                if (_currentUser != null)
+                {
+                    _canCreateBuilding = await PermissionService.HasPermissionAsync(_currentUser, "create_building");
+                }
 
                 _initialized = true;
             }

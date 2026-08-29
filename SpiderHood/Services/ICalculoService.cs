@@ -8,95 +8,6 @@ using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
-    public interface IServiceReadingService
-    {
-        Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period);
-        Task AddServiceReadingAsync(Models.ServiceReading newservice);
-
-        Task AddPeriodAsync(Models.Period newperiod);
-        Task AddServiceReadingDetailAsync(List<Models.ServiceReadingDetail> newdetails);
-    }
-
-    public class ServiceReadingService : IServiceReadingService
-    {
-
-        private readonly ILogger<IBudgetService> _logger;
-        private BDLayout ec { get; set; }
-
-        public ServiceReadingService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger)
-        {
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            ec = new BDLayout(contextFactory);
-        }
-
-        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period)
-        {
-            return await ec.GetServiceReadingDetailbyPeriodAsync(period);
-        }
-
-
-
-        public async Task AddServiceReadingDetailAsync(List<Models.ServiceReadingDetail> newdetails)
-        {
-            try
-            {
-                await ec.AddNewRecordAsync(newdetails);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al crear el detail: {ex.Message}");
-            }
-        }
-        public async Task AddServiceReadingAsync(Models.ServiceReading newservice)
-        {
-            try
-            {
-                await ec.AddNewRecordAsync(newservice);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
-            }
-        }
-
-        public async Task AddPeriodAsync(Models.Period newperiod)
-        {
-            try
-            {
-                await ec.AddNewRecordAsync(newperiod);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al crear el periodo: {ex.Message}");
-            }
-        }
-
-    }
-
-    public class TarifaAgua
-    {
-        public int Id { get; set; }
-        public string Rango { get; set; } = string.Empty;
-        public int Minimo { get; set; }
-        public int Maximo { get; set; } // -1 para "más"
-        public decimal Potable { get; set; }
-        public decimal Alcantarillado { get; set; }
-        public decimal Total => Potable + Alcantarillado;
-        public decimal Diferencial { get; set; }
-        public bool Activo { get; set; } = true;
-
-        // Para mostrar en UI
-        public string DescripcionRango
-        {
-            get
-            {
-                if (Maximo == -1)
-                    return $"R{Id}: {Minimo} a más";
-                return $"R{Id}: {Minimo} a {Maximo}";
-            }
-        }
-    }
-
     public interface ICalculoService
     {
         Task<List<TarifaAgua>> ObtenerTarifasAsync();
@@ -115,24 +26,6 @@ namespace SpiderHood.Services
         Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(Guid IdBuilding);
         Task<List<Models.ServiceReading>> GetServiceReadingsAsync(Guid IdBuilding);
 
-    }
-
-    public class CalculoResultado
-    {
-        public decimal Subtotal { get; set; }
-        public decimal CargoFijo { get; set; }
-        public decimal TotalSinIGV { get; set; }
-        public decimal IGV { get; set; } = 0.18m; // 18%
-        public decimal TotalConIGV => TotalSinIGV * (1 + IGV);
-        public List<DetalleCalculo> Detalles { get; set; } = [];
-    }
-
-    public class DetalleCalculo
-    {
-        public string Rango { get; set; } = string.Empty;
-        public double Consumo { get; set; }
-        public decimal Tarifa { get; set; }
-        public decimal Monto { get; set; }
     }
 
     // Implementación del servicio

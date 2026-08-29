@@ -4,31 +4,6 @@ using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
-    // Resultado de generar una cuota extraordinaria: cuántas unidades quedaron con
-    // cargo y el total repartido, para mostrar una confirmación en la UI.
-    public class CuotaExtraordinariaResultado
-    {
-        public bool Exito { get; set; }
-        public string Mensaje { get; set; } = string.Empty;
-        public Guid IdBudgetHeader { get; set; }
-        public int UnidadesConCargo { get; set; }
-        public decimal TotalRepartido { get; set; }
-    }
-
-    // Resultado de correr el proceso de Multas y Mora: qué se generó en esta corrida
-    // (no es un acumulado histórico, solo lo que se creó ahora).
-    public class AplicacionCargosResultado
-    {
-        public bool Exito { get; set; } = true;
-        public string Mensaje { get; set; } = string.Empty;
-        public int CuotasRevisadas { get; set; }
-        public int UnidadesConMulta { get; set; }
-        public int UnidadesConMora { get; set; }
-        public decimal TotalMultas { get; set; }
-        public decimal TotalMora { get; set; }
-        public List<string> Detalle { get; set; } = [];
-    }
-
     public interface IExtraChargeService
     {
         // Unidades activas (propietarios) del edificio, para armar la grilla de reparto

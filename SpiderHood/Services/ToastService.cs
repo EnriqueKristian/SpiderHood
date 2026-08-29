@@ -1,4 +1,5 @@
 ﻿// Services/ToastService.cs
+using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
@@ -49,22 +50,5 @@ namespace SpiderHood.Services
                 Duration = 3000
             });
         }
-    }
-
-    public class ToastMessage
-    {
-        public Guid Id { get; set; } 
-        public string Title { get; set; } = "";
-        public string Message { get; set; } = "";
-        public ToastType Type { get; set; }
-        public int Duration { get; set; } = 3000;
-    }
-
-    public enum ToastType
-    {
-        Success,
-        Error,
-        Warning,
-        Info
     }
 }

@@ -280,6 +280,31 @@ namespace SpiderHood.Models
         }
     }
 
+    // Resultado de generar una cuota extraordinaria: cuántas unidades quedaron con
+    // cargo y el total repartido, para mostrar una confirmación en la UI.
+    public class CuotaExtraordinariaResultado
+    {
+        public bool Exito { get; set; }
+        public string Mensaje { get; set; } = string.Empty;
+        public Guid IdBudgetHeader { get; set; }
+        public int UnidadesConCargo { get; set; }
+        public decimal TotalRepartido { get; set; }
+    }
+
+    // Resultado de correr el proceso de Multas y Mora: qué se generó en esta corrida
+    // (no es un acumulado histórico, solo lo que se creó ahora).
+    public class AplicacionCargosResultado
+    {
+        public bool Exito { get; set; } = true;
+        public string Mensaje { get; set; } = string.Empty;
+        public int CuotasRevisadas { get; set; }
+        public int UnidadesConMulta { get; set; }
+        public int UnidadesConMora { get; set; }
+        public decimal TotalMultas { get; set; }
+        public decimal TotalMora { get; set; }
+        public List<string> Detalle { get; set; } = [];
+    }
+
     // Models/ViewModels para la UI
     public class GastoPendienteViewModel
     {
@@ -403,6 +428,46 @@ namespace SpiderHood.Models
         public string Text { get; set; } = string.Empty;
         public bool Selected { get; set; }
         public object? Data { get; set; } = null;
+    }
+
+    public class ToastMessage
+    {
+        public Guid Id { get; set; }
+        public string Title { get; set; } = "";
+        public string Message { get; set; } = "";
+        public ToastType Type { get; set; }
+        public int Duration { get; set; } = 3000;
+    }
+
+    public enum ToastType
+    {
+        Success,
+        Error,
+        Warning,
+        Info
+    }
+
+    /// <summary>
+    /// Clase auxiliar para resultados de operaciones
+    /// </summary>
+    public class OperationResult
+    {
+        public bool IsSuccess { get; }
+        public string? ErrorMessage { get; }
+        public object? Data { get; }
+
+        private OperationResult(bool isSuccess, string? errorMessage = null, object? data = null)
+        {
+            IsSuccess = isSuccess;
+            ErrorMessage = errorMessage;
+            Data = data;
+        }
+
+        public static OperationResult Success(object? data = null)
+            => new OperationResult(true, data: data);
+
+        public static OperationResult Failure(string errorMessage)
+            => new OperationResult(false, errorMessage);
     }
 
     // Models/FiltroCuotas para búsquedas

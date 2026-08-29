@@ -26,7 +26,7 @@
         ToastService.OnShow += ShowToast;
     }
 
-    private void ShowToast(Services.ToastMessage message)
+    private void ShowToast(Models.ToastMessage message)
     {
         var toast = new ToastItem
         {
@@ -59,16 +59,16 @@
         StateHasChanged();
     }
 
-    private string GetIcon(Services.ToastType type) => type switch
+    private string GetIcon(Models.ToastType type) => type switch
     {
-        Services.ToastType.Success => "bi bi-check-circle",
-        Services.ToastType.Error => "bi bi-exclamation-circle",
-        Services.ToastType.Warning => "bi bi-exclamation-triangle",
-        Services.ToastType.Info => "bi bi-info-circle",
+        Models.ToastType.Success => "bi bi-check-circle",
+        Models.ToastType.Error => "bi bi-exclamation-circle",
+        Models.ToastType.Warning => "bi bi-exclamation-triangle",
+        Models.ToastType.Info => "bi bi-info-circle",
         _ => "bi bi-bell"
     };
 
-    public class ToastItem : Services.ToastMessage
+    public class ToastItem : Models.ToastMessage
     {
         public Guid Id { get; set; }
     }

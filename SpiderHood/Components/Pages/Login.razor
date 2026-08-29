@@ -37,7 +37,18 @@
 
             <EditForm Model="@loginModel"
                       OnValidSubmit="@HandleLogin"
-                      OnInvalidSubmit="@HandleInvalidSubmit">
+                      OnInvalidSubmit="@HandleInvalidSubmit"
+                      Formname="loginForm"
+                      data-enhance="false">
+                <!-- data-enhance="false": sin esto, la navegación mejorada de
+                     blazor.web.js intercepta el submit como un POST SSR tradicional
+                     (reconstruyendo la página desde cero, sin pasar por el circuito
+                     interactivo), incluso con @rendermode InteractiveServer en la
+                     página. Eso hacía que loginModel llegara siempre vacío a
+                     HandleLogin porque el POST SSR no sabe llenar campos bindeados
+                     con @bind-Value/ValueChanged interactivo (necesitaría
+                     [SupplyParameterFromForm]). Esto fuerza a que el submit se
+                     despache por el circuito en vivo, como el resto de la app. -->
                 <!-- Mensajes de validación resumidos -->
                 <div class="validation-summary-errors text-danger mb-3">
                     <ValidationSummary />

@@ -947,6 +947,21 @@ namespace SpiderHood.Models
         public List<Role> AvailableRoles { get; set; } = new();
     }
 
+    // Una fila por (usuario, edificio, rol) en UserBuildingAssociation — la tabla real
+    // que AuthService.LoginAsync lee para armar el menú y los permisos de sesión. Un
+    // usuario puede tener varias filas (un rol por edificio, o varios roles sobre el
+    // mismo edificio), a diferencia de RoleAssignment (que asume un solo rol global por
+    // usuario, sobre la tabla UserRole — desconectada de la sesión real).
+    public class UserBuildingRoleAssignment
+    {
+        public Guid IdUser { get; set; } = Guid.Empty;
+        public string UserName { get; set; } = string.Empty;
+        public string UserEmail { get; set; } = string.Empty;
+        public Guid IdBuilding { get; set; } = Guid.Empty;
+        public string BuildingName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+
     public class MenuItemDefinition
     {
         public Guid IdMenu { get; set; } = Guid.NewGuid();

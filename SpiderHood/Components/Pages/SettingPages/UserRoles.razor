@@ -9,7 +9,7 @@
 
 <PageTitle>Asignar Roles a Usuarios</PageTitle>
 
-@if (!_loading && !_canManageRoles)
+@if (!_loading && !_canAssignRoles)
 {
     <div class="container-fluid">
         <div class="alert alert-danger">
@@ -38,52 +38,91 @@ else
                 }
                 else
                 {
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Usuario</th>
-                                    <th>Email</th>
-                                    <th>Rol Actual</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var assignment in _assignments)
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Edificio</label>
+                            <select class="form-select" @bind="_selectedBuildingId">
+                                <option value="">Todos los edificios</option>
+                                @foreach (var building in _buildings)
                                 {
-                                    <tr>
-                                        <td>
-                                            <i class="bi bi-person-circle me-2"></i>
-                                            @assignment.UserName
-                                        </td>
-                                        <td>@assignment.UserEmail</td>
-                                        <td>
-                                            <span class="badge @GetRoleBadgeClass(assignment.CurrentRole)">
-                                                @assignment.CurrentRole
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <select class="form-select form-select-sm" style="width: auto; display: inline-block;"
-                                                    @onchange="(e) => ChangeUserRole(assignment.IdUser, Guid.Parse(e.Value!.ToString()!))">
-                                                <option value="">Seleccionar rol...</option>
-                                                @foreach (var role in assignment.AvailableRoles)
-                                                {
-                                                    if (role.RoleName == assignment.CurrentRole)
-                                                    {
-                                                        <option value="@role.IdRole" selected>@role.RoleName (actual)</option>
-                                                    }
-                                                    else
-                                                    {
-                                                        <option value="@role.IdRole">@role.RoleName</option>
-                                                    }
-                                                }
-                                            </select>
-                                        </td>
-                                    </tr>
+                                    <option value="@building.IdBuilding">@building.BuildingName</option>
                                 }
-                            </tbody>
-                        </table>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Buscar usuario</label>
+                            <input type="text" class="form-control" placeholder="Nombre o email..."
+                                   @bind="_searchTerm" @bind:event="oninput" />
+                        </div>
                     </div>
+
+                    @if (!FilteredRows.Any())
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            No hay usuarios que coincidan con el filtro seleccionado.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Email</th>
+                                        <th>Edificio</th>
+                                        <th>Roles</th>
+                                        <th style="width: 220px;">Agregar rol</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in FilteredRows)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <i class="bi bi-person-circle me-2"></i>
+                                                @row.UserName
+                                            </td>
+                                            <td>@row.UserEmail</td>
+                                            <td>@row.BuildingName</td>
+                                            <td>
+                                                @foreach (var role in row.Roles)
+                                                {
+                                                    <span class="badge @GetRoleBadgeClass(role) me-1 mb-1">
+                                                        @role
+                                                        <i class="bi bi-x-circle ms-1" role="button"
+                                                           title="Quitar rol"
+                                                           @onclick="() => RevokeRole(row, role)"></i>
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var assignable = AssignableRolesFor(row);
+                                                }
+                                                @if (assignable.Any())
+                                                {
+                                                    <select class="form-select form-select-sm"
+                                                            @onchange="(e) => AssignRole(row, e.Value?.ToString())">
+                                                        <option value="">Agregar rol...</option>
+                                                        @foreach (var role in assignable)
+                                                        {
+                                                            <option value="@role.RoleName">@role.RoleName</option>
+                                                        }
+                                                    </select>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small">Todos los roles asignados</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 }
             </div>
         </div>
@@ -91,22 +130,72 @@ else
 }
 
 @code {
-    private List<RoleAssignment> _assignments = new();
+    private List<UserBuildingRoleAssignment> _allAssignments = new();
+    private List<Role> _allRoles = new();
     private bool _loading = true;
-
     private bool _initialized = false;
+    private UserSession? _currentUser;
 
-    // Misma clave que Roles.razor/RolePermissions.razor — ver
-    // Database/Migrations/2026-08-28_Permiso_ManageRoles.sql.
-    private bool _canManageRoles;
+    private Guid? _selectedBuildingId;
+    private string _searchTerm = string.Empty;
+
+    // SysAdmin es el único rol que puede otorgar/quitar roles (ver
+    // Database/Migrations/2026-08-30_Permiso_AssignRoles.sql) — a propósito distinto de
+    // manage_roles (que Administrador también tiene, para crear roles y editar sus
+    // permisos), justamente para que un Administrador no pueda auto-asignarse SysAdmin
+    // ni dárselo a otro usuario desde acá.
+    private bool _canAssignRoles;
+
+    private class UserBuildingRow
+    {
+        public Guid IdUser { get; set; }
+        public string UserName { get; set; } = string.Empty;
+        public string UserEmail { get; set; } = string.Empty;
+        public Guid IdBuilding { get; set; }
+        public string BuildingName { get; set; } = string.Empty;
+        public List<string> Roles { get; set; } = new();
+    }
+
+    private List<(Guid IdBuilding, string BuildingName)> _buildings =>
+        _allAssignments
+            .Select(a => (a.IdBuilding, a.BuildingName))
+            .Distinct()
+            .OrderBy(b => b.BuildingName)
+            .ToList();
+
+    private IEnumerable<UserBuildingRow> FilteredRows =>
+        _allAssignments
+            .Where(a => !_selectedBuildingId.HasValue || _selectedBuildingId == Guid.Empty || a.IdBuilding == _selectedBuildingId)
+            .Where(a => string.IsNullOrWhiteSpace(_searchTerm)
+                || a.UserName.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
+                || a.UserEmail.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(a => new { a.IdUser, a.IdBuilding })
+            .Select(g => new UserBuildingRow
+            {
+                IdUser = g.Key.IdUser,
+                UserName = g.First().UserName,
+                UserEmail = g.First().UserEmail,
+                IdBuilding = g.Key.IdBuilding,
+                BuildingName = g.First().BuildingName,
+                Roles = g.Select(a => a.Role).OrderBy(r => r).ToList()
+            })
+            .OrderBy(r => r.BuildingName).ThenBy(r => r.UserName);
+
+    // SysAdmin nunca aparece como opción para asignar: es un rol de sistema, no algo que
+    // se otorgue caso a caso desde acá.
+    private List<Role> AssignableRolesFor(UserBuildingRow row) =>
+        _allRoles
+            .Where(r => r.RoleName != "SysAdmin" && !row.Roles.Contains(r.RoleName))
+            .OrderBy(r => r.RoleName)
+            .ToList();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && !_initialized)
         {
             _initialized = true;
-            var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
-            _canManageRoles = await PermissionService.HasPermissionAsync(currentUser, "manage_roles");
+            _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _canAssignRoles = await PermissionService.HasPermissionAsync(_currentUser, "assign_roles");
             await LoadDataAsync();
             StateHasChanged();
         }
@@ -117,7 +206,8 @@ else
         try
         {
             _loading = true;
-            _assignments = await PermissionAdminService.GetUserRoleAssignmentsAsync();
+            _allAssignments = await PermissionAdminService.GetUserBuildingRoleAssignmentsAsync();
+            _allRoles = await PermissionAdminService.GetAllRolesAsync();
         }
         catch (Exception ex)
         {
@@ -129,21 +219,39 @@ else
         }
     }
 
-    private async Task ChangeUserRole(Guid userId, Guid newRole)
+    private async Task AssignRole(UserBuildingRow row, string? role)
     {
-        if (!_canManageRoles) return;
-        if (newRole != Guid.Empty)
+        if (!_canAssignRoles) return;
+        if (string.IsNullOrWhiteSpace(role)) return;
+        if (role == "SysAdmin") return;
+
+        try
         {
-            try
-            {
-                await PermissionAdminService.AssignRoleToUserAsync(userId, newRole);
-                await LoadDataAsync();
-                await JSRuntime.InvokeVoidAsync("alert", "Rol actualizado exitosamente");
-            }
-            catch (Exception ex)
-            {
-                await JSRuntime.InvokeVoidAsync("alert", $"Error al actualizar: {ex.Message}");
-            }
+            await PermissionAdminService.AssignUserBuildingRoleAsync(row.IdUser, row.IdBuilding, role, _currentUser!.IdUser);
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al asignar el rol: {ex.Message}");
+        }
+    }
+
+    private async Task RevokeRole(UserBuildingRow row, string role)
+    {
+        if (!_canAssignRoles) return;
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"¿Quitarle el rol \"{role}\" a {row.UserName} en {row.BuildingName}?");
+        if (!confirmed) return;
+
+        try
+        {
+            await PermissionAdminService.RevokeUserBuildingRoleAsync(row.IdUser, row.IdBuilding, role);
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al quitar el rol: {ex.Message}");
         }
     }
 
@@ -151,7 +259,8 @@ else
     {
         return role switch
         {
-            "Admin" => "bg-danger",
+            "Administrador" => "bg-danger",
+            "SysAdmin" => "bg-dark",
             "Junta" => "bg-warning text-dark",
             "Residente" => "bg-info",
             _ => "bg-secondary"

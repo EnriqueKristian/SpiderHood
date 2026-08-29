@@ -73,6 +73,14 @@ namespace SpiderHood.Data
             }, "GetUserBuildingAssociation", cancellationToken);
         }
 
+        public async Task<List<Models.UserBuildingRoleAssignment>> GetAllUserBuildingRolesAsync(CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.UserBuildingRoleAssignment>(
+                    StoredProcedures.GET_AllUserBuildingRoles);
+            }, "GetAllUserBuildingRoles", cancellationToken);
+        }
         public async Task<List<Models.UserModel>> GetUsersByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

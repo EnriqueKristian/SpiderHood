@@ -40,6 +40,15 @@ namespace SpiderHood.Data
             }, "DeleteUserRoleByUser", cancellationToken);
         }
 
+        public async Task<bool> RevokeUserBuildingRoleAsync(Guid idUser, Guid idBuilding, string role, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_UserBuildingRole, cancellationToken, idUser, idBuilding, role);
+                return true;
+            }, "RevokeUserBuildingRole", cancellationToken);
+        }
+
         public async Task<bool> DeleteInstallmentPaidByTransactionAsync(Guid idTransaction, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

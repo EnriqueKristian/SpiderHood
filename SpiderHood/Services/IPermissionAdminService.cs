@@ -17,6 +17,14 @@ namespace SpiderHood.Services
         Task<List<RoleAssignment>> GetUserRoleAssignmentsAsync();
         Task AssignRoleToUserAsync(Guid userId, Guid roleId);
         Task<List<string>> GetUserPermissionsAsync(Guid userId);
+
+        // Sobre UserBuildingAssociation (la tabla real que lee AuthService.LoginAsync
+        // para sesión/menú/permisos) — a diferencia de GetUserRoleAssignmentsAsync/
+        // AssignRoleToUserAsync de arriba, que operan sobre UserRole, una tabla aparte
+        // sin ningún efecto en lo que el usuario ve al loguearse.
+        Task<List<UserBuildingRoleAssignment>> GetUserBuildingRoleAssignmentsAsync();
+        Task AssignUserBuildingRoleAsync(Guid userId, Guid buildingId, string role, Guid approvedBy);
+        Task RevokeUserBuildingRoleAsync(Guid userId, Guid buildingId, string role);
     }
 
     public class PermissionAdminService : IPermissionAdminService
@@ -143,6 +151,21 @@ namespace SpiderHood.Services
         {
             await ec.DeleteUserRoleByUserAsync(userId);
             await ec.AddUserRoleAsync(userId, roleId);
+        }
+
+        public async Task<List<UserBuildingRoleAssignment>> GetUserBuildingRoleAssignmentsAsync()
+        {
+            return await ec.GetAllUserBuildingRolesAsync();
+        }
+
+        public async Task AssignUserBuildingRoleAsync(Guid userId, Guid buildingId, string role, Guid approvedBy)
+        {
+            await ec.AssignUserBuildingRoleAsync(userId, buildingId, role, approvedBy);
+        }
+
+        public async Task RevokeUserBuildingRoleAsync(Guid userId, Guid buildingId, string role)
+        {
+            await ec.RevokeUserBuildingRoleAsync(userId, buildingId, role);
         }
 
         public async Task<List<string>> GetUserPermissionsAsync(Guid userId)

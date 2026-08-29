@@ -178,56 +178,25 @@ namespace SpiderHood.Services
 
         public async Task UpdatePresupuestoAsync(BudgetHeader presupuesto)
         {
-            /*try
+            // La implementación original de este método (comentada más abajo en el
+            // historial de git) usaba _context.Presupuestos como DbSet<T> rastreado por
+            // EF Core, que nunca existió en SpiderHoodContext (Presupuesto está
+            // registrado HasNoKey(), solo para FromSqlRaw) — el método quedó como no-op
+            // silencioso. Único caller (Index.razor → GuardarCambiosDetalle) llama a
+            // OnSave de PresupuestoDetalleModal, que hoy no tiene ningún botón "Guardar"
+            // conectado, así que esto no afectaba a nadie en producción todavía. Se
+            // implementa igual, con el mismo patrón que el resto de BudgetService (SP
+            // vía BDLayout), para que quede correcto en cuanto se conecte el botón.
+            try
             {
-                // Verificar si existe
-                var existente = await _context.Presupuestos
-                    .FirstOrDefaultAsync(p => p.Id == presupuesto.Id);
-
-                if (existente == null)
-                {
-                    throw new KeyNotFoundException($"Presupuesto con ID {presupuesto.Id} no encontrado");
-                }
-
-                // Validar código único (si cambió)
-                if (existente.Codigo != presupuesto.Codigo)
-                {
-                    var existeCodigo = await _context.Presupuestos
-                        .AnyAsync(p => p.Codigo == presupuesto.Codigo && p.Id != presupuesto.Id);
-
-                    if (existeCodigo)
-                    {
-                        throw new InvalidOperationException($"Ya existe un presupuesto con el código {presupuesto.Codigo}");
-                    }
-                }
-
-                // Actualizar propiedades
-                existente.Codigo = presupuesto.Codigo;
-                existente.Mes = presupuesto.Mes;
-                existente.BudgetName = presupuesto.BudgetName;
-                existente.Status= presupuesto.Status;
-                existente.Amount = presupuesto.Amount;
-
-                // Recalcular total si es necesario
-                if (existente.Amount == 0)
-                {
-                    var detalles = await _context.PresupuestoDetalles
-                        .Where(d => d.PresupuestoId == existente.Id)
-                        .ToListAsync();
-
-                    existente.Amount = detalles.Sum(d => d.Monto);
-                }
-
-                _context.Presupuestos.Update(existente);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Presupuesto actualizado: {Codigo}", existente.Codigo);
+                await ec.UpdateRecordAsync(presupuesto);
+                _logger.LogInformation("Presupuesto actualizado: {Id}", presupuesto.IdBudgetHeader);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al actualizar presupuesto ID: {Id}", presupuesto.Id);
+                _logger.LogError(ex, "Error al actualizar presupuesto ID: {Id}", presupuesto.IdBudgetHeader);
                 throw;
-            }*/
+            }
         }
 
         public async Task DeletePresupuestoAsync(Guid id)

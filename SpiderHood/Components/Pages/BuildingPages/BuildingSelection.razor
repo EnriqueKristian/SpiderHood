@@ -1,6 +1,6 @@
 ﻿@page "/invitation"
 @page "/invitation/{invitationCode}"
-@attribute [AllowAnonymous]
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject Services.AuthService AuthService

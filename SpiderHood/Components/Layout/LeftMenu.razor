@@ -1,5 +1,5 @@
 ﻿﻿﻿@* LeftMenuLayout.razor *@
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServerNoPrerender
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Authorization
 @inject Services.IPermissionService PermissionService

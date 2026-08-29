@@ -68,19 +68,34 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddDefaultTokenProviders();
 
 // AddIdentity registra IdentityConstants.ApplicationScheme como el scheme de
-// autenticación/challenge por default, con LoginPath = "/Account/Login" — una página
-// que no existe en esta app (el login real es la Razor Component "/login", ver nota
-// arriba). El chequeo de autorización de Razor Components en SSR (el que impone el
-// FallbackPolicy antes de que exista el circuito interactivo) dispara un challenge
-// contra ese scheme por default cuando la request no está autenticada, y como
-// "/Account/Login" tampoco existe como página, ese challenge se redirige a sí mismo
-// sin fin (ReturnUrl anidándose en cada vuelta). Apuntar LoginPath/AccessDeniedPath a
-// "/login" hace que ese challenge caiga en la página real, que además está marcada
-// [AllowAnonymous] y corta el loop ahí.
+// autenticación/challenge por default. El chequeo de autorización que Razor
+// Components hace en SSR (el que impone el FallbackPolicy antes de que exista el
+// circuito interactivo) dispara un challenge contra ese scheme cuando la request no
+// está autenticada — y como esta app NO tiene una sesión basada en cookie (el login
+// real es 100% propio, vía localStorage/CustomAuthenticationStateProvider, nunca pasa
+// por SignInManager — ver nota arriba), HttpContext.User es SIEMPRE anónimo para
+// TODA request SSR, incluida la del propio "/login" pese a estar marcado
+// [AllowAnonymous]. Apuntar LoginPath a "/login" (intento anterior) no alcanzaba:
+// cada visita a "/login" volvía a disparar el challenge contra sí misma, anidando
+// ReturnUrl sin fin.
+//
+// La solución real es que este challenge NUNCA redirija — el único mecanismo de
+// redirección a login que debe existir es el de Blazor (AuthorizeRouteView ->
+// RedirectToLogin en Components/App.razor), que sí conoce la sesión real vía
+// CustomAuthenticationStateProvider. Devolver 401 en vez de redirigir dejar pasar el
+// render de la página (con su <NotAuthorized>) en vez de cortarlo con un 302 ciego.
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.LoginPath = "/login";
-    options.AccessDeniedPath = "/login";
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
 });
 
 // Otros servicios

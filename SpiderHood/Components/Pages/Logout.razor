@@ -5,7 +5,7 @@
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 @inject ILogger<Logout> Logger
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServerNoPrerender
 
 <div class="logout-container">
     <div class="logout-card">

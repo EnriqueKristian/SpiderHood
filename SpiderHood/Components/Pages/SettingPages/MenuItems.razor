@@ -1,6 +1,6 @@
 ﻿﻿﻿﻿@* Pages/Settings/MenuItems.razor *@
 @page "/Settings/MenuItems"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServerNoPrerender
 @using SpiderHood.Models
 @inject Services.IMenuAdminService MenuAdminService
 @inject NavigationManager Navigation

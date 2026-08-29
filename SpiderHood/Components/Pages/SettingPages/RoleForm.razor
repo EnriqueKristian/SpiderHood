@@ -1,7 +1,7 @@
 ﻿﻿@* Pages/Settings/RoleForm.razor *@
 @page "/Settings/Roles/Create"
 @page "/Settings/Roles/Edit/{Id:guid?}"
-@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@rendermode InteractiveServerNoPrerender
 @using SpiderHood.Models
 @inject Services.IPermissionAdminService PermissionAdminService
 @inject Services.IPermissionService PermissionService

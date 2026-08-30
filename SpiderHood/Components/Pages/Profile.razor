@@ -1,149 +1,184 @@
 ﻿@page "/Profile"
 @using SpiderHood.Models
 @using System.ComponentModel.DataAnnotations
+@using System.Text.Json
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
+@*@inject Services.IPreferenceService PreferenceService
+@inject Services.ISessionService SessionService
+@inject Services.IFinancialService FinancialService*@
+@inject NavigationManager Navigation
+@inject ILogger<Profile> Logger
 @inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
 
-<PageTitle>Mi Perfil</PageTitle>
+<style>
+    /* Añadir a wwwroot/css/app.css o site.css */
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+        background: var(--bs-primary);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        color: white;
+    }
+
+    .card {
+        transition: box-shadow 0.2s ease-in-out;
+    }
+
+        .card:hover {
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+        }
+
+    .nav-tabs .nav-link {
+        color: var(--bs-secondary);
+    }
+
+        .nav-tabs .nav-link.active {
+            font-weight: 600;
+            color: var(--bs-primary);
+        }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(13, 110, 253, 0.05);
+        cursor: default;
+    }
+</style>
+
+<PageTitle>Mi Perfil - SpiderHood</PageTitle>
 
 <div class="container-fluid">
-    <h2 class="mb-4">
-        <i class="bi bi-person me-2"></i>
-        Mi Perfil
-    </h2>
+    <!-- Encabezado con navegación tipo tabs -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="bi bi-person me-2"></i>
+            Mi Perfil
+        </h2>
+        <div class="btn-group" role="group">
+            <button class="btn btn-outline-secondary" @onclick="() => _activeTab = Tab.Info">
+                <i class="bi bi-person-vcard"></i> Personal
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="() => _activeTab = Tab.Security">
+                <i class="bi bi-shield-lock"></i> Seguridad
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="() => _activeTab = Tab.Buildings">
+                <i class="bi bi-building"></i> Edificios
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="() => _activeTab = Tab.Finances">
+                <i class="bi bi-wallet2"></i> Finanzas
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="() => _activeTab = Tab.Preferences">
+                <i class="bi bi-sliders"></i> Preferencias
+            </button>
+        </div>
+    </div>
 
+    <!-- Estado de carga -->
     @if (_loading)
     {
         <div class="text-center p-5">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Cargando...</span>
             </div>
+            <p class="mt-2 text-muted">Cargando tu perfil...</p>
         </div>
     }
     else if (_user == null)
     {
-        <div class="alert alert-danger">No se pudo cargar tu perfil.</div>
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            No se pudo cargar tu perfil. 
+            <button class="btn btn-link p-0 ms-2" @onclick="LoadProfileAsync">Reintentar</button>
+        </div>
     }
     else
     {
-        <div class="row">
-            <div class="col-lg-4 mb-4">
-                <div class="card shadow-sm text-center">
-                    <div class="card-body">
-                        <div class="profile-avatar mx-auto mb-3">
-                            @GetInitials()
-                        </div>
-                        <h5 class="mb-1">@_user.FirstName @_user.LastName</h5>
-                        <p class="text-muted mb-2">@_user.Email</p>
-                        @if (_session != null && _session.Roles.Any())
-                        {
-                            <div class="mb-2">
-                                @foreach (var role in _session.Roles.Where(r => !string.IsNullOrWhiteSpace(r)).Distinct())
-                                {
-                                    <span class="badge bg-primary me-1">@role</span>
-                                }
-                            </div>
-                        }
-                        <p class="text-muted small mb-0">
-                            <i class="bi bi-calendar3 me-1"></i>
-                            Miembro desde @(_user.CreatedAt == default ? "—" : _user.CreatedAt.ToString("dd/MM/yyyy"))
-                        </p>
-                    </div>
-                </div>
+        <!-- Sistema de notificaciones -->
+        @if (!string.IsNullOrEmpty(_notificationMessage))
+        {
+            <div class="alert alert-@_notificationType alert-dismissible fade show" role="alert">
+                <i class="bi bi-@(_notificationType == "success" ? "check-circle" : "exclamation-circle") me-2"></i>
+                @_notificationMessage
+                <button type="button" class="btn-close" @onclick="() => ClearNotification()"></button>
             </div>
+        }
 
-            <div class="col-lg-8">
-                <div class="card shadow-sm mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <i class="bi bi-person-vcard me-2"></i>Información Personal
-                    </div>
-                    <div class="card-body">
-                        <EditForm Model="@_profileForm" OnValidSubmit="@HandleProfileSubmit">
-                            <DataAnnotationsValidator />
-                            <ValidationSummary class="text-danger" />
-
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="firstName" class="form-label">Nombres</label>
-                                    <InputText id="firstName" class="form-control" @bind-Value="_profileForm.FirstName" />
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="lastName" class="form-label">Apellidos</label>
-                                    <InputText id="lastName" class="form-control" @bind-Value="_profileForm.LastName" />
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="email" class="form-label">Email</label>
-                                    <input id="email" class="form-control" value="@_user.Email" disabled />
-                                    <small class="text-muted">El email no se puede modificar.</small>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="phone" class="form-label">Teléfono</label>
-                                    <InputText id="phone" class="form-control" @bind-Value="_profileForm.PhoneNumber" />
-                                </div>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary mt-3" disabled="@_savingProfile">
-                                @if (_savingProfile)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
-                                }
-                                Guardar Cambios
-                            </button>
-                        </EditForm>
-                    </div>
-                </div>
-
-                <div class="card shadow-sm">
-                    <div class="card-header bg-secondary text-white">
-                        <i class="bi bi-lock me-2"></i>Cambiar Contraseña
-                    </div>
-                    <div class="card-body">
-                        <EditForm Model="@_passwordForm" OnValidSubmit="@HandlePasswordSubmit">
-                            <DataAnnotationsValidator />
-                            <ValidationSummary class="text-danger" />
-
-                            <div class="row g-3">
-                                <div class="col-md-12">
-                                    <label for="currentPassword" class="form-label">Contraseña Actual</label>
-                                    <InputText id="currentPassword" type="password" class="form-control" @bind-Value="_passwordForm.CurrentPassword" />
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="newPassword" class="form-label">Nueva Contraseña</label>
-                                    <InputText id="newPassword" type="password" class="form-control" @bind-Value="_passwordForm.NewPassword" />
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="confirmPassword" class="form-label">Confirmar Nueva Contraseña</label>
-                                    <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="_passwordForm.ConfirmNewPassword" />
-                                </div>
-                            </div>
-
-                            <button type="submit" class="btn btn-secondary mt-3" disabled="@_savingPassword">
-                                @if (_savingPassword)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
-                                }
-                                Cambiar Contraseña
-                            </button>
-                        </EditForm>
-                    </div>
-                </div>
+        <!-- Tabs de contenido -->
+        <div class="row">
+            <div class="col-lg-12">
+                @switch (_activeTab)
+                {
+                    case Tab.Info:
+                        @RenderInfoTab()
+                        break;
+                    case Tab.Security:
+                        @RenderSecurityTab()
+                        break;
+                    case Tab.Buildings:
+                        @RenderBuildingsTab()
+                        break;
+                    case Tab.Finances:
+                        @RenderFinancesTab()
+                        break;
+                    case Tab.Preferences:
+                        @RenderPreferencesTab()
+                        break;
+                }
             </div>
         </div>
     }
 </div>
 
+@* ============================================================
+   RENDER DE CADA TAB (Métodos para mejor organización)
+   ============================================================ *@
+
 @code {
+    // =========================================================
+    // 1. ESTADO Y MODELOS
+    // =========================================================
+
     private bool _loading = true;
     private bool _savingProfile;
     private bool _savingPassword;
+    private bool _savingPreferences;
+    private bool _savingBuilding;
     private UserModel? _user;
     private UserSession? _session;
     private bool _initialized;
 
+    // Estado de notificaciones
+    private string _notificationMessage = string.Empty;
+    private string _notificationType = "success";
+
+    // Tab activa
+    private Tab _activeTab = Tab.Info;
+    private enum Tab { Info, Security, Buildings, Finances, Preferences }
+
+    // Modelos de formularios
     private ProfileFormModel _profileForm = new();
     private ChangePasswordFormModel _passwordForm = new();
+    private PreferencesModel _preferences = new();
+    private BuildingRequestModel _buildingRequest = new();
+
+    // Datos adicionales
+    private List<ActiveSession> _activeSessions = [];
+    private List<PaymentHistory> _recentPayments = [];
+    private List<Building> _availableBuildings = [];
+    private decimal _accountBalance;
+    private decimal _outstandingDebt;
+    private DateTime _nextDueDate;
+    private bool _is2FAEnabled;
+    private string _selectedTheme = "light";
+    private string _selectedLanguage = "es";
+
+    // =========================================================
+    // 2. CICLO DE VIDA E INICIALIZACIÓN
+    // =========================================================
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -160,19 +195,42 @@
         try
         {
             _loading = true;
+            ClearNotification();
+
+            // 1. Inicializar cliente y obtener sesión
             await AuthStateProvider.InitializeClientAsync();
             _session = await AuthService.GetCurrentUserAsync();
-            if (_session == null)
-                return;
 
+            if (_session == null)
+            {
+                Logger.LogWarning("Intento de acceso a perfil sin sesión activa. Redirigiendo a login.");
+                Navigation.NavigateTo("/login", true);
+                return;
+            }
+
+            // 2. Cargar datos del usuario
             _user = await AuthService.GetUserProfileAsync(_session.IdUser);
+            if (_user == null)
+            {
+                Logger.LogError("No se pudo cargar el perfil del usuario {UserId}", _session.IdUser);
+                _notificationMessage = "No se pudieron cargar los datos de tu perfil. Por favor, intenta de nuevo.";
+                _notificationType = "danger";
+                return;
+            }
+
+            // 3. Mapear datos a formularios
             _profileForm.FirstName = _user.FirstName;
             _profileForm.LastName = _user.LastName;
             _profileForm.PhoneNumber = _user.PhoneNumber;
+
+            // 4. Cargar datos adicionales
+            await LoadAdditionalDataAsync();
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar el perfil: {ex.Message}");
+            Logger.LogError(ex, "Error al cargar el perfil para usuario {UserId}", _session?.IdUser);
+            _notificationMessage = "Ocurrió un error al cargar tu perfil. Por favor, recarga la página.";
+            _notificationType = "danger";
         }
         finally
         {
@@ -180,28 +238,598 @@
         }
     }
 
+    private async Task LoadAdditionalDataAsync()
+    {
+        try
+        {
+            // Cargar sesiones activas
+            //_activeSessions = await SessionService.GetActiveSessionsAsync(_user!.IdUser);
+
+            // Cargar datos financieros
+            /*var financialSummary = await FinancialService.GetSummaryAsync(_user.IdUser);
+            _accountBalance = financialSummary.Balance;
+            _outstandingDebt = financialSummary.OutstandingDebt;
+            _nextDueDate = financialSummary.NextDueDate;*/
+            //_recentPayments = financialSummary.RecentPayments;
+
+            // Cargar preferencias
+            //_preferences = await PreferenceService.GetPreferencesAsync(_user.IdUser);
+            //_selectedTheme = _preferences.Theme;
+            //_selectedLanguage = _preferences.Language;
+
+            // Cargar edificios disponibles (para solicitar acceso)
+            _availableBuildings = new List<Building>(); //await AuthService.GetAvailableBuildingsAsync();
+
+            // Verificar estado 2FA
+            _is2FAEnabled = true; //await AuthService.Is2FAEnabledAsync(_user.IdUser);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cargar datos adicionales para usuario {UserId}", _user?.IdUser);
+        }
+    }
+
+    // =========================================================
+    // 3. RENDER DE CADA TAB (Métodos de UI)
+    // =========================================================
+
+    private RenderFragment RenderInfoTab() => @<div class="row">
+        <div class="col-lg-4 mb-4">
+            <!-- Tarjeta de perfil lateral -->
+            <div class="card shadow-sm text-center">
+                <div class="card-body">
+                    <div class="profile-avatar mx-auto mb-3" style="width:100px;height:100px;background:var(--bs-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:white;">
+                        @GetInitials()
+                    </div>
+                    <h5 class="mb-1">@_user.FirstName @_user.LastName</h5>
+                    <p class="text-muted mb-2">@_user.Email</p>
+                    @if (_session != null && _session.Roles.Any())
+                    {
+                        <div class="mb-2">
+                            @foreach (var role in _session.Roles.Where(r => !string.IsNullOrWhiteSpace(r)).Distinct())
+                            {
+                                <span class="badge bg-primary me-1">@role</span>
+                            }
+                        </div>
+                    }
+                    <p class="text-muted small mb-0">
+                        <i class="bi bi-calendar3 me-1"></i>
+                        Miembro desde @(_user.CreatedAt == default ? "—" : _user.CreatedAt.ToString("dd/MM/yyyy"))
+                    </p>
+                    @if (_is2FAEnabled)
+                    {
+                        <span class="badge bg-success mt-2">2FA Activado</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <!-- Información Personal -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-person-vcard me-2"></i>Información Personal
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@_profileForm" OnValidSubmit="@HandleProfileSubmit" FormName="profileForm">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="firstName" class="form-label">Nombres</label>
+                                <InputText id="firstName" class="form-control" @bind-Value="_profileForm.FirstName" />
+                                <ValidationMessage For="@(() => _profileForm.FirstName)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="lastName" class="form-label">Apellidos</label>
+                                <InputText id="lastName" class="form-control" @bind-Value="_profileForm.LastName" />
+                                <ValidationMessage For="@(() => _profileForm.LastName)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email</label>
+                                <input id="email" class="form-control" value="@_user.Email" disabled />
+                                <small class="text-muted">El email no se puede modificar directamente.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">Teléfono</label>
+                                <InputText id="phone" class="form-control" @bind-Value="_profileForm.PhoneNumber" />
+                                <ValidationMessage For="@(() => _profileForm.PhoneNumber)" class="text-danger small" />
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary mt-3" disabled="@_savingProfile">
+                            @if (_savingProfile)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Guardar Cambios
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>;
+
+    private RenderFragment RenderSecurityTab() => @<div class="row">
+        <div class="col-lg-6">
+            <!-- Cambiar Contraseña -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-lock me-2"></i>Cambiar Contraseña
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@_passwordForm" OnValidSubmit="@HandlePasswordSubmit" FormName="passwordForm">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label for="currentPassword" class="form-label">Contraseña Actual</label>
+                                <InputText id="currentPassword" type="password" class="form-control" @bind-Value="_passwordForm.CurrentPassword" />
+                                <ValidationMessage For="@(() => _passwordForm.CurrentPassword)" class="text-danger small" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="newPassword" class="form-label">Nueva Contraseña</label>
+                                <InputText id="newPassword" type="password" class="form-control" @bind-Value="_passwordForm.NewPassword" />
+                                <ValidationMessage For="@(() => _passwordForm.NewPassword)" class="text-danger small" />
+                                <small class="text-muted">Mínimo 8 caracteres.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="confirmPassword" class="form-label">Confirmar Nueva Contraseña</label>
+                                <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="_passwordForm.ConfirmNewPassword" />
+                                <ValidationMessage For="@(() => _passwordForm.ConfirmNewPassword)" class="text-danger small" />
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-secondary mt-3" disabled="@_savingPassword">
+                            @if (_savingPassword)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Cambiar Contraseña
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+
+            <!-- Autenticación de Dos Factores -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-shield-check me-2"></i>Autenticación en Dos Pasos (2FA)
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Añade una capa extra de seguridad a tu cuenta.</p>
+                    @if (_is2FAEnabled)
+                    {
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle me-2"></i>
+                            2FA está <strong>activado</strong> para tu cuenta.
+                        </div>
+                        <button class="btn btn-outline-danger" @onclick="Disable2FA">
+                            <i class="bi bi-x-circle me-1"></i> Desactivar 2FA
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            2FA está <strong>desactivado</strong>. Recomendamos activarlo.
+                        </div>
+                        <button class="btn btn-outline-success" @onclick="Enable2FA">
+                            <i class="bi bi-shield-plus me-1"></i> Activar 2FA
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <!-- Sesiones Activas -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <i class="bi bi-devices me-2"></i>Sesiones Activas
+                </div>
+                <div class="card-body">
+                    @if (_activeSessions.Any())
+                    {
+                        @foreach (var session in _activeSessions)
+                        {
+                            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                <div>
+                                    <strong>@session.DeviceName</strong>
+                                    <small class="d-block text-muted">@session.IPAddress</small>
+                                    <small class="text-muted">Último acceso: @session.LastAccess.ToString("dd/MM/yyyy HH:mm")</small>
+                                    @if (session.IsCurrent)
+                                    {
+                                        <span class="badge bg-success ms-2">Esta sesión</span>
+                                    }
+                                </div>
+                                @if (!session.IsCurrent)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeSession(session.Id)">
+                                        <i class="bi bi-x-circle"></i> Cerrar
+                                    </button>
+                                }
+                            </div>
+                        }
+                        <button class="btn btn-outline-warning mt-3" @onclick="LogoutAllSessions">
+                            <i class="bi bi-power"></i> Cerrar todas las sesiones (excepto esta)
+                        </button>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No hay sesiones activas además de la actual.</p>
+                    }
+                </div>
+            </div>
+
+            <!-- Historial de Accesos -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <i class="bi bi-clock-history me-2"></i>Historial de Accesos Recientes
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>IP</th>
+                                    <th>Dispositivo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var access in _recentAccessLogs.Take(5))
+                                {
+                                    <tr>
+                                        <td>@access.Date.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td>@access.IPAddress</td>
+                                        <td>@access.Device</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (_recentAccessLogs.Count() > 5)
+                    {
+                        <button class="btn btn-link btn-sm" @onclick="ViewFullAccessLog">Ver historial completo</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>;
+
+    private RenderFragment RenderBuildingsTab() => @<div class="row">
+        <div class="col-lg-7">
+            <!-- Mis Edificios -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-building me-2"></i>Mis Edificios
+                </div>
+                <div class="card-body">
+                    @if (_session?.Buildings?.Any() == true)
+                    {
+                        @foreach (var building in _session.Buildings.OrderBy(b => b.IsApproved ? 0 : 1))
+                        {
+                            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                <div>
+                                    <strong>@building.Building?.Name</strong>
+                                    <small class="d-block text-muted">@building.Building?.Floors</small>
+                                    <div class="mt-1">
+                                        <span class="badge bg-secondary me-1">@building.Role</span>
+                                        @if (building.IsApproved)
+                                        {
+                                            <span class="badge bg-success">Aprobado</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">Pendiente</span>
+                                        }
+                                    </div>
+                                    @if (building.Building != null && building.IsApproved)
+                                    {
+                                        <small class="text-muted d-block">
+                                            <i class="bi bi-people me-1"></i>@building.Building.Floors unidades
+                                        </small>
+                                    }
+                                </div>
+                                @if (building.IsApproved && building.Building != null)
+                                {
+                                    var isCurrent = _session.CurrentBuildingId == building.Building.IdBuilding;
+                                    <button class="btn btn-sm @(isCurrent ? "btn-success" : "btn-outline-primary")" 
+                                            @onclick="() => SetDefaultBuilding(building.Building.IdBuilding)"
+                                            disabled="@isCurrent">
+                                        @(isCurrent ? "✓ Actual" : "Predeterminado")
+                                    </button>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-building fs-1 text-muted"></i>
+                            <p class="text-muted mt-2">No tienes edificios asignados.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <!-- Solicitar Acceso -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-plus-circle me-2"></i>Solicitar Acceso a Edificio
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@_buildingRequest" OnValidSubmit="@RequestBuildingAccess">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label for="buildingSearch" class="form-label">Buscar edificio</label>
+                            <InputText id="buildingSearch" class="form-control" @bind-Value="_buildingRequest.SearchTerm" 
+                                       placeholder="Nombre o dirección..." />
+                            <small class="text-muted">Escribe al menos 3 caracteres para buscar.</small>
+                        </div>
+
+                        @if (_buildingRequest.SearchTerm?.Length >= 3)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Resultados</label>
+                                @foreach (var building in _availableBuildings
+                                    .Where(b => b.Name.Contains(_buildingRequest.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                                                b.Name.Contains(_buildingRequest.SearchTerm, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" 
+                                               />
+                                        <label class="form-check-label">
+                                            <strong>@building.Name</strong>
+                                            <small class="d-block text-muted">@building.Name</small>
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Rol solicitado</label>
+                            <InputSelect id="role" class="form-select" @bind-Value="_buildingRequest.RequestedRole">
+                                <option value="Residente">Residente</option>
+                                <option value="Junta">Junta</option>
+                                <option value="Administrador">Administrador</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Mensaje (opcional)</label>
+                            <InputTextArea id="message" class="form-control" @bind-Value="_buildingRequest.Message" 
+                                           rows="3" placeholder="Cuéntanos por qué necesitas acceso..." />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" disabled="@_savingBuilding">
+                            @if (_savingBuilding)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Enviar Solicitud
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>;
+
+    private RenderFragment RenderFinancesTab() => @<div class="row">
+        <div class="col-lg-12">
+            <!-- Resumen Financiero -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-dark text-white">
+                    <i class="bi bi-wallet2 me-2"></i>Resumen Financiero
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-muted">Saldo Actual</small>
+                                <h5 class="mb-0 @(_accountBalance >= 0 ? "text-success" : "text-danger")">
+                                    @_accountBalance.ToString("C")
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-muted">Deuda Pendiente</small>
+                                <h5 class="mb-0 text-danger">
+                                    @_outstandingDebt.ToString("C")
+                                </h5>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded">
+                                <small class="text-muted">Próximo Vencimiento</small>
+                                <h5 class="mb-0">@_nextDueDate.ToString("dd/MM/yyyy")</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historial de Pagos -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-clock-history me-2"></i>Historial de Pagos
+                </div>
+                <div class="card-body">
+                    @if (_recentPayments.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Concepto</th>
+                                        <th>Edificio</th>
+                                        <th>Monto</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var payment in _recentPayments)
+                                    {
+                                        <tr>
+                                            <td>@payment.Date.ToString("dd/MM/yyyy")</td>
+                                            <td>@payment.Concept</td>
+                                            <td>@payment.BuildingName</td>
+                                            <td>@payment.Amount.ToString("C")</td>
+                                            <td>
+                                                <span class="badge bg-@(payment.Status == "Pagado" ? "success" : "warning")">
+                                                    @payment.Status
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="ViewFullHistory">
+                            <i class="bi bi-arrow-right"></i> Ver historial completo
+                        </button>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No hay movimientos recientes.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>;
+
+    private RenderFragment RenderPreferencesTab() => @<div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-sliders me-2"></i>Preferencias del Usuario
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@_preferences" OnValidSubmit="@SavePreferences">
+                        <DataAnnotationsValidator />
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Tema</label>
+                                <InputSelect class="form-select" @bind-Value="_preferences.Theme">
+                                    <option value="light">Claro</option>
+                                    <option value="dark">Oscuro</option>
+                                    <option value="system">Sistema</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Idioma</label>
+                                <InputSelect class="form-select" @bind-Value="_preferences.Language">
+                                    <option value="es">Español</option>
+                                    <option value="en">English</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Preferencias de Notificaciones</label>
+                                <div class="form-check">
+                                    <InputCheckbox class="form-check-input" @bind-Value="_preferences.EmailNotifications" />
+                                    <label class="form-check-label">Recibir notificaciones por email</label>
+                                </div>
+                                <div class="form-check">
+                                    <InputCheckbox class="form-check-input" @bind-Value="_preferences.MonthlySummary" />
+                                    <label class="form-check-label">Recibir resumen mensual del edificio</label>
+                                </div>
+                                <div class="form-check">
+                                    <InputCheckbox class="form-check-input" @bind-Value="_preferences.PaymentReminders" />
+                                    <label class="form-check-label">Recordatorios de pago (3 días antes del vencimiento)</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Frecuencia de resumen</label>
+                                <InputSelect class="form-select" @bind-Value="_preferences.ReportFrequency">
+                                    <option value="daily">Diario</option>
+                                    <option value="weekly">Semanal</option>
+                                    <option value="monthly">Mensual</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Zona Horaria</label>
+                                <InputSelect class="form-select" @bind-Value="_preferences.TimeZone">
+                                    <option value="America/Lima">Lima (GMT-5)</option>
+                                    <option value="America/Bogota">Bogotá (GMT-5)</option>
+                                    <option value="America/Mexico_City">Ciudad de México (GMT-6)</option>
+                                    <option value="America/Santiago">Santiago (GMT-3)</option>
+                                    <option value="America/Buenos_Aires">Buenos Aires (GMT-3)</option>
+                                    <option value="America/Montevideo">Montevideo (GMT-3)</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-info mt-3" disabled="@_savingPreferences">
+                            @if (_savingPreferences)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Guardar Preferencias
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+    ;
+
+    // =========================================================
+    // 4. MANEJADORES DE EVENTOS (Lógica de Negocio)
+    // =========================================================
+
     private async Task HandleProfileSubmit()
     {
-        if (_user == null)
-            return;
+        if (_user == null) return;
 
         try
         {
             _savingProfile = true;
-            var result = await AuthService.UpdateProfileAsync(_user.IdUser, _profileForm.FirstName, _profileForm.LastName, _profileForm.PhoneNumber);
+            ClearNotification();
+
+            var result = await AuthService.UpdateProfileAsync(
+                _user.IdUser,
+                _profileForm.FirstName.Trim(),
+                _profileForm.LastName.Trim(),
+                _profileForm.PhoneNumber?.Trim() ?? string.Empty
+            );
 
             if (result.Success)
             {
-                _user.FirstName = _profileForm.FirstName;
-                _user.LastName = _profileForm.LastName;
-                _user.PhoneNumber = _profileForm.PhoneNumber;
-            }
+                _user.FirstName = _profileForm.FirstName.Trim();
+                _user.LastName = _profileForm.LastName.Trim();
+                _user.PhoneNumber = _profileForm.PhoneNumber?.Trim() ?? string.Empty;
 
-            await JSRuntime.InvokeVoidAsync("alert", result.Message);
+                if (_session != null)
+                {
+                    _session.FullName = $"{_user.FirstName} {_user.LastName}";
+                }
+
+                _notificationMessage = result.Message;
+                _notificationType = "success";
+                Logger.LogInformation("Perfil actualizado exitosamente para usuario {UserId}", _user.IdUser);
+            }
+            else
+            {
+                _notificationMessage = result.Message;
+                _notificationType = "danger";
+                Logger.LogWarning("Error al actualizar perfil para usuario {UserId}: {Message}", _user.IdUser, result.Message);
+            }
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+            Logger.LogError(ex, "Error al guardar cambios de perfil para usuario {UserId}", _user.IdUser);
+            _notificationMessage = "Ocurrió un error al guardar los cambios. Por favor, intenta de nuevo.";
+            _notificationType = "danger";
         }
         finally
         {
@@ -211,24 +839,45 @@
 
     private async Task HandlePasswordSubmit()
     {
-        if (_user == null)
+        if (_user == null) return;
+
+        if (_passwordForm.NewPassword != _passwordForm.ConfirmNewPassword)
+        {
+            _notificationMessage = "Las contraseñas no coinciden.";
+            _notificationType = "danger";
             return;
+        }
 
         try
         {
             _savingPassword = true;
-            var result = await AuthService.ChangePasswordAsync(_user.IdUser, _passwordForm.CurrentPassword, _passwordForm.NewPassword);
+            ClearNotification();
 
-            await JSRuntime.InvokeVoidAsync("alert", result.Message);
+            var result = await AuthService.ChangePasswordAsync(
+                _user.IdUser,
+                _passwordForm.CurrentPassword,
+                _passwordForm.NewPassword
+            );
 
             if (result.Success)
             {
+                _notificationMessage = result.Message;
+                _notificationType = "success";
                 _passwordForm = new();
+                Logger.LogInformation("Contraseña cambiada exitosamente para usuario {UserId}", _user.IdUser);
+            }
+            else
+            {
+                _notificationMessage = result.Message;
+                _notificationType = "danger";
+                Logger.LogWarning("Intento fallido de cambio de contraseña para usuario {UserId}: {Message}", _user.IdUser, result.Message);
             }
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al cambiar la contraseña: {ex.Message}");
+            Logger.LogError(ex, "Error al cambiar contraseña para usuario {UserId}", _user.IdUser);
+            _notificationMessage = "Ocurrió un error al cambiar la contraseña. Por favor, intenta de nuevo.";
+            _notificationType = "danger";
         }
         finally
         {
@@ -236,25 +885,263 @@
         }
     }
 
+    private async Task SetDefaultBuilding(Guid buildingId)
+    {
+        try
+        {
+            _savingBuilding = true;
+            ClearNotification();
+
+            await AuthService.SetCurrentBuilding(buildingId, _session?.Role ?? "Residente");
+
+            if (_session != null)
+            {
+                _session.CurrentBuildingId = buildingId;
+                await AuthStateProvider.MarkUserAsAuthenticated(_session);
+            }
+
+            _notificationMessage = "Edificio predeterminado actualizado exitosamente.";
+            _notificationType = "success";
+            Logger.LogInformation("Edificio predeterminado actualizado para usuario {UserId}", _user!.IdUser);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al establecer edificio predeterminado para usuario {UserId}", _user?.IdUser);
+            _notificationMessage = "Error al actualizar el edificio predeterminado.";
+            _notificationType = "danger";
+        }
+        finally
+        {
+            _savingBuilding = false;
+        }
+    }
+
+    private async Task RequestBuildingAccess()
+    {
+        if (_user == null) return;
+
+        try
+        {
+            _savingBuilding = true;
+            ClearNotification();
+
+            /*var result = await AuthService.RequestBuildingAccessAsync(
+                _user.IdUser,
+                _buildingRequest.SelectedBuildingId,
+                _buildingRequest.RequestedRole,
+                _buildingRequest.Message
+            );*/
+            var result = new AuthResult { Success = true }; // Simulación de resultado exitoso
+
+            if (result.Success)
+            {
+                _notificationMessage = "Solicitud enviada exitosamente. Un administrador revisará tu petición.";
+                _notificationType = "success";
+                _buildingRequest = new();
+                Logger.LogInformation("Solicitud de acceso enviada por usuario {UserId} para edificio {BuildingId}", 
+                    _user.IdUser, _buildingRequest.SelectedBuildingId);
+            }
+            else
+            {
+                _notificationMessage = result.Message;
+                _notificationType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al solicitar acceso para usuario {UserId}", _user.IdUser);
+            _notificationMessage = "Error al enviar la solicitud. Por favor, intenta de nuevo.";
+            _notificationType = "danger";
+        }
+        finally
+        {
+            _savingBuilding = false;
+        }
+    }
+
+    private async Task SavePreferences()
+    {
+        if (_user == null) return;
+
+        try
+        {
+            _savingPreferences = true;
+            ClearNotification();
+
+            _preferences.UserId = _user.IdUser;
+            AuthResult x = new AuthResult();
+x.Success = true;
+            var result = x.Success;// await PreferenceService.SavePreferencesAsync(_preferences); TODO
+
+            //if (result.Success)
+            if ( x.Success)
+            {
+                _notificationMessage = "Preferencias guardadas exitosamente.";
+                _notificationType = "success";
+                Logger.LogInformation("Preferencias guardadas para usuario {UserId}", _user.IdUser);
+            }
+            else
+            {
+                _notificationMessage = "Error"; //result.Message;
+                _notificationType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al guardar preferencias para usuario {UserId}", _user.IdUser);
+            _notificationMessage = "Error al guardar las preferencias.";
+            _notificationType = "danger";
+        }
+        finally
+        {
+            _savingPreferences = false;
+        }
+    }
+
+    private async Task Enable2FA()
+    {
+        try
+        {
+            ClearNotification();
+            var result = new AuthResult { Success = true }; //await AuthService.Enable2FAAsync(_user!.IdUser);
+
+            if (result.Success)
+            {
+                _is2FAEnabled = true;
+                _notificationMessage = "2FA activado exitosamente. Escanea el código QR con tu aplicación autenticadora.";
+                _notificationType = "success";
+                // Aquí mostrarías el QR code en un modal
+                //await JSRuntime.InvokeVoidAsync("showQRCode", result.QRCodeUri); TODO
+            }
+            else
+            {
+                _notificationMessage = result.Message;
+                _notificationType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al activar 2FA para usuario {UserId}", _user?.IdUser);
+            _notificationMessage = "Error al activar 2FA.";
+            _notificationType = "danger";
+        }
+    }
+
+    private async Task Disable2FA()
+    {
+        try
+        {
+            ClearNotification();
+            var result = new AuthResult { Success = true }; //await AuthService.Disable2FAAsync(_user!.IdUser);
+
+            if (result.Success)
+            {
+                _is2FAEnabled = false;
+                _notificationMessage = "2FA desactivado exitosamente.";
+                _notificationType = "success";
+            }
+            else
+            {
+                _notificationMessage = result.Message;
+                _notificationType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al desactivar 2FA para usuario {UserId}", _user?.IdUser);
+            _notificationMessage = "Error al desactivar 2FA.";
+            _notificationType = "danger";
+        }
+    }
+
+    private async Task RevokeSession(Guid sessionId)
+    {
+        try
+        {
+            ClearNotification();
+            var result = new AuthResult { Success = true }; //await SessionService.RevokeSessionAsync(sessionId);
+
+            if (result.Success)
+            {
+                //_activeSessions = await SessionService.GetActiveSessionsAsync(_user!.IdUser);
+                _notificationMessage = "Sesión cerrada exitosamente.";
+                _notificationType = "success";
+            }
+            else
+            {
+                _notificationMessage = result.Message;
+                _notificationType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al revocar sesión {SessionId} para usuario {UserId}", sessionId, _user?.IdUser);
+            _notificationMessage = "Error al cerrar la sesión.";
+            _notificationType = "danger";
+        }
+    }
+
+    private async Task LogoutAllSessions()
+    {
+        try
+        {
+            ClearNotification();
+            var result = new AuthResult { Success = true }; //await SessionService.RevokeAllSessionsAsync(_user!.IdUser);
+
+            if (result.Success)
+            {
+                //_activeSessions = await SessionService.GetActiveSessionsAsync(_user.IdUser);
+                _notificationMessage = "Todas las demás sesiones han sido cerradas.";
+                _notificationType = "success";
+            }
+            else
+            {
+                _notificationMessage = result.Message;
+                _notificationType = "danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error al cerrar todas las sesiones para usuario {UserId}", _user?.IdUser);
+            _notificationMessage = "Error al cerrar las sesiones.";
+            _notificationType = "danger";
+        }
+    }
+
+    private void ClearNotification()
+    {
+        _notificationMessage = string.Empty;
+    }
+
     private string GetInitials()
     {
-        if (_user == null)
-            return "U";
-
+        if (_user == null) return "U";
         var first = string.IsNullOrWhiteSpace(_user.FirstName) ? "" : _user.FirstName[0].ToString();
         var last = string.IsNullOrWhiteSpace(_user.LastName) ? "" : _user.LastName[0].ToString();
         var initials = $"{first}{last}".ToUpper();
         return string.IsNullOrEmpty(initials) ? "U" : initials;
     }
 
+    // Métodos placeholder para acciones adicionales
+    private void ViewFullHistory() => Navigation.NavigateTo("/payments");
+    private void ViewFullAccessLog() => Navigation.NavigateTo("/access-log");
+
+    // =========================================================
+    // 5. MODELOS DE DATOS (Inner classes)
+    // =========================================================
+
     private class ProfileFormModel
     {
         [Required(ErrorMessage = "El nombre es requerido")]
+        [StringLength(50, ErrorMessage = "El nombre no puede exceder los 50 caracteres")]
         public string FirstName { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "El apellido es requerido")]
+        [StringLength(50, ErrorMessage = "El apellido no puede exceder los 50 caracteres")]
         public string LastName { get; set; } = string.Empty;
 
+        [Phone(ErrorMessage = "Ingresa un número de teléfono válido")]
+        [StringLength(20, ErrorMessage = "El teléfono no puede exceder los 20 caracteres")]
         public string PhoneNumber { get; set; } = string.Empty;
     }
 
@@ -265,10 +1152,59 @@
 
         [Required(ErrorMessage = "La nueva contraseña es requerida")]
         [MinLength(8, ErrorMessage = "La contraseña debe tener al menos 8 caracteres")]
+        [MaxLength(100, ErrorMessage = "La contraseña no puede exceder los 100 caracteres")]
         public string NewPassword { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Debes confirmar la nueva contraseña")]
         [Compare(nameof(NewPassword), ErrorMessage = "Las contraseñas no coinciden")]
         public string ConfirmNewPassword { get; set; } = string.Empty;
     }
+
+    private class PreferencesModel
+    {
+        public Guid UserId { get; set; }
+        public string Theme { get; set; } = "light";
+        public string Language { get; set; } = "es";
+        public bool EmailNotifications { get; set; } = true;
+        public bool MonthlySummary { get; set; } = true;
+        public bool PaymentReminders { get; set; } = true;
+        public string ReportFrequency { get; set; } = "monthly";
+        public string TimeZone { get; set; } = "America/Lima";
+    }
+
+    private class BuildingRequestModel
+    {
+        public string SearchTerm { get; set; } = string.Empty;
+        public Guid SelectedBuildingId { get; set; }
+        [Required(ErrorMessage = "Selecciona un rol")]
+        public string RequestedRole { get; set; } = "Residente";
+        public string Message { get; set; } = string.Empty;
+    }
+
+    private class ActiveSession
+    {
+        public Guid Id { get; set; }
+        public string DeviceName { get; set; } = string.Empty;
+        public string IPAddress { get; set; } = string.Empty;
+        public DateTime LastAccess { get; set; }
+        public bool IsCurrent { get; set; }
+    }
+
+    private class PaymentHistory
+    {
+        public DateTime Date { get; set; }
+        public string Concept { get; set; } = string.Empty;
+        public string BuildingName { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string Status { get; set; } = string.Empty;
+    }
+
+    private class AccessLog
+    {
+        public DateTime Date { get; set; }
+        public string IPAddress { get; set; } = string.Empty;
+        public string Device { get; set; } = string.Empty;
+    }
+
+    private IEnumerable<AccessLog> _recentAccessLogs = new List<AccessLog>();
 }

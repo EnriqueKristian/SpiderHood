@@ -30,6 +30,8 @@ namespace SpiderHood.Services
         Task<AuthResult> CreateUserAsync(string email, string firstName, string lastName, string phoneNumber, string password);
         Task<AuthResult> UpdateUserAdminAsync(Guid userId, string firstName, string lastName, string phoneNumber, bool isActive);
         Task<AuthResult> AdminResetPasswordAsync(Guid userId, string newPassword);
+        Task<string?> GetSecurityStampAsync(Guid userId);
+        void RevokeAllSessions(Guid userId);
     }
 
     public class AuthService : IAuthService
@@ -38,6 +40,7 @@ namespace SpiderHood.Services
         private readonly IEmailService _emailService;
         private readonly IConfiguration _configuration;
         private readonly CustomAuthenticationStateProvider _authStateProvider;
+        private readonly ISessionRevocationService _sessionRevocation;
 
         private List<UserModel> _users = new();
         private List<UserBuildingAssociation> _userBuildings = new();
@@ -58,11 +61,13 @@ namespace SpiderHood.Services
            ILogger<AuthService> logger,
            IEmailService emailService,
            CustomAuthenticationStateProvider authStateProvider,
+           ISessionRevocationService sessionRevocation,
            IJSRuntime jsRuntime,
            IConfiguration configuration) // Added parameter to satisfy readonly field assignment
         {
             _logger = logger;
             _authStateProvider = authStateProvider;
+            _sessionRevocation = sessionRevocation;
             _jsRuntime = jsRuntime; // Assign the non-nullable readonly field
             Ec = new BDLayout(contextFactory);
             _emailService = emailService;
@@ -264,6 +269,41 @@ namespace SpiderHood.Services
             NotifyAuthStateChanged();
         }
 
+        // "Sello" de la sesión: un hash del PasswordHash actual del usuario. Se guarda
+        // como claim en la cookie al iniciar sesión (ver Login.razor) y se vuelve a
+        // calcular acá en cada revalidación (Program.cs → OnValidatePrincipal) — si no
+        // coinciden, la contraseña cambió después de emitida esa cookie, y se la
+        // invalida. No expone el hash real como claim (viajaría en la cookie), sólo su
+        // huella — y como PasswordHash ya incluye salt propio, dos usuarios nunca
+        // comparten huella aunque coincida la contraseña.
+        public async Task<string?> GetSecurityStampAsync(Guid userId)
+        {
+            try
+            {
+                var user = await Ec.GetUserByIdAsync(userId);
+                return ComputeSecurityStamp(user.PasswordHash);
+            }
+            catch (EntityNotFoundException)
+            {
+                return null;
+            }
+        }
+
+        private static string ComputeSecurityStamp(string passwordHash)
+        {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(passwordHash));
+            return Convert.ToHexString(bytes);
+        }
+
+        // Invalida toda cookie de este usuario emitida hasta ahora — ver
+        // ISessionRevocationService. Lo llaman ChangePasswordAsync/AdminResetPasswordAsync
+        // automáticamente, y Profile.razor cuando el usuario pide "cerrar sesión en todos
+        // los dispositivos" explícitamente.
+        public void RevokeAllSessions(Guid userId)
+        {
+            _sessionRevocation.RevokeAllSessions(userId);
+        }
+
         public async Task<UserModel> AddNewUserAsync(UserModel user)
         {
             return await Ec.AddNewRecordAsync(user);
@@ -314,6 +354,11 @@ namespace SpiderHood.Services
 
                 var newHash = _passwordHasher.HashPassword(user, newPassword);
                 await Ec.UpdateUserPasswordAsync(userId, newHash);
+
+                // Invalida cualquier cookie ya emitida para este usuario (otro navegador
+                // propio, o una robada) — sin esto, cambiar la contraseña no protegía nada
+                // hasta que esa cookie expirara sola. Ver Program.cs → OnValidatePrincipal.
+                _sessionRevocation.RevokeAllSessions(userId);
 
                 return new AuthResult { Success = true, Message = "Contraseña actualizada exitosamente" };
             }
@@ -391,6 +436,11 @@ namespace SpiderHood.Services
                 var user = await Ec.GetUserByIdAsync(userId);
                 var newHash = _passwordHasher.HashPassword(user, newPassword);
                 await Ec.UpdateUserPasswordAsync(userId, newHash);
+
+                // Mismo motivo que en ChangePasswordAsync: un admin reseteando la
+                // contraseña de otro usuario (p.ej. porque sospecha que la cuenta está
+                // comprometida) tiene que matar también cualquier sesión ya abierta.
+                _sessionRevocation.RevokeAllSessions(userId);
 
                 return new AuthResult { Success = true, Message = "Contraseña actualizada exitosamente" };
             }

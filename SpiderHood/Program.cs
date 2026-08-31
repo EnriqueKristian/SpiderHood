@@ -1,4 +1,5 @@
 ﻿using Blazored.LocalStorage;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -6,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using SpiderHood.Components;
 using SpiderHood.Data;
 using SpiderHood.Services;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContextFactory<SpiderHoodContext>(options =>
@@ -31,6 +33,12 @@ builder.Services.AddBlazoredLocalStorage();
 // que se arme el árbol de componentes. localStorage queda para preferencias (tema,
 // edificio por defecto, sidebar) — ver AuthService.SetDefaultBuildingAsync y afines.
 builder.Services.AddHttpContextAccessor();
+
+// Lista de revocación de sesiones (en memoria) — ver ISessionRevocationService. Tiene
+// que ser Singleton: la consultan requests de circuitos y usuarios distintos, y tiene
+// que sobrevivir más que el scope de un solo circuito.
+builder.Services.AddSingleton<ISessionRevocationService, SessionRevocationService>();
+
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -42,6 +50,66 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+
+        // Sin esto, una cookie ya emitida sigue siendo válida hasta que expira sola —
+        // cambiar la contraseña o pedir "cerrar sesión en todos los dispositivos" no
+        // invalidaba ninguna sesión ya abierta (la tuya en otro navegador, o una
+        // robada). Esto se ejecuta en cada request autenticado (no en cada interacción
+        // dentro de un circuito ya conectado, que viaja por SignalR) y reimplementa a
+        // mano el patrón de SecurityStampValidator de ASP.NET Core Identity, porque acá
+        // el login no pasa por Identity (usa UserModel propio vía AuthService).
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnValidatePrincipal = async context =>
+            {
+                var userIdClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!Guid.TryParse(userIdClaim, out var userId))
+                {
+                    context.RejectPrincipal();
+                    return;
+                }
+
+                var revocation = context.HttpContext.RequestServices.GetRequiredService<ISessionRevocationService>();
+                var issuedUtc = context.Properties.IssuedUtc ?? DateTimeOffset.MinValue;
+
+                if (revocation.IsRevoked(userId, issuedUtc))
+                {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                    return;
+                }
+
+                // No se re-chequea el hash de contraseña en CADA request (sería un
+                // round-trip a la base de datos por cada carga de página) — sólo cada
+                // pocos minutos, guardando cuándo fue la última vez dentro de la misma
+                // cookie (igual que SecurityStampValidator).
+                var lastCheckedRaw = context.Properties.Items.TryGetValue("stamp_checked_at", out var raw) ? raw : null;
+                var lastChecked = lastCheckedRaw != null && DateTimeOffset.TryParse(lastCheckedRaw, out var parsed)
+                    ? parsed
+                    : DateTimeOffset.MinValue;
+
+                if (DateTimeOffset.UtcNow - lastChecked < TimeSpan.FromMinutes(5))
+                {
+                    return;
+                }
+
+                var authService = context.HttpContext.RequestServices.GetRequiredService<AuthService>();
+                var currentStamp = context.Principal!.FindFirst("security_stamp")?.Value;
+                var freshStamp = await authService.GetSecurityStampAsync(userId);
+
+                if (freshStamp == null || !string.Equals(currentStamp, freshStamp, StringComparison.Ordinal))
+                {
+                    // La contraseña cambió (o el usuario ya no existe) después de que se
+                    // emitió esta cookie — invalidarla.
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                    return;
+                }
+
+                context.Properties.Items["stamp_checked_at"] = DateTimeOffset.UtcNow.ToString("O");
+                context.ShouldRenew = true;
+            }
+        };
     });
 
 builder.Services.AddScoped<IUserSessionLoader, UserSessionLoader>();

@@ -166,7 +166,6 @@
     private BuildingRequestModel _buildingRequest = new();
 
     // Datos adicionales
-    private List<ActiveSession> _activeSessions = [];
     private List<PaymentHistory> _recentPayments = [];
     private List<Building> _availableBuildings = [];
     private decimal _accountBalance;
@@ -240,9 +239,6 @@
     {
         try
         {
-            // Cargar sesiones activas
-            //_activeSessions = await SessionService.GetActiveSessionsAsync(_user!.IdUser);
-
             // Cargar datos financieros
             /*var financialSummary = await FinancialService.GetSummaryAsync(_user.IdUser);
             _accountBalance = financialSummary.Balance;
@@ -430,36 +426,17 @@
                     <i class="bi bi-devices me-2"></i>Sesiones Activas
                 </div>
                 <div class="card-body">
-                    @if (_activeSessions.Any())
-                    {
-                        @foreach (var session in _activeSessions)
-                        {
-                            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                                <div>
-                                    <strong>@session.DeviceName</strong>
-                                    <small class="d-block text-muted">@session.IPAddress</small>
-                                    <small class="text-muted">Último acceso: @session.LastAccess.ToString("dd/MM/yyyy HH:mm")</small>
-                                    @if (session.IsCurrent)
-                                    {
-                                        <span class="badge bg-success ms-2">Esta sesión</span>
-                                    }
-                                </div>
-                                @if (!session.IsCurrent)
-                                {
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeSession(session.Id)">
-                                        <i class="bi bi-x-circle"></i> Cerrar
-                                    </button>
-                                }
-                            </div>
-                        }
-                        <button class="btn btn-outline-warning mt-3" @onclick="LogoutAllSessions">
-                            <i class="bi bi-power"></i> Cerrar todas las sesiones (excepto esta)
-                        </button>
-                    }
-                    else
-                    {
-                        <p class="text-muted">No hay sesiones activas además de la actual.</p>
-                    }
+                    <p class="text-muted">
+                        Todavía no identificamos cada sesión individualmente (dispositivo, IP,
+                        último acceso) — pero si sospechás que alguien más tiene acceso a tu
+                        cuenta, esto cierra <strong>todas</strong> las sesiones activas de una:
+                    </p>
+                    <button class="btn btn-outline-warning" @onclick="LogoutAllSessions">
+                        <i class="bi bi-power"></i> Cerrar sesión en todos los dispositivos
+                    </button>
+                    <small class="d-block text-muted mt-1">
+                        Esto también cierra esta sesión — vas a tener que volver a iniciar sesión.
+                    </small>
                 </div>
             </div>
 
@@ -861,17 +838,25 @@
 
             if (result.Success)
             {
-                _notificationMessage = result.Message;
-                _notificationType = "success";
                 _passwordForm = new();
                 Logger.LogInformation("Contraseña cambiada exitosamente para usuario {UserId}", _user.IdUser);
+
+                // ChangePasswordAsync ya invalidó toda cookie emitida para este usuario
+                // (ver AuthService.RevokeAllSessions) — incluida esta misma, aunque no se
+                // note hasta la próxima navegación real. En vez de dejar que eso pase
+                // solo, más tarde y sin explicación, cerramos la sesión actual ahora
+                // mismo y mandamos a loguearse de nuevo con la contraseña nueva.
+                _notificationMessage = "Contraseña actualizada. Por seguridad, tenés que volver a iniciar sesión...";
+                _notificationType = "success";
+                StateHasChanged();
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/Logout", forceLoad: true);
+                return;
             }
-            else
-            {
-                _notificationMessage = result.Message;
-                _notificationType = "danger";
-                Logger.LogWarning("Intento fallido de cambio de contraseña para usuario {UserId}: {Message}", _user.IdUser, result.Message);
-            }
+
+            _notificationMessage = result.Message;
+            _notificationType = "danger";
+            Logger.LogWarning("Intento fallido de cambio de contraseña para usuario {UserId}: {Message}", _user.IdUser, result.Message);
         }
         catch (Exception ex)
         {
@@ -1067,51 +1052,24 @@
         }
     }
 
-    private async Task RevokeSession(Guid sessionId)
-    {
-        try
-        {
-            ClearNotification();
-            var result = new AuthResult { Success = true }; //await SessionService.RevokeSessionAsync(sessionId);
-
-            if (result.Success)
-            {
-                //_activeSessions = await SessionService.GetActiveSessionsAsync(_user!.IdUser);
-                _notificationMessage = "Sesión cerrada exitosamente.";
-                _notificationType = "success";
-            }
-            else
-            {
-                _notificationMessage = result.Message;
-                _notificationType = "danger";
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error al revocar sesión {SessionId} para usuario {UserId}", sessionId, _user?.IdUser);
-            _notificationMessage = "Error al cerrar la sesión.";
-            _notificationType = "danger";
-        }
-    }
-
     private async Task LogoutAllSessions()
     {
+        if (_user == null) return;
+
         try
         {
-            ClearNotification();
-            var result = new AuthResult { Success = true }; //await SessionService.RevokeAllSessionsAsync(_user!.IdUser);
+            // Invalida toda cookie ya emitida para este usuario (ver
+            // ISessionRevocationService) — incluida esta misma pestaña: no hay forma de
+            // "perdonar" la sesión actual sin reemitir su cookie, y eso sólo se puede
+            // hacer desde una request HTTP real, no desde este circuito ya conectado
+            // (ver Login.razor/HandleLogin). Por eso el redirect de abajo saca al
+            // usuario también a él — tiene que volver a loguearse para confirmar que
+            // sigue siendo dueño de la cuenta, igual que "cerrar todo" en la mayoría de
+            // los servicios (Google, GitHub, etc.).
+            AuthService.RevokeAllSessions(_user.IdUser);
+            Logger.LogInformation("Sesiones cerradas por el usuario {UserId} desde Profile", _user.IdUser);
 
-            if (result.Success)
-            {
-                //_activeSessions = await SessionService.GetActiveSessionsAsync(_user.IdUser);
-                _notificationMessage = "Todas las demás sesiones han sido cerradas.";
-                _notificationType = "success";
-            }
-            else
-            {
-                _notificationMessage = result.Message;
-                _notificationType = "danger";
-            }
+            Navigation.NavigateTo("/Logout", forceLoad: true);
         }
         catch (Exception ex)
         {
@@ -1180,15 +1138,6 @@
         [Required(ErrorMessage = "Selecciona un rol")]
         public string RequestedRole { get; set; } = "Residente";
         public string Message { get; set; } = string.Empty;
-    }
-
-    private class ActiveSession
-    {
-        public Guid Id { get; set; }
-        public string DeviceName { get; set; } = string.Empty;
-        public string IPAddress { get; set; } = string.Empty;
-        public DateTime LastAccess { get; set; }
-        public bool IsCurrent { get; set; }
     }
 
     private class PaymentHistory

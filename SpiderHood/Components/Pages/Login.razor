@@ -163,11 +163,18 @@
         // corre en modo estático — la request de este POST todavía tiene una respuesta
         // HTTP abierta donde escribir el Set-Cookie. Desde un circuito InteractiveServer
         // ya conectado (como era antes) esto no es posible.
+        // "security_stamp": lo revalida Program.cs (OnValidatePrincipal) contra el
+        // PasswordHash actual del usuario en cada verificación periódica — si no
+        // coinciden, la contraseña cambió después de este login y la cookie se invalida.
+        // Ver AuthService.GetSecurityStampAsync / RevokeAllSessions.
+        var securityStamp = await AuthService.GetSecurityStampAsync(session.IdUser);
+
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, session.IdUser.ToString()),
             new(ClaimTypes.Email, session.Email),
             new(ClaimTypes.Name, session.FullName),
+            new("security_stamp", securityStamp ?? string.Empty),
         };
         claims.AddRange(session.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
 

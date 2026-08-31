@@ -5,6 +5,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <!-- publish-pilot/ es una carpeta de salida de un "Publish" hecho adentro del
+         proyecto (no del repo, no debería existir acá) — sin esto, el SDK la
+         globbea como si fuera código fuente y encuentra los .razor.js ya
+         copiados sin su componente .razor al lado (error BLAZOR: "JS module
+         file ... was defined but no associated razor component ... was found").
+         DefaultItemExcludes la saca de raíz de TODOS los globs implícitos del
+         SDK, incluida la detección de Static Web Assets — remover items ya
+         incluidos (Content Remove, etc.) no alcanza para este caso puntual. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);publish-pilot/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

@@ -900,6 +900,10 @@
                 await AuthStateProvider.MarkUserAsAuthenticated(_session);
             }
 
+            // Esto es lo que hace que la próxima vez que el usuario entre no se le
+            // vuelva a preguntar por el edificio — ver AuthService.TryApplyDefaultBuildingAsync.
+            await AuthService.SetDefaultBuildingAsync(buildingId);
+
             _notificationMessage = "Edificio predeterminado actualizado exitosamente.";
             _notificationType = "success";
             Logger.LogInformation("Edificio predeterminado actualizado para usuario {UserId}", _user!.IdUser);

@@ -23,6 +23,7 @@ namespace SpiderHood.Services
         // Fixed: Declare as instance method on the interface (not an extension method).
         Task<bool> RequestBuildingAccess(Guid buildingId, string role);
         Task SetCurrentBuilding(Guid? Idbuilding, string role);
+        Task<bool> TryApplyDefaultBuildingAsync();
         Task<UserModel> GetUserProfileAsync(Guid userId);
         Task<AuthResult> UpdateProfileAsync(Guid userId, string firstName, string lastName, string phoneNumber);
         Task<AuthResult> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
@@ -197,6 +198,38 @@ namespace SpiderHood.Services
                     await _authStateProvider.MarkUserAsAuthenticated(user);
                 }
             }
+        }
+
+        // Se usa al arrancar el dashboard cuando la sesión no trae un edificio actual
+        // resuelto (login con más de un edificio aprobado, o ninguno con exactamente
+        // uno). Antes de mandar al usuario a /select-building, intenta aplicar el
+        // edificio que haya guardado como preferencia (SetDefaultBuildingAsync) — así
+        // alguien que ya eligió su edificio una vez no tiene que repetirlo en cada
+        // ingreso. Sólo tiene efecto una vez conectado el circuito (usa localStorage
+        // vía IJSRuntime); el llamador es responsable de no invocarlo durante el
+        // prerender estático.
+        public async Task<bool> TryApplyDefaultBuildingAsync()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null || user.CurrentBuildingId != Guid.Empty)
+                return false;
+
+            var preferredBuildingId = await GetDefaultBuildingAsync();
+            if (!preferredBuildingId.HasValue)
+                return false;
+
+            var match = user.Buildings.FirstOrDefault(b =>
+                b.IsApproved && b.Building?.IdBuilding == preferredBuildingId.Value);
+
+            if (match == null)
+            {
+                // El edificio guardado como preferencia ya no es válido (perdió acceso,
+                // o cambió de estado) — no rompemos el flujo, simplemente no aplica.
+                return false;
+            }
+
+            await SetCurrentBuilding(match.Building!.IdBuilding, match.Role);
+            return true;
         }
 
         public async Task LogoutAsync()

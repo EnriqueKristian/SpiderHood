@@ -229,6 +229,10 @@
             // Establecer el edificio actual
             await AuthService.SetCurrentBuilding(selectedBuilding.Value, selectedRole!);
 
+            // Recordar la elección para no volver a preguntar en el próximo ingreso
+            // (ver AuthService.TryApplyDefaultBuildingAsync, usado al arrancar el dashboard).
+            await AuthService.SetDefaultBuildingAsync(selectedBuilding.Value);
+
             // Pequeña pausa para dar feedback visual
             await Task.Delay(300);
 

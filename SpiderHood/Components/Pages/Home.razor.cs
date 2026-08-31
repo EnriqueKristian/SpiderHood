@@ -180,6 +180,27 @@ namespace SpiderHood.Components.Pages
 
                 if (currentUser.CurrentBuildingId == Guid.Empty)
                 {
+                    // El edificio preferido vive en localStorage (ver
+                    // AuthService.SetDefaultBuildingAsync/TryApplyDefaultBuildingAsync), y
+                    // por lo tanto sólo se puede leer una vez conectado el circuito — durante
+                    // el prerender estático, IJSRuntime todavía no existe. Si redirigiéramos a
+                    // /select-building ya durante el prerender (RendererInfo.IsInteractive ==
+                    // false), lo haríamos con información incompleta, aunque el usuario ya
+                    // tenga un edificio preferido guardado. Nos quedamos quietos hasta que el
+                    // circuito esté realmente conectado para decidir con el dato completo.
+                    if (!RendererInfo.IsInteractive)
+                    {
+                        return;
+                    }
+
+                    if (await AuthService.TryApplyDefaultBuildingAsync())
+                    {
+                        currentUser = await AuthService.GetCurrentUserAsync() ?? currentUser;
+                    }
+                }
+
+                if (currentUser.CurrentBuildingId == Guid.Empty)
+                {
                     Console.WriteLine("⚠️ No hay edificio seleccionado - Redirigiendo a select-building");
                     // Sin forceLoad: seguimos en el mismo circuito, así que
                     // SelectBuilding.razor reutiliza la sesión ya hidratada en memoria

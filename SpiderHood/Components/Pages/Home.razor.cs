@@ -190,12 +190,15 @@ namespace SpiderHood.Components.Pages
                     // circuito esté realmente conectado para decidir con el dato completo.
                     if (!RendererInfo.IsInteractive)
                     {
+                        Console.WriteLine("⏳ Prerender estático (sin JS todavía) - se decide una vez conectado el circuito");
                         return;
                     }
 
+                    Console.WriteLine("🔎 Circuito conectado - intentando aplicar edificio/rol por defecto guardado");
                     if (await AuthService.TryApplyDefaultBuildingAsync())
                     {
                         currentUser = await AuthService.GetCurrentUserAsync() ?? currentUser;
+                        Console.WriteLine($"✅ Edificio/rol por defecto aplicado: {currentUser.CurrentBuildingId} / {currentUser.Role}");
                     }
                 }
 

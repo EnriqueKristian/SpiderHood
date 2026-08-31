@@ -219,12 +219,24 @@ namespace SpiderHood.Services
         public async Task<bool> TryApplyDefaultBuildingAsync()
         {
             var user = await GetCurrentUserAsync();
-            if (user == null || user.CurrentBuildingId != Guid.Empty)
+            if (user == null)
+            {
+                _logger.LogWarning("🏢 TryApplyDefaultBuildingAsync: sin usuario autenticado");
                 return false;
+            }
+
+            if (user.CurrentBuildingId != Guid.Empty)
+            {
+                _logger.LogInformation("🏢 TryApplyDefaultBuildingAsync: ya había edificio resuelto ({BuildingId}), no hace falta aplicar preferencia", user.CurrentBuildingId);
+                return false;
+            }
 
             var preferredBuildingId = await GetDefaultBuildingAsync();
             if (!preferredBuildingId.HasValue)
+            {
+                _logger.LogInformation("🏢 TryApplyDefaultBuildingAsync: no hay edificio guardado como preferencia en localStorage para el usuario {UserId}", user.IdUser);
                 return false;
+            }
 
             var matches = user.Buildings
                 .Where(b => b.IsApproved && b.Building?.IdBuilding == preferredBuildingId.Value)
@@ -236,9 +248,12 @@ namespace SpiderHood.Services
                 //      estado); no rompemos el flujo, simplemente no aplica.
                 // >1 -> hay más de un rol para ese edificio: es una elección real, no la
                 //      resolvemos en silencio.
+                _logger.LogInformation("🏢 TryApplyDefaultBuildingAsync: edificio preferido {BuildingId} tiene {Count} rol(es) aprobados para el usuario — {Reason}",
+                    preferredBuildingId.Value, matches.Count, matches.Count == 0 ? "ya no aplica, se ignora" : "ambiguo, se pide elegir");
                 return false;
             }
 
+            _logger.LogInformation("🏢 TryApplyDefaultBuildingAsync: aplicando edificio {BuildingId} con rol {Role}", matches[0].Building!.IdBuilding, matches[0].Role);
             await SetCurrentBuilding(matches[0].Building!.IdBuilding, matches[0].Role);
             return true;
         }

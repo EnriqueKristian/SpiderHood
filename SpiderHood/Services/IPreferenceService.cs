@@ -1,4 +1,4 @@
-﻿using SpiderHood.Data;
+using Blazored.LocalStorage;
 using SpiderHood.Models;
 
 namespace SpiderHood.Services
@@ -23,63 +23,35 @@ namespace SpiderHood.Services
         public string TimeZone { get; set; } = "America/Lima";
     }
 
+    // Preferencias del usuario (tema, idioma, notificaciones) — viven enteramente en
+    // localStorage, igual que el edificio por defecto (ver AuthService.
+    // SetDefaultBuildingAsync). No hay tabla de preferencias en la base de datos: esto
+    // es configuración del navegador/dispositivo, no datos de sesión ni de negocio.
     public class PreferenceService : IPreferenceService
     {
-        private readonly BDLayout _db;
         private readonly ILogger<PreferenceService> _logger;
-        private readonly Blazored.LocalStorage.ILocalStorageService _localStorage;
+        private readonly ILocalStorageService _localStorage;
 
-        public PreferenceService(
-            BDLayout db,
-            ILogger<PreferenceService> logger,
-            Blazored.LocalStorage.ILocalStorageService localStorage)
+        public PreferenceService(ILogger<PreferenceService> logger, ILocalStorageService localStorage)
         {
-            _db = db;
             _logger = logger;
             _localStorage = localStorage;
         }
+
+        private static string Key(Guid userId) => $"preferences_{userId}";
 
         public async Task<Preferences> GetPreferencesAsync(Guid userId)
         {
             try
             {
-                // Primero intentar desde localStorage (más rápido)
-                try
-                {
-                    var cached = await _localStorage.GetItemAsync<string>($"preferences_{userId}");
-                    if (!string.IsNullOrEmpty(cached))
-                    {
-                        return new Preferences();// JsonSerializer.Deserialize<Preferences>(cached) ?? new Preferences();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error al leer preferencias desde localStorage");
-                }
-
-                // Si no está en caché, obtener de base de datos
-                var preferences = new Preferences { UserId = userId }; //await _db.GetUserPreferencesAsync(userId);
-                if (preferences == null)
-                {
-                    preferences = new Preferences { UserId = userId };
-                    //await _db.CreateUserPreferencesAsync(preferences);
-                }
-
-                // Guardar en caché
-                try
-                {
-                    //await _localStorage.SetItemAsync($"preferences_{userId}", JsonSerializer.Serialize(preferences));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error al guardar preferencias en localStorage");
-                }
-
-                return preferences;
+                var cached = await _localStorage.GetItemAsync<Preferences>(Key(userId));
+                return cached ?? new Preferences { UserId = userId };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error al obtener preferencias para usuario {UserId}", userId);
+                // Esperable durante el prerender estático (sin JS interop todavía) — la
+                // página vuelve a pedirlas una vez conectado el circuito.
+                _logger.LogWarning(ex, "No se pudieron leer las preferencias de localStorage para el usuario {UserId}", userId);
                 return new Preferences { UserId = userId };
             }
         }
@@ -88,20 +60,7 @@ namespace SpiderHood.Services
         {
             try
             {
-                // Guardar en base de datos
-                //await _db.SaveUserPreferencesAsync(preferences);
-
-                // Actualizar caché local
-                try
-                {
-                    //await _localStorage.SetItemAsync($"preferences_{preferences.UserId}",
-                     //   JsonSerializer.Serialize(preferences));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Error al actualizar caché de preferencias");
-                }
-
+                await _localStorage.SetItemAsync(Key(preferences.UserId), preferences);
                 _logger.LogInformation("Preferencias guardadas para usuario {UserId}", preferences.UserId);
                 return new AuthResult { Success = true, Message = "Preferencias guardadas exitosamente." };
             }
@@ -114,34 +73,18 @@ namespace SpiderHood.Services
 
         public async Task<bool> UpdateThemeAsync(Guid userId, string theme)
         {
-            try
-            {
-                var prefs = await GetPreferencesAsync(userId);
-                prefs.Theme = theme;
-                await SavePreferencesAsync(prefs);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al actualizar tema para usuario {UserId}", userId);
-                return false;
-            }
+            var prefs = await GetPreferencesAsync(userId);
+            prefs.Theme = theme;
+            var result = await SavePreferencesAsync(prefs);
+            return result.Success;
         }
 
         public async Task<bool> UpdateLanguageAsync(Guid userId, string language)
         {
-            try
-            {
-                var prefs = await GetPreferencesAsync(userId);
-                prefs.Language = language;
-                await SavePreferencesAsync(prefs);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error al actualizar idioma para usuario {UserId}", userId);
-                return false;
-            }
+            var prefs = await GetPreferencesAsync(userId);
+            prefs.Language = language;
+            var result = await SavePreferencesAsync(prefs);
+            return result.Success;
         }
     }
 }

@@ -113,7 +113,7 @@ builder.Services.AddScoped<IServiceReadingService, ServiceReadingService>();
 builder.Services.AddScoped<IExtraChargeService, ExtraChargeService>();
 //builder.Services.AddScoped<IFinancialService, FinancialService>();
 //builder.Services.AddScoped<ISessionService, SessionService>();
-//builder.Services.AddScoped<IPreferenceService, PreferenceService>();
+builder.Services.AddScoped<IPreferenceService, PreferenceService>();
 builder.Services.AddHttpClient();
 
 var app = builder.Build();

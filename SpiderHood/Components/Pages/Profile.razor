@@ -4,8 +4,8 @@
 @using System.Text.Json
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
-@*@inject Services.IPreferenceService PreferenceService
-@inject Services.ISessionService SessionService
+@inject Services.IPreferenceService PreferenceService
+@*@inject Services.ISessionService SessionService
 @inject Services.IFinancialService FinancialService*@
 @inject NavigationManager Navigation
 @inject ILogger<Profile> Logger
@@ -162,7 +162,7 @@
     // Modelos de formularios
     private ProfileFormModel _profileForm = new();
     private ChangePasswordFormModel _passwordForm = new();
-    private PreferencesModel _preferences = new();
+    private Services.Preferences _preferences = new();
     private BuildingRequestModel _buildingRequest = new();
 
     // Datos adicionales
@@ -173,8 +173,6 @@
     private decimal _outstandingDebt;
     private DateTime _nextDueDate;
     private bool _is2FAEnabled;
-    private string _selectedTheme = "light";
-    private string _selectedLanguage = "es";
 
     // =========================================================
     // 2. CICLO DE VIDA E INICIALIZACIÓN
@@ -252,10 +250,11 @@
             _nextDueDate = financialSummary.NextDueDate;*/
             //_recentPayments = financialSummary.RecentPayments;
 
-            // Cargar preferencias
-            //_preferences = await PreferenceService.GetPreferencesAsync(_user.IdUser);
-            //_selectedTheme = _preferences.Theme;
-            //_selectedLanguage = _preferences.Language;
+            // Cargar preferencias (localStorage — ver PreferenceService). Durante el
+            // prerender estático esto devuelve los valores por defecto porque todavía
+            // no hay JS interop disponible; una vez conectado el circuito, este mismo
+            // método vuelve a correr (ver OnAfterRenderAsync) y trae los reales.
+            _preferences = await PreferenceService.GetPreferencesAsync(_user!.IdUser);
 
             // Cargar edificios disponibles (para solicitar acceso)
             _availableBuildings = new List<Building>(); //await AuthService.GetAvailableBuildingsAsync();
@@ -982,12 +981,9 @@
             ClearNotification();
 
             _preferences.UserId = _user.IdUser;
-            AuthResult x = new AuthResult();
-x.Success = true;
-            var result = x.Success;// await PreferenceService.SavePreferencesAsync(_preferences); TODO
+            var result = await PreferenceService.SavePreferencesAsync(_preferences);
 
-            //if (result.Success)
-            if ( x.Success)
+            if (result.Success)
             {
                 _notificationMessage = "Preferencias guardadas exitosamente.";
                 _notificationType = "success";
@@ -995,7 +991,7 @@ x.Success = true;
             }
             else
             {
-                _notificationMessage = "Error"; //result.Message;
+                _notificationMessage = result.Message;
                 _notificationType = "danger";
             }
         }
@@ -1171,18 +1167,6 @@ x.Success = true;
         [Required(ErrorMessage = "Debes confirmar la nueva contraseña")]
         [Compare(nameof(NewPassword), ErrorMessage = "Las contraseñas no coinciden")]
         public string ConfirmNewPassword { get; set; } = string.Empty;
-    }
-
-    private class PreferencesModel
-    {
-        public Guid UserId { get; set; }
-        public string Theme { get; set; } = "light";
-        public string Language { get; set; } = "es";
-        public bool EmailNotifications { get; set; } = true;
-        public bool MonthlySummary { get; set; } = true;
-        public bool PaymentReminders { get; set; } = true;
-        public string ReportFrequency { get; set; } = "monthly";
-        public string TimeZone { get; set; } = "America/Lima";
     }
 
     private class BuildingRequestModel

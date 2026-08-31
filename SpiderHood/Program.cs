@@ -1,4 +1,5 @@
 ﻿using Blazored.LocalStorage;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,27 @@ builder.Services.AddBlazorBootstrap();
 builder.Services.AddBlazoredLocalStorage();
 
 // Authentication
+//
+// La sesión ya NO se persiste en localStorage (ver CustomAuthenticationStateProvider):
+// la identidad viaja en una cookie de autenticación HttpOnly emitida por
+// HttpContext.SignInAsync (Login.razor) y leída por el middleware de abajo antes de
+// que se arme el árbol de componentes. localStorage queda para preferencias (tema,
+// edificio por defecto, sidebar) — ver AuthService.SetDefaultBuildingAsync y afines.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login";
+        options.AccessDeniedPath = "/login";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+        options.Cookie.Name = "SpiderHood.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    });
+
+builder.Services.AddScoped<IUserSessionLoader, UserSessionLoader>();
 builder.Services.AddScoped<CustomAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
     sp.GetRequiredService<CustomAuthenticationStateProvider>());
@@ -53,6 +75,19 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 })
 .AddEntityFrameworkStores<SpiderHoodContext>()
 .AddDefaultTokenProviders();
+
+// AddIdentity(...) de arriba registra sus propios esquemas de cookie (uno para
+// IdentityConstants.ApplicationScheme, etc.) y pone SU cookie como default — lo que
+// pisaría nuestra cookie de sesión si no se corrige. PostConfigure corre siempre
+// DESPUÉS de todos los Configure<AuthenticationOptions> (sin importar el orden de
+// registro), así que esto garantiza que el default real sea nuestro esquema.
+builder.Services.PostConfigure<Microsoft.AspNetCore.Authentication.AuthenticationOptions>(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+});
 
 // Otros servicios
 builder.Services.AddScoped<ParameterService>();
@@ -90,6 +125,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

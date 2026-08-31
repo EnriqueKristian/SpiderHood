@@ -89,10 +89,10 @@
                                     decimal _TotalAmount = 0;
                                 }
 
-                                @foreach (var section in GetSections())
+                                @foreach (var budgetSection in GetSections())
                                 {
                                     var sectionItems = _budget.Details
-                                    .Where(x => x.IdSection == section.Id && !x.IsHeader)
+                                    .Where(x => x.IdSection == budgetSection.Id && !x.IsHeader)
                                     .ToList();
 
                                     @if (sectionItems.Any())
@@ -102,7 +102,7 @@
                                             <td colspan="6" class="bg-light">
                                                 <div class="d-flex align-items-center py-2">
                                                     <i class="bi bi-folder me-2 text-primary"></i>
-                                                    <strong class="text-primary">@section.Name</strong>
+                                                    <strong class="text-primary">@budgetSection.Name</strong>
                                                     <span class="badge bg-secondary ms-2">
                                                         @sectionItems.Count items
                                                     </span>

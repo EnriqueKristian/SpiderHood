@@ -35,4 +35,10 @@ Server, Bootstrap.
   Identity — aunque Identity está registrado en `Program.cs` porque
   `IEmailConfirmationService` sí depende de `UserManager<IdentityUser>` para
   la confirmación de correo.
-- La sesión se persiste en `localStorage` del navegador.
+- La sesión se persiste en una cookie de autenticación HttpOnly de ASP.NET Core
+  (emitida en `Login.razor` vía `HttpContext.SignInAsync`), no en `localStorage`.
+  Cada circuito nuevo (recarga de página, reconexión) reconstruye el `UserSession`
+  completo (edificios, roles) desde la base de datos a partir de esa cookie —
+  ver `CustomAuthenticationStateProvider` / `IUserSessionLoader`. `localStorage`
+  se usa únicamente para preferencias del usuario (tema, sidebar, edificio por
+  defecto) — ver `AuthService.SetDefaultBuildingAsync` y afines.

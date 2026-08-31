@@ -163,40 +163,14 @@ namespace SpiderHood.Components.Pages
 
             try
             {
-                // GetCurrentUserAsync() sólo devuelve algo si InitializeClientAsync() ya
-                // corrió y restauró la sesión desde localStorage. Antes dependíamos de que
-                // HeaderMainLayout la llamara primero en su propio OnAfterRenderAsync — pero
-                // el orden entre el OnAfterRenderAsync del layout y el de esta página no está
-                // garantizado, así que a veces perdíamos la carrera y esta página mandaba a
-                // un usuario que SÍ tenía sesión válida de vuelta a /login. La llamamos
-                // nosotros mismos primero (es idempotente) para no depender de esa carrera.
-                await AuthStateProvider.InitializeClientAsync();
-
-                // Intentar obtener usuario varias veces
-                UserSession currentUser = null;
-                int intentos = 0;
-                const int maxIntentos = 3;
-
-                while (currentUser == null && intentos < maxIntentos)
-                {
-                    currentUser = await AuthService.GetCurrentUserAsync();
-
-                    if (currentUser == null)
-                    {
-                        intentos++;
-                        Console.WriteLine($"⚠️ Intento {intentos}/{maxIntentos} - Usuario no autenticado, esperando 100ms...");
-                        await Task.Delay(100);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"✅ Usuario encontrado en intento {intentos}: {currentUser.Email}");
-                        break;
-                    }
-                }
+                // La sesión ahora se reconstruye de forma síncrona (sin JS interop) a
+                // partir de la cookie de autenticación — ver CustomAuthenticationStateProvider.
+                // Ya no hace falta reintentar con delays: si hay cookie válida, acá ya está.
+                var currentUser = await AuthService.GetCurrentUserAsync();
 
                 if (currentUser == null)
                 {
-                    Console.WriteLine($"❌ Usuario no autenticado después de {maxIntentos} intentos - Redirigiendo a login");
+                    Console.WriteLine("❌ Usuario no autenticado - Redirigiendo a login");
                     Navigation.NavigateTo("/login", true);
                     return;
                 }

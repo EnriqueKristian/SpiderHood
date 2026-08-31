@@ -1,76 +1,31 @@
-﻿@page "/logout"
-@using Microsoft.AspNetCore.Components
-@using Microsoft.AspNetCore.Components.Authorization
-@inject Services.AuthService AuthService
-@inject Services.CustomAuthenticationStateProvider AuthStateProvider
-@inject NavigationManager NavigationManager
-@inject ILogger<Logout> Logger
-@rendermode InteractiveServer
+@page "/logout"
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@* Sin @rendermode: igual que Login.razor, necesita correr en modo estático para que
+   HttpContext.SignOutAsync pueda escribir el Set-Cookie que borra la sesión — eso no
+   es posible desde un circuito InteractiveServer ya conectado. *@
 
 <div class="logout-container">
     <div class="logout-card">
         <div class="text-center">
-            <div class="spinner-border text-primary mb-4" role="status" style="width: 3rem; height: 3rem;">
+            <div class="spinner-border text-primary mb-3" role="status">
                 <span class="visually-hidden">Cerrando sesión...</span>
             </div>
-
-            <h4 class="mb-3">Cerrando sesión</h4>
-            <p class="text-muted mb-4">
-                <i class="bi bi-check-circle-fill text-success me-2"></i>
-                Tu sesión se está cerrando...
-            </p>
-
-            <div class="progress">
-                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                     role="progressbar" style="width: 100%"></div>
-            </div>
-
-            <p class="text-muted small mt-3">
-                Serás redirigido automáticamente
-            </p>
+            <h4 class="mb-0">Cerrando sesión...</h4>
         </div>
     </div>
 </div>
 
 @code {
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
     {
-        Logger.LogInformation("🚪 Iniciando proceso de logout...");
-
-        try
-        {
-            // Pequeña pausa para mostrar la UI
-            await Task.Delay(500);
-
-            await ProcessLogoutAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "❌ Error durante logout");
-            await Task.Delay(1000);
-            NavigationManager.NavigateTo("/login", true);
-        }
-    }
-
-    private async Task ProcessLogoutAsync()
-    {
-        await AuthStateProvider.MarkUserAsLoggedOut();
-        /*
-        // 1. Limpiar preferencias
-        await AuthService.ClearUserPreferencesAsync();
-        await Task.Delay(200);
-
-        // 2. Limpiar sesión
-        await AuthService.ClearUserSessionAsync();
-        await Task.Delay(200);
-        */
-        // 3. Notificar logout
-        await AuthStateProvider.NotifyUserLogoutAsync();
-        await Task.Delay(200);
-
-        Logger.LogInformation("✅ Logout completado");
-
-        // 4. Redirigir
-        NavigationManager.NavigateTo("/login", true);
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        Navigation.NavigateTo("/login");
     }
 }

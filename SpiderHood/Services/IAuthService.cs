@@ -513,43 +513,13 @@ namespace SpiderHood.Services
             }
         }
 
-        /// Limpia la sesión del usuario (datos de autenticación)
-        public async Task ClearUserSessionAsync()
-        {
-            try
-            {
-                // Limpiar caché en memoria
-                //_cachedUser = null;
-
-                // Limpiar localStorage
-                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "currentUser");
-                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "authToken");
-                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "refreshToken");
-
-                // Limpiar sessionStorage si es necesario
-                await _jsRuntime.InvokeVoidAsync("sessionStorage.clear");
-
-                _logger.LogInformation("✅ Sesión limpiada exitosamente");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error limpiando sesión");
-            }
-        }
-
-        /// Obtiene el token de autenticación
-        public async Task<string?> GetTokenAsync()
-        {
-            try
-            {
-                return await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error obteniendo token");
-                return null;
-            }
-        }
+        // NOTA: se eliminaron ClearUserSessionAsync() y GetTokenAsync() — leían/borraban
+        // "currentUser"/"authToken"/"refreshToken" de localStorage, pero nada en la app
+        // escribía esas claves (MarkUserAsAuthenticated nunca las usó); eran restos de
+        // un diseño previo basado en tokens. La sesión real ahora vive en la cookie de
+        // autenticación (HttpContext.SignInAsync/SignOutAsync en Login.razor/Logout.razor),
+        // no en localStorage — localStorage queda sólo para preferencias (ver
+        // SetDefaultBuildingAsync/GetDefaultBuildingAsync/ClearUserPreferencesAsync arriba).
 
         public async Task<InvitationModel> GetByCodeAsync(string code)
         {

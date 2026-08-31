@@ -112,7 +112,18 @@
                 <li><a class="dropdown-item" href="/Settings"><i class="bi bi-gear me-2"></i>Configuración</a></li>
                 <li><a class="dropdown-item" href="/Security"><i class="bi bi-shield me-2"></i>Seguridad</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="/Logout"><i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión</a></li>
+                <li>
+                    <!-- data-enhance-nav="false": sin esto, la navegación mejorada de
+                         Blazor resuelve este link como un fetch dentro del MISMO circuito
+                         — el layout (este componente, LeftMenu) nunca se destruye, así que
+                         se queda mostrando al usuario ya deslogueado (la cookie se borra en
+                         el servidor, pero el estado en memoria de este circuito no se
+                         entera). Forzando una navegación de página completa, el circuito
+                         viejo se tira abajo y el nuevo arranca ya anónimo. -->
+                    <a class="dropdown-item text-danger" href="/Logout" data-enhance-nav="false">
+                        <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+                    </a>
+                </li>
             </ul>
         </div>
     </div>

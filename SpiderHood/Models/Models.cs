@@ -895,6 +895,12 @@ namespace SpiderHood.Models
         public string Role { get; set; } = string.Empty;
         public Guid IdRole { get; set; } = Guid.Empty;
         public Guid? IdGroupUnit { get; set; }
+
+        // Estado de la solicitud de acceso -- ver GET_AllUserBuildingRoles. Alimenta la
+        // bandeja de "Solicitudes pendientes" en /Settings/UserRoles (IsApproved == false).
+        public bool IsApproved { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public DateTime? RequestedAt { get; set; }
     }
 
     public class MenuItemDefinition

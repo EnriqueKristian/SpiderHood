@@ -114,6 +114,26 @@ namespace SpiderHood.Data
             }, "AssignUnitToUserBuilding", cancellationToken);
         }
 
+        // Aprueba/rechaza una solicitud de acceso puntual -- identificada por su PK
+        // completa (IdUser, IdBuilding, IdRole), no sólo IdUser+IdBuilding, para no pisar
+        // otras filas del mismo usuario+edificio con otro rol. Ver UPD_UserBuildingApproval.
+        public async Task SetUserBuildingApprovalAsync(Guid idUser, Guid idBuilding, Guid idRole, bool isApproved, string status, Guid? approvedBy, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_UserBuildingApproval,
+                    cancellationToken,
+                    idUser,
+                    idBuilding,
+                    idRole,
+                    isApproved,
+                    status,
+                    (object?)approvedBy ?? DBNull.Value);
+                return true;
+            }, "SetUserBuildingApproval", cancellationToken);
+        }
+
         public async Task<Models.RolePermissions> AddNewRecordAsync(Models.RolePermissions permissions, CancellationToken cancellationToken = default)
         {
             ValidateEntity(permissions, nameof(permissions));

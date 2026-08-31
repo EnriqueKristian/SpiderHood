@@ -191,6 +191,19 @@ namespace SpiderHood.Data
             }, "GetAllBuildingByOwner", cancellationToken);
         }
 
+        // A diferencia de GET_AllBuildings (que pese al nombre filtra por @IdOwner), este
+        // lista todos los edificios activos sin importar dueño -- lo necesita el registro
+        // público (/register) y "solicitar acceso a otro edificio" (/building-request),
+        // donde todavía no hay ningún vínculo usuario-edificio del cual partir.
+        public async Task<List<Building>> GetAllBuildingsPublicAsync(CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Building>(
+                    StoredProcedures.GET_AllBuildingsPublic);
+            }, "GetAllBuildingsPublic", cancellationToken);
+        }
+
         public async Task<List<RealEstateUnit>> GetUnitsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             var units = new List<RealEstateUnit>();

@@ -22,6 +22,54 @@
 else
 {
     <div class="container-fluid">
+        @if (!_loading && _pendingRequests.Any())
+        {
+            <div class="card shadow mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="bi bi-hourglass-split me-2"></i>
+                        Solicitudes Pendientes de Aprobación (@_pendingRequests.Count)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Email</th>
+                                    <th>Edificio</th>
+                                    <th>Rol</th>
+                                    <th>Solicitado</th>
+                                    <th style="width: 200px;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var req in _pendingRequests)
+                                {
+                                    <tr>
+                                        <td>@req.UserName</td>
+                                        <td>@req.UserEmail</td>
+                                        <td>@req.BuildingName</td>
+                                        <td><span class="badge @GetRoleBadgeClass(req.Role)">@req.Role</span></td>
+                                        <td>@(req.RequestedAt?.ToString("dd/MM/yyyy") ?? "-")</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-success me-1" @onclick="() => ApproveRequest(req)">
+                                                <i class="bi bi-check-lg"></i> Aprobar
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RejectRequest(req)">
+                                                <i class="bi bi-x-lg"></i> Rechazar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+
         <div class="card shadow">
             <div class="card-header bg-primary text-white">
                 <h4 class="mb-0">
@@ -185,6 +233,11 @@ else
         public List<string> Roles { get; set; } = new();
     }
 
+    // Solicitudes de acceso (registro público o "solicitar acceso a otro edificio") que
+    // todavía no fueron aprobadas ni rechazadas -- ver GET_AllUserBuildingRoles / IsApproved.
+    private List<UserBuildingRoleAssignment> _pendingRequests =>
+        _allAssignments.Where(a => !a.IsApproved && a.Status != "Rejected").ToList();
+
     private List<(Guid IdBuilding, string BuildingName)> _buildings =>
         _allAssignments
             .Select(a => (a.IdBuilding, a.BuildingName))
@@ -287,6 +340,42 @@ else
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Error al quitar el rol: {ex.Message}");
+        }
+    }
+
+    private async Task ApproveRequest(UserBuildingRoleAssignment request)
+    {
+        if (!_canAssignRoles) return;
+
+        try
+        {
+            await PermissionAdminService.SetUserBuildingApprovalAsync(
+                request.IdUser, request.IdBuilding, request.IdRole, true, "Approved", _currentUser!.IdUser);
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al aprobar la solicitud: {ex.Message}");
+        }
+    }
+
+    private async Task RejectRequest(UserBuildingRoleAssignment request)
+    {
+        if (!_canAssignRoles) return;
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"¿Rechazar la solicitud de {request.UserName} para {request.BuildingName} ({request.Role})?");
+        if (!confirmed) return;
+
+        try
+        {
+            await PermissionAdminService.SetUserBuildingApprovalAsync(
+                request.IdUser, request.IdBuilding, request.IdRole, false, "Rejected", _currentUser!.IdUser);
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al rechazar la solicitud: {ex.Message}");
         }
     }
 

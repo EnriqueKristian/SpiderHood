@@ -26,6 +26,7 @@ namespace SpiderHood.Services
         Task AssignUserBuildingRoleAsync(Guid userId, Guid buildingId, string role, Guid approvedBy);
         Task RevokeUserBuildingRoleAsync(Guid userId, Guid buildingId, string role);
         Task AssignUnitToUserBuildingAsync(Guid userId, Guid buildingId, Guid idRole, Guid? idGroupUnit);
+        Task SetUserBuildingApprovalAsync(Guid userId, Guid buildingId, Guid idRole, bool isApproved, string status, Guid approvedBy);
     }
 
     public class PermissionAdminService : IPermissionAdminService
@@ -172,6 +173,11 @@ namespace SpiderHood.Services
         public async Task AssignUnitToUserBuildingAsync(Guid userId, Guid buildingId, Guid idRole, Guid? idGroupUnit)
         {
             await ec.AssignUnitToUserBuildingAsync(userId, buildingId, idRole, idGroupUnit);
+        }
+
+        public async Task SetUserBuildingApprovalAsync(Guid userId, Guid buildingId, Guid idRole, bool isApproved, string status, Guid approvedBy)
+        {
+            await ec.SetUserBuildingApprovalAsync(userId, buildingId, idRole, isApproved, status, approvedBy);
         }
 
         public async Task<List<string>> GetUserPermissionsAsync(Guid userId)

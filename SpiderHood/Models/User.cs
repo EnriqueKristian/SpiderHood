@@ -55,6 +55,9 @@ namespace SpiderHood.Models
         public string ConfirmPassword { get; set; } = string.Empty.ToString();
 
         public string PhoneNumber { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Selecciona un edificio")]
+        public Guid BuildingId { get; set; }
     }
 
     public class UserSession

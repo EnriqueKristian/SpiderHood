@@ -985,6 +985,10 @@
 
             if (result.Success)
             {
+                // Aplica el tema al instante (sin recargar) y lo deja en la clave simple
+                // "theme" que lee el script anti-flash de App.razor — ver wwwroot/js/theme.js.
+                await JSRuntime.InvokeVoidAsync("spiderHoodTheme.set", _preferences.Theme);
+
                 _notificationMessage = "Preferencias guardadas exitosamente.";
                 _notificationType = "success";
                 Logger.LogInformation("Preferencias guardadas para usuario {UserId}", _user.IdUser);

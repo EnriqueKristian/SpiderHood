@@ -8,7 +8,7 @@
 }
 
 .login-card {
-    background: white;
+    background: var(--sh-surface);
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     width: 100%;
@@ -47,7 +47,7 @@
 
 .login-footer {
     text-align: center;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--sh-border);
     padding-top: 20px;
 }
 

@@ -9,6 +9,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    <!-- Aplica el tema guardado (o el del sistema operativo) ANTES de que se pinte
+         cualquier cosa, para no mostrar un flash del tema equivocado. Tiene que ser
+         un script inline y síncrono acá arriba — para cuando theme.js (al final del
+         body) se ejecuta, la página ya se pintó. Ver wwwroot/js/theme.js para el resto
+         de la lógica (cambiar de tema, seguir el del SO en "Sistema", etc). -->
+    <script>
+        (function () {
+            try {
+                var theme = localStorage.getItem('theme') || 'system';
+                var effective = (theme === 'dark' || theme === 'light')
+                    ? theme
+                    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-bs-theme', effective);
+            } catch (e) { /* localStorage no disponible (modo privado, etc.) — se queda con el tema claro por defecto */ }
+        })();
+    </script>
     <ResourcePreloader />
     <!-- Bootstrap: una sola versión (antes se cargaba también 5.3.7 por CDN
          encima de esta 5.3.3 local, mezclando reglas de dos versiones). -->
@@ -72,6 +88,7 @@
     <script src="_content/Blazor.Bootstrap/blazor.bootstrap.js"></script>
     <script src="@Assets["js/fileDownload.js"]"></script>
     <script src="@Assets["js/utilidades.js"]"></script>
+    <script src="@Assets["js/theme.js"]"></script>
 </body>
 
 </html>

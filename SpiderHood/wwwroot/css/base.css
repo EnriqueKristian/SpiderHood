@@ -104,15 +104,15 @@ h1:focus {
 }
 
 ::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: var(--sh-surface-muted);
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #888;
+    background: var(--sh-border-strong);
     border-radius: 4px;
 }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: #555;
+        background: var(--sh-text-muted);
     }

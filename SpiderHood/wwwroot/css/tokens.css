@@ -60,3 +60,33 @@
     /* Transición estándar para hover/focus en tarjetas y botones */
     --sh-transition: all 0.15s ease-in-out;
 }
+
+/*
+    Modo oscuro: redefine sólo los neutrales (fondos, bordes, texto) y los "*-light"
+    (usados como fondo de badges/alerts) — los colores de marca (primary, success,
+    warning, danger, info) se dejan igual, como hace el propio modo oscuro de
+    Bootstrap. El atributo data-bs-theme lo pone wwwroot/js/theme.js (persistido en
+    localStorage bajo la clave "theme", ver Profile > Preferencias); esto hace que
+    tanto los componentes de Bootstrap (que ya traen su propio dark mode vía este
+    mismo atributo) como estos tokens propios cambien juntos, en un solo lugar.
+*/
+[data-bs-theme="dark"] {
+    --sh-primary-light: rgba(13, 110, 253, 0.18);
+    --sh-success-light: rgba(25, 135, 84, 0.18);
+    --sh-warning-light: rgba(255, 193, 7, 0.18);
+    --sh-danger-light: rgba(220, 53, 69, 0.18);
+    --sh-info-light: rgba(13, 202, 240, 0.18);
+    /* Neutrales */
+    --sh-body-bg: #16181b;
+    --sh-surface: #22262a;
+    --sh-surface-muted: #2a2e33;
+    --sh-border: #3a3f44;
+    --sh-border-strong: #495057;
+    --sh-text: #e9ecef;
+    --sh-text-muted: #adb5bd;
+    --sh-text-heading: #f1f3f5;
+    /* Sombras: un poco más marcadas para que se noten sobre fondo oscuro */
+    --sh-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --sh-shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.4);
+    --sh-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.5);
+}

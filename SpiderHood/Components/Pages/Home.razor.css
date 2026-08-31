@@ -6,7 +6,7 @@
 }
 
 .dashboard-header {
-    background: white;
+    background: var(--sh-surface);
     border-radius: 12px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
@@ -149,7 +149,7 @@
 
     .due-item.urgent {
         border-left: 4px solid var(--sh-danger);
-        background: #fff5f5;
+        background: var(--sh-danger-light);
     }
 
     .due-item:hover {

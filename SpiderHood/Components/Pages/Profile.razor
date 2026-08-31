@@ -536,9 +536,10 @@
                                 </div>
                                 @if (building.IsApproved && building.Building != null)
                                 {
-                                    var isCurrent = _session.CurrentBuildingId == building.Building.IdBuilding;
-                                    <button class="btn btn-sm @(isCurrent ? "btn-success" : "btn-outline-primary")" 
-                                            @onclick="() => SetDefaultBuilding(building.Building.IdBuilding)"
+                                    var isCurrent = _session.CurrentBuildingId == building.Building.IdBuilding
+                                        && _session.Role == building.Role;
+                                    <button class="btn btn-sm @(isCurrent ? "btn-success" : "btn-outline-primary")"
+                                            @onclick="() => SetDefaultBuilding(building.Building.IdBuilding, building.Role)"
                                             disabled="@isCurrent">
                                         @(isCurrent ? "✓ Actual" : "Predeterminado")
                                     </button>
@@ -885,24 +886,32 @@
         }
     }
 
-    private async Task SetDefaultBuilding(Guid buildingId)
+    private async Task SetDefaultBuilding(Guid buildingId, string role)
     {
         try
         {
             _savingBuilding = true;
             ClearNotification();
 
-            await AuthService.SetCurrentBuilding(buildingId, _session?.Role ?? "Residente");
+            // Usa el rol de la fila en la que se hizo clic, no el rol activo de la
+            // sesión actual — antes usaba _session.Role, así que hacer clic en
+            // "Predeterminado" sobre un edificio/rol distinto al que estabas usando en
+            // ese momento igual aplicaba tu rol ACTUAL a ESE edificio, en vez del rol
+            // que en realidad correspondía a la fila elegida.
+            await AuthService.SetCurrentBuilding(buildingId, role);
 
             if (_session != null)
             {
                 _session.CurrentBuildingId = buildingId;
+                _session.Role = role;
                 await AuthStateProvider.MarkUserAsAuthenticated(_session);
             }
 
             // Esto es lo que hace que la próxima vez que el usuario entre no se le
-            // vuelva a preguntar por el edificio — ver AuthService.TryApplyDefaultBuildingAsync.
+            // vuelva a preguntar por el edificio y rol — ver
+            // AuthService.TryApplyDefaultBuildingAsync.
             await AuthService.SetDefaultBuildingAsync(buildingId);
+            await AuthService.SetDefaultRoleAsync(role);
 
             _notificationMessage = "Edificio predeterminado actualizado exitosamente.";
             _notificationType = "success";

@@ -178,15 +178,19 @@
                 .Where(b => !b.IsApproved && b.Building != null)
                 .ToList() ?? new();
 
-            // Si hay un edificio actual en la sesión, preseleccionarlo
+            // Si hay un edificio actual en la sesión, preseleccionarlo (con su rol —
+            // sin esto, la fila nunca aparecía marcada como "selected" porque ese
+            // estado exige que building Y role coincidan).
             if (currentUser.CurrentBuildingId != Guid.Empty)
             {
                 var currentBuilding = approvedBuildings
-                    .FirstOrDefault(b => b.Building!.IdBuilding == currentUser.CurrentBuildingId);
+                    .FirstOrDefault(b => b.Building!.IdBuilding == currentUser.CurrentBuildingId
+                        && b.Role == currentUser.Role);
 
                 if (currentBuilding != null)
                 {
                     selectedBuilding = currentBuilding.Building!.IdBuilding;
+                    selectedRole = currentBuilding.Role;
                 }
             }
 
@@ -194,7 +198,31 @@
             if (approvedBuildings.Count == 1 && selectedBuilding == null)
             {
                 selectedBuilding = approvedBuildings.First().Building!.IdBuilding;
+                selectedRole = approvedBuildings.First().Role;
                 await ConfirmSelectionAsync();
+            }
+
+            // Si sigue sin haber nada seleccionado, preseleccionar (sin confirmar) la
+            // combinación edificio+rol que el usuario haya guardado como default en un
+            // ingreso anterior — así sólo tiene que hacer un clic en "Continuar" en vez
+            // de tener que reconocer de nuevo cuál era su elección habitual.
+            if (selectedBuilding == null)
+            {
+                var preferredBuildingId = await AuthService.GetDefaultBuildingAsync();
+                var preferredRole = await AuthService.GetDefaultRoleAsync();
+
+                if (preferredBuildingId.HasValue)
+                {
+                    var preferred = approvedBuildings.FirstOrDefault(b =>
+                        b.Building!.IdBuilding == preferredBuildingId.Value &&
+                        (preferredRole == null || b.Role == preferredRole));
+
+                    if (preferred != null)
+                    {
+                        selectedBuilding = preferred.Building!.IdBuilding;
+                        selectedRole = preferred.Role;
+                    }
+                }
             }
         }
         catch (Exception ex)
@@ -229,9 +257,12 @@
             // Establecer el edificio actual
             await AuthService.SetCurrentBuilding(selectedBuilding.Value, selectedRole!);
 
-            // Recordar la elección para no volver a preguntar en el próximo ingreso
-            // (ver AuthService.TryApplyDefaultBuildingAsync, usado al arrancar el dashboard).
+            // Recordar la elección. Si el edificio no tiene otros roles aprobados,
+            // TryApplyDefaultBuildingAsync la aplicará sola la próxima vez; si sí los
+            // tiene, esta pantalla se va a seguir mostrando, pero con esta combinación
+            // ya preseleccionada (ver el bloque de preselección en LoadUserDataAsync).
             await AuthService.SetDefaultBuildingAsync(selectedBuilding.Value);
+            await AuthService.SetDefaultRoleAsync(selectedRole!);
 
             // Pequeña pausa para dar feedback visual
             await Task.Delay(300);

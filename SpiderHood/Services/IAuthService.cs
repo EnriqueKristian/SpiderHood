@@ -208,6 +208,14 @@ namespace SpiderHood.Services
         // ingreso. Sólo tiene efecto una vez conectado el circuito (usa localStorage
         // vía IJSRuntime); el llamador es responsable de no invocarlo durante el
         // prerender estático.
+        //
+        // OJO: sólo salta select-building cuando el edificio preferido no tiene
+        // ambigüedad de rol (un único rol aprobado para ese edificio). Si el usuario
+        // tiene, por ejemplo, Administrador Y Junta en el mismo edificio, esa es una
+        // elección real que se le tiene que seguir preguntando cada vez — aunque
+        // sepamos cuál usó la última vez (eso sólo sirve para preseleccionarlo en
+        // /select-building, ver GetDefaultRoleAsync). De lo contrario el usuario queda
+        // atrapado siempre en el mismo rol sin poder cambiarlo.
         public async Task<bool> TryApplyDefaultBuildingAsync()
         {
             var user = await GetCurrentUserAsync();
@@ -218,17 +226,20 @@ namespace SpiderHood.Services
             if (!preferredBuildingId.HasValue)
                 return false;
 
-            var match = user.Buildings.FirstOrDefault(b =>
-                b.IsApproved && b.Building?.IdBuilding == preferredBuildingId.Value);
+            var matches = user.Buildings
+                .Where(b => b.IsApproved && b.Building?.IdBuilding == preferredBuildingId.Value)
+                .ToList();
 
-            if (match == null)
+            if (matches.Count != 1)
             {
-                // El edificio guardado como preferencia ya no es válido (perdió acceso,
-                // o cambió de estado) — no rompemos el flujo, simplemente no aplica.
+                // 0 -> el edificio guardado ya no es válido (perdió acceso, o cambió de
+                //      estado); no rompemos el flujo, simplemente no aplica.
+                // >1 -> hay más de un rol para ese edificio: es una elección real, no la
+                //      resolvemos en silencio.
                 return false;
             }
 
-            await SetCurrentBuilding(match.Building!.IdBuilding, match.Role);
+            await SetCurrentBuilding(matches[0].Building!.IdBuilding, matches[0].Role);
             return true;
         }
 
@@ -520,6 +531,42 @@ namespace SpiderHood.Services
             }
 
             return null;
+        }
+
+        /// Guarda el rol preferido para el edificio por defecto (un mismo edificio puede
+        /// tener más de un rol aprobado para el usuario — esto es lo que permite
+        /// preseleccionar en /select-building exactamente la misma combinación que se usó
+        /// la última vez, en vez de una cualquiera de las disponibles para ese edificio).
+        public async Task SetDefaultRoleAsync(string role)
+        {
+            try
+            {
+                var user = await GetCurrentUserAsync();
+                if (user == null) return;
+
+                await _jsRuntime.InvokeVoidAsync("localStorage.setItem", $"defaultRole_{user.IdUser}", role);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error guardando rol por defecto");
+            }
+        }
+
+        /// Obtiene el rol preferido guardado junto con el edificio por defecto.
+        public async Task<string?> GetDefaultRoleAsync()
+        {
+            try
+            {
+                var user = await GetCurrentUserAsync();
+                if (user == null) return null;
+
+                return await _jsRuntime.InvokeAsync<string>("localStorage.getItem", $"defaultRole_{user.IdUser}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error obteniendo rol por defecto");
+                return null;
+            }
         }
 
         /// Limpia las preferencias del usuario (edificio por defecto, etc)

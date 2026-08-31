@@ -5,6 +5,7 @@
 @inject Services.IPermissionAdminService PermissionAdminService
 @inject Services.IPermissionService PermissionService
 @inject Services.AuthService AuthService
+@inject Services.IBuildingService BuildingService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Asignar Roles a Usuarios</PageTitle>
@@ -73,6 +74,7 @@ else
                                         <th>Email</th>
                                         <th>Edificio</th>
                                         <th>Roles</th>
+                                        <th style="width: 220px;">Unidad (Residente)</th>
                                         <th style="width: 220px;">Agregar rol</th>
                                     </tr>
                                 </thead>
@@ -95,6 +97,29 @@ else
                                                            title="Quitar rol"
                                                            @onclick="() => RevokeRole(row, role)"></i>
                                                     </span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var residente = ResidenteAssignmentFor(row);
+                                                }
+                                                @if (residente != null)
+                                                {
+                                                    <select class="form-select form-select-sm"
+                                                            @onchange="(e) => AssignUnit(residente, e.Value?.ToString())">
+                                                        <option value="">Sin asignar</option>
+                                                        @foreach (var unit in UnitsFor(row.IdBuilding))
+                                                        {
+                                                            <option value="@unit.IdGroupUnit"
+                                                                    selected="@(residente.IdGroupUnit == unit.IdGroupUnit)">
+                                                                Grupo @unit.GroupNumber — @unit.FirstName @unit.LastName
+                                                            </option>
+                                                        }
+                                                    </select>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small">—</span>
                                                 }
                                             </td>
                                             <td>
@@ -138,6 +163,10 @@ else
 
     private Guid? _selectedBuildingId;
     private string _searchTerm = string.Empty;
+
+    // Unidades disponibles por edificio, para el selector "Unidad (Residente)" —
+    // se cargan una vez por edificio involucrado, no por fila.
+    private Dictionary<Guid, List<Models.OwnerUnitView>> _unitsByBuilding = new();
 
     // SysAdmin es el único rol que puede otorgar/quitar roles (ver
     // Database/Migrations/2026-08-30_Permiso_AssignRoles.sql) — a propósito distinto de
@@ -208,6 +237,12 @@ else
             _loading = true;
             _allAssignments = await PermissionAdminService.GetUserBuildingRoleAssignmentsAsync();
             _allRoles = await PermissionAdminService.GetAllRolesAsync();
+
+            _unitsByBuilding = new();
+            foreach (var buildingId in _allAssignments.Select(a => a.IdBuilding).Distinct())
+            {
+                _unitsByBuilding[buildingId] = await BuildingService.GetOwnersByBuildingAsync(buildingId);
+            }
         }
         catch (Exception ex)
         {
@@ -252,6 +287,40 @@ else
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"Error al quitar el rol: {ex.Message}");
+        }
+    }
+
+    // La unidad se guarda en la fila UserBuildingAssociation de rol "Residente"
+    // específicamente (una misma fila de UserRoles.razor puede agrupar varios roles,
+    // pero la unidad sólo tiene sentido para éste) — de ahí que se busque en
+    // _allAssignments (que sí tiene el detalle por rol) en vez de en UserBuildingRow.
+    private UserBuildingRoleAssignment? ResidenteAssignmentFor(UserBuildingRow row) =>
+        _allAssignments.FirstOrDefault(a =>
+            a.IdUser == row.IdUser && a.IdBuilding == row.IdBuilding && a.Role == "Residente");
+
+    // Un mismo IdGroupUnit puede aparecer varias veces en GetOwnersByBuildingAsync (una
+    // fila por cada unidad física — depto, cochera, depósito — dentro del mismo grupo),
+    // así que se deduplica para el selector.
+    private List<Models.OwnerUnitView> UnitsFor(Guid buildingId) =>
+        _unitsByBuilding.TryGetValue(buildingId, out var units)
+            ? units.DistinctBy(u => u.IdGroupUnit).OrderBy(u => u.GroupNumber).ToList()
+            : new();
+
+    private async Task AssignUnit(UserBuildingRoleAssignment residente, string? idGroupUnitStr)
+    {
+        if (!_canAssignRoles) return;
+
+        Guid? idGroupUnit = Guid.TryParse(idGroupUnitStr, out var parsed) ? parsed : null;
+
+        try
+        {
+            await PermissionAdminService.AssignUnitToUserBuildingAsync(
+                residente.IdUser, residente.IdBuilding, residente.IdRole, idGroupUnit);
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al asignar la unidad: {ex.Message}");
         }
     }
 

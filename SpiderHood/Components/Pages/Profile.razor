@@ -5,8 +5,8 @@
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
 @inject Services.IPreferenceService PreferenceService
-@*@inject Services.ISessionService SessionService
-@inject Services.IFinancialService FinancialService*@
+@inject Services.IInstallmentService InstallmentService
+@*@inject Services.ISessionService SessionService*@
 @inject NavigationManager Navigation
 @inject ILogger<Profile> Logger
 @inject IJSRuntime JSRuntime
@@ -239,12 +239,44 @@
     {
         try
         {
-            // Cargar datos financieros
-            /*var financialSummary = await FinancialService.GetSummaryAsync(_user.IdUser);
-            _accountBalance = financialSummary.Balance;
-            _outstandingDebt = financialSummary.OutstandingDebt;
-            _nextDueDate = financialSummary.NextDueDate;*/
-            //_recentPayments = financialSummary.RecentPayments;
+            // Cargar datos financieros — misma fuente que Mis Recibos/Mis Deudas
+            // (Installment/InstallmentPaid filtrados por la unidad del residente), no un
+            // resumen aparte. Sólo aplica si el usuario tiene una unidad vinculada a su
+            // rol actual (ver UserRoles.razor > "Unidad (Residente)"); si no, las
+            // tarjetas quedan en 0 sin generar error — no todo usuario es residente.
+            var idUnit = await AuthService.GetCurrentUnitIdAsync();
+            if (idUnit != null && _session != null && _session.CurrentBuildingId != Guid.Empty)
+            {
+                var idBuilding = _session.CurrentBuildingId;
+                var misCuotas = (await InstallmentService.GetPendingInstallmentsAsync(idBuilding))
+                    .Where(c => c.IdGroupUnit == idUnit)
+                    .ToList();
+
+                _outstandingDebt = misCuotas.Sum(c => c.Debt);
+                _accountBalance = misCuotas.Sum(c => c.AmountPaid);
+                _nextDueDate = misCuotas.Where(c => c.Debt > 0).OrderBy(c => c.DueDate)
+                    .Select(c => (DateTime?)c.DueDate).FirstOrDefault() ?? default;
+
+                var buildingName = _session.Buildings
+                    .FirstOrDefault(b => b.Building?.IdBuilding == idBuilding)?.Building?.Name ?? string.Empty;
+                var cuotasPorId = misCuotas.ToDictionary(c => c.IdInstallment);
+
+                _recentPayments = (await InstallmentService.GetInstallmentsPaidAsync(idBuilding))
+                    .Where(p => cuotasPorId.ContainsKey(p.IdInstallment))
+                    .OrderByDescending(p => p.PaymentDate)
+                    .Take(5)
+                    .Select(p => new PaymentHistory
+                    {
+                        Date = p.PaymentDate,
+                        Concept = string.IsNullOrWhiteSpace(cuotasPorId[p.IdInstallment].Concept)
+                            ? cuotasPorId[p.IdInstallment].Type.ToString()
+                            : cuotasPorId[p.IdInstallment].Concept,
+                        BuildingName = buildingName,
+                        Amount = p.Amount,
+                        Status = p.IsPartialPayment ? "Parcial" : "Pagado"
+                    })
+                    .ToList();
+            }
 
             // Cargar preferencias (localStorage — ver PreferenceService). Durante el
             // prerender estático esto devuelve los valores por defecto porque todavía
@@ -610,8 +642,8 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <div class="p-3 bg-light rounded">
-                                <small class="text-muted">Saldo Actual</small>
-                                <h5 class="mb-0 @(_accountBalance >= 0 ? "text-success" : "text-danger")">
+                                <small class="text-muted">Total Pagado</small>
+                                <h5 class="mb-0 text-success">
                                     @_accountBalance.ToString("C")
                                 </h5>
                             </div>
@@ -627,7 +659,9 @@
                         <div class="col-md-4">
                             <div class="p-3 bg-light rounded">
                                 <small class="text-muted">Próximo Vencimiento</small>
-                                <h5 class="mb-0">@_nextDueDate.ToString("dd/MM/yyyy")</h5>
+                                <h5 class="mb-0">
+                                    @(_nextDueDate == default ? "Sin pendientes" : _nextDueDate.ToString("dd/MM/yyyy"))
+                                </h5>
                             </div>
                         </div>
                     </div>
@@ -1094,7 +1128,7 @@
     }
 
     // Métodos placeholder para acciones adicionales
-    private void ViewFullHistory() => Navigation.NavigateTo("/payments");
+    private void ViewFullHistory() => Navigation.NavigateTo("/mis-recibos");
     private void ViewFullAccessLog() => Navigation.NavigateTo("/access-log");
 
     // =========================================================

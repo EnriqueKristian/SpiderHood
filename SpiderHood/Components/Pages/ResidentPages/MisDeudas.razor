@@ -1,0 +1,123 @@
+@page "/mis-deudas"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject Services.AuthService AuthService
+@inject Services.IInstallmentService InstallmentService
+@inject ParameterService ParameterService
+
+<PageTitle>Mis Deudas - SpiderHood</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="icon-badge">
+            <i class="bi bi-exclamation-circle"></i>
+        </div>
+        <h1 class="h3 fw-bold mb-0">Mis Deudas</h1>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_unitId == null)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Tu cuenta todavía no tiene una unidad vinculada en este edificio. Pedile al
+            administrador que te la asigne en <em>Configuración &gt; Asignación de Roles</em>.
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm mb-4">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="text-muted small">Deuda total</div>
+                    <div class="h3 fw-bold text-danger mb-0">@_deudaTotal.ToString("C2")</div>
+                </div>
+                <i class="bi bi-cash-stack fs-1 text-danger opacity-25"></i>
+            </div>
+        </div>
+
+        @if (!_deudas.Any())
+        {
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle me-2"></i>
+                No tenés cuotas pendientes. ¡Estás al día!
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Período</th>
+                            <th>Concepto</th>
+                            <th>Vencimiento</th>
+                            <th class="text-end">Cuota</th>
+                            <th class="text-end">Pagado</th>
+                            <th class="text-end">Deuda</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cuota in _deudas)
+                        {
+                            <tr class="@(cuota.DueDate < DateTime.Today ? "table-danger" : "")">
+                                <td>@cuota.Period.ToString("MMMM yyyy")</td>
+                                <td>@(string.IsNullOrWhiteSpace(cuota.Concept) ? cuota.Type.ToString() : cuota.Concept)</td>
+                                <td>@cuota.DueDate.ToString("dd/MM/yyyy")</td>
+                                <td class="text-end">@cuota.Amount.ToString("C2")</td>
+                                <td class="text-end">@cuota.AmountPaid.ToString("C2")</td>
+                                <td class="text-end fw-bold text-danger">@cuota.Debt.ToString("C2")</td>
+                                <td>
+                                    <span class="badge @EstadoBadgeClass(cuota)">
+                                        @(cuota.DueDate < DateTime.Today ? "Vencida" : "Pendiente")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private Guid? _unitId;
+    private List<Installment> _deudas = new();
+    private decimal _deudaTotal;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            _unitId = await AuthService.GetCurrentUnitIdAsync();
+            if (_unitId != null && ParameterService.CurrentBuilding != null)
+            {
+                var todas = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+                _deudas = todas
+                    .Where(i => i.IdGroupUnit == _unitId && i.Debt > 0)
+                    .OrderBy(i => i.DueDate)
+                    .ToList();
+                _deudaTotal = _deudas.Sum(i => i.Debt);
+            }
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string EstadoBadgeClass(Installment cuota) =>
+        cuota.DueDate < DateTime.Today ? "bg-danger" : "bg-warning text-dark";
+}

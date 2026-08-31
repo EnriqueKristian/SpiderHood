@@ -1,0 +1,111 @@
+@page "/mis-recibos"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject Services.AuthService AuthService
+@inject Services.IInstallmentService InstallmentService
+@inject ParameterService ParameterService
+
+<PageTitle>Mis Recibos - SpiderHood</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="icon-badge">
+            <i class="bi bi-receipt"></i>
+        </div>
+        <h1 class="h3 fw-bold mb-0">Mis Recibos</h1>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_unitId == null)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Tu cuenta todavía no tiene una unidad vinculada en este edificio. Pedile al
+            administrador que te la asigne en <em>Configuración &gt; Asignación de Roles</em>.
+        </div>
+    }
+    else if (!_recibos.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Todavía no registrás pagos en este edificio.
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha de pago</th>
+                        <th>Período</th>
+                        <th>Concepto</th>
+                        <th class="text-end">Monto</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var recibo in _recibos)
+                    {
+                        <tr>
+                            <td>@recibo.Pago.PaymentDate.ToString("dd/MM/yyyy")</td>
+                            <td>@recibo.Cuota?.Period.ToString("MMMM yyyy")</td>
+                            <td>@(string.IsNullOrWhiteSpace(recibo.Cuota?.Concept) ? recibo.Cuota?.Type.ToString() : recibo.Cuota!.Concept)</td>
+                            <td class="text-end">@recibo.Pago.Amount.ToString("C2")</td>
+                            <td>
+                                <span class="badge @(recibo.Pago.IsPartialPayment ? "bg-warning text-dark" : "bg-success")">
+                                    @(recibo.Pago.IsPartialPayment ? "Pago parcial" : "Pagado")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private Guid? _unitId;
+    private List<(InstallmentPaid Pago, Installment? Cuota)> _recibos = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            _unitId = await AuthService.GetCurrentUnitIdAsync();
+            if (_unitId != null && ParameterService.CurrentBuilding != null)
+            {
+                var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
+
+                // InstallmentPaid no trae el concepto/período — hay que cruzarlo con su
+                // Installment (que sí sabe a qué unidad pertenece, vía IdGroupUnit).
+                var cuotas = await InstallmentService.GetPendingInstallmentsAsync(idBuilding);
+                var cuotasPorId = cuotas.ToDictionary(c => c.IdInstallment);
+
+                var misCuotas = cuotas.Where(c => c.IdGroupUnit == _unitId).Select(c => c.IdInstallment).ToHashSet();
+
+                var pagos = await InstallmentService.GetInstallmentsPaidAsync(idBuilding);
+                _recibos = pagos
+                    .Where(p => misCuotas.Contains(p.IdInstallment))
+                    .OrderByDescending(p => p.PaymentDate)
+                    .Select(p => (Pago: p, Cuota: cuotasPorId.GetValueOrDefault(p.IdInstallment)))
+                    .ToList();
+            }
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+}

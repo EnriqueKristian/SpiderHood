@@ -51,7 +51,8 @@ namespace SpiderHood.Services
                         Building = builds.FirstOrDefault(b => b.IdBuilding == ub.IdBuilding),
                         Role = ub.Role,
                         IsApproved = ub.IsApproved,
-                        ApprovedAt = ub.ApprovedAt
+                        ApprovedAt = ub.ApprovedAt,
+                        IdGroupUnit = ub.IdGroupUnit
                     }).ToList();
 
                 return new UserSession

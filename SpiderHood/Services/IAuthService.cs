@@ -16,6 +16,7 @@ namespace SpiderHood.Services
         Task<AuthResponse> LoginAsync(LoginModel model);
         Task LogoutAsync();
         Task<UserSession?> GetCurrentUserAsync();
+        Task<Guid?> GetCurrentUnitIdAsync();
         /*Task<UserSession?> GetStoredSessionAsync();*/
         /*UserSession? CurrentUser { get; }
         event Action? OnAuthStateChanged;*/
@@ -131,7 +132,8 @@ namespace SpiderHood.Services
 
                         Role = ub.Role,
                         IsApproved = ub.IsApproved,
-                        ApprovedAt = ub.ApprovedAt
+                        ApprovedAt = ub.ApprovedAt,
+                        IdGroupUnit = ub.IdGroupUnit
                     }).ToList();
 
                 // Crear sesión
@@ -176,6 +178,22 @@ namespace SpiderHood.Services
         public async Task<UserSession?> GetCurrentUserAsync()
         {
             return await _authStateProvider.GetCurrentUserAsync();
+        }
+
+        // Resuelve la unidad (GroupUnit) del usuario actual para el edificio+rol con el
+        // que está trabajando ahora mismo — lo usan Mis Recibos/Mis Deudas y Profile >
+        // Finanzas para filtrar "mis" cuotas (Installment.IdGroupUnit) en vez de las de
+        // todo el edificio. Null si el admin todavía no vinculó una unidad a esta
+        // asociación usuario-edificio-rol (ver UserRoles.razor > "Unidad (Residente)").
+        public async Task<Guid?> GetCurrentUnitIdAsync()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null || user.CurrentBuildingId == Guid.Empty)
+                return null;
+
+            return user.Buildings
+                .FirstOrDefault(b => b.Building?.IdBuilding == user.CurrentBuildingId && b.Role == user.Role)
+                ?.IdGroupUnit;
         }
 
         public async Task SetCurrentBuilding(Guid? buildingId, string Role)

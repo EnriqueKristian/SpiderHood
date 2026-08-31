@@ -893,6 +893,8 @@ namespace SpiderHood.Models
         public Guid IdBuilding { get; set; } = Guid.Empty;
         public string BuildingName { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
+        public Guid IdRole { get; set; } = Guid.Empty;
+        public Guid? IdGroupUnit { get; set; }
     }
 
     public class MenuItemDefinition

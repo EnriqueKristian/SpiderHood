@@ -95,6 +95,25 @@ namespace SpiderHood.Data
             }, "AssignUserBuildingRole", cancellationToken);
         }
 
+        // Vincula (o desvincula, con idGroupUnit=null) la unidad de un residente para
+        // una asociación usuario-edificio-rol ya existente — ver UPD_UserBuildingUnit.
+        // Es lo que permite después filtrar "mis cuotas" (Installment.IdGroupUnit) para
+        // ese usuario en Mis Recibos/Mis Deudas y Profile > Finanzas.
+        public async Task AssignUnitToUserBuildingAsync(Guid idUser, Guid idBuilding, Guid idRole, Guid? idGroupUnit, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_UserBuildingUnit,
+                    cancellationToken,
+                    idUser,
+                    idBuilding,
+                    idRole,
+                    (object?)idGroupUnit ?? DBNull.Value);
+                return true;
+            }, "AssignUnitToUserBuilding", cancellationToken);
+        }
+
         public async Task<Models.RolePermissions> AddNewRecordAsync(Models.RolePermissions permissions, CancellationToken cancellationToken = default)
         {
             ValidateEntity(permissions, nameof(permissions));

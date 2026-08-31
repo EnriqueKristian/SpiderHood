@@ -181,7 +181,15 @@ namespace SpiderHood.Components.Pages
                 if (currentUser.CurrentBuildingId == Guid.Empty)
                 {
                     Console.WriteLine("⚠️ No hay edificio seleccionado - Redirigiendo a select-building");
-                    Navigation.NavigateTo("/select-building", true);
+                    // Sin forceLoad: seguimos en el mismo circuito, así que
+                    // SelectBuilding.razor reutiliza la sesión ya hidratada en memoria
+                    // (misma instancia de CustomAuthenticationStateProvider) en vez de
+                    // forzar una reconexión que vuelve a golpear la base de datos. Con
+                    // forceLoad, una hidratación que tardara o fallara transitoriamente
+                    // hacía que SelectBuilding viera currentUser == null y rebotara a
+                    // /login — que a su vez, con la cookie todavía válida, rebotaba de
+                    // nuevo a /dashboard, formando un ciclo infinito con este redirect.
+                    Navigation.NavigateTo("/select-building");
                     return;
                 }
 

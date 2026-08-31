@@ -61,12 +61,27 @@ namespace SpiderHood.Services
         {
             var idClaim = _initialPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (_initialPrincipal.Identity?.IsAuthenticated != true || !Guid.TryParse(idClaim, out var idUser))
+            {
+                // Cookie ausente o realmente anónima: es un resultado estable, no hace
+                // falta reintentar (y no hubo llamada a BD, así que reintentar no cuesta
+                // nada tampoco — pero liberamos igual la memoización por consistencia).
+                _hydrationTask = null;
                 return null;
+            }
 
             var session = await _sessionLoader.LoadAsync(idUser);
             if (session == null)
             {
-                _logger.LogWarning("No se pudo reconstruir la sesión para el usuario {IdUser} (cookie válida, pero sin datos en BD)", idUser);
+                // A diferencia del caso anterior, acá la cookie SÍ es válida — el null
+                // vino de un fallo (probablemente transitorio: timeout, contención de
+                // conexiones) al leer la base de datos. Si dejáramos _hydrationTask
+                // memoizado en esta tarea fallida, todo el resto del circuito quedaría
+                // "deslogueado" en memoria para siempre, aunque la cookie siga siendo
+                // válida — eso es exactamente lo que alimentaba un ciclo Home ⇄
+                // SelectBuilding ⇄ Login cuando la hidratación fallaba una sola vez.
+                // Liberar la memoización permite que la siguiente llamada reintente.
+                _logger.LogWarning("No se pudo reconstruir la sesión para el usuario {IdUser} (cookie válida, pero sin datos en BD) — se reintentará en la próxima llamada", idUser);
+                _hydrationTask = null;
                 return null;
             }
 

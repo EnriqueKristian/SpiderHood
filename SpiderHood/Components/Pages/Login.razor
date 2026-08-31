@@ -2,9 +2,17 @@
 @using SpiderHood.Models
 @using System.ComponentModel.DataAnnotations
 @using System.ComponentModel
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
 @inject Services.AuthService AuthService
+@inject Services.ISessionRevocationService SessionRevocationService
 @inject NavigationManager Navigation
-@rendermode InteractiveServer
+@* Sin @rendermode: esta página se renderiza en modo estático (SSR), no interactivo.
+   Es lo que permite que el submit sea una request HTTP real (no un evento de SignalR)
+   y que HttpContext esté disponible como cascading parameter para poder hacer
+   HttpContext.SignInAsync — eso es imposible desde un circuito InteractiveServer ya
+   conectado, porque para ese entonces la respuesta HTTP original ya se cerró. *@
 
 <div class="login-container">
     <div class="login-card">
@@ -21,22 +29,14 @@
             {
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     <i class="bi bi-exclamation-circle me-2"></i>@errorMessage
-                    <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
-                </div>
-            }
-
-            @if (successMessage != null && successMessage.Length > 0)
-            {
-                <div class="alert alert-success">
-                    <i class="bi bi-check-circle me-2"></i>@successMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
                 </div>
             }
 
             <EditForm Model="@loginModel"
                       OnValidSubmit="@HandleLogin"
                       OnInvalidSubmit="@HandleInvalidSubmit"
-                      Formname="loginForm">
-                <!-- ← IMPORTANTE -->
+                      FormName="loginForm">
                 <!-- Mensajes de validación resumidos -->
                 <div class="validation-summary-errors text-danger mb-3">
                     <ValidationSummary />
@@ -50,7 +50,7 @@
 
                     <InputText id="email"
                                class="@(isEmailValid ? "form-control" : "form-control is-invalid")"
-                               @bind-Value="loginModel.Email"
+                               @bind-Value="loginModel!.Email"
                                placeholder="admin@spiderhood.com" />
 
 
@@ -86,19 +86,9 @@
                 </div>
 
                 <!-- Botón de envío -->
-                <button type="submit"
-                        class="btn btn-primary w-100 py-2"
-                        disabled="@isLoading">
-                    @if (isLoading)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                        <span>Iniciando sesión...</span>
-                    }
-                    else
-                    {
-                        <i class="bi bi-box-arrow-in-right me-2"></i>
-                        <span>Iniciar Sesión</span>
-                    }
+                <button type="submit" class="btn btn-primary w-100 py-2">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>
+                    <span>Iniciar Sesión</span>
                 </button>
             </EditForm>
 
@@ -124,102 +114,90 @@
 </div>
 
 @code {
-    private LoginModel loginModel = new();
+    // [SupplyParameterFromForm] es lo que permite que, en el POST de este formulario
+    // (procesado en modo estático, sin circuito), Blazor reconstruya loginModel a
+    // partir de los valores enviados — no hay un circuito vivo que retenga el estado
+    // entre el GET inicial y el POST.
+    [SupplyParameterFromForm]
+    private LoginModel? loginModel { get; set; }
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
     private string errorMessage = string.Empty;
-    private string successMessage = string.Empty;
-    private bool isLoading;
 
     // Flags para validación visual
-    private bool isEmailValid => string.IsNullOrEmpty(loginModel.Email) ||
+    private bool isEmailValid => string.IsNullOrEmpty(loginModel?.Email) ||
                                  new EmailAddressAttribute().IsValid(loginModel.Email);
 
-    private bool isPasswordValid => string.IsNullOrEmpty(loginModel.Password) ||
+    private bool isPasswordValid => string.IsNullOrEmpty(loginModel?.Password) ||
                                      loginModel.Password.Length >= 6;
 
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override void OnInitialized()
     {
-        if (firstRender)
+        // En el GET inicial no hay datos de formulario que "suplir"; en el POST,
+        // [SupplyParameterFromForm] ya lo llenó antes de que esto corra.
+        loginModel ??= new LoginModel();
+
+        // Si ya hay una cookie de sesión válida, no tiene sentido mostrar el login.
+        if (HttpContext.User.Identity?.IsAuthenticated == true)
         {
-            var currentUser = await AuthService.GetCurrentUserAsync();
-
-            // Verificar si ya hay sesión activa
-            if (currentUser != null)
-            {
-                Navigation.NavigateTo("/dashboard");
-            }
-
-            // Limpiar modelo
-            loginModel = new LoginModel();
+            Navigation.NavigateTo("/dashboard");
         }
     }
 
     private async Task HandleLogin()
     {
-        try
-        {
-            isLoading = true;
-            errorMessage = string.Empty;
+        errorMessage = string.Empty;
 
-            var result = await AuthService.LoginAsync(loginModel);
+        var result = await AuthService.LoginAsync(loginModel!);
 
-            if (result.Success)
-            {
-                successMessage = "¡Login exitoso! Redirigiendo...";
-                StateHasChanged();
+        if (!result.Success)
+        {
+            errorMessage = result.Message;
+            return;
+        }
 
-                // NOTA: antes esto hacía NavigateTo("/dashboard", true) — un forceLoad
-                // (recarga completa del navegador). Eso tira abajo el circuito de Blazor
-                // Server y crea uno nuevo desde cero, con su propio scope de DI. Mientras
-                // CustomAuthenticationStateProvider guardaba la sesión en un campo `static`
-                // (bug ya corregido — esa sesión se compartía entre TODOS los usuarios del
-                // servidor), el nuevo circuito la "heredaba" igual y todo parecía funcionar.
-                // Ahora que el campo es de instancia (correcto), un forceLoad pierde esa
-                // sesión hasta que se recarga desde localStorage — pero AuthorizeRouteView
-                // ya evalúa la autorización ANTES de que eso termine de cargar, y manda de
-                // vuelta a /login. Por eso "regresaba al login".
-                //
-                // La solución es navegar SIN recargar la página: así seguimos en el mismo
-                // circuito/scope que acaba de autenticar al usuario, sin ninguna carrera.
-                await HandlePostLogin(result.UserSession!);
-            }
-            else
-            {
-                errorMessage = result.Message;
-            }
-        }
-        catch (Exception ex)
+        var session = result.UserSession!;
+
+        // Firmar la cookie de autenticación: esto SÍ funciona acá porque esta página
+        // corre en modo estático — la request de este POST todavía tiene una respuesta
+        // HTTP abierta donde escribir el Set-Cookie. Desde un circuito InteractiveServer
+        // ya conectado (como era antes) esto no es posible.
+        // "security_stamp": lo revalida Program.cs (OnValidatePrincipal) contra el
+        // PasswordHash actual del usuario en cada verificación periódica — si no
+        // coinciden, la contraseña cambió después de este login y la cookie se invalida.
+        // Ver AuthService.GetSecurityStampAsync / RevokeAllSessions.
+        var securityStamp = await AuthService.GetSecurityStampAsync(session.IdUser);
+
+        var claims = new List<Claim>
         {
-            errorMessage = "Error al iniciar sesión. Intenta nuevamente.";
-            Console.WriteLine($"Login error: {ex.Message}");
-        }
-        finally
+            new(ClaimTypes.NameIdentifier, session.IdUser.ToString()),
+            new(ClaimTypes.Email, session.Email),
+            new(ClaimTypes.Name, session.FullName),
+            new("security_stamp", securityStamp ?? string.Empty),
+        };
+        claims.AddRange(session.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, new AuthenticationProperties
         {
-            isLoading = false;
-        }
+            IsPersistent = loginModel!.RememberMe,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
+        });
+
+        // El circuito que se cree al cargar "/" reconstruye el resto de la sesión
+        // (edificios, edificio actual) desde la base de datos a partir de esta cookie
+        // — ver CustomAuthenticationStateProvider / UserSessionLoader. Si el usuario no
+        // tiene ningún edificio aprobado, o tiene varios, Home.razor.cs ya lo redirige
+        // a /select-building (que a su vez ofrece /building-request si no tiene ninguno).
+        Navigation.NavigateTo("/dashboard");
     }
 
     private void HandleInvalidSubmit()
     {
         errorMessage = "Por favor, corrige los errores del formulario.";
-    }
-
-    private async Task HandlePostLogin(UserSession session)
-    {
-        var approvedBuildings = session.Buildings.Where(b => b.IsApproved).ToList();
-
-        if (!approvedBuildings.Any())
-        {
-            Navigation.NavigateTo("/building-request");
-        }
-        else if (approvedBuildings.Count == 1)
-        {
-            await AuthService.SetCurrentBuilding(approvedBuildings.First().Building!.IdBuilding, session.Role);
-            Navigation.NavigateTo("/dashboard");
-        }
-        else
-        {
-            Navigation.NavigateTo("/select-building");
-        }
     }
 }

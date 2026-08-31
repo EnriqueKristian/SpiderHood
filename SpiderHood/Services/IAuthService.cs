@@ -23,12 +23,15 @@ namespace SpiderHood.Services
         // Fixed: Declare as instance method on the interface (not an extension method).
         Task<bool> RequestBuildingAccess(Guid buildingId, string role);
         Task SetCurrentBuilding(Guid? Idbuilding, string role);
+        Task<bool> TryApplyDefaultBuildingAsync();
         Task<UserModel> GetUserProfileAsync(Guid userId);
         Task<AuthResult> UpdateProfileAsync(Guid userId, string firstName, string lastName, string phoneNumber);
         Task<AuthResult> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
         Task<AuthResult> CreateUserAsync(string email, string firstName, string lastName, string phoneNumber, string password);
         Task<AuthResult> UpdateUserAdminAsync(Guid userId, string firstName, string lastName, string phoneNumber, bool isActive);
         Task<AuthResult> AdminResetPasswordAsync(Guid userId, string newPassword);
+        Task<string?> GetSecurityStampAsync(Guid userId);
+        void RevokeAllSessions(Guid userId);
     }
 
     public class AuthService : IAuthService
@@ -37,6 +40,7 @@ namespace SpiderHood.Services
         private readonly IEmailService _emailService;
         private readonly IConfiguration _configuration;
         private readonly CustomAuthenticationStateProvider _authStateProvider;
+        private readonly ISessionRevocationService _sessionRevocation;
 
         private List<UserModel> _users = new();
         private List<UserBuildingAssociation> _userBuildings = new();
@@ -57,11 +61,13 @@ namespace SpiderHood.Services
            ILogger<AuthService> logger,
            IEmailService emailService,
            CustomAuthenticationStateProvider authStateProvider,
+           ISessionRevocationService sessionRevocation,
            IJSRuntime jsRuntime,
            IConfiguration configuration) // Added parameter to satisfy readonly field assignment
         {
             _logger = logger;
             _authStateProvider = authStateProvider;
+            _sessionRevocation = sessionRevocation;
             _jsRuntime = jsRuntime; // Assign the non-nullable readonly field
             Ec = new BDLayout(contextFactory);
             _emailService = emailService;
@@ -199,10 +205,103 @@ namespace SpiderHood.Services
             }
         }
 
+        // Se usa al arrancar el dashboard cuando la sesión no trae un edificio actual
+        // resuelto (login con más de un edificio aprobado, o ninguno con exactamente
+        // uno). Antes de mandar al usuario a /select-building, intenta aplicar el
+        // edificio que haya guardado como preferencia (SetDefaultBuildingAsync) — así
+        // alguien que ya eligió su edificio una vez no tiene que repetirlo en cada
+        // ingreso. Sólo tiene efecto una vez conectado el circuito (usa localStorage
+        // vía IJSRuntime); el llamador es responsable de no invocarlo durante el
+        // prerender estático.
+        //
+        // OJO: sólo salta select-building cuando el edificio preferido no tiene
+        // ambigüedad de rol (un único rol aprobado para ese edificio). Si el usuario
+        // tiene, por ejemplo, Administrador Y Junta en el mismo edificio, esa es una
+        // elección real que se le tiene que seguir preguntando cada vez — aunque
+        // sepamos cuál usó la última vez (eso sólo sirve para preseleccionarlo en
+        // /select-building, ver GetDefaultRoleAsync). De lo contrario el usuario queda
+        // atrapado siempre en el mismo rol sin poder cambiarlo.
+        public async Task<bool> TryApplyDefaultBuildingAsync()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null)
+            {
+                _logger.LogWarning("🏢 TryApplyDefaultBuildingAsync: sin usuario autenticado");
+                return false;
+            }
+
+            if (user.CurrentBuildingId != Guid.Empty)
+            {
+                _logger.LogInformation("🏢 TryApplyDefaultBuildingAsync: ya había edificio resuelto ({BuildingId}), no hace falta aplicar preferencia", user.CurrentBuildingId);
+                return false;
+            }
+
+            var preferredBuildingId = await GetDefaultBuildingAsync();
+            if (!preferredBuildingId.HasValue)
+            {
+                _logger.LogInformation("🏢 TryApplyDefaultBuildingAsync: no hay edificio guardado como preferencia en localStorage para el usuario {UserId}", user.IdUser);
+                return false;
+            }
+
+            var matches = user.Buildings
+                .Where(b => b.IsApproved && b.Building?.IdBuilding == preferredBuildingId.Value)
+                .ToList();
+
+            if (matches.Count != 1)
+            {
+                // 0 -> el edificio guardado ya no es válido (perdió acceso, o cambió de
+                //      estado); no rompemos el flujo, simplemente no aplica.
+                // >1 -> hay más de un rol para ese edificio: es una elección real, no la
+                //      resolvemos en silencio.
+                _logger.LogInformation("🏢 TryApplyDefaultBuildingAsync: edificio preferido {BuildingId} tiene {Count} rol(es) aprobados para el usuario — {Reason}",
+                    preferredBuildingId.Value, matches.Count, matches.Count == 0 ? "ya no aplica, se ignora" : "ambiguo, se pide elegir");
+                return false;
+            }
+
+            _logger.LogInformation("🏢 TryApplyDefaultBuildingAsync: aplicando edificio {BuildingId} con rol {Role}", matches[0].Building!.IdBuilding, matches[0].Role);
+            await SetCurrentBuilding(matches[0].Building!.IdBuilding, matches[0].Role);
+            return true;
+        }
+
         public async Task LogoutAsync()
         {
             await _authStateProvider.MarkUserAsLoggedOut();
             NotifyAuthStateChanged();
+        }
+
+        // "Sello" de la sesión: un hash del PasswordHash actual del usuario. Se guarda
+        // como claim en la cookie al iniciar sesión (ver Login.razor) y se vuelve a
+        // calcular acá en cada revalidación (Program.cs → OnValidatePrincipal) — si no
+        // coinciden, la contraseña cambió después de emitida esa cookie, y se la
+        // invalida. No expone el hash real como claim (viajaría en la cookie), sólo su
+        // huella — y como PasswordHash ya incluye salt propio, dos usuarios nunca
+        // comparten huella aunque coincida la contraseña.
+        public async Task<string?> GetSecurityStampAsync(Guid userId)
+        {
+            try
+            {
+                var user = await Ec.GetUserByIdAsync(userId);
+                return ComputeSecurityStamp(user.PasswordHash);
+            }
+            catch (EntityNotFoundException)
+            {
+                return null;
+            }
+        }
+
+        private static string ComputeSecurityStamp(string passwordHash)
+        {
+            var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(passwordHash));
+            return Convert.ToHexString(bytes);
+        }
+
+        // Invalida toda cookie de este usuario emitida hasta ahora — ver
+        // ISessionRevocationService. Lo llaman ChangePasswordAsync/AdminResetPasswordAsync
+        // automáticamente, y Profile.razor cuando el usuario pide "cerrar sesión en todos
+        // los dispositivos" explícitamente.
+        public void RevokeAllSessions(Guid userId)
+        {
+            _sessionRevocation.RevokeAllSessions(userId);
         }
 
         public async Task<UserModel> AddNewUserAsync(UserModel user)
@@ -255,6 +354,11 @@ namespace SpiderHood.Services
 
                 var newHash = _passwordHasher.HashPassword(user, newPassword);
                 await Ec.UpdateUserPasswordAsync(userId, newHash);
+
+                // Invalida cualquier cookie ya emitida para este usuario (otro navegador
+                // propio, o una robada) — sin esto, cambiar la contraseña no protegía nada
+                // hasta que esa cookie expirara sola. Ver Program.cs → OnValidatePrincipal.
+                _sessionRevocation.RevokeAllSessions(userId);
 
                 return new AuthResult { Success = true, Message = "Contraseña actualizada exitosamente" };
             }
@@ -332,6 +436,11 @@ namespace SpiderHood.Services
                 var user = await Ec.GetUserByIdAsync(userId);
                 var newHash = _passwordHasher.HashPassword(user, newPassword);
                 await Ec.UpdateUserPasswordAsync(userId, newHash);
+
+                // Mismo motivo que en ChangePasswordAsync: un admin reseteando la
+                // contraseña de otro usuario (p.ej. porque sospecha que la cuenta está
+                // comprometida) tiene que matar también cualquier sesión ya abierta.
+                _sessionRevocation.RevokeAllSessions(userId);
 
                 return new AuthResult { Success = true, Message = "Contraseña actualizada exitosamente" };
             }
@@ -489,6 +598,42 @@ namespace SpiderHood.Services
             return null;
         }
 
+        /// Guarda el rol preferido para el edificio por defecto (un mismo edificio puede
+        /// tener más de un rol aprobado para el usuario — esto es lo que permite
+        /// preseleccionar en /select-building exactamente la misma combinación que se usó
+        /// la última vez, en vez de una cualquiera de las disponibles para ese edificio).
+        public async Task SetDefaultRoleAsync(string role)
+        {
+            try
+            {
+                var user = await GetCurrentUserAsync();
+                if (user == null) return;
+
+                await _jsRuntime.InvokeVoidAsync("localStorage.setItem", $"defaultRole_{user.IdUser}", role);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error guardando rol por defecto");
+            }
+        }
+
+        /// Obtiene el rol preferido guardado junto con el edificio por defecto.
+        public async Task<string?> GetDefaultRoleAsync()
+        {
+            try
+            {
+                var user = await GetCurrentUserAsync();
+                if (user == null) return null;
+
+                return await _jsRuntime.InvokeAsync<string>("localStorage.getItem", $"defaultRole_{user.IdUser}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error obteniendo rol por defecto");
+                return null;
+            }
+        }
+
         /// Limpia las preferencias del usuario (edificio por defecto, etc)
         public async Task ClearUserPreferencesAsync()
         {
@@ -513,43 +658,13 @@ namespace SpiderHood.Services
             }
         }
 
-        /// Limpia la sesión del usuario (datos de autenticación)
-        public async Task ClearUserSessionAsync()
-        {
-            try
-            {
-                // Limpiar caché en memoria
-                //_cachedUser = null;
-
-                // Limpiar localStorage
-                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "currentUser");
-                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "authToken");
-                await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "refreshToken");
-
-                // Limpiar sessionStorage si es necesario
-                await _jsRuntime.InvokeVoidAsync("sessionStorage.clear");
-
-                _logger.LogInformation("✅ Sesión limpiada exitosamente");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error limpiando sesión");
-            }
-        }
-
-        /// Obtiene el token de autenticación
-        public async Task<string?> GetTokenAsync()
-        {
-            try
-            {
-                return await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error obteniendo token");
-                return null;
-            }
-        }
+        // NOTA: se eliminaron ClearUserSessionAsync() y GetTokenAsync() — leían/borraban
+        // "currentUser"/"authToken"/"refreshToken" de localStorage, pero nada en la app
+        // escribía esas claves (MarkUserAsAuthenticated nunca las usó); eran restos de
+        // un diseño previo basado en tokens. La sesión real ahora vive en la cookie de
+        // autenticación (HttpContext.SignInAsync/SignOutAsync en Login.razor/Logout.razor),
+        // no en localStorage — localStorage queda sólo para preferencias (ver
+        // SetDefaultBuildingAsync/GetDefaultBuildingAsync/ClearUserPreferencesAsync arriba).
 
         public async Task<InvitationModel> GetByCodeAsync(string code)
         {

@@ -4,8 +4,8 @@
 @using System.Text.Json
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
-@*@inject Services.IPreferenceService PreferenceService
-@inject Services.ISessionService SessionService
+@inject Services.IPreferenceService PreferenceService
+@*@inject Services.ISessionService SessionService
 @inject Services.IFinancialService FinancialService*@
 @inject NavigationManager Navigation
 @inject ILogger<Profile> Logger
@@ -91,7 +91,7 @@
     {
         <div class="alert alert-danger">
             <i class="bi bi-exclamation-triangle me-2"></i>
-            No se pudo cargar tu perfil. 
+            No se pudo cargar tu perfil.
             <button class="btn btn-link p-0 ms-2" @onclick="LoadProfileAsync">Reintentar</button>
         </div>
     }
@@ -162,19 +162,16 @@
     // Modelos de formularios
     private ProfileFormModel _profileForm = new();
     private ChangePasswordFormModel _passwordForm = new();
-    private PreferencesModel _preferences = new();
+    private Services.Preferences _preferences = new();
     private BuildingRequestModel _buildingRequest = new();
 
     // Datos adicionales
-    private List<ActiveSession> _activeSessions = [];
     private List<PaymentHistory> _recentPayments = [];
     private List<Building> _availableBuildings = [];
     private decimal _accountBalance;
     private decimal _outstandingDebt;
     private DateTime _nextDueDate;
     private bool _is2FAEnabled;
-    private string _selectedTheme = "light";
-    private string _selectedLanguage = "es";
 
     // =========================================================
     // 2. CICLO DE VIDA E INICIALIZACIÓN
@@ -242,9 +239,6 @@
     {
         try
         {
-            // Cargar sesiones activas
-            //_activeSessions = await SessionService.GetActiveSessionsAsync(_user!.IdUser);
-
             // Cargar datos financieros
             /*var financialSummary = await FinancialService.GetSummaryAsync(_user.IdUser);
             _accountBalance = financialSummary.Balance;
@@ -252,10 +246,11 @@
             _nextDueDate = financialSummary.NextDueDate;*/
             //_recentPayments = financialSummary.RecentPayments;
 
-            // Cargar preferencias
-            //_preferences = await PreferenceService.GetPreferencesAsync(_user.IdUser);
-            //_selectedTheme = _preferences.Theme;
-            //_selectedLanguage = _preferences.Language;
+            // Cargar preferencias (localStorage — ver PreferenceService). Durante el
+            // prerender estático esto devuelve los valores por defecto porque todavía
+            // no hay JS interop disponible; una vez conectado el circuito, este mismo
+            // método vuelve a correr (ver OnAfterRenderAsync) y trae los reales.
+            _preferences = await PreferenceService.GetPreferencesAsync(_user!.IdUser);
 
             // Cargar edificios disponibles (para solicitar acceso)
             _availableBuildings = new List<Building>(); //await AuthService.GetAvailableBuildingsAsync();
@@ -431,36 +426,17 @@
                     <i class="bi bi-devices me-2"></i>Sesiones Activas
                 </div>
                 <div class="card-body">
-                    @if (_activeSessions.Any())
-                    {
-                        @foreach (var session in _activeSessions)
-                        {
-                            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-                                <div>
-                                    <strong>@session.DeviceName</strong>
-                                    <small class="d-block text-muted">@session.IPAddress</small>
-                                    <small class="text-muted">Último acceso: @session.LastAccess.ToString("dd/MM/yyyy HH:mm")</small>
-                                    @if (session.IsCurrent)
-                                    {
-                                        <span class="badge bg-success ms-2">Esta sesión</span>
-                                    }
-                                </div>
-                                @if (!session.IsCurrent)
-                                {
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => RevokeSession(session.Id)">
-                                        <i class="bi bi-x-circle"></i> Cerrar
-                                    </button>
-                                }
-                            </div>
-                        }
-                        <button class="btn btn-outline-warning mt-3" @onclick="LogoutAllSessions">
-                            <i class="bi bi-power"></i> Cerrar todas las sesiones (excepto esta)
-                        </button>
-                    }
-                    else
-                    {
-                        <p class="text-muted">No hay sesiones activas además de la actual.</p>
-                    }
+                    <p class="text-muted">
+                        Todavía no identificamos cada sesión individualmente (dispositivo, IP,
+                        último acceso) — pero si sospechás que alguien más tiene acceso a tu
+                        cuenta, esto cierra <strong>todas</strong> las sesiones activas de una:
+                    </p>
+                    <button class="btn btn-outline-warning" @onclick="LogoutAllSessions">
+                        <i class="bi bi-power"></i> Cerrar sesión en todos los dispositivos
+                    </button>
+                    <small class="d-block text-muted mt-1">
+                        Esto también cierra esta sesión — vas a tener que volver a iniciar sesión.
+                    </small>
                 </div>
             </div>
 
@@ -536,9 +512,10 @@
                                 </div>
                                 @if (building.IsApproved && building.Building != null)
                                 {
-                                    var isCurrent = _session.CurrentBuildingId == building.Building.IdBuilding;
-                                    <button class="btn btn-sm @(isCurrent ? "btn-success" : "btn-outline-primary")" 
-                                            @onclick="() => SetDefaultBuilding(building.Building.IdBuilding)"
+                                    var isCurrent = _session.CurrentBuildingId == building.Building.IdBuilding
+                                        && _session.Role == building.Role;
+                                    <button class="btn btn-sm @(isCurrent ? "btn-success" : "btn-outline-primary")"
+                                            @onclick="() => SetDefaultBuilding(building.Building.IdBuilding, building.Role)"
                                             disabled="@isCurrent">
                                         @(isCurrent ? "✓ Actual" : "Predeterminado")
                                     </button>
@@ -569,7 +546,7 @@
 
                         <div class="mb-3">
                             <label for="buildingSearch" class="form-label">Buscar edificio</label>
-                            <InputText id="buildingSearch" class="form-control" @bind-Value="_buildingRequest.SearchTerm" 
+                            <InputText id="buildingSearch" class="form-control" @bind-Value="_buildingRequest.SearchTerm"
                                        placeholder="Nombre o dirección..." />
                             <small class="text-muted">Escribe al menos 3 caracteres para buscar.</small>
                         </div>
@@ -583,8 +560,7 @@
                                                 b.Name.Contains(_buildingRequest.SearchTerm, StringComparison.OrdinalIgnoreCase)))
                                 {
                                     <div class="form-check">
-                                        <input class="form-check-input" type="radio" 
-                                               />
+                                        <input class="form-check-input" type="radio" />
                                         <label class="form-check-label">
                                             <strong>@building.Name</strong>
                                             <small class="d-block text-muted">@building.Name</small>
@@ -605,7 +581,7 @@
 
                         <div class="mb-3">
                             <label for="message" class="form-label">Mensaje (opcional)</label>
-                            <InputTextArea id="message" class="form-control" @bind-Value="_buildingRequest.Message" 
+                            <InputTextArea id="message" class="form-control" @bind-Value="_buildingRequest.Message"
                                            rows="3" placeholder="Cuéntanos por qué necesitas acceso..." />
                         </div>
 
@@ -781,7 +757,7 @@
             </div>
         </div>
     </div>
-    ;
+;
 
     // =========================================================
     // 4. MANEJADORES DE EVENTOS (Lógica de Negocio)
@@ -861,17 +837,25 @@
 
             if (result.Success)
             {
-                _notificationMessage = result.Message;
-                _notificationType = "success";
                 _passwordForm = new();
                 Logger.LogInformation("Contraseña cambiada exitosamente para usuario {UserId}", _user.IdUser);
+
+                // ChangePasswordAsync ya invalidó toda cookie emitida para este usuario
+                // (ver AuthService.RevokeAllSessions) — incluida esta misma, aunque no se
+                // note hasta la próxima navegación real. En vez de dejar que eso pase
+                // solo, más tarde y sin explicación, cerramos la sesión actual ahora
+                // mismo y mandamos a loguearse de nuevo con la contraseña nueva.
+                _notificationMessage = "Contraseña actualizada. Por seguridad, tenés que volver a iniciar sesión...";
+                _notificationType = "success";
+                StateHasChanged();
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/Logout", forceLoad: true);
+                return;
             }
-            else
-            {
-                _notificationMessage = result.Message;
-                _notificationType = "danger";
-                Logger.LogWarning("Intento fallido de cambio de contraseña para usuario {UserId}: {Message}", _user.IdUser, result.Message);
-            }
+
+            _notificationMessage = result.Message;
+            _notificationType = "danger";
+            Logger.LogWarning("Intento fallido de cambio de contraseña para usuario {UserId}: {Message}", _user.IdUser, result.Message);
         }
         catch (Exception ex)
         {
@@ -885,20 +869,32 @@
         }
     }
 
-    private async Task SetDefaultBuilding(Guid buildingId)
+    private async Task SetDefaultBuilding(Guid buildingId, string role)
     {
         try
         {
             _savingBuilding = true;
             ClearNotification();
 
-            await AuthService.SetCurrentBuilding(buildingId, _session?.Role ?? "Residente");
+            // Usa el rol de la fila en la que se hizo clic, no el rol activo de la
+            // sesión actual — antes usaba _session.Role, así que hacer clic en
+            // "Predeterminado" sobre un edificio/rol distinto al que estabas usando en
+            // ese momento igual aplicaba tu rol ACTUAL a ESE edificio, en vez del rol
+            // que en realidad correspondía a la fila elegida.
+            await AuthService.SetCurrentBuilding(buildingId, role);
 
             if (_session != null)
             {
                 _session.CurrentBuildingId = buildingId;
+                _session.Role = role;
                 await AuthStateProvider.MarkUserAsAuthenticated(_session);
             }
+
+            // Esto es lo que hace que la próxima vez que el usuario entre no se le
+            // vuelva a preguntar por el edificio y rol — ver
+            // AuthService.TryApplyDefaultBuildingAsync.
+            await AuthService.SetDefaultBuildingAsync(buildingId);
+            await AuthService.SetDefaultRoleAsync(role);
 
             _notificationMessage = "Edificio predeterminado actualizado exitosamente.";
             _notificationType = "success";
@@ -938,7 +934,7 @@
                 _notificationMessage = "Solicitud enviada exitosamente. Un administrador revisará tu petición.";
                 _notificationType = "success";
                 _buildingRequest = new();
-                Logger.LogInformation("Solicitud de acceso enviada por usuario {UserId} para edificio {BuildingId}", 
+                Logger.LogInformation("Solicitud de acceso enviada por usuario {UserId} para edificio {BuildingId}",
                     _user.IdUser, _buildingRequest.SelectedBuildingId);
             }
             else
@@ -969,20 +965,21 @@
             ClearNotification();
 
             _preferences.UserId = _user.IdUser;
-            AuthResult x = new AuthResult();
-x.Success = true;
-            var result = x.Success;// await PreferenceService.SavePreferencesAsync(_preferences); TODO
+            var result = await PreferenceService.SavePreferencesAsync(_preferences);
 
-            //if (result.Success)
-            if ( x.Success)
+            if (result.Success)
             {
+                // Aplica el tema al instante (sin recargar) y lo deja en la clave simple
+                // "theme" que lee el script anti-flash de App.razor — ver wwwroot/js/theme.js.
+                await JSRuntime.InvokeVoidAsync("spiderHoodTheme.set", _preferences.Theme);
+
                 _notificationMessage = "Preferencias guardadas exitosamente.";
                 _notificationType = "success";
                 Logger.LogInformation("Preferencias guardadas para usuario {UserId}", _user.IdUser);
             }
             else
             {
-                _notificationMessage = "Error"; //result.Message;
+                _notificationMessage = result.Message;
                 _notificationType = "danger";
             }
         }
@@ -1054,51 +1051,24 @@ x.Success = true;
         }
     }
 
-    private async Task RevokeSession(Guid sessionId)
-    {
-        try
-        {
-            ClearNotification();
-            var result = new AuthResult { Success = true }; //await SessionService.RevokeSessionAsync(sessionId);
-
-            if (result.Success)
-            {
-                //_activeSessions = await SessionService.GetActiveSessionsAsync(_user!.IdUser);
-                _notificationMessage = "Sesión cerrada exitosamente.";
-                _notificationType = "success";
-            }
-            else
-            {
-                _notificationMessage = result.Message;
-                _notificationType = "danger";
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error al revocar sesión {SessionId} para usuario {UserId}", sessionId, _user?.IdUser);
-            _notificationMessage = "Error al cerrar la sesión.";
-            _notificationType = "danger";
-        }
-    }
-
     private async Task LogoutAllSessions()
     {
+        if (_user == null) return;
+
         try
         {
-            ClearNotification();
-            var result = new AuthResult { Success = true }; //await SessionService.RevokeAllSessionsAsync(_user!.IdUser);
+            // Invalida toda cookie ya emitida para este usuario (ver
+            // ISessionRevocationService) — incluida esta misma pestaña: no hay forma de
+            // "perdonar" la sesión actual sin reemitir su cookie, y eso sólo se puede
+            // hacer desde una request HTTP real, no desde este circuito ya conectado
+            // (ver Login.razor/HandleLogin). Por eso el redirect de abajo saca al
+            // usuario también a él — tiene que volver a loguearse para confirmar que
+            // sigue siendo dueño de la cuenta, igual que "cerrar todo" en la mayoría de
+            // los servicios (Google, GitHub, etc.).
+            AuthService.RevokeAllSessions(_user.IdUser);
+            Logger.LogInformation("Sesiones cerradas por el usuario {UserId} desde Profile", _user.IdUser);
 
-            if (result.Success)
-            {
-                //_activeSessions = await SessionService.GetActiveSessionsAsync(_user.IdUser);
-                _notificationMessage = "Todas las demás sesiones han sido cerradas.";
-                _notificationType = "success";
-            }
-            else
-            {
-                _notificationMessage = result.Message;
-                _notificationType = "danger";
-            }
+            Navigation.NavigateTo("/Logout", forceLoad: true);
         }
         catch (Exception ex)
         {
@@ -1160,18 +1130,6 @@ x.Success = true;
         public string ConfirmNewPassword { get; set; } = string.Empty;
     }
 
-    private class PreferencesModel
-    {
-        public Guid UserId { get; set; }
-        public string Theme { get; set; } = "light";
-        public string Language { get; set; } = "es";
-        public bool EmailNotifications { get; set; } = true;
-        public bool MonthlySummary { get; set; } = true;
-        public bool PaymentReminders { get; set; } = true;
-        public string ReportFrequency { get; set; } = "monthly";
-        public string TimeZone { get; set; } = "America/Lima";
-    }
-
     private class BuildingRequestModel
     {
         public string SearchTerm { get; set; } = string.Empty;
@@ -1179,15 +1137,6 @@ x.Success = true;
         [Required(ErrorMessage = "Selecciona un rol")]
         public string RequestedRole { get; set; } = "Residente";
         public string Message { get; set; } = string.Empty;
-    }
-
-    private class ActiveSession
-    {
-        public Guid Id { get; set; }
-        public string DeviceName { get; set; } = string.Empty;
-        public string IPAddress { get; set; } = string.Empty;
-        public DateTime LastAccess { get; set; }
-        public bool IsCurrent { get; set; }
     }
 
     private class PaymentHistory

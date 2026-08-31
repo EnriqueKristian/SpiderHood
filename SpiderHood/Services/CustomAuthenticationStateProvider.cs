@@ -1,273 +1,134 @@
-﻿using Blazored.LocalStorage;
-using Microsoft.AspNetCore.Components.Authorization;
+﻿using Microsoft.AspNetCore.Components.Authorization;
 using SpiderHood.Models;
 using System.Security.Claims;
-using System.Text.Json;
 
 namespace SpiderHood.Services
 {
+    // Antes esta clase reconstruía la sesión leyendo "userSession" de localStorage vía
+    // JS interop — lo que sólo estaba disponible una vez conectado el circuito, nunca
+    // durante el prerender, y obligaba a los componentes a "adivinar" (con reintentos
+    // y delays, ver Home.razor.cs) cuándo ya había terminado de cargar.
+    //
+    // Ahora la identidad viene de la cookie de autenticación de ASP.NET Core (ver
+    // Program.cs → AddAuthentication().AddCookie(...)), que ya está resuelta por el
+    // middleware ANTES de que se arme el árbol de componentes — no depende de JS y no
+    // hay carrera posible. El HttpContext sólo existe durante la request que crea este
+    // scope (prerender o negotiate del circuito), así que el ClaimsPrincipal se captura
+    // una sola vez en el constructor.
+    //
+    // La cookie sólo transporta identidad (IdUser, email, roles). El resto de la
+    // sesión (edificios, edificio actual) se reconstruye desde la base de datos vía
+    // IUserSessionLoader la primera vez que se pide en cada circuito, y de ahí en
+    // adelante vive en memoria (_currentUser), igual que antes.
     public class CustomAuthenticationStateProvider : AuthenticationStateProvider
     {
-        private readonly ILocalStorageService _localStorage;
+        private readonly IUserSessionLoader _sessionLoader;
         private readonly ILogger<CustomAuthenticationStateProvider> _logger;
-
-        // FIX CRÍTICO: estos campos eran `static`, es decir compartidos por TODOS los
-        // usuarios conectados al servidor (Blazor Server es un solo proceso sirviendo a
-        // muchos circuitos). Eso podía filtrar la sesión de un usuario a otro. Ahora son
-        // campos de instancia, correctamente aislados por circuito ya que este servicio
-        // está registrado como Scoped.
-        private UserSession? _staticCurrentUser;
-        private bool _staticIsClientInitialized = false;
-
+        private readonly ClaimsPrincipal _initialPrincipal;
         private readonly ClaimsPrincipal _anonymous = new(new ClaimsIdentity());
 
-        private bool _isPrerendering = true;
+        private UserSession? _currentUser;
+        private Task<UserSession?>? _hydrationTask;
 
         public CustomAuthenticationStateProvider(
-            ILocalStorageService localStorage,
+            IHttpContextAccessor httpContextAccessor,
+            IUserSessionLoader sessionLoader,
             ILogger<CustomAuthenticationStateProvider> logger)
         {
-            _localStorage = localStorage;
+            _sessionLoader = sessionLoader;
             _logger = logger;
-            //_logger.LogWarning($"🔴 CustomAuthenticationStateProvider CONSTRUIDO - Hash: {this.GetHashCode()}");
+            _initialPrincipal = httpContextAccessor.HttpContext?.User ?? _anonymous;
         }
 
         public override async Task<AuthenticationState> GetAuthenticationStateAsync()
         {
-            _logger.LogWarning($"📌 GetAuthenticationStateAsync - Instancia: {this.GetHashCode()}, _isPrerendering: {_isPrerendering}, _staticIsClientInitialized: {_staticIsClientInitialized}");
-
-            try
-            {
-                // 1. Si hay usuario estático, usarlo
-                if (_staticCurrentUser?.IsAuthenticated == true)
-                {
-                    _logger.LogWarning($"✅ Usuario estático encontrado: {_staticCurrentUser.Email}");
-                    return CreateAuthenticationState(_staticCurrentUser);
-                }
-
-                // 2. Si estamos en prerendering, retornar anónimo
-                if (_isPrerendering)
-                {
-                    _logger.LogWarning("⚠️ Prerendering - retornando anónimo");
-                    return new AuthenticationState(_anonymous);
-                }
-
-                // 3. Si no estamos en cliente, retornar anónimo
-                if (!_staticIsClientInitialized)
-                {
-                    _logger.LogWarning("⚠️ Cliente no inicializado - retornando anónimo");
-                    return new AuthenticationState(_anonymous);
-                }
-
-                // 4. Intentar cargar desde localStorage
-                _logger.LogWarning("📦 Intentando cargar desde localStorage...");
-
-                try
-                {
-                    var sessionJson = await _localStorage.GetItemAsync<string>("userSession");
-
-                    _logger.LogWarning($"📦 localStorage.GetItemAsync: {(string.IsNullOrEmpty(sessionJson) ? "null" : "tiene datos")}");
-
-                    if (!string.IsNullOrEmpty(sessionJson))
-                    {
-                        var session = JsonSerializer.Deserialize<UserSession>(sessionJson);
-
-                        if (session?.IsAuthenticated == true)
-                        {
-                            _logger.LogWarning($"✅ Sesión cargada para: {session.Email}");
-                            _staticCurrentUser = session;
-                            return CreateAuthenticationState(session);
-                        }
-                    }
-                }
-                catch (InvalidOperationException ex)
-                {
-                    _logger.LogError(ex, "❌ Error de operación inválida - probablemente prerendering");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "❌ Error al acceder a localStorage");
-                }
-
-                return new AuthenticationState(_anonymous);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error en GetAuthenticationStateAsync");
-                return new AuthenticationState(_anonymous);
-            }
+            var session = await EnsureHydratedAsync();
+            return session != null ? CreateAuthenticationState(session) : new AuthenticationState(_anonymous);
         }
 
-        // Varios componentes del layout (LeftMenu, Home, HeaderMainLayout, ...) llaman a
-        // InitializeClientAsync() de forma independiente en su primer render. El guard
-        // `if (_staticIsClientInitialized) return;` solo se cumple DESPUÉS del primer
-        // `await`, así que si dos llamadas entran antes de que la primera termine, ambas
-        // pasan el guard y ejecutan el cuerpo completo en paralelo — leyendo localStorage
-        // dos veces y disparando NotifyAuthenticationStateChanged dos veces. Eso multiplica
-        // el trabajo de cualquier suscriptor a AuthenticationStateChanged (p.ej. LeftMenu
-        // recargando el menú) y agrava las colisiones del DbContext compartido del circuito.
-        // Memoizamos la tarea de inicialización para que todas las llamadas concurrentes
-        // esperen la MISMA ejecución en vez de disparar una cada una.
-        private Task? _initializationTask;
-        private readonly object _initializationLock = new();
-
-        public Task InitializeClientAsync()
+        // Reconstruye _currentUser desde la cookie (una sola vez por circuito, incluso
+        // si varios componentes la piden a la vez — de ahí el memoizado).
+        private Task<UserSession?> EnsureHydratedAsync()
         {
-            if (_staticIsClientInitialized)
-            {
-                return Task.CompletedTask;
-            }
+            if (_currentUser != null)
+                return Task.FromResult<UserSession?>(_currentUser);
 
-            lock (_initializationLock)
-            {
-                _initializationTask ??= InitializeClientCoreAsync();
-                return _initializationTask;
-            }
+            _hydrationTask ??= HydrateFromCookieAsync();
+            return _hydrationTask;
         }
 
-        private async Task InitializeClientCoreAsync()
+        private async Task<UserSession?> HydrateFromCookieAsync()
         {
-            _logger.LogWarning($"🔄 InitializeClientAsync INICIADO - Instancia: {this.GetHashCode()}");
-
-            try
+            var idClaim = _initialPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (_initialPrincipal.Identity?.IsAuthenticated != true || !Guid.TryParse(idClaim, out var idUser))
             {
-                _isPrerendering = false;
-
-                //_logger.LogWarning("📦 Cargando desde localStorage en InitializeClientAsync...");
-
-                var sessionJson = await _localStorage.GetItemAsync<string>("userSession");
-
-                //_logger.LogWarning($"📦 Resultado: {(string.IsNullOrEmpty(sessionJson) ? "vacío" : "tiene datos")}");
-
-                if (!string.IsNullOrEmpty(sessionJson))
-                {
-                    var session = JsonSerializer.Deserialize<UserSession>(sessionJson);
-
-                    if (session?.IsAuthenticated == true)
-                    {
-                        _logger.LogWarning($"✅ Sesión restaurada: {session.Email}");
-                        _staticCurrentUser = session;
-
-                        //      _logger.LogWarning("📢 Notificando cambio de estado...");
-                        NotifyAuthenticationStateChanged(
-                            Task.FromResult(CreateAuthenticationState(session)));
-                    }
-                }
-
-                _staticIsClientInitialized = true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error en InitializeClientAsync");
-                _staticIsClientInitialized = true;
+                // Cookie ausente o realmente anónima: es un resultado estable, no hace
+                // falta reintentar (y no hubo llamada a BD, así que reintentar no cuesta
+                // nada tampoco — pero liberamos igual la memoización por consistencia).
+                _hydrationTask = null;
+                return null;
             }
 
-            _logger.LogWarning($"🔄 InitializeClientAsync FINALIZADO - Instancia: {this.GetHashCode()}");
+            var session = await _sessionLoader.LoadAsync(idUser);
+            if (session == null)
+            {
+                // A diferencia del caso anterior, acá la cookie SÍ es válida — el null
+                // vino de un fallo (probablemente transitorio: timeout, contención de
+                // conexiones) al leer la base de datos. Si dejáramos _hydrationTask
+                // memoizado en esta tarea fallida, todo el resto del circuito quedaría
+                // "deslogueado" en memoria para siempre, aunque la cookie siga siendo
+                // válida — eso es exactamente lo que alimentaba un ciclo Home ⇄
+                // SelectBuilding ⇄ Login cuando la hidratación fallaba una sola vez.
+                // Liberar la memoización permite que la siguiente llamada reintente.
+                _logger.LogWarning("No se pudo reconstruir la sesión para el usuario {IdUser} (cookie válida, pero sin datos en BD) — se reintentará en la próxima llamada", idUser);
+                _hydrationTask = null;
+                return null;
+            }
+
+            _currentUser = session;
+            return session;
+        }
+
+        // Mantenido por compatibilidad con los componentes (LeftMenu, HeaderMainLayout,
+        // Home.razor.cs, Profile.razor) que la llaman en su primer render para forzar
+        // la carga temprana de la sesión. Ya no hace falta esperar a JS interop, pero
+        // sigue siendo útil como "asegurate de que ya está cargada".
+        public async Task InitializeClientAsync()
+        {
+            await EnsureHydratedAsync();
         }
 
         public async Task MarkUserAsAuthenticated(UserSession session)
         {
-            //_logger.LogWarning($"🔐 MarkUserAsAuthenticated INICIADO para: {session.Email} - Instancia: {this.GetHashCode()}");
-
-            try
-            {
-                // Guardar en memoria estática (compartida entre instancias)
-                _staticCurrentUser = session;
-                _isPrerendering = false;
-
-                // Intentar guardar en localStorage
-                try
-                {
-                    //_logger.LogWarning("💾 Guardando en localStorage...");
-                    var sessionJson = JsonSerializer.Serialize(session);
-                    await _localStorage.SetItemAsync("userSession", sessionJson);
-                    //_logger.LogWarning("✅ Sesión guardada en localStorage");
-                    _staticIsClientInitialized = true;
-                }
-                catch (InvalidOperationException)
-                {
-                    _logger.LogWarning("⚠️ No se pudo guardar en localStorage - estamos en prerendering");
-                    //_logger.LogWarning($"✅ Pero la sesión está guardada en memoria estática: {_staticCurrentUser.Email}");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "❌ Error guardando en localStorage");
-                }
-
-                // Notificar cambio de estado
-                //_logger.LogWarning("📢 Notificando cambio de estado...");
-                var authState = CreateAuthenticationState(session);
-                NotifyAuthenticationStateChanged(Task.FromResult(authState));
-
-                //_logger.LogWarning($"✅ MarkUserAsAuthenticated COMPLETADO - Instancia: {this.GetHashCode()}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error en MarkUserAsAuthenticated");
-                throw;
-            }
+            _currentUser = session;
+            NotifyAuthenticationStateChanged(Task.FromResult(CreateAuthenticationState(session)));
         }
 
-        public async Task MarkUserAsLoggedOut()
+        public Task MarkUserAsLoggedOut()
         {
-            _logger.LogWarning($"🚪 MarkUserAsLoggedOut INICIADO - Instancia: {this.GetHashCode()}");
-
-            try
-            {
-                _staticCurrentUser = null;
-
-                try
-                {
-                    _logger.LogWarning("🗑️ Eliminando de localStorage...");
-                    await _localStorage.RemoveItemAsync("userSession");
-                    _logger.LogWarning("✅ Eliminado de localStorage");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "❌ Error eliminando de localStorage");
-                }
-
-                NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_anonymous)));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "❌ Error en MarkUserAsLoggedOut");
-            }
+            _currentUser = null;
+            // Sin esto, una llamada posterior a EnsureHydratedAsync() en el mismo
+            // circuito devolvería la sesión vieja memoizada en _hydrationTask en vez de
+            // volver a evaluar la cookie (que para entonces ya pudo haber cambiado).
+            _hydrationTask = null;
+            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_anonymous)));
+            return Task.CompletedTask;
         }
 
         public async Task<UserSession?> GetCurrentUserAsync()
         {
-            //_logger.LogWarning($"👤 GetCurrentUserAsync llamado - Instancia: {this.GetHashCode()}, Memoria estática: {_staticCurrentUser?.IsAuthenticated}");
-
-            // PRIMERO: Verificar memoria estática
-            if (_staticCurrentUser?.IsAuthenticated == true)
-            {
-                //_logger.LogWarning($"✅ Usuario encontrado en memoria estática: {_staticCurrentUser.Email}");
-                return _staticCurrentUser;
-            }
-
-            // SEGUNDO: Intentar obtener del estado
-            var authState = await GetAuthenticationStateAsync();
-
-            if (_staticCurrentUser?.IsAuthenticated == true)
-            {
-                //_logger.LogWarning($"✅ Usuario recuperado vía GetAuthenticationState: {_staticCurrentUser.Email}");
-                return _staticCurrentUser;
-            }
-
-            //_logger.LogWarning("❌ No se encontró usuario autenticado");
-            return null;
+            return await EnsureHydratedAsync();
         }
 
-        private AuthenticationState CreateAuthenticationState(UserSession session)
+        private static AuthenticationState CreateAuthenticationState(UserSession session)
         {
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, session.IdUser.ToString()),
                 new Claim(ClaimTypes.Name, session.FullName),
                 new Claim(ClaimTypes.Email, session.Email),
-                new Claim("SessionStart", session.SessionStart.ToString()),
-                new Claim("SessionExpiry", session.SessionExpiry.ToString())
+                new Claim("SessionStart", session.SessionStart.ToString("O")),
+                new Claim("SessionExpiry", session.SessionExpiry.ToString("O"))
             };
 
             foreach (var role in session.Roles)
@@ -284,21 +145,5 @@ namespace SpiderHood.Services
             return new AuthenticationState(new ClaimsPrincipal(identity));
         }
 
-        public async Task NotifyUserLogoutAsync()
-        {
-            try
-            {
-                await _localStorage.RemoveItemAsync("currentUser");
-                await _localStorage.RemoveItemAsync("authToken");
-
-                NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(_anonymous)));
-
-                _logger.LogInformation("✅ Usuario desautenticado exitosamente");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error notificando logout");
-            }
-        }
     }
 }

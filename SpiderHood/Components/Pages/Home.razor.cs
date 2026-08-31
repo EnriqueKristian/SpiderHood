@@ -163,40 +163,14 @@ namespace SpiderHood.Components.Pages
 
             try
             {
-                // GetCurrentUserAsync() sólo devuelve algo si InitializeClientAsync() ya
-                // corrió y restauró la sesión desde localStorage. Antes dependíamos de que
-                // HeaderMainLayout la llamara primero en su propio OnAfterRenderAsync — pero
-                // el orden entre el OnAfterRenderAsync del layout y el de esta página no está
-                // garantizado, así que a veces perdíamos la carrera y esta página mandaba a
-                // un usuario que SÍ tenía sesión válida de vuelta a /login. La llamamos
-                // nosotros mismos primero (es idempotente) para no depender de esa carrera.
-                await AuthStateProvider.InitializeClientAsync();
-
-                // Intentar obtener usuario varias veces
-                UserSession currentUser = null;
-                int intentos = 0;
-                const int maxIntentos = 3;
-
-                while (currentUser == null && intentos < maxIntentos)
-                {
-                    currentUser = await AuthService.GetCurrentUserAsync();
-
-                    if (currentUser == null)
-                    {
-                        intentos++;
-                        Console.WriteLine($"⚠️ Intento {intentos}/{maxIntentos} - Usuario no autenticado, esperando 100ms...");
-                        await Task.Delay(100);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"✅ Usuario encontrado en intento {intentos}: {currentUser.Email}");
-                        break;
-                    }
-                }
+                // La sesión ahora se reconstruye de forma síncrona (sin JS interop) a
+                // partir de la cookie de autenticación — ver CustomAuthenticationStateProvider.
+                // Ya no hace falta reintentar con delays: si hay cookie válida, acá ya está.
+                var currentUser = await AuthService.GetCurrentUserAsync();
 
                 if (currentUser == null)
                 {
-                    Console.WriteLine($"❌ Usuario no autenticado después de {maxIntentos} intentos - Redirigiendo a login");
+                    Console.WriteLine("❌ Usuario no autenticado - Redirigiendo a login");
                     Navigation.NavigateTo("/login", true);
                     return;
                 }
@@ -206,8 +180,40 @@ namespace SpiderHood.Components.Pages
 
                 if (currentUser.CurrentBuildingId == Guid.Empty)
                 {
+                    // El edificio preferido vive en localStorage (ver
+                    // AuthService.SetDefaultBuildingAsync/TryApplyDefaultBuildingAsync), y
+                    // por lo tanto sólo se puede leer una vez conectado el circuito — durante
+                    // el prerender estático, IJSRuntime todavía no existe. Si redirigiéramos a
+                    // /select-building ya durante el prerender (RendererInfo.IsInteractive ==
+                    // false), lo haríamos con información incompleta, aunque el usuario ya
+                    // tenga un edificio preferido guardado. Nos quedamos quietos hasta que el
+                    // circuito esté realmente conectado para decidir con el dato completo.
+                    if (!RendererInfo.IsInteractive)
+                    {
+                        Console.WriteLine("⏳ Prerender estático (sin JS todavía) - se decide una vez conectado el circuito");
+                        return;
+                    }
+
+                    Console.WriteLine("🔎 Circuito conectado - intentando aplicar edificio/rol por defecto guardado");
+                    if (await AuthService.TryApplyDefaultBuildingAsync())
+                    {
+                        currentUser = await AuthService.GetCurrentUserAsync() ?? currentUser;
+                        Console.WriteLine($"✅ Edificio/rol por defecto aplicado: {currentUser.CurrentBuildingId} / {currentUser.Role}");
+                    }
+                }
+
+                if (currentUser.CurrentBuildingId == Guid.Empty)
+                {
                     Console.WriteLine("⚠️ No hay edificio seleccionado - Redirigiendo a select-building");
-                    Navigation.NavigateTo("/select-building", true);
+                    // Sin forceLoad: seguimos en el mismo circuito, así que
+                    // SelectBuilding.razor reutiliza la sesión ya hidratada en memoria
+                    // (misma instancia de CustomAuthenticationStateProvider) en vez de
+                    // forzar una reconexión que vuelve a golpear la base de datos. Con
+                    // forceLoad, una hidratación que tardara o fallara transitoriamente
+                    // hacía que SelectBuilding viera currentUser == null y rebotara a
+                    // /login — que a su vez, con la cookie todavía válida, rebotaba de
+                    // nuevo a /dashboard, formando un ciclo infinito con este redirect.
+                    Navigation.NavigateTo("/select-building");
                     return;
                 }
 

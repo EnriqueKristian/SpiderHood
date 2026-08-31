@@ -112,7 +112,18 @@
                 <li><a class="dropdown-item" href="/Settings"><i class="bi bi-gear me-2"></i>Configuración</a></li>
                 <li><a class="dropdown-item" href="/Security"><i class="bi bi-shield me-2"></i>Seguridad</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="/Logout"><i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión</a></li>
+                <li>
+                    <!-- data-enhance-nav="false": sin esto, la navegación mejorada de
+                         Blazor resuelve este link como un fetch dentro del MISMO circuito
+                         — el layout (este componente, LeftMenu) nunca se destruye, así que
+                         se queda mostrando al usuario ya deslogueado (la cookie se borra en
+                         el servidor, pero el estado en memoria de este circuito no se
+                         entera). Forzando una navegación de página completa, el circuito
+                         viejo se tira abajo y el nuevo arranca ya anónimo. -->
+                    <a class="dropdown-item text-danger" href="/Logout" data-enhance-nav="false">
+                        <i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión
+                    </a>
+                </li>
             </ul>
         </div>
     </div>
@@ -272,15 +283,24 @@
             }
         }
 
-        // 3. Intentar con preferencia guardada
-        var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
-        if (defaultBuildingId.HasValue)
+        // 3. Intentar con preferencia guardada — sólo si ya estamos en la conexión
+        // interactiva real. GetDefaultBuildingAsync usa IJSRuntime para leer localStorage,
+        // y eso lanza InvalidOperationException durante el prerender estático (que ahora
+        // corre igual, porque la sesión ya está disponible desde la cookie sin esperar a
+        // JS interop — antes esta rama nunca se alcanzaba durante el prerender porque el
+        // usuario todavía aparecía anónimo en ese momento). RendererInfo.IsInteractive
+        // distingue exactamente eso: prerender estático vs. circuito ya conectado.
+        if (RendererInfo.IsInteractive)
         {
-            var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == defaultBuildingId.Value);
-            if (building != null)
+            var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
+            if (defaultBuildingId.HasValue)
             {
-                await SetCurrentBuilding(building);
-                return;
+                var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == defaultBuildingId.Value);
+                if (building != null)
+                {
+                    await SetCurrentBuilding(building);
+                    return;
+                }
             }
         }
 
@@ -301,18 +321,22 @@
         // Actualizar servicios
         ParameterService.CurrentBuilding = building.Building;
 
-        // No bloquear la UI mientras se guarda la preferencia
-        _ = Task.Run(async () =>
+        // No bloquear la UI mientras se guarda la preferencia. Igual que arriba, sólo
+        // tiene sentido (y sólo es seguro para IJSRuntime) una vez conectado el circuito.
+        if (RendererInfo.IsInteractive)
         {
-            try
+            _ = Task.Run(async () =>
             {
-                await AuthService.SetDefaultBuildingAsync(building.Building.IdBuilding);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError(ex, "Error guardando preferencia de edificio");
-            }
-        });
+                try
+                {
+                    await AuthService.SetDefaultBuildingAsync(building.Building.IdBuilding);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Error guardando preferencia de edificio");
+                }
+            });
+        }
 
         StateHasChanged();
     }

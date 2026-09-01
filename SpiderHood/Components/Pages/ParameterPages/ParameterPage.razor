@@ -474,6 +474,11 @@
         if (firstRender)
         {
             _pagination.OnPaginationChanged += StateHasChanged;
+            // Default de PaginationClass<T> es 25 -- acá pagina por GRUPO, no por
+            // fila, y cada grupo ya expande varias filas (sus hijos), así que 25
+            // grupos por página es demasiado alto para que se note con datos reales
+            // (con ~8 grupos configurados hoy, nunca se pasa de una sola página).
+            _pagination.ChangePageSize(5);
 
             var attempts = 0;
             while (ParameterService.CurrentBuilding == null && attempts < 20)

@@ -41,6 +41,80 @@
     }
     else
     {
+        <!-- Resumen -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+                <div class="card card-hover h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase small mb-1">Nro. de Recibos</h6>
+                                <h2 class="mb-0">@_misCuotas.Count</h2>
+                            </div>
+                            <div style="color: #3b82f6;">
+                                <i class="bi bi-receipt-cutoff" style="font-size: 1.2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card card-hover h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase small mb-1">Monto Deuda</h6>
+                                <h2 class="mb-0">@_misCuotas.Sum(c => c.Debt).ToString("C2")</h2>
+                            </div>
+                            <div style="color: #ef4444;">
+                                <i class="bi bi-exclamation-circle" style="font-size: 1.2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card card-hover h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase small mb-1">Total Pagado</h6>
+                                <h2 class="mb-0">@_misCuotas.Sum(c => c.AmountPaid).ToString("C2")</h2>
+                            </div>
+                            <div style="color: #10b981;">
+                                <i class="bi bi-check-circle" style="font-size: 1.2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card card-hover h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase small mb-1">Próximo Vencimiento</h6>
+                                @{
+                                    var proximo = _misCuotas.Where(c => c.Debt > 0).OrderBy(c => c.DueDate).FirstOrDefault();
+                                }
+                                @if (proximo == null)
+                                {
+                                    <h2 class="mb-0">Al día</h2>
+                                }
+                                else
+                                {
+                                    <h2 class="mb-0">@proximo.DueDate.ToString("dd/MM/yy")</h2>
+                                }
+                            </div>
+                            <div style="color: #f59e0b;">
+                                <i class="bi bi-calendar-event" style="font-size: 1.2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Filtros -->
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <div class="d-flex flex-wrap gap-2 align-items-center">

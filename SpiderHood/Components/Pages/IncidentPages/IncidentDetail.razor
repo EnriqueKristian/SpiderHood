@@ -3,6 +3,7 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject IIncidentService IncidentService
+@inject IWorkflowAuditService WorkflowAuditService
 @inject SpiderHood.Services.AuthService AuthService
 @inject NavigationManager Navigation
 
@@ -61,6 +62,31 @@
                 }
             </div>
         </div>
+
+        @if (_history.Count > 0)
+        {
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Línea de tiempo</h6>
+                </div>
+                <ul class="list-group list-group-flush">
+                    @foreach (var entry in _history)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <span>
+                                <strong>@HistoryActionLabel(entry.Action)</strong>
+                                por @entry.PerformedBy
+                                @if (!string.IsNullOrWhiteSpace(entry.Comment))
+                                {
+                                    <span class="text-muted"> — @entry.Comment</span>
+                                }
+                            </span>
+                            <span class="text-muted small text-nowrap ms-2">@entry.PerformedOn.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
 
         <div class="card shadow-sm">
             <div class="card-header">
@@ -124,9 +150,11 @@
 
     private UserSession _currentUser = new();
     private bool _isStaff;
+    private bool _isSysAdmin;
     private bool _loading = true;
     private Incident _incident = new();
     private List<IncidentComment> _comments = new();
+    private List<WorkflowAuditEntry> _history = new();
     private string _nuevoComentario = string.Empty;
     private bool _esInterno;
     private List<IncidentAction> _acciones = new();
@@ -134,7 +162,8 @@
     protected override async Task OnInitializedAsync()
     {
         _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
-        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+        _isSysAdmin = _currentUser.Roles.Contains("SysAdmin");
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _isSysAdmin;
 
         await CargarAsync();
     }
@@ -144,6 +173,7 @@
         _loading = true;
         _incident = await IncidentService.GetByIdAsync(Id);
         _comments = await IncidentService.GetCommentsAsync(Id);
+        _history = await WorkflowAuditService.GetHistoryAsync("Incident", Id);
 
         // Un residente no ve las notas internas del staff.
         if (!_isStaff)
@@ -153,9 +183,13 @@
         _loading = false;
     }
 
-    // Administrador/SysAdmin llevan el ciclo de vida operativo; el residente que
-    // reportó el incidente solo puede reabrir o confirmar el cierre; Junta (y
-    // cualquier otro rol) queda de solo lectura, como se definió para este módulo.
+    // El ciclo de vida operativo (revisar/asignar/resolver) lo lleva
+    // Administrador/SysAdmin, pero el CIERRE queda reservado para quien reportó
+    // -- es quien confirma que el problema realmente se solucionó, mismo criterio
+    // que usan la mayoría de sistemas de tickets (Zendesk, Jira Service Desk).
+    // SysAdmin tiene un "Cerrar (administrativo)" aparte para el caso borde de
+    // que el residente nunca responda. Junta (y cualquier otro rol) queda de
+    // solo lectura, como se definió para este módulo.
     private void CalcularAcciones()
     {
         _acciones.Clear();
@@ -176,10 +210,17 @@
                 case IncidentStatus.InProgress:
                     _acciones.Add(new(IncidentStatus.Resolved, "Marcar Resuelto", "btn-primary"));
                     break;
-                case IncidentStatus.Resolved:
                 case IncidentStatus.Reopened:
-                    _acciones.Add(new(IncidentStatus.Closed, "Cerrar", "btn-success"));
+                    _acciones.Add(new(IncidentStatus.InProgress, "Reasignarme y continuar", "btn-warning"));
                     break;
+                // Resolved: sin acciones para el staff -- queda esperando que el
+                // reportante confirme o reabra (ver más abajo), salvo el override
+                // de SysAdmin.
+            }
+
+            if (_isSysAdmin && (_incident.Status == IncidentStatus.Resolved || _incident.Status == IncidentStatus.Reopened))
+            {
+                _acciones.Add(new(IncidentStatus.Closed, "Cerrar (administrativo)", "btn-outline-success"));
             }
         }
         else if (esReportante && _incident.Status == IncidentStatus.Resolved)
@@ -188,6 +229,18 @@
             _acciones.Add(new(IncidentStatus.Reopened, "No está resuelto, reabrir", "btn-outline-danger"));
         }
     }
+
+    private static string HistoryActionLabel(WorkflowAction action) => action switch
+    {
+        WorkflowAction.Submitted => "Reportado",
+        WorkflowAction.Reviewed => "Revisado",
+        WorkflowAction.Assigned => "Asignado",
+        WorkflowAction.Resolved => "Resuelto",
+        WorkflowAction.Closed => "Cerrado",
+        WorkflowAction.Rejected => "Rechazado",
+        WorkflowAction.Reopened => "Reabierto",
+        _ => action.ToString()
+    };
 
     private async Task EjecutarAccion(IncidentStatus nuevoEstado)
     {

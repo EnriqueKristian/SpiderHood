@@ -823,6 +823,14 @@ namespace SpiderHood.Data
             }, "GetIncidentById", cancellationToken);
         }
 
+        public async Task<List<Models.WorkflowAuditEntry>> GetWorkflowAuditLogAsync(string module, Guid entityId, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.WorkflowAuditEntry>(StoredProcedures.GET_WorkflowAuditLog, module, entityId);
+            }, "GetWorkflowAuditLog", cancellationToken);
+        }
+
         public async Task<List<Models.IncidentComment>> GetIncidentCommentsAsync(Guid idIncident, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

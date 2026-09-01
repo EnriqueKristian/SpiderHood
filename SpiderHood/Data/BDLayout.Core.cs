@@ -214,6 +214,7 @@ namespace SpiderHood.Data
 
             // Workflow Audit Procedures
             public const string INS_WorkflowAuditLog = "INS_WorkflowAuditLog";
+            public const string GET_WorkflowAuditLog = "GET_WorkflowAuditLog";
 
             // System Log Procedures
             public const string INS_SystemLog = "INS_SystemLog";

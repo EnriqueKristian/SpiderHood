@@ -7,6 +7,7 @@ namespace SpiderHood.Services
     public interface IWorkflowAuditService
     {
         Task LogAsync(string module, Guid entityId, WorkflowAction action, string performedBy, Guid idBuilding, string? comment = null);
+        Task<List<WorkflowAuditEntry>> GetHistoryAsync(string module, Guid entityId);
     }
 
     public class WorkflowAuditService : IWorkflowAuditService
@@ -30,5 +31,8 @@ namespace SpiderHood.Services
                 Comment = comment
             });
         }
+
+        public async Task<List<WorkflowAuditEntry>> GetHistoryAsync(string module, Guid entityId)
+            => await ec.GetWorkflowAuditLogAsync(module, entityId);
     }
 }

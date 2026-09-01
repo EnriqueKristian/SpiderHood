@@ -87,7 +87,30 @@
 
 @if (_mostrarModalDetalle)
 {
-    <PresupuestoDetalleModal Presupuesto="_budgetDetail" Categorias="_categorias" OnClose="CerrarModalDetalle" />
+    <!-- El try/catch de VerDetalle sólo cubre la carga de datos -- si el problema está en
+         el RENDER del modal (p.ej. algo puntual de los BudgetDetail de este presupuesto),
+         esa excepción pasa por otro lado y antes no dejaba rastro visible: el clic no hacía
+         "nada" en vez de mostrar un error. ErrorBoundary la atrapa y la muestra en pantalla,
+         mismo patrón que ya usa BankReconciliation.razor para su modal de conciliación. -->
+    <ErrorBoundary @ref="_modalErrorBoundary">
+        <ChildContent>
+            <PresupuestoDetalleModal Presupuesto="_budgetDetail" Categorias="_categorias" OnClose="CerrarModalDetalle" />
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <div class="modal-overlay">
+                <div class="modal-content" style="max-width:600px;">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-danger">Error al mostrar el detalle del presupuesto</h5>
+                        <button type="button" class="btn-close" @onclick="CerrarModalDetalle"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="fw-bold">@ex.GetType().Name: @ex.Message</p>
+                        <pre class="small text-muted" style="white-space: pre-wrap;">@ex.StackTrace</pre>
+                    </div>
+                </div>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
 }
 
 @code {
@@ -97,6 +120,7 @@
     private string _searchTerm = string.Empty;
     private bool _mostrarModalDetalle;
     private BudgetHeader? _budgetDetail;
+    private ErrorBoundary? _modalErrorBoundary;
 
     // Sólo se muestran presupuestos ya finalizados -- uno en borrador (Created/Check) o
     // Rechazado todavía puede cambiar de monto, no tiene sentido (ni es prudente) que un
@@ -163,6 +187,7 @@
             detalle.Details ??= new();
 
             _budgetDetail = detalle;
+            _modalErrorBoundary?.Recover();
             _mostrarModalDetalle = true;
         }
         catch (Exception ex)

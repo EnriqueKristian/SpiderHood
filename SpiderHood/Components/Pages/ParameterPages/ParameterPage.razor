@@ -6,6 +6,8 @@
 @using SpiderHood.Data
 @using SpiderHood.Models
 @using SpiderHood.Services
+@using SpiderHood.Utilities
+@using SpiderHood.Components.Pages.Components
 @inject NavigationManager Navigation // Inyecta el servicio de navegación
 @inject ParameterService ParameterService
 @inject Services.AuthService AuthService
@@ -14,6 +16,7 @@
 @layout MainLayout
 @using Microsoft.AspNetCore.Components
 @inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <PageTitle>Parámetros del Sistema</PageTitle>
 
@@ -115,22 +118,22 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var group in groupedParameters)
+                            @foreach (var grupo in _pagination.CurrentPageData)
                             {
                                 <!-- Grupo padre -->
                                 <tr class="table-group-header" style="background-color: var(--sh-surface-muted);">
-                                    <td class="ps-3 fw-bold">@group.Key.IdTabla</td>
+                                    <td class="ps-3 fw-bold">@grupo.IdTabla</td>
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <i class="bi bi-folder me-2 text-primary"></i>
-                                            <span class="fw-semibold">@group.Key.Description</span>
+                                            <span class="fw-semibold">@grupo.Description</span>
                                         </div>
                                     </td>
                                     <td>-</td>
                                     <td>
-                                        <span class="badge @GetStatusBadgeClass(group.Key.Estado)">
-                                            <i class="bi @GetStatusIcon(group.Key.Estado) me-1"></i>
-                                            @group.Key.Estado
+                                        <span class="badge @GetStatusBadgeClass(grupo.Estado)">
+                                            <i class="bi @GetStatusIcon(grupo.Estado) me-1"></i>
+                                            @grupo.Estado
                                         </span>
                                     </td>
                                     <td class="text-muted">—</td>
@@ -139,15 +142,15 @@
                                         {
                                             <div class="btn-group btn-group-sm">
                                                 <button type="button" class="btn btn-outline-primary"
-                                                        title="Agregar hijo" @onclick="() => ShowAddChildModal(group.Key)">
+                                                        title="Agregar hijo" @onclick="() => ShowAddChildModal(grupo)">
                                                     <i class="bi bi-plus-lg"></i>
                                                 </button>
                                                 <button type="button" class="btn btn-outline-secondary"
-                                                        title="Editar" @onclick="() => EditParameter(group.Key)">
+                                                        title="Editar" @onclick="() => EditParameter(grupo)">
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
                                                 <button type="button" class="btn btn-outline-danger"
-                                                        title="Eliminar" @onclick="() => DeleteParameter(group.Key)">
+                                                        title="Eliminar" @onclick="() => DeleteParameter(grupo)">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </div>
@@ -156,7 +159,7 @@
                                 </tr>
 
                                 <!-- Hijos del grupo -->
-                                @foreach (var hijo in group.Value)
+                                @foreach (var hijo in groupedParameters[grupo])
                                 {
                                     <tr class="table-group-child">
                                         <td class="ps-5">
@@ -179,7 +182,7 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-info bg-opacity-10 text-info">@group.Key.ShortDescription</span>
+                                            <span class="badge bg-info bg-opacity-10 text-info">@grupo.ShortDescription</span>
                                         </td>
                                         <td class="text-center">
                                             @if (_canManageParameters)
@@ -209,6 +212,12 @@
                         </tbody>
                     </table>
                 </div>
+                @if (_pagination.TotalPages > 1)
+                {
+                    <div class="px-3 pb-3">
+                        <PaginationControls _pagination="@_pagination" />
+                    </div>
+                }
             }
             else
             {
@@ -439,6 +448,11 @@
     // Agrupación de parámetros
     private Dictionary<Models.Parameter, List<Models.Parameter>> groupedParameters = new();
 
+    // Pagina por grupo (no por fila): cada página muestra N grupos completos
+    // con todos sus hijos -- paginar por fila cortaría un grupo a la mitad
+    // entre dos páginas.
+    private PaginationClass<Models.Parameter> _pagination = new();
+
     private bool _canManageParameters;
 
     protected override void OnInitialized()
@@ -459,6 +473,8 @@
     {
         if (firstRender)
         {
+            _pagination.OnPaginationChanged += StateHasChanged;
+
             var attempts = 0;
             while (ParameterService.CurrentBuilding == null && attempts < 20)
             {
@@ -498,6 +514,8 @@
             //if (hijos.Count > 0)
             groupedParameters.Add(grupo, hijos);
         }
+
+        _pagination.Initialize(groupedParameters.Keys.ToList());
     }
 
     private void UpdateStatistics()
@@ -686,5 +704,10 @@
     private async Task UpdateItem(SpiderHood.Models.Parameter _param)
     {
         await ParameterService.UpdateParameterAsync(_param);
+    }
+
+    public void Dispose()
+    {
+        _pagination.OnPaginationChanged -= StateHasChanged;
     }
 }

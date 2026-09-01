@@ -76,7 +76,12 @@
 }
 
 /* Círculo de ícono que encabeza casi todas las páginas (antes copiado con
-   clases sueltas: icon-shape bg-primary rounded-circle p-3) */
+   clases sueltas: icon-shape bg-primary rounded-circle p-3).
+   Fondo tenue + ícono en el color de marca, en vez de relleno sólido +
+   ícono blanco -- mismo criterio "suavizado" que se aplicó a /category y
+   /calendar, ahora a nivel global para que alcance a todas las páginas que
+   ya usan esta clase (encabezados, stat cards, etc.) sin tocarlas una por
+   una. */
 .icon-badge {
     display: inline-flex;
     align-items: center;
@@ -84,8 +89,8 @@
     width: 3rem;
     height: 3rem;
     border-radius: var(--sh-radius-circle);
-    background-color: var(--sh-primary);
-    color: #fff;
+    background-color: var(--sh-primary-light);
+    color: var(--sh-primary-dark);
     font-size: 1.25rem;
     flex-shrink: 0;
 }
@@ -97,25 +102,28 @@
     }
 
 .icon-badge-success {
-    background-color: var(--sh-success);
+    background-color: var(--sh-success-light);
+    color: var(--sh-success);
 }
 
 .icon-badge-warning {
-    background-color: var(--sh-warning);
-    color: #664d03;
+    background-color: var(--sh-warning-light);
+    color: #997404;
 }
 
 .icon-badge-danger {
-    background-color: var(--sh-danger);
+    background-color: var(--sh-danger-light);
+    color: var(--sh-danger);
 }
 
 .icon-badge-info {
-    background-color: var(--sh-info);
-    color: #055160;
+    background-color: var(--sh-info-light);
+    color: #087990;
 }
 
 .icon-badge-secondary {
-    background-color: var(--sh-secondary);
+    background-color: var(--sh-surface-muted);
+    color: var(--sh-secondary);
 }
 
 /* ---------- Tarjetas ---------- */
@@ -209,6 +217,40 @@
     .badge.rounded-pill {
         border-radius: var(--sh-radius-pill);
     }
+
+/* Igual que .icon-badge: fondo tenue + texto en el color, no relleno sólido
+   + texto blanco. Pisa los bg-primary/bg-success/etc. de Bootstrap que se
+   usan tal cual en toda la app para roles, estados y contadores -- así se
+   suaviza todo junto, sin editar cada página que arma un badge. */
+.badge.bg-primary {
+    background-color: var(--sh-primary-light) !important;
+    color: var(--sh-primary-dark) !important;
+}
+
+.badge.bg-success {
+    background-color: var(--sh-success-light) !important;
+    color: var(--sh-success) !important;
+}
+
+.badge.bg-warning {
+    background-color: var(--sh-warning-light) !important;
+    color: #997404 !important;
+}
+
+.badge.bg-danger {
+    background-color: var(--sh-danger-light) !important;
+    color: var(--sh-danger) !important;
+}
+
+.badge.bg-info {
+    background-color: var(--sh-info-light) !important;
+    color: #087990 !important;
+}
+
+.badge.bg-secondary {
+    background-color: var(--sh-surface-muted) !important;
+    color: var(--sh-secondary) !important;
+}
 
 /* ---------- Tablas ---------- */
 
@@ -491,6 +533,23 @@ tbody tr {
 
     .list-group-item-action:hover {
         transform: translateX(5px);
+    }
+
+/* El "activo" por defecto de Bootstrap es un relleno sólido --bs-primary +
+   texto blanco (la barra "Todos" bien saturada en filtros de lista). Mismo
+   criterio suavizado que el resto: fondo tenue, texto y borde izquierdo en
+   el color de marca. */
+.list-group-item.active {
+    background-color: var(--sh-primary-light) !important;
+    border-color: var(--sh-border) !important;
+    color: var(--sh-primary-dark) !important;
+    border-left: 3px solid var(--sh-primary) !important;
+    font-weight: 600;
+}
+
+    .list-group-item.active .badge {
+        background-color: var(--sh-surface) !important;
+        color: var(--sh-primary-dark) !important;
     }
 
 .drop-zone, .stat-card, .card {

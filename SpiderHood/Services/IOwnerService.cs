@@ -17,17 +17,22 @@ namespace SpiderHood.Services
     public class OwnerService : IOwnerService
     {
         public BDLayout ec = default!;
+        private readonly AuthService _authService;
 
-        public OwnerService(IDbContextFactory<SpiderHoodContext> contextFactory)
+        public OwnerService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService)
         {
             ec = new BDLayout(contextFactory);
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         }
 
         public async Task<Models.Owner> AddOwnerAsync(Owner newowner)
         {
             try
             {
-                return await ec.AddNewRecordAsync(newowner);
+                var result = await ec.AddNewRecordAsync(newowner);
+                var performedBy = (await _authService.GetCurrentUserAsync())?.Email ?? "system";
+                await ec.StampAuditAsync(AuditableEntity.Owner, result.IdOwner, performedBy, isCreate: true);
+                return result;
             }
             catch (Exception ex)
             {
@@ -40,7 +45,10 @@ namespace SpiderHood.Services
         {
             try
             {
-                return await ec.UpdateRecordAsync(owner);
+                var result = await ec.UpdateRecordAsync(owner);
+                var performedBy = (await _authService.GetCurrentUserAsync())?.Email ?? "system";
+                await ec.StampAuditAsync(AuditableEntity.Owner, result.IdOwner, performedBy, isCreate: false);
+                return result;
             }
             catch (Exception ex)
             {

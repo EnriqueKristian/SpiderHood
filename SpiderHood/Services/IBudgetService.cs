@@ -47,13 +47,24 @@ namespace SpiderHood.Services
 
         private readonly IDbContextFactory<SpiderHoodContext> _contextFactory;
         private readonly ILogger<IBudgetService> _logger;
+        private readonly AuthService _authService;
         private BDLayout ec { get; set; }
 
-        public BudgetService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger)
+        public BudgetService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger, AuthService authService)
         {
             _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             ec = new BDLayout(contextFactory);
+        }
+
+        // Usuario de la sesión actual, para estampar Auditoría (CreatedBy/ModifiedBy) en
+        // BudgetHeader. "system" es el fallback para llamadas fuera de un circuito con
+        // sesión activa (no debería pasar en uso normal de la app).
+        private async Task<string> GetPerformedByAsync()
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            return user?.Email ?? "system";
         }
 
         #region Presupuestos
@@ -159,6 +170,7 @@ namespace SpiderHood.Services
                 presupuesto.CreatedOn = DateTime.Now;
 
                 await ec.AddNewRecordAsync(presupuesto);
+                await ec.StampAuditAsync(AuditableEntity.BudgetHeader, presupuesto.IdBudgetHeader, await GetPerformedByAsync(), isCreate: true);
 
                 _logger.LogInformation("Presupuesto creado: {Id}", presupuesto.IdBudgetHeader);
 
@@ -185,6 +197,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.UpdateRecordAsync(presupuesto);
+                await ec.StampAuditAsync(AuditableEntity.BudgetHeader, presupuesto.IdBudgetHeader, await GetPerformedByAsync(), isCreate: false);
                 _logger.LogInformation("Presupuesto actualizado: {Id}", presupuesto.IdBudgetHeader);
             }
             catch (Exception ex)
@@ -251,6 +264,7 @@ namespace SpiderHood.Services
             {
                 state.IsNewBudget = true;
                 state.Status = BudgetStatus.Created;
+                state.Budget.CreatedBy = await GetPerformedByAsync();
             }
 
             return state;
@@ -318,6 +332,7 @@ namespace SpiderHood.Services
             using var context = await _contextFactory.CreateDbContextAsync();
             using var transaction = await context.Database.BeginTransactionAsync();
             var ecLocal = new BDLayout(context);
+            var performedBy = await GetPerformedByAsync();
 
             try
             {
@@ -339,15 +354,16 @@ namespace SpiderHood.Services
 
                 if (state.IsNewBudget)
                 {
-                    await CreateNewBudgetAsync(ecLocal, state);
+                    await CreateNewBudgetAsync(ecLocal, state, performedBy);
                 }
                 else
                 {
                     if (state.Status < BudgetStatus.Check || state.Status == BudgetStatus.Rejected)
-                        await UpdateExistingBudgetAsync(ecLocal, state);
+                        await UpdateExistingBudgetAsync(ecLocal, state, performedBy);
                     else
                     {
                         await ecLocal.UpdateRecordAsync(state.Budget);
+                        await ecLocal.StampAuditAsync(AuditableEntity.BudgetHeader, state.Budget.IdBudgetHeader, performedBy, isCreate: false);
                         // Solo al llegar a Active (publicado) este presupuesto pasa a ser el
                         // vigente del edificio y corresponde cerrar el anterior. Antes se
                         // llamaba en cada paso desde Check en adelante, así que el presupuesto
@@ -408,10 +424,11 @@ namespace SpiderHood.Services
             await ecLocal.AddNewRecordAsync(category);
         }
 
-        private async Task CreateNewBudgetAsync(BDLayout ecLocal, BudgetState state)
+        private async Task CreateNewBudgetAsync(BDLayout ecLocal, BudgetState state, string performedBy)
         {
 
             await ecLocal.AddNewRecordAsync(state.Budget);
+            await ecLocal.StampAuditAsync(AuditableEntity.BudgetHeader, state.Budget.IdBudgetHeader, performedBy, isCreate: true);
 
             foreach (var item in state.Budget.Details.Where(c => c.IsHeader || c.MonthlyAmount > 0))
             {
@@ -422,7 +439,7 @@ namespace SpiderHood.Services
             state.IsNewBudget = false;
         }
 
-        private async Task UpdateExistingBudgetAsync(BDLayout ecLocal, BudgetState state)
+        private async Task UpdateExistingBudgetAsync(BDLayout ecLocal, BudgetState state, string performedBy)
         {
             await ecLocal.DeleteRecordAsync(state.Budget.IdBudgetHeader);
 
@@ -433,6 +450,7 @@ namespace SpiderHood.Services
             }
 
             await ecLocal.UpdateRecordAsync(state.Budget);
+            await ecLocal.StampAuditAsync(AuditableEntity.BudgetHeader, state.Budget.IdBudgetHeader, performedBy, isCreate: false);
         }
 
         private async Task SaveInstallment(BDLayout ecLocal, BudgetState state)

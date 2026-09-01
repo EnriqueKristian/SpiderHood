@@ -126,7 +126,7 @@ namespace SpiderHood.Models
                      Number = int.Parse(unit.UnitNumber),
                     OwnerName = unit.FirstName,
                     IdGroupUnit = unit.IdGroupUnit,
-                    CreatedBy = "eechevarria", //UserName;
+                    CreatedBy = _state.Budget.CreatedBy,
                     DueDate = DateTime.Now.AddDays(_state.Configuration.DueDay),//DateTime.Now.AddDays(ParameterService.DueDay);
                     Status = ConcilationType.NoConciliada //Created
                 };
@@ -210,7 +210,7 @@ namespace SpiderHood.Models
                     UnitName = unit.UnitNumber,
                     OwnerName = unit.FirstName,
                     IdGroupUnit = unit.IdGroupUnit,
-                    CreatedBy = "eechevarria", // TODO: Reemplazar con usuario real
+                    CreatedBy = _state.Budget.CreatedBy,
                     DueDate = DateTime.Now.AddDays(_state.Configuration.DueDay),
                     Status = ConcilationType.NoConciliada // Created
                 };

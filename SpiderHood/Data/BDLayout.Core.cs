@@ -200,6 +200,12 @@ namespace SpiderHood.Data
             public const string UPD_WorkflowStep = "UPD_WorkflowStep";
             public const string DEL_WorkflowStep = "DEL_WorkflowStep";
             public const string GET_WorkflowStepsByWorkflow = "GET_WorkflowStepsByWorkflow";
+
+            // Audit Procedures (ver BDLayout.Audit.cs)
+            public const string UPD_BuildingAudit = "UPD_BuildingAudit";
+            public const string UPD_OwnerAudit = "UPD_OwnerAudit";
+            public const string UPD_BudgetHeaderAudit = "UPD_BudgetHeaderAudit";
+            public const string UPD_ExpenseAudit = "UPD_ExpenseAudit";
         }
         #endregion
 

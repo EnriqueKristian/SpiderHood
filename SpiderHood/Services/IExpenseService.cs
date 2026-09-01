@@ -23,11 +23,19 @@ namespace SpiderHood.Services
         private List<ViewExpense> gastos = new();
         //private List<CategoriaGasto> categorias = new();
         public BDLayout ec = default!;
+        private readonly AuthService _authService;
 
-        public ExpenseService(IDbContextFactory<SpiderHoodContext> contextFactory)
+        public ExpenseService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService)
         {
             ec = new BDLayout(contextFactory);
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             InicializarDatos();
+        }
+
+        private async Task<string> GetPerformedByAsync()
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            return user?.Email ?? "system";
         }
 
         private void InicializarDatos()
@@ -118,16 +126,22 @@ namespace SpiderHood.Services
         public async Task AddExpenseAsync(ViewExpense expense)
         {
             await ec.AddNewRecordAsync(expense);
+            await ec.StampAuditAsync(AuditableEntity.Expense, expense.IdExpense, await GetPerformedByAsync(), isCreate: true);
         }
 
         public async Task AddExpenseAsync(Expense expense)
         {
             await ec.AddNewRecordAsync(expense);
+            await ec.StampAuditAsync(AuditableEntity.Expense, expense.IdExpense, await GetPerformedByAsync(), isCreate: true);
         }
 
         public async Task UpdateExpenseAsync(Expense expense)
         {
-            await ec.AddNewRecordAsync(expense);
+            // Antes llamaba AddNewRecordAsync (INS_Expense) en vez de UpdateRecordAsync
+            // (UPD_Expense) -- una actualización terminaba insertando una fila duplicada
+            // en vez de modificar la existente.
+            await ec.UpdateRecordAsync(expense);
+            await ec.StampAuditAsync(AuditableEntity.Expense, expense.IdExpense, await GetPerformedByAsync(), isCreate: false);
         }
         public async Task<List<Expense>> GetExpensesByBuildingAsync(Guid IdBuilding)
         {
@@ -139,6 +153,7 @@ namespace SpiderHood.Services
 
             gasto.IdExpense = Guid.NewGuid(); //gastos.Max(g => g.Id) + 1;
             await ec.AddNewRecordAsync(gasto);
+            await ec.StampAuditAsync(AuditableEntity.Expense, gasto.IdExpense, await GetPerformedByAsync(), isCreate: true);
             gasto.ExpenseDate = DateTime.Now;
             gastos.Add(gasto);
 

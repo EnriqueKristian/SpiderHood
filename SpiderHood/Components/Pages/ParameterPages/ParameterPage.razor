@@ -65,8 +65,8 @@
 
                             <InputText type="text" class="form-control border-start-0"
                                        placeholder="Buscar parámetro..."
-                                       @bind-Value="@searchTerm"
-                                       @oninput="e => { searchTerm = ((ChangeEventArgs)e).Value?.ToString(); FilterParameters(); }" />
+                                       @bind-Value="searchTerm"
+                                       @bind-Value:after="FilterParameters" />
 
 
                         </div>
@@ -118,7 +118,7 @@
                             @foreach (var group in groupedParameters)
                             {
                                 <!-- Grupo padre -->
-                                <tr class="table-group-header" style="background-color: #f8f9fa;">
+                                <tr class="table-group-header" style="background-color: var(--sh-surface-muted);">
                                     <td class="ps-3 fw-bold">@group.Key.IdTabla</td>
                                     <td>
                                         <div class="d-flex align-items-center">
@@ -133,9 +133,7 @@
                                             @group.Key.Estado
                                         </span>
                                     </td>
-                                    <td>
-                                        <span class="badge bg-secondary">@group.Key.IdParent</span>
-                                    </td>
+                                    <td class="text-muted">—</td>
                                     <td class="text-center">
                                         @if (_canManageParameters)
                                         {
@@ -181,7 +179,7 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-info bg-opacity-10 text-info">@hijo.IdParent</span>
+                                            <span class="badge bg-info bg-opacity-10 text-info">@group.Key.ShortDescription</span>
                                         </td>
                                         <td class="text-center">
                                             @if (_canManageParameters)
@@ -204,7 +202,7 @@
                                 <!-- Separador entre grupos -->
                                 <tr>
                                     <td colspan="6" class="p-0">
-                                        <div class="border-bottom" style="height: 1px; background-color: #f0f0f0;"></div>
+                                        <div class="border-bottom" style="height: 1px; background-color: var(--sh-border);"></div>
                                     </td>
                                 </tr>
                             }
@@ -594,16 +592,19 @@
         if (isEditing)
         {
             var existing = parameters.FirstOrDefault(p => p.IdTabla == currentParameter.IdTabla);
-            if (existing != null)
+            if (existing == null)
             {
-                existing.Description = currentParameter.Description;
-                existing.ShortDescription = currentParameter.ShortDescription;
-                existing.Value = currentParameter.Value;
-                existing.Estado = currentParameter.Estado;
-                existing.Sort = currentParameter.Sort;
-                existing.IdParent = currentParameter.IdParent;
+                await JSRuntime.InvokeVoidAsync("alert", "El parámetro que estás editando ya no existe. Cerrá el modal y volvé a intentar.");
+                return;
             }
-            await UpdateItem(existing!);
+
+            existing.Description = currentParameter.Description;
+            existing.ShortDescription = currentParameter.ShortDescription;
+            existing.Value = currentParameter.Value;
+            existing.Estado = currentParameter.Estado;
+            existing.Sort = currentParameter.Sort;
+            existing.IdParent = currentParameter.IdParent;
+            await UpdateItem(existing);
         }
         else
         {

@@ -184,10 +184,19 @@
 
     private void AbrirNuevo()
     {
+        // Si quien reporta es Residente, se asocia automáticamente a SU unidad
+        // (UserBuilding.IdGroupUnit) -- sin esto todo incidente quedaba marcado
+        // como "Área común" sin importar quién lo reportara. Administrador/Junta/
+        // SysAdmin no tienen una unidad propia, así que queda null (área común)
+        // salvo que en el futuro se agregue un selector de unidad para ellos.
+        var currentUserBuilding = _currentUser.Buildings
+            .FirstOrDefault(b => b.Building?.IdBuilding == _currentUser.CurrentBuildingId);
+
         _nuevo = new Incident
         {
             IdBuilding = _currentUser.CurrentBuildingId,
-            ReportedBy = _currentUser.IdUser
+            ReportedBy = _currentUser.IdUser,
+            IdGroupUnit = _isStaff ? null : currentUserBuilding?.IdGroupUnit
         };
         _showModal = true;
     }

@@ -28,6 +28,10 @@ namespace SpiderHood.Services
         Task<AuthResult> RegisterSelfServiceAsync(RegisterModel model);
         Task SetCurrentBuilding(Guid? Idbuilding, string role);
         Task<bool> TryApplyDefaultBuildingAsync();
+
+        // "Ver como" -- sólo para SysAdmin, ver UserSession.IsViewingAs.
+        Task<bool> StartViewAsAsync(Guid buildingId, string role);
+        Task StopViewAsAsync();
         Task<UserModel> GetUserProfileAsync(Guid userId);
         Task<AuthResult> UpdateProfileAsync(Guid userId, string firstName, string lastName, string phoneNumber);
         Task<AuthResult> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
@@ -227,6 +231,60 @@ namespace SpiderHood.Services
                     await _authStateProvider.MarkUserAsAuthenticated(user);
                 }
             }
+        }
+
+        // "Ver como": sólo un SysAdmin puede activarlo, y sólo para simular un rol
+        // (Administrador/Junta/Residente) sobre un edificio real -- nunca otro SysAdmin,
+        // no tiene sentido. No crea ni modifica ninguna fila en UserBuildingAssociation:
+        // reemplaza Buildings/Role/CurrentBuildingId en memoria, para esta sesión
+        // únicamente, guardando antes la identidad real para poder restaurarla
+        // (StopViewAsAsync). Es de solo lectura -- ver PermissionService.GetUserPermissionsAsync.
+        public async Task<bool> StartViewAsAsync(Guid buildingId, string role)
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null || !user.Roles.Contains("SysAdmin") || role == "SysAdmin")
+                return false;
+
+            var building = user.Buildings.FirstOrDefault(b => b.Building?.IdBuilding == buildingId)?.Building;
+            if (building == null)
+                return false;
+
+            if (!user.IsViewingAs)
+            {
+                user.RealRole = user.Role;
+                user.RealCurrentBuildingId = user.CurrentBuildingId;
+                user.RealBuildings = user.Buildings;
+            }
+
+            user.IsViewingAs = true;
+            user.Role = role;
+            user.CurrentBuildingId = buildingId;
+            user.Buildings = new List<UserBuilding>
+            {
+                new() { Building = building, Role = role, IsApproved = true }
+            };
+
+            await _authStateProvider.MarkUserAsAuthenticated(user);
+            NotifyAuthStateChanged();
+            return true;
+        }
+
+        public async Task StopViewAsAsync()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null || !user.IsViewingAs)
+                return;
+
+            user.IsViewingAs = false;
+            user.Role = user.RealRole ?? "SysAdmin";
+            user.CurrentBuildingId = user.RealCurrentBuildingId ?? Guid.Empty;
+            user.Buildings = user.RealBuildings ?? user.Buildings;
+            user.RealRole = null;
+            user.RealCurrentBuildingId = null;
+            user.RealBuildings = null;
+
+            await _authStateProvider.MarkUserAsAuthenticated(user);
+            NotifyAuthStateChanged();
         }
 
         // Se usa al arrancar el dashboard cuando la sesión no trae un edificio actual

@@ -754,7 +754,7 @@
                     <button type="button" class="btn-close" @onclick="CerrarModalCargarEstado"></button>
                 </div>
                 <div class="modal-body">
-                    <CargarEstadoCuentaConciliacion OnClose="CerrarModalCargarEstado" 
+                    <UploadAccountStatementModal OnClose="CerrarModalCargarEstado"
                                        OnCargado="EstadoCuentaCargado" />
                 </div>
             </div>
@@ -872,7 +872,7 @@
                     <button type="button" class="btn-close" @onclick="CerrarModalCrearGasto"></button>
                 </div>
                 <div class="modal-body">
-                    <CrearGastoDesdeTransaccion Transaccion="transaccionParaGasto"
+                    <CreateExpenseFromTransactionModal Transaccion="transaccionParaGasto"
                                                 OnGastoCreado="GastoCreadoExitosamente"
                                                 OnCancel="CerrarModalCrearGasto"
                                                 FilteredCategory="FilteredCategory" />
@@ -888,7 +888,7 @@
 {
     <ErrorBoundary @ref="conciliarCuotaErrorBoundary">
         <ChildContent>
-            <ConciliarPagoCuotasModal Pago="transaccionParaCuota"
+            <ReconcilePaymentModal Pago="transaccionParaCuota"
                                       CuotasDisponibles="cuotaspendientes"
                                       ErrorExterno="@mensajeError"
                                       OnClose="CerrarModalConciliarCuota"

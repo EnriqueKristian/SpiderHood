@@ -32,8 +32,8 @@
             <div class="card-body">
                 <p>@_incident.Description</p>
                 <div class="row g-3 text-muted small">
-                    <div class="col-md-3"><strong>Tipo:</strong> @_incident.Type</div>
-                    <div class="col-md-3"><strong>Prioridad:</strong> @_incident.Priority</div>
+                    <div class="col-md-3"><strong>Tipo:</strong> @(_incident.TypeName ?? "-")</div>
+                    <div class="col-md-3"><strong>Prioridad:</strong> @(_incident.PriorityName ?? _incident.Priority.ToString())</div>
                     <div class="col-md-3"><strong>Unidad:</strong> @(_incident.UnitName ?? "Área común")</div>
                     <div class="col-md-3"><strong>Reportado por:</strong> @_incident.ReportedByName</div>
                     <div class="col-md-3"><strong>Asignado a:</strong> @(_incident.AssignedToName ?? "-")</div>

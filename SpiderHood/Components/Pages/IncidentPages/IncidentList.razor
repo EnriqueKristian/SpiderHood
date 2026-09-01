@@ -74,8 +74,8 @@
                     {
                         <tr style="cursor:pointer" @onclick="() => VerDetalle(incident.IdIncident)">
                             <td>@incident.Title</td>
-                            <td>@incident.Type</td>
-                            <td><span class="badge @PriorityBadgeClass(incident.Priority)">@incident.Priority</span></td>
+                            <td>@(incident.TypeName ?? "-")</td>
+                            <td><span class="badge @PriorityBadgeClass(incident.Priority)">@(incident.PriorityName ?? incident.Priority.ToString())</span></td>
                             <td><span class="badge @StatusBadgeClass(incident.Status)">@incident.Status</span></td>
                             <td>@(incident.UnitName ?? "Área común")</td>
                             @if (_isStaff)
@@ -121,18 +121,18 @@
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Tipo</label>
                                 <InputSelect class="form-select" @bind-Value="_nuevo.Type">
-                                    @foreach (var type in Enum.GetValues<IncidentType>())
+                                    @foreach (var tipo in _tiposIncidente)
                                     {
-                                        <option value="@type">@type</option>
+                                        <option value="@tipo.Value">@tipo.ShortDescription</option>
                                     }
                                 </InputSelect>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Prioridad</label>
                                 <InputSelect class="form-select" @bind-Value="_nuevo.Priority">
-                                    @foreach (var priority in Enum.GetValues<IncidentPriority>())
+                                    @foreach (var prioridad in _prioridadesIncidente)
                                     {
-                                        <option value="@priority">@priority</option>
+                                        <option value="@prioridad.Value">@prioridad.ShortDescription</option>
                                     }
                                 </InputSelect>
                             </div>
@@ -159,6 +159,13 @@
     private List<Incident> _incidents = new();
     private Incident _nuevo = new();
 
+    // Tipo/Prioridad de Incidente ya no son enums fijos -- salen de la tabla
+    // Parametros (grupos "Tipo Incidente"/"Prioridad Incidente", ver
+    // Database/Scripts/2026-09-02_14_Seed_IncidentTypeAndPriorityParameters.sql),
+    // así un Administrador puede agregar/desactivar valores sin tocar código.
+    private List<Models.Parameter> _tiposIncidente = new();
+    private List<Models.Parameter> _prioridadesIncidente = new();
+
     private List<Incident> IncidentesFiltrados =>
         string.IsNullOrEmpty(_filtroEstado)
             ? _incidents
@@ -170,6 +177,20 @@
         // Junta tiene solo visibilidad (ve todo, igual que Administrador/SysAdmin, pero
         // sin botones de acción -- eso se resuelve en IncidentDetail.razor).
         _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("Junta") || _currentUser.Roles.Contains("SysAdmin");
+
+        await ParameterService.LoadParametersAsync(_currentUser.CurrentBuildingId);
+
+        var idTipoIncidente = ParameterService.ListParameters.FirstOrDefault(p => p.IdParent == 0 && p.ShortDescription == "Tipo Incidente")?.IdTabla;
+        var idPrioridadIncidente = ParameterService.ListParameters.FirstOrDefault(p => p.IdParent == 0 && p.ShortDescription == "Prioridad Incidente")?.IdTabla;
+
+        _tiposIncidente = ParameterService.ListParameters
+            .Where(p => idTipoIncidente.HasValue && p.IdParent == idTipoIncidente.Value)
+            .OrderBy(p => p.Sort)
+            .ToList();
+        _prioridadesIncidente = ParameterService.ListParameters
+            .Where(p => idPrioridadIncidente.HasValue && p.IdParent == idPrioridadIncidente.Value)
+            .OrderBy(p => p.Sort)
+            .ToList();
 
         await CargarAsync();
     }
@@ -193,11 +214,17 @@
         var currentUserBuilding = _currentUser.Buildings
             .FirstOrDefault(b => b.Building?.IdBuilding == _currentUser.CurrentBuildingId);
 
+        // Type/Priority necesitan arrancar en un Value real de la lista cargada --
+        // si quedan en el 0 default de Incident y el usuario nunca toca esos
+        // combos, se guardaría un valor que no matchea ninguna Categoría/Parámetro.
         _nuevo = new Incident
         {
             IdBuilding = _currentUser.CurrentBuildingId,
             ReportedBy = _currentUser.IdUser,
-            IdGroupUnit = _isStaff ? null : currentUserBuilding?.IdGroupUnit
+            IdGroupUnit = _isStaff ? null : currentUserBuilding?.IdGroupUnit,
+            Type = _tiposIncidente.FirstOrDefault()?.Value ?? 0,
+            Priority = _prioridadesIncidente.FirstOrDefault(p => p.ShortDescription == "Media")?.Value
+                ?? _prioridadesIncidente.FirstOrDefault()?.Value ?? 0
         };
         _showModal = true;
     }
@@ -214,11 +241,15 @@
 
     private void VerDetalle(Guid id) => Navigation.NavigateTo($"/incidents/{id}");
 
-    private static string PriorityBadgeClass(IncidentPriority priority) => priority switch
+    // Prioridad ya no es un enum -- es Parameter.Value dentro del grupo
+    // "Prioridad Incidente" (seed: 1=Baja, 2=Media, 3=Alta, 4=Urgente). El
+    // color asume ese orden ascendente de severidad -- si en /parameter se
+    // reordenan los Value de este grupo, este mapeo se desincroniza.
+    private static string PriorityBadgeClass(int priority) => priority switch
     {
-        IncidentPriority.Urgent => "bg-danger",
-        IncidentPriority.High => "bg-warning text-dark",
-        IncidentPriority.Medium => "bg-info text-dark",
+        >= 4 => "bg-danger",
+        3 => "bg-warning text-dark",
+        2 => "bg-info text-dark",
         _ => "bg-secondary"
     };
 

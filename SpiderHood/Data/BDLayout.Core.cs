@@ -98,6 +98,7 @@ namespace SpiderHood.Data
             public const string UPD_MenuItem = "UPD_MenuItem";
             public const string UPD_UserToken = "UPD_UserToken";
             public const string UPD_UserPassword = "UPD_UserPassword";
+            public const string UPD_UserBuildingUnit = "UPD_UserBuildingUnit";
             public const string UPD_Building = "UPD_Building";
             public const string UPD_BudgetDetail = "UPD_BudgetDetail";
             public const string UPD_ServiceReading = "UPD_ServiceReading";
@@ -122,6 +123,7 @@ namespace SpiderHood.Data
 
             // Delete Procedures
             public const string DEL_MenuItemPermission = "DEL_MenuItemPermission";
+            public const string DEL_MenuItem = "DEL_MenuItem";
             public const string DEL_Category = "DEL_Category";
             public const string DEL_BudgetHeader = "DEL_BudgetHeader";
             public const string DEL_BudgetDetail = "DEL_BudgetDetail";
@@ -188,6 +190,8 @@ namespace SpiderHood.Data
             public const string GET_AllUserBuildingRoles = "GET_AllUserBuildingRoles";
             public const string INS_UserBuildingRole = "INS_UserBuildingRole";
             public const string DEL_UserBuildingRole = "DEL_UserBuildingRole";
+            public const string GET_AllBuildingsPublic = "GET_AllBuildingsPublic";
+            public const string UPD_UserBuildingApproval = "UPD_UserBuildingApproval";
             public const string INS_Workflow = "INS_Workflow";
             public const string UPD_Workflow = "UPD_Workflow";
             public const string DEL_Workflow = "DEL_Workflow";

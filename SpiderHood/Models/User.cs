@@ -55,6 +55,9 @@ namespace SpiderHood.Models
         public string ConfirmPassword { get; set; } = string.Empty.ToString();
 
         public string PhoneNumber { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Selecciona un edificio")]
+        public Guid BuildingId { get; set; }
     }
 
     public class UserSession
@@ -88,6 +91,13 @@ namespace SpiderHood.Models
         public string Role { get; set; } = string.Empty; // Admin, Junta, Residente
         public bool IsApproved { get; set; }
         public DateTime? ApprovedAt { get; set; }
+
+        // Unidad (GroupUnit) que le corresponde a este usuario para este edificio+rol —
+        // sólo tiene sentido para Residente/Propietario. Null si nunca se vinculó (o no
+        // aplica, p.ej. Administrador/Junta). Es lo que permite filtrar "mis cuotas" de
+        // Installment (que se identifican por IdGroupUnit, no por usuario) — ver
+        // Mis Recibos/Mis Deudas y Profile > Finanzas.
+        public Guid? IdGroupUnit { get; set; }
     }
 
     public class UserBuildingAssociation
@@ -103,6 +113,8 @@ namespace SpiderHood.Models
         [NotMapped]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public bool RequiresApproval { get; set; }
+        public Guid IdRole { get; set; }
+        public Guid? IdGroupUnit { get; set; }
 
     }
 

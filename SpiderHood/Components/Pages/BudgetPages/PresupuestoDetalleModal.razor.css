@@ -41,6 +41,37 @@
     padding: 0;
 }
 
+/* .modal-header/.modal-title/.btn-close son clases de Bootstrap, pero su
+   layout real (flex, padding, el espacio entre título y la X) sale de
+   variables --bs-modal-* que Bootstrap sólo define dentro de .modal -- la
+   clase que envuelve el modal "oficial" (.modal > .modal-dialog >
+   .modal-content). Este modal usa su propio .modal-overlay/.modal-content
+   a mano (no .modal), así que esas variables nunca existían acá: el header
+   quedaba sin padding ni espaciado, título y botón de cerrar apretados uno
+   contra el otro. Se define el layout explícito en vez de depender de esas
+   variables -- mismo aspecto que ya tienen los modales de Blazor.Bootstrap
+   (ver InstallmentDetailModal) pero sin necesitar la estructura de Bootstrap. */
+.modal-header {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--sh-border);
+}
+
+.modal-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--sh-text-heading);
+}
+
+.modal-header .btn-close {
+    flex-shrink: 0;
+    margin-left: 1rem;
+}
+
 .info-item {
     display: flex;
     gap: 0.5rem;

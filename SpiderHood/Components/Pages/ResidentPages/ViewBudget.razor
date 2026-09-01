@@ -1,0 +1,205 @@
+﻿@page "/view-budget"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Components.Pages.BudgetPages
+@inject IBudgetService BudgetService
+@inject ParameterService ParameterService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Ver Presupuesto - SpiderHood</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="icon-badge">
+            <i class="bi bi-calculator"></i>
+        </div>
+        <h1 class="h3 fw-bold mb-0">Presupuestos</h1>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <input type="text" class="form-control form-control-sm" style="max-width:320px;"
+                   placeholder="Buscar por mes o descripción..."
+                   @bind="_searchTerm" @bind:event="oninput" />
+        </div>
+
+        @if (!_presupuestos.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Todavía no hay presupuestos publicados para este edificio.
+            </div>
+        }
+        else if (!_filtrados.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-search me-2"></i>
+                No se encontraron presupuestos con ese criterio de búsqueda.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Mes</th>
+                            <th>Descripción</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Total</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var presupuesto in _filtrados)
+                        {
+                            <tr>
+                                <td>@presupuesto.Mes</td>
+                                <td>@presupuesto.BudgetName</td>
+                                <td><span class="@TipoBadgeClass(presupuesto)">@TipoBadgeText(presupuesto)</span></td>
+                                <td class="text-end">@presupuesto.Amount.ToString("C2")</td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        @ParameterService.GetChildParameterDescription(45, (int)presupuesto.Status)
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(presupuesto)">
+                                        <i class="bi bi-eye me-1"></i>Ver Detalle
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@if (_mostrarModalDetalle)
+{
+    <!-- El try/catch de VerDetalle sólo cubre la carga de datos -- si el problema está en
+         el RENDER del modal (p.ej. algo puntual de los BudgetDetail de este presupuesto),
+         esa excepción pasa por otro lado y antes no dejaba rastro visible: el clic no hacía
+         "nada" en vez de mostrar un error. ErrorBoundary la atrapa y la muestra en pantalla,
+         mismo patrón que ya usa BankReconciliation.razor para su modal de conciliación. -->
+    <ErrorBoundary @ref="_modalErrorBoundary">
+        <ChildContent>
+            <PresupuestoDetalleModal Presupuesto="_budgetDetail" Categorias="_categorias" OnClose="CerrarModalDetalle" />
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <div class="modal-overlay">
+                <div class="modal-content" style="max-width:600px;">
+                    <div class="modal-header">
+                        <h5 class="modal-title text-danger">Error al mostrar el detalle del presupuesto</h5>
+                        <button type="button" class="btn-close" @onclick="CerrarModalDetalle"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="fw-bold">@ex.GetType().Name: @ex.Message</p>
+                        <pre class="small text-muted" style="white-space: pre-wrap;">@ex.StackTrace</pre>
+                    </div>
+                </div>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
+}
+
+@code {
+    private bool _loading = true;
+    private List<BudgetHeader> _presupuestos = new();
+    private List<Category> _categorias = new();
+    private string _searchTerm = string.Empty;
+    private bool _mostrarModalDetalle;
+    private BudgetHeader? _budgetDetail;
+    private ErrorBoundary? _modalErrorBoundary;
+
+    // Sólo se muestran presupuestos ya finalizados -- uno en borrador (Created/Check) o
+    // Rechazado todavía puede cambiar de monto, no tiene sentido (ni es prudente) que un
+    // residente lo vea antes de que la administración lo cierre.
+    private static readonly BudgetStatus[] EstadosVisibles =
+        { BudgetStatus.Approved, BudgetStatus.Active, BudgetStatus.Closed };
+
+    private IEnumerable<BudgetHeader> _filtrados => _presupuestos.Where(p =>
+        string.IsNullOrWhiteSpace(_searchTerm) ||
+        p.BudgetName.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) ||
+        p.Mes.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (ParameterService.CurrentBuilding != null)
+            {
+                var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
+
+                await ParameterService.LoadParametersAsync(idBuilding);
+                _categorias = await BudgetService.GetCategoriasAsync(idBuilding, true);
+
+                var todos = await BudgetService.GetPresupuestosAsync(idBuilding);
+                _presupuestos = todos.Where(p => EstadosVisibles.Contains(p.Status)).ToList();
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string TipoBadgeClass(BudgetHeader p) => p.BudgetType switch
+    {
+        "Extraordinario" => "badge bg-primary",
+        "Cargos" => "badge bg-danger",
+        _ => "badge bg-secondary-subtle text-secondary-emphasis"
+    };
+
+    private string TipoBadgeText(BudgetHeader p) => p.BudgetType switch
+    {
+        "Extraordinario" => "CE",
+        "Cargos" => "Cargos",
+        _ => "Ordinario"
+    };
+
+    private async Task VerDetalle(BudgetHeader presupuesto)
+    {
+        try
+        {
+            var detalle = await BudgetService.GetPresupuestoByIdAsync(presupuesto.IdBudgetHeader);
+            if (detalle == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "No se encontró el detalle de este presupuesto.");
+                return;
+            }
+
+            // GetPresupuestoByIdAsync no garantiza Details no-nulo en todos los casos --
+            // PresupuestoDetalleModal asume que sí (Presupuesto!.Details!.Where(...)) y
+            // tira NullReferenceException si viene null, lo que en un evento de UI se ve
+            // exactamente como "no pasa nada" (la excepción corta el render a mitad de
+            // camino y no queda ningún mensaje visible en pantalla).
+            detalle.Details ??= new();
+
+            _budgetDetail = detalle;
+            _modalErrorBoundary?.Recover();
+            _mostrarModalDetalle = true;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar el detalle del presupuesto: {ex.Message}");
+        }
+    }
+
+    private void CerrarModalDetalle()
+    {
+        _mostrarModalDetalle = false;
+        _budgetDetail = null;
+    }
+}

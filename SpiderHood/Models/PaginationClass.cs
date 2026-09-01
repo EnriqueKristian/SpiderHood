@@ -516,6 +516,63 @@ namespace SpiderHood.Utilities
         }
     }
 
+    // Paginación/orden para "Mis Recibos" (portal del residente) -- a diferencia de
+    // InstallmentPagination (pensada para el listado admin, que agrupa por unidad/
+    // propietario), acá se ordena/busca por las columnas que ve el residente: el nombre
+    // del recibo ("Recibo <Mes-Año> <DPTO>"), período, vencimiento, montos y estado.
+    public class ReceiptPagination : PaginationClass<Installment>
+    {
+        public ReceiptPagination() : base()
+        {
+            var sortExpressions = new Dictionary<string, Func<Installment, object>>
+            {
+                { "Name", x => $"Recibo {x.Period:yyyy-MM} {x.UnitName}" },
+                { "Period", x => x.Period },
+                { "DueDate", x => x.DueDate },
+                { "Amount", x => x.Amount },
+                { "AmountPaid", x => x.AmountPaid },
+                { "Debt", x => x.Debt },
+                { "Status", x => EstadoOrden(x) }
+            };
+
+            InitializeConfiguration(new Dictionary<string, string>(), sortExpressions, "Period");
+        }
+
+        protected override List<Installment> ApplySearch(List<Installment> data, string searchTerm)
+        {
+            var term = searchTerm.ToLower();
+
+            return data.Where(x =>
+                x.UnitName.ToLower().Contains(term) ||
+                NombreRecibo(x).ToLower().Contains(term) ||
+                x.Period.ToString("MMMM yyyy", new System.Globalization.CultureInfo("es-ES")).ToLower().Contains(term) ||
+                (!string.IsNullOrEmpty(x.Concept) && x.Concept.ToLower().Contains(term)) ||
+                EstadoTexto(x).ToLower().Contains(term)
+            ).ToList();
+        }
+
+        public static string NombreRecibo(Installment x)
+        {
+            var mes = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
+                x.Period.ToString("MMMM", new System.Globalization.CultureInfo("es-ES")));
+            return $"Recibo {mes}-{x.Period.Year} {x.UnitName}";
+        }
+
+        public static string EstadoTexto(Installment x) => x.Status switch
+        {
+            ConcilationType.Conciliada => "pagado",
+            ConcilationType.Parcial => "parcial",
+            _ => x.DueDate.Date < DateTime.Today ? "vencida" : "pendiente de pago"
+        };
+
+        private static int EstadoOrden(Installment x) => x.Status switch
+        {
+            ConcilationType.Conciliada => 0,
+            ConcilationType.Parcial => 1,
+            _ => x.DueDate.Date < DateTime.Today ? 3 : 2
+        };
+    }
+
     public class AccountStatementDetailViewPagination : PaginationClass<AccountStatementDetailView>
     {
         public AccountStatementDetailViewPagination() : base()
@@ -568,7 +625,7 @@ namespace SpiderHood.Utilities
             var term = searchTerm.ToLower();
 
             return data
-                .Where(x => x.Name.ToLower().Contains(term) )
+                .Where(x => x.Name.ToLower().Contains(term))
                 .ToList();
 
         }

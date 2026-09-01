@@ -16,12 +16,16 @@ namespace SpiderHood.Services
         Task<AuthResponse> LoginAsync(LoginModel model);
         Task LogoutAsync();
         Task<UserSession?> GetCurrentUserAsync();
+        Task<Guid?> GetCurrentUnitIdAsync();
         /*Task<UserSession?> GetStoredSessionAsync();*/
         /*UserSession? CurrentUser { get; }
         event Action? OnAuthStateChanged;*/
 
-        // Fixed: Declare as instance method on the interface (not an extension method).
+        // El rol solicitado NO viaja desde afuera: siempre se otorga como "Residente" --
+        // ver el comentario en la implementación. El parámetro se mantiene para no romper
+        // las pantallas existentes, pero se ignora.
         Task<bool> RequestBuildingAccess(Guid buildingId, string role);
+        Task<AuthResult> RegisterSelfServiceAsync(RegisterModel model);
         Task SetCurrentBuilding(Guid? Idbuilding, string role);
         Task<bool> TryApplyDefaultBuildingAsync();
         Task<UserModel> GetUserProfileAsync(Guid userId);
@@ -131,7 +135,8 @@ namespace SpiderHood.Services
 
                         Role = ub.Role,
                         IsApproved = ub.IsApproved,
-                        ApprovedAt = ub.ApprovedAt
+                        ApprovedAt = ub.ApprovedAt,
+                        IdGroupUnit = ub.IdGroupUnit
                     }).ToList();
 
                 // Crear sesión
@@ -176,6 +181,22 @@ namespace SpiderHood.Services
         public async Task<UserSession?> GetCurrentUserAsync()
         {
             return await _authStateProvider.GetCurrentUserAsync();
+        }
+
+        // Resuelve la unidad (GroupUnit) del usuario actual para el edificio+rol con el
+        // que está trabajando ahora mismo — lo usan Mis Recibos/Mis Deudas y Profile >
+        // Finanzas para filtrar "mis" cuotas (Installment.IdGroupUnit) en vez de las de
+        // todo el edificio. Null si el admin todavía no vinculó una unidad a esta
+        // asociación usuario-edificio-rol (ver UserRoles.razor > "Unidad (Residente)").
+        public async Task<Guid?> GetCurrentUnitIdAsync()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null || user.CurrentBuildingId == Guid.Empty)
+                return null;
+
+            return user.Buildings
+                .FirstOrDefault(b => b.Building?.IdBuilding == user.CurrentBuildingId && b.Role == user.Role)
+                ?.IdGroupUnit;
         }
 
         public async Task SetCurrentBuilding(Guid? buildingId, string Role)
@@ -531,12 +552,80 @@ namespace SpiderHood.Services
         private void NotifyAuthStateChanged() =>
             OnAuthStateChanged?.Invoke();
 
-        // Fixed: implement as an instance method to satisfy IAuthService.
-        public Task<bool> RequestBuildingAccess(Guid buildingId, string role)
+        // Un usuario YA logueado pide acceso a OTRO edificio (o a un rol que todavía no
+        // tiene en éste). El rol pedido siempre es "Residente": Administrador/Junta sólo
+        // los otorga un admin desde /Settings/UserRoles, para que nadie se autoasigne un
+        // rol de poder llenando un formulario. @role se ignora a propósito -- se mantiene
+        // en la firma para no romper las pantallas que ya lo llaman.
+        public async Task<bool> RequestBuildingAccess(Guid buildingId, string role)
         {
-            // TODO: Replace with actual request logic (HTTP call, repository, etc.)
-            // This stub returns success so the project compiles and the UI flow can proceed.
-            return Task.FromResult(true);
+            var user = await GetCurrentUserAsync();
+            if (user == null || buildingId == Guid.Empty)
+                return false;
+
+            var existing = await Ec.GetUserBuildingAssociationAsync(user.IdUser);
+            if (existing.Any(a => a.IdBuilding == buildingId && a.Role == "Residente"))
+                return false; // ya tiene una solicitud (o membresía) de Residente en ese edificio
+
+            return await CreatePendingAssociationAsync(user.IdUser, buildingId, "Residente");
+        }
+
+        // Alta pública de cuenta (sin invitación): el visitante elige un edificio y queda
+        // como Residente pendiente de aprobación -- ver AcceptInvitationAsync/Ec.AcceptInvitationAsync
+        // (INS_UserBuildingAssociation), reutilizado acá con IsApproved=false. Igual que en
+        // RequestBuildingAccess, el rol nunca lo elige quien se registra: siempre Residente.
+        public async Task<AuthResult> RegisterSelfServiceAsync(RegisterModel model)
+        {
+            try
+            {
+                var normalizedEmail = model.Email.Trim().ToLowerInvariant();
+
+                var existing = await Ec.GetUsersByEmailAsync(normalizedEmail);
+                if (existing.Any(u => u.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return new AuthResult { Success = false, Message = "Ya existe una cuenta con ese email" };
+                }
+
+                var user = new UserModel
+                {
+                    IdUser = Guid.NewGuid(),
+                    Email = normalizedEmail,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    PhoneNumber = model.PhoneNumber,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                user.PasswordHash = _passwordHasher.HashPassword(user, model.Password);
+
+                await AddNewUserAsync(user);
+                await CreatePendingAssociationAsync(user.IdUser, model.BuildingId, "Residente");
+
+                return new AuthResult
+                {
+                    Success = true,
+                    Message = "Registro exitoso. Tu solicitud quedó pendiente de aprobación por el administrador del edificio.",
+                    User = user
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en RegisterSelfServiceAsync para email: {Email}", model.Email);
+                return new AuthResult { Success = false, Message = "No se pudo completar el registro" };
+            }
+        }
+
+        private async Task<bool> CreatePendingAssociationAsync(Guid idUser, Guid idBuilding, string role)
+        {
+            var association = new UserBuildingAssociation
+            {
+                IdUser = idUser,
+                IdBuilding = idBuilding,
+                Role = role,
+                IsApproved = false,
+                RequestedAt = DateTime.Now
+            };
+            return await Ec.AcceptInvitationAsync(association);
         }
 
         // NOTA: se eliminó DebugPrintUsers() — no se llamaba desde ningún lado y

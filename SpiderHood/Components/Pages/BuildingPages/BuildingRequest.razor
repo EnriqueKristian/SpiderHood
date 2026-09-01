@@ -1,7 +1,9 @@
 ﻿@page "/building-request"
+@rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
 @using SpiderHood.Services
 @inject Services.AuthService AuthService
+@inject Services.IBuildingService BuildingService
 @inject NavigationManager Navigation
 
 <div class="container py-5">
@@ -16,65 +18,88 @@
                 </div>
 
                 <div class="card-body">
-                    @if (currentUser!.Buildings.Any(b => !b.IsApproved) == true)
+                    @if (_loading)
                     {
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            Tienes @currentUser!.Buildings.Count(b => !b.IsApproved)
-                            solicitud(es) pendiente(s) de aprobación.
+                        <div class="text-center p-4">
+                            <div class="spinner-border text-primary" role="status"></div>
                         </div>
                     }
-
-                    <EditForm Model="@request" OnValidSubmit="@SubmitRequest" Formname="buildingRequestForm">
-                        <DataAnnotationsValidator />
-
-                        <div class="mb-3">
-                            <label class="form-label">Edificio</label>
-                            <InputSelect class="form-control" @bind-Value="request.BuildingId">
-                                <option value="">-- Seleccionar edificio --</option>
-                                @foreach (var building in availableBuildings)
-                                {
-                                    <option value="@building.Id">@building.Name</option>
-                                }
-                            </InputSelect>
-                            <ValidationMessage For="@(() => request.BuildingId)" />
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Rol solicitado</label>
-                            <InputSelect class="form-control" @bind-Value="request.Role">
-                                <option value="Residente">Residente</option>
-                                <option value="Junta de Propietarios">Junta de Propietarios</option>
-                                <option value="Administrador">Administrador</option>
-                            </InputSelect>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Mensaje (opcional)</label>
-                            <InputTextArea class="form-control" rows="3" @bind-Value="request.Message"
-                                           placeholder="Explica por qué necesitas acceso..." />
-                        </div>
-
-                        <button type="submit" class="btn btn-primary" disabled="@isLoading">
-                            @if (isLoading)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2"></span>
-                                <span>Enviando...</span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-send me-2"></i>
-                                <span>Enviar Solicitud</span>
-                            }
-                        </button>
-                    </EditForm>
-
-                    @if (successMessage != null)
+                    else if (currentUser == null)
                     {
-                        <div class="alert alert-success mt-3">
-                            <i class="bi bi-check-circle me-2"></i>
-                            @successMessage
-                        </div>
+                        <div class="alert alert-warning">Debés iniciar sesión para solicitar acceso a un edificio.</div>
+                    }
+                    else
+                    {
+                        @if (currentUser.Buildings.Any(b => !b.IsApproved))
+                        {
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Tenés @currentUser.Buildings.Count(b => !b.IsApproved)
+                                solicitud(es) pendiente(s) de aprobación.
+                            </div>
+                        }
+
+                        @if (!availableBuildings.Any())
+                        {
+                            <div class="alert alert-secondary">
+                                Ya tenés una solicitud o membresía como Residente en todos los edificios disponibles.
+                            </div>
+                        }
+                        else
+                        {
+                            <EditForm Model="@request" OnValidSubmit="@SubmitRequest">
+                                <DataAnnotationsValidator />
+
+                                <div class="mb-3">
+                                    <label class="form-label">Edificio</label>
+                                    <InputSelect class="form-control" @bind-Value="request.BuildingId">
+                                        <option value="">-- Seleccionar edificio --</option>
+                                        @foreach (var building in availableBuildings)
+                                        {
+                                            <option value="@building.IdBuilding">@building.Name</option>
+                                        }
+                                    </InputSelect>
+                                    <ValidationMessage For="@(() => request.BuildingId)" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Rol solicitado</label>
+                                    <input class="form-control" value="Residente" disabled />
+                                    <small class="text-muted">
+                                        Sólo se puede solicitar acceso como Residente. Otros roles (Administrador,
+                                        Junta) los otorga manualmente el administrador del edificio.
+                                    </small>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                                    @if (isLoading)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                        <span>Enviando...</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-send me-2"></i>
+                                        <span>Enviar Solicitud</span>
+                                    }
+                                </button>
+                            </EditForm>
+                        }
+
+                        @if (!string.IsNullOrEmpty(successMessage))
+                        {
+                            <div class="alert alert-success mt-3">
+                                <i class="bi bi-check-circle me-2"></i>
+                                @successMessage
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger mt-3">
+                                <i class="bi bi-exclamation-circle me-2"></i>
+                                @errorMessage
+                            </div>
+                        }
                     }
                 </div>
             </div>
@@ -84,42 +109,59 @@
 
 @code {
     private BuildingRequestModel request = new();
-    private List<BuildingInfo> availableBuildings = new();
+    private List<Models.Building> availableBuildings = new();
     private bool isLoading;
+    private bool _loading = true;
     private string successMessage = string.Empty;
-    private Models.UserSession? currentUser = new();
+    private string errorMessage = string.Empty;
+    private Models.UserSession? currentUser;
 
     protected override async Task OnInitializedAsync()
     {
-        currentUser = await AuthService.GetCurrentUserAsync();
-        if (currentUser == null) return;
+        try
+        {
+            currentUser = await AuthService.GetCurrentUserAsync();
+            if (currentUser == null) return;
 
-        await LoadAvailableBuildings();
+            await LoadAvailableBuildings();
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     private async Task LoadAvailableBuildings()
     {
-        // Cargar edificios disponibles (no asociados al usuario)
-        // Implementar según tu lógica de negocio
-        availableBuildings = new List<BuildingInfo>
-        {
-            new() { Id = Guid.NewGuid(), Name = "Torre del Sol" },
-            new() { Id = Guid.NewGuid(), Name = "Edificio Marina" },
-            new() { Id = Guid.NewGuid(), Name = "Complejo Panorama" }
-        };
+        var allBuildings = await BuildingService.GetAllBuildingsPublicAsync();
+
+        // No tiene sentido ofrecer un edificio donde ya sos Residente (aprobado o pendiente).
+        var yaSolicitados = currentUser!.Buildings
+            .Where(b => b.Role == "Residente" && b.Building != null)
+            .Select(b => b.Building!.IdBuilding)
+            .ToHashSet();
+
+        availableBuildings = allBuildings.Where(b => !yaSolicitados.Contains(b.IdBuilding)).ToList();
     }
 
     private async Task SubmitRequest()
     {
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
         try
         {
             isLoading = true;
-            var result = await AuthService.RequestBuildingAccess(request.BuildingId, request.Role);
+            var result = await AuthService.RequestBuildingAccess(request.BuildingId, "Residente");
 
             if (result)
             {
-                successMessage = "Solicitud enviada correctamente. Espera la aprobación del administrador.";
+                successMessage = "Solicitud enviada correctamente. Esperá la aprobación del administrador.";
                 request = new();
+                await LoadAvailableBuildings();
+            }
+            else
+            {
+                errorMessage = "No se pudo enviar la solicitud (puede que ya tengas una para ese edificio).";
             }
         }
         finally
@@ -132,16 +174,5 @@
     {
         [Required(ErrorMessage = "Selecciona un edificio")]
         public Guid BuildingId { get; set; }
-
-        [Required(ErrorMessage = "Selecciona un rol")]
-        public string Role { get; set; } = "Residente";
-
-        public string Message { get; set; } = string.Empty;
-    }
-
-    private class BuildingInfo
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; } = string.Empty;
     }
 }

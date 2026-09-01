@@ -14,6 +14,7 @@ namespace SpiderHood.Services
         Task AddExonerationAsync(Models.Exoneration newexoneartion);
         Task DeleteExonerationAsync(Models.Exoneration newexoneartion);
         Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner);
+        Task<List<Models.Building>> GetAllBuildingsPublicAsync();
         /*Task<List<Models.BuildingConfiguration>> GetBuildingConfigurationAsync(Guid IdBuilding);
         Task<List<Models.BankAccount>> GetBankAccountsByBuildingAsync(Guid IdBuilding);
         Task<List<Models.Contact>> GetAllContactsAsync(Guid IdBuildingConfiguration);
@@ -67,6 +68,11 @@ namespace SpiderHood.Services
         public async Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner)
         {
             return await ec.GetAllBuildingByOwnerAsync(IdOwner);
+        }
+
+        public async Task<List<Models.Building>> GetAllBuildingsPublicAsync()
+        {
+            return await ec.GetAllBuildingsPublicAsync();
         }
 
         private async Task<List<Models.BuildingConfiguration>> GetBuildingConfigurationAsync(Guid IdBuilding)

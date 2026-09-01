@@ -5,8 +5,8 @@
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
 @inject Services.IPreferenceService PreferenceService
-@*@inject Services.ISessionService SessionService
-@inject Services.IFinancialService FinancialService*@
+@inject Services.IInstallmentService InstallmentService
+@*@inject Services.ISessionService SessionService*@
 @inject NavigationManager Navigation
 @inject ILogger<Profile> Logger
 @inject IJSRuntime JSRuntime
@@ -163,11 +163,9 @@
     private ProfileFormModel _profileForm = new();
     private ChangePasswordFormModel _passwordForm = new();
     private Services.Preferences _preferences = new();
-    private BuildingRequestModel _buildingRequest = new();
 
     // Datos adicionales
     private List<PaymentHistory> _recentPayments = [];
-    private List<Building> _availableBuildings = [];
     private decimal _accountBalance;
     private decimal _outstandingDebt;
     private DateTime _nextDueDate;
@@ -239,21 +237,50 @@
     {
         try
         {
-            // Cargar datos financieros
-            /*var financialSummary = await FinancialService.GetSummaryAsync(_user.IdUser);
-            _accountBalance = financialSummary.Balance;
-            _outstandingDebt = financialSummary.OutstandingDebt;
-            _nextDueDate = financialSummary.NextDueDate;*/
-            //_recentPayments = financialSummary.RecentPayments;
+            // Cargar datos financieros — misma fuente que Mis Recibos/Mis Deudas
+            // (Installment/InstallmentPaid filtrados por la unidad del residente), no un
+            // resumen aparte. Sólo aplica si el usuario tiene una unidad vinculada a su
+            // rol actual (ver UserRoles.razor > "Unidad (Residente)"); si no, las
+            // tarjetas quedan en 0 sin generar error — no todo usuario es residente.
+            var idUnit = await AuthService.GetCurrentUnitIdAsync();
+            if (idUnit != null && _session != null && _session.CurrentBuildingId != Guid.Empty)
+            {
+                var idBuilding = _session.CurrentBuildingId;
+                var misCuotas = (await InstallmentService.GetPendingInstallmentsAsync(idBuilding))
+                    .Where(c => c.IdGroupUnit == idUnit)
+                    .ToList();
+
+                _outstandingDebt = misCuotas.Sum(c => c.Debt);
+                _accountBalance = misCuotas.Sum(c => c.AmountPaid);
+                _nextDueDate = misCuotas.Where(c => c.Debt > 0).OrderBy(c => c.DueDate)
+                    .Select(c => (DateTime?)c.DueDate).FirstOrDefault() ?? default;
+
+                var buildingName = _session.Buildings
+                    .FirstOrDefault(b => b.Building?.IdBuilding == idBuilding)?.Building?.Name ?? string.Empty;
+                var cuotasPorId = misCuotas.ToDictionary(c => c.IdInstallment);
+
+                _recentPayments = (await InstallmentService.GetInstallmentsPaidAsync(idBuilding))
+                    .Where(p => cuotasPorId.ContainsKey(p.IdInstallment))
+                    .OrderByDescending(p => p.PaymentDate)
+                    .Take(5)
+                    .Select(p => new PaymentHistory
+                    {
+                        Date = p.PaymentDate,
+                        Concept = string.IsNullOrWhiteSpace(cuotasPorId[p.IdInstallment].Concept)
+                            ? cuotasPorId[p.IdInstallment].Type.ToString()
+                            : cuotasPorId[p.IdInstallment].Concept,
+                        BuildingName = buildingName,
+                        Amount = p.Amount,
+                        Status = p.IsPartialPayment ? "Parcial" : "Pagado"
+                    })
+                    .ToList();
+            }
 
             // Cargar preferencias (localStorage — ver PreferenceService). Durante el
             // prerender estático esto devuelve los valores por defecto porque todavía
             // no hay JS interop disponible; una vez conectado el circuito, este mismo
             // método vuelve a correr (ver OnAfterRenderAsync) y trae los reales.
             _preferences = await PreferenceService.GetPreferencesAsync(_user!.IdUser);
-
-            // Cargar edificios disponibles (para solicitar acceso)
-            _availableBuildings = new List<Building>(); //await AuthService.GetAvailableBuildingsAsync();
 
             // Verificar estado 2FA
             _is2FAEnabled = true; //await AuthService.Is2FAEnabledAsync(_user.IdUser);
@@ -540,59 +567,14 @@
                 <div class="card-header bg-primary text-white">
                     <i class="bi bi-plus-circle me-2"></i>Solicitar Acceso a Edificio
                 </div>
-                <div class="card-body">
-                    <EditForm Model="@_buildingRequest" OnValidSubmit="@RequestBuildingAccess">
-                        <DataAnnotationsValidator />
-
-                        <div class="mb-3">
-                            <label for="buildingSearch" class="form-label">Buscar edificio</label>
-                            <InputText id="buildingSearch" class="form-control" @bind-Value="_buildingRequest.SearchTerm"
-                                       placeholder="Nombre o dirección..." />
-                            <small class="text-muted">Escribe al menos 3 caracteres para buscar.</small>
-                        </div>
-
-                        @if (_buildingRequest.SearchTerm?.Length >= 3)
-                        {
-                            <div class="mb-3">
-                                <label class="form-label">Resultados</label>
-                                @foreach (var building in _availableBuildings
-                                    .Where(b => b.Name.Contains(_buildingRequest.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
-                                                b.Name.Contains(_buildingRequest.SearchTerm, StringComparison.OrdinalIgnoreCase)))
-                                {
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" />
-                                        <label class="form-check-label">
-                                            <strong>@building.Name</strong>
-                                            <small class="d-block text-muted">@building.Name</small>
-                                        </label>
-                                    </div>
-                                }
-                            </div>
-                        }
-
-                        <div class="mb-3">
-                            <label for="role" class="form-label">Rol solicitado</label>
-                            <InputSelect id="role" class="form-select" @bind-Value="_buildingRequest.RequestedRole">
-                                <option value="Residente">Residente</option>
-                                <option value="Junta">Junta</option>
-                                <option value="Administrador">Administrador</option>
-                            </InputSelect>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="message" class="form-label">Mensaje (opcional)</label>
-                            <InputTextArea id="message" class="form-control" @bind-Value="_buildingRequest.Message"
-                                           rows="3" placeholder="Cuéntanos por qué necesitas acceso..." />
-                        </div>
-
-                        <button type="submit" class="btn btn-primary" disabled="@_savingBuilding">
-                            @if (_savingBuilding)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2"></span>
-                            }
-                            Enviar Solicitud
-                        </button>
-                    </EditForm>
+                <div class="card-body text-center">
+                    <p class="text-muted">
+                        ¿Necesitás acceso a otro edificio como Residente? Enviá una solicitud;
+                        el administrador del edificio la revisa y aprueba.
+                    </p>
+                    <a href="/building-request" class="btn btn-primary">
+                        <i class="bi bi-send me-2"></i>Solicitar Acceso a Edificio
+                    </a>
                 </div>
             </div>
         </div>
@@ -609,8 +591,8 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <div class="p-3 bg-light rounded">
-                                <small class="text-muted">Saldo Actual</small>
-                                <h5 class="mb-0 @(_accountBalance >= 0 ? "text-success" : "text-danger")">
+                                <small class="text-muted">Total Pagado</small>
+                                <h5 class="mb-0 text-success">
                                     @_accountBalance.ToString("C")
                                 </h5>
                             </div>
@@ -626,7 +608,9 @@
                         <div class="col-md-4">
                             <div class="p-3 bg-light rounded">
                                 <small class="text-muted">Próximo Vencimiento</small>
-                                <h5 class="mb-0">@_nextDueDate.ToString("dd/MM/yyyy")</h5>
+                                <h5 class="mb-0">
+                                    @(_nextDueDate == default ? "Sin pendientes" : _nextDueDate.ToString("dd/MM/yyyy"))
+                                </h5>
                             </div>
                         </div>
                     </div>
@@ -912,49 +896,6 @@
         }
     }
 
-    private async Task RequestBuildingAccess()
-    {
-        if (_user == null) return;
-
-        try
-        {
-            _savingBuilding = true;
-            ClearNotification();
-
-            /*var result = await AuthService.RequestBuildingAccessAsync(
-                _user.IdUser,
-                _buildingRequest.SelectedBuildingId,
-                _buildingRequest.RequestedRole,
-                _buildingRequest.Message
-            );*/
-            var result = new AuthResult { Success = true }; // Simulación de resultado exitoso
-
-            if (result.Success)
-            {
-                _notificationMessage = "Solicitud enviada exitosamente. Un administrador revisará tu petición.";
-                _notificationType = "success";
-                _buildingRequest = new();
-                Logger.LogInformation("Solicitud de acceso enviada por usuario {UserId} para edificio {BuildingId}",
-                    _user.IdUser, _buildingRequest.SelectedBuildingId);
-            }
-            else
-            {
-                _notificationMessage = result.Message;
-                _notificationType = "danger";
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error al solicitar acceso para usuario {UserId}", _user.IdUser);
-            _notificationMessage = "Error al enviar la solicitud. Por favor, intenta de nuevo.";
-            _notificationType = "danger";
-        }
-        finally
-        {
-            _savingBuilding = false;
-        }
-    }
-
     private async Task SavePreferences()
     {
         if (_user == null) return;
@@ -1093,7 +1034,7 @@
     }
 
     // Métodos placeholder para acciones adicionales
-    private void ViewFullHistory() => Navigation.NavigateTo("/payments");
+    private void ViewFullHistory() => Navigation.NavigateTo("/MyReceipts");
     private void ViewFullAccessLog() => Navigation.NavigateTo("/access-log");
 
     // =========================================================
@@ -1128,15 +1069,6 @@
         [Required(ErrorMessage = "Debes confirmar la nueva contraseña")]
         [Compare(nameof(NewPassword), ErrorMessage = "Las contraseñas no coinciden")]
         public string ConfirmNewPassword { get; set; } = string.Empty;
-    }
-
-    private class BuildingRequestModel
-    {
-        public string SearchTerm { get; set; } = string.Empty;
-        public Guid SelectedBuildingId { get; set; }
-        [Required(ErrorMessage = "Selecciona un rol")]
-        public string RequestedRole { get; set; } = "Residente";
-        public string Message { get; set; } = string.Empty;
     }
 
     private class PaymentHistory

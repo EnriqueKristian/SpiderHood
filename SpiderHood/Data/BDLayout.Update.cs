@@ -477,7 +477,7 @@ namespace SpiderHood.Data
                     item.IdCalendarItem,
                     item.Title,
                     item.Description,
-                    (object?)item.Category?.ToString(),
+                    (object?)item.IdCategory,
                     item.StartDate,
                     (object?)item.EndDate,
                     item.Location,

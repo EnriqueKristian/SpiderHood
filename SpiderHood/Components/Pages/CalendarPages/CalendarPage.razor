@@ -3,6 +3,7 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject ICalendarService CalendarService
+@inject ICategoryService CategoryService
 @inject SpiderHood.Services.AuthService AuthService
 
 <PageTitle>Calendario</PageTitle>
@@ -78,10 +79,11 @@
             <button class="btn btn-sm @(_categoryFilter == "Event" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => _categoryFilter = "Event"'>
                 <i class="bi bi-calendar-star me-1"></i>Eventos
             </button>
-            @foreach (var cat in Enum.GetValues<MaintenanceCategory>())
+            @foreach (var cat in _categories)
             {
-                <button class="btn btn-sm @(_categoryFilter == cat.ToString() ? "btn-primary" : "btn-outline-secondary")" @onclick="() => _categoryFilter = cat.ToString()">
-                    <i class="bi @CategoryIcon(cat) me-1"></i>@CategoryLabel(cat)
+                var catId = cat.IdCategory.ToString();
+                <button class="btn btn-sm @(_categoryFilter == catId ? "btn-primary" : "btn-outline-secondary")" @onclick="() => _categoryFilter = catId">
+                    <i class="@cat.Icon me-1"></i>@cat.Description
                 </button>
             }
         </div>
@@ -182,7 +184,7 @@
                                 }
                                 else
                                 {
-                                    <span><i class="bi @CategoryIcon(item.Category) me-1"></i>@(item.Category.HasValue ? CategoryLabel(item.Category.Value) : "General")</span>
+                                    <span><i class="@(string.IsNullOrWhiteSpace(item.CategoryIcon) ? "bi bi-tools" : item.CategoryIcon) me-1"></i>@(string.IsNullOrWhiteSpace(item.CategoryName) ? "Sin categoría" : item.CategoryName)</span>
                                 }
                             </td>
                             <td>@item.Title</td>
@@ -260,11 +262,11 @@
                         {
                             <div class="mb-3">
                                 <label class="form-label">Categoría</label>
-                                <InputSelect class="form-select" @bind-Value="_editing.Category">
+                                <InputSelect class="form-select" @bind-Value="_editing.IdCategory">
                                     <option value="">-- Sin categoría --</option>
-                                    @foreach (var cat in Enum.GetValues<MaintenanceCategory>())
+                                    @foreach (var cat in _categories)
                                     {
-                                        <option value="@cat">@CategoryLabel(cat)</option>
+                                        <option value="@cat.IdCategory">@cat.Description</option>
                                     }
                                 </InputSelect>
                             </div>
@@ -386,6 +388,7 @@
     private string _categoryFilter = string.Empty;
     private DateTime _calendarMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
     private List<CalendarItem> _items = new();
+    private List<Category> _categories = new();
 
     private bool _showModal;
     private bool _isEditMode;
@@ -397,7 +400,7 @@
             ? _items
             : _categoryFilter == "Event"
                 ? _items.Where(i => i.Type == CalendarItemType.Event).ToList()
-                : _items.Where(i => i.Type == CalendarItemType.Maintenance && i.Category?.ToString() == _categoryFilter).ToList();
+                : _items.Where(i => i.Type == CalendarItemType.Maintenance && i.IdCategory?.ToString() == _categoryFilter).ToList();
 
     private int ProgramadosCount => _items.Count(i => i.Status == CalendarItemStatus.Scheduled);
     private int CompletadosCount => _items.Count(i => i.Status == CalendarItemStatus.Completed);
@@ -412,6 +415,7 @@
         _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
         _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("Junta") || _currentUser.Roles.Contains("SysAdmin");
 
+        _categories = await CategoryService.GetCategoriesAsync(_currentUser.CurrentBuildingId);
         await CargarAsync();
     }
 
@@ -473,7 +477,7 @@
             Title = item.Title,
             Description = item.Description,
             Type = item.Type,
-            Category = item.Category,
+            IdCategory = item.IdCategory,
             StartDate = item.StartDate,
             EndDate = item.EndDate,
             Location = item.Location,
@@ -537,30 +541,6 @@
         _pendingDelete = null;
         await CargarAsync();
     }
-
-    private static string CategoryLabel(MaintenanceCategory c) => c switch
-    {
-        MaintenanceCategory.Elevator => "Ascensor",
-        MaintenanceCategory.Pumps => "Bombas",
-        MaintenanceCategory.Cleaning => "Limpieza",
-        MaintenanceCategory.Gardening => "Jardinería",
-        MaintenanceCategory.Security => "Seguridad",
-        MaintenanceCategory.Electrical => "Eléctrico",
-        MaintenanceCategory.Plumbing => "Plomería",
-        _ => "General"
-    };
-
-    private static string CategoryIcon(MaintenanceCategory? c) => c switch
-    {
-        MaintenanceCategory.Elevator => "bi-arrow-down-up",
-        MaintenanceCategory.Pumps => "bi-gear-fill",
-        MaintenanceCategory.Cleaning => "bi-stars",
-        MaintenanceCategory.Gardening => "bi-tree-fill",
-        MaintenanceCategory.Security => "bi-shield-lock-fill",
-        MaintenanceCategory.Electrical => "bi-lightning-charge-fill",
-        MaintenanceCategory.Plumbing => "bi-droplet-fill",
-        _ => "bi-tools"
-    };
 
     private static string StatusLabel(CalendarItemStatus s) => s switch
     {

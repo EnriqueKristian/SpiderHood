@@ -793,7 +793,7 @@ namespace SpiderHood.Data
                     item.Title,
                     item.Description,
                     item.Type.ToString(),
-                    (object?)item.Category?.ToString(),
+                    (object?)item.IdCategory,
                     item.StartDate,
                     (object?)item.EndDate,
                     item.Location,

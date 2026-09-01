@@ -92,7 +92,6 @@ namespace SpiderHood.Data
             {
                 entity.HasNoKey(); // If SP doesn't return a primary key
                 entity.Property(c => c.Type).HasConversion<string>();
-                entity.Property(c => c.Category).HasConversion<string>();
                 entity.Property(c => c.Status).HasConversion<string>();
                 entity.Property(c => c.Recurrence).HasConversion<string>();
             });

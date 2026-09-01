@@ -98,7 +98,7 @@ namespace SpiderHood.Services
                     Title = template.Title,
                     Description = template.Description,
                     Type = template.Type,
-                    Category = template.Category,
+                    IdCategory = template.IdCategory,
                     StartDate = currentStart,
                     EndDate = duration.HasValue ? currentStart + duration.Value : null,
                     Location = template.Location,

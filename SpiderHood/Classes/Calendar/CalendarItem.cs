@@ -19,7 +19,17 @@ namespace SpiderHood.Models
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public CalendarItemType Type { get; set; } = CalendarItemType.Maintenance;
-        public MaintenanceCategory? Category { get; set; }
+
+        // Categoría real del edificio (tabla Category, la misma que usan Gastos/
+        // Presupuesto -- Icon/Color ya vienen configurados ahí, no hace falta un
+        // catálogo propio para Mantenimiento). Solo aplica a Type = Maintenance.
+        // Name/Icon/Color se traen por JOIN en GET_CalendarItems* -- no son
+        // columnas propias de CalendarItem.
+        public Guid? IdCategory { get; set; }
+        public string? CategoryName { get; set; }
+        public string? CategoryIcon { get; set; }
+        public string? CategoryColor { get; set; }
+
         public DateTime StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public string Location { get; set; } = string.Empty;

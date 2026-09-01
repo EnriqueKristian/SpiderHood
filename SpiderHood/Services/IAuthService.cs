@@ -28,6 +28,10 @@ namespace SpiderHood.Services
         Task<AuthResult> RegisterSelfServiceAsync(RegisterModel model);
         Task SetCurrentBuilding(Guid? Idbuilding, string role);
         Task<bool> TryApplyDefaultBuildingAsync();
+
+        // "Ver como" -- sólo para SysAdmin, ver UserSession.IsViewingAs.
+        Task<bool> StartViewAsAsync(Guid buildingId, string role);
+        Task StopViewAsAsync();
         Task<UserModel> GetUserProfileAsync(Guid userId);
         Task<AuthResult> UpdateProfileAsync(Guid userId, string firstName, string lastName, string phoneNumber);
         Task<AuthResult> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
@@ -139,6 +143,15 @@ namespace SpiderHood.Services
                         IdGroupUnit = ub.IdGroupUnit
                     }).ToList();
 
+                // SysAdmin también se reconoce de forma GLOBAL, vía UserRole (usuario↔rol,
+                // sin ningún edificio) -- así el superusuario no necesita depender de
+                // ninguna fila en UserBuildingAssociation. Ver GrantSysAdminAccessToAllBuildingsAsync.
+                var rolGlobal = await Ec.GetRoleByUserIdAsync(user.IdUser);
+                var esSysAdminGlobal = rolGlobal?.RoleName == "SysAdmin";
+
+                await GrantSysAdminAccessToAllBuildingsAsync(buildings, esSysAdminGlobal);
+                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings, esSysAdminGlobal);
+
                 // Crear sesión
                 var session = (new UserSession
                 {
@@ -147,11 +160,11 @@ namespace SpiderHood.Services
                     FullName = $"{user.FirstName} {user.LastName}",
                     Roles = buildings.Select(b => b.Role).Distinct().ToList(),
                     Buildings = buildings,
-                    CurrentBuildingId = GetDefaultBuilding(buildings),
+                    CurrentBuildingId = defaultBuildingId,
                     RememberMe = model.RememberMe,
                     SessionStart = DateTime.UtcNow,
                     SessionExpiry = DateTime.UtcNow.AddHours(8),
-                    Role = buildings.Select(b => b.Role).Distinct().FirstOrDefault()!,
+                    Role = defaultRole,
                 });
 
                 _logger.LogWarning($"✅ Usuario autenticado: {model.Email}");
@@ -224,6 +237,60 @@ namespace SpiderHood.Services
                     await _authStateProvider.MarkUserAsAuthenticated(user);
                 }
             }
+        }
+
+        // "Ver como": sólo un SysAdmin puede activarlo, y sólo para simular un rol
+        // (Administrador/Junta/Residente) sobre un edificio real -- nunca otro SysAdmin,
+        // no tiene sentido. No crea ni modifica ninguna fila en UserBuildingAssociation:
+        // reemplaza Buildings/Role/CurrentBuildingId en memoria, para esta sesión
+        // únicamente, guardando antes la identidad real para poder restaurarla
+        // (StopViewAsAsync). Es de solo lectura -- ver PermissionService.GetUserPermissionsAsync.
+        public async Task<bool> StartViewAsAsync(Guid buildingId, string role)
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null || !user.Roles.Contains("SysAdmin") || role == "SysAdmin")
+                return false;
+
+            var building = user.Buildings.FirstOrDefault(b => b.Building?.IdBuilding == buildingId)?.Building;
+            if (building == null)
+                return false;
+
+            if (!user.IsViewingAs)
+            {
+                user.RealRole = user.Role;
+                user.RealCurrentBuildingId = user.CurrentBuildingId;
+                user.RealBuildings = user.Buildings;
+            }
+
+            user.IsViewingAs = true;
+            user.Role = role;
+            user.CurrentBuildingId = buildingId;
+            user.Buildings = new List<UserBuilding>
+            {
+                new() { Building = building, Role = role, IsApproved = true }
+            };
+
+            await _authStateProvider.MarkUserAsAuthenticated(user);
+            NotifyAuthStateChanged();
+            return true;
+        }
+
+        public async Task StopViewAsAsync()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null || !user.IsViewingAs)
+                return;
+
+            user.IsViewingAs = false;
+            user.Role = user.RealRole ?? "SysAdmin";
+            user.CurrentBuildingId = user.RealCurrentBuildingId ?? Guid.Empty;
+            user.Buildings = user.RealBuildings ?? user.Buildings;
+            user.RealRole = null;
+            user.RealCurrentBuildingId = null;
+            user.RealBuildings = null;
+
+            await _authStateProvider.MarkUserAsAuthenticated(user);
+            NotifyAuthStateChanged();
         }
 
         // Se usa al arrancar el dashboard cuando la sesión no trae un edificio actual
@@ -540,13 +607,63 @@ namespace SpiderHood.Services
             return CryptographicOperations.FixedTimeEquals(a, b);
         }
 
-        private Guid GetDefaultBuilding(List<UserBuilding> buildings)
+        // SysAdmin nunca tiene que elegir con qué rol entra -- entra siempre como
+        // SysAdmin, al primer edificio disponible (después puede cambiar de edificio
+        // con el selector del header). Sin este atajo, alguien con SysAdmin Y además
+        // Administrador/Junta sobre el mismo edificio (caso real: admin@spiderhood.com)
+        // queda con la misma ambigüedad de rol que cualquier otro usuario y termina en
+        // /select-building -- lo cual no tiene sentido para el superusuario.
+        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings, bool esSysAdminGlobal)
         {
+            var sysAdmin = buildings.FirstOrDefault(b => b.Role == "SysAdmin");
+            if (sysAdmin != null)
+                return (sysAdmin.Building!.IdBuilding, "SysAdmin");
+
+            // Reconocido como SysAdmin vía UserRole (sin ninguna fila en
+            // UserBuildingAssociation): GrantSysAdminAccessToAllBuildingsAsync ya le agregó
+            // todos los edificios del sistema como sintéticos -- se entra al primero.
+            if (esSysAdminGlobal && buildings.Count > 0)
+                return (buildings[0].Building!.IdBuilding, "SysAdmin");
+
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)
-                return approved[0].Building!.IdBuilding;
+                return (approved[0].Building!.IdBuilding, approved[0].Role);
 
-            return Guid.Empty;
+            return (Guid.Empty, buildings.Select(b => b.Role).Distinct().FirstOrDefault() ?? string.Empty);
+        }
+
+        // SysAdmin es el administrador general del sistema: no debería depender de estar
+        // vinculado (ni mucho menos aprobado) a un edificio puntual para poder entrar --
+        // tiene privilegio sobre todos. Se lo reconoce por CUALQUIERA de estas dos señales:
+        // ya tiene el rol SysAdmin en algún edificio (UserBuildingAssociation), o tiene el
+        // rol SysAdmin de forma global (UserRole, sin edificio -- ver
+        // Database/Migrations/*_SysAdminGlobal.sql). Con cualquiera de las dos, se le
+        // completan como aprobados TODOS los edificios del sistema.
+        private async Task GrantSysAdminAccessToAllBuildingsAsync(List<UserBuilding> buildings, bool esSysAdminGlobal)
+        {
+            if (!esSysAdminGlobal && !buildings.Any(b => b.Role == "SysAdmin"))
+                return;
+
+            foreach (var b in buildings.Where(b => b.Role == "SysAdmin"))
+            {
+                b.IsApproved = true;
+            }
+
+            var todosLosEdificios = await Ec.GetAllBuildingsPublicAsync();
+            var yaCubiertos = buildings
+                .Where(b => b.Role == "SysAdmin")
+                .Select(b => b.Building?.IdBuilding)
+                .ToHashSet();
+
+            foreach (var edificio in todosLosEdificios.Where(e => !yaCubiertos.Contains(e.IdBuilding)))
+            {
+                buildings.Add(new UserBuilding
+                {
+                    Building = edificio,
+                    Role = "SysAdmin",
+                    IsApproved = true
+                });
+            }
         }
 
         private void NotifyAuthStateChanged() =>

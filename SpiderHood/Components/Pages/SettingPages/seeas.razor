@@ -1,0 +1,161 @@
+﻿@page "/seeas"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@inject Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Ver como - SpiderHood</PageTitle>
+
+@if (!_loading && !_esSysAdmin)
+{
+    <div class="container-fluid">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            Esta función es sólo para el administrador general del sistema.
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="bi bi-eye me-2"></i>Ver como</h4>
+            </div>
+            <div class="card-body">
+                @if (_loading)
+                {
+                    <div class="text-center p-5"><div class="spinner-border text-primary"></div></div>
+                }
+                else
+                {
+                    <p class="text-muted">
+                        Navegá la app exactamente como la vería un Administrador, Junta o Residente
+                        de un edificio puntual — sin crear ni usar ninguna cuenta de prueba. Es de
+                        <strong>sólo lectura</strong>: mientras estés viendo como otro rol, cualquier
+                        pantalla que dependa de un permiso (crear, editar, aprobar, eliminar) va a
+                        aparecer como sin acceso, aunque ese rol normalmente sí lo tenga.
+                    </p>
+
+                    @if (_currentUser?.IsViewingAs == true)
+                    {
+                        <div class="alert alert-info d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi bi-eye-fill me-2"></i>
+                                Ahora mismo estás viendo como <strong>@_currentUser.Role</strong> en
+                                <strong>@_edificioActual</strong>.
+                            </span>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="Salir">
+                                <i class="bi bi-x-circle me-1"></i>Salir de Ver Como
+                            </button>
+                        </div>
+                    }
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Edificio</label>
+                            <select class="form-select" @bind="_buildingId">
+                                <option value="">-- Seleccionar edificio --</option>
+                                @foreach (var b in _edificios)
+                                {
+                                    <option value="@b.IdBuilding">@b.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Rol</label>
+                            <select class="form-select" @bind="_role">
+                                <option value="">-- Seleccionar rol --</option>
+                                <option value="Administrador">Administrador</option>
+                                <option value="Junta">Junta</option>
+                                <option value="Residente">Residente</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_error))
+                    {
+                        <div class="alert alert-danger mt-3">@_error</div>
+                    }
+
+                    <button class="btn btn-primary mt-4" disabled="@(string.IsNullOrEmpty(_buildingId) || string.IsNullOrEmpty(_role))" @onclick="Entrar">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>Entrar
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _esSysAdmin;
+    private UserSession? _currentUser;
+    private List<Building> _edificios = new();
+    private string _buildingId = string.Empty;
+    private string _role = string.Empty;
+    private string _error = string.Empty;
+    private string _edificioActual = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync();
+
+        // Mientras ya está simulando otro rol, Roles sólo tiene ese rol simulado (ver
+        // StartViewAsAsync) -- IsViewingAs es la señal de que en el fondo sigue siendo
+        // el SysAdmin real, para no bloquearle volver acá a cambiar de edificio/rol.
+        _esSysAdmin = _currentUser?.IsViewingAs == true || _currentUser?.Roles.Contains("SysAdmin") == true;
+
+        if (_esSysAdmin)
+        {
+            // Si ya está en modo "Ver como", la lista real de edificios está guardada en
+            // RealBuildings (Buildings, mientras tanto, sólo tiene la fila simulada).
+            var buildings = _currentUser!.IsViewingAs ? _currentUser.RealBuildings : _currentUser.Buildings;
+            _edificios = (buildings ?? new())
+                .Where(b => b.Building != null)
+                .Select(b => b.Building!)
+                .DistinctBy(b => b.IdBuilding)
+                .OrderBy(b => b.Name)
+                .ToList();
+
+            if (_currentUser.IsViewingAs)
+            {
+                _edificioActual = _edificios.FirstOrDefault(e => e.IdBuilding == _currentUser.CurrentBuildingId)?.Name ?? "";
+            }
+        }
+
+        _loading = false;
+    }
+
+    private async Task Entrar()
+    {
+        _error = string.Empty;
+        if (!Guid.TryParse(_buildingId, out var buildingId))
+        {
+            _error = "Seleccioná un edificio válido.";
+            return;
+        }
+
+        var ok = await AuthService.StartViewAsAsync(buildingId, _role);
+        if (!ok)
+        {
+            _error = "No se pudo activar Ver Como.";
+            return;
+        }
+
+        // Sin forceLoad: "Ver como" vive sólo en memoria (CustomAuthenticationStateProvider
+        // de ESTE circuito, ver StartViewAsAsync) -- no está persistido en ningún lado.
+        // Un forceLoad tira el circuito abajo y arranca uno nuevo, que rehidrata la sesión
+        // desde la base de datos (que no sabe nada de "Ver como") y la simulación se
+        // perdería apenas se entra. Navigation.Refresh() (o NavigateTo sin forceLoad) se
+        // queda en el mismo circuito -- mismo patrón que ya usa HeaderMainLayout al
+        // cambiar de edificio.
+        Navigation.NavigateTo("/dashboard");
+    }
+
+    private async Task Salir()
+    {
+        await AuthService.StopViewAsAsync();
+        Navigation.NavigateTo("/dashboard");
+    }
+}

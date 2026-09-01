@@ -67,6 +67,12 @@ namespace SpiderHood.Services
         {
             if (user?.Role == null) return new List<string>();
 
+            // "Ver como" es de solo lectura: sin ningún permiso, todo botón/acción que ya
+            // dependía de HasPermissionAsync/HasAnyPermissionAsync/GetButtonPermissionsAsync
+            // en el resto de la app queda deshabilitado automáticamente, sin tener que tocar
+            // cada pantalla una por una. Ver UserSession.IsViewingAs / AuthService.StartViewAsAsync.
+            if (user.IsViewingAs) return new List<string>();
+
             // Obtener permisos según el rol del usuario
             _userPermissionsCache = await GetPermissionsForRoleAsync(user.Role);
             return _userPermissionsCache;

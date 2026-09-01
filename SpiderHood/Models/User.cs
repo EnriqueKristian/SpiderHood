@@ -74,6 +74,17 @@ namespace SpiderHood.Models
         public bool IsAuthenticated => SessionExpiry > DateTime.UtcNow;
         public bool RememberMe { get; internal set; }
         public string Role { get; set; } = string.Empty; //=> Roles[0];
+        // "Ver como" (SysAdmin únicamente): simula navegar como Role/CurrentBuildingId de
+        // otro rol+edificio, sin crear ni tocar ninguna cuenta real -- para soporte, sin
+        // tener que mantener un usuario de prueba por cada rol de cada edificio. Es de
+        // solo lectura: mientras IsViewingAs esté activo, PermissionService.HasPermissionAsync
+        // devuelve siempre false (ver ese método), así que cualquier acción que dependa de
+        // un permiso queda bloqueada. Los campos Real* guardan la identidad SysAdmin real
+        // para poder restaurarla al salir (AuthService.StopViewAsAsync).
+        public bool IsViewingAs { get; set; }
+        public string? RealRole { get; set; }
+        public Guid? RealCurrentBuildingId { get; set; }
+        public List<UserBuilding>? RealBuildings { get; set; }
         public Guid IdRole =>
             Role switch
             {

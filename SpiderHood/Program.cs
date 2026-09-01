@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using SpiderHood.Components;
 using SpiderHood.Data;
 using SpiderHood.Services;
+using SpiderHood.Services.Logging;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -173,6 +174,13 @@ builder.Services.AddScoped<IGastoService, GastoService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IWorkflowAuditService, WorkflowAuditService>();
+
+// Logs de sistema: sink a BD (Singleton, ver DatabaseLoggerProvider) + purga diaria por
+// retención (Singleton, vive mientras vive el host). Apagado por defecto -- se habilita
+// desde /Settings/SystemLogs (Super Usuario / SysAdmin).
+builder.Services.AddSingleton<ILoggerProvider, DatabaseLoggerProvider>();
+builder.Services.AddHostedService<SystemLogPurgeService>();
+builder.Services.AddScoped<ISystemLogAdminService, SystemLogAdminService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();

@@ -203,6 +203,16 @@ namespace SpiderHood.Data
                 return true;
             }, "DeleteWorkflowStep", cancellationToken);
         }
+
+        // Purga por retención (ver Services/Logging/SystemLogPurgeService.cs).
+        public async Task<bool> PurgeSystemLogsAsync(DateTime cutoffDateUtc, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_SystemLogOlderThan, cancellationToken, cutoffDateUtc);
+                return true;
+            }, "PurgeSystemLogs", cancellationToken);
+        }
         #endregion
     }
 }

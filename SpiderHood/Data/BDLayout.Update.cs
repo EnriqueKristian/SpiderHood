@@ -432,6 +432,23 @@ namespace SpiderHood.Data
                 return step;
             }, "UpdateWorkflowStep", cancellationToken);
         }
+
+        public async Task UpdateSystemLogSettingsAsync(Models.SystemLogSettings settings, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(settings, nameof(settings));
+
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_SystemLogSettings,
+                    cancellationToken,
+                    settings.IsEnabled,
+                    settings.MinLevel,
+                    settings.RetentionDays,
+                    settings.UpdatedBy!);
+                return true;
+            }, "UpdateSystemLogSettings", cancellationToken);
+        }
         #endregion
     }
 }

@@ -777,6 +777,26 @@ namespace SpiderHood.Data
                 return await ExecuteQueryListAsync<Models.WorkflowStep>(StoredProcedures.GET_WorkflowStepsByWorkflow, idWorkflow);
             }, "GetWorkflowStepsByWorkflow", cancellationToken);
         }
+
+        // Fila única (Id=1) sembrada por el script de Database/Scripts -- si por algún
+        // motivo no existe (BD no actualizada todavía), se devuelve un default con logging
+        // apagado en vez de reventar, para no tumbar el resto de la app.
+        public async Task<Models.SystemLogSettings> GetSystemLogSettingsAsync(CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<Models.SystemLogSettings>(StoredProcedures.GET_SystemLogSettings);
+                return result ?? new Models.SystemLogSettings { IsEnabled = false };
+            }, "GetSystemLogSettings", cancellationToken);
+        }
+
+        public async Task<List<Models.SystemLogEntry>> GetRecentSystemLogsAsync(int top = 500, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.SystemLogEntry>(StoredProcedures.GET_SystemLogs_Recent, top);
+            }, "GetRecentSystemLogs", cancellationToken);
+        }
         #endregion
     }
 }

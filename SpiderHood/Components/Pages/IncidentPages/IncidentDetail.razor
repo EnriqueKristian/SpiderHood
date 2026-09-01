@@ -54,7 +54,7 @@
                     <div class="d-flex gap-2 flex-wrap">
                         @foreach (var accion in _acciones)
                         {
-                            <button class="btn btn-sm @accion.CssClass" @onclick="() => EjecutarAccion(accion.Status)">
+                            <button class="btn btn-sm @accion.CssClass" @onclick="() => IniciarAccion(accion.Status)">
                                 @accion.Label
                             </button>
                         }
@@ -143,6 +143,30 @@
     }
 </div>
 
+@if (_showReasonModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Motivo del rechazo</h5>
+                    <button type="button" class="btn-close" @onclick="CancelarAccion"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">¿Por qué se rechaza este incidente? (duplicado, no corresponde, etc.)</label>
+                    <textarea class="form-control" rows="3" @bind="_motivoAccion"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CancelarAccion">Cancelar</button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmarAccionConMotivo" disabled="@string.IsNullOrWhiteSpace(_motivoAccion)">
+                        Rechazar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -158,6 +182,9 @@
     private string _nuevoComentario = string.Empty;
     private bool _esInterno;
     private List<IncidentAction> _acciones = new();
+    private bool _showReasonModal;
+    private string _motivoAccion = string.Empty;
+    private IncidentStatus _accionPendiente;
 
     protected override async Task OnInitializedAsync()
     {
@@ -242,12 +269,42 @@
         _ => action.ToString()
     };
 
-    private async Task EjecutarAccion(IncidentStatus nuevoEstado)
+    // Rechazar pide motivo (se guarda en la línea de tiempo); el resto de las
+    // transiciones se ejecutan directo, sin frenar al usuario con un modal.
+    private async Task IniciarAccion(IncidentStatus nuevoEstado)
+    {
+        if (nuevoEstado == IncidentStatus.Rejected)
+        {
+            _accionPendiente = nuevoEstado;
+            _motivoAccion = string.Empty;
+            _showReasonModal = true;
+            return;
+        }
+
+        await EjecutarAccion(nuevoEstado);
+    }
+
+    private void CancelarAccion()
+    {
+        _showReasonModal = false;
+        _motivoAccion = string.Empty;
+    }
+
+    private async Task ConfirmarAccionConMotivo()
+    {
+        if (string.IsNullOrWhiteSpace(_motivoAccion))
+            return;
+
+        _showReasonModal = false;
+        await EjecutarAccion(_accionPendiente, _motivoAccion);
+    }
+
+    private async Task EjecutarAccion(IncidentStatus nuevoEstado, string? comentario = null)
     {
         Guid? assignedTo = nuevoEstado == IncidentStatus.InProgress ? _currentUser.IdUser : null;
 
         await IncidentService.ChangeStatusAsync(
-            Id, nuevoEstado, assignedTo, _currentUser.Email, _incident.IdBuilding);
+            Id, nuevoEstado, assignedTo, _currentUser.Email, _incident.IdBuilding, comentario);
 
         await CargarAsync();
     }

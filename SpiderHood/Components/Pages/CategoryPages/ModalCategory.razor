@@ -151,15 +151,18 @@
     private void SeleccionarColor(string color) => ViewCategory.Color = color;
     private void SeleccionarIcono(string icono) => ViewCategory.Icon = icono;
 
-    // Paleta de 24 colores (puedes ajustar a tu guía de estilos)
+    // Paleta de 24 colores, tonos suaves/pastel (antes eran los colores
+    // "vivos" de Bootstrap) -- se usan como base para el header y el badge
+    // de ícono de CategoryCard.razor (ver el color-mix ahí), que quedaban
+    // demasiado saturados con la paleta anterior.
     private readonly string[] ColoresDisponibles =
     [
-        "#0d6efd","#6610f2","#6f42c1","#d63384",
-        "#dc3545","#fd7e14","#ffc107","#198754",
-        "#20c997","#0dcaf0","#6c757d","#343a40",
-        "#4e79a7","#f28e2b","#e15759","#76b7b2",
-        "#59a14f","#edc948","#b07aa1","#ff9da7",
-        "#9c755f","#bab0ab","#2c3e50","#27ae60"
+        "#93c5fd","#60a5fa","#a5b4fc","#c4b5fd",
+        "#d8b4fe","#f0abfc","#f9a8d4","#fda4af",
+        "#fca5a5","#fdba74","#fcd34d","#fde047",
+        "#bef264","#86efac","#6ee7b7","#34d399",
+        "#5eead4","#67e8f9","#7dd3fc","#38bdf8",
+        "#cbd5e1","#d4d4d8","#d6d3d1","#a8a29e"
     ];
 
     // Fuente de iconos (puedes cambiar por tus clases de iconos: Bootstrap Icons, FontAwesome, etc.)

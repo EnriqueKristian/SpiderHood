@@ -471,7 +471,7 @@
         _canDeleteBudget = await PermissionService.HasPermissionAsync(currentUser, "delete_budget");
         _canCloneBudget = await PermissionService.HasPermissionAsync(currentUser, "clone_budget");
         var attempts = 0;
-        while (ParameterService.CurrentBuilding == null && attempts < 20)
+        while (ParameterService.CurrentBuilding == null && attempts < 2)
         {
             await Task.Delay(10);
             attempts++;

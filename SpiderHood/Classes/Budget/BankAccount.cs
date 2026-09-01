@@ -9,7 +9,7 @@ namespace SpiderHood.Models
         public string AccountNumber { get; set; } = "";
         public string CCI { get; set; } = "";
         public string BankName { get; set; } = "";
-        public int AccountType { get; set; }  // Ahorros, Corriente, etc.
+        public int AccountType { get; set; }
         [Precision(18, 2)]
         public decimal CurrentBalance { get; set; }
         [Precision(18, 2)]

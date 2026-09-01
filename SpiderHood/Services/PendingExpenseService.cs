@@ -1,23 +1,23 @@
-﻿// Services/GastoService.cs
+﻿// Services/PendingExpenseService.cs
 using SpiderHood.Data;
 using SpiderHood.Models;
 using SpiderHood.Services;
 using System.Collections.Generic;
-using static SpiderHood.Components.Pages.BudgetPages.GeneracionCuota;
+using static SpiderHood.Components.Pages.BudgetPages.MonthlyInstallmentGeneration;
 
 namespace SpiderHood.Services
 {
-    public class GastoService : IGastoService
+    public class PendingExpenseService : IPendingExpenseService
     {
         private ParameterService ParameterService { get; set; } = default!;
 
-        public async Task<List<GastoPendienteViewModel>> ObtenerGastosPendientesAsync()
+        public async Task<List<PendingExpenseViewModel>> ObtenerGastosPendientesAsync()
         {
-            return new List<GastoPendienteViewModel>(); // await ParameterService.ec.ObtenerGastosPendientes();
+            return new List<PendingExpenseViewModel>(); // await ParameterService.ec.ObtenerGastosPendientes();
             /*return await _context.Gasto
                 .Include(g => g.Categoria)
                 .Where(g => !g.Pagado && !g.ConsiderarEnCuota)
-                .Select(g => new GastoPendienteViewModel
+                .Select(g => new PendingExpenseViewModel
                 {
                     Id = g.Id,
                     CategoriaNombre = g.Categoria.Nombre,

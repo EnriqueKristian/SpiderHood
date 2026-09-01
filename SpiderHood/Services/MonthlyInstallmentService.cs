@@ -1,4 +1,4 @@
-﻿// Services/CuotaService.cs
+﻿// Services/MonthlyInstallmentService.cs
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
@@ -9,24 +9,24 @@ using System.Globalization;
 
 namespace SpiderHood.Services
 {
-    public class CuotaService : ICuotaService
+    public class MonthlyInstallmentService : IMonthlyInstallmentService
     {
-        private readonly ILogger<CuotaService> _logger;
+        private readonly ILogger<MonthlyInstallmentService> _logger;
         [Inject]
         private ParameterService ParameterService { get; set; } = default!;
 
-        public CuotaService(ILogger<CuotaService> logger)
+        public MonthlyInstallmentService(ILogger<MonthlyInstallmentService> logger)
         {
             _logger = logger;
         }
 
-        public async Task<ResultadoGeneracion> GenerarCuotaMensualAsync(
+        public async Task<GenerationResult> GenerarMonthlyInstallmentBatchAsync(
             int mes,
             int anio,
             DateTime fechaVencimiento,
             List<Guid> gastosIds)
         {
-            var resultado = new ResultadoGeneracion();
+            var resultado = new GenerationResult();
             /*
             try
             {
@@ -95,7 +95,7 @@ namespace SpiderHood.Services
                 }
 
                 // Crear cuota
-                var cuota = new CuotaMensual
+                var cuota = new MonthlyInstallmentBatch
                 {
                     Mes = mes,
                     Anio = anio,
@@ -219,13 +219,13 @@ namespace SpiderHood.Services
             await _context.SaveChangesAsync();*/
         }
 
-        public async Task<CuotaMensual> ObtenerCuotaAsync(int cuotaId)
+        public async Task<MonthlyInstallmentBatch> ObtenerCuotaAsync(int cuotaId)
         {
-            var cuotas = new List<CuotaMensual>(); // await ParameterService.ec.ObtenerCuotaMensuales();
+            var cuotas = new List<MonthlyInstallmentBatch>(); // await ParameterService.ec.ObtenerMonthlyInstallmentBatches();
             return cuotas.FirstOrDefault(c => c.Id == cuotaId)!;
         }
 
-        public async Task<List<CuotaMensual>> ObtenerCuotasAsync(int? anio = null, int? mes = null)
+        public async Task<List<MonthlyInstallmentBatch>> ObtenerCuotasAsync(int? anio = null, int? mes = null)
         {
             /*var query = _context.CuotasMensuales.AsQueryable();
 
@@ -239,7 +239,7 @@ namespace SpiderHood.Services
                 query = query.Where(c => c.Mes == mes.Value);
             }*/
 
-            return new List<CuotaMensual>(); // await ParameterService.ec.ObtenerCuotaMensuales();
+            return new List<MonthlyInstallmentBatch>(); // await ParameterService.ec.ObtenerMonthlyInstallmentBatches();
 
             /*return await query
                 .OrderByDescending(c => c.Anio)

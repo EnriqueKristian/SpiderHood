@@ -4,7 +4,7 @@
 @using SpiderHood.Services
 @using System.Globalization
 @inject NavigationManager Navigation
-@inject ICuotaService CuotaService
+@inject IMonthlyInstallmentService MonthlyInstallmentService
 
 <PageTitle>Detalle de Cuota</PageTitle>
 
@@ -113,7 +113,7 @@ else
 @code {
     [Parameter] public int Id { get; set; }
 
-    private Models.CuotaMensual cuota = new();
+    private Models.MonthlyInstallmentBatch cuota = new();
     private List<DetalleCuotaViewModel> detalles = new();
     private List<GastoViewModel> gastosIncluidos = new();
 
@@ -124,9 +124,9 @@ else
 
     private async Task CargarDatos()
     {
-        cuota = await CuotaService.ObtenerCuotaAsync(Id);
-        detalles = await CuotaService.ObtenerDetallesCuotaAsync(Id);
-        gastosIncluidos = await CuotaService.ObtenerGastosIncluidosAsync(Id);
+        cuota = await MonthlyInstallmentService.ObtenerCuotaAsync(Id);
+        detalles = await MonthlyInstallmentService.ObtenerDetallesCuotaAsync(Id);
+        gastosIncluidos = await MonthlyInstallmentService.ObtenerGastosIncluidosAsync(Id);
     }
 
     private string GetNombreMes(int mes)

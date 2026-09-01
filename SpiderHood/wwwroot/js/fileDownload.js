@@ -1,7 +1,7 @@
 ﻿// Funciones para descargar archivos desde Blazor
 
 // Descarga genérica de cualquier archivo por su base64 + content type — usada por
-// InstallmentTable.razor y ListadoCuotas.razor para descargar el PDF del recibo
+// InstallmentTable.razor y InstallmentList.razor para descargar el PDF del recibo
 // (antes vivía duplicada como script local en InstallmentTable.razor).
 window.downloadFile = (base64String, fileName, contentType) => {
     const link = document.createElement('a');

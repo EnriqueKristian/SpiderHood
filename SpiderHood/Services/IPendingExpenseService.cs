@@ -1,11 +1,11 @@
-﻿// Services/IGastoService.cs
+﻿// Services/IPendingExpenseService.cs
 using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
-    public interface IGastoService
+    public interface IPendingExpenseService
     {
-        Task<List<GastoPendienteViewModel>> ObtenerGastosPendientesAsync();
+        Task<List<PendingExpenseViewModel>> ObtenerGastosPendientesAsync();
         Task<ViewExpense> ObtenerGastoPorIdAsync(Guid id);
         Task<List<ViewExpense>> ObtenerGastosPorPeriodoAsync(DateTime fechaInicio, DateTime fechaFin);
         Task<ViewExpense> CrearGastoAsync(ViewExpense gasto);

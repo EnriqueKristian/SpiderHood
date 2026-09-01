@@ -95,7 +95,7 @@
          mismo patrón que ya usa BankReconciliation.razor para su modal de conciliación. -->
     <ErrorBoundary @ref="_modalErrorBoundary">
         <ChildContent>
-            <PresupuestoDetalleModal Presupuesto="_budgetDetail" Categorias="_categorias" OnClose="CerrarModalDetalle" />
+            <BudgetDetailModal Presupuesto="_budgetDetail" Categorias="_categorias" OnClose="CerrarModalDetalle" />
         </ChildContent>
         <ErrorContent Context="ex">
             <div class="modal-overlay">
@@ -181,7 +181,7 @@
             }
 
             // GetPresupuestoByIdAsync no garantiza Details no-nulo en todos los casos --
-            // PresupuestoDetalleModal asume que sí (Presupuesto!.Details!.Where(...)) y
+            // BudgetDetailModal asume que sí (Presupuesto!.Details!.Where(...)) y
             // tira NullReferenceException si viene null, lo que en un evento de UI se ve
             // exactamente como "no pasa nada" (la excepción corta el render a mitad de
             // camino y no queda ningún mensaje visible en pantalla).

@@ -1,4 +1,4 @@
-/* CSS for PresupuestoDetalleModal component */
+/* CSS for BudgetDetailModal component */
 /* Este modal es un div a mano (no el componente Modal de Blazor.Bootstrap),
            así que no hereda el comportamiento de .modal-dialog-scrollable: sin estas
            reglas, .modal-overlay no tiene position:fixed (la página entera hace scroll

@@ -190,7 +190,7 @@ namespace SpiderHood.Services
             // EF Core, que nunca existió en SpiderHoodContext (Presupuesto está
             // registrado HasNoKey(), solo para FromSqlRaw) — el método quedó como no-op
             // silencioso. Único caller (Index.razor → GuardarCambiosDetalle) llama a
-            // OnSave de PresupuestoDetalleModal, que hoy no tiene ningún botón "Guardar"
+            // OnSave de BudgetDetailModal, que hoy no tiene ningún botón "Guardar"
             // conectado, así que esto no afectaba a nadie en producción todavía. Se
             // implementa igual, con el mismo patrón que el resto de BudgetService (SP
             // vía BDLayout), para que quede correcto en cuanto se conecte el botón.

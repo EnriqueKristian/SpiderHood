@@ -102,7 +102,7 @@
 
 /* Los estilos del modal "Detalle de Cuota" viven ahora en
    Components/InstallmentDetailModal.razor.css — el modal se extrajo a ese componente
-   compartido para no duplicar la lógica en ListadoCuotas.razor (/cuotas). */
+   compartido para no duplicar la lógica en InstallmentList.razor (/cuotas). */
 
 /* Responsive */
 @media (max-width: 768px) {

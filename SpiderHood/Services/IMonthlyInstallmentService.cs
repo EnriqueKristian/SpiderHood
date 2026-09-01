@@ -1,20 +1,20 @@
-﻿// Interfaces/ICuotaService.cs
+﻿// Interfaces/IMonthlyInstallmentService.cs
 using SpiderHood.Models;
 using SpiderHood.Services;
-using static SpiderHood.Components.Pages.BudgetPages.GeneracionCuota;
+using static SpiderHood.Components.Pages.BudgetPages.MonthlyInstallmentGeneration;
 
 namespace SpiderHood.Services
 {
-    public interface ICuotaService
+    public interface IMonthlyInstallmentService
     {
-        Task<ResultadoGeneracion> GenerarCuotaMensualAsync(
+        Task<GenerationResult> GenerarCuotaMensualAsync(
             int mes,
             int anio,
             DateTime fechaVencimiento,
             List<Guid> gastosIds);
 
-        Task<CuotaMensual> ObtenerCuotaAsync(int cuotaId);
-        Task<List<CuotaMensual>> ObtenerCuotasAsync(int? anio = null, int? mes = null);
+        Task<MonthlyInstallmentBatch> ObtenerCuotaAsync(int cuotaId);
+        Task<List<MonthlyInstallmentBatch>> ObtenerCuotasAsync(int? anio = null, int? mes = null);
         Task<List<DetalleCuotaViewModel>> ObtenerDetallesCuotaAsync(int cuotaId);
         Task<List<GastoViewModel>> ObtenerGastosIncluidosAsync(int cuotaId);
         Task<List<int>> ObtenerAñosDisponiblesAsync();

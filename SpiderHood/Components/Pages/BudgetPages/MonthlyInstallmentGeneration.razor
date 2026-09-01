@@ -4,8 +4,8 @@
 @using SpiderHood.Services
 @using System.Globalization
 @inject NavigationManager Navigation
-@inject ICuotaService CuotaService
-@inject IGastoService GastoService
+@inject IMonthlyInstallmentService MonthlyInstallmentService
+@inject IPendingExpenseService PendingExpenseService
 @inject ParameterService ParameterService
 @rendermode InteractiveServer
 
@@ -139,7 +139,7 @@
     private int anioSeleccionado = DateTime.Now.Year;
     private DateTime fechaVencimiento = DateTime.Now.AddMonths(1);
     private bool mostrarGastos = false;
-    private List<GastoPendienteViewModel> gastosPendientes = new();
+    private List<PendingExpenseViewModel> gastosPendientes = new();
     private decimal totalSeleccionado = 0;
 
         /*private List<SelectListItem> meses = new()
@@ -160,13 +160,13 @@
 
     private async Task VerGastosPendientes()
     {
-        gastosPendientes = await GastoService.ObtenerGastosPendientesAsync();
+        gastosPendientes = await PendingExpenseService.ObtenerGastosPendientesAsync();
         mostrarGastos = true;
         CalcularTotalSeleccionado();
         StateHasChanged();
     }
 
-    private void SeleccionarGasto(GastoPendienteViewModel gasto, object isChecked)
+    private void SeleccionarGasto(PendingExpenseViewModel gasto, object isChecked)
     {
         gasto.Seleccionado = (bool)isChecked;
         CalcularTotalSeleccionado();
@@ -196,7 +196,7 @@
             .Select(g => g.Id)
             .ToList();
 
-        var resultado = await CuotaService.GenerarCuotaMensualAsync(
+        var resultado = await MonthlyInstallmentService.GenerarCuotaMensualAsync(
             mesSeleccionado,
             anioSeleccionado,
             fechaVencimiento,
@@ -205,7 +205,9 @@
 
         if (resultado.Exito)
         {
-            Navigation.NavigateTo($"/cuotas/detalle/{resultado.CuotaId}");
+            // Antes navegaba a /cuotas/detalle/{id}, una ruta que no existe -- la real es
+            // /DetalleCuota/{id:int} (ver DetalleCuota.razor). Corregido de paso al renombrar.
+            Navigation.NavigateTo($"/DetalleCuota/{resultado.CuotaId}");
         }
     }
 

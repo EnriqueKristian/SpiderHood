@@ -189,7 +189,6 @@ namespace SpiderHood.Models
         public List<TransactionBankDetail> PreviousPaid { get; set; } = [];
     }
 
-    // Models/DetalleCuota.cs
     public class InstallmentPaid
     {
         public Guid IdPaid { get; set; }
@@ -205,7 +204,7 @@ namespace SpiderHood.Models
         public bool IsPartialPayment { get; set; } = false;
     }
 
-    public class CuotaMensual
+    public class MonthlyInstallmentBatch
     {
         public int Id { get; set; }
         public int Mes { get; set; }
@@ -214,12 +213,12 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal TotalDistribuido { get; set; }
         public string UsuarioGeneracion { get; set; } = string.Empty;
-        public List<DetalleCuota> Detalles { get; set; } = [];
+        public List<InstallmentBatchDetail> Detalles { get; set; } = [];
         public bool Procesada { get; set; }
     }
 
-    // Models/DetalleCuota.cs
-    public class DetalleCuota
+    // Models/InstallmentBatchDetail.cs
+    public class InstallmentBatchDetail
     {
         public int Id { get; set; }
         public int CuotaId { get; set; }
@@ -231,8 +230,8 @@ namespace SpiderHood.Models
         public bool Pagado { get; set; }
     }
 
-    // Models/ResultadoGeneracion.cs
-    public class ResultadoGeneracion
+    // Models/GenerationResult.cs
+    public class GenerationResult
     {
         public bool Exito { get; set; }
         public int CuotaId { get; set; }
@@ -246,9 +245,9 @@ namespace SpiderHood.Models
         public List<string> Errores { get; set; } = [];
         public List<string> Advertencias { get; set; } = [];
 
-        public static ResultadoGeneracion Exitoso(int cuotaId, string mensaje = "Cuota generada exitosamente")
+        public static GenerationResult Exitoso(int cuotaId, string mensaje = "Cuota generada exitosamente")
         {
-            return new ResultadoGeneracion
+            return new GenerationResult
             {
                 Exito = true,
                 CuotaId = cuotaId,
@@ -257,9 +256,9 @@ namespace SpiderHood.Models
             };
         }
 
-        public static ResultadoGeneracion Error(string mensaje, List<string>? errores = null)
+        public static GenerationResult Error(string mensaje, List<string>? errores = null)
         {
-            return new ResultadoGeneracion
+            return new GenerationResult
             {
                 Exito = false,
                 Mensaje = mensaje,
@@ -306,7 +305,7 @@ namespace SpiderHood.Models
     }
 
     // Models/ViewModels para la UI
-    public class GastoPendienteViewModel
+    public class PendingExpenseViewModel
     {
         public Guid Id { get; set; }
         public string CategoriaNombre { get; set; } = string.Empty;
@@ -352,73 +351,6 @@ namespace SpiderHood.Models
         // Para filtros
         public DateTime? FechaInicio { get; set; }
         public DateTime? FechaFin { get; set; }
-    }
-
-    public class DetalleCuotaDepartamentoViewModel
-    {
-        public int DepartamentoId { get; set; }
-        public string DepartamentoNombre { get; set; } = string.Empty;
-        [Precision(18, 2)]
-        public decimal AreaM2 { get; set; }
-        [Precision(18, 2)]
-        public decimal PorcentajeArea { get; set; }
-        [Precision(18, 2)]
-        public decimal TotalAPagar { get; set; }
-        public List<DetalleCuotaCategoriaViewModel> DetallePorCategoria { get; set; } = [];
-        public bool Pagado { get; set; }
-        public DateTime? FechaPago { get; set; }
-    }
-
-    public class DetalleCuotaCategoriaViewModel
-    {
-        public int CategoriaId { get; set; }
-        public string CategoriaNombre { get; set; } = string.Empty;
-        public TipoDistribucion TipoDistribucion { get; set; }
-        [Precision(18, 2)]
-        public decimal Monto { get; set; }
-        [Precision(18, 2)]
-        public decimal PorcentajeDelTotal { get; set; }
-        public string DescripcionGasto { get; set; } = string.Empty;
-        public int GastoId { get; set; }
-    }
-
-    public class ResumenGeneracionViewModel
-    {
-        public DateTime FechaGeneracion { get; set; }
-        public string Periodo { get; set; } = string.Empty;
-        public int TotalDepartamentos { get; set; }
-        public int TotalGastosIncluidos { get; set; }
-        [Precision(18, 2)]
-        public decimal TotalMonto { get; set; }
-        [Precision(18, 2)]
-        public decimal PromedioPorDepartamento { get; set; }
-        public List<GastoIncluidoViewModel> GastosIncluidos { get; set; } = [];
-        public List<DistribucionDepartamentoViewModel> DistribucionDepartamentos { get; set; } = [];
-        public Dictionary<string, decimal> DistribucionPorCategoria { get; set; } = [];
-    }
-
-    public class GastoIncluidoViewModel
-    {
-        public int Id { get; set; }
-        public string Categoria { get; set; } = string.Empty;
-        public string Descripcion { get; set; } = string.Empty;
-        [Precision(18, 2)]
-        public decimal Monto { get; set; }
-        public string TipoDistribucion { get; set; } = string.Empty;
-        public DateTime FechaGasto { get; set; }
-    }
-
-    public class DistribucionDepartamentoViewModel
-    {
-        public string Departamento { get; set; } = string.Empty;
-        [Precision(18, 2)]
-        public decimal Monto { get; set; }
-        [Precision(18, 2)]
-        public decimal Porcentaje { get; set; }
-        [Precision(18, 2)]
-        public decimal AreaM2 { get; set; }
-        [Precision(18, 2)]
-        public decimal PorcentajeArea { get; set; }
     }
 
     // Models/SelectListItem para combos
@@ -468,95 +400,6 @@ namespace SpiderHood.Models
 
         public static OperationResult Failure(string errorMessage)
             => new OperationResult(false, errorMessage);
-    }
-
-    // Models/FiltroCuotas para búsquedas
-    public class FiltroCuotas
-    {
-        public int? Anio { get; set; }
-        public int? Mes { get; set; }
-        public bool? Procesada { get; set; }
-        public DateTime? FechaDesde { get; set; }
-        public DateTime? FechaHasta { get; set; }
-        public string UsuarioGeneracion { get; set; } = string.Empty;
-        [Precision(18, 2)]
-        public decimal? MontoMinimo { get; set; }
-        [Precision(18, 2)]
-        public decimal? MontoMaximo { get; set; }
-        public string OrdenarPor { get; set; } = "FechaGeneracion";
-        public bool OrdenDescendente { get; set; } = true;
-        public int Pagina { get; set; } = 1;
-        public int TamanoPagina { get; set; } = 20;
-
-        public bool TieneFiltros =>
-            Anio.HasValue ||
-            Mes.HasValue ||
-            Procesada.HasValue ||
-            FechaDesde.HasValue ||
-            FechaHasta.HasValue ||
-            !string.IsNullOrEmpty(UsuarioGeneracion) ||
-            MontoMinimo.HasValue ||
-            MontoMaximo.HasValue;
-    }
-
-    // Models/ConfiguracionSistema para parámetros
-    public class ConfiguracionSistema
-    {
-        public int Id { get; set; }
-        public string Clave { get; set; } = string.Empty;
-        public string Valor { get; set; } = string.Empty;
-        public string Descripcion { get; set; } = string.Empty;
-        public string Tipo { get; set; } = string.Empty; // "string", "int", "decimal", "bool", "date"
-        public string Grupo { get; set; } = string.Empty;
-        public int Orden { get; set; }
-        public bool Editable { get; set; } = true;
-    }
-
-    // Models/Notificacion para mensajes al usuario
-    public class Notificacion
-    {
-        public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string Tipo { get; set; } = string.Empty; // "success", "error", "warning", "info"
-        public string Titulo { get; set; } = string.Empty;
-        public string Mensaje { get; set; } = string.Empty;
-        public DateTime Fecha { get; set; } = DateTime.Now;
-        public bool Leida { get; set; }
-        public int Timeout { get; set; } = 5000; // milisegundos
-        public bool AutoCerrar { get; set; } = true;
-
-        public string Icono => Tipo switch
-        {
-            "success" => "fa-check-circle",
-            "error" => "fa-exclamation-circle",
-            "warning" => "fa-exclamation-triangle",
-            "info" => "fa-info-circle",
-            _ => "fa-info-circle"
-        };
-
-        public string Color => Tipo switch
-        {
-            "success" => "bg-success text-white",
-            "error" => "bg-danger text-white",
-            "warning" => "bg-warning text-dark",
-            "info" => "bg-info text-white",
-            _ => "bg-info text-white"
-        };
-    }
-
-    // Models/Auditoria para tracking
-    public class Auditoria
-    {
-        public int Id { get; set; }
-        public string Entidad { get; set; } = string.Empty;
-        public int EntidadId { get; set; }
-        public string Accion { get; set; } = string.Empty; // "CREATE", "UPDATE", "DELETE", "GENERATE"
-        public string Usuario { get; set; } = string.Empty;
-        public DateTime Fecha { get; set; } = DateTime.Now;
-        public string DatosOriginales { get; set; } = string.Empty;
-        public string DatosNuevos { get; set; } = string.Empty;
-        public string IpAddress { get; set; } = string.Empty;
-        public string UserAgent { get; set; } = string.Empty;
-        public string Observaciones { get; set; } = string.Empty;
     }
 
     // Extension methods para utilidades

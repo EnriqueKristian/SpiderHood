@@ -73,19 +73,21 @@
     </div>
 
     <div class="card mb-3">
-        <div class="card-body d-flex flex-wrap align-items-center gap-2">
-            <span class="text-muted small me-1">Categoría:</span>
-            <button class="btn btn-sm @(_categoryFilter == "" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => _categoryFilter = ""'>Todas</button>
-            <button class="btn btn-sm @(_categoryFilter == "Event" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => _categoryFilter = "Event"'>
-                <i class="bi bi-calendar-star me-1"></i>Eventos
-            </button>
-            @foreach (var cat in _categories)
-            {
-                var catId = cat.IdCategory.ToString();
-                <button class="btn btn-sm @(_categoryFilter == catId ? "btn-primary" : "btn-outline-secondary")" @onclick="() => _categoryFilter = catId">
-                    <i class="@cat.Icon me-1"></i>@cat.Description
-                </button>
-            }
+        <div class="card-body d-flex align-items-center gap-2">
+            <label class="form-label text-muted small mb-0">Categoría:</label>
+            <select class="form-select" style="max-width: 320px" @bind="_categoryFilter">
+                <option value="">Todas las categorías</option>
+                <option value="Event">Eventos</option>
+                @foreach (var root in _categories.Where(c => c.Nivel == 0))
+                {
+                    <optgroup label="@root.ShortDescript">
+                        @foreach (var child in _categories.Where(c => c.ParentId == root.IdCategory))
+                        {
+                            <option value="@child.IdCategory">@child.ShortDescript</option>
+                        }
+                    </optgroup>
+                }
+            </select>
         </div>
     </div>
 
@@ -262,13 +264,18 @@
                         {
                             <div class="mb-3">
                                 <label class="form-label">Categoría</label>
-                                <InputSelect class="form-select" @bind-Value="_editing.IdCategory">
-                                    <option value="">-- Sin categoría --</option>
-                                    @foreach (var cat in _categories)
+                                <select class="form-select" @bind="_editing.IdCategory">
+                                    <option value="">Seleccionar categoría...</option>
+                                    @foreach (var root in _categories.Where(c => c.Nivel == 0))
                                     {
-                                        <option value="@cat.IdCategory">@cat.Description</option>
+                                        <optgroup label="@root.ShortDescript">
+                                            @foreach (var child in _categories.Where(c => c.ParentId == root.IdCategory))
+                                            {
+                                                <option value="@child.IdCategory">@child.ShortDescript</option>
+                                            }
+                                        </optgroup>
                                     }
-                                </InputSelect>
+                                </select>
                             </div>
                         }
                         <div class="row">

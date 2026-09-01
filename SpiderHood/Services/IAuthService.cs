@@ -139,6 +139,8 @@ namespace SpiderHood.Services
                         IdGroupUnit = ub.IdGroupUnit
                     }).ToList();
 
+                await GrantSysAdminAccessToAllBuildingsAsync(buildings);
+
                 // Crear sesión
                 var session = (new UserSession
                 {
@@ -547,6 +549,40 @@ namespace SpiderHood.Services
                 return approved[0].Building!.IdBuilding;
 
             return Guid.Empty;
+        }
+
+        // SysAdmin es el administrador general del sistema: no debería depender de estar
+        // vinculado (ni mucho menos aprobado) a un edificio puntual para poder entrar --
+        // tiene privilegio sobre todos. Si ya tiene el rol SysAdmin en al menos un
+        // edificio (así se identifica hoy, vía UserBuildingAssociation), se le completan
+        // como aprobados el resto de los edificios del sistema y se fuerza IsApproved en
+        // los que ya tenía, para que nunca termine atrapado en "sin edificios" o en la
+        // pantalla de aprobación pendiente que ven los demás roles.
+        private async Task GrantSysAdminAccessToAllBuildingsAsync(List<UserBuilding> buildings)
+        {
+            if (!buildings.Any(b => b.Role == "SysAdmin"))
+                return;
+
+            foreach (var b in buildings.Where(b => b.Role == "SysAdmin"))
+            {
+                b.IsApproved = true;
+            }
+
+            var todosLosEdificios = await Ec.GetAllBuildingsPublicAsync();
+            var yaCubiertos = buildings
+                .Where(b => b.Role == "SysAdmin")
+                .Select(b => b.Building?.IdBuilding)
+                .ToHashSet();
+
+            foreach (var edificio in todosLosEdificios.Where(e => !yaCubiertos.Contains(e.IdBuilding)))
+            {
+                buildings.Add(new UserBuilding
+                {
+                    Building = edificio,
+                    Role = "SysAdmin",
+                    IsApproved = true
+                });
+            }
         }
 
         private void NotifyAuthStateChanged() =>

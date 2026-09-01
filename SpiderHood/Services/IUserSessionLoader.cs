@@ -55,6 +55,8 @@ namespace SpiderHood.Services
                         IdGroupUnit = ub.IdGroupUnit
                     }).ToList();
 
+                await GrantSysAdminAccessToAllBuildingsAsync(buildings);
+
                 return new UserSession
                 {
                     IdUser = user.IdUser,
@@ -87,6 +89,36 @@ namespace SpiderHood.Services
                 return approved[0].Building!.IdBuilding;
 
             return Guid.Empty;
+        }
+
+        // Ver el mismo método en AuthService.LoginAsync -- se repite acá porque este
+        // método reconstruye la sesión en cada circuito nuevo (recarga, reconexión), no
+        // sólo en el login inicial.
+        private async Task GrantSysAdminAccessToAllBuildingsAsync(List<UserBuilding> buildings)
+        {
+            if (!buildings.Any(b => b.Role == "SysAdmin"))
+                return;
+
+            foreach (var b in buildings.Where(b => b.Role == "SysAdmin"))
+            {
+                b.IsApproved = true;
+            }
+
+            var todosLosEdificios = await _ec.GetAllBuildingsPublicAsync();
+            var yaCubiertos = buildings
+                .Where(b => b.Role == "SysAdmin")
+                .Select(b => b.Building?.IdBuilding)
+                .ToHashSet();
+
+            foreach (var edificio in todosLosEdificios.Where(e => !yaCubiertos.Contains(e.IdBuilding)))
+            {
+                buildings.Add(new UserBuilding
+                {
+                    Building = edificio,
+                    Role = "SysAdmin",
+                    IsApproved = true
+                });
+            }
         }
     }
 }

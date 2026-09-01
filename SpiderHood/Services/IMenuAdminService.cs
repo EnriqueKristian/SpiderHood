@@ -183,9 +183,15 @@ namespace SpiderHood.Services
             return Task.CompletedTask;
         }
 
-        public Task DeleteMenuItemAsync(Guid id)
+        public async Task DeleteMenuItemAsync(Guid id)
         {
-            // Eliminar también todos los hijos
+            // Antes esto sólo sacaba el item de la lista en memoria (_menuItems) --
+            // nunca llegaba a borrar nada en SQL Server (DEL_MenuItem), así que el
+            // item reaparecía en el próximo login/circuito, que vuelve a leer todo
+            // desde la base en el constructor (InitializeMenuData).
+            await ec.DeleteMenuItemAsync(id);
+
+            // Eliminar también todos los hijos (mismo alcance que ya tenía DEL_MenuItem)
             var children = _menuItems.Where(i => i.IdParent == id).ToList();
             foreach (var child in children)
             {
@@ -197,8 +203,6 @@ namespace SpiderHood.Services
             {
                 _menuItems.Remove(item);
             }
-
-            return Task.CompletedTask;
         }
 
         public Task<List<MenuItemWithRoles>> GetAvailableParentsAsync(Guid? currentItemId = null)

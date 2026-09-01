@@ -4,6 +4,7 @@
 @using SpiderHood.Services
 @inject IBudgetService BudgetService
 @inject ParameterService ParameterService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Ver Presupuesto - SpiderHood</PageTitle>
 
@@ -145,8 +146,29 @@
 
     private async Task VerDetalle(BudgetHeader presupuesto)
     {
-        _budgetDetail = await BudgetService.GetPresupuestoByIdAsync(presupuesto.IdBudgetHeader);
-        _mostrarModalDetalle = true;
+        try
+        {
+            var detalle = await BudgetService.GetPresupuestoByIdAsync(presupuesto.IdBudgetHeader);
+            if (detalle == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "No se encontró el detalle de este presupuesto.");
+                return;
+            }
+
+            // GetPresupuestoByIdAsync no garantiza Details no-nulo en todos los casos --
+            // PresupuestoDetalleModal asume que sí (Presupuesto!.Details!.Where(...)) y
+            // tira NullReferenceException si viene null, lo que en un evento de UI se ve
+            // exactamente como "no pasa nada" (la excepción corta el render a mitad de
+            // camino y no queda ningún mensaje visible en pantalla).
+            detalle.Details ??= new();
+
+            _budgetDetail = detalle;
+            _mostrarModalDetalle = true;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar el detalle del presupuesto: {ex.Message}");
+        }
     }
 
     private void CerrarModalDetalle()

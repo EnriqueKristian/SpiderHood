@@ -69,6 +69,18 @@ namespace SpiderHood.Data
             }, "DeleteMenuPermission", cancellationToken);
         }
 
+        // Borra el item de menú en sí (y sus permisos + hijos directos, ver
+        // DEL_MenuItem) -- distinto de DeleteRecordAsync(MenuPermissions), que sólo
+        // borra una fila puntual de permisos.
+        public async Task<bool> DeleteMenuItemAsync(Guid idMenu, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_MenuItem, cancellationToken, idMenu);
+                return true;
+            }, "DeleteMenuItem", cancellationToken);
+        }
+
         public async Task<bool> DeleteRecordAsync(Category category, CancellationToken cancellationToken = default)
         {
             ValidateEntity(category, nameof(category));

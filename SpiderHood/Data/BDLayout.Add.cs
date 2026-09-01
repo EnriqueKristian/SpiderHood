@@ -779,6 +779,37 @@ namespace SpiderHood.Data
             }, "AddIncidentComment", cancellationToken);
         }
 
+        public async Task<Models.CalendarItem> AddNewRecordAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(item, nameof(item));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_CalendarItem,
+                    cancellationToken,
+                    item.IdCalendarItem,
+                    item.IdBuilding,
+                    item.Title,
+                    item.Description,
+                    item.Type.ToString(),
+                    (object?)item.Category?.ToString(),
+                    item.StartDate,
+                    (object?)item.EndDate,
+                    item.Location,
+                    item.Responsible,
+                    (object?)item.Cost,
+                    item.Status.ToString(),
+                    item.Recurrence.ToString(),
+                    item.RecurrenceInterval,
+                    (object?)item.RecurrenceEndDate,
+                    (object?)item.IdRecurrenceGroup,
+                    item.IsRecurrenceMaster,
+                    item.CreatedBy);
+                return item;
+            }, "AddCalendarItem", cancellationToken);
+        }
+
         public async Task<Models.WorkflowStep> AddNewRecordAsync(Models.WorkflowStep step, CancellationToken cancellationToken = default)
         {
             ValidateEntity(step, nameof(step));

@@ -231,6 +231,14 @@ namespace SpiderHood.Data
             public const string GET_IncidentById = "GET_IncidentById";
             public const string INS_IncidentComment = "INS_IncidentComment";
             public const string GET_IncidentCommentsByIncident = "GET_IncidentCommentsByIncident";
+
+            // Calendar Procedures
+            public const string INS_CalendarItem = "INS_CalendarItem";
+            public const string UPD_CalendarItem = "UPD_CalendarItem";
+            public const string UPD_CalendarItemStatus = "UPD_CalendarItemStatus";
+            public const string DEL_CalendarItem = "DEL_CalendarItem";
+            public const string GET_CalendarItemsByBuilding = "GET_CalendarItemsByBuilding";
+            public const string GET_CalendarItemById = "GET_CalendarItemById";
         }
         #endregion
 

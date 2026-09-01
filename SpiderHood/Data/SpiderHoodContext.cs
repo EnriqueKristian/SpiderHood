@@ -86,7 +86,16 @@ namespace SpiderHood.Data
             });
             modelBuilder.Entity<Models.IncidentComment>().HasNoKey(); // If SP doesn't return a primary key
 
-
+            // Type/Category/Status/Recurrence son enums de C# pero se guardan como texto
+            // en la BD -- mismo motivo que Incident arriba.
+            modelBuilder.Entity<Models.CalendarItem>(entity =>
+            {
+                entity.HasNoKey(); // If SP doesn't return a primary key
+                entity.Property(c => c.Type).HasConversion<string>();
+                entity.Property(c => c.Category).HasConversion<string>();
+                entity.Property(c => c.Status).HasConversion<string>();
+                entity.Property(c => c.Recurrence).HasConversion<string>();
+            });
 
             base.OnModelCreating(modelBuilder);
         }

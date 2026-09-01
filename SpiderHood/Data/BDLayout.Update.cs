@@ -464,6 +464,43 @@ namespace SpiderHood.Data
                 return true;
             }, "UpdateSystemLogSettings", cancellationToken);
         }
+
+        public async Task UpdateCalendarItemAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(item, nameof(item));
+
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_CalendarItem,
+                    cancellationToken,
+                    item.IdCalendarItem,
+                    item.Title,
+                    item.Description,
+                    (object?)item.Category?.ToString(),
+                    item.StartDate,
+                    (object?)item.EndDate,
+                    item.Location,
+                    item.Responsible,
+                    (object?)item.Cost,
+                    item.ModifiedBy!);
+                return true;
+            }, "UpdateCalendarItem", cancellationToken);
+        }
+
+        public async Task UpdateCalendarItemStatusAsync(Guid idCalendarItem, Models.CalendarItemStatus status, string modifiedBy, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_CalendarItemStatus,
+                    cancellationToken,
+                    idCalendarItem,
+                    status.ToString(),
+                    modifiedBy);
+                return true;
+            }, "UpdateCalendarItemStatus", cancellationToken);
+        }
         #endregion
     }
 }

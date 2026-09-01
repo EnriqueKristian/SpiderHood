@@ -213,6 +213,17 @@ namespace SpiderHood.Data
                 return true;
             }, "PurgeSystemLogs", cancellationToken);
         }
+
+        // deleteSeries = true borra esta ocurrencia y las futuras del mismo
+        // IdRecurrenceGroup -- ver DEL_CalendarItem en el script de BD.
+        public async Task<bool> DeleteCalendarItemAsync(Guid idCalendarItem, bool deleteSeries = false, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_CalendarItem, cancellationToken, idCalendarItem, deleteSeries);
+                return true;
+            }, "DeleteCalendarItem", cancellationToken);
+        }
         #endregion
     }
 }

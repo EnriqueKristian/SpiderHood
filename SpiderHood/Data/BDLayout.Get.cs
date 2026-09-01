@@ -838,6 +838,23 @@ namespace SpiderHood.Data
                 return await ExecuteQueryListAsync<Models.IncidentComment>(StoredProcedures.GET_IncidentCommentsByIncident, idIncident);
             }, "GetIncidentComments", cancellationToken);
         }
+
+        public async Task<List<Models.CalendarItem>> GetCalendarItemsByBuildingAsync(Guid idBuilding, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.CalendarItem>(StoredProcedures.GET_CalendarItemsByBuilding, idBuilding, (object?)from, (object?)to);
+            }, "GetCalendarItemsByBuilding", cancellationToken);
+        }
+
+        public async Task<Models.CalendarItem> GetCalendarItemByIdAsync(Guid idCalendarItem, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<Models.CalendarItem>(StoredProcedures.GET_CalendarItemById, idCalendarItem);
+                return result ?? throw new EntityNotFoundException($"CalendarItem with ID {idCalendarItem} not found");
+            }, "GetCalendarItemById", cancellationToken);
+        }
         #endregion
     }
 }

@@ -175,6 +175,7 @@ builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IWorkflowAuditService, WorkflowAuditService>();
 builder.Services.AddScoped<IIncidentService, IncidentService>();
+builder.Services.AddScoped<ICalendarService, CalendarService>();
 
 // Logs de sistema: sink a BD (Singleton, ver DatabaseLoggerProvider) + purga diaria por
 // retención (Singleton, vive mientras vive el host). Apagado por defecto -- se habilita

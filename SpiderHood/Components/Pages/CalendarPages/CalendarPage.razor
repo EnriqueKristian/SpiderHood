@@ -1,0 +1,587 @@
+@page "/calendar"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject ICalendarService CalendarService
+@inject SpiderHood.Services.AuthService AuthService
+
+<PageTitle>Calendario</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-calendar-event"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-0">Calendario de Eventos y Mantenimientos</h1>
+                <p class="text-muted mb-0 small">Programa y gestiona los eventos y mantenimientos del edificio</p>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn @(_viewMode == "calendar" ? "btn-primary" : "btn-outline-primary")" @onclick='() => _viewMode = "calendar"'>
+                    <i class="bi bi-calendar3 me-1"></i>Calendario
+                </button>
+                <button type="button" class="btn @(_viewMode == "list" ? "btn-primary" : "btn-outline-primary")" @onclick='() => _viewMode = "list"'>
+                    <i class="bi bi-list-ul me-1"></i>Lista
+                </button>
+            </div>
+            @if (_isStaff)
+            {
+                <button class="btn btn-primary" @onclick="AbrirNuevo">
+                    <i class="bi bi-plus-lg me-1"></i>Programar Item
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Programados</div>
+                    <div class="h4 fw-bold mb-0">@ProgramadosCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Completados</div>
+                    <div class="h4 fw-bold mb-0">@CompletadosCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Próximos 7 días</div>
+                    <div class="h4 fw-bold mb-0">@Proximos7DiasCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Costo Mensual</div>
+                    <div class="h4 fw-bold mb-0">@CostoMensual.ToString("C")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body d-flex flex-wrap align-items-center gap-2">
+            <span class="text-muted small me-1">Categoría:</span>
+            <button class="btn btn-sm @(_categoryFilter == "" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => _categoryFilter = ""'>Todas</button>
+            <button class="btn btn-sm @(_categoryFilter == "Event" ? "btn-primary" : "btn-outline-secondary")" @onclick='() => _categoryFilter = "Event"'>
+                <i class="bi bi-calendar-star me-1"></i>Eventos
+            </button>
+            @foreach (var cat in Enum.GetValues<MaintenanceCategory>())
+            {
+                <button class="btn btn-sm @(_categoryFilter == cat.ToString() ? "btn-primary" : "btn-outline-secondary")" @onclick="() => _categoryFilter = cat.ToString()">
+                    <i class="bi @CategoryIcon(cat) me-1"></i>@CategoryLabel(cat)
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else if (_viewMode == "calendar")
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0 text-capitalize">@_calendarMonth.ToString("MMMM yyyy", System.Globalization.CultureInfo.CurrentCulture)</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary me-1" @onclick="PrevMonth"><i class="bi bi-chevron-left"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="NextMonth"><i class="bi bi-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered text-center align-top mb-0">
+                        <thead>
+                            <tr>
+                                <th>Dom</th><th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var cells = BuildMonthGrid();
+                            }
+                            @for (var w = 0; w < cells.Count; w += 7)
+                            {
+                                var week = cells.Skip(w).Take(7).ToList();
+                                <tr style="height:110px">
+                                    @foreach (var day in week)
+                                    {
+                                        <td style="width:14.28%; vertical-align:top" class="@(day.HasValue && day.Value.Date == DateTime.Today ? "table-primary" : "")">
+                                            @if (day.HasValue)
+                                            {
+                                                <div class="small fw-bold text-start">@day.Value.Day</div>
+                                                @foreach (var item in GetItemsForDay(day.Value).Take(3))
+                                                {
+                                                    <div class="small text-truncate rounded px-1 mb-1 @ItemChipClass(item)" style="cursor:pointer" title="@item.Title" @onclick="() => AbrirEditar(item)">
+                                                        @item.Title
+                                                    </div>
+                                                }
+                                                @if (GetItemsForDay(day.Value).Count > 3)
+                                                {
+                                                    <div class="small text-muted">+@(GetItemsForDay(day.Value).Count - 3) más</div>
+                                                }
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+    else if (FilteredItems.Count == 0)
+    {
+        <p class="text-muted">No hay items de calendario para mostrar.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Categoría</th>
+                        <th>Título</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Responsable</th>
+                        <th>Costo</th>
+                        <th>Estado</th>
+                        @if (_isStaff)
+                        {
+                            <th>Acciones</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in FilteredItems.OrderBy(i => i.StartDate))
+                    {
+                        <tr>
+                            <td>
+                                @if (item.Type == CalendarItemType.Event)
+                                {
+                                    <span><i class="bi bi-calendar-star me-1"></i>Evento</span>
+                                }
+                                else
+                                {
+                                    <span><i class="bi @CategoryIcon(item.Category) me-1"></i>@(item.Category.HasValue ? CategoryLabel(item.Category.Value) : "General")</span>
+                                }
+                            </td>
+                            <td>@item.Title</td>
+                            <td>@item.StartDate.ToString("dd/MM/yyyy")</td>
+                            <td>@item.StartDate.ToString("HH:mm")</td>
+                            <td>@(string.IsNullOrWhiteSpace(item.Responsible) ? "-" : item.Responsible)</td>
+                            <td>@(item.Cost.HasValue ? item.Cost.Value.ToString("C") : "-")</td>
+                            <td>
+                                @if (_isStaff)
+                                {
+                                    <select class="form-select form-select-sm d-inline-block w-auto" value="@item.Status" @onchange="e => CambiarEstado(item, e)">
+                                        @foreach (var status in Enum.GetValues<CalendarItemStatus>())
+                                        {
+                                            <option value="@status">@StatusLabel(status)</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <span class="badge @StatusBadgeClass(item.Status)">@StatusLabel(item.Status)</span>
+                                }
+                            </td>
+                            @if (_isStaff)
+                            {
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => AbrirEditar(item)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => PedirBorrado(item)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-calendar-event me-2 text-primary"></i>@(_isEditMode ? "Editar Item" : "Programar Item")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <EditForm Model="@_editing" OnValidSubmit="Guardar">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        @if (!_isEditMode)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Tipo</label>
+                                <InputSelect class="form-select" @bind-Value="_editing.Type">
+                                    <option value="@CalendarItemType.Maintenance">Mantenimiento</option>
+                                    <option value="@CalendarItemType.Event">Evento</option>
+                                </InputSelect>
+                            </div>
+                        }
+                        <div class="mb-3">
+                            <label class="form-label">Título</label>
+                            <InputText class="form-control" @bind-Value="_editing.Title" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="_editing.Description" />
+                        </div>
+                        @if (_editing.Type == CalendarItemType.Maintenance)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Categoría</label>
+                                <InputSelect class="form-select" @bind-Value="_editing.Category">
+                                    <option value="">-- Sin categoría --</option>
+                                    @foreach (var cat in Enum.GetValues<MaintenanceCategory>())
+                                    {
+                                        <option value="@cat">@CategoryLabel(cat)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        }
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha y hora de inicio</label>
+                                <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="_editing.StartDate" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha y hora de fin (opcional)</label>
+                                <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="_editing.EndDate" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Lugar</label>
+                                <InputText class="form-control" @bind-Value="_editing.Location" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Responsable @(_editing.Type == CalendarItemType.Maintenance ? "(proveedor/técnico)" : "(organizador)")</label>
+                                <InputText class="form-control" @bind-Value="_editing.Responsible" />
+                            </div>
+                        </div>
+                        @if (_editing.Type == CalendarItemType.Maintenance)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Costo</label>
+                                <InputNumber class="form-control" step="0.01" @bind-Value="_editing.Cost" />
+                            </div>
+                        }
+                        @if (!_isEditMode)
+                        {
+                            <hr />
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Recurrencia</label>
+                                    <InputSelect class="form-select" @bind-Value="_editing.Recurrence">
+                                        @foreach (var rec in Enum.GetValues<RecurrenceType>())
+                                        {
+                                            <option value="@rec">@RecurrenceLabel(rec)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                                @if (_editing.Recurrence != RecurrenceType.None)
+                                {
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Repetir cada</label>
+                                        <InputNumber class="form-control" @bind-Value="_editing.RecurrenceInterval" min="1" />
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Repetir hasta (opcional)</label>
+                                        <InputDate class="form-control" @bind-Value="_editing.RecurrenceEndDate" />
+                                    </div>
+                                }
+                            </div>
+                            @if (_editing.Recurrence != RecurrenceType.None)
+                            {
+                                <p class="text-muted small mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>Se van a crear varias ocurrencias con esta misma información,
+                                    una por fecha, hasta la fecha límite indicada (o un tope de @MaxOccurrencesLabel si no se indica).
+                                </p>
+                            }
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" disabled="@(string.IsNullOrWhiteSpace(_editing.Title))">
+                            <i class="bi bi-check-lg me-1"></i>Guardar
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_pendingDelete != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Borrar item</h5>
+                    <button type="button" class="btn-close" @onclick="CancelarBorrado"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Seguro que querés borrar <strong>@_pendingDelete.Title</strong>?</p>
+                    @if (_pendingDelete.IdRecurrenceGroup.HasValue)
+                    {
+                        <p class="text-muted small">Este item es parte de una serie recurrente.</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="CancelarBorrado">Cancelar</button>
+                    @if (_pendingDelete.IdRecurrenceGroup.HasValue)
+                    {
+                        <button type="button" class="btn btn-outline-danger" @onclick="() => ConfirmarBorrado(false)">Borrar solo esta</button>
+                        <button type="button" class="btn btn-danger" @onclick="() => ConfirmarBorrado(true)">Borrar esta y las futuras</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-danger" @onclick="() => ConfirmarBorrado(false)">Borrar</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private const int MaxRecurrenceOccurrencesDisplay = 60;
+    private string MaxOccurrencesLabel => $"{MaxRecurrenceOccurrencesDisplay} ocurrencias o 3 años";
+
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private string _viewMode = "calendar";
+    private string _categoryFilter = string.Empty;
+    private DateTime _calendarMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private List<CalendarItem> _items = new();
+
+    private bool _showModal;
+    private bool _isEditMode;
+    private CalendarItem _editing = new();
+    private CalendarItem? _pendingDelete;
+
+    private List<CalendarItem> FilteredItems =>
+        string.IsNullOrEmpty(_categoryFilter)
+            ? _items
+            : _categoryFilter == "Event"
+                ? _items.Where(i => i.Type == CalendarItemType.Event).ToList()
+                : _items.Where(i => i.Type == CalendarItemType.Maintenance && i.Category?.ToString() == _categoryFilter).ToList();
+
+    private int ProgramadosCount => _items.Count(i => i.Status == CalendarItemStatus.Scheduled);
+    private int CompletadosCount => _items.Count(i => i.Status == CalendarItemStatus.Completed);
+    private int Proximos7DiasCount => _items.Count(i => i.Status == CalendarItemStatus.Scheduled && i.StartDate.Date >= DateTime.Today && i.StartDate.Date < DateTime.Today.AddDays(7));
+    private decimal CostoMensual => _items
+        .Where(i => i.Type == CalendarItemType.Maintenance && i.Status != CalendarItemStatus.Cancelled
+                    && i.StartDate.Year == DateTime.Today.Year && i.StartDate.Month == DateTime.Today.Month)
+        .Sum(i => i.Cost ?? 0);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("Junta") || _currentUser.Roles.Contains("SysAdmin");
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        _loading = true;
+        _items = await CalendarService.GetByBuildingAsync(_currentUser.CurrentBuildingId);
+        _loading = false;
+    }
+
+    private void PrevMonth() => _calendarMonth = _calendarMonth.AddMonths(-1);
+    private void NextMonth() => _calendarMonth = _calendarMonth.AddMonths(1);
+
+    private List<DateTime?> BuildMonthGrid()
+    {
+        var firstOfMonth = new DateTime(_calendarMonth.Year, _calendarMonth.Month, 1);
+        var daysInMonth = DateTime.DaysInMonth(_calendarMonth.Year, _calendarMonth.Month);
+        var startOffset = (int)firstOfMonth.DayOfWeek;
+
+        var cells = new List<DateTime?>();
+        for (var i = 0; i < startOffset; i++)
+            cells.Add(null);
+        for (var d = 1; d <= daysInMonth; d++)
+            cells.Add(new DateTime(_calendarMonth.Year, _calendarMonth.Month, d));
+        while (cells.Count % 7 != 0)
+            cells.Add(null);
+        return cells;
+    }
+
+    private List<CalendarItem> GetItemsForDay(DateTime day) => FilteredItems.Where(i => i.StartDate.Date == day.Date).ToList();
+
+    private static string ItemChipClass(CalendarItem item) => item.Type == CalendarItemType.Event
+        ? "bg-primary-subtle text-primary-emphasis"
+        : item.Status == CalendarItemStatus.Completed
+            ? "bg-success-subtle text-success-emphasis"
+            : "bg-warning-subtle text-warning-emphasis";
+
+    private void AbrirNuevo()
+    {
+        _editing = new CalendarItem
+        {
+            IdBuilding = _currentUser.CurrentBuildingId,
+            Type = CalendarItemType.Maintenance,
+            StartDate = DateTime.Today.AddHours(9)
+        };
+        _isEditMode = false;
+        _showModal = true;
+    }
+
+    private void AbrirEditar(CalendarItem item)
+    {
+        if (!_isStaff)
+            return;
+
+        _editing = new CalendarItem
+        {
+            IdCalendarItem = item.IdCalendarItem,
+            IdBuilding = item.IdBuilding,
+            Title = item.Title,
+            Description = item.Description,
+            Type = item.Type,
+            Category = item.Category,
+            StartDate = item.StartDate,
+            EndDate = item.EndDate,
+            Location = item.Location,
+            Responsible = item.Responsible,
+            Cost = item.Cost,
+            Status = item.Status,
+            Recurrence = item.Recurrence,
+            RecurrenceInterval = item.RecurrenceInterval,
+            RecurrenceEndDate = item.RecurrenceEndDate,
+            IdRecurrenceGroup = item.IdRecurrenceGroup,
+            IsRecurrenceMaster = item.IsRecurrenceMaster,
+            CreatedBy = item.CreatedBy,
+            CreatedOn = item.CreatedOn
+        };
+        _isEditMode = true;
+        _showModal = true;
+    }
+
+    private void CerrarModal() => _showModal = false;
+
+    private async Task Guardar()
+    {
+        if (string.IsNullOrWhiteSpace(_editing.Title))
+            return;
+
+        _editing.IdBuilding = _currentUser.CurrentBuildingId;
+
+        if (_isEditMode)
+        {
+            _editing.ModifiedBy = _currentUser.Email;
+            await CalendarService.UpdateAsync(_editing);
+        }
+        else
+        {
+            _editing.CreatedBy = _currentUser.Email;
+            await CalendarService.CreateAsync(_editing);
+        }
+
+        _showModal = false;
+        await CargarAsync();
+    }
+
+    private async Task CambiarEstado(CalendarItem item, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<CalendarItemStatus>(e.Value?.ToString(), out var status))
+        {
+            await CalendarService.ChangeStatusAsync(item.IdCalendarItem, status, _currentUser.Email);
+            await CargarAsync();
+        }
+    }
+
+    private void PedirBorrado(CalendarItem item) => _pendingDelete = item;
+    private void CancelarBorrado() => _pendingDelete = null;
+
+    private async Task ConfirmarBorrado(bool deleteSeries)
+    {
+        if (_pendingDelete == null)
+            return;
+
+        await CalendarService.DeleteAsync(_pendingDelete.IdCalendarItem, deleteSeries, _currentUser.Email);
+        _pendingDelete = null;
+        await CargarAsync();
+    }
+
+    private static string CategoryLabel(MaintenanceCategory c) => c switch
+    {
+        MaintenanceCategory.Elevator => "Ascensor",
+        MaintenanceCategory.Pumps => "Bombas",
+        MaintenanceCategory.Cleaning => "Limpieza",
+        MaintenanceCategory.Gardening => "Jardinería",
+        MaintenanceCategory.Security => "Seguridad",
+        MaintenanceCategory.Electrical => "Eléctrico",
+        MaintenanceCategory.Plumbing => "Plomería",
+        _ => "General"
+    };
+
+    private static string CategoryIcon(MaintenanceCategory? c) => c switch
+    {
+        MaintenanceCategory.Elevator => "bi-arrow-down-up",
+        MaintenanceCategory.Pumps => "bi-gear-fill",
+        MaintenanceCategory.Cleaning => "bi-stars",
+        MaintenanceCategory.Gardening => "bi-tree-fill",
+        MaintenanceCategory.Security => "bi-shield-lock-fill",
+        MaintenanceCategory.Electrical => "bi-lightning-charge-fill",
+        MaintenanceCategory.Plumbing => "bi-droplet-fill",
+        _ => "bi-tools"
+    };
+
+    private static string StatusLabel(CalendarItemStatus s) => s switch
+    {
+        CalendarItemStatus.Scheduled => "Programado",
+        CalendarItemStatus.Completed => "Completado",
+        _ => "Cancelado"
+    };
+
+    private static string StatusBadgeClass(CalendarItemStatus s) => s switch
+    {
+        CalendarItemStatus.Scheduled => "bg-warning text-dark",
+        CalendarItemStatus.Completed => "bg-success",
+        _ => "bg-secondary"
+    };
+
+    private static string RecurrenceLabel(RecurrenceType r) => r switch
+    {
+        RecurrenceType.Daily => "Diaria",
+        RecurrenceType.Weekly => "Semanal",
+        RecurrenceType.Monthly => "Mensual",
+        RecurrenceType.Yearly => "Anual",
+        _ => "Ninguna"
+    };
+}

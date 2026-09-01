@@ -1,0 +1,318 @@
+@page "/MyReceipts"
+@rendermode InteractiveServer
+@using System.Globalization
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+@using SpiderHood.Components.Pages.Components
+@inject Services.AuthService AuthService
+@inject Services.IInstallmentService InstallmentService
+@inject Services.IBudgetService BudgetService
+@inject Services.IServiceReadingService ServiceReadingService
+@inject Services.IBuildingService BuildingService
+@inject Services.ICategoryService CategoryService
+@inject Services.IExtraChargeService ExtraChargeService
+@inject ParameterService ParameterService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Mis Recibos - SpiderHood</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="icon-badge">
+            <i class="bi bi-receipt"></i>
+        </div>
+        <h1 class="h3 fw-bold mb-0">Mis Recibos</h1>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_unitId == null)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Tu cuenta todavía no tiene una unidad vinculada en este edificio. Pedile al
+            administrador que te la asigne en <em>Configuración &gt; Asignación de Roles</em>.
+        </div>
+    }
+    else
+    {
+        <!-- Filtros -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroPeriodoChanged">
+                    <option value="">Todos los periodos</option>
+                    @foreach (var periodo in PeriodosDisponibles())
+                    {
+                        <option value="@periodo.ToString("yyyy-MM-dd")" selected="@(_filtroPeriodo == periodo)">
+                            @periodo.ToString("MMM-yy")
+                        </option>
+                    }
+                </select>
+
+                <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroEstadoChanged">
+                    <option value="todos" selected="@(_filtroEstado == "todos")">Todos los estados</option>
+                    <option value="pendiente" selected="@(_filtroEstado == "pendiente")">Pendiente de Pago</option>
+                    <option value="vencida" selected="@(_filtroEstado == "vencida")">Vencida</option>
+                    <option value="parcial" selected="@(_filtroEstado == "parcial")">Parcial</option>
+                    <option value="pagado" selected="@(_filtroEstado == "pagado")">Pagado</option>
+                </select>
+            </div>
+
+            <div class="search-box">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" class="form-control form-control-sm" style="min-width:260px;"
+                       placeholder="Buscar por nombre, período, estado..."
+                       value="@_searchTerm"
+                       @oninput="OnSearchInput" />
+            </div>
+        </div>
+
+        @if (!_pagination.AllData.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Todavía no hay recibos generados para tu unidad en este edificio.
+            </div>
+        }
+        else if (!_pagination.FilteredData.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-search me-2"></i>
+                No se encontraron recibos con los filtros aplicados.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th role="button" @onclick='() => _pagination.SortByColumn("Name")'>
+                                Recibo @_pagination.GetSortIndicator("Name")
+                            </th>
+                            <th role="button" @onclick='() => _pagination.SortByColumn("Period")'>
+                                Período @_pagination.GetSortIndicator("Period")
+                            </th>
+                            <th role="button" @onclick='() => _pagination.SortByColumn("DueDate")'>
+                                Vencimiento @_pagination.GetSortIndicator("DueDate")
+                            </th>
+                            <th class="text-end" role="button" @onclick='() => _pagination.SortByColumn("Amount")'>
+                                Monto @_pagination.GetSortIndicator("Amount")
+                            </th>
+                            <th class="text-end" role="button" @onclick='() => _pagination.SortByColumn("AmountPaid")'>
+                                Pagado @_pagination.GetSortIndicator("AmountPaid")
+                            </th>
+                            <th class="text-end" role="button" @onclick='() => _pagination.SortByColumn("Debt")'>
+                                Deuda @_pagination.GetSortIndicator("Debt")
+                            </th>
+                            <th role="button" @onclick='() => _pagination.SortByColumn("Status")'>
+                                Estado @_pagination.GetSortIndicator("Status")
+                            </th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _pagination.CurrentPageData)
+                        {
+                            <tr>
+                                <td>@ReceiptPagination.NombreRecibo(item)</td>
+                                <td>@item.Period.ToString("MMM-yy")</td>
+                                <td>@item.DueDate.ToString("dd/MM/yyyy")</td>
+                                <td class="text-end">@item.Amount.ToString("C2")</td>
+                                <td class="text-end">@item.AmountPaid.ToString("C2")</td>
+                                <td class="text-end">
+                                    <span class="@GetDeudaClass(item)">@item.Debt.ToString("C2")</span>
+                                </td>
+                                <td>
+                                    <span class="badge @EstadoBadgeClass(item)">@EstadoBadgeText(item)</span>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(item)">
+                                        <i class="bi bi-eye me-1"></i>Ver Detalle
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (_pagination.TotalPages > 1)
+            {
+                <PaginationControls _pagination="@_pagination" />
+            }
+        }
+    }
+</div>
+
+<InstallmentDetailModal @ref="_detalleModal" OnImprimir="ImprimirCuota">
+    <ExtraContent>
+        @if (_selectedInstallment != null)
+        {
+            <hr />
+            <p class="mb-0">
+                <span class="text-muted me-2">Estado:</span>
+                <span class="badge @EstadoBadgeClass(_selectedInstallment)">@EstadoBadgeText(_selectedInstallment)</span>
+                <span class="text-muted ms-3 me-2">Deuda:</span>
+                <span class="@GetDeudaClass(_selectedInstallment)">@_selectedInstallment.Debt.ToString("C2")</span>
+            </p>
+        }
+    </ExtraContent>
+</InstallmentDetailModal>
+
+@code {
+    private bool _loading = true;
+    private Guid? _unitId;
+    private List<Installment> _misCuotas = new();
+    private ReceiptPagination _pagination = new();
+
+    private string _searchTerm = string.Empty;
+    private string _filtroEstado = "todos";
+    private DateTime? _filtroPeriodo;
+
+    private InstallmentDetailModal _detalleModal = null!;
+    private Installment? _selectedInstallment;
+
+    // Presupuesto/lecturas/excepciones de la cuota actualmente abierta en el modal --
+    // cargados on-demand en VerDetalle (cada recibo puede ser de un periodo distinto) y
+    // reusados por ImprimirCuota para no volver a pedirlos.
+    private BudgetHeader? _budgetActual;
+    private List<ServiceReadingDetail> _waterReadingsActual = new();
+    private List<Exoneration> _exonerationsActual = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _pagination.OnPaginationChanged += StateHasChanged;
+
+        try
+        {
+            _unitId = await AuthService.GetCurrentUnitIdAsync();
+            if (_unitId != null && ParameterService.CurrentBuilding != null)
+            {
+                var todas = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+                _misCuotas = todas.Where(i => i.IdGroupUnit == _unitId).ToList();
+                _pagination.Initialize(_misCuotas);
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    public void Dispose() => _pagination.OnPaginationChanged -= StateHasChanged;
+
+    private IEnumerable<DateTime> PeriodosDisponibles() =>
+        _misCuotas.Select(i => i.Period.Date).Distinct().OrderByDescending(p => p);
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchTerm = e.Value?.ToString() ?? string.Empty;
+        _pagination.Search(_searchTerm);
+    }
+
+    private void OnFiltroPeriodoChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        _filtroPeriodo = string.IsNullOrEmpty(value) ? null : DateTime.Parse(value);
+        AplicarFiltros();
+    }
+
+    private void OnFiltroEstadoChanged(ChangeEventArgs e)
+    {
+        _filtroEstado = e.Value?.ToString() ?? "todos";
+        AplicarFiltros();
+    }
+
+    private void AplicarFiltros()
+    {
+        _pagination.ApplyCustomFilter(item =>
+            (_filtroPeriodo == null || item.Period.Date == _filtroPeriodo.Value.Date)
+            && _filtroEstado switch
+            {
+                "pendiente" => item.Status == ConcilationType.NoConciliada && item.DueDate.Date >= DateTime.Today,
+                "vencida" => item.Status == ConcilationType.NoConciliada && item.DueDate.Date < DateTime.Today,
+                "parcial" => item.Status == ConcilationType.Parcial,
+                "pagado" => item.Status == ConcilationType.Conciliada,
+                _ => true
+            });
+    }
+
+    private string GetDeudaClass(Installment item) => item.Debt > 0 ? "fw-bold text-danger" : "text-muted";
+
+    private string EstadoBadgeClass(Installment item) => item.Status switch
+    {
+        ConcilationType.Conciliada => "bg-success",
+        ConcilationType.Parcial => "bg-info text-dark",
+        _ => item.DueDate.Date < DateTime.Today ? "bg-danger" : "bg-warning text-dark"
+    };
+
+    private string EstadoBadgeText(Installment item) => item.Status switch
+    {
+        ConcilationType.Conciliada => "Pagado",
+        ConcilationType.Parcial => "Parcial",
+        _ => item.DueDate.Date < DateTime.Today ? "Vencida" : "Pendiente de Pago"
+    };
+
+    private async Task VerDetalle(Installment item)
+    {
+        _selectedInstallment = item;
+
+        var budget = await BudgetService.GetPresupuestoByIdAsync(item.IdBudgetHeader);
+        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period);
+        var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(item.IdBudgetHeader);
+
+        _budgetActual = budget;
+        _waterReadingsActual = waterReadings;
+        _exonerationsActual = exonerations;
+
+        await _detalleModal.ShowAsync(item, budget, waterReadings, exonerations);
+    }
+
+    private async Task ImprimirCuota(Installment item)
+    {
+        if (_budgetActual == null || ParameterService.CurrentBuilding == null)
+        {
+            return;
+        }
+
+        try
+        {
+            // Igual que en /cuotas: refresca la configuración completa del edificio
+            // (bancos/contactos/pie del recibo) antes de generar el PDF.
+            ParameterService.CurrentBuilding.Configuration =
+                await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+            var categorias = await BudgetService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+            var cargosAdicionales = item.Type == InstallmentType.Ordinaria
+                ? await ExtraChargeService.GetCargosAdicionalesAsync(ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { item })
+                : new List<Installment>();
+
+            var exportService = new InstallmentExportService(
+                new List<Installment> { item },
+                _budgetActual,
+                _waterReadingsActual,
+                _exonerationsActual,
+                ParameterService.CurrentBuilding,
+                categorias,
+                cargosAdicionales);
+
+            var pdfBytes = exportService.GenerateReceipt(item);
+
+            await JSRuntime.InvokeVoidAsync("downloadFile",
+                Convert.ToBase64String(pdfBytes),
+                $"{ReceiptPagination.NombreRecibo(item)}.pdf",
+                "application/pdf");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al generar el recibo: {ex.Message}");
+        }
+    }
+}

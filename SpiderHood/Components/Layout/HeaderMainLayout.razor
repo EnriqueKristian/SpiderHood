@@ -126,7 +126,7 @@
                 <li><a class="dropdown-item" href="/Security"><i class="bi bi-shield me-2"></i>Seguridad</a></li>
                 @if (_currentUser?.IsViewingAs == true || _currentUser?.Roles.Contains("SysAdmin") == true)
                 {
-                    <li><a class="dropdown-item" href="/seeas"><i class="bi bi-eye me-2"></i>Ver como...</a></li>
+                    <li><a class="dropdown-item" href="/view-as"><i class="bi bi-eye me-2"></i>Ver como...</a></li>
                 }
                 @if (_currentUser?.Roles.Contains("SysAdmin") == true)
                 {

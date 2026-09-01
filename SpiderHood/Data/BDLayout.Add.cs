@@ -696,6 +696,26 @@ namespace SpiderHood.Data
             }, "AddWorkflow", cancellationToken);
         }
 
+        public async Task<Models.WorkflowAuditEntry> AddNewRecordAsync(Models.WorkflowAuditEntry entry, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(entry, nameof(entry));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_WorkflowAuditLog,
+                    cancellationToken,
+                    entry.Id,
+                    entry.Module,
+                    entry.EntityId,
+                    entry.Action.ToString(),
+                    entry.PerformedBy,
+                    (object?)entry.Comment ?? DBNull.Value,
+                    entry.IdBuilding);
+                return entry;
+            }, "AddWorkflowAuditLog", cancellationToken);
+        }
+
         public async Task<Models.WorkflowStep> AddNewRecordAsync(Models.WorkflowStep step, CancellationToken cancellationToken = default)
         {
             ValidateEntity(step, nameof(step));

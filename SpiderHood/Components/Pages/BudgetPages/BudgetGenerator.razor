@@ -15,6 +15,7 @@
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IBuildingService BuildingService
 @inject SpiderHood.Services.IPermissionService PermissionService
+@inject SpiderHood.Services.IWorkflowAuditService WorkflowAuditService
 
 <div class="expense-calculation">
     <!-- Header -->
@@ -1233,6 +1234,7 @@
         _Status = BudgetStatus.Approved;
         _BudgetState.Status = _Status;
         await SaveCalculation();
+        await WorkflowAuditService.LogAsync("Budget", _BudgetState.Budget.IdBudgetHeader, WorkflowAction.Approved, currentUser.Email, _BudgetState.Budget.IdBuilding);
         await ShowToast("Éxito", $"Presupuesto{getStatusNameMessage(_Status)} correctamente", "success");
         StateHasChanged();
     }
@@ -1248,6 +1250,7 @@
         _Status = BudgetStatus.Rejected;
         _BudgetState.Status = _Status;
         await SaveCalculation();
+        await WorkflowAuditService.LogAsync("Budget", _BudgetState.Budget.IdBudgetHeader, WorkflowAction.Rejected, currentUser.Email, _BudgetState.Budget.IdBuilding);
         await ShowToast("Info", $"Presupuesto{getStatusNameMessage(_Status)}", "warning");
         StateHasChanged();
     }
@@ -1261,6 +1264,7 @@
         _Status = BudgetStatus.Closed;
         _BudgetState.Status = _Status;
         await SaveCalculation();
+        await WorkflowAuditService.LogAsync("Budget", _BudgetState.Budget.IdBudgetHeader, WorkflowAction.Closed, currentUser.Email, _BudgetState.Budget.IdBuilding);
         await ShowToast("Éxito", $"Presupuesto{getStatusNameMessage(_Status)} correctamente", "success");
         StateHasChanged();
     }
@@ -1539,6 +1543,7 @@
                     _Status = BudgetStatus.Check;
                     _BudgetState.Status = _Status;
                     await SaveCalculation();
+                    await WorkflowAuditService.LogAsync("Budget", _BudgetState.Budget.IdBudgetHeader, WorkflowAction.Submitted, currentUser.Email, _BudgetState.Budget.IdBuilding);
                     await HideLoading();
                     await ShowToast("Éxito", $"Presupuesto{getStatusNameMessage(_Status)} correctamente", "success");
                     StateHasChanged();
@@ -1580,6 +1585,7 @@
                     // Guarda el presupuesto y genera las Installment en BD (SaveBudgetAsync
                     // las persiste porque el estado ya quedó en Active).
                     await SaveCalculation();
+                    await WorkflowAuditService.LogAsync("Budget", _BudgetState.Budget.IdBudgetHeader, WorkflowAction.Published, currentUser.Email, _BudgetState.Budget.IdBuilding);
 
                     // ParameterService.CurrentBuilding.Configuration viene del login
                     // (GET_AllBuildingsConfig), que NO trae BankAccounts ni AdminContact

@@ -172,6 +172,7 @@ builder.Services.AddScoped<ICuotaService, CuotaService>();
 builder.Services.AddScoped<IGastoService, GastoService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
+builder.Services.AddScoped<IWorkflowAuditService, WorkflowAuditService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();

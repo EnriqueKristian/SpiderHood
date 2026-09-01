@@ -66,6 +66,8 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.WorkflowStep>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.SystemLogEntry>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.SystemLogSettings>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.Incident>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.IncidentComment>().HasNoKey(); // If SP doesn't return a primary key
 
 
 

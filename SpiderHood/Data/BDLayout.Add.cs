@@ -738,6 +738,47 @@ namespace SpiderHood.Data
             }, "AddSystemLog", cancellationToken);
         }
 
+        public async Task<Models.Incident> AddNewRecordAsync(Models.Incident incident, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(incident, nameof(incident));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Incident,
+                    cancellationToken,
+                    incident.IdIncident,
+                    incident.IdBuilding,
+                    incident.Title,
+                    incident.Description,
+                    incident.Type.ToString(),
+                    incident.Priority.ToString(),
+                    incident.Status.ToString(),
+                    (object?)incident.IdGroupUnit ?? DBNull.Value,
+                    incident.ReportedBy,
+                    incident.CreatedBy);
+                return incident;
+            }, "AddIncident", cancellationToken);
+        }
+
+        public async Task<Models.IncidentComment> AddNewRecordAsync(Models.IncidentComment comment, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(comment, nameof(comment));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_IncidentComment,
+                    cancellationToken,
+                    comment.IdComment,
+                    comment.IdIncident,
+                    comment.AuthorId,
+                    comment.Text,
+                    comment.IsInternal);
+                return comment;
+            }, "AddIncidentComment", cancellationToken);
+        }
+
         public async Task<Models.WorkflowStep> AddNewRecordAsync(Models.WorkflowStep step, CancellationToken cancellationToken = default)
         {
             ValidateEntity(step, nameof(step));

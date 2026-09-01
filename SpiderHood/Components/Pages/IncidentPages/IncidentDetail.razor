@@ -1,0 +1,223 @@
+@page "/incidents/{Id:guid}"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@inject IIncidentService IncidentService
+@inject SpiderHood.Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Incidente</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <button class="btn btn-sm btn-outline-secondary mb-3" @onclick='() => Navigation.NavigateTo("/incidents")'>
+        <i class="bi bi-arrow-left me-1"></i>Volver
+    </button>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">@_incident.Title</h5>
+                <span class="badge @StatusBadgeClass(_incident.Status)">@_incident.Status</span>
+            </div>
+            <div class="card-body">
+                <p>@_incident.Description</p>
+                <div class="row g-3 text-muted small">
+                    <div class="col-md-3"><strong>Tipo:</strong> @_incident.Type</div>
+                    <div class="col-md-3"><strong>Prioridad:</strong> @_incident.Priority</div>
+                    <div class="col-md-3"><strong>Unidad:</strong> @(_incident.UnitName ?? "Área común")</div>
+                    <div class="col-md-3"><strong>Reportado por:</strong> @_incident.ReportedByName</div>
+                    <div class="col-md-3"><strong>Asignado a:</strong> @(_incident.AssignedToName ?? "-")</div>
+                    <div class="col-md-3"><strong>Reportado:</strong> @_incident.CreatedOn.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                    @if (_incident.ResolvedOn.HasValue)
+                    {
+                        <div class="col-md-3"><strong>Resuelto:</strong> @_incident.ResolvedOn.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                    }
+                    @if (_incident.ClosedOn.HasValue)
+                    {
+                        <div class="col-md-3"><strong>Cerrado:</strong> @_incident.ClosedOn.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                    }
+                </div>
+
+                @if (_acciones.Count > 0)
+                {
+                    <hr />
+                    <div class="d-flex gap-2 flex-wrap">
+                        @foreach (var accion in _acciones)
+                        {
+                            <button class="btn btn-sm @accion.CssClass" @onclick="() => EjecutarAccion(accion.Status)">
+                                @accion.Label
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h6 class="mb-0">Comentarios</h6>
+            </div>
+            <div class="card-body">
+                @if (_comments.Count == 0)
+                {
+                    <p class="text-muted mb-3">Todavía no hay comentarios.</p>
+                }
+                else
+                {
+                    <div class="mb-3">
+                        @foreach (var comment in _comments)
+                        {
+                            <div class="border-bottom pb-2 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <strong>@comment.AuthorName</strong>
+                                    <span class="text-muted small">
+                                        @comment.CreatedOn.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                        @if (comment.IsInternal)
+                                        {
+                                            <span class="badge bg-secondary ms-1">Interno</span>
+                                        }
+                                    </span>
+                                </div>
+                                <p class="mb-0">@comment.Text</p>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <div class="mb-2">
+                    <textarea class="form-control" rows="2" placeholder="Escribir un comentario..." @bind="_nuevoComentario"></textarea>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    @if (_isStaff)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isInternal" @bind="_esInterno" />
+                            <label class="form-check-label" for="isInternal">Nota interna (el residente no la ve)</label>
+                        </div>
+                    }
+                    else
+                    {
+                        <span></span>
+                    }
+                    <button class="btn btn-sm btn-primary" @onclick="AgregarComentario" disabled="@string.IsNullOrWhiteSpace(_nuevoComentario)">
+                        <i class="bi bi-send me-1"></i>Comentar
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private record IncidentAction(IncidentStatus Status, string Label, string CssClass);
+
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private Incident _incident = new();
+    private List<IncidentComment> _comments = new();
+    private string _nuevoComentario = string.Empty;
+    private bool _esInterno;
+    private List<IncidentAction> _acciones = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        _loading = true;
+        _incident = await IncidentService.GetByIdAsync(Id);
+        _comments = await IncidentService.GetCommentsAsync(Id);
+
+        // Un residente no ve las notas internas del staff.
+        if (!_isStaff)
+            _comments = _comments.Where(c => !c.IsInternal).ToList();
+
+        CalcularAcciones();
+        _loading = false;
+    }
+
+    // Administrador/SysAdmin llevan el ciclo de vida operativo; el residente que
+    // reportó el incidente solo puede reabrir o confirmar el cierre; Junta (y
+    // cualquier otro rol) queda de solo lectura, como se definió para este módulo.
+    private void CalcularAcciones()
+    {
+        _acciones.Clear();
+        var esReportante = _incident.ReportedBy == _currentUser.IdUser;
+
+        if (_isStaff)
+        {
+            switch (_incident.Status)
+            {
+                case IncidentStatus.Reported:
+                    _acciones.Add(new(IncidentStatus.InReview, "Revisar", "btn-info"));
+                    _acciones.Add(new(IncidentStatus.Rejected, "Rechazar", "btn-outline-danger"));
+                    break;
+                case IncidentStatus.InReview:
+                    _acciones.Add(new(IncidentStatus.InProgress, "Asignarme y comenzar", "btn-warning"));
+                    _acciones.Add(new(IncidentStatus.Rejected, "Rechazar", "btn-outline-danger"));
+                    break;
+                case IncidentStatus.InProgress:
+                    _acciones.Add(new(IncidentStatus.Resolved, "Marcar Resuelto", "btn-primary"));
+                    break;
+                case IncidentStatus.Resolved:
+                case IncidentStatus.Reopened:
+                    _acciones.Add(new(IncidentStatus.Closed, "Cerrar", "btn-success"));
+                    break;
+            }
+        }
+        else if (esReportante && _incident.Status == IncidentStatus.Resolved)
+        {
+            _acciones.Add(new(IncidentStatus.Closed, "Confirmar cierre", "btn-success"));
+            _acciones.Add(new(IncidentStatus.Reopened, "No está resuelto, reabrir", "btn-outline-danger"));
+        }
+    }
+
+    private async Task EjecutarAccion(IncidentStatus nuevoEstado)
+    {
+        Guid? assignedTo = nuevoEstado == IncidentStatus.InProgress ? _currentUser.IdUser : null;
+
+        await IncidentService.ChangeStatusAsync(
+            Id, nuevoEstado, assignedTo, _currentUser.Email, _incident.IdBuilding);
+
+        await CargarAsync();
+    }
+
+    private async Task AgregarComentario()
+    {
+        if (string.IsNullOrWhiteSpace(_nuevoComentario))
+            return;
+
+        await IncidentService.AddCommentAsync(Id, _currentUser.IdUser, _nuevoComentario, _isStaff && _esInterno);
+        _nuevoComentario = string.Empty;
+        _esInterno = false;
+        await CargarAsync();
+    }
+
+    private static string StatusBadgeClass(IncidentStatus status) => status switch
+    {
+        IncidentStatus.Reported => "bg-secondary",
+        IncidentStatus.InReview => "bg-info text-dark",
+        IncidentStatus.InProgress => "bg-warning text-dark",
+        IncidentStatus.Resolved => "bg-primary",
+        IncidentStatus.Closed => "bg-success",
+        IncidentStatus.Rejected => "bg-dark",
+        IncidentStatus.Reopened => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

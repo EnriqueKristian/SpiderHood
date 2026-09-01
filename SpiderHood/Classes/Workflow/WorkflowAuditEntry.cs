@@ -21,6 +21,13 @@ namespace SpiderHood.Models
         Approved,
         Rejected,
         Published,
-        Closed
+        Closed,
+        // Agregados para Incidentes (Fase C) -- se guardan como string (ver
+        // BDLayout.Add.cs AddNewRecordAsync(WorkflowAuditEntry)), así que sumar
+        // valores acá no rompe nada de lo ya guardado.
+        Reviewed,
+        Assigned,
+        Resolved,
+        Reopened
     }
 }

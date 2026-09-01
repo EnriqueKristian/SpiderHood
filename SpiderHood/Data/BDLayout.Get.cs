@@ -797,6 +797,39 @@ namespace SpiderHood.Data
                 return await ExecuteQueryListAsync<Models.SystemLogEntry>(StoredProcedures.GET_SystemLogs_Recent, top);
             }, "GetRecentSystemLogs", cancellationToken);
         }
+
+        public async Task<List<Models.Incident>> GetIncidentsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Incident>(StoredProcedures.GET_IncidentsByBuilding, idBuilding);
+            }, "GetIncidentsByBuilding", cancellationToken);
+        }
+
+        public async Task<List<Models.Incident>> GetIncidentsByReporterAsync(Guid reportedBy, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Incident>(StoredProcedures.GET_IncidentsByReporter, reportedBy);
+            }, "GetIncidentsByReporter", cancellationToken);
+        }
+
+        public async Task<Models.Incident> GetIncidentByIdAsync(Guid idIncident, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<Models.Incident>(StoredProcedures.GET_IncidentById, idIncident);
+                return result ?? throw new EntityNotFoundException($"Incident with ID {idIncident} not found");
+            }, "GetIncidentById", cancellationToken);
+        }
+
+        public async Task<List<Models.IncidentComment>> GetIncidentCommentsAsync(Guid idIncident, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.IncidentComment>(StoredProcedures.GET_IncidentCommentsByIncident, idIncident);
+            }, "GetIncidentComments", cancellationToken);
+        }
         #endregion
     }
 }

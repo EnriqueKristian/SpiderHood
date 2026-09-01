@@ -221,6 +221,15 @@ namespace SpiderHood.Data
             public const string UPD_SystemLogSettings = "UPD_SystemLogSettings";
             public const string GET_SystemLogs_Recent = "GET_SystemLogs_Recent";
             public const string DEL_SystemLogOlderThan = "DEL_SystemLogOlderThan";
+
+            // Incident Procedures
+            public const string INS_Incident = "INS_Incident";
+            public const string UPD_IncidentStatus = "UPD_IncidentStatus";
+            public const string GET_IncidentsByBuilding = "GET_IncidentsByBuilding";
+            public const string GET_IncidentsByReporter = "GET_IncidentsByReporter";
+            public const string GET_IncidentById = "GET_IncidentById";
+            public const string INS_IncidentComment = "INS_IncidentComment";
+            public const string GET_IncidentCommentsByIncident = "GET_IncidentCommentsByIncident";
         }
         #endregion
 

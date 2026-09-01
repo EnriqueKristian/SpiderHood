@@ -1,0 +1,226 @@
+@page "/incidents"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@inject IIncidentService IncidentService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.ParameterService ParameterService
+@inject NavigationManager Navigation
+
+<PageTitle>Incidentes</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header d-flex justify-content-between align-items-center">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <h1 class="h3 fw-bold mb-0">@(_isStaff ? "Incidentes" : "Mis Incidentes")</h1>
+        </div>
+        <button class="btn btn-primary" @onclick="AbrirNuevo">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo Incidente
+        </button>
+    </div>
+
+    @if (_isStaff)
+    {
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <select class="form-select" @bind="_filtroEstado">
+                    <option value="">Todos los estados</option>
+                    @foreach (var status in Enum.GetValues<IncidentStatus>())
+                    {
+                        <option value="@status">@status</option>
+                    }
+                </select>
+            </div>
+        </div>
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else if (IncidentesFiltrados.Count == 0)
+    {
+        <p class="text-muted">No hay incidentes para mostrar.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Tipo</th>
+                        <th>Prioridad</th>
+                        <th>Estado</th>
+                        <th>Unidad</th>
+                        @if (_isStaff)
+                        {
+                            <th>Reportado por</th>
+                            <th>Asignado a</th>
+                        }
+                        <th>Fecha</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var incident in IncidentesFiltrados)
+                    {
+                        <tr style="cursor:pointer" @onclick="() => VerDetalle(incident.IdIncident)">
+                            <td>@incident.Title</td>
+                            <td>@incident.Type</td>
+                            <td><span class="badge @PriorityBadgeClass(incident.Priority)">@incident.Priority</span></td>
+                            <td><span class="badge @StatusBadgeClass(incident.Status)">@incident.Status</span></td>
+                            <td>@(incident.UnitName ?? "Área común")</td>
+                            @if (_isStaff)
+                            {
+                                <td>@incident.ReportedByName</td>
+                                <td>@(incident.AssignedToName ?? "-")</td>
+                            }
+                            <td>@incident.CreatedOn.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => VerDetalle(incident.IdIncident)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2 text-primary"></i>Nuevo Incidente</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <EditForm Model="@_nuevo" OnValidSubmit="Guardar">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Título</label>
+                            <InputText class="form-control" @bind-Value="_nuevo.Title" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Descripción</label>
+                            <InputTextArea class="form-control" rows="4" @bind-Value="_nuevo.Description" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Tipo</label>
+                                <InputSelect class="form-select" @bind-Value="_nuevo.Type">
+                                    @foreach (var type in Enum.GetValues<IncidentType>())
+                                    {
+                                        <option value="@type">@type</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Prioridad</label>
+                                <InputSelect class="form-select" @bind-Value="_nuevo.Priority">
+                                    @foreach (var priority in Enum.GetValues<IncidentPriority>())
+                                    {
+                                        <option value="@priority">@priority</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Reportar
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private bool _showModal;
+    private string _filtroEstado = string.Empty;
+    private List<Incident> _incidents = new();
+    private Incident _nuevo = new();
+
+    private List<Incident> IncidentesFiltrados =>
+        string.IsNullOrEmpty(_filtroEstado)
+            ? _incidents
+            : _incidents.Where(i => i.Status.ToString() == _filtroEstado).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        // Junta tiene solo visibilidad (ve todo, igual que Administrador/SysAdmin, pero
+        // sin botones de acción -- eso se resuelve en IncidentDetail.razor).
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("Junta") || _currentUser.Roles.Contains("SysAdmin");
+
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        _loading = true;
+        _incidents = _isStaff
+            ? await IncidentService.GetIncidentsByBuildingAsync(_currentUser.CurrentBuildingId)
+            : await IncidentService.GetMyIncidentsAsync(_currentUser.IdUser);
+        _loading = false;
+    }
+
+    private void AbrirNuevo()
+    {
+        _nuevo = new Incident
+        {
+            IdBuilding = _currentUser.CurrentBuildingId,
+            ReportedBy = _currentUser.IdUser
+        };
+        _showModal = true;
+    }
+
+    private void CerrarModal() => _showModal = false;
+
+    private async Task Guardar()
+    {
+        _nuevo.CreatedBy = _currentUser.Email;
+        await IncidentService.ReportAsync(_nuevo);
+        _showModal = false;
+        await CargarAsync();
+    }
+
+    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/incidents/{id}");
+
+    private static string PriorityBadgeClass(IncidentPriority priority) => priority switch
+    {
+        IncidentPriority.Urgent => "bg-danger",
+        IncidentPriority.High => "bg-warning text-dark",
+        IncidentPriority.Medium => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string StatusBadgeClass(IncidentStatus status) => status switch
+    {
+        IncidentStatus.Reported => "bg-secondary",
+        IncidentStatus.InReview => "bg-info text-dark",
+        IncidentStatus.InProgress => "bg-warning text-dark",
+        IncidentStatus.Resolved => "bg-primary",
+        IncidentStatus.Closed => "bg-success",
+        IncidentStatus.Rejected => "bg-dark",
+        IncidentStatus.Reopened => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

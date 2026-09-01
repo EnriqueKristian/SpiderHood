@@ -433,6 +433,21 @@ namespace SpiderHood.Data
             }, "UpdateWorkflowStep", cancellationToken);
         }
 
+        public async Task UpdateIncidentStatusAsync(Guid idIncident, Models.IncidentStatus status, Guid? assignedTo, string modifiedBy, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_IncidentStatus,
+                    cancellationToken,
+                    idIncident,
+                    status.ToString(),
+                    (object?)assignedTo ?? DBNull.Value,
+                    modifiedBy);
+                return true;
+            }, "UpdateIncidentStatus", cancellationToken);
+        }
+
         public async Task UpdateSystemLogSettingsAsync(Models.SystemLogSettings settings, CancellationToken cancellationToken = default)
         {
             ValidateEntity(settings, nameof(settings));

@@ -17,12 +17,20 @@ namespace SpiderHood.Services
     {
 
         private readonly ILogger<IBudgetService> _logger;
+        private readonly AuthService _authService;
         private BDLayout ec { get; set; }
 
-        public ServiceReadingService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger)
+        public ServiceReadingService(IDbContextFactory<SpiderHoodContext> contextFactory, ILogger<IBudgetService> logger, AuthService authService)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             ec = new BDLayout(contextFactory);
+        }
+
+        private async Task<string> GetPerformedByAsync()
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            return user?.Email ?? "system";
         }
 
         public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period)
@@ -48,6 +56,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.AddNewRecordAsync(newservice);
+                await ec.StampAuditAsync(AuditableEntity.ServiceReading, newservice.IdServiceReading, await GetPerformedByAsync(), isCreate: true);
             }
             catch (Exception ex)
             {
@@ -60,6 +69,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.AddNewRecordAsync(newperiod);
+                await ec.StampAuditAsync(AuditableEntity.Period, newperiod.IdPeriod, await GetPerformedByAsync(), isCreate: true);
             }
             catch (Exception ex)
             {

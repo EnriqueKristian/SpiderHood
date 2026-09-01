@@ -339,17 +339,18 @@ namespace SpiderHood.Services
                 foreach (var period in _periods.Where(c => c.IsNewPeriod))
                 {
                     await ecLocal.AddNewRecordAsync(period);
+                    await ecLocal.StampAuditAsync(AuditableEntity.Period, period.IdPeriod, performedBy, isCreate: true);
                 }
 
                 if (state.Status == BudgetStatus.Created || state.Status == BudgetStatus.Rejected)
                 {
-                    await SaveCategoriesAsync(ecLocal, state);
+                    await SaveCategoriesAsync(ecLocal, state, performedBy);
                 }
 
                 if (state.Status == BudgetStatus.Active)
                 {
                     //Guardar Installments en BD
-                    await SaveInstallment(ecLocal, state);
+                    await SaveInstallment(ecLocal, state, performedBy);
                 }
 
                 if (state.IsNewBudget)
@@ -385,7 +386,7 @@ namespace SpiderHood.Services
             }
         }
 
-        private async Task SaveCategoriesAsync(BDLayout ecLocal, BudgetState state)
+        private async Task SaveCategoriesAsync(BDLayout ecLocal, BudgetState state, string performedBy)
         {
             // Antes este método sólo recorría headers NUEVOS (IsHeader && IsNewItem), así
             // que un item nuevo agregado bajo una sección ya existente nunca pasaba por acá
@@ -397,17 +398,17 @@ namespace SpiderHood.Services
             {
                 if (header.IsNewItem)
                 {
-                    await SaveCategoryAsync(ecLocal, header, Guid.Empty, state.Budget.IdBuilding);
+                    await SaveCategoryAsync(ecLocal, header, Guid.Empty, state.Budget.IdBuilding, performedBy);
                 }
 
                 foreach (var subItem in state.Details.Where(c => c.IdSection == header.IdSection && !c.IsHeader && c.IsNewItem))
                 {
-                    await SaveCategoryAsync(ecLocal, subItem, header.IdCategory, state.Budget.IdBuilding);
+                    await SaveCategoryAsync(ecLocal, subItem, header.IdCategory, state.Budget.IdBuilding, performedBy);
                 }
             }
         }
 
-        private async Task SaveCategoryAsync(BDLayout ecLocal, BudgetDetail item, Guid parentId, Guid IdBuilding)
+        private async Task SaveCategoryAsync(BDLayout ecLocal, BudgetDetail item, Guid parentId, Guid IdBuilding, string performedBy)
         {
             var category = new Category
             {
@@ -422,6 +423,7 @@ namespace SpiderHood.Services
             };
 
             await ecLocal.AddNewRecordAsync(category);
+            await ecLocal.StampAuditAsync(AuditableEntity.Category, category.IdCategory, performedBy, isCreate: true);
         }
 
         private async Task CreateNewBudgetAsync(BDLayout ecLocal, BudgetState state, string performedBy)
@@ -453,7 +455,7 @@ namespace SpiderHood.Services
             await ecLocal.StampAuditAsync(AuditableEntity.BudgetHeader, state.Budget.IdBudgetHeader, performedBy, isCreate: false);
         }
 
-        private async Task SaveInstallment(BDLayout ecLocal, BudgetState state)
+        private async Task SaveInstallment(BDLayout ecLocal, BudgetState state, string performedBy)
         {
 
             foreach (var item in state.Installments)
@@ -468,6 +470,7 @@ namespace SpiderHood.Services
 
             //Actualizar lectura de Agua
             await ecLocal.UpdateRecordAsync(UpdStatus);
+            await ecLocal.StampAuditAsync(AuditableEntity.ServiceReading, UpdStatus.IdServiceReading, performedBy, isCreate: false);
 
             InstallmentExoneration _exoneration = new();
             _exoneration.IdBudgetHeader = state.Budget.IdBudgetHeader;

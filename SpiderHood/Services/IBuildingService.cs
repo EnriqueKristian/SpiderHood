@@ -59,10 +59,18 @@ namespace SpiderHood.Services
     {
         private BDLayout ec { get; set; }
         private ParameterService ParameterService { get; set; } = default!;
+        private readonly AuthService _authService;
 
-        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory)
+        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService)
         {
             ec = new BDLayout(contextFactory);
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        }
+
+        private async Task<string> GetPerformedByAsync()
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            return user?.Email ?? "system";
         }
 
         public async Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner)
@@ -185,6 +193,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.AddNewRecordAsync(newconfiguration);
+                await ec.StampAuditAsync(AuditableEntity.BuildingConfiguration, newconfiguration.IdBuildingConfiguration, await GetPerformedByAsync(), isCreate: true);
             }
             catch (Exception ex)
             {
@@ -197,6 +206,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.UpdateRecordAsync(configuration);
+                await ec.StampAuditAsync(AuditableEntity.BuildingConfiguration, configuration.IdBuildingConfiguration, await GetPerformedByAsync(), isCreate: false);
             }
             catch (Exception ex)
             {

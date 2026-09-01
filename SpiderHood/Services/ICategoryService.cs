@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
+using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
@@ -16,10 +17,18 @@ namespace SpiderHood.Services
     public class CategoryService : ICategoryService
     {
         public BDLayout ec = default!;
+        private readonly AuthService _authService;
 
-        public CategoryService(IDbContextFactory<SpiderHoodContext> contextFactory)
+        public CategoryService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService)
         {
             ec = new BDLayout(contextFactory);
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        }
+
+        private async Task<string> GetPerformedByAsync()
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            return user?.Email ?? "system";
         }
 
         public async Task<List<Models.Category>> GetCategoriesAsync(Guid IdBulding)
@@ -41,6 +50,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.AddNewRecordAsync(newcategory);
+                await ec.StampAuditAsync(AuditableEntity.Category, newcategory.IdCategory, await GetPerformedByAsync(), isCreate: true);
             }
             catch (Exception ex)
             {
@@ -53,6 +63,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.UpdateRecordAsync(category);
+                await ec.StampAuditAsync(AuditableEntity.Category, category.IdCategory, await GetPerformedByAsync(), isCreate: false);
             }
             catch (Exception ex)
             {

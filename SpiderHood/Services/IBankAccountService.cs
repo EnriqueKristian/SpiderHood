@@ -33,13 +33,21 @@ namespace SpiderHood.Services
     {
         private readonly HttpClient _httpClient;
         private readonly ILocalStorageService _localStorage;
+        private readonly AuthService _authService;
         public BDLayout ec = default!;
 
-        public BankAccountService(IDbContextFactory<SpiderHoodContext> contextFactory, HttpClient httpClient, ILocalStorageService localStorage)
+        public BankAccountService(IDbContextFactory<SpiderHoodContext> contextFactory, HttpClient httpClient, ILocalStorageService localStorage, AuthService authService)
         {
             _httpClient = httpClient;
             _localStorage = localStorage;
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             ec = new BDLayout(contextFactory);
+        }
+
+        private async Task<string> GetPerformedByAsync()
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            return user?.Email ?? "system";
         }
 
 
@@ -150,6 +158,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.AddNewRecordAsync(newbankaccount);
+                await ec.StampAuditAsync(AuditableEntity.BankAccount, newbankaccount.IdBankAccount, await GetPerformedByAsync(), isCreate: true);
             }
             catch (Exception ex)
             {
@@ -163,6 +172,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.UpdateRecordAsync(bankaccount);
+                await ec.StampAuditAsync(AuditableEntity.BankAccount, bankaccount.IdBankAccount, await GetPerformedByAsync(), isCreate: false);
             }
             catch (Exception ex)
             {

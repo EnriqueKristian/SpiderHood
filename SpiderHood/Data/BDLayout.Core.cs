@@ -206,6 +206,11 @@ namespace SpiderHood.Data
             public const string UPD_OwnerAudit = "UPD_OwnerAudit";
             public const string UPD_BudgetHeaderAudit = "UPD_BudgetHeaderAudit";
             public const string UPD_ExpenseAudit = "UPD_ExpenseAudit";
+            public const string UPD_PeriodAudit = "UPD_PeriodAudit";
+            public const string UPD_ServiceReadingAudit = "UPD_ServiceReadingAudit";
+            public const string UPD_BankAccountAudit = "UPD_BankAccountAudit";
+            public const string UPD_CategoryAudit = "UPD_CategoryAudit";
+            public const string UPD_BuildingConfigurationAudit = "UPD_BuildingConfigurationAudit";
 
             // Workflow Audit Procedures
             public const string INS_WorkflowAuditLog = "INS_WorkflowAuditLog";

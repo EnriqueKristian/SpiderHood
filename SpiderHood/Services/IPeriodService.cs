@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
+using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
@@ -18,10 +19,18 @@ namespace SpiderHood.Services
     public class PeriodService : IPeriodService
     {
         private BDLayout ec { get; set; }
+        private readonly AuthService _authService;
 
-        public PeriodService(IDbContextFactory<SpiderHoodContext> contextFactory)
+        public PeriodService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService)
         {
             ec = new BDLayout(contextFactory);
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        }
+
+        private async Task<string> GetPerformedByAsync()
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            return user?.Email ?? "system";
         }
 
         public async Task<IEnumerable<Models.Period>> GetPeriodsByBuildingAsync(Guid IdBuilding)
@@ -57,6 +66,7 @@ namespace SpiderHood.Services
 
                 //_context.Periods.Add(period);
                 await ec.AddNewRecordAsync(period);
+                await ec.StampAuditAsync(AuditableEntity.Period, period.IdPeriod, await GetPerformedByAsync(), isCreate: true);
 
                 // Si este periodo es el actual, desmarcar los demás
                 if (period.IsCurrentPeriod)
@@ -86,6 +96,7 @@ namespace SpiderHood.Services
                 }
 
                 await ec.UpdateRecordAsync(period);
+                await ec.StampAuditAsync(AuditableEntity.Period, period.IdPeriod, await GetPerformedByAsync(), isCreate: false);
 
                 // Si este periodo pasa a ser el actual, desmarcar los demás
                 if (period.IsCurrentPeriod)

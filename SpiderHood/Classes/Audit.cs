@@ -9,6 +9,11 @@ namespace SpiderHood.Models
         Building,
         Owner,
         BudgetHeader,
-        Expense
+        Expense,
+        Period,
+        ServiceReading,
+        BankAccount,
+        Category,
+        BuildingConfiguration
     }
 }

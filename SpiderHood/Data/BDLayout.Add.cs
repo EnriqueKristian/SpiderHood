@@ -109,7 +109,7 @@ namespace SpiderHood.Data
                     idUser,
                     idBuilding,
                     idRole,
-                    (object?)idGroupUnit ?? DBNull.Value);
+                    (object?)idGroupUnit);
                 return true;
             }, "AssignUnitToUserBuilding", cancellationToken);
         }
@@ -129,7 +129,7 @@ namespace SpiderHood.Data
                     idRole,
                     isApproved,
                     status,
-                    (object?)approvedBy ?? DBNull.Value);
+                    (object?)approvedBy);
                 return true;
             }, "SetUserBuildingApproval", cancellationToken);
         }
@@ -710,7 +710,7 @@ namespace SpiderHood.Data
                     entry.EntityId,
                     entry.Action.ToString(),
                     entry.PerformedBy,
-                    (object?)entry.Comment ?? DBNull.Value,
+                    (object?)entry.Comment,
                     entry.IdBuilding);
                 return entry;
             }, "AddWorkflowAuditLog", cancellationToken);
@@ -730,10 +730,10 @@ namespace SpiderHood.Data
                     entry.Level,
                     entry.Category,
                     entry.Message,
-                    (object?)entry.Exception ?? DBNull.Value,
-                    (object?)entry.IdUser ?? DBNull.Value,
-                    (object?)entry.UserName ?? DBNull.Value,
-                    (object?)entry.IdBuilding ?? DBNull.Value);
+                    (object?)entry.Exception,
+                    (object?)entry.IdUser,
+                    (object?)entry.UserName,
+                    (object?)entry.IdBuilding);
                 return entry;
             }, "AddSystemLog", cancellationToken);
         }
@@ -754,7 +754,7 @@ namespace SpiderHood.Data
                     incident.Type.ToString(),
                     incident.Priority.ToString(),
                     incident.Status.ToString(),
-                    (object?)incident.IdGroupUnit ?? DBNull.Value,
+                    (object?)incident.IdGroupUnit,
                     incident.ReportedBy,
                     incident.CreatedBy);
                 return incident;

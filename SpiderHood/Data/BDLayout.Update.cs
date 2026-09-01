@@ -442,7 +442,7 @@ namespace SpiderHood.Data
                     cancellationToken,
                     idIncident,
                     status.ToString(),
-                    (object?)assignedTo ?? DBNull.Value,
+                    (object?)assignedTo,
                     modifiedBy);
                 return true;
             }, "UpdateIncidentStatus", cancellationToken);

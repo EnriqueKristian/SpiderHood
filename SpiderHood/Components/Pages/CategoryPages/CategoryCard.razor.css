@@ -5,49 +5,64 @@
     box-shadow: var(--sh-shadow-sm);
     margin-bottom: 25px;
     overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: var(--sh-transition);
 }
 
     .category-card:hover {
-        transform: translateY(-5px);
+        transform: translateY(-3px);
         box-shadow: var(--sh-shadow-md);
     }
 
 .category-header {
-    padding: 20px;
+    padding: var(--sh-space-4) var(--sh-space-5);
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: var(--sh-space-2);
-    border-bottom: 1px solid var(--sh-border);
+    gap: var(--sh-space-3);
+    /* Mezcla el color elegido para la categoría con la superficie de la tarjeta
+       (blanco en claro, gris oscuro en oscuro) -- así el header queda pastel,
+       no relleno del color sólido/vivo que se elige en el picker. */
+    background: color-mix(in srgb, var(--cat-color, var(--sh-primary)) 16%, var(--sh-surface));
+}
+
+.category-header-icon {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--sh-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    background: color-mix(in srgb, var(--cat-color, var(--sh-primary)) 30%, var(--sh-surface));
+    color: var(--cat-color, var(--sh-primary));
+}
+
+.category-header-text {
+    flex: 1;
+    min-width: 0;
 }
 
 .category-name {
-    font-size: 1.4rem;
-    font-weight: 600;
+    font-size: 1.15rem;
+    font-weight: 700;
     color: var(--sh-text-heading);
 }
 
 .subcategory-count {
-    background-color: var(--sh-primary-light);
-    color: var(--sh-primary-dark);
-    padding: 5px 12px;
-    border-radius: var(--sh-radius-pill);
-    font-size: 0.9rem;
-    font-weight: 600;
-    white-space: nowrap;
+    font-size: 0.85rem;
+    color: var(--sh-text-muted);
 }
 
 .subcategory-list {
-    padding: 20px;
+    padding: var(--sh-space-3) var(--sh-space-4);
 }
 
 .subcategory-item {
     display: flex;
     align-items: center;
-    gap: var(--sh-space-2);
-    padding: 12px 0;
-    border-bottom: 1px dashed var(--sh-border);
+    gap: var(--sh-space-3);
+    padding: var(--sh-space-3) var(--sh-space-2);
+    border-bottom: 1px solid var(--sh-border);
 }
 
     .subcategory-item:last-child {
@@ -56,24 +71,35 @@
 
     .subcategory-item:hover {
         background-color: var(--sh-surface-muted);
+        border-radius: var(--sh-radius-sm);
     }
 
-.checkbox-container {
-    display: inline-flex;
-    width: 22px;
+.subcategory-icon {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--sh-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--sh-surface-muted);
+    color: var(--sh-text-muted);
+    font-size: 0.9rem;
 }
 
 .subcategory-name {
-    font-size: 1.1rem;
-    color: var(--sh-text-heading);
+    font-size: 0.95rem;
+    color: var(--sh-text);
     flex: 1;
+    min-width: 0;
 }
 
 .distribution-tag {
-    padding: 4px 10px;
+    padding: 3px 10px;
     border-radius: var(--sh-radius-pill);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .distribution-fixed {
@@ -86,23 +112,47 @@
     color: #b45309;
 }
 
+.btn-icon {
+    border: none;
+    background: transparent;
+    color: var(--sh-text-muted);
+    width: 30px;
+    height: 30px;
+    border-radius: var(--sh-radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--sh-transition);
+}
+
+    .btn-icon:hover {
+        background-color: var(--sh-surface-muted);
+        color: var(--sh-text);
+    }
+
+    .btn-icon.text-danger:hover {
+        background-color: var(--sh-danger-light);
+        color: var(--sh-danger);
+    }
+
 .add-subcategory {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 15px;
+    padding: var(--sh-space-3);
     background-color: var(--sh-surface-muted);
     border-top: 1px solid var(--sh-border);
     color: var(--sh-primary);
     font-weight: 600;
+    font-size: 0.9rem;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: var(--sh-transition);
 }
 
     .add-subcategory:hover {
-        background-color: var(--sh-primary-light);
+        background-color: color-mix(in srgb, var(--sh-primary) 12%, var(--sh-surface));
     }
 
     .add-subcategory i {
-        margin-right: 8px;
+        margin-right: var(--sh-space-2);
     }

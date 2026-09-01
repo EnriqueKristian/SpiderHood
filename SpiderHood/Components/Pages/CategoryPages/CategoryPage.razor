@@ -33,6 +33,48 @@
         </div>
     </div>
 
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-4">
+            <div class="card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat-icon bg-primary-subtle text-primary">
+                        <i class="bi bi-folder2"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Total Categorías</div>
+                        <div class="h4 fw-bold mb-0">@CatParent.Count</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat-icon bg-success-subtle text-success">
+                        <i class="bi bi-list-ul"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Total Subcategorías</div>
+                        <div class="h4 fw-bold mb-0">@TotalSubcategoriasCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat-icon bg-warning-subtle text-warning">
+                        <i class="bi bi-bar-chart"></i>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Promedio por Categoría</div>
+                        <div class="h4 fw-bold mb-0">@PromedioPorCategoria.ToString("0.0")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="main-content">
         <div class="categories-section">
             <h4>Categorías Existentes</h4>
@@ -110,6 +152,9 @@
     // Propiedades calculadas
     private List<Category> Categories => _categories;
     private List<Category> CatParent => _catParent;
+
+    private int TotalSubcategoriasCount => _categories.Count(c => c.Nivel != 0);
+    private double PromedioPorCategoria => _catParent.Count == 0 ? 0 : (double)TotalSubcategoriasCount / _catParent.Count;
 
     private bool _canManageCategories;
 

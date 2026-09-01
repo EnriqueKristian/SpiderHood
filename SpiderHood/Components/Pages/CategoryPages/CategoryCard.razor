@@ -1,15 +1,20 @@
-﻿<div class="category-card">
-    <div class="category-header" style="background:@Category.Color">
-        <div class="category-name">@Category.ShortDescript</div>
-        <div class="subcategory-count">
-            @Categories.Count(c => c.ParentId == Category.IdCategory) Sub Categorías
+﻿<div class="category-card" style="--cat-color: @Category.Color">
+    <div class="category-header">
+        <div class="category-header-icon">
+            <i class="@(string.IsNullOrEmpty(Category.Icon) ? "bi bi-folder2" : Category.Icon)"></i>
+        </div>
+        <div class="category-header-text">
+            <div class="category-name">@Category.ShortDescript</div>
+            <div class="subcategory-count">
+                @Categories.Count(c => c.ParentId == Category.IdCategory) subcategorías
+            </div>
         </div>
         <div class="btn-group btn-group-sm" role="group">
-            <button type="button" class="btn btn-outline-secondary"
+            <button type="button" class="btn btn-icon"
                     title="Editar" @onclick="() => EditItem(Category)">
                 <i class="bi bi-pencil"></i>
             </button>
-            <button type="button" class="btn btn-outline-danger"
+            <button type="button" class="btn btn-icon text-danger"
                     title="Eliminar" @onclick="() => ConfirmDelete(Category.IdCategory)">
                 <i class="bi bi-trash"></i>
             </button>
@@ -20,7 +25,7 @@
         @foreach (var subcategoria in Categories.Where(c => c.ParentId == Category.IdCategory))
         {
             <div class="subcategory-item">
-                <div class="checkbox-container">
+                <div class="subcategory-icon">
                     @if (!string.IsNullOrEmpty(subcategoria.Icon))
                     {
                         <i class="@subcategoria.Icon"></i>
@@ -31,11 +36,11 @@
                     @subcategoria.Distribution
                 </span>
                 <div class="btn-group btn-group-sm" role="group">
-                    <button type="button" class="btn btn-outline-secondary"
+                    <button type="button" class="btn btn-icon"
                             title="Editar" @onclick="() => EditItem(subcategoria)">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button type="button" class="btn btn-outline-danger"
+                    <button type="button" class="btn btn-icon text-danger"
                             title="Eliminar" @onclick="() => ConfirmDelete(subcategoria.IdCategory)">
                         <i class="bi bi-trash"></i>
                     </button>
@@ -45,7 +50,7 @@
     </div>
 
     <div class="add-subcategory" @onclick="OnAddSubcategory">
-        <i class="bi bi-plus"></i> Agregar Sub Categoría
+        <i class="bi bi-plus-lg"></i> Agregar Sub Categoría
     </div>
 </div>
 

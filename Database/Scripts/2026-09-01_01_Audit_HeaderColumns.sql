@@ -1,10 +1,12 @@
 -- =============================================================================
 -- Auditoria (Usuario + Fecha de Creacion/Modificacion) en tablas cabecera.
 --
--- Alcance inicial: Building, Owner, BudgetHeader, Expense (ver plan de
--- implementaciones pendientes). El resto de cabeceras (Period, ServiceReading,
--- BankAccount, Category, BuildingConfiguration) se agrega mas adelante con el
--- mismo patron.
+-- Alcance inicial: Building, Owner (tabla fisica dbo.ApartmentOwner -- el SP
+-- se llama UPD_OwnerAudit por consistencia con INS_Owner/UPD_Owner/
+-- GET_OwnerByBuilding, que ya usan "Owner" aunque la tabla se llame distinto),
+-- BudgetHeader, Expense (ver plan de implementaciones pendientes). El resto de
+-- cabeceras (Period, ServiceReading, BankAccount, Category,
+-- BuildingConfiguration) se agrega mas adelante con el mismo patron.
 --
 -- No modifica ningun Stored Procedure existente: agrega columnas nuevas
 -- (NULL-able, no rompen INSERTs actuales que no las conozcan) y 4 SPs nuevos,
@@ -32,14 +34,14 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Buildi
     ALTER TABLE dbo.Building ADD ModifiedOn DATETIME2 NULL;
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Owner') AND name = 'CreatedBy')
-    ALTER TABLE dbo.Owner ADD CreatedBy NVARCHAR(256) NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Owner') AND name = 'CreatedOn')
-    ALTER TABLE dbo.Owner ADD CreatedOn DATETIME2 NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Owner') AND name = 'ModifiedBy')
-    ALTER TABLE dbo.Owner ADD ModifiedBy NVARCHAR(256) NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Owner') AND name = 'ModifiedOn')
-    ALTER TABLE dbo.Owner ADD ModifiedOn DATETIME2 NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ApartmentOwner') AND name = 'CreatedBy')
+    ALTER TABLE dbo.ApartmentOwner ADD CreatedBy NVARCHAR(256) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ApartmentOwner') AND name = 'CreatedOn')
+    ALTER TABLE dbo.ApartmentOwner ADD CreatedOn DATETIME2 NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ApartmentOwner') AND name = 'ModifiedBy')
+    ALTER TABLE dbo.ApartmentOwner ADD ModifiedBy NVARCHAR(256) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.ApartmentOwner') AND name = 'ModifiedOn')
+    ALTER TABLE dbo.ApartmentOwner ADD ModifiedOn DATETIME2 NULL;
 GO
 
 -- BudgetHeader ya tiene CreatedBy/CreatedOn (ver Classes/Models.cs BudgetHeader) --
@@ -93,12 +95,12 @@ AS
 BEGIN
     SET NOCOUNT ON;
     IF @IsCreate = 1
-        UPDATE dbo.Owner
+        UPDATE dbo.ApartmentOwner
         SET CreatedBy = @PerformedBy, CreatedOn = SYSUTCDATETIME(),
             ModifiedBy = @PerformedBy, ModifiedOn = SYSUTCDATETIME()
         WHERE IdOwner = @IdOwner;
     ELSE
-        UPDATE dbo.Owner
+        UPDATE dbo.ApartmentOwner
         SET ModifiedBy = @PerformedBy, ModifiedOn = SYSUTCDATETIME()
         WHERE IdOwner = @IdOwner;
 END

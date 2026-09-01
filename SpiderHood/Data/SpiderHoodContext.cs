@@ -66,7 +66,17 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.WorkflowStep>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.SystemLogEntry>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.SystemLogSettings>().HasNoKey(); // If SP doesn't return a primary key
-            modelBuilder.Entity<Models.Incident>().HasNoKey(); // If SP doesn't return a primary key
+            // Type/Priority/Status son enums de C# pero se guardan como texto en la BD
+            // (ver Database/Scripts/2026-09-02_05_Incidents.sql) -- sin HasConversion<string>()
+            // EF Core asume que un enum es int por default y GET_Incidents* revienta con
+            // InvalidCastException al leer el NVARCHAR real.
+            modelBuilder.Entity<Models.Incident>(entity =>
+            {
+                entity.HasNoKey(); // If SP doesn't return a primary key
+                entity.Property(i => i.Type).HasConversion<string>();
+                entity.Property(i => i.Priority).HasConversion<string>();
+                entity.Property(i => i.Status).HasConversion<string>();
+            });
             modelBuilder.Entity<Models.IncidentComment>().HasNoKey(); // If SP doesn't return a primary key
 
 

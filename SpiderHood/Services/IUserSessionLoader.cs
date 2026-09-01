@@ -55,8 +55,14 @@ namespace SpiderHood.Services
                         IdGroupUnit = ub.IdGroupUnit
                     }).ToList();
 
-                await GrantSysAdminAccessToAllBuildingsAsync(buildings);
-                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings);
+                // Ver AuthService.LoginAsync para el detalle de por qué se chequea también
+                // esto -- SysAdmin se puede reconocer sin ninguna fila en
+                // UserBuildingAssociation, vía el rol global en UserRole.
+                var rolGlobal = await _ec.GetRoleByUserIdAsync(user.IdUser);
+                var esSysAdminGlobal = rolGlobal?.RoleName == "SysAdmin";
+
+                await GrantSysAdminAccessToAllBuildingsAsync(buildings, esSysAdminGlobal);
+                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings, esSysAdminGlobal);
 
                 return new UserSession
                 {
@@ -87,11 +93,14 @@ namespace SpiderHood.Services
         // AuthService.LoginAsync para el detalle; se repite acá por la misma razón que
         // GrantSysAdminAccessToAllBuildingsAsync (este método corre en cada circuito
         // nuevo, no sólo en el login).
-        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings)
+        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings, bool esSysAdminGlobal)
         {
             var sysAdmin = buildings.FirstOrDefault(b => b.Role == "SysAdmin");
             if (sysAdmin != null)
                 return (sysAdmin.Building!.IdBuilding, "SysAdmin");
+
+            if (esSysAdminGlobal && buildings.Count > 0)
+                return (buildings[0].Building!.IdBuilding, "SysAdmin");
 
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)
@@ -103,9 +112,9 @@ namespace SpiderHood.Services
         // Ver el mismo método en AuthService.LoginAsync -- se repite acá porque este
         // método reconstruye la sesión en cada circuito nuevo (recarga, reconexión), no
         // sólo en el login inicial.
-        private async Task GrantSysAdminAccessToAllBuildingsAsync(List<UserBuilding> buildings)
+        private async Task GrantSysAdminAccessToAllBuildingsAsync(List<UserBuilding> buildings, bool esSysAdminGlobal)
         {
-            if (!buildings.Any(b => b.Role == "SysAdmin"))
+            if (!esSysAdminGlobal && !buildings.Any(b => b.Role == "SysAdmin"))
                 return;
 
             foreach (var b in buildings.Where(b => b.Role == "SysAdmin"))

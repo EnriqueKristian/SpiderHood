@@ -143,8 +143,14 @@ namespace SpiderHood.Services
                         IdGroupUnit = ub.IdGroupUnit
                     }).ToList();
 
-                await GrantSysAdminAccessToAllBuildingsAsync(buildings);
-                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings);
+                // SysAdmin también se reconoce de forma GLOBAL, vía UserRole (usuario↔rol,
+                // sin ningún edificio) -- así el superusuario no necesita depender de
+                // ninguna fila en UserBuildingAssociation. Ver GrantSysAdminAccessToAllBuildingsAsync.
+                var rolGlobal = await Ec.GetRoleByUserIdAsync(user.IdUser);
+                var esSysAdminGlobal = rolGlobal?.RoleName == "SysAdmin";
+
+                await GrantSysAdminAccessToAllBuildingsAsync(buildings, esSysAdminGlobal);
+                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings, esSysAdminGlobal);
 
                 // Crear sesión
                 var session = (new UserSession
@@ -607,11 +613,17 @@ namespace SpiderHood.Services
         // Administrador/Junta sobre el mismo edificio (caso real: admin@spiderhood.com)
         // queda con la misma ambigüedad de rol que cualquier otro usuario y termina en
         // /select-building -- lo cual no tiene sentido para el superusuario.
-        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings)
+        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings, bool esSysAdminGlobal)
         {
             var sysAdmin = buildings.FirstOrDefault(b => b.Role == "SysAdmin");
             if (sysAdmin != null)
                 return (sysAdmin.Building!.IdBuilding, "SysAdmin");
+
+            // Reconocido como SysAdmin vía UserRole (sin ninguna fila en
+            // UserBuildingAssociation): GrantSysAdminAccessToAllBuildingsAsync ya le agregó
+            // todos los edificios del sistema como sintéticos -- se entra al primero.
+            if (esSysAdminGlobal && buildings.Count > 0)
+                return (buildings[0].Building!.IdBuilding, "SysAdmin");
 
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)
@@ -622,14 +634,14 @@ namespace SpiderHood.Services
 
         // SysAdmin es el administrador general del sistema: no debería depender de estar
         // vinculado (ni mucho menos aprobado) a un edificio puntual para poder entrar --
-        // tiene privilegio sobre todos. Si ya tiene el rol SysAdmin en al menos un
-        // edificio (así se identifica hoy, vía UserBuildingAssociation), se le completan
-        // como aprobados el resto de los edificios del sistema y se fuerza IsApproved en
-        // los que ya tenía, para que nunca termine atrapado en "sin edificios" o en la
-        // pantalla de aprobación pendiente que ven los demás roles.
-        private async Task GrantSysAdminAccessToAllBuildingsAsync(List<UserBuilding> buildings)
+        // tiene privilegio sobre todos. Se lo reconoce por CUALQUIERA de estas dos señales:
+        // ya tiene el rol SysAdmin en algún edificio (UserBuildingAssociation), o tiene el
+        // rol SysAdmin de forma global (UserRole, sin edificio -- ver
+        // Database/Migrations/*_SysAdminGlobal.sql). Con cualquiera de las dos, se le
+        // completan como aprobados TODOS los edificios del sistema.
+        private async Task GrantSysAdminAccessToAllBuildingsAsync(List<UserBuilding> buildings, bool esSysAdminGlobal)
         {
-            if (!buildings.Any(b => b.Role == "SysAdmin"))
+            if (!esSysAdminGlobal && !buildings.Any(b => b.Role == "SysAdmin"))
                 return;
 
             foreach (var b in buildings.Where(b => b.Role == "SysAdmin"))

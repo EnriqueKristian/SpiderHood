@@ -20,7 +20,7 @@ namespace SpiderHood.Services
             _logger = logger;
         }
 
-        public async Task<GenerationResult> GenerarMonthlyInstallmentBatchAsync(
+        public async Task<GenerationResult> GenerarCuotaMensualAsync(
             int mes,
             int anio,
             DateTime fechaVencimiento,
@@ -221,7 +221,7 @@ namespace SpiderHood.Services
 
         public async Task<MonthlyInstallmentBatch> ObtenerCuotaAsync(int cuotaId)
         {
-            var cuotas = new List<MonthlyInstallmentBatch>(); // await ParameterService.ec.ObtenerMonthlyInstallmentBatches();
+            var cuotas = new List<MonthlyInstallmentBatch>(); // await ParameterService.ec.ObtenerCuotaMensuales();
             return cuotas.FirstOrDefault(c => c.Id == cuotaId)!;
         }
 
@@ -239,7 +239,7 @@ namespace SpiderHood.Services
                 query = query.Where(c => c.Mes == mes.Value);
             }*/
 
-            return new List<MonthlyInstallmentBatch>(); // await ParameterService.ec.ObtenerMonthlyInstallmentBatches();
+            return new List<MonthlyInstallmentBatch>(); // await ParameterService.ec.ObtenerCuotaMensuales();
 
             /*return await query
                 .OrderByDescending(c => c.Anio)

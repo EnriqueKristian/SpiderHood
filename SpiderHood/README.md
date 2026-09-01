@@ -28,6 +28,20 @@ Server, Bootstrap.
 
    Por defecto queda disponible en `https://localhost:7175`.
 
+## Estructura del proyecto
+
+Un solo proyecto (`SpiderHood.csproj`), organizado por carpeta/namespace en vez de
+proyectos separados:
+
+- **`Components/`** — FrontEnd. Páginas y componentes Blazor (`.razor`). No debería
+  definir clases de dominio ni lógica de negocio propia — sólo UI, que llama a `Services/`.
+- **`Services/`** + **`Data/`** — BackEnd. `Services/` tiene la lógica de negocio
+  (`I<X>Service` + su implementación en el mismo archivo); `Data/BDLayout.*` es la capa
+  de acceso a datos (Dapper + Stored Procedures contra SQL Server).
+- **`Classes/`** — entidades, DTOs, ViewModels y enums compartidos entre FrontEnd y
+  BackEnd (antes `Models/`; el nombre de la carpeta cambió pero el namespace sigue
+  siendo `SpiderHood.Models` por compatibilidad — ver backlog de rename a inglés).
+
 ## Notas
 
 - El login real usa un sistema de autenticación propio (`AuthService` +

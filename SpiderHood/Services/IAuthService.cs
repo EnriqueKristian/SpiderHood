@@ -140,6 +140,7 @@ namespace SpiderHood.Services
                     }).ToList();
 
                 await GrantSysAdminAccessToAllBuildingsAsync(buildings);
+                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings);
 
                 // Crear sesión
                 var session = (new UserSession
@@ -149,11 +150,11 @@ namespace SpiderHood.Services
                     FullName = $"{user.FirstName} {user.LastName}",
                     Roles = buildings.Select(b => b.Role).Distinct().ToList(),
                     Buildings = buildings,
-                    CurrentBuildingId = GetDefaultBuilding(buildings),
+                    CurrentBuildingId = defaultBuildingId,
                     RememberMe = model.RememberMe,
                     SessionStart = DateTime.UtcNow,
                     SessionExpiry = DateTime.UtcNow.AddHours(8),
-                    Role = buildings.Select(b => b.Role).Distinct().FirstOrDefault()!,
+                    Role = defaultRole,
                 });
 
                 _logger.LogWarning($"✅ Usuario autenticado: {model.Email}");
@@ -542,13 +543,23 @@ namespace SpiderHood.Services
             return CryptographicOperations.FixedTimeEquals(a, b);
         }
 
-        private Guid GetDefaultBuilding(List<UserBuilding> buildings)
+        // SysAdmin nunca tiene que elegir con qué rol entra -- entra siempre como
+        // SysAdmin, al primer edificio disponible (después puede cambiar de edificio
+        // con el selector del header). Sin este atajo, alguien con SysAdmin Y además
+        // Administrador/Junta sobre el mismo edificio (caso real: admin@spiderhood.com)
+        // queda con la misma ambigüedad de rol que cualquier otro usuario y termina en
+        // /select-building -- lo cual no tiene sentido para el superusuario.
+        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings)
         {
+            var sysAdmin = buildings.FirstOrDefault(b => b.Role == "SysAdmin");
+            if (sysAdmin != null)
+                return (sysAdmin.Building!.IdBuilding, "SysAdmin");
+
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)
-                return approved[0].Building!.IdBuilding;
+                return (approved[0].Building!.IdBuilding, approved[0].Role);
 
-            return Guid.Empty;
+            return (Guid.Empty, buildings.Select(b => b.Role).Distinct().FirstOrDefault() ?? string.Empty);
         }
 
         // SysAdmin es el administrador general del sistema: no debería depender de estar

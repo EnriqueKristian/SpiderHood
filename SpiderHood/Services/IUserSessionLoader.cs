@@ -56,6 +56,7 @@ namespace SpiderHood.Services
                     }).ToList();
 
                 await GrantSysAdminAccessToAllBuildingsAsync(buildings);
+                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings);
 
                 return new UserSession
                 {
@@ -64,8 +65,8 @@ namespace SpiderHood.Services
                     FullName = $"{user.FirstName} {user.LastName}",
                     Roles = buildings.Select(b => b.Role).Distinct().ToList(),
                     Buildings = buildings,
-                    CurrentBuildingId = GetDefaultBuilding(buildings),
-                    Role = buildings.Select(b => b.Role).Distinct().FirstOrDefault() ?? string.Empty,
+                    CurrentBuildingId = defaultBuildingId,
+                    Role = defaultRole,
                     SessionStart = DateTime.UtcNow,
                     SessionExpiry = DateTime.UtcNow.AddHours(8),
                 };
@@ -82,13 +83,21 @@ namespace SpiderHood.Services
             }
         }
 
-        private static Guid GetDefaultBuilding(List<UserBuilding> buildings)
+        // SysAdmin nunca tiene que elegir con qué rol entra -- ver el mismo método en
+        // AuthService.LoginAsync para el detalle; se repite acá por la misma razón que
+        // GrantSysAdminAccessToAllBuildingsAsync (este método corre en cada circuito
+        // nuevo, no sólo en el login).
+        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings)
         {
+            var sysAdmin = buildings.FirstOrDefault(b => b.Role == "SysAdmin");
+            if (sysAdmin != null)
+                return (sysAdmin.Building!.IdBuilding, "SysAdmin");
+
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)
-                return approved[0].Building!.IdBuilding;
+                return (approved[0].Building!.IdBuilding, approved[0].Role);
 
-            return Guid.Empty;
+            return (Guid.Empty, buildings.Select(b => b.Role).Distinct().FirstOrDefault() ?? string.Empty);
         }
 
         // Ver el mismo método en AuthService.LoginAsync -- se repite acá porque este

@@ -15,6 +15,8 @@ namespace SpiderHood.Services
         Task DeleteExonerationAsync(Models.Exoneration newexoneartion);
         Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner);
         Task<List<Models.Building>> GetAllBuildingsPublicAsync();
+        Task<OperationResult> CreateBuildingAsync(Models.Building building, Guid createdByUserId, string createdByRole);
+        Task<OperationResult> UpdateBuildingAsync(Models.Building building);
         /*Task<List<Models.BuildingConfiguration>> GetBuildingConfigurationAsync(Guid IdBuilding);
         Task<List<Models.BankAccount>> GetBankAccountsByBuildingAsync(Guid IdBuilding);
         Task<List<Models.Contact>> GetAllContactsAsync(Guid IdBuildingConfiguration);
@@ -76,6 +78,68 @@ namespace SpiderHood.Services
         public async Task<List<Models.Building>> GetAllBuildingByOwnerAsync(Guid IdOwner)
         {
             return await ec.GetAllBuildingByOwnerAsync(IdOwner);
+        }
+
+        // Crea el Building + su BuildingConfiguration inicial (todavía el default
+        // hardcodeado de CreateDefaultConfigurationAsync -- pasa a salir del Edificio
+        // Template en un paso posterior del plan) + la UserBuildingAssociation que
+        // vincula a quien lo crea, sin la cual ni Administrador ni SysAdmin sin fila
+        // propia verían el edificio recién creado en su lista (SysAdmin global sí lo
+        // ve solo, vía GrantSysAdminAccessToAllBuildingsAsync, pero Administrador no).
+        // Antes de este método, BuildingPage.razor.cs.SaveBuilding() sólo agregaba el
+        // objeto a una lista en memoria -- no persistía nada.
+        public async Task<OperationResult> CreateBuildingAsync(Models.Building building, Guid createdByUserId, string createdByRole)
+        {
+            try
+            {
+                await ec.AddNewRecordAsync(building);
+                await ec.StampAuditAsync(AuditableEntity.Building, building.IdBuilding, await GetPerformedByAsync(), isCreate: true);
+
+                building.Configuration.IdBuildingConfiguration = Guid.NewGuid();
+                building.Configuration.IdBuilding = building.IdBuilding;
+                await ec.AddNewRecordAsync(building.Configuration);
+                await ec.StampAuditAsync(AuditableEntity.BuildingConfiguration, building.Configuration.IdBuildingConfiguration, await GetPerformedByAsync(), isCreate: true);
+
+                await ec.AcceptInvitationAsync(new UserBuildingAssociation
+                {
+                    IdUser = createdByUserId,
+                    IdBuilding = building.IdBuilding,
+                    Role = createdByRole,
+                    IsApproved = true,
+                    RequestedAt = DateTime.UtcNow
+                });
+
+                return OperationResult.Success(building);
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Failure($"No se pudo crear el edificio: {DescribeError(ex)}");
+            }
+        }
+
+        public async Task<OperationResult> UpdateBuildingAsync(Models.Building building)
+        {
+            try
+            {
+                await ec.UpdateRecordAsync(building);
+                await ec.StampAuditAsync(AuditableEntity.Building, building.IdBuilding, await GetPerformedByAsync(), isCreate: false);
+                return OperationResult.Success(building);
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Failure($"No se pudo actualizar el edificio: {DescribeError(ex)}");
+            }
+        }
+
+        // BDLayout envuelve la excepción real (la de SQL Server) en una
+        // RepositoryException genérica cuyo .Message no dice nada útil -- ver el mismo
+        // patrón en ParameterService.DescribeError.
+        private static string DescribeError(Exception ex)
+        {
+            var innermost = ex;
+            while (innermost.InnerException != null)
+                innermost = innermost.InnerException;
+            return innermost.Message;
         }
 
         public async Task<List<Models.Building>> GetAllBuildingsPublicAsync()

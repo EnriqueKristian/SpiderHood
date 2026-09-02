@@ -154,13 +154,19 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private async Task ShowCreateModal()
         {
             if (!_canCreateBuilding) return;
+            var newBuildingId = Guid.NewGuid();
             _editingBuilding = new Building
             {
-                IdBuilding = Guid.NewGuid(),
+                IdBuilding = newBuildingId,
                 Number = Buildings.Count + 1,
                 IsActive = true,
-                Configuration = BuildingService.CreateDefaultConfigurationAsync(Guid.NewGuid())
+                // CreateDefaultConfigurationAsync no setea Configuration.IdBuilding (el
+                // Guid que recibe no se usa para nada adentro) -- si no se lo asignamos
+                // acá, CreateBuildingAsync guardaría la config con IdBuilding en blanco,
+                // sin relación real al edificio que se acaba de crear.
+                Configuration = BuildingService.CreateDefaultConfigurationAsync(newBuildingId)
             };
+            _editingBuilding.Configuration.IdBuilding = newBuildingId;
             _isEditingBuilding = false;
             await _buildingModal.ShowAsync();
         }
@@ -190,6 +196,13 @@ namespace SpiderHood.Components.Pages.BuildingPages
             {
                 if (_isEditingBuilding)
                 {
+                    var result = await BuildingService.UpdateBuildingAsync(_editingBuilding);
+                    if (!result.IsSuccess)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo actualizar el edificio");
+                        return;
+                    }
+
                     var index = Buildings.FindIndex(b => b.IdBuilding == _editingBuilding.IdBuilding);
                     if (index >= 0)
                     {
@@ -198,6 +211,18 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 }
                 else
                 {
+                    // Sin esto, crear un edificio sólo lo agregaba a esta lista en
+                    // memoria -- se perdía apenas se recargaba la página, porque nunca
+                    // se guardó nada en la BD (ni el Building, ni su
+                    // BuildingConfiguration, ni la asociación que hace que quien lo creó
+                    // lo vea en su lista de edificios).
+                    var result = await BuildingService.CreateBuildingAsync(_editingBuilding, currentUser.IdUser, currentUser.Role);
+                    if (!result.IsSuccess)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo crear el edificio");
+                        return;
+                    }
+
                     Buildings.Add(_editingBuilding.Clone());
                 }
 

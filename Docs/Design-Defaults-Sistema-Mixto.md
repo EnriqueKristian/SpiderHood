@@ -1,0 +1,214 @@
+# Valores default por Edificio: Parámetros, Categorías y Configuración
+
+Diseño acordado en sesión de trabajo. Este documento es el plan a seguir, con los
+gaps detectados en el código actual y las decisiones tomadas. Actualizar esta lista
+de TAREAS a medida que se implemente cada parte.
+
+## Estado de implementación
+
+- [x] **Paso 1 — Persistir creación de Building** (§2, §8 orden sugerido). Agregado
+  `INS_Building` + `UPD_Building` completo (`Database/Scripts/2026-09-02_17_Persist_BuildingCreation.sql`,
+  columnas del schema real sin confirmar todavía contra un `CREATE TABLE` -- avisar si
+  algo no matchea al correrlo), `AddNewRecordAsync(Building)`, y
+  `IBuildingService.CreateBuildingAsync`/`UpdateBuildingAsync` (crea también la
+  `BuildingConfiguration` inicial y la `UserBuildingAssociation` de quien lo creó).
+  `BuildingPage.razor.cs.SaveBuilding()` ahora llama a estos métodos en vez de sólo
+  tocar la lista en memoria. **Todavía sin probar contra la BD real.**
+- [ ] Paso 2 — Edificio Template + clonado de `BuildingConfiguration`
+- [ ] Paso 3 — `Parameter`: `IsSystemDefault`, split Sistema/Mixto, cerrar creación de
+  grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building
+- [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto
+- [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro)
+
+## 1. Problema de fondo
+
+Hoy, cuando se crea un Building nuevo, no viene con ningún valor default:
+`BuildingConfiguration`, `Parameter` y `Category` quedan vacíos, y hay que cargarlos
+a mano (scripts SQL one-off, como
+`Database/Scripts/2026-09-02_14_Seed_IncidentTypeAndPriorityParameters.sql`, que el
+propio script advierte que hay que ajustar y correr a mano por cada edificio).
+
+Se evaluó hardcodear los defaults en C#, pero se descartó: no cubre `Parameter`/
+`Category` (que son datos de tabla, no config de código), y cualquier ajuste a los
+defaults requeriría un deploy.
+
+## 2. Gap previo detectado: crear un Building no persiste
+
+`BuildingPage.razor.cs` (`SaveBuilding()`, líneas ~154-217) sólo agrega el objeto a
+una lista en memoria (`Buildings.Add(...)`) — no hay `INS_Building` ni ningún método
+que lo grabe en la BD. Todo lo de abajo depende de que crear un Building sea una
+operación real contra la base, así que esto es **prerrequisito**, no parte separada.
+
+## 3. Mecanismo compartido: "Edificio Template"
+
+Un Building especial, visible y editable sólo por SysAdmin (con las mismas pantallas
+que un edificio normal: Configuración, Parámetros, Categorías), que sirve como fuente
+de los defaults. Falta decidir cómo se identifica en código (flag `IsTemplate` en
+`Building`, o un Guid reservado/bien conocido) — **pendiente de decisión**, ver §7.
+
+Al crear un Building real, el flujo de creación clona desde el template:
+
+- `BuildingConfiguration` completa (ver §4).
+- Los **hijos** de cada grupo `Parameter` Mixto (ver §5) — la raíz del grupo NO se
+  clona, es global.
+- Todas las `Category` default (ver §6).
+
+## 4. BuildingConfiguration
+
+Ya existe un fallback parcialmente hardcodeado:
+`BuildingService.CreateDefaultConfigurationAsync()` (`IBuildingService.cs:151-189`)
+devuelve una config con valores fijos en C# (moneda "PEN", DueDay=5, dos métodos de
+pago fijos, contactos de ejemplo). Este método pasa a ser innecesario: los defaults
+salen de clonar la fila de `BuildingConfiguration` del Edificio Template, no de código.
+
+Campos pedidos como default (de la lista original):
+
+- Moneda
+- Métodos de Pago → **no es un campo de `BuildingConfiguration`, sale de `Parameter`**
+  (grupo Mixto "Método de Pago", ver §5)
+- Periodo de Pago
+- Día de Vencimiento
+- Consumo Mínimo
+- Cargo Fijo
+- Monto Multa
+- Tasa de Interés
+- Día Emisión Recibos
+- Alerta Deuda / Deuda Crítica (hoy sólo en memoria, `BuildingConfiguration.cs:68-69`
+  — falta persistirlos en `INS_BuildingConfiguration`/`UPD_BuildingConfiguration`,
+  que hoy sólo insertan ~9 de los campos del modelo)
+- Texto Pie de Recibo (sugerido, editable después por el edificio real)
+
+## 5. Parameter: Sistema vs Mixto
+
+Dos niveles únicamente. No hay un tercero donde el Administrador cree grupos raíz
+nuevos — no tendría dónde consumirse (ninguna pantalla referencia un grupo que el
+admin inventó), así que esa capacidad no existe para nadie salvo SysAdmin/dev.
+
+### 5.1 Sistema
+
+Grupo raíz + todos sus hijos son **globales**: una sola fila por grupo/valor, sin
+`IdBuilding` (o con un sentinel), compartida por todos los edificios. El Administrador
+de edificio no los ve en `/parameter` ni puede tocarlos.
+
+Como nunca se duplican por edificio, **no hace falta clonarlos** al crear un Building
+— se leen directo del set global. De regalo, esto arregla en el mismo movimiento el
+bug de los `IdTabla` hardcodeados (ver §7): al no haber una copia por edificio, el
+`IdTabla` de un grupo Sistema queda fijo para siempre.
+
+### 5.2 Mixto
+
+La **raíz** del grupo es una sola fila global (igual que Sistema, sólo para que el
+`IdParent` sea estable). Los **hijos** son siempre por edificio (`IdBuilding`
+seteado), sin excepción:
+
+- Al crear un Building, se clonan los hijos default del template a la BD del edificio
+  nuevo, marcados `IsSystemDefault = 1`.
+- El Administrador del edificio puede agregar sus propios hijos (`IsSystemDefault = 0`,
+  `IdBuilding` = su edificio) — sólo visibles/usables en su edificio, nunca en otros.
+- El Administrador puede **inactivar** cualquier hijo de su copia (default o propio)
+  si no lo usa.
+- **Nunca se elimina un hijo de verdad**, ni siquiera los que agregó el propio
+  Administrador — no hay FK real hacia `Parameter` en ninguna tabla que lo consuma
+  (confirmado: cero `REFERENCES ... Parameter` en los scripts), así que no hay forma
+  barata de saber si un valor está en uso antes de borrarlo. Sólo inactivar +
+  ocultar de las listas activas.
+
+Campo nuevo necesario en `Parameter`: `IsSystemDefault BIT`.
+
+### 5.3 Promoción / fusión de duplicados (a futuro, sin apuro)
+
+Si el mismo valor termina siendo agregado independientemente por varios
+Administradores (ej. "Yape" como Método de Pago en 5 edificios distintos), se puede
+promover a Sistema sin tocar histórico:
+
+1. Se crea (o ya existe) el valor global en Sistema.
+2. La fila vieja por-edificio se deja `Inactivo` y se le setea un nuevo campo
+   `ReplacedByIdTabla` (nullable, apunta a `Parameter.IdTabla`) = el ID del nuevo
+   valor global.
+3. Ningún registro histórico (`Incident`, `Expense`, etc.) se toca — siguen apuntando
+   al `Value` viejo, que sigue existiendo (sólo inactivo), así que el detalle de
+   transacciones viejas se sigue viendo bien.
+4. Los reportes que agrupan por este Parameter usan la regla: "si tiene
+   `ReplacedByIdTabla`, agrupar por ese destino en vez de por sí mismo" — así el
+   total no queda fragmentado entre el valor viejo y el nuevo.
+
+La **detección** de candidatos a promover queda manual (SysAdmin corriendo una query
+que cuente nombres duplicados entre edificios) — no se arma nada automático por ahora.
+
+### 5.4 Clasificación de los 13 grupos existentes hoy
+
+| Grupo | Nivel |
+|---|---|
+| Estado (Activo/Inactivo) | Sistema |
+| Tipo de Unidad (DPTO/EST/DEP) | Sistema — *ver bug §7, hoy hardcodeado `IdParent==4`* |
+| Distribución Gasto (Fija/%) | Sistema — *hoy hardcodeado `IdParent==8`* |
+| Tipo de Documento (DNI/RUC/...) | Sistema — *hoy hardcodeado `ParamParent.DocumentType`=11* |
+| Estado de Gastos | Sistema |
+| Estado de Conciliación | Sistema |
+| Tipo de Cuenta (Ahorro/Corriente) | Sistema |
+| Tipo de Edificio (Familiar/Comercial/Mixto) | Sistema |
+| Frecuencia Item Presupuesto | Sistema |
+| Estado Presupuesto | Sistema |
+| Prioridad de Incidente | Sistema — *`IncidentList.PriorityBadgeClass` asume orden fijo 1-4 por `Value`, no puede reordenarse por edificio* |
+| Método de Pago | **Mixto** |
+| Tipo de Incidente | **Mixto** |
+
+## 6. Category
+
+Más simple que Parameter: **sin nivel Sistema**, todo vive por edificio, y
+explícitamente **sin mecanismo de fusión/promoción** de duplicados entre edificios (a
+diferencia de Parameter — decisión explícita, no se va a homologar en el futuro).
+
+- El Edificio Template define el set default de Categorías.
+- Al crear un Building, se clona el set completo a la BD del edificio nuevo.
+- El Administrador puede agregar categorías nuevas libremente, incluyendo **inline al
+  crear un ítem de Presupuesto** (requisito de UX — falta definir la pantalla exacta).
+- El Administrador puede **eliminar de verdad** una categoría de su copia (no la del
+  template) — a diferencia de Parameter, acá sí se permite borrado real.
+- Esto requiere agregar **FK real** `IdCategory → Category.IdCategory` en las tablas
+  que lo consumen, hoy sin ninguna restricción real (confirmado: el propio script
+  `2026-09-02_12_CalendarCategoryFromCategoryTable.sql` documenta la relación como
+  "FK lógica", no física). Tablas identificadas con columna `IdCategory`:
+  - `Expense`
+  - `Exoneration`
+  - `BudgetDetail`
+  - `CalendarItem`
+
+  Antes de crear cada constraint hay que verificar que no haya `IdCategory`
+  huérfanos ya existentes en esas tablas (la creación de la FK falla si los hay).
+
+## 7. Gaps / bugs actuales detectados durante esta sesión (a corregir junto con lo anterior)
+
+- **Building no persiste al crearse** (§2) — bloqueante para todo lo demás.
+- **`IdTabla` hardcodeado en 4 pantallas**: `ModalUnit.razor:30`, `UnitGroups.razor:469`
+  (`IdParent==4`), `BudgetGenerator.razor:216` (`IdParent==8`), `ModalOwner.razor:95`
+  (`ParamParent.DocumentType`=11). Se resuelven solos al hacer Sistema global
+  (§5.1) — no hace falta tocar estas 4 pantallas si el `IdTabla` de esos grupos deja
+  de duplicarse por edificio.
+- **`/parameter` permite crear grupos raíz** a cualquiera con el permiso
+  `manage_parameters` (`ParameterPage.razor`, `ShowAddModal`, opción "(Ninguno -
+  Grupo Principal)"). Hay que restringirlo — nadie salvo SysAdmin crea grupos raíz
+  (§5, nota inicial).
+- **`ParameterService.LoadParametersAsync`/`GET_AllParameters`** filtran todo por
+  `@IdBuilding`. Con Sistema global, la consulta tiene que traer dos cosas a la vez:
+  los grupos Sistema completos (sin filtrar por edificio) + los grupos Mixto
+  filtrados por `IdBuilding` (raíz global + sólo los hijos de ese edificio).
+
+## 8. Decisiones pendientes / a confirmar
+
+- Cómo se identifica el Edificio Template en código (flag `IsTemplate` en `Building`
+  vs. Guid reservado). Afecta permisos, queries y la pantalla de selección de
+  edificio (que no debería listar el template para un Administrador normal).
+- ¿El SysAdmin edita el template con las mismas pantallas que un edificio real
+  (Configuración/Parámetros/Categorías), o se arma una pantalla dedicada?
+- Orden sugerido de implementación (a validar):
+  1. Persistir creación de Building (§2).
+  2. Edificio Template + clonado de `BuildingConfiguration` (§3, §4) — el más simple,
+     una sola fila a copiar.
+  3. `Parameter`: campo `IsSystemDefault`, split Sistema/Mixto, ajustar
+     `LoadParametersAsync`/`GET_AllParameters`, cerrar creación de grupos raíz en
+     `/parameter`, clonado de hijos Mixto al crear Building.
+  4. `Category`: FK real en las 4 tablas, clonado del set default al crear Building,
+     alta inline desde Presupuesto.
+  5. `ReplacedByIdTabla` (§5.3) — sin apuro, cuando aparezca el primer caso real de
+     duplicado a promover.

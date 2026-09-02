@@ -316,23 +316,48 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // INS_Parameter no toma @IdTabla (IdTabla es IDENTITY, se autogenera) y
-                // sí toma @IdBuilding al final -- este método mandaba el orden de un
-                // SP distinto (con @IdTabla primero y sin @IdBuilding), lo que rompía
-                // con "Error converting data type nvarchar to int" apenas se probó de
-                // verdad (confirmado contra el CREATE PROCEDURE real). @Estado es BIT,
-                // no el int crudo del enum -- 2 (Inactivo) se redondearía a 1 (true) si
-                // se manda tal cual, así que se convierte explícito a booleano.
-                await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_Parameter,
-                    cancellationToken,
-                    parameter.Description!,
-                    parameter.ShortDescription!,
-                    parameter.Value!,
-                    parameter.Sort!,
-                    parameter.IdParent!,
-                    parameter.Estado == Models.ParameterEstado.Activo,
-                    parameter.IdBuilding!);
+                // INS_Parameter real (confirmado contra el CREATE PROCEDURE):
+                //   INS_Parameter(@Description, @ShortDescription, @Value, @Sort,
+                //                 @IdParent = NULL, @Estado BIT = 1, @IdBuilding)
+                // No toma @IdTabla (IDENTITY, se autogenera). @Estado es BIT --
+                // mandar el int crudo del enum (Inactivo=2) se redondea a 1 (Activo).
+                //
+                // Sistema/Mixto (Paso 3): IdBuilding == Guid.Empty es la convención
+                // de la app para "valor de Sistema" (GET_AllParameters coalesa el NULL
+                // real de la BD a Guid.Empty al leer -- ver Classes/Parameter.cs). Acá,
+                // al escribir, se traduce de vuelta a DBNull -- un DBNull.Value sin
+                // tipo en el array de ExecuteStoredProcedureAsync hace que EF tire "no
+                // store type mapping for properties of type 'DBNull'" (mismo problema
+                // que ya vimos con Parameter.IdParent en UPD_Parameter), así que se
+                // arma la llamada a mano con SqlParameter explícitos en vez de usar ese
+                // helper.
+                var idBuildingParam = new SqlParameter("@IdBuilding", SqlDbType.UniqueIdentifier)
+                {
+                    Value = parameter.IdBuilding == Guid.Empty ? (object)DBNull.Value : parameter.IdBuilding
+                };
+
+                var dbContext = await RentContextAsync(cancellationToken);
+                try
+                {
+                    await dbContext.Database.ExecuteSqlRawAsync(
+                        "EXEC dbo.INS_Parameter @Description, @ShortDescription, @Value, @Sort, @IdParent, @Estado, @IdBuilding",
+                        new object[]
+                        {
+                            new SqlParameter("@Description", SqlDbType.NVarChar, 255) { Value = parameter.Description! },
+                            new SqlParameter("@ShortDescription", SqlDbType.NVarChar, 100) { Value = parameter.ShortDescription! },
+                            new SqlParameter("@Value", SqlDbType.Int) { Value = parameter.Value },
+                            new SqlParameter("@Sort", SqlDbType.Int) { Value = parameter.Sort },
+                            new SqlParameter("@IdParent", SqlDbType.Int) { Value = parameter.IdParent == 0 ? (object)DBNull.Value : parameter.IdParent },
+                            new SqlParameter("@Estado", SqlDbType.Bit) { Value = parameter.Estado == Models.ParameterEstado.Activo },
+                            idBuildingParam,
+                        },
+                        cancellationToken);
+                }
+                finally
+                {
+                    ReturnContext(dbContext);
+                }
+
                 return parameter;
             }, "AddParameter", cancellationToken);
         }

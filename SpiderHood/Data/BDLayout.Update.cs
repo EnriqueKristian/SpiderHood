@@ -256,10 +256,15 @@ namespace SpiderHood.Data
                 // UPD_Parameter real (confirmado contra el CREATE PROCEDURE):
                 //   UPD_Parameter(@IdTabla, @Description, @ShortDescription, @Value,
                 //                 @Sort, @IdParent = NULL, @Estado INT)
-                // No toma @IdBuilding (a diferencia de INS_Parameter), y @Estado es INT
-                // -- no BIT como se asumía antes -- así que se manda el valor crudo del
-                // enum (Activo=1, Inactivo=2); mandar un bool guardaba 0 para Inactivo
-                // en vez de 2.
+                // No toma @IdBuilding (a diferencia de INS_Parameter).
+                //
+                // CORRECCIÓN sobre el fix anterior: acá dice "@Estado INT" (así está
+                // declarado el parámetro), pero INS_Parameter -- confirmado también
+                // contra su CREATE PROCEDURE real -- declara "@Estado BIT = 1" para la
+                // MISMA columna. Mandar el int crudo del enum (Inactivo=2) hacía que
+                // SQL Server lo convirtiera implícito a BIT al hacer "SET Estado =
+                // @Estado" adentro del proc (2 -> 1, es decir Inactivo se guardaba como
+                // Activo). Se vuelve a mandar como bool, igual que INS_Parameter.
                 //
                 // IdParent=0 es la convención de la app para "grupo raíz" (Parameter.
                 // IdParent es int no-nullable, así que una fila raíz con IdParent NULL
@@ -293,7 +298,7 @@ namespace SpiderHood.Data
                             new SqlParameter("@Value", SqlDbType.Int) { Value = parameter.Value },
                             new SqlParameter("@Sort", SqlDbType.Int) { Value = parameter.Sort },
                             idParentParam,
-                            new SqlParameter("@Estado", SqlDbType.Int) { Value = (int)parameter.Estado },
+                            new SqlParameter("@Estado", SqlDbType.Bit) { Value = parameter.Estado == Models.ParameterEstado.Activo },
                         },
                         cancellationToken);
                 }

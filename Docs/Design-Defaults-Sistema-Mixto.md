@@ -23,7 +23,8 @@ de TAREAS a medida que se implemente cada parte.
   CUALQUIER edificio con esos campos en NULL -- rompía la reconstrucción de sesión
   completa (bucle de login) para todo usuario con acceso a ese edificio, SysAdmin
   incluido. Se resolvió pasándolos a `Guid?` en el modelo.
-- [x] **Paso 2 — Edificio Template + clonado de `BuildingConfiguration`** (decisión:
+- [x] **Paso 2 — Edificio Template + clonado de `BuildingConfiguration`** — **compila
+  y corre sin errores, confirmado**. (decisión:
   flag `Building.IsTemplate`, editado con las mismas pantallas que un edificio real
   -- no hay tope de uno solo, deliberado, para poder tener más de un
   template/demo). `Database/Scripts/2026-09-02_19_Building_IsTemplate.sql`: columna
@@ -40,14 +41,57 @@ de TAREAS a medida que se implemente cada parte.
   "Es edificio template" en el modal de Building, visible sólo para SysAdmin;
   badge "Template" en la lista; excluido de `/register` y `/building-request` (no
   es un edificio real al que nadie deba poder unirse).
-  **Sin probar contra la BD real todavía** -- mismo riesgo de siempre con
-  `INS_Building`/`UPD_Building` (ahora con un parámetro más) y con que
-  `GET_AllBuildings`/`GET_AllBuildingsPublic` (no tocados, prexistentes) puedan
-  tener una lista de columnas explícita que no incluya `IsTemplate` -- si pasa
-  eso, la lista de edificios nunca mostraría el badge/checkbox en su valor real
-  aunque la BD sí lo tenga bien guardado; avisar si se nota esa inconsistencia.
+  **Confirmado el riesgo anotado**: `GET_AllBuildings`/`GET_AllBuildingsPublic`/
+  `GET_BuildingById` (los 3 procs pre-existentes que devuelven `Building`, no
+  tocados por el script anterior) tenían columnas explícitas sin `IsTemplate` --
+  EF exige que TODA columna del modelo esté en el resultado de cualquier
+  `FromSqlRaw<Building>`, así que rompía con `InvalidOperationException: The
+  required column 'IsTemplate' was not present` apenas alguien reconstruía su
+  sesión (mismo síntoma que el bug de `DefaultCategory`/`WaterReadingDefault` del
+  Paso 1: bucle de login). Corregido en
+  `Database/Scripts/2026-09-02_20_Fix_Building_IsTemplate_MissingColumns.sql`
+  (texto real de los 3 procs confirmado por el usuario, sólo se agregó la
+  columna faltante a cada `SELECT`, JOIN/WHERE/ORDER BY intactos).
 - [ ] Paso 3 — `Parameter`: `IsSystemDefault`, split Sistema/Mixto, cerrar creación de
-  grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building
+  grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building.
+  **En progreso -- sub-pasos 1, 2 y 3 de 6 hechos, sin probar todavía.**
+  - **1-2 (schema + migración)**: `Database/Scripts/2026-09-02_21_Parameter_SistemaMixto.sql`.
+    `Parameter.IdBuilding` admite `NULL` (`NULL` = Sistema/global, un guid = Mixto
+    de ese edificio). `IsSystemDefault BIT` nuevo -- doble sentido según el tipo de
+    fila: en la RAÍZ de un grupo, 1=Sistema/0=Mixto (hace falta esta marca aparte
+    porque la raíz siempre tiene `IdBuilding NULL` en los dos casos, no hay forma
+    de distinguirlos sólo con eso); en un HIJO de un grupo Mixto, 1=vino del
+    template/0=lo agregó un admin. Migra por `ShortDescription` los 13 grupos ya
+    cargados: 11 a Sistema (raíz e hijos a `IdBuilding NULL`, raíz con
+    `IsSystemDefault=1`), Método de Pago y Tipo de Incidente quedan Mixto (sólo la
+    raíz a `NULL`, hijos actuales conservan su `IdBuilding` y quedan
+    `IsSystemDefault=1`).
+  - **3 (`GET_AllParameters`)**: `Database/Scripts/2026-09-02_22_GetAllParameters_SistemaMixto.sql`,
+    con el texto real que pasó el usuario. Dos fixes sobre esa base: `IdBuilding`
+    se coalesa con `ISNULL(IdBuilding, '00000000-...')` (si no, explota igual que
+    `DefaultCategory` en el Paso 1 apenas exista una fila Sistema) y el `WHERE`
+    pasa a `IdBuilding = @IdBuilding OR IdBuilding IS NULL` (si no, un edificio
+    nunca vería sus valores de Sistema). Se agrega `IsSystemDefault` al `SELECT`.
+  - **Bug encontrado de paso, ya corregido**: `INS_Parameter` (confirmado con su
+    CREATE PROCEDURE real) declara `@Estado BIT`, pero el fix anterior de
+    `UPD_Parameter` mandaba el int crudo del enum (`Inactivo=2`) a un parámetro
+    declarado `@Estado INT` en ESE proc -- SQL Server lo convertía implícito a BIT
+    al asignarlo (`2` -> `1`), así que marcar un Parameter Inactivo en realidad lo
+    guardaba Activo. Se volvió a mandar como `bool` en los dos procs.
+    `AddNewRecordAsync(Parameter)` (`INS_Parameter`) también se reescribió con
+    `SqlParameter` explícitos (mismo patrón que `UPD_Parameter`) para poder
+    traducir `IdBuilding == Guid.Empty` a `DBNull` al crear un valor de Sistema, y
+    de paso el mismo tratamiento para `IdParent=0` al crear un grupo raíz nuevo
+    (mismo problema de FK que ya vimos en `UPD_Parameter`, no reportado todavía
+    porque nadie había creado un grupo raíz desde que se corrigió eso).
+  - **Faltan los sub-pasos 4-6**: cerrar creación de grupos raíz en `/parameter`
+    para que sea SysAdmin-only + ocultar edición/inactivación de grupos Sistema a
+    quien no sea SysAdmin (sub-paso 4); clonado de hijos Mixto al crear un Building
+    (sub-paso 5, mismo mecanismo que `ApplyTemplateDefaultsAsync` del Paso 2);
+    confirmar que los 5 lugares con `IdTabla` hardcodeado quedan resueltos solos
+    (sub-paso 6). **Mientras tanto, cualquier Administrador todavía puede editar/
+    inactivar valores de Sistema y crear grupos raíz nuevos desde `/parameter`** --
+    no es una regresión de hoy (ya podía antes), pero sigue sin estar cerrado.
 - [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto
 - [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro)
 

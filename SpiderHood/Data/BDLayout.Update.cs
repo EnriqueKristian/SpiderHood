@@ -256,7 +256,14 @@ namespace SpiderHood.Data
                 // Pero FK_Parametros_Parent exige que IdParent sea NULL o una fila
                 // IdTabla existente -- no existe ninguna fila con IdTabla=0, así que
                 // mandar el 0 literal rompía la FK apenas se editaba un grupo raíz
-                // ("Tipo Incidente" incluido). Se traduce a DBNull antes de mandarlo.
+                // ("Tipo Incidente" incluido). Se traduce a DBNull antes de mandarlo --
+                // pero un DBNull.Value "pelado" (sin tipo) hace que EF tire "no store
+                // type mapping for properties of type 'DBNull'" al armar el parámetro,
+                // así que hay que envolverlo en un SqlParameter con SqlDbType explícito.
+                object idParentParam = parameter.IdParent == 0
+                    ? new SqlParameter("@idParent", SqlDbType.Int) { Value = DBNull.Value }
+                    : parameter.IdParent;
+
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.UPD_Parameter,
                     cancellationToken,
@@ -265,7 +272,7 @@ namespace SpiderHood.Data
                     parameter.ShortDescription!,
                     parameter.Value,
                     parameter.Sort,
-                    parameter.IdParent == 0 ? (object)DBNull.Value : parameter.IdParent,
+                    idParentParam,
                     (int)parameter.Estado);
                 return parameter;
             }, "UpdateParameter", cancellationToken);

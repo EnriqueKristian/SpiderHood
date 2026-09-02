@@ -23,7 +23,8 @@ de TAREAS a medida que se implemente cada parte.
   CUALQUIER edificio con esos campos en NULL -- rompía la reconstrucción de sesión
   completa (bucle de login) para todo usuario con acceso a ese edificio, SysAdmin
   incluido. Se resolvió pasándolos a `Guid?` en el modelo.
-- [x] **Paso 2 — Edificio Template + clonado de `BuildingConfiguration`** (decisión:
+- [x] **Paso 2 — Edificio Template + clonado de `BuildingConfiguration`** — **compila
+  y corre sin errores, confirmado**. (decisión:
   flag `Building.IsTemplate`, editado con las mismas pantallas que un edificio real
   -- no hay tope de uno solo, deliberado, para poder tener más de un
   template/demo). `Database/Scripts/2026-09-02_19_Building_IsTemplate.sql`: columna

@@ -91,8 +91,13 @@ namespace SpiderHood.Services
         {
             try
             {
-                if (!building.IsTemplate)
-                    await ApplyTemplateDefaultsAsync(building.Configuration);
+                // Un solo lookup del template, reusado por BuildingConfiguration (Paso 2)
+                // y por los Parameter Mixto (Paso 3) -- si building.IsTemplate, este
+                // edificio ES el template (o uno más, no hay tope de uno solo), así que
+                // no tiene sentido clonarse defaults a sí mismo.
+                var template = building.IsTemplate ? null : await ec.GetTemplateBuildingAsync();
+                if (template != null)
+                    await ApplyTemplateDefaultsAsync(building.Configuration, template);
 
                 await ec.AddNewRecordAsync(building);
                 await ec.StampAuditAsync(AuditableEntity.Building, building.IdBuilding, await GetPerformedByAsync(), isCreate: true);
@@ -101,6 +106,9 @@ namespace SpiderHood.Services
                 building.Configuration.IdBuilding = building.IdBuilding;
                 await ec.AddNewRecordAsync(building.Configuration);
                 await ec.StampAuditAsync(AuditableEntity.BuildingConfiguration, building.Configuration.IdBuildingConfiguration, await GetPerformedByAsync(), isCreate: true);
+
+                if (template != null)
+                    await CloneMixtoParametersAsync(template.IdBuilding, building.IdBuilding);
 
                 await ec.AcceptInvitationAsync(new UserBuildingAssociation
                 {
@@ -120,21 +128,17 @@ namespace SpiderHood.Services
         }
 
         // Edificio Template (Docs/Design-Defaults-Sistema-Mixto.md, Paso 2): pisa los
-        // valores de "config" con los del Edificio Template (Building.IsTemplate=1),
-        // si existe alguno. Sólo los campos pedidos como default -- BankAccounts,
-        // Contacts, DefaultCategory/WaterReadingDefault y Exonerations quedan tal
-        // como venían (vacíos/null para un edificio nuevo), porque no tiene sentido
-        // copiar una cuenta bancaria o categoría del template a un edificio real (y
-        // Category todavía no se clona -- eso es el Paso 4, así que no hay ninguna
-        // Category propia a la que apuntar todavía). Si no hay ningún template
-        // marcado, "config" queda como venía (el fallback hardcodeado de
+        // valores de "config" con los del Edificio Template, si existe alguno. Sólo
+        // los campos pedidos como default -- BankAccounts, Contacts,
+        // DefaultCategory/WaterReadingDefault y Exonerations quedan tal como venían
+        // (vacíos/null para un edificio nuevo), porque no tiene sentido copiar una
+        // cuenta bancaria o categoría del template a un edificio real (y Category
+        // todavía no se clona -- eso es el Paso 4, así que no hay ninguna Category
+        // propia a la que apuntar todavía). Si no hay ningún template marcado,
+        // "config" queda como venía (el fallback hardcodeado de
         // CreateDefaultConfigurationAsync que ya arma ShowCreateModal).
-        private async Task ApplyTemplateDefaultsAsync(BuildingConfiguration config)
+        private async Task ApplyTemplateDefaultsAsync(BuildingConfiguration config, Models.Building template)
         {
-            var template = await ec.GetTemplateBuildingAsync();
-            if (template == null)
-                return;
-
             var templateConfig = await GetConfigurationAsync(template.IdBuilding);
 
             config.Currency = templateConfig.Currency;
@@ -149,6 +153,36 @@ namespace SpiderHood.Services
             config.DebtWarningDays = templateConfig.DebtWarningDays;
             config.DebtCriticalDays = templateConfig.DebtCriticalDays;
             config.ReceiptFooterText = templateConfig.ReceiptFooterText;
+        }
+
+        // Parameter Sistema/Mixto (Docs/Design-Defaults-Sistema-Mixto.md, Paso 3):
+        // clona los hijos Mixto propios del Edificio Template al edificio nuevo --
+        // los grupos Sistema no se clonan nunca (son una sola fila global, ver
+        // Classes/Parameter.cs), y de los Mixto sólo se clonan los HIJOS que de
+        // verdad pertenecen al template (IdBuilding == template.IdBuilding), no su
+        // raíz (que ya es global). Quedan marcados IsSystemDefault=true -- vinieron
+        // del template, no los agregó el admin de este edificio.
+        private async Task CloneMixtoParametersAsync(Guid templateBuildingId, Guid newBuildingId)
+        {
+            var templateParameters = await ec.GetParametersByBuildingAsync(templateBuildingId);
+
+            var hijosMixtoDelTemplate = templateParameters
+                .Where(p => p.IdParent != 0 && p.IdBuilding == templateBuildingId);
+
+            foreach (var hijo in hijosMixtoDelTemplate)
+            {
+                await ec.AddNewRecordAsync(new Models.Parameter
+                {
+                    Description = hijo.Description,
+                    ShortDescription = hijo.ShortDescription,
+                    Value = hijo.Value,
+                    Sort = hijo.Sort,
+                    IdParent = hijo.IdParent,
+                    Estado = hijo.Estado,
+                    IdBuilding = newBuildingId,
+                    IsSystemDefault = true
+                });
+            }
         }
 
         public async Task<OperationResult> UpdateBuildingAsync(Models.Building building)

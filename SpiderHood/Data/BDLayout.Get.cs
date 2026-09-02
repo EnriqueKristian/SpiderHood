@@ -544,6 +544,21 @@ namespace SpiderHood.Data
             }, "GetParametersByBuilding", cancellationToken);
         }
 
+        // Paso 5 (promoción/fusión, ver Docs/Design-Defaults-Sistema-Mixto.md §5.3):
+        // todos los hijos Mixto activos y todavía no globales (IdBuilding IS NOT
+        // NULL), de TODOS los edificios a la vez -- a diferencia de
+        // GetParametersByBuildingAsync, que siempre filtra por un edificio puntual.
+        // Es la única forma de que un SysAdmin detecte a ojo duplicados entre
+        // edificios (la detección queda manual a propósito, sin nada automático).
+        public async Task<List<Models.ParameterPromotionCandidate>> GetMixtoParameterCandidatesAsync(CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.ParameterPromotionCandidate>(
+                    StoredProcedures.GET_MixtoParameterCandidates);
+            }, "GetMixtoParameterCandidates", cancellationToken);
+        }
+
         public async Task<List<Expense>> GetExpensesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

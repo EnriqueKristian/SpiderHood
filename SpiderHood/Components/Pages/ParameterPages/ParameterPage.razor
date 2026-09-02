@@ -37,6 +37,12 @@
             <button class="btn btn-outline-secondary" @onclick="ExportParameters">
                 <i class="bi bi-download me-2"></i>Exportar
             </button>
+            @if (_isSysAdmin)
+            {
+                <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/parameter-promotion")'>
+                    <i class="bi bi-signpost-split me-2"></i>Fusionar duplicados
+                </button>
+            }
             @if (_canManageParameters)
             {
                 <button class="btn btn-primary" @onclick="ShowAddModal">
@@ -458,6 +464,7 @@
     private PaginationClass<Models.Parameter> _pagination = new();
 
     private bool _canManageParameters;
+    private bool _isSysAdmin;
 
     protected override void OnInitialized()
     {
@@ -496,6 +503,7 @@
 
             var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
             _canManageParameters = await PermissionService.HasPermissionAsync(currentUser, "manage_parameters");
+            _isSysAdmin = currentUser.Role == "SysAdmin";
 
             await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
             OnInitialized();

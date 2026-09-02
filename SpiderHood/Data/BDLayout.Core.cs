@@ -193,6 +193,9 @@ namespace SpiderHood.Data
             public const string DEL_UserBuildingRole = "DEL_UserBuildingRole";
             public const string GET_AllBuildingsPublic = "GET_AllBuildingsPublic";
             public const string GET_TemplateBuilding = "GET_TemplateBuilding";
+            public const string GET_MixtoParameterCandidates = "GET_MixtoParameterCandidates";
+            public const string UPD_PromoteParameterToGlobal = "UPD_PromoteParameterToGlobal";
+            public const string UPD_MergeParameterInto = "UPD_MergeParameterInto";
             public const string UPD_UserBuildingApproval = "UPD_UserBuildingApproval";
             public const string INS_Workflow = "INS_Workflow";
             public const string UPD_Workflow = "UPD_Workflow";

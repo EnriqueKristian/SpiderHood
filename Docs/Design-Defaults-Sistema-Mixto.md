@@ -6,14 +6,23 @@ de TAREAS a medida que se implemente cada parte.
 
 ## Estado de implementación
 
-- [x] **Paso 1 — Persistir creación de Building** (§2, §8 orden sugerido). Agregado
-  `INS_Building` + `UPD_Building` completo (`Database/Scripts/2026-09-02_17_Persist_BuildingCreation.sql`,
-  columnas del schema real sin confirmar todavía contra un `CREATE TABLE` -- avisar si
-  algo no matchea al correrlo), `AddNewRecordAsync(Building)`, y
-  `IBuildingService.CreateBuildingAsync`/`UpdateBuildingAsync` (crea también la
-  `BuildingConfiguration` inicial y la `UserBuildingAssociation` de quien lo creó).
-  `BuildingPage.razor.cs.SaveBuilding()` ahora llama a estos métodos en vez de sólo
-  tocar la lista en memoria. **Todavía sin probar contra la BD real.**
+- [x] **Paso 1 — Persistir creación de Building** (§2, §8 orden sugerido). **Probado
+  end-to-end y funcionando**: crear, editar y recargar sesión con el edificio nuevo,
+  todo OK. `INS_Building` + `UPD_Building` completo
+  (`Database/Scripts/2026-09-02_17_Persist_BuildingCreation.sql` +
+  `2026-09-02_18_Fix_Building_NumberIsIdentity.sql` -- `Number` es IDENTITY, no se
+  manda), `AddNewRecordAsync(Building)`, `IBuildingService.CreateBuildingAsync`/
+  `UpdateBuildingAsync` (crea también la `BuildingConfiguration` inicial y la
+  `UserBuildingAssociation` de quien lo creó). `BuildingPage.razor.cs.SaveBuilding()`
+  llama a estos métodos en vez de sólo tocar la lista en memoria.
+  Bugs encontrados y corregidos en el camino: `Number` IDENTITY (no seteable),
+  falta `using Microsoft.JSInterop` en el code-behind, y el más serio --
+  `BuildingConfiguration.DefaultCategory`/`WaterReadingDefault` quedaban `NULL` en
+  un edificio sin Categorías propias todavía, y como el modelo los tipaba `Guid` no-
+  nullable, `GET_AllBuildingsConfig` explotaba con `SqlNullValueException` al leer
+  CUALQUIER edificio con esos campos en NULL -- rompía la reconstrucción de sesión
+  completa (bucle de login) para todo usuario con acceso a ese edificio, SysAdmin
+  incluido. Se resolvió pasándolos a `Guid?` en el modelo.
 - [ ] Paso 2 — Edificio Template + clonado de `BuildingConfiguration`
 - [ ] Paso 3 — `Parameter`: `IsSystemDefault`, split Sistema/Mixto, cerrar creación de
   grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building

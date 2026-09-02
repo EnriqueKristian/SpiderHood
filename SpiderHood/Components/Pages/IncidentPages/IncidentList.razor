@@ -117,6 +117,15 @@
                             <label class="form-label">Descripción</label>
                             <InputTextArea class="form-control" rows="4" @bind-Value="_nuevo.Description" />
                         </div>
+                        @if (!_tiposIncidente.Any() || !_prioridadesIncidente.Any())
+                        {
+                            <div class="alert alert-warning py-2 small mb-3">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                No se encontró el grupo de Parámetros
+                                "@(!_tiposIncidente.Any() ? "Tipo Incidente" : "Prioridad Incidente")" (o no tiene valores
+                                activos). Revisá <code>/parameter</code> -- puede haberse renombrado o desactivado.
+                            </div>
+                        }
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Tipo</label>
@@ -186,15 +195,18 @@
         await CargarAsync();
     }
 
-    // Busca el grupo raíz de Parametros por ShortDescription y devuelve sus hijos.
-    // Si hay más de un grupo con el mismo nombre (ej. el seed se corrió más de una
-    // vez), FirstOrDefault a secas podía agarrar uno sin hijos y dejar el combo
-    // vacío -- acá se prefiere, entre los candidatos con ese nombre, el que
-    // realmente tenga hijos cargados (y entre esos, el más reciente).
-    private List<Models.Parameter> ResolveGroupChildren(string groupShortDescription)
+    // Busca el grupo raíz de Parametros por nombre y devuelve sus hijos.
+    // Matchea contra Description O ShortDescription -- ambos son editables desde
+    // /parameter (a un Administrador no le llama la atención renombrar la
+    // Descripción Corta de un grupo, como pasó acá con "Tipo Incidente" ->
+    // "Tipo de Incidente"), así que apostar a un solo campo como si fuera una
+    // clave estable es frágil. Entre los candidatos que matchean, se prefiere el
+    // que realmente tenga hijos cargados (y entre esos, el más reciente) por si
+    // quedó más de uno dando vueltas (ej. el seed se corrió más de una vez).
+    private List<Models.Parameter> ResolveGroupChildren(string groupName)
     {
         var candidatos = ParameterService.ListParameters
-            .Where(p => p.IdParent == 0 && p.ShortDescription == groupShortDescription)
+            .Where(p => p.IdParent == 0 && (p.ShortDescription == groupName || p.Description == groupName))
             .OrderByDescending(p => p.IdTabla);
 
         foreach (var grupo in candidatos)
@@ -233,14 +245,16 @@
         // Type/Priority necesitan arrancar en un Value real de la lista cargada --
         // si quedan en el 0 default de Incident y el usuario nunca toca esos
         // combos, se guardaría un valor que no matchea ninguna Categoría/Parámetro.
+        // Se toma el primero por Sort (ambas listas ya vienen ordenadas así) -- antes
+        // Priority buscaba por ShortDescription == "Media", que es innecesariamente
+        // frágil si en algún momento hay más de un "Media" dando vueltas.
         _nuevo = new Incident
         {
             IdBuilding = _currentUser.CurrentBuildingId,
             ReportedBy = _currentUser.IdUser,
             IdGroupUnit = _isStaff ? null : currentUserBuilding?.IdGroupUnit,
             Type = _tiposIncidente.FirstOrDefault()?.Value ?? 0,
-            Priority = _prioridadesIncidente.FirstOrDefault(p => p.ShortDescription == "Media")?.Value
-                ?? _prioridadesIncidente.FirstOrDefault()?.Value ?? 0
+            Priority = _prioridadesIncidente.FirstOrDefault()?.Value ?? 0
         };
         _showModal = true;
     }

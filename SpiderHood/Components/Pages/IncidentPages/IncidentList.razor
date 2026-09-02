@@ -180,19 +180,35 @@
 
         await ParameterService.LoadParametersAsync(_currentUser.CurrentBuildingId);
 
-        var idTipoIncidente = ParameterService.ListParameters.FirstOrDefault(p => p.IdParent == 0 && p.ShortDescription == "Tipo Incidente")?.IdTabla;
-        var idPrioridadIncidente = ParameterService.ListParameters.FirstOrDefault(p => p.IdParent == 0 && p.ShortDescription == "Prioridad Incidente")?.IdTabla;
-
-        _tiposIncidente = ParameterService.ListParameters
-            .Where(p => idTipoIncidente.HasValue && p.IdParent == idTipoIncidente.Value)
-            .OrderBy(p => p.Sort)
-            .ToList();
-        _prioridadesIncidente = ParameterService.ListParameters
-            .Where(p => idPrioridadIncidente.HasValue && p.IdParent == idPrioridadIncidente.Value)
-            .OrderBy(p => p.Sort)
-            .ToList();
+        _tiposIncidente = ResolveGroupChildren("Tipo Incidente");
+        _prioridadesIncidente = ResolveGroupChildren("Prioridad Incidente");
 
         await CargarAsync();
+    }
+
+    // Busca el grupo raíz de Parametros por ShortDescription y devuelve sus hijos.
+    // Si hay más de un grupo con el mismo nombre (ej. el seed se corrió más de una
+    // vez), FirstOrDefault a secas podía agarrar uno sin hijos y dejar el combo
+    // vacío -- acá se prefiere, entre los candidatos con ese nombre, el que
+    // realmente tenga hijos cargados (y entre esos, el más reciente).
+    private List<Models.Parameter> ResolveGroupChildren(string groupShortDescription)
+    {
+        var candidatos = ParameterService.ListParameters
+            .Where(p => p.IdParent == 0 && p.ShortDescription == groupShortDescription)
+            .OrderByDescending(p => p.IdTabla);
+
+        foreach (var grupo in candidatos)
+        {
+            var hijos = ParameterService.ListParameters
+                .Where(p => p.IdParent == grupo.IdTabla)
+                .OrderBy(p => p.Sort)
+                .ToList();
+
+            if (hijos.Count > 0)
+                return hijos;
+        }
+
+        return new List<Models.Parameter>();
     }
 
     private async Task CargarAsync()

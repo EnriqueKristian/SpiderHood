@@ -173,7 +173,46 @@ de TAREAS a medida que se implemente cada parte.
   un FK real puesto a mano (confirma la sospecha de arriba sobre
   `FK_BudgetDetail_Category`); sólo `CalendarItem` no lo tenía y quedó creado
   (`FK_CalendarItem_Category`) por este script. Las 4 tablas quedan protegidas.
-- [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro)
+- [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro). **Alcance de hoy: schema + campo, y
+  pantalla de Promoción (SysAdmin). Reportes usando la cadena queda para después,
+  a pedido explícito del usuario -- no se tocó ningún reporte/PDF.**
+  **Semántica de "promover" confirmada con el usuario**: la fila elegida como
+  canónica pasa a `IdBuilding = NULL` de verdad -- se vuelve global (la ve
+  cualquier edificio, mismo mecanismo que ya trae los valores Sistema) aunque el
+  grupo siga clasificado Mixto en su raíz. Es la única excepción a "los hijos de
+  un grupo Mixto siempre tienen IdBuilding" (§5.2) -- deliberada, sólo para la
+  fila que un SysAdmin promueve a mano.
+  **Schema**: `Database/Scripts/2026-09-02_25_Parameter_Promotion.sql` -- columna
+  `Parameter.ReplacedByIdTabla INT NULL` + FK auto-referenciada hacia
+  `Parameter.IdTabla` (segura, arranca NULL para todo lo existente). Tres procs
+  nuevos, autoría propia (no tocan `INS_Parameter`/`UPD_Parameter` existentes):
+  `GET_MixtoParameterCandidates` (todos los hijos Mixto activos y todavía no
+  globales, de TODOS los edificios a la vez, con nombre de grupo y de edificio --
+  la vista base para que el SysAdmin detecte duplicados a ojo, la detección sigue
+  siendo manual a propósito), `UPD_PromoteParameterToGlobal` (`IdBuilding -> NULL`
+  sobre la fila canónica) y `UPD_MergeParameterInto` (la fila duplicada queda
+  `Estado = Inactivo` + `ReplacedByIdTabla` apuntando a la canónica -- nunca se
+  borra, mismo criterio que el resto de Parameter).
+  **UI**: `ParameterPromotion.razor` (`/parameter-promotion`, SysAdmin-only,
+  entrada nueva "Fusionar duplicados" en `/parameter`) agrupa los candidatos por
+  grupo + descripción corta normalizada (trim + mayúsculas) para sugerir clusters
+  de duplicados: cada cluster deja elegir cuál fila es la canónica (radio) y
+  cuáles se fusionan hacia ella (checkbox, todas las demás del cluster
+  preseleccionadas). Un switch "Mostrar todos" saca también los valores sin
+  duplicado detectado, por si el nombre difiere entre edificios y hace falta
+  fusionar a mano algo que el agrupamiento automático no encontró.
+  `IParameterPromotionService` (nuevo, separado de `ParameterService` porque este
+  opera sobre TODOS los edificios a la vez, no sobre `CurrentBuilding`) orquesta
+  promover + fusionar; ambos pasos son idempotentes así que no hace falta una
+  transacción compartida entre las dos llamadas.
+  **Riesgo encontrado de paso, no corregido acá (fuera de alcance) -- tarea
+  separada sugerida**: no quedó confirmado si `Parameter.Estado` (enum
+  `Activo=1/Inactivo=2`) se lee bien desde la columna `Estado BIT` (valores 0/1)
+  sin un `HasConversion` configurado en `SpiderHoodContext` -- si no lo hay, una
+  fila que este mismo paso deja Inactivo (`Estado=0`) podría materializarse como
+  un valor de enum indefinido en cualquier lectura fuera de
+  `GET_MixtoParameterCandidates` (que filtra `Estado = 1` y por eso no lo pisa).
+  **Sin probar contra la BD real todavía.**
 
 ## 1. Problema de fondo
 

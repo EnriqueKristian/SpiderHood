@@ -160,6 +160,7 @@ builder.Services.PostConfigure<Microsoft.AspNetCore.Authentication.Authenticatio
 
 // Otros servicios
 builder.Services.AddScoped<ParameterService>();
+builder.Services.AddScoped<IParameterPromotionService, ParameterPromotionService>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();

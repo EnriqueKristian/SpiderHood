@@ -1,0 +1,245 @@
+@page "/parameter-promotion"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject NavigationManager Navigation
+@inject Services.AuthService AuthService
+@inject Services.IParameterPromotionService PromotionService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Fusión de Parámetros Mixtos</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-signpost-split"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Fusión de Parámetros Mixtos</h1>
+                <p class="text-muted mb-0">
+                    Detectá valores agregados de forma independiente en varios edificios (ej. "Yape" como Método de
+                    Pago) y fusionalos en uno solo global, sin perder el histórico.
+                </p>
+            </div>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/parameter")'>
+                <i class="bi bi-arrow-left me-2"></i>Volver a Parámetros
+            </button>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center text-muted py-5">
+            <div class="spinner-border spinner-border-sm me-2"></div> Cargando candidatos...
+        </div>
+    }
+    else
+    {
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="showAll" @bind="_showAll" @bind:after="ApplyFilter" />
+            <label class="form-check-label" for="showAll">
+                Mostrar también valores sin duplicado detectado (por si el nombre difiere entre edificios)
+            </label>
+        </div>
+
+        @if (!_clusters.Any())
+        {
+            <div class="alert alert-info">No hay valores Mixto activos y todavía no globales en ningún edificio.</div>
+        }
+        else
+        {
+            @foreach (var cluster in _clusters)
+            {
+                var isDuplicate = cluster.Rows.Count > 1;
+                <div class="card shadow-sm border-0 mb-3">
+                    <div class="card-header bg-transparent border-bottom py-2 d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>@cluster.GroupName</strong> — @cluster.Rows.First().ShortDescription
+                            @if (isDuplicate)
+                            {
+                                <span class="badge bg-warning text-dark ms-2">@cluster.Rows.Count edificios</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary ms-2">sin duplicado</span>
+                            }
+                        </div>
+                        @if (isDuplicate)
+                        {
+                            <button class="btn btn-sm btn-primary" disabled="@(!cluster.CanonicalIdTabla.HasValue || _merging)"
+                                    @onclick="() => MergeClusterAsync(cluster)">
+                                <i class="bi bi-signpost-split me-1"></i>Fusionar seleccionados
+                            </button>
+                        }
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:90px">Canónica</th>
+                                    <th style="width:90px">Fusionar</th>
+                                    <th>Edificio</th>
+                                    <th>Descripción corta</th>
+                                    <th>Descripción</th>
+                                    <th>Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in cluster.Rows)
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (isDuplicate)
+                                            {
+                                                <input type="radio" class="form-check-input" name="@("canonical-" + cluster.Key)"
+                                                       checked="@(cluster.CanonicalIdTabla == row.IdTabla)"
+                                                       @onchange="() => SetCanonical(cluster, row.IdTabla)" />
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (isDuplicate && cluster.CanonicalIdTabla != row.IdTabla)
+                                            {
+                                                <input type="checkbox" class="form-check-input"
+                                                       checked="@cluster.SelectedForMerge.Contains(row.IdTabla)"
+                                                       @onchange="(e) => ToggleMerge(cluster, row.IdTabla, (bool)e.Value!)" />
+                                            }
+                                        </td>
+                                        <td>@row.BuildingName</td>
+                                        <td>@row.ShortDescription</td>
+                                        <td>@row.Description</td>
+                                        <td>@row.Value</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _merging = false;
+    private bool _showAll = false;
+    private List<ParameterPromotionCandidate> _candidates = new();
+    private List<Cluster> _clusters = new();
+
+    private class Cluster
+    {
+        public string Key { get; set; } = "";
+        public string GroupName { get; set; } = "";
+        public List<ParameterPromotionCandidate> Rows { get; set; } = new();
+        public int? CanonicalIdTabla { get; set; }
+        public HashSet<int> SelectedForMerge { get; set; } = new();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        if (currentUser == null || currentUser.Role != "SysAdmin")
+        {
+            Navigation.NavigateTo("/dashboard");
+            return;
+        }
+
+        await LoadCandidatesAsync();
+    }
+
+    private async Task LoadCandidatesAsync()
+    {
+        _loading = true;
+        _candidates = await PromotionService.GetCandidatesAsync();
+        BuildClusters();
+        _loading = false;
+    }
+
+    // Agrupa por grupo + descripción corta normalizada (trim + mayúsculas) -- es una
+    // detección simple a propósito (ver Docs/Design-Defaults-Sistema-Mixto.md §5.3:
+    // "la detección queda manual"), sólo para no obligar al SysAdmin a comparar 100
+    // filas a mano. Si dos edificios escribieron el mismo valor con nombres distintos,
+    // "Mostrar todos" deja verlos sueltos igual para fusionarlos a mano.
+    private void BuildClusters()
+    {
+        _clusters = _candidates
+            .GroupBy(c => (c.GroupName, Norm: c.ShortDescription.Trim().ToUpperInvariant()))
+            .Select(g => new Cluster
+            {
+                Key = $"{g.Key.GroupName}|{g.Key.Norm}",
+                GroupName = g.Key.GroupName,
+                Rows = g.OrderBy(r => r.BuildingName).ToList(),
+                CanonicalIdTabla = g.Count() > 1 ? g.OrderBy(r => r.BuildingName).First().IdTabla : null,
+            })
+            .OrderByDescending(c => c.Rows.Count)
+            .ThenBy(c => c.GroupName)
+            .ToList();
+
+        foreach (var cluster in _clusters.Where(c => c.Rows.Count > 1))
+        {
+            cluster.SelectedForMerge = cluster.Rows
+                .Where(r => r.IdTabla != cluster.CanonicalIdTabla)
+                .Select(r => r.IdTabla)
+                .ToHashSet();
+        }
+
+        ApplyFilter();
+    }
+
+    private List<Cluster> _allClusters = new();
+
+    private void ApplyFilter()
+    {
+        // BuildClusters ya corrió una vez con todo -- guardamos la lista completa y
+        // filtramos sobre ella, en vez de volver a pedir los candidatos a BD sólo
+        // por tildar el switch.
+        if (_allClusters.Count == 0 && _clusters.Count > 0)
+            _allClusters = _clusters;
+
+        _clusters = _showAll
+            ? _allClusters
+            : _allClusters.Where(c => c.Rows.Count > 1).ToList();
+    }
+
+    private void SetCanonical(Cluster cluster, int idTabla)
+    {
+        cluster.CanonicalIdTabla = idTabla;
+        cluster.SelectedForMerge = cluster.Rows
+            .Where(r => r.IdTabla != idTabla)
+            .Select(r => r.IdTabla)
+            .ToHashSet();
+    }
+
+    private void ToggleMerge(Cluster cluster, int idTabla, bool selected)
+    {
+        if (selected) cluster.SelectedForMerge.Add(idTabla);
+        else cluster.SelectedForMerge.Remove(idTabla);
+    }
+
+    private async Task MergeClusterAsync(Cluster cluster)
+    {
+        if (!cluster.CanonicalIdTabla.HasValue || !cluster.SelectedForMerge.Any())
+            return;
+
+        _merging = true;
+        try
+        {
+            var result = await PromotionService.PromoteAndMergeAsync(cluster.CanonicalIdTabla.Value, cluster.SelectedForMerge.ToList());
+            if (!result.IsSuccess)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo completar la fusión");
+                return;
+            }
+
+            _allClusters = new();
+            await LoadCandidatesAsync();
+        }
+        finally
+        {
+            _merging = false;
+        }
+    }
+}

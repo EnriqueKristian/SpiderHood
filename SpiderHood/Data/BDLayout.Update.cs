@@ -311,6 +311,33 @@ namespace SpiderHood.Data
             }, "UpdateParameter", cancellationToken);
         }
 
+        // Paso 5 (promoción/fusión, ver Docs/Design-Defaults-Sistema-Mixto.md §5.3):
+        // primer paso de "promover a global" -- saca a la fila elegida como
+        // canónica de su edificio (IdBuilding -> NULL). A partir de acá se comporta
+        // como un valor Sistema: la ve cualquier edificio (GET_AllParameters ya trae
+        // todo lo que tiene IdBuilding NULL), aunque el grupo siga siendo Mixto.
+        public async Task<bool> PromoteParameterToGlobalAsync(int idTabla, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.UPD_PromoteParameterToGlobal, cancellationToken, idTabla);
+                return true;
+            }, "PromoteParameterToGlobal", cancellationToken);
+        }
+
+        // Segundo paso de la fusión: la fila duplicada (oldIdTabla) queda Inactivo y
+        // apuntando a la canónica (newIdTabla) vía ReplacedByIdTabla -- nunca se
+        // borra (ningún Parameter se borra de verdad, ver §5.2), así que el
+        // histórico que la referencia sigue viéndose bien.
+        public async Task<bool> MergeParameterIntoAsync(int oldIdTabla, int newIdTabla, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.UPD_MergeParameterInto, cancellationToken, oldIdTabla, newIdTabla);
+                return true;
+            }, "MergeParameterInto", cancellationToken);
+        }
+
         public async Task<Models.Period> UpdateRecordAsync(Models.Period period, CancellationToken cancellationToken = default)
         {
             ValidateEntity(period, nameof(period));

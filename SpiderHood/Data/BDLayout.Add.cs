@@ -343,11 +343,12 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
+                // Number es IDENTITY (autogenerada por SQL Server) -- no se manda, ver
+                // Database/Scripts/2026-09-02_18_Fix_Building_NumberIsIdentity.sql.
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.INS_Building,
                     cancellationToken,
                     building.IdBuilding,
-                    building.Number,
                     building.Name,
                     building.Location,
                     building.Type,

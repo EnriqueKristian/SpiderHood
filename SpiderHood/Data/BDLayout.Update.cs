@@ -348,12 +348,13 @@ namespace SpiderHood.Data
                 // sólo mandaba Name/Location/TotalArea, así que el resto se perdía en
                 // cada guardado sin ningún aviso. Ver
                 // Database/Scripts/2026-09-02_17_Persist_BuildingCreation.sql, que
-                // reemplaza UPD_Building con la firma completa.
+                // reemplaza UPD_Building con la firma completa. Number es IDENTITY
+                // (autogenerada) -- no se puede actualizar, ver
+                // Database/Scripts/2026-09-02_18_Fix_Building_NumberIsIdentity.sql.
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.UPD_Building,
                     cancellationToken,
                     building.IdBuilding,
-                    building.Number,
                     building.Name,
                     building.Location,
                     building.Type,

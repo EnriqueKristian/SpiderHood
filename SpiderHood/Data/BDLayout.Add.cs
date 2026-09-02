@@ -337,6 +337,32 @@ namespace SpiderHood.Data
             }, "AddParameter", cancellationToken);
         }
 
+        public async Task<Building> AddNewRecordAsync(Building building, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(building, nameof(building));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Building,
+                    cancellationToken,
+                    building.IdBuilding,
+                    building.Number,
+                    building.Name,
+                    building.Location,
+                    building.Type,
+                    building.Floors,
+                    building.Basements,
+                    building.Apartments,
+                    building.Parkings,
+                    building.Deposits,
+                    building.Others,
+                    building.TotalArea,
+                    building.IsActive);
+                return building;
+            }, "AddBuilding", cancellationToken);
+        }
+
         public async Task<BuildingConfiguration> AddNewRecordAsync(BuildingConfiguration configuration, CancellationToken cancellationToken = default)
         {
             ValidateEntity(configuration, nameof(configuration));

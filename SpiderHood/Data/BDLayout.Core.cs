@@ -71,6 +71,7 @@ namespace SpiderHood.Data
             public const string INS_UserRole = "INS_UserRole";
             public const string INS_UserBuildingAssociation = "INS_UserBuildingAssociation";
             public const string INS_User = "INS_User";
+            public const string INS_Building = "INS_Building";
             public const string INS_Category = "INS_Category";
             public const string INS_Exoneration = "INS_Exoneration";
             public const string INS_Periods = "INS_Periods";

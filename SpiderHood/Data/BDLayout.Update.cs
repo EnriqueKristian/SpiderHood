@@ -343,13 +343,28 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
+                // El modal de edición (BuildingPage.razor) también edita Type/Floors/
+                // Basements/Apartments/Parkings/Deposits/Others/IsActive -- este método
+                // sólo mandaba Name/Location/TotalArea, así que el resto se perdía en
+                // cada guardado sin ningún aviso. Ver
+                // Database/Scripts/2026-09-02_17_Persist_BuildingCreation.sql, que
+                // reemplaza UPD_Building con la firma completa.
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.UPD_Building,
                     cancellationToken,
                     building.IdBuilding,
+                    building.Number,
                     building.Name,
                     building.Location,
-                    building.TotalArea);
+                    building.Type,
+                    building.Floors,
+                    building.Basements,
+                    building.Apartments,
+                    building.Parkings,
+                    building.Deposits,
+                    building.Others,
+                    building.TotalArea,
+                    building.IsActive);
                 return building;
             }, "UpdateBuilding", cancellationToken);
         }

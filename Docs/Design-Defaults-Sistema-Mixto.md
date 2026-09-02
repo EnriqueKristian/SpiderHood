@@ -1,8 +1,24 @@
 # Valores default por Edificio: Parámetros, Categorías y Configuración
 
-Diseño acordado en sesión de trabajo. No implementado todavía — este documento es el
-plan a seguir, con los gaps detectados en el código actual y las decisiones tomadas.
-Actualizar esta lista de TAREAS a medida que se implemente cada parte.
+Diseño acordado en sesión de trabajo. Este documento es el plan a seguir, con los
+gaps detectados en el código actual y las decisiones tomadas. Actualizar esta lista
+de TAREAS a medida que se implemente cada parte.
+
+## Estado de implementación
+
+- [x] **Paso 1 — Persistir creación de Building** (§2, §8 orden sugerido). Agregado
+  `INS_Building` + `UPD_Building` completo (`Database/Scripts/2026-09-02_17_Persist_BuildingCreation.sql`,
+  columnas del schema real sin confirmar todavía contra un `CREATE TABLE` -- avisar si
+  algo no matchea al correrlo), `AddNewRecordAsync(Building)`, y
+  `IBuildingService.CreateBuildingAsync`/`UpdateBuildingAsync` (crea también la
+  `BuildingConfiguration` inicial y la `UserBuildingAssociation` de quien lo creó).
+  `BuildingPage.razor.cs.SaveBuilding()` ahora llama a estos métodos en vez de sólo
+  tocar la lista en memoria. **Todavía sin probar contra la BD real.**
+- [ ] Paso 2 — Edificio Template + clonado de `BuildingConfiguration`
+- [ ] Paso 3 — `Parameter`: `IsSystemDefault`, split Sistema/Mixto, cerrar creación de
+  grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building
+- [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto
+- [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro)
 
 ## 1. Problema de fondo
 

@@ -209,6 +209,11 @@ namespace SpiderHood.Components.Pages.BuildingPages
                     {
                         Buildings[index] = _editingBuilding.Clone();
                     }
+
+                    // Sin esto la sesión en memoria seguía con el Name/IsTemplate viejo
+                    // (header, /select-building, etc.) hasta un F5 -- ver
+                    // AuthService.RefreshCurrentUserBuildingsAsync.
+                    await AuthService.RefreshCurrentUserBuildingsAsync();
                 }
                 else
                 {
@@ -225,6 +230,15 @@ namespace SpiderHood.Components.Pages.BuildingPages
                     }
 
                     Buildings.Add(_editingBuilding.Clone());
+
+                    // Refresca Buildings/Roles de la sesión en memoria y notifica -- sin
+                    // esto el edificio nuevo sólo se veía en esta lista local (que además
+                    // se pierde al volver a entrar a esta página, porque CargarDatosPagina
+                    // relee currentUser.Buildings, la sesión cacheada del circuito). El
+                    // header y el resto de páginas quedaban sin verlo hasta un F5 real
+                    // (que fuerza un circuito nuevo). Ver
+                    // AuthService.RefreshCurrentUserBuildingsAsync.
+                    await AuthService.RefreshCurrentUserBuildingsAsync();
                 }
 
                 // Si estamos editando el edificio seleccionado, actualizarlo

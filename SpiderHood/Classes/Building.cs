@@ -20,6 +20,14 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal TotalArea { get; set; }
         public bool IsActive { get; set; } = true;
+        // Edificio Template (Docs/Design-Defaults-Sistema-Mixto.md, Paso 2): un
+        // Building normal marcado IsTemplate=1 -- lo edita el SysAdmin con las
+        // mismas pantallas que cualquier edificio real, y sirve como fuente de los
+        // valores default (BuildingConfiguration) que se clonan al crear un
+        // edificio nuevo. No hay nada que fuerce que sea único -- se puede tener
+        // más de uno marcado (p.ej. varios "demo"); GET_TemplateBuilding trae uno
+        // solo (TOP 1) sin ninguna lógica de cuál "gana" entre varios.
+        public bool IsTemplate { get; set; }
         [NotMapped]
         public BuildingConfiguration Configuration { get; set; } = new();
         public Building Clone()
@@ -39,6 +47,7 @@ namespace SpiderHood.Models
                 Others = this.Others,
                 TotalArea = this.TotalArea,
                 IsActive = this.IsActive,
+                IsTemplate = this.IsTemplate,
                 Configuration = this.Configuration.Clone()
             };
         }

@@ -376,7 +376,8 @@ namespace SpiderHood.Data
                     building.Deposits,
                     building.Others,
                     building.TotalArea,
-                    building.IsActive);
+                    building.IsActive,
+                    building.IsTemplate);
                 return building;
             }, "UpdateBuilding", cancellationToken);
         }

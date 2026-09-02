@@ -80,18 +80,20 @@ namespace SpiderHood.Services
             return await ec.GetAllBuildingByOwnerAsync(IdOwner);
         }
 
-        // Crea el Building + su BuildingConfiguration inicial (todavía el default
-        // hardcodeado de CreateDefaultConfigurationAsync -- pasa a salir del Edificio
-        // Template en un paso posterior del plan) + la UserBuildingAssociation que
-        // vincula a quien lo crea, sin la cual ni Administrador ni SysAdmin sin fila
-        // propia verían el edificio recién creado en su lista (SysAdmin global sí lo
-        // ve solo, vía GrantSysAdminAccessToAllBuildingsAsync, pero Administrador no).
-        // Antes de este método, BuildingPage.razor.cs.SaveBuilding() sólo agregaba el
-        // objeto a una lista en memoria -- no persistía nada.
+        // Crea el Building + su BuildingConfiguration inicial + la
+        // UserBuildingAssociation que vincula a quien lo crea, sin la cual ni
+        // Administrador ni SysAdmin sin fila propia verían el edificio recién creado
+        // en su lista (SysAdmin global sí lo ve solo, vía
+        // GrantSysAdminAccessToAllBuildingsAsync, pero Administrador no). Antes de
+        // este método, BuildingPage.razor.cs.SaveBuilding() sólo agregaba el objeto a
+        // una lista en memoria -- no persistía nada.
         public async Task<OperationResult> CreateBuildingAsync(Models.Building building, Guid createdByUserId, string createdByRole)
         {
             try
             {
+                if (!building.IsTemplate)
+                    await ApplyTemplateDefaultsAsync(building.Configuration);
+
                 await ec.AddNewRecordAsync(building);
                 await ec.StampAuditAsync(AuditableEntity.Building, building.IdBuilding, await GetPerformedByAsync(), isCreate: true);
 
@@ -115,6 +117,38 @@ namespace SpiderHood.Services
             {
                 return OperationResult.Failure($"No se pudo crear el edificio: {DescribeError(ex)}");
             }
+        }
+
+        // Edificio Template (Docs/Design-Defaults-Sistema-Mixto.md, Paso 2): pisa los
+        // valores de "config" con los del Edificio Template (Building.IsTemplate=1),
+        // si existe alguno. Sólo los campos pedidos como default -- BankAccounts,
+        // Contacts, DefaultCategory/WaterReadingDefault y Exonerations quedan tal
+        // como venían (vacíos/null para un edificio nuevo), porque no tiene sentido
+        // copiar una cuenta bancaria o categoría del template a un edificio real (y
+        // Category todavía no se clona -- eso es el Paso 4, así que no hay ninguna
+        // Category propia a la que apuntar todavía). Si no hay ningún template
+        // marcado, "config" queda como venía (el fallback hardcodeado de
+        // CreateDefaultConfigurationAsync que ya arma ShowCreateModal).
+        private async Task ApplyTemplateDefaultsAsync(BuildingConfiguration config)
+        {
+            var template = await ec.GetTemplateBuildingAsync();
+            if (template == null)
+                return;
+
+            var templateConfig = await GetConfigurationAsync(template.IdBuilding);
+
+            config.Currency = templateConfig.Currency;
+            config.PaymentMethods = [.. templateConfig.PaymentMethods];
+            config.PaymentPeriod = templateConfig.PaymentPeriod;
+            config.DueDay = templateConfig.DueDay;
+            config.FineAmount = templateConfig.FineAmount;
+            config.MinWaterConsumtion = templateConfig.MinWaterConsumtion;
+            config.DefaultFixedCharge = templateConfig.DefaultFixedCharge;
+            config.LateInterestRate = templateConfig.LateInterestRate;
+            config.InvoiceDay = templateConfig.InvoiceDay;
+            config.DebtWarningDays = templateConfig.DebtWarningDays;
+            config.DebtCriticalDays = templateConfig.DebtCriticalDays;
+            config.ReceiptFooterText = templateConfig.ReceiptFooterText;
         }
 
         public async Task<OperationResult> UpdateBuildingAsync(Models.Building building)

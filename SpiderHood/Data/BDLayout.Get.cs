@@ -204,6 +204,19 @@ namespace SpiderHood.Data
             }, "GetAllBuildingsPublic", cancellationToken);
         }
 
+        // Edificio Template (Docs/Design-Defaults-Sistema-Mixto.md, Paso 2) -- null si
+        // todavía no se marcó ninguno (instalación nueva, o antes de que el SysAdmin
+        // configure uno).
+        public async Task<Building?> GetTemplateBuildingAsync(CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var results = await ExecuteQueryListAsync<Building>(
+                    StoredProcedures.GET_TemplateBuilding);
+                return results.FirstOrDefault();
+            }, "GetTemplateBuilding", cancellationToken);
+        }
+
         public async Task<List<RealEstateUnit>> GetUnitsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             var units = new List<RealEstateUnit>();

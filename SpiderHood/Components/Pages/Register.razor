@@ -127,7 +127,11 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _buildings = await BuildingService.GetAllBuildingsPublicAsync();
+        // El Edificio Template (Docs/Design-Defaults-Sistema-Mixto.md) no es un
+        // edificio real -- nadie que se registra tiene que poder elegirlo.
+        _buildings = (await BuildingService.GetAllBuildingsPublicAsync())
+            .Where(b => !b.IsTemplate)
+            .ToList();
     }
 
     private async Task HandleRegister()

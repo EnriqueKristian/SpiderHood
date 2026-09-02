@@ -6,15 +6,46 @@ de TAREAS a medida que se implemente cada parte.
 
 ## Estado de implementación
 
-- [x] **Paso 1 — Persistir creación de Building** (§2, §8 orden sugerido). Agregado
-  `INS_Building` + `UPD_Building` completo (`Database/Scripts/2026-09-02_17_Persist_BuildingCreation.sql`,
-  columnas del schema real sin confirmar todavía contra un `CREATE TABLE` -- avisar si
-  algo no matchea al correrlo), `AddNewRecordAsync(Building)`, y
-  `IBuildingService.CreateBuildingAsync`/`UpdateBuildingAsync` (crea también la
-  `BuildingConfiguration` inicial y la `UserBuildingAssociation` de quien lo creó).
-  `BuildingPage.razor.cs.SaveBuilding()` ahora llama a estos métodos en vez de sólo
-  tocar la lista en memoria. **Todavía sin probar contra la BD real.**
-- [ ] Paso 2 — Edificio Template + clonado de `BuildingConfiguration`
+- [x] **Paso 1 — Persistir creación de Building** (§2, §8 orden sugerido). **Probado
+  end-to-end y funcionando**: crear, editar y recargar sesión con el edificio nuevo,
+  todo OK. `INS_Building` + `UPD_Building` completo
+  (`Database/Scripts/2026-09-02_17_Persist_BuildingCreation.sql` +
+  `2026-09-02_18_Fix_Building_NumberIsIdentity.sql` -- `Number` es IDENTITY, no se
+  manda), `AddNewRecordAsync(Building)`, `IBuildingService.CreateBuildingAsync`/
+  `UpdateBuildingAsync` (crea también la `BuildingConfiguration` inicial y la
+  `UserBuildingAssociation` de quien lo creó). `BuildingPage.razor.cs.SaveBuilding()`
+  llama a estos métodos en vez de sólo tocar la lista en memoria.
+  Bugs encontrados y corregidos en el camino: `Number` IDENTITY (no seteable),
+  falta `using Microsoft.JSInterop` en el code-behind, y el más serio --
+  `BuildingConfiguration.DefaultCategory`/`WaterReadingDefault` quedaban `NULL` en
+  un edificio sin Categorías propias todavía, y como el modelo los tipaba `Guid` no-
+  nullable, `GET_AllBuildingsConfig` explotaba con `SqlNullValueException` al leer
+  CUALQUIER edificio con esos campos en NULL -- rompía la reconstrucción de sesión
+  completa (bucle de login) para todo usuario con acceso a ese edificio, SysAdmin
+  incluido. Se resolvió pasándolos a `Guid?` en el modelo.
+- [x] **Paso 2 — Edificio Template + clonado de `BuildingConfiguration`** (decisión:
+  flag `Building.IsTemplate`, editado con las mismas pantallas que un edificio real
+  -- no hay tope de uno solo, deliberado, para poder tener más de un
+  template/demo). `Database/Scripts/2026-09-02_19_Building_IsTemplate.sql`: columna
+  `IsTemplate`, `INS_Building`/`UPD_Building` la incluyen, `GET_TemplateBuilding`
+  nuevo (con `SELECT *` a propósito, para no repetir el desfasaje de columnas que
+  ya pasó con `Number` en pasos anteriores). `CreateBuildingAsync` clona de
+  `GET_TemplateBuilding` (si existe alguno) los campos de la lista original
+  (Moneda, Métodos de Pago, Periodo de Pago, Día de Vencimiento, Consumo Mínimo,
+  Cargo Fijo, Monto Multa, Tasa de Interés, Día Emisión Recibos, Alerta/Deuda
+  Crítica, Texto Pie de Recibo) -- NO clona BankAccounts/Contacts/
+  DefaultCategory/WaterReadingDefault/Exonerations (no tiene sentido copiar una
+  cuenta bancaria real del template, y Category todavía no se clona -- Paso 4). Si
+  no hay ningún template marcado, sigue el fallback hardcodeado de siempre. Checkbox
+  "Es edificio template" en el modal de Building, visible sólo para SysAdmin;
+  badge "Template" en la lista; excluido de `/register` y `/building-request` (no
+  es un edificio real al que nadie deba poder unirse).
+  **Sin probar contra la BD real todavía** -- mismo riesgo de siempre con
+  `INS_Building`/`UPD_Building` (ahora con un parámetro más) y con que
+  `GET_AllBuildings`/`GET_AllBuildingsPublic` (no tocados, prexistentes) puedan
+  tener una lista de columnas explícita que no incluya `IsTemplate` -- si pasa
+  eso, la lista de edificios nunca mostraría el badge/checkbox en su valor real
+  aunque la BD sí lo tenga bien guardado; avisar si se nota esa inconsistencia.
 - [ ] Paso 3 — `Parameter`: `IsSystemDefault`, split Sistema/Mixto, cerrar creación de
   grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building
 - [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto

@@ -219,8 +219,20 @@ de TAREAS a medida que se implemente cada parte.
   present`), esta vez rompiendo hasta el Dashboard para cualquier usuario.
   Corregido en `Database/Scripts/2026-09-02_26_Fix_GetAllParameters_ReplacedByIdTabla.sql`
   (agrega la columna al `SELECT`, sin `ISNULL` porque el modelo ya la tipa `int?`).
-  **Sin confirmar contra la BD real todavía** -- falta que el usuario corra este
-  último script.
+  **Segundo bug encontrado al probar, ya corregido**: `GET_MixtoParameterCandidates`
+  traía TODOS los hijos Mixto activos de cada edificio, incluidos los clonados del
+  template al crear el edificio (los 4 defaults de Método de Pago, por ejemplo) --
+  esos no son duplicados reales, son la misma fila copiada a propósito una vez por
+  edificio (§5.2), así que salían como "2 edificios" en CUALQUIER par de edificios
+  con el mismo default, sin que ningún admin haya agregado nada dos veces.
+  Confirmado en vivo por el usuario. La marca para distinguirlos ya existía
+  (`IsSystemDefault` en el hijo: 1 = clonado del template, 0 = lo agregó el admin
+  a mano) -- sólo faltaba usarla en el `WHERE`. Corregido en
+  `Database/Scripts/2026-09-02_27_Fix_PromotionCandidates_ExcludeDefaults.sql`
+  (agrega `AND c.IsSystemDefault = 0`) -- la lista ahora sólo muestra valores que
+  un Administrador agregó de verdad por su cuenta.
+  **Sin confirmar contra la BD real todavía** -- falta que el usuario corra los
+  dos últimos scripts (`_26` y `_27`).
 
 ## 1. Problema de fondo
 

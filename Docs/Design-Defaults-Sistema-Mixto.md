@@ -108,7 +108,27 @@ de TAREAS a medida que se implemente cada parte.
     fijo que esas 5 pantallas asumían va a estar bien para cualquier edificio, y
     nadie puede reordenar los `Value` de Prioridad para romper el mapeo de
     colores. No hizo falta editar ninguna de las 5.
-- [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto
+- [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto.
+  **En progreso.** Empezado por el clonado (a pedido del usuario, antes que la FK):
+  `IBuildingService.CreateBuildingAsync` ahora también clona el set completo de
+  Categorías del template (`CloneCategoriesAsync`). A diferencia de Parameter,
+  `Category` usa `Guid` como PK (no un `IDENTITY int`), así que clonar necesita dos
+  pasadas -- primero las raíces (`Nivel == 0`), generando un Guid nuevo para cada
+  una y armando un mapeo template→nuevo; después los hijos (`Nivel != 0`), usando
+  ese mapeo para que su `ParentId` apunte al padre YA CLONADO en el edificio nuevo,
+  no al del template.
+  **Riesgo pre-existente encontrado, sin tocar todavía**: `AddNewRecordAsync
+  (Category)` (`BDLayout.Add.cs`) arma `@ParentId` con
+  `category.ParentId == Guid.Empty ? null! : category.ParentId!` -- un `null`
+  pelado (no una excepción DBNull sin tipo como las que ya corregimos, pero la
+  misma familia de problema) pasado al mecanismo posicional de
+  `ExecuteStoredProcedureAsync`. Si esto explota al clonar/crear una Categoría
+  RAÍZ (`ParentId = Guid.Empty`), es sospechoso #1 -- mismo fix que ya usamos para
+  `Parameter.IdParent`/`IdBuilding` (`SqlParameter` explícito), pero hace falta el
+  `CREATE PROCEDURE` real de `INS_Category` antes de tocarlo (no lo tengo,
+  a diferencia de `INS_Parameter`/`INS_Building`).
+  **Sin probar contra la BD real todavía.** Faltan: FK real en `Expense`/
+  `Exoneration`/`BudgetDetail`/`CalendarItem`, y el alta inline desde Presupuesto.
 - [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro)
 
 ## 1. Problema de fondo

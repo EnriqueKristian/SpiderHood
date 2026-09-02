@@ -108,7 +108,10 @@ namespace SpiderHood.Services
                 await ec.StampAuditAsync(AuditableEntity.BuildingConfiguration, building.Configuration.IdBuildingConfiguration, await GetPerformedByAsync(), isCreate: true);
 
                 if (template != null)
+                {
                     await CloneMixtoParametersAsync(template.IdBuilding, building.IdBuilding);
+                    await CloneCategoriesAsync(template.IdBuilding, building.IdBuilding);
+                }
 
                 await ec.AcceptInvitationAsync(new UserBuildingAssociation
                 {
@@ -181,6 +184,68 @@ namespace SpiderHood.Services
                     Estado = hijo.Estado,
                     IdBuilding = newBuildingId,
                     IsSystemDefault = true
+                });
+            }
+        }
+
+        // Category (Docs/Design-Defaults-Sistema-Mixto.md, Paso 4): clona el set
+        // completo de Categorías del Edificio Template al edificio nuevo. A
+        // diferencia de Parameter, acá TODO se clona por edificio -- no hay nivel
+        // Sistema para Category (decisión explícita: nada de fusión/promoción de
+        // duplicados a futuro tampoco, ver §6).
+        //
+        // Category usa Guid como PK (IdCategory) en vez de un IDENTITY int como
+        // Parameter, así que clonar no es tan directo como copiar filas: cada clon
+        // necesita su propio Guid nuevo, y los hijos (Nivel 1) tienen que apuntar
+        // (ParentId) al Guid NUEVO de su padre clonado, no al del template -- por
+        // eso se clona en dos pasadas (raíces primero, armando el mapeo
+        // template->nuevo, después los hijos usando ese mapeo).
+        private async Task CloneCategoriesAsync(Guid templateBuildingId, Guid newBuildingId)
+        {
+            var templateCategories = await ec.GetCategoriesAsync(templateBuildingId);
+
+            var idMap = new Dictionary<Guid, Guid>();
+
+            foreach (var raiz in templateCategories.Where(c => c.Nivel == 0))
+            {
+                var nuevoId = Guid.NewGuid();
+                idMap[raiz.IdCategory] = nuevoId;
+
+                await ec.AddNewRecordAsync(new Models.Category
+                {
+                    IdCategory = nuevoId,
+                    Description = raiz.Description,
+                    ShortDescript = raiz.ShortDescript,
+                    Icon = raiz.Icon,
+                    Color = raiz.Color,
+                    Distribution = raiz.Distribution,
+                    ParentId = Guid.Empty,
+                    IdBuilding = newBuildingId,
+                    Nivel = 0,
+                    ShowDetailInReceipt = raiz.ShowDetailInReceipt
+                });
+            }
+
+            foreach (var hijo in templateCategories.Where(c => c.Nivel != 0))
+            {
+                // Defensivo: si el template tuviera un hijo cuyo padre no está en el
+                // mapeo (dato huérfano preexistente), se lo salta en vez de romper
+                // toda la creación del edificio por una fila mal cargada del template.
+                if (!idMap.TryGetValue(hijo.ParentId, out var nuevoParentId))
+                    continue;
+
+                await ec.AddNewRecordAsync(new Models.Category
+                {
+                    IdCategory = Guid.NewGuid(),
+                    Description = hijo.Description,
+                    ShortDescript = hijo.ShortDescript,
+                    Icon = hijo.Icon,
+                    Color = hijo.Color,
+                    Distribution = hijo.Distribution,
+                    ParentId = nuevoParentId,
+                    IdBuilding = newBuildingId,
+                    Nivel = hijo.Nivel,
+                    ShowDetailInReceipt = hijo.ShowDetailInReceipt
                 });
             }
         }

@@ -1519,7 +1519,7 @@
                 Description = transaccion.Description,
                 Amount = Math.Abs(transaccion.Amount),
                 ExpenseDate = transaccion.StatementDate,
-                IdCategory = ParameterService.CurrentBuilding.Configuration.DefaultCategory,
+                IdCategory = ParameterService.CurrentBuilding.Configuration.DefaultCategory.GetValueOrDefault(),
                 IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
                 Distribution = TypeDistribution.Fija,
                 Status = StatusExpense.Approved,

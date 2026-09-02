@@ -916,7 +916,7 @@
                                                     <i class="bi bi-tag-fill text-white"></i>
                                                 </div>
                                                 <div>
-                                                    <div class="fw-semibold">@GetCategoryName(SelectedBuilding!.Configuration.DefaultCategory)</div>
+                                                    <div class="fw-semibold">@GetCategoryName(SelectedBuilding!.Configuration.DefaultCategory.GetValueOrDefault())</div>
                                                     <div class="text-muted small">Categoría de Gastos por defecto</div>
                                                 </div>
                                                 

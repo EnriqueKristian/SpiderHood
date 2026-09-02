@@ -142,8 +142,35 @@ de TAREAS a medida que se implemente cada parte.
   `Parameter.IdParent`/`IdBuilding` (`SqlParameter` explícito), pero hace falta el
   `CREATE PROCEDURE` real de `INS_Category` antes de tocarlo (no lo tengo,
   a diferencia de `INS_Parameter`/`INS_Building`).
-  **Sin probar contra la BD real todavía.** Faltan: FK real en `Expense`/
-  `Exoneration`/`BudgetDetail`/`CalendarItem`, y el alta inline desde Presupuesto.
+  **Alta inline desde Presupuesto: ya estaba implementada, no hizo falta tocar
+  nada.** `BudgetGenerator.razor` (`AddNewSectionFromModal`, modal "Nueva Sección")
+  ya permite escribir un nombre que no matchea ninguna Categoría existente; el
+  guardado (`BudgetService.SaveBudgetAsync` → `SaveCategoriesAsync`/
+  `SaveCategoryAsync`) inserta la `Category` real ANTES que los `BudgetDetail` que
+  la referencian, dentro de la misma transacción -- justo lo que hace falta para
+  que el FK nuevo (abajo) no rompa este flujo. Ojo: `SaveCategoriesAsync` sólo
+  corre cuando `state.Status` es `Created` o `Rejected` -- si se agrega una sección
+  nueva con el presupuesto ya en `Check`/`Active`, la Category no se crea antes del
+  `BudgetDetail` y el INSERT va a fallar contra el FK nuevo (antes esto quedaba
+  como fila huérfana silenciosa). No se tocó porque no está confirmado que ese
+  camino sea alcanzable desde la UI hoy -- si aparece el error, es acá.
+  También se encontró código muerto en el mismo archivo,
+  `AddNewSectionFromModal1` (variante vieja, no la llama ningún botón) -- no se
+  tocó, fuera de alcance de este paso.
+  **FK real**: `Database/Scripts/2026-09-02_24_Category_RealFK.sql` -- agrega
+  `FK_Expense_Category`/`FK_Exoneration_Category`/`FK_BudgetDetail_Category`/
+  `FK_CalendarItem_Category`, cada tabla independiente (se salta sola si ya tiene
+  un FK o si tiene filas huérfanas, sin abortar las otras tres). El propio
+  comentario de `SaveCategoriesAsync` ya nombraba `FK_BudgetDetail_Category` como
+  causa de un error real visto antes, así que puede que ya exista a mano en la BD
+  -- el script lo detecta y no lo duplica. `DeleteCategoryAsync` ahora devuelve
+  `OperationResult` y distingue la violación de FK (SQL error 547) para mostrar
+  "está en uso" en vez de tragarse el error en silencio como antes (bug de la
+  misma familia que el de `SaveBuilding` de más arriba: `CategoryPage.razor`
+  igual no mostraba nada aunque el borrado fallara).
+  **Sin correr el script contra la BD real todavía** -- falta que el usuario lo
+  ejecute y confirme el diagnóstico de huérfanos antes de dar este paso por
+  cerrado.
 - [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro)
 
 ## 1. Problema de fondo

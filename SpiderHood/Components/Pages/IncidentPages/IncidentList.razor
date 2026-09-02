@@ -233,14 +233,16 @@
         // Type/Priority necesitan arrancar en un Value real de la lista cargada --
         // si quedan en el 0 default de Incident y el usuario nunca toca esos
         // combos, se guardaría un valor que no matchea ninguna Categoría/Parámetro.
+        // Se toma el primero por Sort (ambas listas ya vienen ordenadas así) -- antes
+        // Priority buscaba por ShortDescription == "Media", que es innecesariamente
+        // frágil si en algún momento hay más de un "Media" dando vueltas.
         _nuevo = new Incident
         {
             IdBuilding = _currentUser.CurrentBuildingId,
             ReportedBy = _currentUser.IdUser,
             IdGroupUnit = _isStaff ? null : currentUserBuilding?.IdGroupUnit,
             Type = _tiposIncidente.FirstOrDefault()?.Value ?? 0,
-            Priority = _prioridadesIncidente.FirstOrDefault(p => p.ShortDescription == "Media")?.Value
-                ?? _prioridadesIncidente.FirstOrDefault()?.Value ?? 0
+            Priority = _prioridadesIncidente.FirstOrDefault()?.Value ?? 0
         };
         _showModal = true;
     }

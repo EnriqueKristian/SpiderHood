@@ -141,7 +141,11 @@
             .Select(b => b.Building!.IdBuilding)
             .ToHashSet();
 
-        availableBuildings = allBuildings.Where(b => !yaSolicitados.Contains(b.IdBuilding)).ToList();
+        // El Edificio Template (Docs/Design-Defaults-Sistema-Mixto.md) no es un
+        // edificio real -- nadie puede pedir acceso a él.
+        availableBuildings = allBuildings
+            .Where(b => !yaSolicitados.Contains(b.IdBuilding) && !b.IsTemplate)
+            .ToList();
     }
 
     private async Task SubmitRequest()

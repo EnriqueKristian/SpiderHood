@@ -119,6 +119,12 @@
                                                 <span class="status-badge @(building.IsActive ? "status-active" : "status-inactive")">
                                                     @(building.IsActive ? "Activo" : "Inactivo")
                                                 </span>
+                                                @if (building.IsTemplate)
+                                                {
+                                                    <span class="badge bg-warning text-dark">
+                                                        <i class="bi bi-stars me-1"></i>Template
+                                                    </span>
+                                                }
                                             </div>
                                             <div class="d-flex flex-wrap gap-1">
                                                 <span class="info-chip">
@@ -1181,6 +1187,21 @@
                         </div>
                     </div>
                 </div>
+                @if (currentUser.Role == "SysAdmin")
+                {
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">
+                                Edificio Template
+                                <i class="bi bi-info-circle text-muted" title="Sus valores de Configuración se usan como default al crear un edificio nuevo. Sólo lo ve/edita SysAdmin."></i>
+                            </label>
+                            <div class="form-check">
+                                <InputCheckbox @bind-Value="_editingBuilding.IsTemplate" class="form-check-input" />
+                                <label class="form-check-label">Es edificio template</label>
+                            </div>
+                        </div>
+                    </div>
+                }
             </div>
         </EditForm>
     </BodyTemplate>

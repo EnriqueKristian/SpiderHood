@@ -96,6 +96,15 @@ namespace SpiderHood.Components.Pages.BuildingPages
             // Cargar edificios del propietario
             Buildings = currentUser!.Buildings!.Where(c => c.Role == currentUser.Role).Select(ub => ub.Building).ToList()!;
 
+            // Sin ningún Building todavía (instalación nueva) Buildings queda vacía --
+            // Buildings.First() tiraba InvalidOperationException acá, silenciada por el
+            // try/catch de InicializarPagina, y el resto de la carga (parámetros,
+            // categorías, unidades) nunca corría. El markup ya maneja bien
+            // SelectedBuilding == null (@if (Buildings.Any())/@if (SelectedBuilding != null)),
+            // así que alcanza con no crashear acá.
+            if (!Buildings.Any())
+                return;
+
             SelectedBuilding = Buildings.First();   //GetBuildingDefault
 
             // Cargar parámetros

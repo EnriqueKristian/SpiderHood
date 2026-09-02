@@ -99,8 +99,15 @@ namespace SpiderHood.Services
             if (sysAdmin != null)
                 return (sysAdmin.Building!.IdBuilding, "SysAdmin");
 
-            if (esSysAdminGlobal && buildings.Count > 0)
-                return (buildings[0].Building!.IdBuilding, "SysAdmin");
+            if (esSysAdminGlobal)
+            {
+                // Sin ningún Building en la BD (instalación nueva), buildings queda vacía --
+                // el SysAdmin global igual tiene que quedar reconocido como tal, si no
+                // termina con Role = "" y sin permisos ni para crear el primer edificio.
+                return buildings.Count > 0
+                    ? (buildings[0].Building!.IdBuilding, "SysAdmin")
+                    : (Guid.Empty, "SysAdmin");
+            }
 
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)

@@ -23,6 +23,21 @@ de TAREAS a medida que se implemente cada parte.
   CUALQUIER edificio con esos campos en NULL -- rompía la reconstrucción de sesión
   completa (bucle de login) para todo usuario con acceso a ese edificio, SysAdmin
   incluido. Se resolvió pasándolos a `Guid?` en el modelo.
+  **Bug encontrado después, ya corregido**: crear/editar un Building sí quedaba
+  persistido en BD, pero no se veía en la cabecera (selector de edificio) ni
+  sobrevivía a navegar a otra página y volver -- sólo un F5 real lo mostraba
+  bien en todos lados. Causa: `CustomAuthenticationStateProvider` hidrata el
+  `UserSession` (con su `Buildings`) UNA sola vez por circuito (primer pedido) y
+  lo cachea en memoria de ahí en adelante; `BuildingPage.razor.cs.SaveBuilding()`
+  sólo agregaba el edificio nuevo a su lista local, nunca a esa sesión cacheada
+  -- así que la cabecera (que lee `AuthService.GetCurrentUserAsync().Buildings`)
+  seguía viendo la lista vieja, y hasta la propia página de Buildings volvía a
+  leer esa misma sesión stale al reinicializarse por navegación. Se agregó
+  `AuthService.RefreshCurrentUserBuildingsAsync()` (recarga `Buildings`/`Roles`
+  desde BD y llama a `MarkUserAsAuthenticated` sobre la sesión en memoria, lo que
+  dispara `AuthenticationStateChanged`), invocado desde `SaveBuilding()` al crear
+  y al editar. `HeaderMainLayout`/`LeftMenu` ya escuchaban ese evento para
+  refrescarse solos -- no hizo falta tocarlos.
 - [x] **Paso 2 — Edificio Template + clonado de `BuildingConfiguration`** — **compila
   y corre sin errores, confirmado**. (decisión:
   flag `Building.IsTemplate`, editado con las mismas pantallas que un edificio real

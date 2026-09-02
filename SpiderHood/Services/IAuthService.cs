@@ -17,6 +17,10 @@ namespace SpiderHood.Services
         Task LogoutAsync();
         Task<UserSession?> GetCurrentUserAsync();
         Task<Guid?> GetCurrentUnitIdAsync();
+
+        // Recarga Buildings/Roles del usuario actual desde BD y notifica el cambio (ver
+        // implementación para el porqué).
+        Task RefreshCurrentUserBuildingsAsync();
         /*Task<UserSession?> GetStoredSessionAsync();*/
         /*UserSession? CurrentUser { get; }
         event Action? OnAuthStateChanged;*/
@@ -194,6 +198,51 @@ namespace SpiderHood.Services
         public async Task<UserSession?> GetCurrentUserAsync()
         {
             return await _authStateProvider.GetCurrentUserAsync();
+        }
+
+        // GetCurrentUserAsync() siempre devuelve el mismo UserSession en memoria durante
+        // todo el circuito (CustomAuthenticationStateProvider lo hidrata desde BD una
+        // sola vez, al primer pedido) -- así que crear/editar un edificio nunca se veía
+        // reflejado en la cabecera ni en otras páginas hasta un F5 real (que arranca un
+        // circuito nuevo y vuelve a hidratar). Este método recarga sólo Buildings/Roles
+        // desde BD, deja el resto de la sesión intacto (CurrentBuildingId, Role, etc.), y
+        // dispara MarkUserAsAuthenticated para notificar a los suscriptores de
+        // AuthenticationStateChanged -- HeaderMainLayout y LeftMenu ya escuchan ese
+        // evento y se refrescan solos.
+        public async Task RefreshCurrentUserBuildingsAsync()
+        {
+            var user = await GetCurrentUserAsync();
+            if (user == null) return;
+
+            _userBuildings = await Ec.GetUserBuildingAssociationAsync(user.IdUser);
+            List<Building> builds = await Ec.GetAllBuildingByOwnerAsync(user.IdUser);
+            List<BuildingConfiguration> configurations = await Ec.GetAllBuildingsConfigAsync(user.IdUser);
+
+            foreach (var item in builds)
+            {
+                item.Configuration = configurations.Where(c => c.IdBuilding == item.IdBuilding).FirstOrDefault()!;
+            }
+
+            var buildings = _userBuildings
+                .Where(ub => ub.IdUser == user.IdUser)
+                .Select(ub => new UserBuilding
+                {
+                    Building = builds.FirstOrDefault(b => b.IdBuilding == ub.IdBuilding),
+                    Role = ub.Role,
+                    IsApproved = ub.IsApproved,
+                    ApprovedAt = ub.ApprovedAt,
+                    IdGroupUnit = ub.IdGroupUnit
+                }).ToList();
+
+            var rolGlobal = await Ec.GetRoleByUserIdAsync(user.IdUser);
+            var esSysAdminGlobal = rolGlobal?.RoleName == "SysAdmin";
+            await GrantSysAdminAccessToAllBuildingsAsync(buildings, esSysAdminGlobal);
+
+            user.Buildings = buildings;
+            user.Roles = buildings.Select(b => b.Role).Distinct().ToList();
+
+            await _authStateProvider.MarkUserAsAuthenticated(user);
+            NotifyAuthStateChanged();
         }
 
         // Resuelve la unidad (GroupUnit) del usuario actual para el edificio+rol con el

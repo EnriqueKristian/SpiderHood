@@ -52,9 +52,9 @@ de TAREAS a medida que se implemente cada parte.
   `Database/Scripts/2026-09-02_20_Fix_Building_IsTemplate_MissingColumns.sql`
   (texto real de los 3 procs confirmado por el usuario, sólo se agregó la
   columna faltante a cada `SELECT`, JOIN/WHERE/ORDER BY intactos).
-- [ ] Paso 3 — `Parameter`: `IsSystemDefault`, split Sistema/Mixto, cerrar creación de
-  grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building.
-  **En progreso -- sub-pasos 1, 2 y 3 de 6 hechos, sin probar todavía.**
+- [x] **Paso 3 — `Parameter`: `IsSystemDefault`, split Sistema/Mixto, cerrar creación de
+  grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building.**
+  **6 de 6 sub-pasos hechos, sin probar contra la BD real todavía.**
   - **1-2 (schema + migración)**: `Database/Scripts/2026-09-02_21_Parameter_SistemaMixto.sql`.
     `Parameter.IdBuilding` admite `NULL` (`NULL` = Sistema/global, un guid = Mixto
     de ese edificio). `IsSystemDefault BIT` nuevo -- doble sentido según el tipo de
@@ -84,14 +84,30 @@ de TAREAS a medida que se implemente cada parte.
     de paso el mismo tratamiento para `IdParent=0` al crear un grupo raíz nuevo
     (mismo problema de FK que ya vimos en `UPD_Parameter`, no reportado todavía
     porque nadie había creado un grupo raíz desde que se corrigió eso).
-  - **Faltan los sub-pasos 4-6**: cerrar creación de grupos raíz en `/parameter`
-    para que sea SysAdmin-only + ocultar edición/inactivación de grupos Sistema a
-    quien no sea SysAdmin (sub-paso 4); clonado de hijos Mixto al crear un Building
-    (sub-paso 5, mismo mecanismo que `ApplyTemplateDefaultsAsync` del Paso 2);
-    confirmar que los 5 lugares con `IdTabla` hardcodeado quedan resueltos solos
-    (sub-paso 6). **Mientras tanto, cualquier Administrador todavía puede editar/
-    inactivar valores de Sistema y crear grupos raíz nuevos desde `/parameter`** --
-    no es una regresión de hoy (ya podía antes), pero sigue sin estar cerrado.
+  - **4 (`/parameter` cerrado)**: cambió el alcance respecto a lo hablado en su
+    momento -- en vez de "SysAdmin-only para Sistema", quedó **de sólo lectura
+    para todos, SysAdmin incluido** (regla única: `IdBuilding == Guid.Empty`
+    identifica un valor de Sistema o la raíz de cualquier grupo -- ninguno de los
+    dos se toca desde `/parameter`, sólo vía script). Se sacó la opción "(Ninguno
+    - Grupo Principal)" del combo Padre -- nadie crea grupos raíz nuevos, ni
+    siquiera SysAdmin, porque un grupo nuevo no tiene ninguna pantalla que lo
+    consuma todavía. `ShowAddChildModal` sigue disponible pero sólo para grupos
+    Mixto (bloqueado si `parent.IsSystemDefault`). También se sacó el botón
+    "Eliminar" (root e hijos) -- `DeleteParameterAsync` estaba comentado/"Not
+    Implemented" desde antes, así que nunca funcionó; el método de la página que
+    lo llamaba quedó dead code y se borró.
+  - **5 (clonado de Mixto al crear Building)**: `IBuildingService.CreateBuildingAsync`
+    ahora también clona los hijos Mixto propios del template (`CloneMixtoParametersAsync`,
+    mismo mecanismo que `ApplyTemplateDefaultsAsync` del Paso 2) -- sólo los hijos
+    que pertenecen de verdad al template (`IdBuilding == template.IdBuilding`), no
+    su raíz (ya global). Quedan `IsSystemDefault=true` en el edificio nuevo.
+  - **6 (los 5 lugares con `IdTabla` hardcodeado)**: se resuelven solos, sin tocar
+    código -- como los grupos Sistema (Tipo Unidad=4, Distribución=8, Tipo
+    Doc=11, Tipo Edificio=34, y el orden de `Value` de Prioridad de Incidente) son
+    ahora una sola fila global y de sólo lectura desde `/parameter`, el `IdTabla`
+    fijo que esas 5 pantallas asumían va a estar bien para cualquier edificio, y
+    nadie puede reordenar los `Value` de Prioridad para romper el mapeo de
+    colores. No hizo falta editar ninguna de las 5.
 - [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto
 - [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro)
 

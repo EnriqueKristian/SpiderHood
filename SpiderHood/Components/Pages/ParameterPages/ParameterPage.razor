@@ -138,20 +138,18 @@
                                     </td>
                                     <td class="text-muted">—</td>
                                     <td class="text-center">
-                                        @if (_canManageParameters)
+                                        @if (_canManageParameters && !grupo.IsSystemDefault)
                                         {
+                                            <!-- Grupos Sistema (IsSystemDefault=1 en la raíz) no se tocan desde acá --
+                                                 son transversales a todos los edificios, ver Docs/Design-Defaults-
+                                                 Sistema-Mixto.md §5.1. Grupos Mixto: sólo se puede agregar hijos
+                                                 (propios de este edificio) -- ni crear grupos nuevos ni editar/
+                                                 eliminar la raíz desde acá, para no romper los lookups por nombre
+                                                 que usa el resto de la app (ResolveGroupChildren y similares). -->
                                             <div class="btn-group btn-group-sm">
                                                 <button type="button" class="btn btn-outline-primary"
                                                         title="Agregar hijo" @onclick="() => ShowAddChildModal(grupo)">
                                                     <i class="bi bi-plus-lg"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-secondary"
-                                                        title="Editar" @onclick="() => EditParameter(grupo)">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-outline-danger"
-                                                        title="Eliminar" @onclick="() => DeleteParameter(grupo)">
-                                                    <i class="bi bi-trash"></i>
                                                 </button>
                                             </div>
                                         }
@@ -185,16 +183,18 @@
                                             <span class="badge bg-info bg-opacity-10 text-info">@grupo.ShortDescription</span>
                                         </td>
                                         <td class="text-center">
-                                            @if (_canManageParameters)
+                                            @if (_canManageParameters && hijo.IdBuilding != Guid.Empty)
                                             {
+                                                <!-- hijo.IdBuilding == Guid.Empty identifica un valor de Sistema
+                                                     (global) -- de sólo lectura para todos, ver Docs/Design-
+                                                     Defaults-Sistema-Mixto.md §5.1. Sólo los hijos Mixto propios de
+                                                     ESTE edificio (IdBuilding real) son editables acá. Sin botón
+                                                     "Eliminar": ningún Parameter se borra de verdad, sólo se
+                                                     inactiva vía Editar -- ver §5.2. -->
                                                 <div class="btn-group btn-group-sm">
                                                     <button type="button" class="btn btn-outline-secondary"
                                                             title="Editar" @onclick="() => EditParameter(hijo)">
                                                         <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    <button type="button" class="btn btn-outline-danger"
-                                                            title="Eliminar" @onclick="() => DeleteParameter(hijo)">
-                                                        <i class="bi bi-trash"></i>
                                                     </button>
                                                 </div>
                                             }
@@ -404,8 +404,12 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Parámetro Padre</label>
+                                <!-- Sin opción "(Ninguno - Grupo Principal)": nadie crea grupos raíz nuevos
+                                     desde acá -- un grupo nuevo no tiene ninguna pantalla que lo consuma
+                                     todavía, ver Docs/Design-Defaults-Sistema-Mixto.md §5. availableParents
+                                     ya viene filtrado a sólo grupos Mixto (los Sistema no aceptan hijos
+                                     nuevos de nadie). -->
                                 <InputSelect class="form-select" @bind-Value="currentParameter.IdParent">
-                                    <option value="0">(Ninguno - Grupo Principal)</option>
                                     @foreach (var parent in availableParents)
                                     {
                                         <option value="@parent.IdTabla">@parent.Description</option>
@@ -584,31 +588,50 @@
         };
     }
 
+    // Sólo grupos Mixto (IsSystemDefault=0 en la raíz) aceptan hijos nuevos --
+    // los Sistema son transversales y de sólo lectura para todos desde acá, y
+    // nadie crea grupos raíz nuevos (ver Docs/Design-Defaults-Sistema-Mixto.md §5).
+    private List<Models.Parameter> MixtoParents() =>
+        parameters.Where(p => p.IdParent == 0 && !p.IsSystemDefault).ToList();
+
     private void ShowAddModal()
     {
         if (!_canManageParameters) return;
         isEditing = false;
-        currentParameter = new Parameter { Estado = ParameterEstado.Activo, IdParent = 0 };
-        availableParents = parameters.Where(p => p.IdParent == 0).ToList();
+        availableParents = MixtoParents();
+        // Sin la opción "(Ninguno)" en el <select>, si no se fija un IdParent
+        // real acá el combo muestra el primer grupo Mixto pero el modelo se
+        // guarda con IdParent=0 -- que ahora crea un grupo raíz nuevo (ver
+        // AddNewRecordAsync(Parameter): IdParent=0 se traduce a NULL). Se
+        // arranca en el primer grupo Mixto disponible para que combo y modelo
+        // queden sincronizados desde el principio.
+        currentParameter = new Parameter
+        {
+            Estado = ParameterEstado.Activo,
+            IdParent = availableParents.FirstOrDefault()?.IdTabla ?? 0
+        };
         showModal = true;
     }
 
     private void ShowAddChildModal(Parameter parent)
     {
-        if (!_canManageParameters) return;
+        if (!_canManageParameters || parent.IsSystemDefault) return;
         isEditing = false;
         currentParameter = new Parameter
         {
             Estado = ParameterEstado.Activo,
             IdParent = parent.IdTabla
         };
-        availableParents = parameters.Where(p => p.IdParent == 0).ToList();
+        availableParents = MixtoParents();
         showModal = true;
     }
 
     private void EditParameter(Parameter parameter)
     {
-        if (!_canManageParameters) return;
+        // parameter.IdBuilding == Guid.Empty: valor de Sistema o la raíz de un
+        // grupo -- de sólo lectura para todos desde acá (ver la tabla, que ya
+        // no muestra el botón Editar en ese caso; este guard es defensivo).
+        if (!_canManageParameters || parameter.IdBuilding == Guid.Empty) return;
         isEditing = true;
         currentParameter = new Parameter
         {
@@ -620,7 +643,7 @@
             Sort = parameter.Sort,
             IdParent = parameter.IdParent
         };
-        availableParents = parameters.Where(p => p.IdParent == 0).ToList();
+        availableParents = MixtoParents();
         showModal = true;
     }
 
@@ -662,39 +685,6 @@
         await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding, true);
 
         CloseModal();
-        OnInitialized();
-    }
-
-    private async Task DeleteParameter(Parameter parameter)
-    {
-        if (!_canManageParameters) return;
-        var children = parameters.Where(p => p.IdParent == parameter.IdTabla).ToList();
-
-        var mensaje = children.Any()
-            ? $"¿Está seguro que desea eliminar '{parameter.ShortDescription}'? También se eliminarán sus {children.Count} parámetro(s) hijo(s)."
-            : $"¿Está seguro que desea eliminar '{parameter.ShortDescription}'?";
-
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", mensaje))
-            return;
-
-        foreach (var child in children)
-        {
-            var childResult = await ParameterService.DeleteParameterAsync(child.IdTabla);
-            if (!childResult.IsSuccess)
-            {
-                await JSRuntime.InvokeVoidAsync("alert", childResult.ErrorMessage ?? "No se pudo eliminar un parámetro hijo");
-                return;
-            }
-        }
-
-        var result = await ParameterService.DeleteParameterAsync(parameter.IdTabla);
-        if (!result.IsSuccess)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo eliminar el parámetro");
-            return;
-        }
-
-        await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding, true);
         OnInitialized();
     }
 

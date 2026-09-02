@@ -1,25 +1,5 @@
 namespace SpiderHood.Models
 {
-    public enum IncidentType
-    {
-        Plumbing,
-        Electrical,
-        Security,
-        Elevator,
-        CommonAreas,
-        Noise,
-        Cleaning,
-        Other
-    }
-
-    public enum IncidentPriority
-    {
-        Low,
-        Medium,
-        High,
-        Urgent
-    }
-
     // Reported: recién creado por el Residente/Administrador.
     // InReview: Administrador lo revisó, todavía sin asignar.
     // InProgress: asignado, en ejecución.
@@ -44,8 +24,16 @@ namespace SpiderHood.Models
         public Guid IdBuilding { get; set; }
         public string Title { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public IncidentType Type { get; set; }
-        public IncidentPriority Priority { get; set; } = IncidentPriority.Medium;
+        // Tipo y Prioridad ya no son enums fijos -- referencian Parameter.Value
+        // dentro de sus respectivos grupos ("Tipo Incidente"/"Prioridad
+        // Incidente", ver Database/Scripts/2026-09-02_14_*), para que un
+        // Administrador pueda agregar/desactivar valores sin desplegar código
+        // nuevo. TypeName/PriorityName se traen por JOIN en GET_Incidents*
+        // (mismo criterio que ReportedByName/UnitName más abajo).
+        public int Type { get; set; }
+        public string? TypeName { get; set; }
+        public int Priority { get; set; } = 2; // "Media" en la seed -- ver script
+        public string? PriorityName { get; set; }
         public IncidentStatus Status { get; set; } = IncidentStatus.Reported;
         public Guid? IdGroupUnit { get; set; }
         public Guid ReportedBy { get; set; }

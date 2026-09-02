@@ -316,16 +316,23 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
+                // INS_Parameter no toma @IdTabla (IdTabla es IDENTITY, se autogenera) y
+                // sí toma @IdBuilding al final -- este método mandaba el orden de un
+                // SP distinto (con @IdTabla primero y sin @IdBuilding), lo que rompía
+                // con "Error converting data type nvarchar to int" apenas se probó de
+                // verdad (confirmado contra el CREATE PROCEDURE real). @Estado es BIT,
+                // no el int crudo del enum -- 2 (Inactivo) se redondearía a 1 (true) si
+                // se manda tal cual, así que se convierte explícito a booleano.
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.INS_Parameter,
                     cancellationToken,
-                    parameter.IdTabla!,
                     parameter.Description!,
                     parameter.ShortDescription!,
                     parameter.Value!,
                     parameter.Sort!,
                     parameter.IdParent!,
-                    parameter.Estado!);
+                    parameter.Estado == Models.ParameterEstado.Activo,
+                    parameter.IdBuilding!);
                 return parameter;
             }, "AddParameter", cancellationToken);
         }
@@ -751,8 +758,8 @@ namespace SpiderHood.Data
                     incident.IdBuilding,
                     incident.Title,
                     incident.Description,
-                    incident.Type.ToString(),
-                    incident.Priority.ToString(),
+                    incident.Type,
+                    incident.Priority,
                     incident.Status.ToString(),
                     (object?)incident.IdGroupUnit,
                     incident.ReportedBy,

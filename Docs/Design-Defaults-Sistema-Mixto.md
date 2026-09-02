@@ -212,7 +212,15 @@ de TAREAS a medida que se implemente cada parte.
   fila que este mismo paso deja Inactivo (`Estado=0`) podría materializarse como
   un valor de enum indefinido en cualquier lectura fuera de
   `GET_MixtoParameterCandidates` (que filtra `Estado = 1` y por eso no lo pisa).
-  **Sin probar contra la BD real todavía.**
+  **Bug encontrado al probar, ya corregido**: `GET_AllParameters` (el proc que
+  llena TODO `Parameter` en la app, no sólo `/parameter-promotion`) no había sido
+  actualizado con la columna nueva -- mismo síntoma ya visto varias veces esta
+  sesión (`InvalidOperationException: required column 'ReplacedByIdTabla' not
+  present`), esta vez rompiendo hasta el Dashboard para cualquier usuario.
+  Corregido en `Database/Scripts/2026-09-02_26_Fix_GetAllParameters_ReplacedByIdTabla.sql`
+  (agrega la columna al `SELECT`, sin `ISNULL` porque el modelo ya la tipa `int?`).
+  **Sin confirmar contra la BD real todavía** -- falta que el usuario corra este
+  último script.
 
 ## 1. Problema de fondo
 

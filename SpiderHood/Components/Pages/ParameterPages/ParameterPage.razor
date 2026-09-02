@@ -627,12 +627,22 @@
             existing.Estado = currentParameter.Estado;
             existing.Sort = currentParameter.Sort;
             existing.IdParent = currentParameter.IdParent;
-            await UpdateItem(existing);
+            var updateResult = await UpdateItem(existing);
+            if (!updateResult.IsSuccess)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", updateResult.ErrorMessage ?? "No se pudo actualizar el parámetro");
+                return;
+            }
         }
         else
         {
             // Generar nuevo ID
-            await AddItem(currentParameter);
+            var addResult = await AddItem(currentParameter);
+            if (!addResult.IsSuccess)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", addResult.ErrorMessage ?? "No se pudo agregar el parámetro");
+                return;
+            }
         }
         await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding, true);
 
@@ -700,15 +710,15 @@
     }
 
 
-    private async Task AddItem(SpiderHood.Models.Parameter item)
+    private async Task<OperationResult> AddItem(SpiderHood.Models.Parameter item)
     {
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-        await ParameterService.AddParameterAsync(item);
+        return await ParameterService.AddParameterAsync(item);
     }
 
-    private async Task UpdateItem(SpiderHood.Models.Parameter _param)
+    private async Task<OperationResult> UpdateItem(SpiderHood.Models.Parameter _param)
     {
-        await ParameterService.UpdateParameterAsync(_param);
+        return await ParameterService.UpdateParameterAsync(_param);
     }
 
     public void Dispose()

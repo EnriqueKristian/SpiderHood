@@ -242,19 +242,31 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                // Estado! mandaba el int crudo del enum (Inactivo = 2) -- si la
-                // columna real es BIT como en INS_Parameter, 2 se redondea a 1 (true)
-                // y "Inactivo" se guardaría como activo. Se manda explícito como bool.
+                // UPD_Parameter real (confirmado contra el CREATE PROCEDURE):
+                //   UPD_Parameter(@IdTabla, @Description, @ShortDescription, @Value,
+                //                 @Sort, @IdParent = NULL, @Estado INT)
+                // No toma @IdBuilding (a diferencia de INS_Parameter), y @Estado es INT
+                // -- no BIT como se asumía antes -- así que se manda el valor crudo del
+                // enum (Activo=1, Inactivo=2); mandar un bool guardaba 0 para Inactivo
+                // en vez de 2.
+                //
+                // IdParent=0 es la convención de la app para "grupo raíz" (Parameter.
+                // IdParent es int no-nullable, así que una fila raíz con IdParent NULL
+                // en la BD se lee acá como 0 -- ver ResolveGroupChildren/GroupParameters).
+                // Pero FK_Parametros_Parent exige que IdParent sea NULL o una fila
+                // IdTabla existente -- no existe ninguna fila con IdTabla=0, así que
+                // mandar el 0 literal rompía la FK apenas se editaba un grupo raíz
+                // ("Tipo Incidente" incluido). Se traduce a DBNull antes de mandarlo.
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.UPD_Parameter,
                     cancellationToken,
-                    parameter.IdTabla!,
+                    parameter.IdTabla,
                     parameter.Description!,
                     parameter.ShortDescription!,
-                    parameter.Value!,
-                    parameter.Sort!,
-                    parameter.IdParent!,
-                    parameter.Estado == Models.ParameterEstado.Activo);
+                    parameter.Value,
+                    parameter.Sort,
+                    parameter.IdParent == 0 ? (object)DBNull.Value : parameter.IdParent,
+                    (int)parameter.Estado);
                 return parameter;
             }, "UpdateParameter", cancellationToken);
         }

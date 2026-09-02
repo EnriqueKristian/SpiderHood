@@ -256,23 +256,41 @@ namespace SpiderHood.Data
                 // Pero FK_Parametros_Parent exige que IdParent sea NULL o una fila
                 // IdTabla existente -- no existe ninguna fila con IdTabla=0, así que
                 // mandar el 0 literal rompía la FK apenas se editaba un grupo raíz
-                // ("Tipo Incidente" incluido). Se traduce a DBNull antes de mandarlo --
-                // pero un DBNull.Value "pelado" (sin tipo) hace que EF tire "no store
-                // type mapping for properties of type 'DBNull'" al armar el parámetro,
-                // así que hay que envolverlo en un SqlParameter con SqlDbType explícito.
-                object idParentParam = parameter.IdParent == 0
-                    ? new SqlParameter("@idParent", SqlDbType.Int) { Value = DBNull.Value }
-                    : parameter.IdParent;
-                await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_Parameter,
-                    cancellationToken,
-                    parameter.IdTabla,
-                    parameter.Description!,
-                    parameter.ShortDescription!,
-                    parameter.Value,
-                    parameter.Sort,
-                    parameter.IdParent == 0 ? (object)DBNull.Value : parameter.IdParent,
-                    (int)parameter.Estado);
+                // ("Tipo Incidente" incluido).
+                //
+                // Se arma la llamada a mano con SqlParameter explícitos (en vez de
+                // ExecuteStoredProcedureAsync, que arma "@p0,@p1,..." a partir de
+                // valores sueltos) porque un DBNull.Value sin tipo en ese mecanismo
+                // hace que EF tire "no store type mapping for properties of type
+                // 'DBNull'" al intentar inferrar el tipo de columna -- acá el tipo de
+                // cada parámetro (incluido el NULL de @IdParent) queda explícito.
+                var idParentParam = new SqlParameter("@IdParent", SqlDbType.Int)
+                {
+                    Value = parameter.IdParent == 0 ? (object)DBNull.Value : parameter.IdParent
+                };
+
+                var dbContext = await RentContextAsync(cancellationToken);
+                try
+                {
+                    await dbContext.Database.ExecuteSqlRawAsync(
+                        "EXEC dbo.UPD_Parameter @IdTabla, @Description, @ShortDescription, @Value, @Sort, @IdParent, @Estado",
+                        new object[]
+                        {
+                            new SqlParameter("@IdTabla", SqlDbType.Int) { Value = parameter.IdTabla },
+                            new SqlParameter("@Description", SqlDbType.NVarChar, 255) { Value = parameter.Description! },
+                            new SqlParameter("@ShortDescription", SqlDbType.NVarChar, 100) { Value = parameter.ShortDescription! },
+                            new SqlParameter("@Value", SqlDbType.Int) { Value = parameter.Value },
+                            new SqlParameter("@Sort", SqlDbType.Int) { Value = parameter.Sort },
+                            idParentParam,
+                            new SqlParameter("@Estado", SqlDbType.Int) { Value = (int)parameter.Estado },
+                        },
+                        cancellationToken);
+                }
+                finally
+                {
+                    ReturnContext(dbContext);
+                }
+
                 return parameter;
             }, "UpdateParameter", cancellationToken);
         }

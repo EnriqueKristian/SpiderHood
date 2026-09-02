@@ -53,7 +53,19 @@ de TAREAS a medida que se implemente cada parte.
   (texto real de los 3 procs confirmado por el usuario, sólo se agregó la
   columna faltante a cada `SELECT`, JOIN/WHERE/ORDER BY intactos).
 - [ ] Paso 3 — `Parameter`: `IsSystemDefault`, split Sistema/Mixto, cerrar creación de
-  grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building
+  grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building.
+  **En progreso.** Sub-pasos 1-2 (schema + migración de los 13 grupos existentes)
+  hechos en `Database/Scripts/2026-09-02_21_Parameter_SistemaMixto.sql`:
+  `Parameter.IdBuilding` pasa a admitir `NULL` (mismo patrón que `IdParent` --
+  `NULL` = Sistema/global, un guid = Mixto de ese edificio), `IsSystemDefault BIT`
+  nuevo (informativo, sólo en hijos Mixto). Migra por `ShortDescription` los 13
+  grupos ya cargados: 11 a Sistema, Método de Pago y Tipo de Incidente quedan
+  Mixto con sus hijos actuales marcados `IsSystemDefault=1`.
+  **Sin correr/probar todavía** -- falta el sub-paso 3 (`GET_AllParameters`/
+  `ParameterService.LoadParametersAsync` para traer Sistema+Mixto juntos), que
+  necesita el texto real de `GET_AllParameters` e `INS_Parameter` (pedido al
+  usuario, todavía no confirmado) antes de tocarlos -- son los procs más usados
+  de toda la app, no conviene adivinarles la firma.
 - [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto
 - [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro)
 

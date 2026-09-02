@@ -24,7 +24,23 @@ namespace SpiderHood.Models
 
         [Required(ErrorMessage = "El Estado es obligatorio")]
         public ParameterEstado Estado { get; set; }
+
+        // Sistema/Mixto (Docs/Design-Defaults-Sistema-Mixto.md, Paso 3): en la BD,
+        // IdBuilding admite NULL -- mismo patrón que IdParent ya usa para marcar
+        // raíz. GET_AllParameters coalesa el NULL a Guid.Empty (ver
+        // ISNULL(IdBuilding, '00000000-...')), así que acá se lee como Guid.Empty,
+        // nunca null -- IdBuilding == Guid.Empty identifica un valor de Sistema
+        // (global, todos los edificios); cualquier otro guid es un valor Mixto
+        // propio de ese edificio. La raíz de un grupo SIEMPRE tiene
+        // IdBuilding == Guid.Empty, sea el grupo Sistema o Mixto.
         public Guid IdBuilding { get; set; }
+
+        // Sólo tiene sentido en un hijo de un grupo Mixto: true si vino clonado del
+        // Edificio Template al crear el edificio, false si lo agregó el admin a
+        // mano. En la RAÍZ de un grupo indica si el grupo entero es Sistema (true)
+        // o Mixto (false). Es informativo -- nunca habilita/deshabilita borrado
+        // real (ningún Parameter se borra, sólo se inactiva).
+        public bool IsSystemDefault { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

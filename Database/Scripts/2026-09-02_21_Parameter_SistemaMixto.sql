@@ -11,9 +11,18 @@
 -- los HIJOS también quedan en NULL (Sistema) o si quedan atados a un edificio
 -- (Mixto).
 --
--- IsSystemDefault es aparte y sólo importa en hijos de grupos Mixto: 1 si vino
--- clonado del Edificio Template al crear el edificio, 0 si lo agregó el admin a
--- mano. Es informativo (para poder mostrarlo en /parameter) -- no habilita
+-- IsSystemDefault tiene doble sentido según el tipo de fila (evita agregar una
+-- columna más sólo para esto):
+--   - En la RAÍZ de un grupo (IdParent IS NULL): 1 = el grupo ENTERO es Sistema
+--     (nadie agrega hijos nunca, ni siquiera SysAdmin vía /parameter), 0 = el
+--     grupo es Mixto (SysAdmin define el template, el admin de cada edificio
+--     puede agregar hijos propios). Hace falta esta marca aparte de
+--     IdBuilding==NULL porque la raíz SIEMPRE está en NULL en los dos casos --
+--     sin esto no hay forma de distinguir un grupo Sistema de un Mixto que
+--     todavía no tiene ningún hijo clonado.
+--   - En un HIJO de un grupo Mixto: 1 si vino clonado del Edificio Template al
+--     crear el edificio, 0 si lo agregó el admin a mano.
+-- Es informativo (para poder mostrarlo/filtrarlo en /parameter) -- no habilita
 -- borrado real ni nada: NINGÚN Parameter se borra de verdad, sólo se inactiva
 -- (no hay FK real hacia Parameter en ninguna tabla que lo consuma, así que no hay
 -- forma barata de saber si un valor está en uso -- ver Docs/Design-Defaults-
@@ -67,10 +76,11 @@ INSERT INTO @gruposSistema (ShortDescription) VALUES
     (N'Prioridad Incidente');
 
 UPDATE p
-SET IdBuilding = NULL
+SET IdBuilding = NULL,
+    IsSystemDefault = 1
 FROM dbo.Parameter p
 JOIN @gruposSistema g ON g.ShortDescription = p.ShortDescription
-WHERE p.IdParent IS NULL AND p.IdBuilding IS NOT NULL;
+WHERE p.IdParent IS NULL AND (p.IdBuilding IS NOT NULL OR p.IsSystemDefault = 0);
 
 UPDATE c
 SET IdBuilding = NULL

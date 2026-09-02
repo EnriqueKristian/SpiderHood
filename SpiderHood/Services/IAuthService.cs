@@ -622,8 +622,19 @@ namespace SpiderHood.Services
             // Reconocido como SysAdmin vía UserRole (sin ninguna fila en
             // UserBuildingAssociation): GrantSysAdminAccessToAllBuildingsAsync ya le agregó
             // todos los edificios del sistema como sintéticos -- se entra al primero.
-            if (esSysAdminGlobal && buildings.Count > 0)
-                return (buildings[0].Building!.IdBuilding, "SysAdmin");
+            if (esSysAdminGlobal)
+            {
+                // Con la BD sin ningún Building todavía (instalación nueva), buildings queda
+                // vacía -- antes esta rama se saltaba entera y el SysAdmin terminaba con
+                // Role = "" (cae al último return), sin permisos para nada, ni siquiera para
+                // crear el primer edificio: callejón sin salida circular
+                // (login -> /select-building -> /building-request, sin edificios que pedir).
+                // El SysAdmin global tiene que quedar reconocido como tal SIEMPRE, tenga o no
+                // edificios, para poder crear el primero.
+                return buildings.Count > 0
+                    ? (buildings[0].Building!.IdBuilding, "SysAdmin")
+                    : (Guid.Empty, "SysAdmin");
+            }
 
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)

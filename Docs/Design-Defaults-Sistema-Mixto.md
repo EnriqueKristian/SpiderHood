@@ -180,11 +180,15 @@ diferencia de Parameter — decisión explícita, no se va a homologar en el fut
 ## 7. Gaps / bugs actuales detectados durante esta sesión (a corregir junto con lo anterior)
 
 - **Building no persiste al crearse** (§2) — bloqueante para todo lo demás.
-- **`IdTabla` hardcodeado en 4 pantallas**: `ModalUnit.razor:30`, `UnitGroups.razor:469`
-  (`IdParent==4`), `BudgetGenerator.razor:216` (`IdParent==8`), `ModalOwner.razor:95`
-  (`ParamParent.DocumentType`=11). Se resuelven solos al hacer Sistema global
-  (§5.1) — no hace falta tocar estas 4 pantallas si el `IdTabla` de esos grupos deja
-  de duplicarse por edificio.
+- **`IdTabla` hardcodeado en 5 pantallas** (confirmado en vivo: crear un Building
+  sin Parámetros propios rompe el badge de Tipo de Edificio hasta para el edificio
+  viejo, porque la búsqueda depende de qué edificio esté "activo" en la sesión):
+  `ModalUnit.razor:30`, `UnitGroups.razor:469` (`IdParent==4`),
+  `BudgetGenerator.razor:216` (`IdParent==8`), `ModalOwner.razor:95`
+  (`ParamParent.DocumentType`=11), `BuildingPage.razor:118`
+  (`GetChildParameterDescription(34, building.Type)`). Se resuelven solos al hacer
+  Sistema global (§5.1) — no hace falta tocar estas 5 pantallas si el `IdTabla` de
+  esos grupos deja de duplicarse por edificio.
 - **`/parameter` permite crear grupos raíz** a cualquiera con el permiso
   `manage_parameters` (`ParameterPage.razor`, `ShowAddModal`, opción "(Ninguno -
   Grupo Principal)"). Hay que restringirlo — nadie salvo SysAdmin crea grupos raíz

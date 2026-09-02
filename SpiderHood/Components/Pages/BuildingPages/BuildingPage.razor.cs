@@ -104,7 +104,18 @@ namespace SpiderHood.Components.Pages.BuildingPages
             // SelectedBuilding == null (@if (Buildings.Any())/@if (SelectedBuilding != null)),
             // así que alcanza con no crashear acá.
             if (!Buildings.Any())
+            {
+                // Quien se acaba de registrar desde /register-admin (Administrador
+                // global, sin ningún edificio todavía -- ver
+                // AuthService.RegisterNewAdministratorAsync) cae acá directo después del
+                // autologin. En vez de mostrar la página vacía y esperar a que encuentre
+                // el botón "Nuevo Edificio", se le abre el modal de una -- es su único
+                // paso pendiente para poder usar el sistema.
+                if (_canCreateBuilding)
+                    await ShowCreateModal();
+
                 return;
+            }
 
             SelectedBuilding = Buildings.First();   //GetBuildingDefault
 

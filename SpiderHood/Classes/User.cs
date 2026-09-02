@@ -60,6 +60,35 @@ namespace SpiderHood.Models
         public Guid BuildingId { get; set; }
     }
 
+    // Registro "Piloto" (landing pública -> /register-admin): a diferencia de
+    // RegisterModel, acá no hay ningún edificio existente al que unirse -- quien se
+    // registra se vuelve Administrador y va a crear su PROPIO edificio a
+    // continuación (ver AuthService.RegisterNewAdministratorAsync). Sin BuildingId
+    // a propósito.
+    public class RegisterAdminModel
+    {
+        [Required(ErrorMessage = "El nombre es requerido")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El apellido es requerido")]
+        public string LastName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El email es requerido")]
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La contraseña es requerida")]
+        [StringLength(100, MinimumLength = 6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = string.Empty;
+
+        [DataType(DataType.Password)]
+        [Compare("Password", ErrorMessage = "Las contraseñas no coinciden")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        public string PhoneNumber { get; set; } = string.Empty;
+    }
+
     public class UserSession
     {
         public Guid IdUser { get; set; }

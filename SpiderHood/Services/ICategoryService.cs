@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 
@@ -10,7 +11,7 @@ namespace SpiderHood.Services
         Task AddCategoryAsync(Models.Category newcategory);
         Task UpdateCategoryAsync(Models.Category newcategory);
 
-        Task DeleteCategoryAsync(Models.Category category);
+        Task<OperationResult> DeleteCategoryAsync(Models.Category category);
 
     }
 
@@ -71,16 +72,49 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task DeleteCategoryAsync(Models.Category category)
+        // Category (a diferencia de Parameter) sí admite borrado real -- ver
+        // Docs/Design-Defaults-Sistema-Mixto.md §6. Expense/Exoneration/BudgetDetail/
+        // CalendarItem tienen ahora un FK real hacia Category.IdCategory
+        // (Database/Scripts/2026-09-02_24_Category_RealFK.sql), así que borrar una
+        // categoría todavía en uso falla en BD (SQL error 547) en vez de dejar data
+        // huérfana -- antes esto se tragaba en silencio (catch sin rethrow) y la UI
+        // seguía como si el borrado hubiera funcionado.
+        public async Task<OperationResult> DeleteCategoryAsync(Models.Category category)
         {
             try
             {
                 await ec.DeleteRecordAsync(category);
+                return OperationResult.Success();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al actualizar la categoria: {ex.Message}");
+                if (IsForeignKeyViolation(ex))
+                {
+                    return OperationResult.Failure(
+                        "No se puede eliminar: la categoría está en uso (Gastos, Presupuesto, Exoneraciones o Calendario).");
+                }
+
+                Console.WriteLine($"Error al eliminar la categoria: {ex.Message}");
+                return OperationResult.Failure($"No se pudo eliminar la categoría: {DescribeError(ex)}");
             }
+        }
+
+        // BDLayout envuelve la excepción real (la de SQL Server) en una
+        // RepositoryException genérica -- mismo patrón que IBuildingService.DescribeError.
+        private static string DescribeError(Exception ex)
+        {
+            var innermost = ex;
+            while (innermost.InnerException != null)
+                innermost = innermost.InnerException;
+            return innermost.Message;
+        }
+
+        private static bool IsForeignKeyViolation(Exception ex)
+        {
+            var innermost = ex;
+            while (innermost.InnerException != null)
+                innermost = innermost.InnerException;
+            return innermost is SqlException sqlEx && sqlEx.Number == 547;
         }
     }
 }

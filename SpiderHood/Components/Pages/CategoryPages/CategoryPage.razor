@@ -8,6 +8,7 @@
 @inject ParameterService ParameterService
 @inject Services.AuthService AuthService
 @inject Services.IPermissionService PermissionService
+@inject IJSRuntime JSRuntime
 
 @implements IDisposable
 
@@ -281,7 +282,13 @@
         if (!_canManageCategories) { await HideDeleteModal(); return; }
         try
         {
-            await CategoryService.DeleteCategoryAsync(_currentCategory);
+            var result = await CategoryService.DeleteCategoryAsync(_currentCategory);
+            if (!result.IsSuccess)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo eliminar la categoría");
+                return;
+            }
+
             //await ParameterService.Context.SaveChangesAsync();
             await LoadCategories();
         }

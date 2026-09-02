@@ -242,6 +242,9 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
+                // Estado! mandaba el int crudo del enum (Inactivo = 2) -- si la
+                // columna real es BIT como en INS_Parameter, 2 se redondea a 1 (true)
+                // y "Inactivo" se guardaría como activo. Se manda explícito como bool.
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.UPD_Parameter,
                     cancellationToken,
@@ -251,7 +254,7 @@ namespace SpiderHood.Data
                     parameter.Value!,
                     parameter.Sort!,
                     parameter.IdParent!,
-                    parameter.Estado!);
+                    parameter.Estado == Models.ParameterEstado.Activo);
                 return parameter;
             }, "UpdateParameter", cancellationToken);
         }

@@ -4,66 +4,85 @@
 -- IncidentPriority -- así un Administrador puede agregar/desactivar valores
 -- sin desplegar código nuevo.
 --
--- Usa dbo.INS_Parameter (el mismo SP que ya usa /parameter) por POSICIÓN, no
--- por nombre de parámetro: no tengo el CREATE PROCEDURE original a la vista
--- para confirmar cómo se llaman sus @parámetros, pero sí conozco el ORDEN
--- exacto porque es el mismo que arma BDLayout.Add.cs (IdTabla, Description,
--- ShortDescription, Value, Sort, IdParent, Estado). @IdTabla se manda en 0,
--- igual que hace la propia pantalla /parameter al crear uno nuevo (según lo
--- que ya probaste ahí) -- asumo que el SP ignora ese valor y la columna
--- autogenera el ID real.
+-- FIX sobre la versión anterior de este script: asumí mal la firma de
+-- dbo.INS_Parameter (le agregué un @IdTabla que no existe y le faltó
+-- @IdBuilding, que sí es obligatorio -- Parametros está scopeado por
+-- edificio). Firma real (la compartiste vos):
+--   INS_Parameter(@Description, @ShortDescription, @Value, @Sort,
+--                 @IdParent = NULL, @Estado = 1, @IdBuilding)
+-- Ahora se llama por nombre de parámetro, no por posición, para no repetir
+-- el mismo tipo de error.
 --
--- Por eso, en vez de un ParamParent.IncidentType = <número fijo> (como los
--- existentes State/UnitType/ExpenseDistribution/DocumentType, que dependen
--- de conocer de antemano el IdTabla que les tocó), el código C# busca estos
--- dos grupos por ShortDescription en tiempo de ejecución -- ver
--- IncidentList.razor. Es más robusto: no importa qué IdTabla les asigne tu
--- base en particular.
+-- @IdBuilding: como no puedo saber cuál es el tuyo desde acá, se toma el
+-- primer Building que encuentre. Si administrás más de un edificio en esta
+-- base, AJUSTÁ la variable @IdBuilding de abajo antes de correrlo (y si
+-- necesitás los mismos Tipos/Prioridades en más de un edificio, corré el
+-- script una vez por cada uno, cambiando esa variable).
 --
--- @Estado se manda como 1 (activo) -- ParameterEstado.Activo es 1 en el
--- enum C# y Parameter.Estado no tiene HasConversion<string>() en
--- SpiderHoodContext, así que EF lo mapea como int por default.
+-- IdTabla es IDENTITY (se autogenera) -- por eso, para poder ligar los hijos
+-- a su padre recién creado, se busca el padre de nuevo por Description +
+-- IdBuilding inmediatamente después de insertarlo, en vez de asumir un ID.
 --
--- NO es idempotente (mismo motivo que los otros seeds de este proyecto: no
--- puedo armar un IF NOT EXISTS confiable sin conocer el esquema real). Si lo
--- corrés dos veces vas a duplicar los grupos -- revisá /parameter antes de
--- repetirlo.
+-- NO es idempotente. Si lo corrés dos veces vas a duplicar los grupos --
+-- revisá /parameter antes de repetirlo.
 -- =============================================================================
 
 SET NOCOUNT ON;
 
+DECLARE @IdBuilding UNIQUEIDENTIFIER = (SELECT TOP 1 IdBuilding FROM dbo.Building);
+
+IF @IdBuilding IS NULL
+BEGIN
+    RAISERROR('No se encontró ningún Building en dbo.Building -- ajustá @IdBuilding a mano antes de correr este script.', 16, 1);
+    RETURN;
+END
+
 -- -----------------------------------------------------------------------------
 -- Grupo "Tipo Incidente"
 -- -----------------------------------------------------------------------------
-EXEC dbo.INS_Parameter 0, N'Tipo de Incidente', N'Tipo Incidente', 0, 0, 0, 1;
+EXEC dbo.INS_Parameter
+    @Description = N'Tipo de Incidente',
+    @ShortDescription = N'Tipo Incidente',
+    @Value = 0,
+    @Sort = 0,
+    @IdParent = 0,
+    @Estado = 1,
+    @IdBuilding = @IdBuilding;
 
 DECLARE @IdTipoIncidente INT = (
     SELECT TOP 1 IdTabla FROM dbo.Parameter
-    WHERE IdParent = 0 AND ShortDescription = N'Tipo Incidente'
+    WHERE IdParent = 0 AND ShortDescription = N'Tipo Incidente' AND IdBuilding = @IdBuilding
     ORDER BY IdTabla DESC
 );
 
-EXEC dbo.INS_Parameter 0, N'Plomería', N'Plomería', 1, 1, @IdTipoIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Eléctrico', N'Eléctrico', 2, 2, @IdTipoIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Seguridad', N'Seguridad', 3, 3, @IdTipoIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Ascensor', N'Ascensor', 4, 4, @IdTipoIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Áreas Comunes', N'Áreas Comunes', 5, 5, @IdTipoIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Ruido', N'Ruido', 6, 6, @IdTipoIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Limpieza', N'Limpieza', 7, 7, @IdTipoIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Otro', N'Otro', 8, 8, @IdTipoIncidente, 1;
+EXEC dbo.INS_Parameter @Description = N'Plomería', @ShortDescription = N'Plomería', @Value = 1, @Sort = 1, @IdParent = @IdTipoIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Eléctrico', @ShortDescription = N'Eléctrico', @Value = 2, @Sort = 2, @IdParent = @IdTipoIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Seguridad', @ShortDescription = N'Seguridad', @Value = 3, @Sort = 3, @IdParent = @IdTipoIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Ascensor', @ShortDescription = N'Ascensor', @Value = 4, @Sort = 4, @IdParent = @IdTipoIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Áreas Comunes', @ShortDescription = N'Áreas Comunes', @Value = 5, @Sort = 5, @IdParent = @IdTipoIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Ruido', @ShortDescription = N'Ruido', @Value = 6, @Sort = 6, @IdParent = @IdTipoIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Limpieza', @ShortDescription = N'Limpieza', @Value = 7, @Sort = 7, @IdParent = @IdTipoIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Otro', @ShortDescription = N'Otro', @Value = 8, @Sort = 8, @IdParent = @IdTipoIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
 
 -- -----------------------------------------------------------------------------
 -- Grupo "Prioridad Incidente"
 -- -----------------------------------------------------------------------------
-EXEC dbo.INS_Parameter 0, N'Prioridad de Incidente', N'Prioridad Incidente', 0, 0, 0, 1;
+EXEC dbo.INS_Parameter
+    @Description = N'Prioridad de Incidente',
+    @ShortDescription = N'Prioridad Incidente',
+    @Value = 0,
+    @Sort = 0,
+    @IdParent = 0,
+    @Estado = 1,
+    @IdBuilding = @IdBuilding;
 
 DECLARE @IdPrioridadIncidente INT = (
     SELECT TOP 1 IdTabla FROM dbo.Parameter
-    WHERE IdParent = 0 AND ShortDescription = N'Prioridad Incidente'
+    WHERE IdParent = 0 AND ShortDescription = N'Prioridad Incidente' AND IdBuilding = @IdBuilding
     ORDER BY IdTabla DESC
 );
 
-EXEC dbo.INS_Parameter 0, N'Baja', N'Baja', 1, 1, @IdPrioridadIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Media', N'Media', 2, 2, @IdPrioridadIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Alta', N'Alta', 3, 3, @IdPrioridadIncidente, 1;
-EXEC dbo.INS_Parameter 0, N'Urgente', N'Urgente', 4, 4, @IdPrioridadIncidente, 1;
+EXEC dbo.INS_Parameter @Description = N'Baja', @ShortDescription = N'Baja', @Value = 1, @Sort = 1, @IdParent = @IdPrioridadIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Media', @ShortDescription = N'Media', @Value = 2, @Sort = 2, @IdParent = @IdPrioridadIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Alta', @ShortDescription = N'Alta', @Value = 3, @Sort = 3, @IdParent = @IdPrioridadIncidente, @Estado = 1, @IdBuilding = @IdBuilding;
+EXEC dbo.INS_Parameter @Description = N'Urgente', @ShortDescription = N'Urgente', @Value = 4, @Sort = 4, @IdParent = @IdPrioridadIncidente, @Estado = 1, @IdBuilding = @IdBuilding;

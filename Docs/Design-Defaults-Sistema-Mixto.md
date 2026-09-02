@@ -123,8 +123,8 @@ de TAREAS a medida que se implemente cada parte.
     fijo que esas 5 pantallas asumían va a estar bien para cualquier edificio, y
     nadie puede reordenar los `Value` de Prioridad para romper el mapeo de
     colores. No hizo falta editar ninguna de las 5.
-- [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto.
-  **En progreso.** Empezado por el clonado (a pedido del usuario, antes que la FK):
+- [x] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto.
+  **Confirmado end-to-end contra la BD real.** Empezado por el clonado (a pedido del usuario, antes que la FK):
   `IBuildingService.CreateBuildingAsync` ahora también clona el set completo de
   Categorías del template (`CloneCategoriesAsync`). A diferencia de Parameter,
   `Category` usa `Guid` como PK (no un `IDENTITY int`), así que clonar necesita dos
@@ -168,9 +168,11 @@ de TAREAS a medida que se implemente cada parte.
   "está en uso" en vez de tragarse el error en silencio como antes (bug de la
   misma familia que el de `SaveBuilding` de más arriba: `CategoryPage.razor`
   igual no mostraba nada aunque el borrado fallara).
-  **Sin correr el script contra la BD real todavía** -- falta que el usuario lo
-  ejecute y confirme el diagnóstico de huérfanos antes de dar este paso por
-  cerrado.
+  **Corrido contra la BD real, confirmado por el usuario**: diagnóstico en 0
+  huérfanos en las 4 tablas. `Expense`, `Exoneration` y `BudgetDetail` YA tenían
+  un FK real puesto a mano (confirma la sospecha de arriba sobre
+  `FK_BudgetDetail_Category`); sólo `CalendarItem` no lo tenía y quedó creado
+  (`FK_CalendarItem_Category`) por este script. Las 4 tablas quedan protegidas.
 - [ ] Paso 5 — `ReplacedByIdTabla` (sin apuro)
 
 ## 1. Problema de fondo

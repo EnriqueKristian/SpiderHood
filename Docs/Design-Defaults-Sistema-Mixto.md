@@ -40,12 +40,17 @@ de TAREAS a medida que se implemente cada parte.
   "Es edificio template" en el modal de Building, visible sólo para SysAdmin;
   badge "Template" en la lista; excluido de `/register` y `/building-request` (no
   es un edificio real al que nadie deba poder unirse).
-  **Sin probar contra la BD real todavía** -- mismo riesgo de siempre con
-  `INS_Building`/`UPD_Building` (ahora con un parámetro más) y con que
-  `GET_AllBuildings`/`GET_AllBuildingsPublic` (no tocados, prexistentes) puedan
-  tener una lista de columnas explícita que no incluya `IsTemplate` -- si pasa
-  eso, la lista de edificios nunca mostraría el badge/checkbox en su valor real
-  aunque la BD sí lo tenga bien guardado; avisar si se nota esa inconsistencia.
+  **Confirmado el riesgo anotado**: `GET_AllBuildings`/`GET_AllBuildingsPublic`/
+  `GET_BuildingById` (los 3 procs pre-existentes que devuelven `Building`, no
+  tocados por el script anterior) tenían columnas explícitas sin `IsTemplate` --
+  EF exige que TODA columna del modelo esté en el resultado de cualquier
+  `FromSqlRaw<Building>`, así que rompía con `InvalidOperationException: The
+  required column 'IsTemplate' was not present` apenas alguien reconstruía su
+  sesión (mismo síntoma que el bug de `DefaultCategory`/`WaterReadingDefault` del
+  Paso 1: bucle de login). Corregido en
+  `Database/Scripts/2026-09-02_20_Fix_Building_IsTemplate_MissingColumns.sql`
+  (texto real de los 3 procs confirmado por el usuario, sólo se agregó la
+  columna faltante a cada `SELECT`, JOIN/WHERE/ORDER BY intactos).
 - [ ] Paso 3 — `Parameter`: `IsSystemDefault`, split Sistema/Mixto, cerrar creación de
   grupos raíz en `/parameter`, clonado de hijos Mixto al crear Building
 - [ ] Paso 4 — `Category`: FK real, clonado del set default, alta inline desde Presupuesto

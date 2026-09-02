@@ -177,6 +177,17 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
+                // DefaultCategory/WaterReadingDefault son Guid? -- un valor null "pelado"
+                // en el array de parámetros hace que EF no pueda inferir un tipo de
+                // columna (mismo problema que ya vimos con Parameter.IdParent), así que
+                // se envuelven en un SqlParameter tipado cuando no tienen valor.
+                object defaultCategoryParam = configuration.DefaultCategory.HasValue
+                    ? configuration.DefaultCategory.Value
+                    : new SqlParameter("@DefaultCategory", SqlDbType.UniqueIdentifier) { Value = DBNull.Value };
+                object waterReadingDefaultParam = configuration.WaterReadingDefault.HasValue
+                    ? configuration.WaterReadingDefault.Value
+                    : new SqlParameter("@WaterReadingDefault", SqlDbType.UniqueIdentifier) { Value = DBNull.Value };
+
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.UPD_BuildingConfiguration,
                     cancellationToken,
@@ -190,8 +201,8 @@ namespace SpiderHood.Data
                     configuration.InvoiceDay!,
                     configuration.MinWaterConsumtion!,
                     configuration.DefaultFixedCharge!,
-                    configuration.DefaultCategory!,
-                    configuration.WaterReadingDefault!,
+                    defaultCategoryParam,
+                    waterReadingDefaultParam,
                     configuration.IdBuilding!,
                     configuration.DebtWarningDays!,
                     configuration.DebtCriticalDays!,

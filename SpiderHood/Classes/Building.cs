@@ -86,8 +86,16 @@ namespace SpiderHood.Models
 
         public List<Exoneration> Exonerations { get; set; } = [];
         public Guid IdBuilding { get; set; }
-        public Guid DefaultCategory { get; set; }
-        public Guid WaterReadingDefault { get; set; }
+        // Guid? y no Guid: un edificio recién creado no tiene ninguna Category propia
+        // todavía (nada se clona al crearlo -- eso es un paso pendiente del plan en
+        // Docs/Design-Defaults-Sistema-Mixto.md), así que estos dos quedan NULL en la
+        // BD hasta que un admin los elija en "Configuración Rápida". Si esto fuera Guid
+        // no-nullable, EF explota con SqlNullValueException al leer GET_AllBuildingsConfig
+        // apenas exista un Building con estos campos en NULL -- eso rompía la
+        // reconstrucción de sesión entera (bucle de login) para cualquier usuario con
+        // acceso a ese edificio, sysadmin incluido.
+        public Guid? DefaultCategory { get; set; }
+        public Guid? WaterReadingDefault { get; set; }
         public BuildingConfiguration Clone()
         {
             return new BuildingConfiguration

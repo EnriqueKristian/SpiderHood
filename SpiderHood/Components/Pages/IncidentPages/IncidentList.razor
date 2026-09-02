@@ -117,10 +117,24 @@
                             <label class="form-label">Descripción</label>
                             <InputTextArea class="form-control" rows="4" @bind-Value="_nuevo.Description" />
                         </div>
+                        @if (_tiposIncidenteWarning != null || _prioridadesIncidenteWarning != null)
+                        {
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                @if (_tiposIncidenteWarning != null)
+                                {
+                                    <div>@_tiposIncidenteWarning</div>
+                                }
+                                @if (_prioridadesIncidenteWarning != null)
+                                {
+                                    <div>@_prioridadesIncidenteWarning</div>
+                                }
+                            </div>
+                        }
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Tipo</label>
-                                <InputSelect class="form-select" @bind-Value="_nuevo.Type">
+                                <InputSelect class="form-select" @bind-Value="_nuevo.Type" disabled="@(_tiposIncidente.Count == 0)">
                                     @foreach (var tipo in _tiposIncidente)
                                     {
                                         <option value="@tipo.Value">@tipo.ShortDescription</option>
@@ -129,7 +143,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Prioridad</label>
-                                <InputSelect class="form-select" @bind-Value="_nuevo.Priority">
+                                <InputSelect class="form-select" @bind-Value="_nuevo.Priority" disabled="@(_prioridadesIncidente.Count == 0)">
                                     @foreach (var prioridad in _prioridadesIncidente)
                                     {
                                         <option value="@prioridad.Value">@prioridad.ShortDescription</option>
@@ -140,7 +154,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" disabled="@(_tiposIncidente.Count == 0 || _prioridadesIncidente.Count == 0)">
                             <i class="bi bi-check-lg me-1"></i>Reportar
                         </button>
                     </div>
@@ -165,6 +179,8 @@
     // así un Administrador puede agregar/desactivar valores sin tocar código.
     private List<Models.Parameter> _tiposIncidente = new();
     private List<Models.Parameter> _prioridadesIncidente = new();
+    private string? _tiposIncidenteWarning;
+    private string? _prioridadesIncidenteWarning;
 
     private List<Incident> IncidentesFiltrados =>
         string.IsNullOrEmpty(_filtroEstado)
@@ -180,34 +196,50 @@
 
         await ParameterService.LoadParametersAsync(_currentUser.CurrentBuildingId);
 
-        _tiposIncidente = ResolveGroupChildren("Tipo Incidente");
-        _prioridadesIncidente = ResolveGroupChildren("Prioridad Incidente");
+        _tiposIncidente = ResolveGroupChildren("Tipo Incidente", out _tiposIncidenteWarning);
+        _prioridadesIncidente = ResolveGroupChildren("Prioridad Incidente", out _prioridadesIncidenteWarning);
 
         await CargarAsync();
     }
 
-    // Busca el grupo raíz de Parametros por ShortDescription y devuelve sus hijos.
-    // Si hay más de un grupo con el mismo nombre (ej. el seed se corrió más de una
-    // vez), FirstOrDefault a secas podía agarrar uno sin hijos y dejar el combo
-    // vacío -- acá se prefiere, entre los candidatos con ese nombre, el que
-    // realmente tenga hijos cargados (y entre esos, el más reciente).
-    private List<Models.Parameter> ResolveGroupChildren(string groupShortDescription)
+    // Busca el grupo raíz de Parametros por ShortDescription y devuelve sus hijos
+    // ACTIVOS. El match ignora mayúsculas/minúsculas y espacios de más -- si desde
+    // /parameter alguien retocó el nombre del grupo (p.ej. "tipo incidente " con un
+    // espacio de más), antes se perdía en silencio y el combo quedaba vacío sin dar
+    // ninguna pista.
+    //
+    // Si hay más de un grupo con ese nombre (ej. el seed se corrió más de una vez),
+    // entre los candidatos se prefiere el que realmente tenga hijos activos cargados
+    // (y entre esos, el más reciente por IdTabla) -- no depende de que la BD esté
+    // prolija.
+    //
+    // Si ningún candidato tiene hijos activos, devuelve la lista vacía y en
+    // `warning` un mensaje explicando el motivo, para mostrarlo en el modal en vez
+    // de dejar el combo vacío sin explicación.
+    private List<Models.Parameter> ResolveGroupChildren(string groupShortDescription, out string? warning)
     {
         var candidatos = ParameterService.ListParameters
-            .Where(p => p.IdParent == 0 && p.ShortDescription == groupShortDescription)
+            .Where(p => p.IdParent == 0
+                && p.ShortDescription != null
+                && p.ShortDescription.Trim().Equals(groupShortDescription, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(p => p.IdTabla);
 
         foreach (var grupo in candidatos)
         {
-            var hijos = ParameterService.ListParameters
-                .Where(p => p.IdParent == grupo.IdTabla)
+            var hijosActivos = ParameterService.ListParameters
+                .Where(p => p.IdParent == grupo.IdTabla && p.Estado == ParameterEstado.Activo)
                 .OrderBy(p => p.Sort)
                 .ToList();
 
-            if (hijos.Count > 0)
-                return hijos;
+            if (hijosActivos.Count > 0)
+            {
+                warning = null;
+                return hijosActivos;
+            }
         }
 
+        warning = $"No se encontró el grupo de Parámetros \"{groupShortDescription}\" (o no tiene valores activos). " +
+            "Revisá /parameter -- puede haberse renombrado o desactivado.";
         return new List<Models.Parameter>();
     }
 

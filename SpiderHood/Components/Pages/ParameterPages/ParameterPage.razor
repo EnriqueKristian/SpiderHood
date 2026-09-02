@@ -69,6 +69,7 @@
                             <InputText type="text" class="form-control border-start-0"
                                        placeholder="Buscar parámetro..."
                                        @bind-Value="searchTerm"
+                                       @bind-Value:event="oninput"
                                        @bind-Value:after="FilterParameters" />
 
 
@@ -499,25 +500,40 @@
         }
     }
 
+    // gruposPadre salía siempre de ParameterService.ListParameters SIN filtrar --
+    // searchTerm/selectedStatus sólo se aplicaban a los HIJOS (filteredParameters), así
+    // que el buscador nunca sacaba de la lista a un grupo que no matcheara, aunque
+    // ninguno de sus hijos matcheara tampoco. Ahora un grupo se muestra si su propio
+    // nombre pasa el filtro (en cuyo caso se listan todos sus hijos que pasen el
+    // filtro de Estado, aunque su nombre no contenga el término buscado -- si no,
+    // buscar "Tipo" encontraría el grupo "Tipo de Incidente" pero vacío, porque
+    // "Plomería" no contiene "Tipo") o si al menos uno de sus hijos matchea.
     private void GroupParameters()
     {
         groupedParameters.Clear();
 
-        // Obtener grupos principales (Padre = 0)
-        var gruposPadre = @ParameterService.ListParameters
+        var todos = @ParameterService.ListParameters;
+
+        bool Matches(Models.Parameter p) =>
+            (string.IsNullOrEmpty(searchTerm) || p.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            && (selectedStatus == null || p.Estado == selectedStatus);
+
+        var gruposPadre = todos
             .Where(p => p.IdParent == 0)
             .OrderBy(p => p.IdTabla)
             .ToList();
 
         foreach (var grupo in gruposPadre)
         {
-            var hijos = filteredParameters
-                .Where(p => p.IdParent == grupo.IdTabla)
-                .OrderBy(p => p.IdTabla)
-                .ToList();
+            var hijosDelGrupo = todos.Where(p => p.IdParent == grupo.IdTabla).ToList();
+            var grupoMatchea = Matches(grupo);
 
-            //if (hijos.Count > 0)
-            groupedParameters.Add(grupo, hijos);
+            var hijos = grupoMatchea
+                ? hijosDelGrupo.Where(h => selectedStatus == null || h.Estado == selectedStatus).OrderBy(h => h.IdTabla).ToList()
+                : hijosDelGrupo.Where(Matches).OrderBy(h => h.IdTabla).ToList();
+
+            if (grupoMatchea || hijos.Count > 0)
+                groupedParameters.Add(grupo, hijos);
         }
 
         _pagination.Initialize(groupedParameters.Keys.ToList());

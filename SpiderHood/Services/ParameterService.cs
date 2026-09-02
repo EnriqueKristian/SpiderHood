@@ -128,12 +128,12 @@ namespace SpiderHood.Services
             catch (DbUpdateException ex)
             {
                 // Log error
-                return OperationResult.Failure($"Database error: {ex.Message}");
+                return OperationResult.Failure($"Database error: {DescribeError(ex)}");
             }
             catch (Exception ex)
             {
                 // Log error
-                return OperationResult.Failure($"Unexpected error: {ex.Message}");
+                return OperationResult.Failure($"Unexpected error: {DescribeError(ex)}");
             }
         }
 
@@ -149,13 +149,25 @@ namespace SpiderHood.Services
             catch (DbUpdateException ex)
             {
                 // Log error
-                return OperationResult.Failure($"Database error: {ex.Message}");
+                return OperationResult.Failure($"Database error: {DescribeError(ex)}");
             }
             catch (Exception ex)
             {
                 // Log error
-                return OperationResult.Failure($"Unexpected error: {ex.Message}");
+                return OperationResult.Failure($"Unexpected error: {DescribeError(ex)}");
             }
+        }
+
+        // BDLayout envuelve la excepción real (p.ej. SqlException por una FK o un
+        // tipo de dato inválido) en una RepositoryException genérica cuyo .Message es
+        // sólo "Operation X failed" -- el detalle útil para el usuario/admin queda en
+        // la excepción más interna.
+        private static string DescribeError(Exception ex)
+        {
+            var innermost = ex;
+            while (innermost.InnerException != null)
+                innermost = innermost.InnerException;
+            return innermost.Message;
         }
 
 

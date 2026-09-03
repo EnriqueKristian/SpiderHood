@@ -6,7 +6,7 @@
 }
 
 .section-header {
-    background: linear-gradient(135deg, #f1f3f4 0%, #e8eaed 100%) !important;
+    background: linear-gradient(135deg, var(--sh-surface-muted) 0%, var(--sh-border) 100%) !important;
 }
 
 .item-row:hover {
@@ -25,15 +25,15 @@
 
 /* Badges de tipo de distribución */
 .badge.type-1 {
-    background: linear-gradient(135deg, #20c997 0%, #099268 100%);
+    background: linear-gradient(135deg, var(--sh-teal) 0%, var(--sh-teal-dark) 100%);
 }
 
 .badge.type-2 {
-    background: linear-gradient(135deg, #6f42c1 0%, #4a1d96 100%);
+    background: linear-gradient(135deg, var(--sh-purple) 0%, var(--sh-purple-dark) 100%);
 }
 
 .badge.type-3 {
-    background: linear-gradient(135deg, #fd7e14 0%, #d9480f 100%);
+    background: linear-gradient(135deg, var(--sh-orange) 0%, var(--sh-orange-dark) 100%);
 }
 
 .badge.type-4 {

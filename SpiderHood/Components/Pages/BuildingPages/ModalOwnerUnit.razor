@@ -191,6 +191,8 @@
 }
 
 @code {
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
     [Parameter] public bool ShowModalUnit { get; set; }
     [Parameter] public int TypeOwner { get; set; }
     [Parameter] public Models.OpenType OpenMode { get; set; }
@@ -392,6 +394,20 @@
 
     private async Task CerrarModal()
     {
+        if (OpenMode == Models.OpenType.Create)
+        {
+            // En este modal, Create sólo se usa hoy para asignarle la primera
+            // unidad a un propietario recién creado (Owners.razor,
+            // AbrirModalUnidadesParaNuevoPropietario) -- ese propietario ya está
+            // guardado en la base sin ninguna unidad, y cancelar acá lo deja
+            // huérfano sin otro camino en la UI para retomarlo después.
+            var confirmado = await JSRuntime.InvokeAsync<bool>("confirm",
+                "El propietario ya se guardó, pero todavía no tiene ninguna unidad asignada. " +
+                "Si cancelás ahora vas a tener que borrarlo y crearlo de nuevo para asignarle una. " +
+                "¿Seguro que querés cancelar?");
+            if (!confirmado) return;
+        }
+
         ResetSelections();
         ShowModalUnit = false;
         await ShowModalChanged.InvokeAsync(ShowModalUnit);

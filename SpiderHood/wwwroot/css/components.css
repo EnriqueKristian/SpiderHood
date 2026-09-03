@@ -481,8 +481,13 @@ tbody tr {
             border-color: var(--sh-brand-navy-dark);
         }
 
+    /* --sh-brand-navy no sirve acá: no cambia con el modo oscuro (a diferencia de
+       --sh-surface, el fondo real de la tarjeta), así que con el sistema en modo
+       oscuro quedaba texto navy sobre un fondo casi del mismo navy -- invisible.
+       --sh-primary sí se mantiene legible en los dos modos (es el mismo azul que
+       usan los links en toda la app, ver base.css). */
     .login-body a {
-        color: var(--sh-brand-navy);
+        color: var(--sh-primary);
     }
 
         .login-body a:hover {
@@ -503,7 +508,7 @@ tbody tr {
 
 .validation-summary-errors li {
     background-color: var(--sh-danger-light);
-    color: #721c24;
+    color: var(--sh-danger);
     padding: 10px;
     border-radius: var(--sh-radius-sm);
     margin-bottom: 5px;

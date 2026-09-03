@@ -142,6 +142,8 @@ namespace SpiderHood.Data
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
+                // ApartmentOwner (la tabla real -- ver Database/Scripts/2026-09-03_33_*)
+                // no tiene columna para IdTypeIdNumber, así que no se manda.
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.UPD_Owner,
                     cancellationToken,
@@ -150,8 +152,7 @@ namespace SpiderHood.Data
                     owner.Names!,
                     owner.Surname!,
                     owner.Address!,
-                    owner.PhoneNumber!,
-                    owner.IdTypeIdNumber!);
+                    owner.PhoneNumber!);
                 return owner;
             }, "UpdateOwner", cancellationToken);
         }

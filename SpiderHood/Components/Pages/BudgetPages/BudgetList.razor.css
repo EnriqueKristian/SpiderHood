@@ -67,7 +67,12 @@
 }
 
 .total-general {
-    color: var(--sh-brand-navy);
+    /* --sh-brand-navy no cambia con el modo oscuro (a diferencia del fondo de esta
+       fila, --sh-surface-muted) -- con el sistema en modo oscuro quedaba texto
+       navy casi invisible sobre un fondo casi del mismo navy. --sh-text-heading
+       sí se adapta: navy oscuro en modo claro, casi igual de oscuro que antes, y
+       claro en modo oscuro. */
+    color: var(--sh-text-heading);
     font-size: 1.05em;
 }
 

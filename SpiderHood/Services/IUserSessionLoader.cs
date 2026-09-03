@@ -62,7 +62,7 @@ namespace SpiderHood.Services
                 var esSysAdminGlobal = rolGlobal?.RoleName == "SysAdmin";
 
                 await GrantSysAdminAccessToAllBuildingsAsync(buildings, esSysAdminGlobal);
-                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings, esSysAdminGlobal);
+                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings, esSysAdminGlobal, rolGlobal?.RoleName);
 
                 return new UserSession
                 {
@@ -93,7 +93,7 @@ namespace SpiderHood.Services
         // AuthService.LoginAsync para el detalle; se repite acá por la misma razón que
         // GrantSysAdminAccessToAllBuildingsAsync (este método corre en cada circuito
         // nuevo, no sólo en el login).
-        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings, bool esSysAdminGlobal)
+        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings, bool esSysAdminGlobal, string? rolGlobalNombre = null)
         {
             var sysAdmin = buildings.FirstOrDefault(b => b.Role == "SysAdmin");
             if (sysAdmin != null)
@@ -112,6 +112,15 @@ namespace SpiderHood.Services
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)
                 return (approved[0].Building!.IdBuilding, approved[0].Role);
+
+            // Mismo mecanismo que SysAdmin arriba, pero para el Administrador que se
+            // registró desde /register-admin (AuthService.RegisterNewAdministratorAsync):
+            // sin ningún edificio todavía, reconocido globalmente vía UserRole. A
+            // diferencia de SysAdmin, sólo aplica mientras buildings esté vacío -- apenas
+            // tenga un edificio real, resuelve por su UserBuildingAssociation como
+            // cualquier Administrador normal.
+            if (buildings.Count == 0 && !string.IsNullOrEmpty(rolGlobalNombre))
+                return (Guid.Empty, rolGlobalNombre);
 
             return (Guid.Empty, buildings.Select(b => b.Role).Distinct().FirstOrDefault() ?? string.Empty);
         }

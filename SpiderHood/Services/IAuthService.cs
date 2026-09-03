@@ -30,6 +30,12 @@ namespace SpiderHood.Services
         // las pantallas existentes, pero se ignora.
         Task<bool> RequestBuildingAccess(Guid buildingId, string role);
         Task<AuthResult> RegisterSelfServiceAsync(RegisterModel model);
+
+        // Registro "Piloto" (landing pública, sin edificio existente al que unirse):
+        // crea el usuario, lo reconoce globalmente como Administrador (sin ningún
+        // edificio todavía -- mismo mecanismo que ya usa SysAdmin, ver UserRole) y
+        // lo deja logueado, listo para crear su primer edificio.
+        Task<AuthResult> RegisterNewAdministratorAsync(RegisterAdminModel model);
         Task SetCurrentBuilding(Guid? Idbuilding, string role);
         Task<bool> TryApplyDefaultBuildingAsync();
 
@@ -154,7 +160,7 @@ namespace SpiderHood.Services
                 var esSysAdminGlobal = rolGlobal?.RoleName == "SysAdmin";
 
                 await GrantSysAdminAccessToAllBuildingsAsync(buildings, esSysAdminGlobal);
-                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings, esSysAdminGlobal);
+                var (defaultBuildingId, defaultRole) = ResolveDefaultBuildingAndRole(buildings, esSysAdminGlobal, rolGlobal?.RoleName);
 
                 // Crear sesión
                 var session = (new UserSession
@@ -662,7 +668,7 @@ namespace SpiderHood.Services
         // Administrador/Junta sobre el mismo edificio (caso real: admin@spiderhood.com)
         // queda con la misma ambigüedad de rol que cualquier otro usuario y termina en
         // /select-building -- lo cual no tiene sentido para el superusuario.
-        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings, bool esSysAdminGlobal)
+        private static (Guid BuildingId, string Role) ResolveDefaultBuildingAndRole(List<UserBuilding> buildings, bool esSysAdminGlobal, string? rolGlobalNombre = null)
         {
             var sysAdmin = buildings.FirstOrDefault(b => b.Role == "SysAdmin");
             if (sysAdmin != null)
@@ -688,6 +694,17 @@ namespace SpiderHood.Services
             var approved = buildings.Where(b => b.IsApproved).ToList();
             if (approved.Count == 1)
                 return (approved[0].Building!.IdBuilding, approved[0].Role);
+
+            // Mismo callejón sin salida que el de SysAdmin arriba, pero para el
+            // Administrador que se registró desde /register-admin (RegisterNewAdministratorAsync):
+            // sin ningún edificio todavía (nada que buscar en buildings), pero reconocido
+            // globalmente vía UserRole -- si no lo resolvemos acá, cae al último return con
+            // Role="" y no tiene permiso ni para crear su primer edificio. A diferencia de
+            // SysAdmin, esto SÓLO aplica mientras no tenga ningún edificio real -- apenas cree
+            // uno, buildings ya no está vacío y esta rama deja de aplicar (pasa a resolver
+            // igual que cualquier Administrador normal, por su UserBuildingAssociation real).
+            if (buildings.Count == 0 && !string.IsNullOrEmpty(rolGlobalNombre))
+                return (Guid.Empty, rolGlobalNombre);
 
             return (Guid.Empty, buildings.Select(b => b.Role).Distinct().FirstOrDefault() ?? string.Empty);
         }
@@ -790,6 +807,83 @@ namespace SpiderHood.Services
                 _logger.LogError(ex, "Error en RegisterSelfServiceAsync para email: {Email}", model.Email);
                 return new AuthResult { Success = false, Message = "No se pudo completar el registro" };
             }
+        }
+
+        // Registro "Piloto" desde la landing pública: a diferencia de
+        // RegisterSelfServiceAsync (que siempre pide un edificio AJENO y queda
+        // pendiente de aprobación por su administrador), acá no hay nadie que tenga
+        // que aprobar nada -- quien se registra va a crear SU PROPIO edificio a
+        // continuación, así que queda autologueado de una. Se reconoce como
+        // Administrador de forma global (UserRole, sin ninguna fila en
+        // UserBuildingAssociation todavía) -- mismo mecanismo que ya usa SysAdmin,
+        // ver ResolveDefaultBuildingAndRole -- para que tenga permiso de
+        // create_building sin depender de ningún edificio.
+        public async Task<AuthResult> RegisterNewAdministratorAsync(RegisterAdminModel model)
+        {
+            try
+            {
+                var normalizedEmail = model.Email.Trim().ToLowerInvariant();
+
+                var existing = await Ec.GetUsersByEmailAsync(normalizedEmail);
+                if (existing.Any(u => u.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return new AuthResult { Success = false, Message = "Ya existe una cuenta con ese email" };
+                }
+
+                var user = new UserModel
+                {
+                    IdUser = Guid.NewGuid(),
+                    Email = normalizedEmail,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    PhoneNumber = model.PhoneNumber,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                user.PasswordHash = _passwordHasher.HashPassword(user, model.Password);
+
+                await AddNewUserAsync(user);
+                await GrantGlobalAdministradorRoleAsync(user.IdUser);
+
+                var login = await LoginAsync(new LoginModel
+                {
+                    Email = normalizedEmail,
+                    Password = model.Password,
+                    RememberMe = false
+                });
+
+                if (!login.Success)
+                {
+                    _logger.LogError("RegisterNewAdministratorAsync: usuario {Email} creado pero el autologin falló", normalizedEmail);
+                    return new AuthResult
+                    {
+                        Success = false,
+                        Message = "Tu cuenta se creó, pero no se pudo iniciar sesión automáticamente. Iniciá sesión manualmente."
+                    };
+                }
+
+                return new AuthResult
+                {
+                    Success = true,
+                    Message = "Cuenta creada. Ahora vas a crear tu primer edificio.",
+                    User = user
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en RegisterNewAdministratorAsync para email: {Email}", model.Email);
+                return new AuthResult { Success = false, Message = "No se pudo completar el registro" };
+            }
+        }
+
+        private async Task GrantGlobalAdministradorRoleAsync(Guid idUser)
+        {
+            var roles = await Ec.GetAllRolesAsync();
+            var administrador = roles.FirstOrDefault(r => r.RoleName == "Administrador");
+            if (administrador == null)
+                throw new InvalidOperationException("No existe el rol 'Administrador' en el sistema.");
+
+            await Ec.AddUserRoleAsync(idUser, administrador.IdRole);
         }
 
         private async Task<bool> CreatePendingAssociationAsync(Guid idUser, Guid idBuilding, string role)

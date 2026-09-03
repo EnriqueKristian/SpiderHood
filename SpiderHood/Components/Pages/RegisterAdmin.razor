@@ -1,0 +1,124 @@
+@page "/register-admin"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using SpiderHood.Models
+@inject Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo">
+                <i class="bi bi-building"></i>
+                <h2>SpiderHood</h2>
+            </div>
+            <p class="text-muted">Registrate como Administrador y creá tu primer edificio</p>
+        </div>
+
+        <div class="login-body">
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-circle me-2"></i>@_errorMessage
+                </div>
+            }
+
+            <EditForm Model="@_model" OnValidSubmit="@HandleRegister">
+                <DataAnnotationsValidator />
+                <div class="validation-summary-errors text-danger mb-3">
+                    <ValidationSummary />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 form-group mb-3">
+                        <label class="form-label">Nombre</label>
+                        <InputText class="form-control" @bind-Value="_model.FirstName" />
+                        <ValidationMessage For="@(() => _model.FirstName)" />
+                    </div>
+                    <div class="col-md-6 form-group mb-3">
+                        <label class="form-label">Apellido</label>
+                        <InputText class="form-control" @bind-Value="_model.LastName" />
+                        <ValidationMessage For="@(() => _model.LastName)" />
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="form-label"><i class="bi bi-envelope me-2"></i>Email</label>
+                    <InputText class="form-control" @bind-Value="_model.Email" placeholder="tu@email.com" />
+                    <ValidationMessage For="@(() => _model.Email)" />
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="form-label">Teléfono</label>
+                    <InputText class="form-control" @bind-Value="_model.PhoneNumber" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 form-group mb-3">
+                        <label class="form-label"><i class="bi bi-lock me-2"></i>Contraseña</label>
+                        <InputText type="password" class="form-control" @bind-Value="_model.Password" />
+                        <ValidationMessage For="@(() => _model.Password)" />
+                    </div>
+                    <div class="col-md-6 form-group mb-3">
+                        <label class="form-label">Confirmar contraseña</label>
+                        <InputText type="password" class="form-control" @bind-Value="_model.ConfirmPassword" />
+                        <ValidationMessage For="@(() => _model.ConfirmPassword)" />
+                    </div>
+                </div>
+
+                <div class="alert alert-info small">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Al crear tu cuenta vas a quedar como <strong>Administrador</strong> y vas a poder crear tu
+                    edificio de inmediato -- no necesitás aprobación de nadie.
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 py-2" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    <i class="bi bi-person-plus me-2"></i>
+                    <span>Crear mi cuenta</span>
+                </button>
+            </EditForm>
+
+            <div class="login-footer mt-4">
+                <p class="mb-0">
+                    <a href="/login" class="text-decoration-none">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>¿Ya tenés cuenta? Iniciá sesión
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterAdminModel _model = new();
+    private string _errorMessage = string.Empty;
+    private bool _saving;
+
+    private async Task HandleRegister()
+    {
+        _errorMessage = string.Empty;
+        _saving = true;
+        try
+        {
+            var result = await AuthService.RegisterNewAdministratorAsync(_model);
+            if (!result.Success)
+            {
+                _errorMessage = result.Message;
+                return;
+            }
+
+            // RegisterNewAdministratorAsync ya deja al usuario logueado (autologin) --
+            // BuildingPage abre el modal de "Nuevo Edificio" solo cuando detecta que
+            // no tiene ninguno todavía (ver BuildingPage.razor.cs).
+            Navigation.NavigateTo("/buildings");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

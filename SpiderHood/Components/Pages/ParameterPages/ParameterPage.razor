@@ -146,12 +146,12 @@
                                     <td class="text-center">
                                         @if (_canManageParameters && !grupo.IsSystemDefault)
                                         {
-                                            <!-- Grupos Sistema (IsSystemDefault=1 en la raíz) no se tocan desde acá --
-                                                 son transversales a todos los edificios, ver Docs/Design-Defaults-
-                                                 Sistema-Mixto.md §5.1. Grupos Mixto: sólo se puede agregar hijos
-                                                 (propios de este edificio) -- ni crear grupos nuevos ni editar/
-                                                 eliminar la raíz desde acá, para no romper los lookups por nombre
-                                                 que usa el resto de la app (ResolveGroupChildren y similares). -->
+                                            @* Grupos Sistema (IsSystemDefault=1 en la raíz) no se tocan desde acá,
+                                               son transversales a todos los edificios, ver Docs/Design-Defaults-
+                                               Sistema-Mixto.md §5.1. Grupos Mixto: sólo se puede agregar hijos
+                                               (propios de este edificio), ni crear grupos nuevos ni editar/
+                                               eliminar la raíz desde acá, para no romper los lookups por nombre
+                                               que usa el resto de la app (ResolveGroupChildren y similares). *@
                                             <div class="btn-group btn-group-sm">
                                                 <button type="button" class="btn btn-outline-primary"
                                                         title="Agregar hijo" @onclick="() => ShowAddChildModal(grupo)">
@@ -191,12 +191,12 @@
                                         <td class="text-center">
                                             @if (_canManageParameters && hijo.IdBuilding != Guid.Empty)
                                             {
-                                                <!-- hijo.IdBuilding == Guid.Empty identifica un valor de Sistema
-                                                     (global) -- de sólo lectura para todos, ver Docs/Design-
-                                                     Defaults-Sistema-Mixto.md §5.1. Sólo los hijos Mixto propios de
-                                                     ESTE edificio (IdBuilding real) son editables acá. Sin botón
-                                                     "Eliminar": ningún Parameter se borra de verdad, sólo se
-                                                     inactiva vía Editar -- ver §5.2. -->
+                                                @* hijo.IdBuilding == Guid.Empty identifica un valor de Sistema
+                                                   (global), de sólo lectura para todos, ver Docs/Design-
+                                                   Defaults-Sistema-Mixto.md §5.1. Sólo los hijos Mixto propios de
+                                                   ESTE edificio (IdBuilding real) son editables acá. Sin botón
+                                                   "Eliminar": ningún Parameter se borra de verdad, sólo se
+                                                   inactiva vía Editar, ver §5.2. *@
                                                 <div class="btn-group btn-group-sm">
                                                     <button type="button" class="btn btn-outline-secondary"
                                                             title="Editar" @onclick="() => EditParameter(hijo)">
@@ -410,11 +410,11 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Parámetro Padre</label>
-                                <!-- Sin opción "(Ninguno - Grupo Principal)": nadie crea grupos raíz nuevos
-                                     desde acá -- un grupo nuevo no tiene ninguna pantalla que lo consuma
-                                     todavía, ver Docs/Design-Defaults-Sistema-Mixto.md §5. availableParents
-                                     ya viene filtrado a sólo grupos Mixto (los Sistema no aceptan hijos
-                                     nuevos de nadie). -->
+                                @* Sin opción "(Ninguno - Grupo Principal)": nadie crea grupos raíz nuevos
+                                   desde acá, un grupo nuevo no tiene ninguna pantalla que lo consuma
+                                   todavía, ver Docs/Design-Defaults-Sistema-Mixto.md §5. availableParents
+                                   ya viene filtrado a sólo grupos Mixto (los Sistema no aceptan hijos
+                                   nuevos de nadie). *@
                                 <InputSelect class="form-select" @bind-Value="currentParameter.IdParent">
                                     @foreach (var parent in availableParents)
                                     {

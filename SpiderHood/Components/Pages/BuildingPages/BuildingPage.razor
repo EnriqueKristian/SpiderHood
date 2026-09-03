@@ -1126,14 +1126,14 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label class="form-label">Tipo *</label>
-                        <!-- Building.Type es int (Parameter.Value del grupo Sistema "Tipo Edificio",
-                             IdParent=34 -- ver Docs/Design-Defaults-Sistema-Mixto.md §5.4) -- antes
-                             el <select> tenía las 3 opciones hardcodeadas con el NOMBRE como value
-                             ("Familiar"/"Comercial"/"Mixto"), que nunca podía parsear a un int: la
-                             selección nunca se guardaba de verdad, Type quedaba siempre en 0 sin
-                             importar qué se eligiera (por eso el badge de Tipo mostraba "No se
-                             encontró coincidencia" en cualquier edificio nuevo). Ahora sale de
-                             ParameterService.ListParameters, con el Value real como option value. -->
+                        @* Building.Type es int (Parameter.Value del grupo Sistema "Tipo Edificio",
+                           IdParent=34, ver Docs/Design-Defaults-Sistema-Mixto.md §5.4). Antes el
+                           select tenía las 3 opciones hardcodeadas con el NOMBRE como value
+                           ("Familiar"/"Comercial"/"Mixto"), que nunca podía parsear a un int: la
+                           selección nunca se guardaba de verdad, Type quedaba siempre en 0 sin
+                           importar qué se eligiera (por eso el badge de Tipo mostraba "No se
+                           encontró coincidencia" en cualquier edificio nuevo). Ahora sale de
+                           ParameterService.ListParameters, con el Value real como option value. *@
                         <select @bind-Value="_editingBuilding.Type" class="form-select">
                             @foreach (var tipo in ParameterService.ListParameters.Where(p => p.IdParent == 34).OrderBy(p => p.Value))
                             {

@@ -32,12 +32,12 @@
                             <i class="bi bi-building-exclamation bi-3x text-muted mb-3"></i>
                             @if (_canCreateBuilding)
                             {
-                                <!-- Administrador recién registrado desde /register-admin (u otro
-                                     que todavía no creó ninguno) -- acá no tiene sentido ofrecerle
-                                     "Solicitar acceso" (eso es para Residente uniéndose a un
-                                     edificio ajeno, ver Docs/Design-SelfService-Registro-Piloto.md):
-                                     lo suyo es crear el propio. /buildings ya abre el modal de
-                                     "Nuevo Edificio" solo cuando detecta que no tiene ninguno. -->
+                                @* Administrador recién registrado desde /register-admin (u otro
+                                   que todavía no creó ninguno): acá no tiene sentido ofrecerle
+                                   "Solicitar acceso" (eso es para Residente uniéndose a un
+                                   edificio ajeno, ver Docs/Design-SelfService-Registro-Piloto.md).
+                                   Lo suyo es crear el propio. /buildings ya abre el modal de
+                                   "Nuevo Edificio" solo cuando detecta que no tiene ninguno. *@
                                 <p class="mb-3">Todavía no creaste ningún edificio</p>
                                 <a href="/buildings" class="btn btn-primary">
                                     <i class="bi bi-plus me-2"></i>Crear mi primer edificio

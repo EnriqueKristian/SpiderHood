@@ -3,6 +3,23 @@
     background-color: var(--sh-brand-navy-dark) !important;
 }
 
+/* El botón hamburguesa (NavMenu.razor) togglea este div vía
+   data-bs-toggle="collapse"/data-bs-target="#nav-collapse" -- Bootstrap solo lo
+   colapsa de verdad si el elemento tiene su propia clase `collapse` (ver el
+   `collapse` agregado en LeftMenu.razor). En desktop, en cambio, el menú tiene
+   que quedar siempre visible y con scroll propio -- ni depende del estado
+   show/hidden del collapse ni de que JS haya corrido. */
+@media (min-width: 641px) {
+    .nav-scrollable.collapse:not(.show) {
+        display: block;
+    }
+}
+
+.nav-scrollable {
+    height: calc(100vh - 4rem);
+    overflow-y: auto;
+}
+
 .navbar-brand {
     font-size: 1.4rem;
     letter-spacing: -0.5px;

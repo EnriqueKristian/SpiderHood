@@ -4,7 +4,7 @@
     
     .card-hover {
         transition: transform 0.2s, box-shadow 0.2s;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--sh-border);
     }
     
     .card-hover:hover {
@@ -13,33 +13,33 @@
     }
     
     .edit-mode {
-        border: 2px solid #3b82f6;
-        background-color: #f0f9ff;
+        border: 2px solid var(--sh-primary);
+        background-color: var(--sh-primary-light);
     }
     
     .building-active {
-        border-left: 4px solid #10b981;
+        border-left: 4px solid var(--sh-success);
     }
     
     .building-inactive {
-        border-left: 4px solid #ef4444;
+        border-left: 4px solid var(--sh-danger);
     }
     
     .section-title {
-        color: #374151;
+        color: var(--sh-text-heading);
         font-weight: 600;
         font-size: 1.1rem;
         margin-bottom: 1rem;
         padding-bottom: 0.5rem;
-        border-bottom: 2px solid #e5e7eb;
+        border-bottom: 2px solid var(--sh-border);
     }
     
     .building-selector {
         display: flex;
         align-items: center;
         padding: 1rem;
-        background: white;
-        border: 2px solid #e5e7eb;
+        background: var(--sh-surface);
+        border: 2px solid var(--sh-border);
         border-radius: 8px;
         cursor: pointer;
         transition: all 0.2s;
@@ -47,13 +47,13 @@
     }
     
     .building-selector:hover {
-        border-color: #3b82f6;
-        background-color: #f8fafc;
+        border-color: var(--sh-primary);
+        background-color: var(--sh-surface-muted);
     }
     
     .building-selector.active {
-        border-color: #3b82f6;
-        background-color: #eff6ff;
+        border-color: var(--sh-primary);
+        background-color: var(--sh-primary-light);
     }
     
     .building-info {
@@ -63,7 +63,7 @@
     .building-number {
         width: 40px;
         height: 40px;
-        background-color: #3b82f6;
+        background-color: var(--sh-primary);
         color: white;
         border-radius: 50%;
         display: flex;
@@ -94,7 +94,7 @@
     .empty-state {
         text-align: center;
         padding: 3rem;
-        color: #6b7280;
+        color: var(--sh-text-muted);
     }
     
     .form-compact .form-group {
@@ -118,8 +118,8 @@
         display: inline-flex;
         align-items: center;
         padding: 0.25rem 0.75rem;
-        background-color: #e0f2fe;
-        border: 1px solid #7dd3fc;
+        background-color: var(--sh-info-light);
+        border: 1px solid var(--sh-info);
         border-radius: 20px;
         font-size: 0.875rem;
         cursor: pointer;
@@ -131,9 +131,9 @@
     }
     
     .payment-method-tag.selected {
-        background-color: #0ea5e9;
+        background-color: var(--sh-info);
         color: white;
-        border-color: #0ea5e9;
+        border-color: var(--sh-info);
     }
     
     .currency-selector {
@@ -141,20 +141,20 @@
         align-items: center;
         gap: 0.5rem;
         padding: 0.5rem 1rem;
-        background-color: white;
-        border: 2px solid #e5e7eb;
+        background-color: var(--sh-surface);
+        border: 2px solid var(--sh-border);
         border-radius: 8px;
         cursor: pointer;
         transition: all 0.2s;
     }
     
     .currency-selector:hover {
-        border-color: #3b82f6;
+        border-color: var(--sh-primary);
     }
     
     .currency-selector.selected {
-        border-color: #3b82f6;
-        background-color: #eff6ff;
+        border-color: var(--sh-primary);
+        background-color: var(--sh-primary-light);
     }
     
     .action-buttons {
@@ -162,7 +162,7 @@
         gap: 0.5rem;
         margin-top: 1rem;
         padding-top: 1rem;
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid var(--sh-border);
     }
     
     .status-badge {
@@ -175,13 +175,13 @@
     }
     
     .status-active {
-        background-color: #d1fae5;
-        color: #065f46;
+        background-color: var(--sh-success-light);
+        color: var(--sh-success);
     }
     
     .status-inactive {
-        background-color: #fee2e2;
-        color: #991b1b;
+        background-color: var(--sh-danger-light);
+        color: var(--sh-danger);
     }
     
     .building-actions {
@@ -199,7 +199,7 @@
         display: inline-flex;
         align-items: center;
         padding: 0.25rem 0.75rem;
-        background-color: #f3f4f6;
+        background-color: var(--sh-surface-muted);
         border-radius: 20px;
         font-size: 0.875rem;
         margin-right: 0.5rem;

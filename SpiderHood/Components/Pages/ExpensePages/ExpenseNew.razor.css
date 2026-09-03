@@ -33,17 +33,17 @@
 
 /* Estilos para tabla jerárquica */
 .category-header {
-    border-left: 4px solid #0d6efd !important;
+    border-left: 4px solid var(--sh-primary) !important;
     transition: background-color 0.2s ease;
 }
 
     .category-header:hover {
-        background-color: #e9ecef !important;
+        background-color: var(--sh-border) !important;
     }
 
 .expense-detail {
     background-color: #fcfcfc;
-    border-left: 2px solid #e9ecef;
+    border-left: 2px solid var(--sh-border);
 }
 
     .expense-detail:hover {
@@ -73,8 +73,8 @@
     text-transform: uppercase;
     font-size: 0.85rem;
     letter-spacing: 0.5px;
-    border-bottom: 2px solid #dee2e6;
-    background-color: #f8f9fa;
+    border-bottom: 2px solid var(--sh-border-strong);
+    background-color: var(--sh-surface-muted);
 }
 
 .table td {
@@ -95,8 +95,8 @@
 
 /* Switch personalizado */
 .form-check-input:checked {
-    background-color: #198754;
-    border-color: #198754;
+    background-color: var(--sh-success);
+    border-color: var(--sh-success);
 }
 
 .form-check-input:focus {
@@ -124,13 +124,13 @@
 }
 
 .modal-header {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-bottom: 1px solid #dee2e6;
+    background: linear-gradient(135deg, var(--sh-surface-muted) 0%, var(--sh-border) 100%);
+    border-bottom: 1px solid var(--sh-border-strong);
     border-radius: 12px 12px 0 0;
 }
 
 .modal-footer {
-    border-top: 1px solid #dee2e6;
-    background-color: #f8f9fa;
+    border-top: 1px solid var(--sh-border-strong);
+    background-color: var(--sh-surface-muted);
     border-radius: 0 0 12px 12px;
 }

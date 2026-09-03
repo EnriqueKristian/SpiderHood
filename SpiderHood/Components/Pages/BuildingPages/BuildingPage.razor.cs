@@ -172,6 +172,11 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 IdBuilding = newBuildingId,
                 Number = Buildings.Count + 1,
                 IsActive = true,
+                // Primer valor real de "Tipo Edificio" (IdParent=34, Sistema global) en vez
+                // de dejar el default 0 de int -- 0 no matchea ningún Parameter.Value real,
+                // así que sin esto el <select> del modal arranca en un valor que no
+                // corresponde a ninguna opción mostrada.
+                Type = ParameterService.ListParameters.Where(p => p.IdParent == 34).OrderBy(p => p.Value).FirstOrDefault()?.Value ?? 0,
                 // CreateDefaultConfigurationAsync no setea Configuration.IdBuilding (el
                 // Guid que recibe no se usa para nada adentro) -- si no se lo asignamos
                 // acá, CreateBuildingAsync guardaría la config con IdBuilding en blanco,

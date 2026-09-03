@@ -308,6 +308,48 @@ tbody tr {
         background-color: var(--sh-surface);
     }
 
+/* Usada por BudgetList.razor y BudgetDetailModal.razor -- va acá (global) y no en
+   un *.razor.css porque ambos componentes reusan la misma clase y el CSS isolation
+   de Blazor scopea un *.razor.css solo al componente que le da nombre (ver el mismo
+   caso con .login-container/etc. más arriba). */
+.presupuestos-table {
+    width: 100%;
+    min-width: 1200px;
+    border-collapse: collapse;
+    background: var(--sh-surface);
+}
+
+    .presupuestos-table th {
+        background: var(--sh-surface-muted);
+        padding: 12px;
+        font-weight: 600;
+        color: var(--sh-text-heading);
+        border-bottom: 2px solid var(--sh-border-strong);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .presupuestos-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--sh-border);
+    }
+
+    /* Solo las filas de datos son clickeables (seleccionan el presupuesto) -- el
+       header no, así que no lleva cursor:pointer. */
+    .presupuestos-table tbody tr {
+        cursor: pointer;
+    }
+
+    .presupuestos-table tr:hover {
+        background-color: var(--sh-primary-light);
+    }
+
+    .presupuestos-table tr.selected {
+        background-color: var(--sh-primary-light);
+        border-left: 3px solid var(--sh-primary);
+    }
+
 /* ---------- Modales ---------- */
 
 .modal-backdrop {

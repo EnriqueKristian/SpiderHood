@@ -89,6 +89,37 @@ ajeno no es un camino válido para este tipo de usuario, según la decisión de
 alcance de más arriba. Quien NO tiene ese permiso (un Residente típico) sigue
 viendo el flujo de siempre, sin cambios.
 
+## Bugs encontrados al probar (tercera vuelta), ya corregidos
+
+Dos hallazgos más de la primera prueba end-to-end real de un edificio creado
+por un Administrador (no relacionados entre sí, ni con Paso 5 puntualmente --
+son bugs generales de `BuildingPage.razor` que nunca se habían notado porque
+nadie había inspeccionado tan de cerca un edificio recién creado):
+
+- **`Type` del `<select>` "Tipo" del modal "Nuevo Edificio" nunca se guardaba
+  de verdad**: `Building.Type` es `int` (el `Value` del grupo Sistema "Tipo
+  Edificio", `IdParent=34`), pero el `<select>` tenía las 3 opciones
+  hardcodeadas con el NOMBRE como `value` (`"Familiar"/"Comercial"/"Mixto"`),
+  que nunca puede parsear a un `int` -- la selección nunca se aplicaba,
+  `Type` quedaba siempre en `0` sin importar qué se eligiera. Por eso el
+  badge de Tipo mostraba "No se encontró coincidencia" en "Prueba 1" pese a
+  que los datos de `Parameter` (`IdParent=34`) están perfectos -- confirmado
+  por el usuario. Corregido: el `<select>` ahora sale de
+  `ParameterService.ListParameters.Where(p => p.IdParent == 34)`, con el
+  `Value` real como `option value`; `ShowCreateModal` además arranca con el
+  primer valor real en vez de dejar el default `0` de `int`.
+  **"Prueba 1" quedó con `Type=0` en BD de antes del fix** -- se corrige
+  volviendo a editar ese edificio desde la UI una vez recompilado (elegir
+  cualquier Tipo y Guardar), o a mano: `UPDATE Building SET Type = 1 WHERE
+  Name = 'Prueba 1';` (1 = Familiar, ver `Parameter` `IdParent=34`).
+- **`/users` dejaba ver y asignar el rol SysAdmin a cualquier Administrador**:
+  `manage_users` está otorgado a Administrador y SysAdmin por igual, pero la
+  pantalla nunca filtraba el rol SysAdmin para quien no lo es -- escalación
+  de privilegios real. Confirmado por el usuario (vio la cuenta SysAdmin en
+  la lista y pudo elegir "SysAdmin" al crear un usuario nuevo). Corregido en
+  `Users.razor`: se filtra `_availableRoles` y la lista de usuarios excluyendo
+  SysAdmin cuando quien gestiona no es SysAdmin.
+
 ## Cabo suelto conocido, no bloqueante
 
 Después de crear su primer edificio, la fila global en `UserRole`

@@ -91,6 +91,12 @@ namespace SpiderHood.Components.Pages
         private int _unidadesMorosas;
         private double _morosidadPct;
 
+        // Campanita del header: cosas que de verdad requieren atención ahora --
+        // incidencias sin cerrar + cuotas ya vencidas (no toda cuota pendiente, sólo
+        // las que ya pasaron su DueDate). No hay todavía una tabla de "Notification"
+        // en la app -- esto es un conteo real, no una lista de notificaciones.
+        private int _alertasUrgentes;
+
         private string _userName = "";
 
         protected override async Task OnInitializedAsync()
@@ -295,6 +301,8 @@ namespace SpiderHood.Components.Pages
             _unidadesMorosas = pending.Select(i => i.IdGroupUnit).Distinct().Count();
             _morosidadPct = _totalUnidades > 0 ? _unidadesMorosas * 100.0 / _totalUnidades : 0;
 
+            _alertasUrgentes = _incidenciasPendientes + pending.Count(i => i.DueDate.Date < now.Date);
+
             // Próximos vencimientos: las cuotas pendientes más próximas a vencer.
             upcomingDues = pending
                 .OrderBy(i => i.DueDate)
@@ -397,10 +405,9 @@ namespace SpiderHood.Components.Pages
             StateHasChanged();
         }
 
-        // Método para manejar notificaciones
-        private void ToggleNotifications()
-        {
-            // Lógica para mostrar notificaciones
-        }
+        // La campanita no abre un feed de notificaciones (no existe todavía ese
+        // concepto en la app) -- lleva directo a Incidencias, que es de donde sale la
+        // mayor parte de _alertasUrgentes.
+        private void GoToAlertas() => Navigation.NavigateTo("/incidents");
     }
 }

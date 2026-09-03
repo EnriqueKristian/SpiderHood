@@ -255,9 +255,41 @@
 
     private async Task LoadCurrentBuildingAsync()
     {
-        // 0. Preferir el edificio+ROL ya confirmado en la sesión. Un mismo edificio puede
+        // 0. Preferencia guardada por el propio usuario (localStorage) — sólo si ya
+        // estamos en la conexión interactiva real. GetDefaultBuildingAsync usa
+        // IJSRuntime para leer localStorage, y eso lanza InvalidOperationException
+        // durante el prerender estático. RendererInfo.IsInteractive distingue
+        // exactamente eso: prerender estático vs. circuito ya conectado.
+        //
+        // Va ANTES que el CurrentBuildingId de la sesión (paso 1) a propósito: ese
+        // CurrentBuildingId no siempre refleja una elección real del usuario.
+        // UserSessionLoader lo recalcula en CADA circuito nuevo (recarga de página,
+        // reconexión) con un default arbitrario ("el primer edificio" para SysAdmin,
+        // ver ResolveDefaultBuildingAndRole) — así que si esto fuera el paso 0, la
+        // preferencia guardada quedaba inalcanzable: ese default arbitrario, al no
+        // ser Guid.Empty, ganaba siempre y el usuario volvía al primer edificio en
+        // cada recarga sin importar cuál hubiera elegido la última vez. No hay
+        // riesgo de pisar una elección recién hecha EN este mismo circuito (p.ej.
+        // desde /select-building o el dropdown de acá abajo): ambos guardan en
+        // localStorage en el mismo momento en que actualizan la sesión, así que para
+        // cuando este método corre de nuevo, localStorage ya refleja esa elección.
+        if (RendererInfo.IsInteractive)
+        {
+            var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
+            if (defaultBuildingId.HasValue)
+            {
+                var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == defaultBuildingId.Value);
+                if (building != null)
+                {
+                    await SetCurrentBuilding(building);
+                    return;
+                }
+            }
+        }
+
+        // 1. Preferir el edificio+ROL ya confirmado en la sesión. Un mismo edificio puede
         // tener varias filas en Buildings (una por rol al que el usuario tiene acceso), y
-        // los pasos de abajo (ParameterService, URL, preferencia guardada) solo matchean
+        // los pasos de abajo (ParameterService, URL) solo matchean
         // por IdBuilding — así que con 2-3 roles sobre el mismo edificio siempre
         // resolvían a la PRIMERA fila (el primer rol), sin importar cuál se hubiera
         // elegido realmente. _currentUser.CurrentBuildingId/Role sí quedan sincronizados
@@ -274,7 +306,7 @@
             }
         }
 
-        // 1. Intentar con ParameterService
+        // 2. Intentar con ParameterService
         if (ParameterService.CurrentBuilding != null)
         {
             var building = Buildings.FirstOrDefault(b =>
@@ -287,7 +319,7 @@
             }
         }
 
-        // 2. Intentar con URL
+        // 3. Intentar con URL
         var uri = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
         if (uri.StartsWith("building/"))
         {
@@ -295,27 +327,6 @@
             if (Guid.TryParse(buildingIdString, out Guid buildingId))
             {
                 var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == buildingId);
-                if (building != null)
-                {
-                    await SetCurrentBuilding(building);
-                    return;
-                }
-            }
-        }
-
-        // 3. Intentar con preferencia guardada — sólo si ya estamos en la conexión
-        // interactiva real. GetDefaultBuildingAsync usa IJSRuntime para leer localStorage,
-        // y eso lanza InvalidOperationException durante el prerender estático (que ahora
-        // corre igual, porque la sesión ya está disponible desde la cookie sin esperar a
-        // JS interop — antes esta rama nunca se alcanzaba durante el prerender porque el
-        // usuario todavía aparecía anónimo en ese momento). RendererInfo.IsInteractive
-        // distingue exactamente eso: prerender estático vs. circuito ya conectado.
-        if (RendererInfo.IsInteractive)
-        {
-            var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
-            if (defaultBuildingId.HasValue)
-            {
-                var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == defaultBuildingId.Value);
                 if (building != null)
                 {
                     await SetCurrentBuilding(building);
@@ -391,6 +402,14 @@
         // se quedaban mostrando los datos del edificio anterior hasta navegar a otro
         // lado y volver. forceLoad:true fuerza una recarga real de la página.
         await AuthService.SetCurrentBuilding(building.Building.IdBuilding, building.Role);
+
+        // Sin esto, forceLoad de la línea de abajo tira el circuito abajo y con él
+        // la sesión en memoria que SetCurrentBuilding acaba de actualizar -- el
+        // circuito nuevo la reconstruye desde cero (UserSessionLoader) sin memoria de
+        // qué se acaba de elegir acá, así que sin guardarlo en localStorage quedaba
+        // pisado por el default de UserSessionLoader (el primer edificio) apenas se
+        // recargaba la página. Mismo mecanismo que ya usa /select-building.
+        await AuthService.SetDefaultBuildingAsync(building.Building.IdBuilding);
         NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
     }
 

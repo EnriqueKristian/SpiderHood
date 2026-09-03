@@ -26,6 +26,11 @@
             })();
     </script>
     <ResourcePreloader />
+    <!-- Misma tipografía que el sitio público (wwwroot/index.html), para que no
+         se note el salto de un sitio a otro al iniciar sesión. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
     <!-- Bootstrap: una sola versión (antes se cargaba también 5.3.7 por CDN
          encima de esta 5.3.3 local, mezclando reglas de dos versiones). -->
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />

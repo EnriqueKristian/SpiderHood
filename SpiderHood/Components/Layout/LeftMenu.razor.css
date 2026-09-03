@@ -1,6 +1,6 @@
 /* Estilos mejorados para el menú */
 .bg-dark {
-    background-color: #0f172a !important;
+    background-color: var(--sh-brand-navy-dark) !important;
 }
 
 .navbar-brand {
@@ -47,10 +47,10 @@
     }
 
     .nav-pills .nav-link.active {
-        background: linear-gradient(90deg, #2563eb, #3b82f6);
-        color: white;
-        font-weight: 500;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        background: linear-gradient(90deg, var(--sh-brand-gold-dark), var(--sh-brand-gold));
+        color: var(--sh-brand-navy-dark);
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(201, 168, 76, 0.3);
     }
 
 .submenu-wrapper {
@@ -120,7 +120,7 @@
     width: 42px;
     height: 42px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    background: linear-gradient(135deg, var(--sh-brand-navy), var(--sh-brand-gold));
     color: #fff;
     display: flex;
     align-items: center;

@@ -367,6 +367,116 @@ tbody tr {
         padding-bottom: 0;
     }
 
+/* ---------- Login / Registro ---------- */
+
+/* Compartido por Login.razor, Register.razor y RegisterAdmin.razor. Va acá (no en
+   un *.razor.css) a propósito: el CSS isolation de Blazor scopea esos archivos al
+   componente que les da nombre, así que un Login.razor.css nunca llega a Register.razor
+   ni a RegisterAdmin.razor aunque reusen las mismas clases -- por eso esas dos pantallas
+   se veían sin estilo (ver Docs si hace falta más contexto sobre este bug). */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--sh-brand-navy-dark) 0%, var(--sh-brand-navy) 100%);
+    padding: var(--sh-space-4);
+}
+
+.login-card {
+    background: var(--sh-surface);
+    border-radius: var(--sh-radius-lg);
+    box-shadow: var(--sh-shadow-lg);
+    width: 100%;
+    max-width: 450px;
+    overflow: hidden;
+}
+
+.login-header {
+    background: linear-gradient(135deg, var(--sh-brand-navy-dark) 0%, var(--sh-brand-navy) 100%);
+    color: white;
+    padding: var(--sh-space-6) var(--sh-space-4) var(--sh-space-5);
+    text-align: center;
+}
+
+    .login-header .logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: var(--sh-space-2);
+    }
+
+        .login-header .logo i,
+        .login-header .logo svg {
+            font-size: 2rem;
+            color: var(--sh-brand-gold);
+        }
+
+    .login-header h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .login-header .text-muted {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+
+.login-body {
+    padding: var(--sh-space-5) var(--sh-space-5) var(--sh-space-4);
+}
+
+    .login-body .btn-primary {
+        background-color: var(--sh-brand-navy);
+        border-color: var(--sh-brand-navy);
+    }
+
+        .login-body .btn-primary:hover,
+        .login-body .btn-primary:active,
+        .login-body .btn-primary:focus {
+            background-color: var(--sh-brand-navy-dark);
+            border-color: var(--sh-brand-navy-dark);
+        }
+
+    .login-body a {
+        color: var(--sh-brand-navy);
+    }
+
+        .login-body a:hover {
+            color: var(--sh-brand-gold-dark);
+        }
+
+.login-footer {
+    text-align: center;
+    border-top: 1px solid var(--sh-border);
+    padding-top: var(--sh-space-4);
+}
+
+.validation-summary-errors ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.validation-summary-errors li {
+    background-color: var(--sh-danger-light);
+    color: #721c24;
+    padding: 10px;
+    border-radius: var(--sh-radius-sm);
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.is-invalid {
+    border-color: var(--sh-danger);
+}
+
+    .is-invalid:focus {
+        border-color: var(--sh-danger);
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+
 /* ---------- Formularios ---------- */
 
 .form-group {

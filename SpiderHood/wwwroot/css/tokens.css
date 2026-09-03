@@ -51,7 +51,7 @@
     --sh-shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
     --sh-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.12);
     /* Tipografía */
-    --sh-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --sh-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --sh-fs-h1: 1.75rem;
     --sh-fs-h2: 1.5rem;
     --sh-fs-h3: 1.25rem;
@@ -59,6 +59,15 @@
     --sh-fs-small: 0.875rem;
     /* Transición estándar para hover/focus en tarjetas y botones */
     --sh-transition: all 0.15s ease-in-out;
+    /* Colores de marca (misma paleta que el sitio público, wwwroot/index.html):
+       login/registro y el menú lateral son las pantallas donde el usuario nota
+       más el salto de un sitio a otro, así que usan estos colores en vez de los
+       --sh-primary/etc. de arriba (que siguen el azul por defecto de Bootstrap
+       que predomina en el resto de la app). */
+    --sh-brand-navy: #1a2a3a;
+    --sh-brand-navy-dark: #0f172a;
+    --sh-brand-gold: #c9a84c;
+    --sh-brand-gold-dark: #b8973a;
 }
 
 /*

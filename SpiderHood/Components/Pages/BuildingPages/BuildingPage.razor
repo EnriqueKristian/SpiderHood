@@ -1134,7 +1134,7 @@
                            importar qué se eligiera (por eso el badge de Tipo mostraba "No se
                            encontró coincidencia" en cualquier edificio nuevo). Ahora sale de
                            ParameterService.ListParameters, con el Value real como option value. *@
-                        <select @bind-Value="_editingBuilding.Type" class="form-select">
+                        <select @bind-value="_editingBuilding.Type" class="form-select">
                             @foreach (var tipo in ParameterService.ListParameters.Where(p => p.IdParent == 34).OrderBy(p => p.Value))
                             {
                                 <option value="@tipo.Value">@tipo.ShortDescription</option>

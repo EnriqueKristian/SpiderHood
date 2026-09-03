@@ -352,6 +352,31 @@
         // Actualizar servicios
         ParameterService.CurrentBuilding = building.Building;
 
+        // Este método resuelve el edificio "de verdad" (localStorage, sesión,
+        // ParameterService, URL, primero de la lista) y actualiza el estado local del
+        // header (CurrentBuildingId/BuildingName arriba) y ParameterService -- pero
+        // ANTES no tocaba la sesión (_currentUser.CurrentBuildingId/Role) para nada.
+        // Eso dejaba un split-brain: cuando este método resolvía por localStorage
+        // (paso 0) un edificio DISTINTO al que trajo la sesión recién reconstruida
+        // (UserSessionLoader, en cada circuito nuevo), el header mostraba el
+        // correcto pero LeftMenu, los permisos y cualquier página que lea la sesión
+        // directamente (no ParameterService) seguían viendo el edificio/rol viejo.
+        //
+        // El "if" de acá abajo importa, y no es sólo una optimización:
+        // AuthService.SetCurrentBuilding llama a MarkUserAsAuthenticated, que dispara
+        // AuthenticationStateChanged incondicionalmente -- este mismo componente (y
+        // LeftMenu) están suscriptos a ese evento y reaccionan volviendo a llamar a
+        // este método. Sin el "if", cada resolución exitosa generaría otra
+        // notificación, que generaría otra resolución idéntica, en loop infinito.
+        // Sólo hace falta tocar la sesión cuando de verdad cambia algo.
+        if (_currentUser != null &&
+            (_currentUser.CurrentBuildingId != building.Building.IdBuilding || _currentUser.Role != building.Role))
+        {
+            await AuthService.SetCurrentBuilding(building.Building.IdBuilding, building.Role);
+            _currentUser.CurrentBuildingId = building.Building.IdBuilding;
+            _currentUser.Role = building.Role;
+        }
+
         // No bloquear la UI mientras se guarda la preferencia. Igual que arriba, sólo
         // tiene sentido (y sólo es seguro para IJSRuntime) una vez conectado el circuito.
         if (RendererInfo.IsInteractive)

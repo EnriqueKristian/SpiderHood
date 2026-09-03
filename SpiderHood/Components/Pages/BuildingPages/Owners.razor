@@ -554,6 +554,7 @@
         public bool IsActive { get; set; } = true;
         public Guid IdBuilding { get; set; }
         public Guid IdGroupUnit { get; set; }
+        public int IdTypeIdNumber { get; set; }
         [NotMapped]
         public string FullName => FirstName + " " +LastName;
     }
@@ -655,7 +656,8 @@
                     Email = ownerUnit.Email,
                     IsActive = ownerUnit.IsActive,
                     IdBuilding = ownerUnit.IdBuilding,
-                    IdGroupUnit = groupId
+                    IdGroupUnit = groupId,
+                    IdTypeIdNumber = ownerUnit.IdTypeIdNumber
                 });
             }
         }
@@ -948,7 +950,8 @@
             Surname = titular.LastName,
             Address = titular.Address,
             PhoneNumber = titular.PhoneNumber,
-            IdBuilding = titular.IdBuilding
+            IdBuilding = titular.IdBuilding,
+            IdTypeIdNumber = titular.IdTypeIdNumber
         };
         OpenMode = Models.OpenType.Update;
         MostrarModal = true;

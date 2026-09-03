@@ -655,9 +655,6 @@ namespace SpiderHood.Data
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 var newId = Guid.NewGuid();
-                // ApartmentOwner (la tabla real -- ver Database/Scripts/2026-09-03_33_*)
-                // no tiene columna para IdTypeIdNumber, así que no se manda. El combo
-                // "Tipo Doc" de ModalOwner.razor queda sin destino en la base por ahora.
                 await ExecuteStoredProcedureAsync(
                     StoredProcedures.INS_Owner,
                     cancellationToken,
@@ -667,7 +664,8 @@ namespace SpiderHood.Data
                     owner.Surname!,
                     owner.Address,
                     owner.PhoneNumber,
-                    owner.IdBuilding);
+                    owner.IdBuilding,
+                    owner.IdTypeIdNumber);
                 owner.IdOwner = newId;
                 return owner;
             }, "AddOwner", cancellationToken);

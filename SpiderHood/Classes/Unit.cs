@@ -91,5 +91,9 @@ namespace SpiderHood.Models
         public string Email { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
         public Guid IdBuilding { get; set; }
+        // Referencia a Parameter.Value del grupo "Tipo de Documento" -- requiere que
+        // GET_OwnerByBuilding la traiga en el SELECT (ver
+        // Database/Scripts/2026-09-03_34_ApartmentOwner_IdTypeIdNumber.sql).
+        public int IdTypeIdNumber { get; set; }
     }
 }

@@ -178,9 +178,10 @@ namespace SpiderHood.Data
                     user.PasswordHash!,
                     user.FirstName!,
                     user.LastName!,
-                    user.PhoneNumber!);
+                    user.PhoneNumber!,
+                    user.IsActive);
                 return user;
-            }, "AddInstallmentExoneration", cancellationToken);
+            }, "AddUser", cancellationToken);
         }
 
         public async Task<Models.InstallmentPaid> AddNewRecordAsync(Models.InstallmentPaid paid, CancellationToken cancellationToken = default)

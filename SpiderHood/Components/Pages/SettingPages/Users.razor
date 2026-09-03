@@ -288,10 +288,17 @@ else
     // — no hace falta script SQL nuevo para esta página.
     private bool _canManageUsers;
 
+    // manage_users lo tiene tanto SysAdmin como Administrador -- sin este chequeo
+    // extra, cualquier Administrador veía las cuentas SysAdmin en la lista y podía
+    // asignarle el rol SysAdmin a cualquiera desde el combo "Rol" (escalación de
+    // privilegios). Sólo SysAdmin gestiona SysAdmin.
+    private bool _isSysAdmin;
+
     protected override async Task OnInitializedAsync()
     {
         var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
         _canManageUsers = await PermissionService.HasPermissionAsync(currentUser, "manage_users");
+        _isSysAdmin = currentUser.Role == "SysAdmin";
 
         await CargarUsuarios();
         AplicarFiltros();
@@ -327,6 +334,12 @@ else
                     Estado = (profile?.IsActive ?? true) ? "Activo" : "Inactivo",
                     FechaIngreso = profile?.CreatedAt ?? DateTime.MinValue
                 });
+            }
+
+            if (!_isSysAdmin)
+            {
+                _availableRoles = _availableRoles.Where(r => r.RoleName != "SysAdmin").ToList();
+                rows = rows.Where(r => r.Rol != "SysAdmin").ToList();
             }
 
             usuarios = rows.OrderBy(u => u.Nombre).ToList();

@@ -14,6 +14,7 @@
 @inject IJSRuntime JSRuntime
 @inject Services.AuthService AuthService
 @inject IPermissionService PermissionService
+@inject IInstallmentService InstallmentService
 
 <PageTitle>Unidades Inmobiliarias</PageTitle>
 
@@ -87,11 +88,6 @@
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-3" style="width: 50px;">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" value="" />
-                                </div>
-                            </th>
                             <th class="text-nowrap">
                                 <a href="#" class="text-decoration-none text-dark d-flex align-items-center">
                                     Tipo
@@ -116,15 +112,10 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var unidad in units)
+                        @foreach (var unidad in PagedUnits)
                         {
                             <tr class="border-bottom">
                                 <td class="ps-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" value="" />
-                                    </div>
-                                </td>
-                                <td>
                                     <div class="d-flex align-items-center">
                                         <span class="badge @GetTypeBadgeClass(unidad.TypeUnit) me-2">
                                             @ParameterService.GetChildParameterDescription(4, @unidad.TypeUnit)
@@ -198,9 +189,13 @@
                     </div>
                     <h5 class="text-muted mb-2">No hay unidades registradas</h5>
                     <p class="text-muted mb-3">Comienza agregando tu primera unidad inmobiliaria</p>
-                    <button class="btn btn-primary">
-                        <i class="bi bi-plus-circle me-2"></i>Agregar Primera Unidad
-                    </button>
+                    @if (_canCreateUnit)
+                    {
+                        <button class="btn btn-primary"
+                                @onclick="() => AbrirModal(new Models.RealEstateUnit(), 0, Models.OpenType.Create)">
+                            <i class="bi bi-plus-circle me-2"></i>Agregar Primera Unidad
+                        </button>
+                    }
                 </div>
             }
         </div>
@@ -209,27 +204,34 @@
         <div class="card-footer bg-transparent border-top py-3">
             <div class="d-flex justify-content-between align-items-center">
                 <div class="text-muted">
-                    Mostrando <strong>@units.Count()</strong> de <strong>@totalUnidades</strong> unidades
+                    Mostrando <strong>@PagedUnits.Count()</strong> de <strong>@units.Count</strong> unidades
                 </div>
 
                 <!-- Paginación -->
-                <nav aria-label="Paginación de unidades">
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item disabled">
-                            <a class="page-link" href="#" tabindex="-1">
-                                <i class="bi bi-chevron-left"></i>
-                            </a>
-                        </li>
-                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                        <li class="page-item"><a class="page-link" href="#">2</a></li>
-                        <li class="page-item"><a class="page-link" href="#">3</a></li>
-                        <li class="page-item">
-                            <a class="page-link" href="#">
-                                <i class="bi bi-chevron-right"></i>
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
+                @if (TotalUnitPages > 1)
+                {
+                    <nav aria-label="Paginación de unidades">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(_unitPage == 1 ? "disabled" : "")">
+                                <a class="page-link" style="cursor:pointer" @onclick="() => GoToUnitPage(_unitPage - 1)">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                            @for (int p = 1; p <= TotalUnitPages; p++)
+                            {
+                                var pageNum = p;
+                                <li class="page-item @(pageNum == _unitPage ? "active" : "")">
+                                    <a class="page-link" style="cursor:pointer" @onclick="() => GoToUnitPage(pageNum)">@pageNum</a>
+                                </li>
+                            }
+                            <li class="page-item @(_unitPage == TotalUnitPages ? "disabled" : "")">
+                                <a class="page-link" style="cursor:pointer" @onclick="() => GoToUnitPage(_unitPage + 1)">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                }
             </div>
         </div>
     </div>
@@ -270,7 +272,7 @@
                                 <div class="icon-badge icon-badge-info mx-auto mb-2">
                                     <i class="bi bi-people"></i>
                                 </div>
-                                <div class="stat-value">@units.Select(u => u.Names).Distinct().Count()</div>
+                                <div class="stat-value">@units.Where(u => !string.IsNullOrWhiteSpace(u.Names)).Select(u => u.Names).Distinct().Count()</div>
                                 <div class="stat-label">Propietarios</div>
                             </div>
                         </div>
@@ -374,8 +376,18 @@
 
 @code {
 
-    
-    private int totalUnidades = 9;
+    // Paginación de la grilla de unidades -- todo en memoria, ya que `units` se carga
+    // completo desde BuildingService.GetUnitsByBuildingAsync en InicializarPagina.
+    private const int UnitPageSize = 10;
+    private int _unitPage = 1;
+    private int TotalUnitPages => units.Count == 0 ? 1 : (int)Math.Ceiling(units.Count / (double)UnitPageSize);
+    private IEnumerable<Models.RealEstateUnit> PagedUnits => units.Skip((_unitPage - 1) * UnitPageSize).Take(UnitPageSize);
+
+    private void GoToUnitPage(int page)
+    {
+        if (page < 1 || page > TotalUnitPages) return;
+        _unitPage = page;
+    }
 
     // Métodos para clases CSS
     private string GetTypeBadgeClass(int type)
@@ -425,10 +437,34 @@
         AbrirModal(unidad, unidad.TypeUnit, Models.OpenType.Update);
     }
 
-    private void ViewFinances(Models.RealEstateUnit unidad)
+    private Models.RealEstateUnit? _financesUnit;
+    private List<Models.Installment> _financesDebts = new();
+    private bool _loadingFinances;
+    private Modal modalFinanzas = default!;
+
+    private async Task ViewFinances(Models.RealEstateUnit unidad)
     {
-        // No existe todavía una vista de finanzas por unidad en la app — pendiente de
-        // definir a qué pantalla debería llevar este botón.
+        _financesUnit = unidad;
+        _loadingFinances = true;
+        _financesDebts = new();
+        await modalFinanzas.ShowAsync();
+        StateHasChanged();
+
+        // IdGroupOwner en RealEstateUnit es el mismo grupo que Installment.IdGroupUnit
+        // (el "grupo de unidades bajo un propietario" que genera y paga cuotas) --
+        // distinto nombre, mismo valor, ver Classes/Budget/Installment.cs.
+        var pendientes = await InstallmentService.GetPendingInstallmentsAsync(currentUser.CurrentBuildingId);
+        _financesDebts = pendientes.Where(i => i.IdGroupUnit == unidad.IdGroupOwner && i.Debt > 0)
+            .OrderBy(i => i.DueDate)
+            .ToList();
+
+        _loadingFinances = false;
+        StateHasChanged();
+    }
+
+    private async Task CloseFinanzas()
+    {
+        await modalFinanzas.HideAsync();
     }
 
     private async Task DeleteUnit(Models.RealEstateUnit unidad)
@@ -514,6 +550,49 @@
     </FooterTemplate>
 </Modal>
 
+<!--    MODAL DE FINANZAS -- CUOTAS PENDIENTES DE LA UNIDAD -->
+<Modal @ref="modalFinanzas" Title="@($"Deudas pendientes - {_financesUnit?.UnitNumber}")" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true">
+    <BodyTemplate>
+        @if (_loadingFinances)
+        {
+            <p class="text-muted mb-0">Cargando...</p>
+        }
+        else if (_financesDebts.Count == 0)
+        {
+            <p class="text-muted mb-0">Esta unidad no tiene cuotas pendientes.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Vencimiento</th><th>Concepto</th><th class="text-end">Deuda</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cuota in _financesDebts)
+                        {
+                            <tr>
+                                <td>@cuota.DueDate.ToString("dd/MM/yyyy")</td>
+                                <td>@(string.IsNullOrWhiteSpace(cuota.Concept) ? cuota.Type.ToString() : cuota.Concept)</td>
+                                <td class="text-end">@cuota.Debt.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-bold">
+                            <td colspan="2">Total</td>
+                            <td class="text-end">@_financesDebts.Sum(c => c.Debt).ToString("C")</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </BodyTemplate>
+    <FooterTemplate>
+        <Button Color="ButtonColor.Secondary" @onclick="CloseFinanzas">Cerrar</Button>
+    </FooterTemplate>
+</Modal>
+
 @code {
 
     [Inject]
@@ -580,7 +659,7 @@
         _formCreateUnit = new UnidadModel();
 
         await modalAll.HideAsync();
-        OnInitialized();
+        await InicializarPagina();
         return;
     }
 
@@ -589,7 +668,7 @@
         // Lógica adicional después de cerrar el modal, si es necesario
         await BuildingService.DeleteUnitAsync(_Unit);
         await modal.HideAsync();
-        OnInitialized();
+        await InicializarPagina();
         return;
         //await Task.CompletedTask;
     }
@@ -683,6 +762,7 @@
 
         units = await BuildingService.GetUnitsByBuildingAsync(currentUser.CurrentBuildingId);
         list_units = units.Where(c => c.TypeUnit == 1).ToList();
+        if (_unitPage > TotalUnitPages) _unitPage = 1;
         //_loaded = true;
         StateHasChanged();
     }
@@ -722,7 +802,7 @@
                 throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}");
         }
 
-        OnInitialized();
+        await InicializarPagina();
         return;
 
     }

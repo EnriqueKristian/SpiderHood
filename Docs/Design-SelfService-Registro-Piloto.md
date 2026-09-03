@@ -21,8 +21,13 @@ también lo es -- decisiones + qué se tocó, sin plan por pasos.
    Sin fecha de expiración, sin límite de funciones, sin plan que confirmar
    después -- la cuenta queda como Administrador normal. Si más adelante hace
    falta lógica real de prueba (vencimiento, plan), es un cambio aparte.
-4. **La landing HTML vive fuera de este repo** (la arma el usuario aparte). Acá
-   sólo se construyó la página de destino a la que sus botones apuntan.
+4. **Actualizado**: la landing HTML sí terminó entrando a este repo (decisión
+   posterior, ver "Landing pública en `wwwroot`" más abajo) -- el usuario la
+   diseñó aparte, pero se integró como parte de la misma app/deploy en vez de
+   quedar en un sitio separado.
+5. **Dominio**: `spiderhoodapp.com` (uno solo, servido desde su propia PC vía
+   túnel de Cloudflare) -- landing en la raíz `/`, sistema en `/login`,
+   `/register-admin`, etc., todo bajo el mismo dominio.
 
 ## Qué se implementó
 
@@ -65,6 +70,47 @@ también lo es -- decisiones + qué se tocó, sin plan por pasos.
   aparte). De paso mejora el caso ya existente de una instalación nueva sin
   ningún Building (SysAdmin también cae acá).
 
+## Landing pública en `wwwroot` (decisión posterior a la implementación de arriba)
+
+El usuario diseñó la landing (HTML/CSS estático, sin build step) y decidió que
+entrara al mismo repo/deploy en vez de vivir aparte -- un solo dominio
+(`spiderhoodapp.com`), un solo sitio IIS, sin piezas de infraestructura extra.
+
+- **`SpiderHood/wwwroot/index.html`**: el HTML de la landing, con los links ya
+  apuntando al sistema: nav "Acceso al Sistema" -> `/login`, "Piloto gratuito"
+  (nav, hero, sección software) -> `/register-admin`. El formulario de
+  contacto le sacó la opción "Solo piloto del software" del combo "¿Qué te
+  interesa?" -- ese caso ahora tiene su propio botón directo a
+  `/register-admin` en vez de pasar por un formulario que además nunca tuvo
+  `action`/backend real (sigue sin tenerlo -- las otras 2 opciones del combo,
+  Administración/Paquete completo, quedan como quedaban, fuera de alcance de
+  hoy conectarlas a algo).
+  **Pendiente del lado del usuario**: falta copiar `logo3.png` a
+  `wwwroot/logo3.png` -- el `<img>` del header lo referencia por nombre
+  relativo y hoy no existe ese archivo en el repo.
+- **`SpiderHood/Program.cs`**: el problema real a resolver era que
+  `Home.razor` (`@page "/"`) ya es el Dashboard, y bastantes lugares del app
+  asumen que `/` significa exactamente eso (breadcrumbs "Inicio", botones
+  "Volver al inicio", probablemente el ítem "Dashboard" del menú lateral que
+  sale de `MenuItems` en BD -- no confirmado desde el repo). Mover la ruta de
+  `Home.razor` habría roto todo eso. En cambio se agregó un `app.MapWhen(...)`
+  ANTES de `MapRazorComponents`, que intercepta `/` sólo cuando
+  `ctx.User.Identity?.IsAuthenticated != true` y sirve `wwwroot/index.html`
+  directo (`SendFileAsync`) -- para cualquier request YA autenticado a `/`,
+  el `MapWhen` no matchea y el pipeline sigue de largo hasta el router de
+  Blazor de siempre. Resultado: alguien sin sesión que entra a
+  `spiderhoodapp.com/` ve la landing; alguien logueado que entra a `/` sigue
+  viendo su Dashboard, sin cambios.
+  - Se actualizaron 3 links internos que apuntaban a `/` asumiendo que
+    siempre era el Dashboard (`BuildingSelection.razor` x4,
+    `BankReconciliation.razor` x1) a `/dashboard` explícito -- no era
+    estrictamente necesario dado el chequeo de autenticación de arriba (para
+    un usuario logueado `/` sigue funcionando igual), pero queda más claro y
+    no depende de esa sutileza.
+
+**Sin probar contra el deploy real todavía** -- falta que el usuario copie
+`logo3.png`, recompile, y confirme que `/` sirve la landing sin sesión y el
+Dashboard con sesión.
 ## Bug encontrado al probar (segunda vuelta), ya corregido
 
 `/register-admin` navega directo a `/buildings` después del autologin, así que

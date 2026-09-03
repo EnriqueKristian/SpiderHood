@@ -208,6 +208,23 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+
+// Landing pública (wwwroot/index.html) en "/" -- pero SÓLO para quien no tiene
+// sesión iniciada. Home.razor (@page "/") sigue siendo el Dashboard para
+// cualquier usuario ya autenticado que visite "/" -- varios links internos
+// ("Volver al inicio", breadcrumbs, y posiblemente el ítem "Dashboard" del
+// menú lateral, que viene de MenuItems en BD) asumen exactamente eso, así que
+// tocar la ruta de Home.razor rompía más de lo que arreglaba. Este branch va
+// ANTES de MapRazorComponents a propósito: si matchea, corta ahí: nunca llega
+// al router de Blazor.
+app.MapWhen(
+    ctx => ctx.Request.Path == "/" && ctx.User.Identity?.IsAuthenticated != true,
+    branch => branch.Run(async ctx =>
+    {
+        ctx.Response.ContentType = "text/html";
+        await ctx.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath, "index.html"));
+    }));
+
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

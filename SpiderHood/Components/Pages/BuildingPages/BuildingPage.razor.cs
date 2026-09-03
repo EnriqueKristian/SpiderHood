@@ -167,6 +167,26 @@ namespace SpiderHood.Components.Pages.BuildingPages
         {
             if (!_canEditBuilding) return;
             _editingBuilding = building.Clone();
+
+            // Edificios creados antes del fix del <select> "Tipo" (ver commit del bug de
+            // Type) quedaron con Type=0, que no matchea ningún Parameter.Value real (1/2/3
+            // -- Familiar/Comercial/Mixto). Sin esto, el <select> del modal no encuentra
+            // ninguna <option> que coincida con 0 y el navegador termina mostrando la
+            // PRIMERA opción igual (aunque el valor subyacente siga en 0) -- si el usuario
+            // no toca el combo porque ya "se ve bien", Guardar nunca dispara el onchange y
+            // vuelve a persistir el mismo 0 de siempre. Normalizamos acá al primer valor
+            // real para que lo que se ve y lo que se va a guardar sean lo mismo desde que
+            // se abre el modal.
+            var tiposValidos = ParameterService.ListParameters.Where(p => p.IdParent == 34).Select(p => p.Value).ToHashSet();
+            if (!tiposValidos.Contains(_editingBuilding.Type))
+            {
+                _editingBuilding.Type = ParameterService.ListParameters
+                    .Where(p => p.IdParent == 34)
+                    .OrderBy(p => p.Value)
+                    .Select(p => p.Value)
+                    .FirstOrDefault();
+            }
+
             _isEditingBuilding = true;
             await _buildingModal.ShowAsync();
         }

@@ -17,7 +17,7 @@ main {
     background-color: var(--sh-surface-muted);
     border-bottom: 1px solid var(--sh-border-strong);
     justify-content: flex-end;
-    height: 3.5rem;
+    min-height: 3.5rem;
     display: flex;
     align-items: center;
 }

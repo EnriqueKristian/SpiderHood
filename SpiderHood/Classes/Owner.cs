@@ -35,6 +35,10 @@ namespace SpiderHood.Models
         public decimal AreaTotal { get; set; }
         public Guid IdOwner { get; set; }
         public int TypeOwner { get; set; }
+        // GroupUnit.GroupNumber (int) -- GroupUnit no tiene columna de nombre, sólo
+        // este número (ver Database/Scripts/2026-09-03_37_*). Se muestra como
+        // "Departamento {N}" en la grilla de /Owners.
+        public int GroupNumber { get; set; }
 
         [Required(ErrorMessage = "El Nombre es obligatorio")]
         public string Names { get; set; } = null!;

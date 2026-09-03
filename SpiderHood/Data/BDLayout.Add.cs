@@ -290,7 +290,8 @@ namespace SpiderHood.Data
                     ownerunit.IdOwner!,
                     ownerunit.GroupName!,
                     ownerunit.AreaTotal!,
-                    ownerunit.TypeOwner!);
+                    ownerunit.TypeOwner!,
+                    ownerunit.GroupNumber);
                 return ownerunit;
             }, "AddOwnerUnit", cancellationToken);
         }

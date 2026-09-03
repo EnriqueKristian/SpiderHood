@@ -1139,6 +1139,7 @@
             _GroupUnit.IdGroupOwner = Guid.NewGuid();
             _GroupUnit.IdOwner = _cUnit.IdOwner;
             _GroupUnit.GroupName = "DPTO " + _cUnit.UnitNumber.ToString();
+            _GroupUnit.GroupNumber = _cUnit.Number;
             _GroupUnit.TypeOwner =1;            //Titular
             _GroupUnit.AreaTotal = _cUnit.Area;
             

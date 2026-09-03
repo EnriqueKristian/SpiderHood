@@ -7,7 +7,12 @@
     padding: 0.5rem 1rem;
     background-color: var(--sh-surface-muted);
     border-bottom: 1px solid var(--sh-border-strong);
-    height: 3.5rem;
+    /* min-height, no height: en mobile (media query más abajo) esto pasa a
+       flex-direction:column -- breadcrumb+título arriba, selector de edificio+cuenta
+       abajo -- y necesita más alto que 3.5rem. Con height fijo, ese contenido no
+       cabía y se salía del contenedor, superponiéndose con el header sticky de
+       arriba y con el contenido de la página de abajo. */
+    min-height: 3.5rem;
 }
 
 /* Left Section */

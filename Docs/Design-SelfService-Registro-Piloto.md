@@ -88,4 +88,29 @@ cosmético.
 - **Nombre exacto de la ruta** `/register-admin`: elegido por default, sin
   confirmar con el usuario -- es donde tiene que apuntar el botón "Piloto"/"Acceso
   al Sistema" de la landing.
-- **Sin probar contra la BD real todavía.**
+
+## Bug preexistente encontrado al probar, ya corregido
+
+Primera prueba end-to-end real de `/register-admin`: la cuenta se creaba pero el
+autologin (y después el login manual) fallaba -- `IsActive` quedaba en `0` en BD
+pese a que `RegisterNewAdministratorAsync` arma el `UserModel` con
+`IsActive = true`. Causa: `INS_User` (confirmado con su `CREATE PROCEDURE` real)
+nunca tomaba `@IsActive` como parámetro -- lo insertaba **hardcodeado en 0**.
+`AddNewRecordAsync(UserModel)` en `BDLayout.Add.cs` tampoco lo mandaba (sólo
+IdUser/Email/PasswordHash/FirstName/LastName/PhoneNumber). No es un bug de
+Paso 5 -- es preexistente y afecta a **cualquier** alta de usuario desde la app
+(`RegisterSelfServiceAsync`, y un admin dando de alta a alguien desde
+Configuración > Usuarios); recién se detectó ahora porque es la primera vez en
+la sesión que se probó un alta + login inmediato de punta a punta.
+
+Corregido en `Database/Scripts/2026-09-02_31_Fix_INS_User_IsActive.sql`
+(`@IsActive BIT = 1` nuevo, default activo) y `BDLayout.Add.cs` (manda
+`user.IsActive` como 7mo parámetro). De paso se corrigió el nombre de operación
+copiado y pegado (`"AddInstallmentExoneration"` -> `"AddUser"`) que quedaba en
+el mismo método, usado sólo para el mensaje de error si la operación falla.
+
+**Diagnóstico confirmado por el usuario** (`sp_helptext INS_User` real pegado,
+cuenta de prueba activada a mano mientras tanto con
+`UPDATE Users SET IsActive = 1` para poder seguir probando). **La corrección
+en sí (script `_31` + `BDLayout.Add.cs`) todavía no se corrió/probó contra la
+BD real.**

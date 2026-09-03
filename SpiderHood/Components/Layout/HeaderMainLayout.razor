@@ -122,7 +122,6 @@
 
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" href="/Profile"><i class="bi bi-person me-2"></i>Mi Perfil</a></li>
-                <li><a class="dropdown-item" href="/Settings"><i class="bi bi-gear me-2"></i>Configuración</a></li>
                 <li><a class="dropdown-item" href="/Security"><i class="bi bi-shield me-2"></i>Seguridad</a></li>
                 @if (_currentUser?.IsViewingAs == true || _currentUser?.Roles.Contains("SysAdmin") == true)
                 {
@@ -383,11 +382,16 @@
         // /select-building. Antes esta llamada estaba comentada, por eso elegir
         // cualquier opción no tenía ningún efecto. AuthService.SetCurrentBuilding
         // actualiza CurrentBuildingId y Role en la sesión y notifica el cambio
-        // (LeftMenu y este mismo header ya escuchan ese evento); el refresh de página
-        // asegura que el contenido de la página actual (presupuestos, unidades, etc.,
-        // que no escuchan el evento) también recargue con el edificio/rol nuevo.
+        // (LeftMenu y este mismo header ya escuchan ese evento); el resto de la
+        // página actual (presupuestos, unidades, etc.) no escucha ese evento, solo
+        // carga sus datos una vez en OnInitializedAsync -- así que hace falta un
+        // recargue real. NavigationManager.Refresh() (sin forceLoad) no alcanza acá:
+        // en un circuito InteractiveServer ya conectado no fuerza un nuevo request al
+        // servidor, así que los componentes de la página no vuelven a inicializar y
+        // se quedaban mostrando los datos del edificio anterior hasta navegar a otro
+        // lado y volver. forceLoad:true fuerza una recarga real de la página.
         await AuthService.SetCurrentBuilding(building.Building.IdBuilding, building.Role);
-        NavigationManager.Refresh();
+        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
     }
 
     private async Task SalirDeVerComo()

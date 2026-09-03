@@ -65,6 +65,30 @@ también lo es -- decisiones + qué se tocó, sin plan por pasos.
   aparte). De paso mejora el caso ya existente de una instalación nueva sin
   ningún Building (SysAdmin también cae acá).
 
+## Bug encontrado al probar (segunda vuelta), ya corregido
+
+`/register-admin` navega directo a `/buildings` después del autologin, así que
+en ESE camino puntual el modal de "Nuevo Edificio" se abre solo, como se
+diseñó. Pero si el mismo usuario (recién registrado, sin ningún edificio
+todavía) se desloguea y vuelve a entrar por `/login` (camino normal), termina
+en `Home.razor.cs` con `CurrentBuildingId == Guid.Empty` -- que redirige a
+`/select-building`, no a `/buildings`. `SelectBuilding.razor` sólo conocía un
+estado para "cero edificios": ofrecer **"Solicitar acceso"** (`/building-request`,
+pensado para un Residente uniéndose a un edificio ajeno) -- sin distinguir a un
+Administrador que en realidad tiene que CREAR el suyo. Confirmado en vivo por
+el usuario: llegó a "Solicitar Acceso a Edificio" y vio "Ya tenés una solicitud
+o membresía como Residente en todos los edificios disponibles" (mensaje además
+engañoso en este caso puntual -- la causa real era que la BD de prueba no tenía
+ningún edificio real todavía, sólo el Template).
+
+Corregido en `SelectBuilding.razor`: en el estado "cero edificios", si el
+usuario tiene el permiso `create_building` (chequeado igual que en
+`BuildingPage.razor.cs`), ofrece **"Crear mi primer edificio"** -> `/buildings`
+(que abre el modal solo) en vez de "Solicitar acceso" -- unirse a un edificio
+ajeno no es un camino válido para este tipo de usuario, según la decisión de
+alcance de más arriba. Quien NO tiene ese permiso (un Residente típico) sigue
+viendo el flujo de siempre, sin cambios.
+
 ## Cabo suelto conocido, no bloqueante
 
 Después de crear su primer edificio, la fila global en `UserRole`

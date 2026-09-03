@@ -155,7 +155,14 @@
                                         <option value="">-- Seleccionar Grupo --</option>
                                         @foreach (var row in GetAvailableGroups())
                                         {
-                                            <option value="@row.IdGroupOwner">@row.GroupName</option>
+                                            @if (row.IdGroupOwner == Guid.Empty)
+                                            {
+                                                <option value="@row.IdUnit">@row.UnitNumber (unidad libre -- crea grupo nuevo)</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@row.IdGroupOwner">@row.GroupName (agregar como copropietario)</option>
+                                            }
                                         }
                                     </InputSelect>
                                     @if (string.IsNullOrEmpty(SelectedUnitId))
@@ -274,10 +281,12 @@
         if (FreeUnits == null)
             return Enumerable.Empty<Models.RealEstateUnit>();
 
-        return FreeUnits.Where(c =>
-            c.IdGroupOwner != Guid.Empty &&
-            c.TypeUnit == 1
-        ).ToList();
+        // Antes sólo ofrecía grupos ya con propietario (c.IdGroupOwner != Guid.Empty)
+        // -- no había ninguna forma de elegir una unidad libre para armarle su
+        // primer grupo a un propietario recién creado. Se incluyen ambos; el
+        // dropdown distingue "unidad libre" de "grupo existente" en el label de
+        // cada <option> (ver el .razor).
+        return FreeUnits.Where(c => c.TypeUnit == 1).ToList();
     }
 
     private void ToggleParking(Models.RealEstateUnit unit, bool isChecked)
@@ -350,8 +359,16 @@
             }
             else
             {
-                // Modo Create: Grupo completo
-                var groupUnit = FreeUnits?.FirstOrDefault(c => c.IdGroupOwner == new Guid(SelectedUnitId));
+                // Modo Create: puede ser un grupo ya existente (value = IdGroupOwner,
+                // se agrega como copropietario) o una unidad libre sin grupo (value =
+                // IdUnit, porque todas las libres comparten IdGroupOwner == Guid.Empty
+                // y ese valor solo no alcanzaría para distinguir cuál se eligió).
+                // SaveGroupUnit (Owners.razor) ya sabe crear un grupo nuevo cuando
+                // IdGroupOwner viene vacío, así que no hace falta tocar nada más --
+                // sólo había que poder elegir la unidad libre acá.
+                var selectedGuid = new Guid(SelectedUnitId);
+                var groupUnit = FreeUnits?.FirstOrDefault(c =>
+                    c.TypeUnit == 1 && (c.IdGroupOwner == selectedGuid || c.IdUnit == selectedGuid));
                 if (groupUnit != null)
                 {
                     groupUnit.IdOwner = ViewOwner?.IdOwner ?? Guid.Empty;

@@ -1020,21 +1020,32 @@
         if (OpenMode == Models.OpenType.Create && !_canCreateOwner) return;
         if (OpenMode == Models.OpenType.Update && !_canEditOwner) return;
 
-        await (OpenMode switch
-        {
-            Models.OpenType.Update => UpdateItem(_item),
-            Models.OpenType.Create => AddItem(_item),
-            _ => throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}")
-        });
+        SpiderHood.Models.Owner? nuevoSinUnidad = null;
 
+        if (OpenMode == Models.OpenType.Update)
+            await UpdateItem(_item);
+        else if (OpenMode == Models.OpenType.Create)
+            nuevoSinUnidad = await AddItem(_item);
+        else
+            throw new ArgumentOutOfRangeException(nameof(OpenMode), $"Valor inesperado: {OpenMode}");
 
         _OwnerUnit = new OwnerUnit();
         await LoadDataAsync();
-        return;
 
+        // Un propietario dado de alta como titular independiente (no como "Agregar
+        // residente" de un grupo ya existente) todavía no tiene ninguna unidad --
+        // VW_OwnerUnit exige un vínculo en OwnerGroupRole para que aparezca en esta
+        // misma grilla, y antes de esto no había ningún camino en la UI para
+        // asignarle su primera unidad (encontrado probando en vivo: se creaba el
+        // Owner en ApartmentOwner pero nunca aparecía en /Owners). Se encadena
+        // directo al modal de asignación en vez de dejarlo huérfano.
+        if (nuevoSinUnidad != null && nuevoSinUnidad.IdOwner != Guid.Empty && _canAssignUnits)
+        {
+            await AbrirModalUnidadesParaNuevoPropietario(nuevoSinUnidad);
+        }
     }
 
-    private async Task AddItem(SpiderHood.Models.Owner item)
+    private async Task<SpiderHood.Models.Owner?> AddItem(SpiderHood.Models.Owner item)
     {
         item.IdBuilding = currentUser?.CurrentBuildingId ?? ParameterService.CurrentBuilding.IdBuilding;
         var created = await OwnerService.AddOwnerAsync(item);
@@ -1042,7 +1053,8 @@
         if (_residentGroupId is Guid groupId)
         {
             // Se está agregando un residente adicional a un grupo ya existente,
-            // en vez de crear un propietario/titular independiente.
+            // en vez de crear un propietario/titular independiente -- ya queda
+            // vinculado, no hace falta asignarle unidad.
             await BuildingService.AddOwnerGroupOwnerAsync(new Models.OwnerGroupOwner
             {
                 IdGroupOwner = groupId,
@@ -1050,7 +1062,21 @@
                 TypeOwner = 2 // Adicional / Residente
             });
             _residentGroupId = null;
+            return null;
         }
+
+        return created;
+    }
+
+    private async Task AbrirModalUnidadesParaNuevoPropietario(SpiderHood.Models.Owner owner)
+    {
+        MostrarModalUnit = true;
+        OpenMode = Models.OpenType.Create;
+        FreeUnits = await BuildingService.GetUnitsByBuildingAsync(currentUser!.CurrentBuildingId);
+
+        _OwnerUnit.IdOwner = owner.IdOwner;
+        _OwnerUnit.Names = owner.Names;
+        _OwnerUnit.Surname = owner.Surname ?? string.Empty;
     }
 
     private async Task UpdateItem(SpiderHood.Models.Owner item)

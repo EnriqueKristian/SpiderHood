@@ -45,15 +45,15 @@
     </div>
 
     <!-- Resumen rápido -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card summary-card bg-primary text-white">
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-5 g-3 mb-4">
+        <div class="col">
+            <div class="card summary-card bg-primary text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="card-subtitle mb-2">Ingresos Mensuales</h6>
-                            <h3 class="card-title mb-0">S/. 45,280</h3>
-                            <span class="small"><i class="bi bi-arrow-up me-1"></i>12% vs mes anterior</span>
+                            <h6 class="card-subtitle mb-2">Ingresos del Mes</h6>
+                            <h3 class="card-title mb-0">@_ingresosMes.ToString("C")</h3>
+                            <span class="small">cobrado en @DateTime.Now.ToString("MMMM", EsPe)</span>
                         </div>
                         <div class="summary-icon">
                             <i class="bi bi-cash-stack"></i>
@@ -63,14 +63,14 @@
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card summary-card bg-success text-white">
+        <div class="col">
+            <div class="card summary-card bg-success text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="card-subtitle mb-2">Unidades Ocupadas</h6>
-                            <h3 class="card-title mb-0">42/50</h3>
-                            <span class="small">84% de ocupación</span>
+                            <h6 class="card-subtitle mb-2">Unidades</h6>
+                            <h3 class="card-title mb-0">@_unidadesAsignadas/@_totalUnidades</h3>
+                            <span class="small">con propietario asignado</span>
                         </div>
                         <div class="summary-icon">
                             <i class="bi bi-house-door"></i>
@@ -80,31 +80,48 @@
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card summary-card bg-warning text-white">
+        <div class="col">
+            <div class="card summary-card bg-warning text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="card-subtitle mb-2">Pendientes</h6>
-                            <h3 class="card-title mb-0">18</h3>
-                            <span class="small">5 urgentes</span>
+                            <h6 class="card-subtitle mb-2">Incidencias Pendientes</h6>
+                            <h3 class="card-title mb-0">@_incidenciasPendientes</h3>
+                            <span class="small">sin cerrar</span>
                         </div>
                         <div class="summary-icon">
-                            <i class="bi bi-exclamation-triangle"></i>
+                            <i class="bi bi-tools"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="card summary-card bg-info text-white">
+        <div class="col">
+            <div class="card summary-card bg-danger text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Pendiente de Pago</h6>
+                            <h3 class="card-title mb-0">@_cuotasPendientesMonto.ToString("C")</h3>
+                            <span class="small">@_cuotasPendientesCount cuota(s) - Ordinarias, Extraordinarias, etc.</span>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="bi bi-receipt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="card summary-card bg-info text-white h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="card-subtitle mb-2">Morosidad</h6>
-                            <h3 class="card-title mb-0">4.2%</h3>
-                            <span class="small"><i class="bi bi-arrow-down me-1"></i>2% vs mes anterior</span>
+                            <h3 class="card-title mb-0">@_morosidadPct.ToString("0.0")%</h3>
+                            <span class="small">@_unidadesMorosas de @_totalUnidades unidades</span>
                         </div>
                         <div class="summary-icon">
                             <i class="bi bi-graph-down"></i>
@@ -158,29 +175,36 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="activity-timeline">
-                        @foreach (var activity in recentActivities)
-                        {
-                            <div class="activity-item @(activity.IsImportant ? "important" : "")">
-                                <div class="activity-icon @activity.IconColor">
-                                    <i class="bi @activity.Icon"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <div class="d-flex justify-content-between">
-                                        <h6 class="mb-1">@activity.Title</h6>
-                                        <small class="text-muted">@activity.Time</small>
+                    @if (recentActivities.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Todavía no hay actividad registrada en este edificio.</p>
+                    }
+                    else
+                    {
+                        <div class="activity-timeline">
+                            @foreach (var activity in recentActivities)
+                            {
+                                <div class="activity-item @(activity.IsImportant ? "important" : "")">
+                                    <div class="activity-icon @activity.IconColor">
+                                        <i class="bi @activity.Icon"></i>
                                     </div>
-                                    <p class="mb-0 text-muted">@activity.Description</p>
-                                    @if (!string.IsNullOrEmpty(activity.User))
-                                    {
-                                        <small class="text-muted">
-                                            <i class="bi bi-person me-1"></i>@activity.User
-                                        </small>
-                                    }
+                                    <div class="activity-content">
+                                        <div class="d-flex justify-content-between">
+                                            <h6 class="mb-1">@activity.Title</h6>
+                                            <small class="text-muted">@activity.Time</small>
+                                        </div>
+                                        <p class="mb-0 text-muted">@activity.Description</p>
+                                        @if (!string.IsNullOrEmpty(activity.User))
+                                        {
+                                            <small class="text-muted">
+                                                <i class="bi bi-person me-1"></i>@activity.User
+                                            </small>
+                                        }
+                                    </div>
                                 </div>
-                            </div>
-                        }
-                    </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -211,47 +235,6 @@
                 </div>
             </div>
 
-            <!-- Estado del edificio -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="bi bi-building me-2"></i>Estado del Edificio
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="building-status">
-                        <div class="status-item">
-                            <div class="status-indicator bg-success"></div>
-                            <div class="status-content">
-                                <span>Electricidad</span>
-                                <small class="text-muted">Normal</small>
-                            </div>
-                        </div>
-                        <div class="status-item">
-                            <div class="status-indicator bg-success"></div>
-                            <div class="status-content">
-                                <span>Agua</span>
-                                <small class="text-muted">Normal</small>
-                            </div>
-                        </div>
-                        <div class="status-item">
-                            <div class="status-indicator bg-warning"></div>
-                            <div class="status-content">
-                                <span>Ascensores</span>
-                                <small class="text-muted">1 en mantenimiento</small>
-                            </div>
-                        </div>
-                        <div class="status-item">
-                            <div class="status-indicator bg-danger"></div>
-                            <div class="status-content">
-                                <span>Seguridad</span>
-                                <small class="text-muted">Cámara 3 offline</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Próximos vencimientos -->
             <div class="card">
                 <div class="card-header">
@@ -260,27 +243,34 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="upcoming-due-list">
-                        @foreach (var due in upcomingDues)
-                        {
-                            <div class="due-item @(due.IsUrgent ? "urgent" : "")">
-                                <div class="due-date @due.DateColor">
-                                    <span class="day">@due.Day</span>
-                                    <span class="month">@due.Month</span>
+                    @if (upcomingDues.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No hay cuotas pendientes por vencer.</p>
+                    }
+                    else
+                    {
+                        <div class="upcoming-due-list">
+                            @foreach (var due in upcomingDues)
+                            {
+                                <div class="due-item @(due.IsUrgent ? "urgent" : "")">
+                                    <div class="due-date @due.DateColor">
+                                        <span class="day">@due.Day</span>
+                                        <span class="month">@due.Month</span>
+                                    </div>
+                                    <div class="due-content">
+                                        <h6 class="mb-1">@due.Title</h6>
+                                        <p class="mb-0 text-muted">@due.Description</p>
+                                        <small class="text-muted">
+                                            <i class="bi bi-building me-1"></i>@due.Unit
+                                        </small>
+                                    </div>
+                                    <div class="due-amount">
+                                        <span class="badge bg-light text-dark">@due.Amount</span>
+                                    </div>
                                 </div>
-                                <div class="due-content">
-                                    <h6 class="mb-1">@due.Title</h6>
-                                    <p class="mb-0 text-muted">@due.Description</p>
-                                    <small class="text-muted">
-                                        <i class="bi bi-building me-1"></i>@due.Unit
-                                    </small>
-                                </div>
-                                <div class="due-amount">
-                                    <span class="badge bg-light text-dark">@due.Amount</span>
-                                </div>
-                            </div>
-                        }
-                    </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -294,50 +284,43 @@
                     <h5 class="card-title mb-0">
                         <i class="bi bi-cash-coin me-2"></i>Últimos Pagos Registrados
                     </h5>
-                    <a href="/pagos" class="btn btn-sm btn-outline-primary">Ver todos</a>
+                    <a href="/budgetlist" class="btn btn-sm btn-outline-primary">Ver todos</a>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Unidad</th>
-                                    <th>Propietario</th>
-                                    <th>Concepto</th>
-                                    <th>Monto</th>
-                                    <th>Estado</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var payment in recentPayments)
-                                {
+                    @if (recentPayments.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Todavía no se registraron pagos en este edificio.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
                                     <tr>
-                                        <td>@payment.Date.ToString("dd/MM/yyyy")</td>
-                                        <td>
-                                            <span class="badge bg-primary">@payment.Unit</span>
-                                        </td>
-                                        <td>@payment.Owner</td>
-                                        <td>@payment.Concept</td>
-                                        <td class="fw-bold @(payment.Amount >= 0 ? "text-success" : "text-danger")">
-                                            @payment.Amount.ToString("C")
-                                        </td>
-                                        <td>
-                                            <span class="badge @payment.StatusClass">
-                                                @payment.Status
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-primary" title="Ver recibo">
-                                                <i class="bi bi-receipt"></i>
-                                            </button>
-                                        </td>
+                                        <th>Fecha</th>
+                                        <th>Monto</th>
+                                        <th>Tipo</th>
+                                        <th>Estado</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var payment in recentPayments)
+                                    {
+                                        <tr>
+                                            <td>@payment.PaymentDate.ToString("dd/MM/yyyy")</td>
+                                            <td class="fw-bold text-success">@payment.Amount.ToString("C")</td>
+                                            <td>@(payment.IsPartialPayment ? "Pago parcial" : "Pago completo")</td>
+                                            <td>
+                                                <span class="badge @(payment.Status == ConcilationType.Parcial ? "bg-warning" : "bg-success")">
+                                                    @(payment.Status == ConcilationType.Parcial ? "Parcial" : "Conciliado")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 </div>
             </div>
         </div>

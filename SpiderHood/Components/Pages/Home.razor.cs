@@ -2,12 +2,12 @@
 using Microsoft.AspNetCore.Components;
 using SpiderHood.Models;
 using SpiderHood.Services;
+using System.Globalization;
 
 namespace SpiderHood.Components.Pages
 {
     public partial class Home
     {
-        /* Variables existentes... */
         private Guid IdBuilding = Guid.Empty;
 
         [Inject]
@@ -16,20 +16,27 @@ namespace SpiderHood.Components.Pages
         [Inject]
         private CustomAuthenticationStateProvider AuthStateProvider { get; set; } = default!;
 
+        [Inject]
+        private IIncidentService IncidentService { get; set; } = default!;
+
+        [Inject]
+        private IInstallmentService InstallmentService { get; set; } = default!;
+
+        [Inject]
+        private IBuildingService BuildingService { get; set; } = default!;
+
         // Flag para controlar si ya se cargaron los datos
         private bool _isDataLoaded = false;
 
         // Flag para evitar múltiples llamadas simultáneas
         private bool _isLoading = false;
 
-        // Datos cacheados para evitar recargas
-        private Dictionary<string, object> _cachedData = new();
-
         // Modelos de datos
         public class ActivityItem
         {
             public string Title { get; set; } = string.Empty;
             public string Description { get; set; } = string.Empty;
+            public DateTime When { get; set; }
             public string Time { get; set; } = string.Empty;
             public string User { get; set; } = string.Empty;
             public string Icon { get; set; } = string.Empty;
@@ -57,88 +64,32 @@ namespace SpiderHood.Components.Pages
             public bool IsUrgent { get; set; }
         }
 
-        public class Payment
-        {
-            public DateTime Date { get; set; }
-            public string Unit { get; set; } = string.Empty;
-            public string Owner { get; set; } = string.Empty;
-            public string Concept { get; set; } = string.Empty;
-            public decimal Amount { get; set; }
-            public string Status { get; set; } = string.Empty;
-            public string StatusClass { get; set; } = string.Empty;
-        }
+        private List<ActivityItem> recentActivities = [];
+        private List<DueItem> upcomingDues = [];
+        private List<Models.InstallmentPaid> recentPayments = [];
 
-        // Datos de ejemplo
-        private List<ActivityItem> recentActivities = new()
-    {
-        new ActivityItem
-        {
-            Title = "Pago registrado",
-            Description = "Mantenimiento mensual DEP-301",
-            Time = "Hace 15 min",
-            User = "Carlos Ruiz",
-            Icon = "bi-cash-coin",
-            IconColor = "bg-success",
-            IsImportant = false
-        },
-        new ActivityItem
-        {
-            Title = "Nueva solicitud",
-            Description = "Reparación de fuga de agua",
-            Time = "Hace 1 hora",
-            User = "Ana Martínez",
-            Icon = "bi-tools",
-            IconColor = "bg-warning",
-            IsImportant = true
-        },
-        new ActivityItem
-        {
-            Title = "Alerta de morosidad",
-            Description = "3 unidades con pago pendiente",
-            Time = "Hace 2 horas",
-            User = "Sistema",
-            Icon = "bi-exclamation-triangle",
-            IconColor = "bg-danger",
-            IsImportant = true
-        },
-        new ActivityItem
-        {
-            Title = "Reporte generado",
-            Description = "Estado de cuentas mensual",
-            Time = "Hace 4 horas",
-            User = "Administración",
-            Icon = "bi-file-earmark-text",
-            IconColor = "bg-info",
-            IsImportant = false
-        }
-    };
+        // Accesos rápidos: sólo rutas reales de la app (las de la maqueta original --
+        // /pagos/nuevo, /unidades, /reportes, /mantenimiento, /comunicados,
+        // /configuracion -- no existen).
+        private List<QuickAction> quickActions =
+        [
+            new QuickAction { Title = "Presupuestos", Icon = "bi-file-earmark-spreadsheet", Url = "/budgetlist", Color = "bg-primary text-white" },
+            new QuickAction { Title = "Incidencias", Icon = "bi-exclamation-triangle", Url = "/incidents", Color = "bg-warning text-white" },
+            new QuickAction { Title = "Edificios", Icon = "bi-building", Url = "/buildings", Color = "bg-success text-white" },
+            new QuickAction { Title = "Movimientos", Icon = "bi-bank", Url = "/movement", Color = "bg-info text-white" },
+            new QuickAction { Title = "Lecturas de Agua", Icon = "bi-droplet", Url = "/waterreadings", Color = "bg-teal text-white" },
+            new QuickAction { Title = "Mi Perfil", Icon = "bi-person-circle", Url = "/Profile", Color = "bg-secondary text-white" }
+        ];
 
-        private List<QuickAction> quickActions = new()
-    {
-        new QuickAction { Title = "Nuevo Pago", Icon = "bi-cash", Url = "/pagos/nuevo", Color = "bg-success text-white" },
-        new QuickAction { Title = "Unidades", Icon = "bi-building", Url = "/unidades", Color = "bg-primary text-white" },
-        new QuickAction { Title = "Reportes", Icon = "bi-graph-up", Url = "/reportes", Color = "bg-info text-white" },
-        new QuickAction { Title = "Mantenimiento", Icon = "bi-tools", Url = "/mantenimiento", Color = "bg-warning text-white" },
-        new QuickAction { Title = "Comunicados", Icon = "bi-megaphone", Url = "/comunicados", Color = "bg-purple text-white" },
-        new QuickAction { Title = "Configuración", Icon = "bi-gear", Url = "/configuracion", Color = "bg-secondary text-white" }
-    };
-
-        private List<DueItem> upcomingDues = new()
-    {
-        new DueItem { Day = "15", Month = "ENE", Title = "Mantenimiento", Description = "Pago mensual", Unit = "DEP-201", Amount = "S/. 250", DateColor = "bg-primary", IsUrgent = true },
-        new DueItem { Day = "18", Month = "ENE", Title = "Agua", Description = "Factura mensual", Unit = "Todo el edificio", Amount = "S/. 1,850", DateColor = "bg-info", IsUrgent = false },
-        new DueItem { Day = "20", Month = "ENE", Title = "Luz común", Description = "Factura eléctrica", Unit = "Áreas comunes", Amount = "S/. 2,300", DateColor = "bg-warning", IsUrgent = false },
-        new DueItem { Day = "25", Month = "ENE", Title = "Seguridad", Description = "Servicio mensual", Unit = "Vigilancia", Amount = "S/. 3,500", DateColor = "bg-secondary", IsUrgent = false }
-    };
-
-        private List<Payment> recentPayments = new()
-    {
-        new Payment { Date = DateTime.Now.AddDays(-1), Unit = "DEP-101", Owner = "María González", Concept = "Mantenimiento", Amount = 250, Status = "Completado", StatusClass = "bg-success" },
-        new Payment { Date = DateTime.Now.AddDays(-2), Unit = "DEP-205", Owner = "Juan Pérez", Concept = "Agua", Amount = 85, Status = "Completado", StatusClass = "bg-success" },
-        new Payment { Date = DateTime.Now.AddDays(-3), Unit = "DEP-308", Owner = "Laura Silva", Concept = "Mantenimiento", Amount = 250, Status = "Pendiente", StatusClass = "bg-warning" },
-        new Payment { Date = DateTime.Now.AddDays(-4), Unit = "LOC-01", Owner = "TechStore SAC", Concept = "Alquiler", Amount = 1500, Status = "Completado", StatusClass = "bg-success" },
-        new Payment { Date = DateTime.Now.AddDays(-5), Unit = "DEP-412", Owner = "Roberto Díaz", Concept = "Multa", Amount = 100, Status = "Rechazado", StatusClass = "bg-danger" }
-    };
+        // KPIs del resumen rápido -- ver LoadDashboardStatsAsync para cómo se calculan.
+        private decimal _ingresosMes;
+        private int _totalUnidades;
+        private int _unidadesAsignadas;
+        private int _incidenciasPendientes;
+        private int _cuotasPendientesCount;
+        private decimal _cuotasPendientesMonto;
+        private int _unidadesMorosas;
+        private double _morosidadPct;
 
         private string _userName = "";
 
@@ -294,15 +245,148 @@ namespace SpiderHood.Components.Pages
             }
         }
 
+        private static readonly CultureInfo EsPe = new("es-PE");
+
         private async Task LoadDashboardStatsAsync()
         {
-            // Simular carga de estadísticas
-            //await Task.Delay(100); // Quitar en producción
+            if (IdBuilding == Guid.Empty) return;
 
-            // Aquí irían las llamadas reales a tus servicios
-            // Ejemplo:
-            // recentActivities = await _activityService.GetRecentActivitiesAsync(IdBuilding);
-            // recentPayments = await _paymentService.GetRecentPaymentsAsync(IdBuilding);
+            // Las 4 fuentes son independientes entre sí -- se piden en paralelo en vez
+            // de una tras otra para no sumar sus latencias.
+            var incidentsTask = IncidentService.GetIncidentsByBuildingAsync(IdBuilding);
+            var pendingTask = InstallmentService.GetPendingInstallmentsAsync(IdBuilding);
+            var paidTask = InstallmentService.GetInstallmentsPaidAsync(IdBuilding);
+            var unitsTask = BuildingService.GetUnitsByBuildingAsync(IdBuilding);
+            var ownersTask = BuildingService.GetOwnersByBuildingAsync(IdBuilding);
+
+            await Task.WhenAll(incidentsTask, pendingTask, paidTask, unitsTask, ownersTask);
+
+            var incidents = incidentsTask.Result;
+            var pending = pendingTask.Result.Where(i => i.Debt > 0).ToList();
+            var paid = paidTask.Result;
+            var units = unitsTask.Result;
+            var owners = ownersTask.Result;
+
+            var now = DateTime.Now;
+
+            // KPI: ingresos del mes -- suma de lo efectivamente cobrado (InstallmentPaid),
+            // no lo facturado, así que refleja caja real, no proyección.
+            _ingresosMes = paid
+                .Where(p => p.PaymentDate.Year == now.Year && p.PaymentDate.Month == now.Month)
+                .Sum(p => p.Amount);
+
+            // KPI: unidades -- "ocupada" se aproxima como "tiene al menos un
+            // propietario/grupo asignado" (GetOwnersByBuildingAsync), ya que RealEstateUnit
+            // no tiene un flag de ocupación propio.
+            _totalUnidades = units.Count;
+            _unidadesAsignadas = owners.Select(o => o.IdUnit).Distinct().Count();
+
+            // KPI: incidencias pendientes -- todo lo que no llegó a un estado terminal.
+            _incidenciasPendientes = incidents.Count(i =>
+                i.Status != IncidentStatus.Closed && i.Status != IncidentStatus.Rejected);
+
+            // KPI: cuotas pendientes -- por pedido explícito, separado de incidencias
+            // (cubre Ordinarias, Extraordinarias, Multas y Mora -- ver InstallmentType).
+            _cuotasPendientesCount = pending.Count;
+            _cuotasPendientesMonto = pending.Sum(i => i.Debt);
+
+            // KPI: morosidad -- % de unidades (por grupo de unidad) con al menos una
+            // cuota vencida sobre el total de unidades del edificio.
+            _unidadesMorosas = pending.Select(i => i.IdGroupUnit).Distinct().Count();
+            _morosidadPct = _totalUnidades > 0 ? _unidadesMorosas * 100.0 / _totalUnidades : 0;
+
+            // Próximos vencimientos: las cuotas pendientes más próximas a vencer.
+            upcomingDues = pending
+                .OrderBy(i => i.DueDate)
+                .Take(5)
+                .Select(i => new DueItem
+                {
+                    Day = i.DueDate.ToString("dd"),
+                    Month = i.DueDate.ToString("MMM", EsPe).TrimEnd('.').ToUpperInvariant(),
+                    Title = TipoCuotaLabel(i.Type),
+                    Description = string.IsNullOrWhiteSpace(i.Concept) ? i.OwnerName : i.Concept,
+                    Unit = i.UnitName,
+                    Amount = i.Debt.ToString("C"),
+                    DateColor = i.DueDate.Date < now.Date ? "bg-danger" : "bg-primary",
+                    IsUrgent = i.DueDate.Date < now.Date
+                })
+                .ToList();
+
+            // Últimos pagos registrados: los más recientes primero.
+            recentPayments = paid
+                .OrderByDescending(p => p.PaymentDate)
+                .Take(8)
+                .ToList();
+
+            // Actividad reciente: mezcla de incidencias reportadas y pagos registrados,
+            // ordenada por fecha -- no hay todavía una tabla de auditoría única que las
+            // junte, así que se arma acá.
+            var actividadIncidencias = incidents
+                .OrderByDescending(i => i.ModifiedOn ?? i.CreatedOn)
+                .Take(5)
+                .Select(i => new ActivityItem
+                {
+                    Title = i.Status == IncidentStatus.Reported ? "Nueva incidencia reportada" : $"Incidencia {EstadoLabel(i.Status).ToLowerInvariant()}",
+                    Description = i.Title,
+                    When = i.ModifiedOn ?? i.CreatedOn,
+                    Time = TiempoRelativo(i.ModifiedOn ?? i.CreatedOn, now),
+                    User = i.ReportedByName,
+                    Icon = "bi-tools",
+                    IconColor = i.Status is IncidentStatus.Resolved or IncidentStatus.Closed ? "bg-success" : "bg-warning",
+                    IsImportant = i.Status == IncidentStatus.Reported
+                });
+
+            var actividadPagos = paid
+                .OrderByDescending(p => p.PaymentDate)
+                .Take(5)
+                .Select(p => new ActivityItem
+                {
+                    Title = p.IsPartialPayment ? "Pago parcial registrado" : "Pago registrado",
+                    Description = p.Amount.ToString("C"),
+                    When = p.PaymentDate,
+                    Time = TiempoRelativo(p.PaymentDate, now),
+                    User = string.Empty,
+                    Icon = "bi-cash-coin",
+                    IconColor = "bg-success",
+                    IsImportant = false
+                });
+
+            recentActivities = actividadIncidencias
+                .Concat(actividadPagos)
+                .OrderByDescending(a => a.When)
+                .Take(6)
+                .ToList();
+        }
+
+        private static string TipoCuotaLabel(InstallmentType type) => type switch
+        {
+            InstallmentType.Ordinaria => "Cuota Ordinaria",
+            InstallmentType.Extraordinaria => "Cuota Extraordinaria",
+            InstallmentType.Multa => "Multa",
+            InstallmentType.Mora => "Mora",
+            _ => "Cuota"
+        };
+
+        private static string EstadoLabel(IncidentStatus status) => status switch
+        {
+            IncidentStatus.Reported => "Reportada",
+            IncidentStatus.InReview => "En revisión",
+            IncidentStatus.InProgress => "En progreso",
+            IncidentStatus.Resolved => "Resuelta",
+            IncidentStatus.Closed => "Cerrada",
+            IncidentStatus.Rejected => "Rechazada",
+            IncidentStatus.Reopened => "Reabierta",
+            _ => status.ToString()
+        };
+
+        private static string TiempoRelativo(DateTime fecha, DateTime ahora)
+        {
+            var diff = ahora - fecha;
+            if (diff.TotalMinutes < 1) return "Recién";
+            if (diff.TotalMinutes < 60) return $"Hace {(int)diff.TotalMinutes} min";
+            if (diff.TotalHours < 24) return $"Hace {(int)diff.TotalHours} h";
+            if (diff.TotalDays < 7) return $"Hace {(int)diff.TotalDays} d";
+            return fecha.ToString("dd/MM/yyyy");
         }
 
         // Método para refrescar datos manualmente

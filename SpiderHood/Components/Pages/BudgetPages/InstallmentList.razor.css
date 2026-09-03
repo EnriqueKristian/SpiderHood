@@ -46,7 +46,7 @@
 }
 
 .table-container {
-    background: white;
+    background: var(--sh-surface);
 }
 
 .table-header {

@@ -20,7 +20,7 @@
 
     .building-item.selected {
         border-color: var(--sh-primary);
-        background-color: #e7f1ff;
+        background-color: var(--sh-primary-light);
     }
 
 .building-info {
@@ -32,7 +32,7 @@
 .building-icon {
     width: 40px;
     height: 40px;
-    background-color: #e7f1ff;
+    background-color: var(--sh-primary-light);
     border-radius: 8px;
     display: flex;
     align-items: center;

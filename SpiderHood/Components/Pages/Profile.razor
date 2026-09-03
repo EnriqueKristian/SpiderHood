@@ -12,43 +12,6 @@
 @inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
 
-<style>
-    /* Añadir a wwwroot/css/app.css o site.css */
-    .profile-avatar {
-        width: 100px;
-        height: 100px;
-        background: var(--bs-primary);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2.5rem;
-        color: white;
-    }
-
-    .card {
-        transition: box-shadow 0.2s ease-in-out;
-    }
-
-        .card:hover {
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-        }
-
-    .nav-tabs .nav-link {
-        color: var(--bs-secondary);
-    }
-
-        .nav-tabs .nav-link.active {
-            font-weight: 600;
-            color: var(--bs-primary);
-        }
-
-    .table-hover tbody tr:hover {
-        background-color: rgba(13, 110, 253, 0.05);
-        cursor: default;
-    }
-</style>
-
 <PageTitle>Mi Perfil - SpiderHood</PageTitle>
 
 <div class="container-fluid">
@@ -300,7 +263,7 @@
             <!-- Tarjeta de perfil lateral -->
             <div class="card shadow-sm text-center">
                 <div class="card-body">
-                    <div class="profile-avatar mx-auto mb-3" style="width:100px;height:100px;background:var(--bs-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:white;">
+                    <div class="profile-avatar mx-auto mb-3">
                         @GetInitials()
                     </div>
                     <h5 class="mb-1">@_user.FirstName @_user.LastName</h5>

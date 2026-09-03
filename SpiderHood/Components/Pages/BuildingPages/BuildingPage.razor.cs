@@ -119,7 +119,15 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
             SelectedBuilding = Buildings.First();   //GetBuildingDefault
 
-            // Cargar parámetros
+            // Cargar parámetros -- antes esta página sólo LEÍA
+            // ParameterService.ListParameters (lo que ya hubiera en memoria), sin nunca
+            // pedirle la carga a propósito. Si se entraba directo acá (sin pasar antes por
+            // /parameter, Home u otra pantalla que sí llame a LoadParametersAsync), la
+            // lista quedaba vacía o con los datos de otro edificio -- el badge de Tipo
+            // ("No se encontró coincidencia") y los Métodos de Pago de más abajo dependían
+            // de esta misma lista. LoadParametersAsync ya cachea por edificio (5 min), así
+            // que llamarlo acá no repite trabajo si ya se había cargado antes.
+            await ParameterService.LoadParametersAsync(SelectedBuilding.IdBuilding);
             filteredParameters = ParameterService.ListParameters;
 
             // Cargar categorías

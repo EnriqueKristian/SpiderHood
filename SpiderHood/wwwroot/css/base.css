@@ -5,6 +5,15 @@
     solo archivo.
 */
 
+html {
+    /* Tamaño base de toda la app: Bootstrap (botones, badges, tablas, inputs...)
+       y la escala de tokens.css (--sh-fs-*) están en rem, así que todo lo que se
+       ve "grande" en toda la app baja proporcionalmente desde acá -- un solo
+       lugar, no hay que tocar cada página. 87.5% de los 16px por defecto del
+       navegador = 14px de base. */
+    font-size: 87.5%;
+}
+
 html, body {
     font-family: var(--sh-font-sans);
     background-color: var(--sh-body-bg);

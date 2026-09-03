@@ -44,7 +44,7 @@
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 0;
-    color: #343a40;
+    color: var(--sh-text-heading);
 }
 
 /* Tabla principal */
@@ -68,7 +68,7 @@
 }
 
 .amount-badge {
-    background: linear-gradient(135deg, #20c997 0%, #099268 100%);
+    background: linear-gradient(135deg, var(--sh-teal) 0%, var(--sh-teal-dark) 100%);
     color: white;
     padding: 0.375rem 1rem;
     border-radius: 20px;

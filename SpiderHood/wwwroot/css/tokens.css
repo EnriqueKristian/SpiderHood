@@ -68,6 +68,19 @@
     --sh-brand-navy-dark: #0f172a;
     --sh-brand-gold: #c9a84c;
     --sh-brand-gold-dark: #b8973a;
+    /* Paleta extendida: usada para distinguir tipos/categorías donde los 5 colores
+       semánticos de arriba (primary/success/warning/danger/info) ya están tomados
+       por otro significado en la misma pantalla (ej. badges de "tipo de cuota",
+       tarjetas de resumen de Home). Antes vivían como el mismo hex sin ligar
+       (#6f42c1/#fd7e14/#20c997, los valores de Bootstrap para purple/orange/teal)
+       copiado y pegado en Home.razor.css, InstallmentTable.razor.css e
+       InstallmentDetailModal.razor.css. */
+    --sh-purple: #6f42c1;
+    --sh-purple-dark: #4a1d96;
+    --sh-orange: #fd7e14;
+    --sh-orange-dark: #d9480f;
+    --sh-teal: #20c997;
+    --sh-teal-dark: #099268;
 }
 
 /*

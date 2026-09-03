@@ -60,7 +60,7 @@
 .activity-item {
     position: relative;
     padding: 1rem 0;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--sh-border);
 }
 
     .activity-item:last-child {
@@ -188,15 +188,15 @@
 
 /* Colores personalizados */
 .bg-purple {
-    background-color: #6f42c1 !important;
+    background-color: var(--sh-purple) !important;
 }
 
 .bg-orange {
-    background-color: #fd7e14 !important;
+    background-color: var(--sh-orange) !important;
 }
 
 .bg-teal {
-    background-color: #20c997 !important;
+    background-color: var(--sh-teal) !important;
 }
 
 /* Responsive */

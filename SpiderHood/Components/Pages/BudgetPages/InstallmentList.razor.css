@@ -42,7 +42,7 @@
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 0;
-    color: #343a40;
+    color: var(--sh-text-heading);
 }
 
 .table-container {

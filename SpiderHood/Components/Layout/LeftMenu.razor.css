@@ -47,8 +47,8 @@
     }
 
     .nav-pills .nav-link.active {
-        background: linear-gradient(90deg, var(--sh-brand-gold-dark), var(--sh-brand-gold));
-        color: var(--sh-brand-navy-dark);
+        background: linear-gradient(90deg, var(--sh-brand-gold-dark), var(--sh-brand-gold)) !important;
+        color: var(--sh-brand-navy-dark) !important;
         font-weight: 600;
         box-shadow: 0 4px 12px rgba(201, 168, 76, 0.3);
     }

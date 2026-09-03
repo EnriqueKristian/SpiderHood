@@ -112,7 +112,7 @@
                 </div>
                 <div class="table-responsive">
                     <table class="table table-bordered text-center align-top mb-0">
-                        <thead>
+                        <thead class="table-light">
                             <tr>
                                 <th>Dom</th><th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th>
                             </tr>
@@ -160,7 +160,7 @@
     {
         <div class="table-responsive">
             <table class="table table-hover align-middle">
-                <thead>
+                <thead class="table-light">
                     <tr>
                         <th>Categoría</th>
                         <th>Título</th>
@@ -361,7 +361,7 @@
                     <button type="button" class="btn-close" @onclick="CancelarBorrado"></button>
                 </div>
                 <div class="modal-body">
-                    <p>¿Seguro que querés borrar <strong>@_pendingDelete.Title</strong>?</p>
+                    <p>¿Seguro que quieres borrar <strong>@_pendingDelete.Title</strong>?</p>
                     @if (_pendingDelete.IdRecurrenceGroup.HasValue)
                     {
                         <p class="text-muted small">Este item es parte de una serie recurrente.</p>

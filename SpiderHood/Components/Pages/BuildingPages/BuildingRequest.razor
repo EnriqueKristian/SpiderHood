@@ -26,7 +26,7 @@
                     }
                     else if (currentUser == null)
                     {
-                        <div class="alert alert-warning">Debés iniciar sesión para solicitar acceso a un edificio.</div>
+                        <div class="alert alert-warning">Debes iniciar sesión para solicitar acceso a un edificio.</div>
                     }
                     else
                     {
@@ -34,7 +34,7 @@
                         {
                             <div class="alert alert-info">
                                 <i class="bi bi-info-circle me-2"></i>
-                                Tenés @currentUser.Buildings.Count(b => !b.IsApproved)
+                                Tienes @currentUser.Buildings.Count(b => !b.IsApproved)
                                 solicitud(es) pendiente(s) de aprobación.
                             </div>
                         }
@@ -42,7 +42,7 @@
                         @if (!availableBuildings.Any())
                         {
                             <div class="alert alert-secondary">
-                                Ya tenés una solicitud o membresía como Residente en todos los edificios disponibles.
+                                Ya tienes una solicitud o membresía como Residente en todos los edificios disponibles.
                             </div>
                         }
                         else
@@ -159,7 +159,7 @@
 
             if (result)
             {
-                successMessage = "Solicitud enviada correctamente. Esperá la aprobación del administrador.";
+                successMessage = "Solicitud enviada correctamente. Espera la aprobación del administrador.";
                 request = new();
                 await LoadAvailableBuildings();
             }

@@ -475,7 +475,7 @@
                 <div class="card-body">
                     <div class="table-responsive">
                         <table class="table table-sm">
-                            <thead>
+                            <thead class="table-light">
                                 <tr>
                                     <th>Fecha</th>
                                     <th>IP</th>
@@ -569,7 +569,7 @@
                 </div>
                 <div class="card-body text-center">
                     <p class="text-muted">
-                        ¿Necesitás acceso a otro edificio como Residente? Enviá una solicitud;
+                        ¿Necesitas acceso a otro edificio como Residente? Envía una solicitud;
                         el administrador del edificio la revisa y aprueba.
                     </p>
                     <a href="/building-request" class="btn btn-primary">
@@ -627,7 +627,7 @@
                     {
                         <div class="table-responsive">
                             <table class="table table-hover">
-                                <thead>
+                                <thead class="table-light">
                                     <tr>
                                         <th>Fecha</th>
                                         <th>Concepto</th>
@@ -829,7 +829,7 @@
                 // note hasta la próxima navegación real. En vez de dejar que eso pase
                 // solo, más tarde y sin explicación, cerramos la sesión actual ahora
                 // mismo y mandamos a loguearse de nuevo con la contraseña nueva.
-                _notificationMessage = "Contraseña actualizada. Por seguridad, tenés que volver a iniciar sesión...";
+                _notificationMessage = "Contraseña actualizada. Por seguridad, tienes que volver a iniciar sesión...";
                 _notificationType = "success";
                 StateHasChanged();
                 await Task.Delay(1500);

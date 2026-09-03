@@ -20,7 +20,7 @@
 
                 <!-- Body del Modal -->
                 <div class="modal-body">
-                    <EditForm Model="@_formModel" OnValidSubmit="@Guardar" FormName="unitForm" method="post">
+                    <EditForm Id="unitForm" Model="@_formModel" OnValidSubmit="@Guardar" FormName="unitForm" method="post">
                         <DataAnnotationsValidator />
                         <ValidationSummary class="text-danger" role="alert" />
 

@@ -32,12 +32,12 @@
             </div>
             <div class="col-md-6 text-md-end">
                 <div class="d-flex justify-content-end gap-2">
-                    <button class="btn btn-outline-primary">
+                    <button class="btn btn-outline-primary" title="Incidencias y cuotas vencidas" @onclick="GoToAlertas">
                         <i class="bi bi-bell me-1"></i>
-                        <span class="badge bg-danger">3</span>
-                    </button>
-                    <button class="btn btn-outline-secondary">
-                        <i class="bi bi-question-circle me-1"></i> Ayuda
+                        @if (_alertasUrgentes > 0)
+                        {
+                            <span class="badge bg-danger">@_alertasUrgentes</span>
+                        }
                     </button>
                 </div>
             </div>

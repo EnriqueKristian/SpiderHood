@@ -160,6 +160,21 @@
     private bool _initialized = false;
     private bool _isLoading = true;
     private bool _canCreateBuilding;
+
+    // OnBuildingSelected llama AuthService.SetCurrentBuilding, que dispara
+    // MarkUserAsAuthenticated y por lo tanto AuthenticationStateChanged -- este mismo
+    // componente está suscripto a ese evento (ver OnAuthenticationStateChangedAsync) y
+    // reacciona volviendo a llamar LoadUserDataAsync/LoadCurrentBuildingAsync, EN
+    // PARALELO con la secuencia explícita que OnBuildingSelected ya está corriendo.
+    // Las dos vías terminan escribiendo en localStorage al mismo tiempo (a veces con
+    // el edificio nuevo, a veces todavía con el viejo, según cuál gane la carrera), y
+    // el forceLoad de OnBuildingSelected corta el circuito en el medio -- se veía
+    // como TaskCanceledException/JSDisconnectedException en los logs, y el edificio
+    // que terminaba guardado en localStorage era impredecible. Esta bandera hace que
+    // la reacción al evento no haga nada mientras OnBuildingSelected ya se está
+    // ocupando de todo -- no hace falta resetearla, el forceLoad tira abajo el
+    // circuito (y este componente con él) apenas termina.
+    private bool _switchingBuilding = false;
     private Models.UserSession? _currentUser;
     private List<Models.UserBuilding> Buildings { get; set; } = new();
     private string BuildingName { get; set; } = "Seleccionar Edificio";
@@ -189,6 +204,8 @@
 
     private void OnAuthenticationStateChangedAsync(Task<AuthenticationState> task)
     {
+        if (_switchingBuilding) return;
+
         _ = InvokeAsync(async () =>
         {
             await LoadUserDataAsync();
@@ -412,6 +429,11 @@
     private async Task OnBuildingSelected(Models.UserBuilding building)
     {
         if (building?.Building == null) return;
+
+        // Ver el comentario en la declaración de _switchingBuilding -- corta la
+        // reacción en cascada a AuthenticationStateChanged que dispara la línea de
+        // abajo, para que no compita en paralelo con esta misma secuencia.
+        _switchingBuilding = true;
 
         // Este dropdown puede listar el MISMO edificio varias veces (una fila por rol),
         // así que "seleccionar" acá también es seleccionar rol — igual que en

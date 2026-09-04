@@ -208,8 +208,20 @@
         var currentUser = await AuthService.GetCurrentUserAsync();
         if (currentUser == null) return;
 
-        _subscription = await SubscriptionService.GetSubscriptionByUserAsync(currentUser.IdUser);
         _administeredBuildingsCount = currentUser.Buildings
             .Count(b => b.Role == "Administrador" && b.IsApproved);
+
+        // No deja caerse toda la página de Settings si el script de Subscription
+        // (Database/Scripts/2026-09-04_44_Subscription.sql) todavía no corrió contra
+        // esta BD -- GetSubscriptionByUserAsync relanza la excepción de SQL Server
+        // (procedure no existe), y acá simplemente se muestra como "sin suscripción".
+        try
+        {
+            _subscription = await SubscriptionService.GetSubscriptionByUserAsync(currentUser.IdUser);
+        }
+        catch (Exception)
+        {
+            _subscription = null;
+        }
     }
 }

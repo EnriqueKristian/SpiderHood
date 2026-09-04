@@ -492,6 +492,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.UpdateRecordAsync(unit);
+                await ec.StampAuditAsync(AuditableEntity.Unit, unit.IdUnit, await GetPerformedByAsync(), isCreate: false);
             }
             catch (Exception ex)
             {
@@ -504,6 +505,7 @@ namespace SpiderHood.Services
             try
             {
                 await ec.AddNewRecordAsync(newunit);
+                await ec.StampAuditAsync(AuditableEntity.Unit, newunit.IdUnit, await GetPerformedByAsync(), isCreate: true);
             }
             catch (Exception ex)
             {

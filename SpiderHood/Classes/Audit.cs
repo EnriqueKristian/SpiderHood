@@ -14,6 +14,7 @@ namespace SpiderHood.Models
         ServiceReading,
         BankAccount,
         Category,
-        BuildingConfiguration
+        BuildingConfiguration,
+        Unit
     }
 }

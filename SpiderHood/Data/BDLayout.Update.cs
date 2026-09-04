@@ -274,7 +274,22 @@ namespace SpiderHood.Data
                     cancellationToken,
                     unit.IdUnit!,
                     unit.UnitNumber!,
-                    unit.Area!);
+                    unit.Area!,
+                    (object?)unit.TypeUnit,
+                    (object?)unit.IsAvailable,
+                    (object?)unit.Floor,
+                    (object?)unit.Tower,
+                    (object?)unit.LocationCode,
+                    (object?)unit.Bedrooms,
+                    (object?)unit.Bathrooms,
+                    (object?)unit.BuiltArea,
+                    (object?)unit.IsCovered,
+                    (object?)unit.IsForDisabled,
+                    (object?)unit.VehicleType,
+                    (object?)unit.Height,
+                    (object?)unit.HasVentilation,
+                    (object?)unit.HasElectricity,
+                    (object?)unit.Notes);
                 return unit;
             }, "Updateunit", cancellationToken);
         }

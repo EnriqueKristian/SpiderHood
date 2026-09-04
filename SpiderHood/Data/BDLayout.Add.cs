@@ -689,7 +689,20 @@ namespace SpiderHood.Data
                     unit.Number,
                     unit.TypeUnit,
                     unit.IsAvailable,
-                    unit.IdBuilding);
+                    unit.IdBuilding,
+                    (object?)unit.Floor,
+                    (object?)unit.Tower,
+                    (object?)unit.LocationCode,
+                    (object?)unit.Bedrooms,
+                    (object?)unit.Bathrooms,
+                    (object?)unit.BuiltArea,
+                    (object?)unit.IsCovered,
+                    (object?)unit.IsForDisabled,
+                    (object?)unit.VehicleType,
+                    (object?)unit.Height,
+                    (object?)unit.HasVentilation,
+                    (object?)unit.HasElectricity,
+                    (object?)unit.Notes);
                 unit.IdUnit = newId;
                 return unit;
             }, "AddUnit", cancellationToken);

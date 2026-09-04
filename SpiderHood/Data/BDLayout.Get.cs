@@ -260,12 +260,76 @@ namespace SpiderHood.Data
                     });
                 }
 
+                // Campos propios de la unidad (Docs/Design-Defaults-Sistema-Mixto.md no
+                // aplica acá -- ver comentario de cabecera en
+                // 2026-09-04_49_Unit_ExtraFields.sql): se traen con un proc aparte y se
+                // mergean acá por IdUnit, en vez de tocar el SELECT/JOIN de
+                // GET_UnitsByBuilding (desconocido, no confirmado por sp_helptext).
+                MergeUnitExtraFields(units, idBuilding);
+
                 return units;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error: {ex.Message}");
                 throw;
+            }
+        }
+
+        private void MergeUnitExtraFields(List<RealEstateUnit> units, Guid idBuilding)
+        {
+            if (units.Count == 0) return;
+
+            using var connection = new SqlConnection(_connectionString);
+            using var command = new SqlCommand(StoredProcedures.GET_UnitExtraFieldsByBuilding, connection)
+            {
+                CommandType = CommandType.StoredProcedure,
+                CommandTimeout = 30,
+            };
+            command.Parameters.AddWithValue("@IdBuilding", idBuilding);
+
+            using var adapter = new SqlDataAdapter(command);
+            var dataTable = new DataTable();
+            adapter.Fill(dataTable);
+
+            // Lookup (no ToDictionary) porque GET_UnitsByBuilding puede traer más de un
+            // RealEstateUnit con el mismo IdUnit -- una fila por cada Owner/GroupOwner
+            // asociado a esa unidad -- y hay que mergear los campos nuevos en TODAS las
+            // instancias que compartan ese IdUnit, no sólo en la última.
+            var byId = units.ToLookup(u => u.IdUnit);
+            foreach (DataRow row in dataTable.Rows)
+            {
+                var idUnit = Guid.Parse(row["IdUnit"].ToString()!);
+                var floor = row["Floor"] is DBNull ? (int?)null : Convert.ToInt32(row["Floor"]);
+                var tower = row["Tower"] is DBNull ? null : row["Tower"].ToString();
+                var locationCode = row["LocationCode"] is DBNull ? null : row["LocationCode"].ToString();
+                var bedrooms = row["Bedrooms"] is DBNull ? (int?)null : Convert.ToInt32(row["Bedrooms"]);
+                var bathrooms = row["Bathrooms"] is DBNull ? (int?)null : Convert.ToInt32(row["Bathrooms"]);
+                var builtArea = row["BuiltArea"] is DBNull ? (decimal?)null : Convert.ToDecimal(row["BuiltArea"]);
+                var isCovered = row["IsCovered"] is DBNull ? (bool?)null : Convert.ToBoolean(row["IsCovered"]);
+                var isForDisabled = row["IsForDisabled"] is DBNull ? (bool?)null : Convert.ToBoolean(row["IsForDisabled"]);
+                var vehicleType = row["VehicleType"] is DBNull ? null : row["VehicleType"].ToString();
+                var height = row["Height"] is DBNull ? (decimal?)null : Convert.ToDecimal(row["Height"]);
+                var hasVentilation = row["HasVentilation"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasVentilation"]);
+                var hasElectricity = row["HasElectricity"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasElectricity"]);
+                var notes = row["Notes"] is DBNull ? null : row["Notes"].ToString();
+
+                foreach (var unit in byId[idUnit])
+                {
+                    unit.Floor = floor;
+                    unit.Tower = tower;
+                    unit.LocationCode = locationCode;
+                    unit.Bedrooms = bedrooms;
+                    unit.Bathrooms = bathrooms;
+                    unit.BuiltArea = builtArea;
+                    unit.IsCovered = isCovered;
+                    unit.IsForDisabled = isForDisabled;
+                    unit.VehicleType = vehicleType;
+                    unit.Height = height;
+                    unit.HasVentilation = hasVentilation;
+                    unit.HasElectricity = hasElectricity;
+                    unit.Notes = notes;
+                }
             }
         }
 

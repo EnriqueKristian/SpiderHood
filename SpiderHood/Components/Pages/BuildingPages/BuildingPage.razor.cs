@@ -112,17 +112,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 // el botón "Nuevo Edificio", se le abre el modal de una -- es su único
                 // paso pendiente para poder usar el sistema.
                 if (_canCreateBuilding)
-                {
-                    // Sin ningún Building todavía no hay un IdBuilding real con el que
-                    // pedir ParameterService.LoadParametersAsync -- pero GET_AllParameters
-                    // trae "WHERE IdBuilding = @IdBuilding OR IdBuilding IS NULL", así que
-                    // cualquier Guid sirve para traer los parámetros de Sistema globales
-                    // (Tipo Edificio IdParent=34 entre ellos). Sin este llamado,
-                    // ListParameters quedaba vacía y el <select> de "Tipo" en el modal de
-                    // "Nuevo Edificio" no mostraba ninguna opción la primera vez.
-                    await ParameterService.LoadParametersAsync(Guid.Empty);
                     await ShowCreateModal();
-                }
 
                 return;
             }
@@ -204,6 +194,23 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private async Task ShowCreateModal()
         {
             if (!_canCreateBuilding) return;
+
+            // "Nuevo Edificio" se abre desde 3 lugares -- el auto-open de
+            // InicializarPagina para un Administrador recién registrado sin ningún
+            // edificio todavía, y los 2 botones "+" de la lista (BuildingPage.razor)
+            // -- y cualquiera puede llegar acá antes de que
+            // ParameterService.ListParameters se haya cargado alguna vez en este
+            // circuito. Sin esto, el <select> de "Tipo" de abajo no tenía ninguna
+            // opción para mostrar la primera vez. GET_AllParameters trae "WHERE
+            // IdBuilding = @IdBuilding OR IdBuilding IS NULL", así que cualquier Guid
+            // sirve para traer los parámetros de Sistema globales (Tipo Edificio,
+            // IdParent=34, entre ellos) -- se usa el del edificio ya seleccionado si
+            // hay uno, o Guid.Empty si todavía no hay ninguno.
+            if (ParameterService.ListParameters.Count == 0)
+            {
+                await ParameterService.LoadParametersAsync(SelectedBuilding?.IdBuilding ?? Guid.Empty);
+            }
+
             var newBuildingId = Guid.NewGuid();
             _editingBuilding = new Building
             {

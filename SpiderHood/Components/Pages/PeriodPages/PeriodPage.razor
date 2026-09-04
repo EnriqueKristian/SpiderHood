@@ -350,6 +350,12 @@
         // solo hace falta refrescar el listado y cerrar el modal.
         ShowModal = false;
         await LoadPeriods();
+
+        // El aviso "todavía no tiene ningún periodo" quedaba visible hasta que el
+        // usuario lo cerraba con la X manualmente, incluso después de crear el
+        // periodo que pedía crear -- ya cumplió su propósito, se oculta solo.
+        if (periods.Any())
+            MostrarAvisoSinPeriodos = false;
     }
 
     private async Task DeletePeriod(Models.Period period)

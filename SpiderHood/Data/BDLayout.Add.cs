@@ -387,7 +387,8 @@ namespace SpiderHood.Data
                     building.Others,
                     building.TotalArea,
                     building.IsActive,
-                    building.IsTemplate);
+                    building.IsTemplate,
+                    (object?)building.IdAccount);
                 return building;
             }, "AddBuilding", cancellationToken);
         }
@@ -903,12 +904,67 @@ namespace SpiderHood.Data
                     cancellationToken,
                     subscription.IdSubscription,
                     subscription.IdUser,
+                    (object?)subscription.IdAccount,
                     subscription.IdSubscriptionPlan,
                     subscription.Status,
                     subscription.StartDate,
                     (object?)subscription.EndDate);
                 return subscription;
             }, "AddSubscription", cancellationToken);
+        }
+
+        public async Task<Models.Account> AddNewRecordAsync(Models.Account account, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(account, nameof(account));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Account,
+                    cancellationToken,
+                    account.IdAccount,
+                    (object?)account.RazonSocial,
+                    (object?)account.RucDni,
+                    (object?)account.Telefono);
+                return account;
+            }, "AddAccount", cancellationToken);
+        }
+
+        // A diferencia de los demás AddNewRecordAsync, no toma una entidad completa --
+        // AccountUser siempre nace de una acción puntual (crear cuenta -> Owner,
+        // aceptar invitación -> Colaborador), nunca de un formulario con todos sus
+        // campos.
+        public async Task AddAccountUserAsync(Guid idAccount, Guid idUser, string role, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_AccountUser,
+                    cancellationToken,
+                    Guid.NewGuid(),
+                    idAccount,
+                    idUser,
+                    role);
+                return true;
+            }, "AddAccountUser", cancellationToken);
+        }
+
+        public async Task<Models.AccountInvitation> AddNewRecordAsync(Models.AccountInvitation invitation, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(invitation, nameof(invitation));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_AccountInvitation,
+                    cancellationToken,
+                    invitation.IdAccountInvitation,
+                    invitation.IdAccount,
+                    invitation.Email,
+                    invitation.Code,
+                    invitation.InvitedByIdUser);
+                return invitation;
+            }, "AddAccountInvitation", cancellationToken);
         }
         #endregion
     }

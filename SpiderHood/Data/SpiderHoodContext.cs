@@ -67,6 +67,9 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.WorkflowStep>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.Subscription>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.SubscriptionPlan>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.Account>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.AccountUserView>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.AccountInvitation>().HasNoKey(); // If SP doesn't return a primary key
             // Action es enum (WorkflowAction) pero se guarda como texto -- mismo motivo que
             // el comentario de más abajo sobre Incident.Type/Priority/Status.
             modelBuilder.Entity<Models.WorkflowAuditEntry>(entity =>

@@ -87,6 +87,39 @@ namespace SpiderHood.Models
         public string ConfirmPassword { get; set; } = string.Empty;
 
         public string PhoneNumber { get; set; } = string.Empty;
+
+        // Datos de facturación (Docs/Design-Account-Facturacion.md) -- la
+        // Subscription se le cobra a esta Account, no a la persona.
+        [Required(ErrorMessage = "La razón social es requerida")]
+        public string RazonSocial { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El RUC/DNI es requerido")]
+        public string RucDni { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El teléfono de facturación es requerido")]
+        public string Telefono { get; set; } = string.Empty;
+    }
+
+    // Aceptación de invitación a colaborador (/aceptar-invitacion) para un email
+    // que todavía no tiene cuenta en SpiderHood -- el email no es editable, viene
+    // fijo de la invitación (AccountInvitation.Email). Ver
+    // AuthService.RegisterCollaboratorAsync.
+    public class AcceptInvitationModel
+    {
+        [Required(ErrorMessage = "El nombre es requerido")]
+        public string FirstName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El apellido es requerido")]
+        public string LastName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La contraseña es requerida")]
+        [StringLength(100, MinimumLength = 6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = string.Empty;
+
+        [DataType(DataType.Password)]
+        [Compare("Password", ErrorMessage = "Las contraseñas no coinciden")]
+        public string ConfirmPassword { get; set; } = string.Empty;
     }
 
     public class UserSession

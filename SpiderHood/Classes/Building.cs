@@ -28,6 +28,10 @@ namespace SpiderHood.Models
         // más de uno marcado (p.ej. varios "demo"); GET_TemplateBuilding trae uno
         // solo (TOP 1) sin ninguna lógica de cuál "gana" entre varios.
         public bool IsTemplate { get; set; }
+        // Cuenta de facturación dueña de este edificio (Docs/Design-Account-Facturacion.md)
+        // -- de acá sale el conteo de MaxBuildings del plan. Nullable a propósito:
+        // edificios creados antes de este feature quedan en NULL (fail-open).
+        public Guid? IdAccount { get; set; }
         [NotMapped]
         public BuildingConfiguration Configuration { get; set; } = new();
         public Building Clone()
@@ -48,6 +52,7 @@ namespace SpiderHood.Models
                 TotalArea = this.TotalArea,
                 IsActive = this.IsActive,
                 IsTemplate = this.IsTemplate,
+                IdAccount = this.IdAccount,
                 Configuration = this.Configuration.Clone()
             };
         }

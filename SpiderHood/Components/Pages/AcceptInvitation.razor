@@ -1,0 +1,186 @@
+@page "/aceptar-invitacion"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using SpiderHood.Models
+@inject Services.AuthService AuthService
+@inject Services.IAccountService AccountService
+@inject NavigationManager Navigation
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo">
+                <h2>SpiderHood</h2>
+            </div>
+            <p class="text-muted">Invitación a colaborar</p>
+        </div>
+
+        <div class="login-body">
+            @if (_loading)
+            {
+                <p class="text-muted">Cargando invitación...</p>
+            }
+            else if (_invitation == null)
+            {
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-circle me-2"></i>Este link de invitación no es válido o ya fue usado.
+                </div>
+            }
+            else if (_accepted)
+            {
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>¡Listo! Ya formás parte de @(_invitation.RazonSocial ?? "la cuenta").
+                    <a href="/buildings">Ir a mis edificios</a>
+                </div>
+            }
+            else
+            {
+                <p>
+                    Te invitaron a colaborar en <strong>@(_invitation.RazonSocial ?? "una cuenta de SpiderHood")</strong>
+                    con el email <strong>@_invitation.Email</strong>.
+                </p>
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <div class="alert alert-danger">@_errorMessage</div>
+                }
+
+                @if (_currentUserEmail != null)
+                {
+                    @if (string.Equals(_currentUserEmail, _invitation.Email, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <button class="btn btn-primary w-100 py-2" disabled="@_saving" @onclick="AcceptAsExistingUserAsync">
+                            @if (_saving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Aceptar invitación
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning">
+                            Iniciaste sesión con <strong>@_currentUserEmail</strong>, pero esta invitación es para
+                            <strong>@_invitation.Email</strong>. Cerrá sesión e ingresá con ese email para aceptarla.
+                        </div>
+                    }
+                }
+                else
+                {
+                    <EditForm Model="@_model" OnValidSubmit="@HandleRegisterAsync">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <div class="col-md-6 form-group mb-3">
+                                <label class="form-label">Nombre</label>
+                                <InputText class="form-control" @bind-Value="_model.FirstName" />
+                                <ValidationMessage For="@(() => _model.FirstName)" />
+                            </div>
+                            <div class="col-md-6 form-group mb-3">
+                                <label class="form-label">Apellido</label>
+                                <InputText class="form-control" @bind-Value="_model.LastName" />
+                                <ValidationMessage For="@(() => _model.LastName)" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 form-group mb-3">
+                                <label class="form-label">Contraseña</label>
+                                <InputText type="password" class="form-control" @bind-Value="_model.Password" />
+                                <ValidationMessage For="@(() => _model.Password)" />
+                            </div>
+                            <div class="col-md-6 form-group mb-3">
+                                <label class="form-label">Confirmar contraseña</label>
+                                <InputText type="password" class="form-control" @bind-Value="_model.ConfirmPassword" />
+                                <ValidationMessage For="@(() => _model.ConfirmPassword)" />
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2" disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            Crear cuenta y aceptar
+                        </button>
+                    </EditForm>
+                    <p class="mt-3 small">
+                        <a href="@_loginUrl">¿Ya tenés cuenta con ese email? Inicia sesión</a>
+                    </p>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private AcceptInvitationModel _model = new();
+    private AccountInvitation? _invitation;
+    private string? _currentUserEmail;
+    private string _code = "";
+    private bool _loading = true;
+    private bool _saving;
+    private bool _accepted;
+    private string? _errorMessage;
+    private string _loginUrl = "/login";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Navigation.ToAbsoluteUri(Navigation.Uri).Query);
+        _code = query.TryGetValue("code", out var raw) ? raw.ToString() : "";
+
+        if (!string.IsNullOrEmpty(_code))
+        {
+            _invitation = await AccountService.GetInvitationByCodeAsync(_code);
+            if (_invitation != null && _invitation.Status != "Pending")
+                _invitation = null;
+
+            _loginUrl = $"/login?returnUrl={Uri.EscapeDataString($"/aceptar-invitacion?code={_code}")}";
+        }
+
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        _currentUserEmail = currentUser?.Email;
+
+        _loading = false;
+    }
+
+    private async Task AcceptAsExistingUserAsync()
+    {
+        _errorMessage = null;
+        _saving = true;
+        try
+        {
+            var currentUser = await AuthService.GetCurrentUserAsync();
+            if (currentUser == null) return;
+
+            var result = await AccountService.AcceptInvitationAsync(_code, currentUser.IdUser);
+            if (!result.IsSuccess)
+            {
+                _errorMessage = result.ErrorMessage;
+                return;
+            }
+            _accepted = true;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task HandleRegisterAsync()
+    {
+        _errorMessage = null;
+        _saving = true;
+        try
+        {
+            var result = await AuthService.RegisterCollaboratorAsync(_model, _invitation!.Email, _code);
+            if (!result.Success)
+            {
+                _errorMessage = result.Message;
+                return;
+            }
+            Navigation.NavigateTo("/buildings");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

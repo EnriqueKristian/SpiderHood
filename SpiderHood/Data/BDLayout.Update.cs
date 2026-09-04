@@ -50,6 +50,19 @@ namespace SpiderHood.Data
             }, "ActivateSubscription", cancellationToken);
         }
 
+        public async Task UpdateAccountInvitationStatusAsync(Guid idAccountInvitation, string status, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_AccountInvitationStatus,
+                    cancellationToken,
+                    idAccountInvitation,
+                    status);
+                return true;
+            }, "UpdateAccountInvitationStatus", cancellationToken);
+        }
+
         public async Task<bool> UpdateTokenUserAsync(UserModel user, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
@@ -428,7 +441,8 @@ namespace SpiderHood.Data
                     building.Others,
                     building.TotalArea,
                     building.IsActive,
-                    building.IsTemplate);
+                    building.IsTemplate,
+                    (object?)building.IdAccount);
                 return building;
             }, "UpdateBuilding", cancellationToken);
         }

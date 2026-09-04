@@ -212,6 +212,17 @@ namespace SpiderHood.Data
             public const string GET_AllSubscriptionPlans = "GET_AllSubscriptionPlans";
             public const string UPD_ActivateSubscription = "UPD_ActivateSubscription";
 
+            // Account Procedures (Docs/Design-Account-Facturacion.md)
+            public const string INS_Account = "INS_Account";
+            public const string INS_AccountUser = "INS_AccountUser";
+            public const string GET_AccountByUser = "GET_AccountByUser";
+            public const string GET_AccountUsersByAccount = "GET_AccountUsersByAccount";
+            public const string INS_AccountInvitation = "INS_AccountInvitation";
+            public const string GET_AccountInvitationByCode = "GET_AccountInvitationByCode";
+            public const string GET_PendingInvitationsByAccount = "GET_PendingInvitationsByAccount";
+            public const string UPD_AccountInvitationStatus = "UPD_AccountInvitationStatus";
+            public const string GET_BuildingsByAccount = "GET_BuildingsByAccount";
+
             // Audit Procedures (ver BDLayout.Audit.cs)
             public const string UPD_BuildingAudit = "UPD_BuildingAudit";
             public const string UPD_OwnerAudit = "UPD_OwnerAudit";

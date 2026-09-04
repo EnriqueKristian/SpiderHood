@@ -32,6 +32,10 @@ namespace SpiderHood.Models
     {
         public Guid IdSubscription { get; set; }
         public Guid IdUser { get; set; }
+        // Cuenta de facturación dueña de esta suscripción (Docs/Design-Account-Facturacion.md).
+        // NULL sólo en filas de antes de ese feature que el backfill no pudo resolver
+        // (no debería pasar en la práctica -- ver 2026-09-04_48_Account.sql).
+        public Guid? IdAccount { get; set; }
         public int IdSubscriptionPlan { get; set; }
         public string PlanName { get; set; } = string.Empty;
         public int? MaxBuildings { get; set; }

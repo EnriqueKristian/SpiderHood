@@ -52,25 +52,32 @@
 
 @if (_purchasablePlans.Count > 0)
 {
-    <section style="max-width: 480px;">
+    <section style="max-width: 900px;">
         <h6 class="mt-4 mb-2">Cambiar de plan</h6>
         @if (_paymentError != null)
         {
             <div class="alert alert-danger py-2">@_paymentError</div>
         }
-        <div class="list-group">
+        <div class="d-flex flex-wrap gap-3">
             @foreach (var plan in _purchasablePlans)
             {
-                <div class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="fw-bold">@plan.Name -- @(plan.CurrencyId) @(plan.Amount?.ToString("0.00"))/mes</div>
-                        <small class="text-muted">
+                <div class="card" style="width: 260px;">
+                    <div class="card-body d-flex flex-column">
+                        <h6 class="fw-bold mb-1">@plan.Name</h6>
+                        <div class="mb-1">@(plan.CurrencyId) @(plan.Amount?.ToString("0.00"))<small class="text-muted">/mes</small></div>
+                        <small class="text-muted mb-2">
                             @(plan.MaxBuildings.HasValue ? $"{plan.MaxBuildings} edificio(s)" : "Edificios ilimitados")
                         </small>
+                        <ul class="list-unstyled small mb-3">
+                            @foreach (var feature in GetFeatures(plan.Name))
+                            {
+                                <li>✓ @feature</li>
+                            }
+                        </ul>
+                        <button class="btn btn-primary btn-sm mt-auto" disabled="@_redirecting" @onclick="() => SuscribirseAsync(plan)">
+                            Suscribirse
+                        </button>
                     </div>
-                    <button class="btn btn-primary btn-sm" disabled="@_redirecting" @onclick="() => SuscribirseAsync(plan)">
-                        Suscribirse
-                    </button>
                 </div>
             }
         </div>
@@ -118,6 +125,18 @@
             _purchasablePlans = [];
         }
     }
+
+    // Sólo texto informativo -- copiado de la landing (wwwroot/index.html,
+    // sección "Planes para cada comunidad") para que se vea igual acá. No
+    // limita ninguna funcionalidad de verdad todavía (ver
+    // Docs/Design-Subscripcion-Administrador.md, "Cuarta vuelta").
+    private static List<string> GetFeatures(string planName) => planName switch
+    {
+        "Basico" => ["Gestión de edificios", "Gestión económica básica", "Incidencias", "Alertas y comunicados", "Soporte por email"],
+        "Profesional" => ["Todo lo del plan Básico", "Gestión económica avanzada", "Mantenimientos programados", "Documentación digital", "Portal para propietarios", "Soporte prioritario"],
+        "Empresarial" => ["Todo lo del plan Profesional", "Múltiples edificios", "API para integraciones", "Informes personalizados", "Auditoría y cumplimiento", "Soporte 24/7"],
+        _ => [],
+    };
 
     private async Task SuscribirseAsync(Models.SubscriptionPlan plan)
     {

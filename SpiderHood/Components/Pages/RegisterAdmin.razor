@@ -89,7 +89,7 @@
 
             <div class="login-footer mt-4">
                 <p class="mb-0">
-                    <a href="/login" class="text-decoration-none">
+                    <a href="@_loginUrl" class="text-decoration-none">
                         <i class="bi bi-box-arrow-in-right me-1"></i>¿Ya tienes cuenta? Inicia sesión
                     </a>
                 </p>
@@ -102,6 +102,20 @@
     private RegisterAdminModel _model = new();
     private string _errorMessage = string.Empty;
     private bool _saving;
+    // Si alguien vino de la landing eligiendo un plan (ej. "Empezar gratis" del
+    // plan Empresarial) y ya tiene cuenta, "Inicia sesión" tiene que llevarse el
+    // ?returnUrl al login para no perder esa intención -- ver Login.razor.
+    private string _loginUrl = "/login";
+
+    protected override void OnInitialized()
+    {
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Navigation.ToAbsoluteUri(Navigation.Uri).Query);
+        var returnUrl = query.TryGetValue("returnUrl", out var raw) ? raw.ToString() : null;
+        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/') && !returnUrl.StartsWith("//"))
+        {
+            _loginUrl = $"/login?returnUrl={Uri.EscapeDataString(returnUrl)}";
+        }
+    }
 
     private async Task HandleRegister()
     {

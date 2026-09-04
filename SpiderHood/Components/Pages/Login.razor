@@ -140,11 +140,24 @@
         // [SupplyParameterFromForm] ya lo llenó antes de que esto corra.
         loginModel ??= new LoginModel();
 
-        // Si ya hay una cookie de sesión válida, no tiene sentido mostrar el login.
+        // Si ya hay una cookie de sesión válida, no tiene sentido mostrar el login --
+        // por ejemplo, alguien que vino de la landing (plan de Suscripción),
+        // /register-admin le mandó "ya tenés cuenta, iniciá sesión" con
+        // ?returnUrl=/Settings, y hace click ya logueado.
         if (HttpContext.User.Identity?.IsAuthenticated == true)
         {
-            Navigation.NavigateTo("/dashboard");
+            Navigation.NavigateTo(GetSafeReturnUrl());
         }
+    }
+
+    // Sólo rutas locales ("/algo") -- nunca una URL externa ("https://...", "//evil.com")
+    // que un link armado a mano pudiera intentar colar como open redirect.
+    private string GetSafeReturnUrl()
+    {
+        var returnUrl = HttpContext.Request.Query["returnUrl"].ToString();
+        return !string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/') && !returnUrl.StartsWith("//")
+            ? returnUrl
+            : "/dashboard";
     }
 
     private async Task HandleLogin()
@@ -194,7 +207,7 @@
         // — ver CustomAuthenticationStateProvider / UserSessionLoader. Si el usuario no
         // tiene ningún edificio aprobado, o tiene varios, Home.razor.cs ya lo redirige
         // a /select-building (que a su vez ofrece /building-request si no tiene ninguno).
-        Navigation.NavigateTo("/dashboard");
+        Navigation.NavigateTo(GetSafeReturnUrl());
     }
 
     private void HandleInvalidSubmit()

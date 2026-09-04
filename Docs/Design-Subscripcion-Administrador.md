@@ -196,6 +196,37 @@ vació ese valor (mismo patrón que ya usaba `SmtpPassword`) y se actualizó
 rotarla en el SQL Server real queda pendiente del lado del usuario (sacarla
 del archivo no deshace la exposición).
 
+## Cuarta vuelta: catálogo de 3 planes + alcance de la diferenciación por funcionalidad
+
+- **Plan "Profesional" agregado** (`Database/Scripts/2026-09-04_47_Subscription_PlanProfesional.sql`):
+  `MaxBuildings = 3`, `Amount = 74.00 PEN` -- para que coincidan los 3 planes
+  que ya mostraba la landing pública (Básico/Profesional/Empresarial) con los
+  que ofrece `/Settings`. Valores de referencia, ajustables con `UPDATE`.
+- **La landing tenía un bug real**: los 7 links "Piloto gratuito"/"Probar
+  gratis"/"Empezar gratis" (nav, hero, precios, CTA final) apuntaban a
+  `/register` (unirse a un edificio *existente*, pendiente de aprobación) en
+  vez de `/register-admin` (alta "Piloto" real). Corregido.
+- **La landing también decía "unidades", no "edificios"**: el copy original
+  ("Hasta 50/200 unidades", "Ilimitado") describía un eje de límite -- tamaño
+  del edificio -- que el código nunca implementó. El eje real, ya decidido y
+  ya en producción, es **cantidad de edificios administrados** (punto 1 más
+  arriba). Corregido el copy a "1 edificio" / "Hasta 3 edificios" / "Edificios
+  ilimitados".
+- **Decisión explícita: por ahora NO hay diferenciación de funcionalidad por
+  plan.** La landing lista features distintas por nivel (Documentación
+  digital, Portal para propietarios, API para integraciones, Auditoría y
+  cumplimiento, Soporte 24/7...), pero hoy son sólo copy de marketing -- un
+  Administrador en cualquier plan (Trial incluido) ve exactamente los mismos
+  módulos de la app. Varias de esas features de la landing ni siquiera existen
+  como funcionalidad real todavía. Igual criterio que ya se usó con el
+  "Período de Prueba" al principio del documento: se define como un cambio
+  aparte (mapear cada feature de marketing a algo real del código, módulo por
+  módulo) el día que haga falta bloquear funcionalidad de verdad, no ahora.
+- **Pendiente, no urgente**: los montos de la landing siguen en dólares
+  ($19/$39/$79) -- falta decidir si se pasan a soles calcados de
+  `SubscriptionPlan` (S/49/S/74/S/99) o quedan como precios de marketing
+  distintos a mano.
+
 ## Cabos sueltos / sin confirmar
 
 - **Migración de administradores existentes**: no se les crea ninguna fila de

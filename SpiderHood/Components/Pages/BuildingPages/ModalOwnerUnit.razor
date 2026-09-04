@@ -1,5 +1,7 @@
 ﻿@using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Components.QuickGrid
+@using SpiderHood.Models
+@using SpiderHood.Components.Pages.Components
 @rendermode InteractiveServer
 
 @inherits LayoutComponentBase
@@ -190,8 +192,13 @@
     </div>
 }
 
+<ConfirmationModal @ref="_confirmationModal" OnClose="OnConfirmationResult" />
+
 @code {
-    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    private ConfirmationModal? _confirmationModal;
+    private ConfirmationUtil util = new ConfirmationUtil();
+
+    private Task OnConfirmationResult(bool confirmed) => util.OnConfirmationResult(confirmed);
 
     [Parameter] public bool ShowModalUnit { get; set; }
     [Parameter] public int TypeOwner { get; set; }
@@ -404,12 +411,23 @@
             // unidad a un propietario recién creado (Owners.razor,
             // AbrirModalUnidadesParaNuevoPropietario) -- ese propietario ya está
             // guardado en la base sin ninguna unidad, y cancelar acá lo deja
-            // huérfano sin otro camino en la UI para retomarlo después.
-            var confirmado = await JSRuntime.InvokeAsync<bool>("confirm",
-                "El propietario ya se guardó, pero todavía no tiene ninguna unidad asignada. " +
-                "Si cancelás ahora vas a tener que borrarlo y crearlo de nuevo para asignarle una. " +
-                "¿Seguro que querés cancelar?");
-            if (!confirmado) return;
+            // huérfano sin otro camino en la UI para retomarlo después. Antes esto
+            // usaba el confirm() nativo del navegador -- se reemplaza por el mismo
+            // ConfirmationModal que ya usa el módulo de Presupuestos, para
+            // mantener un único estilo de diálogo en toda la app.
+            await util.ExecuteWithConfirmation(async () =>
+            {
+                ResetSelections();
+                ShowModalUnit = false;
+                await ShowModalChanged.InvokeAsync(ShowModalUnit);
+            },
+            "cancelar sin asignar unidad",
+            _confirmationModal,
+            "El propietario ya se guardó, pero todavía no tiene ninguna unidad asignada. " +
+            "Si cancelás ahora vas a tener que borrarlo y crearlo de nuevo para asignarle una. " +
+            "¿Seguro que querés cancelar?",
+            "danger");
+            return;
         }
 
         ResetSelections();

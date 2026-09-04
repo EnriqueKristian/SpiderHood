@@ -6,10 +6,13 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Components;
 using SpiderHood.Data;
+using MercadoPago.Client.Preapproval;
+using MercadoPago.Config;
 using SpiderHood.Services;
 using SpiderHood.Services.Logging;
-using Stripe;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContextFactory<SpiderHoodContext>(options =>
@@ -177,11 +180,11 @@ builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
-// Stripe (Docs/Design-Subscripcion-Administrador.md): las claves NUNCA van
-// commiteadas -- appsettings.json trae "Stripe" vacío a propósito, el valor
-// real se setea con `dotnet user-secrets` en desarrollo (o una variable de
-// entorno Stripe__SecretKey en el servidor real).
-StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
+// MercadoPago (Docs/Design-Subscripcion-Administrador.md): las claves NUNCA
+// van commiteadas -- appsettings.json trae "MercadoPago" vacío a propósito, el
+// valor real se setea con `dotnet user-secrets` en desarrollo (o una variable
+// de entorno MercadoPago__AccessToken en el servidor real).
+MercadoPagoConfig.AccessToken = builder.Configuration["MercadoPago:AccessToken"];
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IWorkflowAuditService, WorkflowAuditService>();
 builder.Services.AddScoped<IIncidentService, IncidentService>();
@@ -218,43 +221,47 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-// Webhook de Stripe (Docs/Design-Subscripcion-Administrador.md): confirma el
-// pago del lado del servidor y recién ahí activa la Suscripción -- nunca desde
-// el redirect de éxito del navegador, que no es confiable (el usuario puede
-// cerrar la pestaña antes de que cargue). Público a propósito -- Stripe llama
-// sin cookie de sesión; la seguridad la da la firma (header Stripe-Signature)
-// verificada contra Stripe:WebhookSecret, no autenticación de usuario. Para
-// probarlo en local hace falta la Stripe CLI: `stripe listen --forward-to
-// https://localhost:7175/api/stripe/webhook` (imprime el WebhookSecret real a
-// usar en desarrollo).
-app.MapPost("/api/stripe/webhook", async (HttpRequest request, ISubscriptionService subscriptionService, IConfiguration configuration, ILogger<Program> logger) =>
+// Webhook de MercadoPago (Docs/Design-Subscripcion-Administrador.md): confirma
+// la suscripción del lado del servidor y recién ahí la activa -- nunca desde
+// el redirect de éxito del navegador (BackUrl), que no es confiable (el
+// usuario puede cerrar la pestaña antes de que cargue). Público a propósito --
+// MercadoPago llama sin cookie de sesión; la seguridad la da la firma (header
+// x-signature) verificada contra MercadoPago:WebhookSecret, no autenticación
+// de usuario. Para probarlo en local hace falta exponer el puerto con un túnel
+// (ngrok/Cloudflare Tunnel) y registrar esa URL en el Dashboard de MercadoPago
+// -- a diferencia de Stripe, no hay una CLI que reenvíe directo a localhost.
+app.MapPost("/api/mercadopago/webhook", async (HttpRequest request, ISubscriptionService subscriptionService, IConfiguration configuration, ILogger<Program> logger) =>
 {
-    var json = await new StreamReader(request.Body).ReadToEndAsync();
-    var webhookSecret = configuration["Stripe:WebhookSecret"];
+    var dataId = request.Query["data.id"].ToString();
+    var type = request.Query["type"].ToString();
+    var requestId = request.Headers["x-request-id"].ToString();
+    var signatureHeader = request.Headers["x-signature"].ToString();
+    var webhookSecret = configuration["MercadoPago:WebhookSecret"];
 
-    Event stripeEvent;
-    try
+    if (!IsValidMercadoPagoSignature(signatureHeader, requestId, dataId, webhookSecret))
     {
-        stripeEvent = EventUtility.ConstructEvent(json, request.Headers["Stripe-Signature"], webhookSecret);
-    }
-    catch (Exception ex)
-    {
-        logger.LogWarning(ex, "Webhook de Stripe: firma inválida o WebhookSecret no configurado");
+        logger.LogWarning("Webhook de MercadoPago: firma inválida o WebhookSecret no configurado");
         return Results.BadRequest();
     }
 
-    if (stripeEvent.Type == "checkout.session.completed" &&
-        stripeEvent.Data.Object is Stripe.Checkout.Session session &&
-        session.Metadata.TryGetValue("IdUser", out var idUserRaw) &&
-        session.Metadata.TryGetValue("IdSubscriptionPlan", out var idPlanRaw) &&
-        Guid.TryParse(idUserRaw, out var idUser) &&
-        int.TryParse(idPlanRaw, out var idSubscriptionPlan))
+    if (type == "subscription_preapproval" && !string.IsNullOrEmpty(dataId))
     {
-        await subscriptionService.ActivateSubscriptionAsync(idUser, idSubscriptionPlan, session.CustomerId, session.SubscriptionId);
+        // No se confía en el body de la notificación -- se vuelve a pedir el
+        // recurso a la API con el Id, que es la fuente confiable de verdad.
+        var preapproval = await new PreapprovalClient().GetAsync(dataId);
+        if (preapproval.Status == "authorized" &&
+            TryParseExternalReference(preapproval.ExternalReference, out var idUser, out var idSubscriptionPlan))
+        {
+            await subscriptionService.ActivateSubscriptionAsync(idUser, idSubscriptionPlan, preapproval.Id);
+        }
+        else
+        {
+            logger.LogInformation("Webhook de MercadoPago: preapproval {Id} con status {Status} ignorado", preapproval.Id, preapproval.Status);
+        }
     }
     else
     {
-        logger.LogInformation("Webhook de Stripe: evento {Type} ignorado (no es checkout.session.completed con metadata válida)", stripeEvent.Type);
+        logger.LogInformation("Webhook de MercadoPago: evento {Type} ignorado (no es subscription_preapproval)", type);
     }
 
     return Results.Ok();
@@ -281,3 +288,60 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+// Valida el header x-signature de un webhook de MercadoPago. Formato del
+// header: "ts=<epoch-ms>,v1=<hmac-hex>". El manifest se arma como
+// "id:{dataId};request-id:{requestId};ts:{ts};" -- el segmento id:/request-id:
+// se OMITE ENTERO (no vacío) si no vino ese dato, y dataId va en minúsculas.
+// Documentado en el Dashboard de MercadoPago (Tus integraciones > Webhooks >
+// clave secreta) -- no es la misma clave que el Access Token.
+static bool IsValidMercadoPagoSignature(string signatureHeader, string requestId, string dataId, string? webhookSecret)
+{
+    if (string.IsNullOrEmpty(webhookSecret) || string.IsNullOrEmpty(signatureHeader))
+        return false;
+
+    string? ts = null;
+    string? v1 = null;
+    foreach (var part in signatureHeader.Split(','))
+    {
+        var kv = part.Split('=', 2);
+        if (kv.Length != 2) continue;
+
+        var key = kv[0].Trim();
+        if (key == "ts") ts = kv[1].Trim();
+        else if (key == "v1") v1 = kv[1].Trim();
+    }
+
+    if (ts == null || v1 == null)
+        return false;
+
+    var manifest = new StringBuilder();
+    if (!string.IsNullOrEmpty(dataId))
+        manifest.Append("id:").Append(dataId.ToLowerInvariant()).Append(';');
+    if (!string.IsNullOrEmpty(requestId))
+        manifest.Append("request-id:").Append(requestId).Append(';');
+    manifest.Append("ts:").Append(ts).Append(';');
+
+    using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(webhookSecret));
+    var computed = Convert.ToHexStringLower(hmac.ComputeHash(Encoding.UTF8.GetBytes(manifest.ToString())));
+
+    var a = Encoding.UTF8.GetBytes(computed);
+    var b = Encoding.UTF8.GetBytes(v1.ToLowerInvariant());
+    return a.Length == b.Length && CryptographicOperations.FixedTimeEquals(a, b);
+}
+
+// ExternalReference se arma en IPaymentService.CreateCheckoutSessionAsync
+// como "{IdUser}:{IdSubscriptionPlan}".
+static bool TryParseExternalReference(string? externalReference, out Guid idUser, out int idSubscriptionPlan)
+{
+    idUser = Guid.Empty;
+    idSubscriptionPlan = 0;
+
+    if (string.IsNullOrEmpty(externalReference))
+        return false;
+
+    var parts = externalReference.Split(':', 2);
+    return parts.Length == 2
+        && Guid.TryParse(parts[0], out idUser)
+        && int.TryParse(parts[1], out idSubscriptionPlan);
+}

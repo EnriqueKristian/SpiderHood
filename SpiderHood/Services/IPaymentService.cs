@@ -1,18 +1,22 @@
-using Stripe.Checkout;
+using MercadoPago.Client.Preapproval;
 
 namespace SpiderHood.Services
 {
-    // Cobro de la Suscripción SaaS del Administrador vía Stripe Checkout, modo
-    // test -- ver Docs/Design-Subscripcion-Administrador.md. La activación real
-    // del plan NO pasa por acá: pasa por el webhook (Program.cs,
-    // POST /api/stripe/webhook) cuando Stripe confirma que el pago se completó.
+    // Cobro de la Suscripción SaaS del Administrador vía MercadoPago
+    // (Preapproval = pago recurrente), modo test -- ver
+    // Docs/Design-Subscripcion-Administrador.md. No hay Stripe disponible para
+    // Perú, de ahí el cambio. La activación real del plan NO pasa por acá: pasa
+    // por el webhook (Program.cs, POST /api/mercadopago/webhook) cuando
+    // MercadoPago confirma que la suscripción quedó autorizada.
     public interface IPaymentService
     {
-        // Arma una Checkout Session en modo "subscription" (cobro recurrente
-        // mensual) para el Price ya cargado en SubscriptionPlan.StripePriceId, y
-        // devuelve la URL a la que hay que redirigir el navegador. Tira
-        // InvalidOperationException si el plan no existe o todavía no tiene un
-        // Price de Stripe configurado (runbook en el documento de diseño).
+        // Arma una Preapproval (suscripción recurrente mensual) con el
+        // monto/moneda ya cargados en SubscriptionPlan.Amount/CurrencyId -- no
+        // hace falta un "Plan" pre-creado en el Dashboard de MercadoPago, a
+        // diferencia de Stripe. Devuelve la URL (InitPoint) a la que hay que
+        // redirigir el navegador. Tira InvalidOperationException si el plan no
+        // existe o todavía no tiene un Amount configurado (runbook en el
+        // documento de diseño).
         Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan, string domain);
     }
 
@@ -31,43 +35,29 @@ namespace SpiderHood.Services
             var plan = plans.FirstOrDefault(p => p.IdSubscriptionPlan == idSubscriptionPlan)
                 ?? throw new InvalidOperationException("El plan solicitado no existe.");
 
-            if (string.IsNullOrWhiteSpace(plan.StripePriceId))
-                throw new InvalidOperationException($"El plan '{plan.Name}' todavía no tiene un Price de Stripe configurado.");
+            if (plan.Amount is not { } amount || string.IsNullOrWhiteSpace(plan.CurrencyId))
+                throw new InvalidOperationException($"El plan '{plan.Name}' todavía no tiene un precio configurado.");
 
-            // El webhook (checkout.session.completed) lee este metadata para saber
-            // a qué usuario/plan activar -- se repite en SubscriptionData.Metadata
-            // porque ese es el que persiste en las facturas de renovación
-            // (invoice.*), útil el día que se maneje pago fallido/cancelación.
-            var metadata = new Dictionary<string, string>
+            var request = new PreapprovalCreateRequest
             {
-                ["IdUser"] = idUser.ToString(),
-                ["IdSubscriptionPlan"] = plan.IdSubscriptionPlan.ToString(),
-            };
-
-            var options = new SessionCreateOptions
-            {
-                Mode = "subscription",
-                LineItems =
-                [
-                    new SessionLineItemOptions
-                    {
-                        Price = plan.StripePriceId,
-                        Quantity = 1,
-                    },
-                ],
-                CustomerEmail = userEmail,
-                SuccessUrl = $"{domain}/pago-exitoso",
-                CancelUrl = $"{domain}/pago-cancelado",
-                Metadata = metadata,
-                SubscriptionData = new SessionSubscriptionDataOptions
+                Reason = $"Suscripción SpiderHood - {plan.Name}",
+                PayerEmail = userEmail,
+                BackUrl = $"{domain}/pago-exitoso",
+                // El webhook (subscription_preapproval) parsea esto para saber a
+                // qué usuario/plan activar -- ver Program.cs.
+                ExternalReference = $"{idUser}:{plan.IdSubscriptionPlan}",
+                AutoRecurring = new PreApprovalAutoRecurringCreateRequest
                 {
-                    Metadata = metadata,
+                    Frequency = 1,
+                    FrequencyType = "months",
+                    TransactionAmount = amount,
+                    CurrencyId = plan.CurrencyId,
                 },
             };
 
-            var service = new Stripe.Checkout.SessionService();
-            var session = await service.CreateAsync(options);
-            return session.Url;
+            var client = new PreapprovalClient();
+            var preapproval = await client.CreateAsync(request);
+            return preapproval.InitPoint;
         }
     }
 }

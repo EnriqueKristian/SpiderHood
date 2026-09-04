@@ -11,12 +11,13 @@ namespace SpiderHood.Models
         public int? MaxBuildings { get; set; }
         public bool IsActive { get; set; } = true;
 
-        // Price recurrente (mensual) creado a mano en el Dashboard de Stripe --
-        // NULL hasta que alguien lo cree y lo pegue con un UPDATE (ver runbook en
-        // Docs/Design-Subscripcion-Administrador.md). El plan Trial nunca tiene
-        // uno -- no se paga, IPaymentService.CreateCheckoutSessionAsync rechaza
-        // intentar cobrarlo.
-        public string? StripePriceId { get; set; }
+        // Precio mensual real -- a diferencia de Stripe (que exigía un Price
+        // pre-creado en su Dashboard), la Preapproval API de MercadoPago acepta
+        // el monto directo en la llamada, así que se guarda acá. NULL en el
+        // plan Trial a propósito -- nunca se cobra, IPaymentService.CreateCheckoutSessionAsync
+        // rechaza intentarlo.
+        public decimal? Amount { get; set; }
+        public string? CurrencyId { get; set; } // "PEN"
     }
 
     // Suscripción SaaS del Administrador (Docs/Design-Subscripcion-Administrador.md):
@@ -38,10 +39,10 @@ namespace SpiderHood.Models
         public DateTime StartDate { get; set; }
         public DateTime? EndDate { get; set; }
 
-        // Sólo se completan tras un pago confirmado por el webhook de Stripe
-        // (checkout.session.completed) -- ver ISubscriptionService.ActivateSubscriptionAsync.
+        // Id del recurso Preapproval en MercadoPago -- sólo se completa tras un
+        // pago confirmado por el webhook (evento subscription_preapproval,
+        // status "authorized"). Ver ISubscriptionService.ActivateSubscriptionAsync.
         // NULL en el Trial automático.
-        public string? StripeCustomerId { get; set; }
-        public string? StripeSubscriptionId { get; set; }
+        public string? MercadoPagoPreapprovalId { get; set; }
     }
 }

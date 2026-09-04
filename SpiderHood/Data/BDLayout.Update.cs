@@ -31,11 +31,12 @@ namespace SpiderHood.Data
             }, "UpdateUser", cancellationToken);
         }
 
-        // Llamado sólo desde el webhook de Stripe (checkout.session.completed) --
-        // ver Docs/Design-Subscripcion-Administrador.md. UPD_ActivateSubscription
+        // Llamado sólo desde el webhook de MercadoPago (evento
+        // subscription_preapproval, status "authorized") -- ver
+        // Docs/Design-Subscripcion-Administrador.md. UPD_ActivateSubscription
         // hace el upsert (pisa la fila más reciente del usuario, o inserta una
         // nueva si no tiene ninguna) del lado del stored procedure.
-        public async Task ActivateSubscriptionAsync(Guid idUser, int idSubscriptionPlan, string stripeCustomerId, string stripeSubscriptionId, CancellationToken cancellationToken = default)
+        public async Task ActivateSubscriptionAsync(Guid idUser, int idSubscriptionPlan, string mercadoPagoPreapprovalId, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
@@ -44,8 +45,7 @@ namespace SpiderHood.Data
                     cancellationToken,
                     idUser,
                     idSubscriptionPlan,
-                    stripeCustomerId,
-                    stripeSubscriptionId);
+                    mercadoPagoPreapprovalId);
                 return true;
             }, "ActivateSubscription", cancellationToken);
         }

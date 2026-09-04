@@ -63,7 +63,7 @@
             {
                 <div class="list-group-item d-flex justify-content-between align-items-center">
                     <div>
-                        <div class="fw-bold">@plan.Name</div>
+                        <div class="fw-bold">@plan.Name -- @(plan.CurrencyId) @(plan.Amount?.ToString("0.00"))/mes</div>
                         <small class="text-muted">
                             @(plan.MaxBuildings.HasValue ? $"{plan.MaxBuildings} edificio(s)" : "Edificios ilimitados")
                         </small>
@@ -97,7 +97,7 @@
             .Count(b => b.Role == "Administrador" && b.IsApproved);
 
         // No deja caerse toda la página de Settings si los scripts de Subscription
-        // (Database/Scripts/2026-09-04_44_*.sql y _45_*.sql) todavía no corrieron
+        // (Database/Scripts/2026-09-04_44_*.sql a _46_*.sql) todavía no corrieron
         // contra esta BD -- GetSubscriptionByUserAsync/GetAllPlansAsync relanzan la
         // excepción de SQL Server (procedure no existe), y acá simplemente se
         // muestra sin datos de suscripción ni planes para comprar.
@@ -105,11 +105,11 @@
         {
             _subscription = await SubscriptionService.GetSubscriptionByUserAsync(_idUser);
 
-            // Trial nunca se compra (no tiene StripePriceId) -- y el plan en el que
-            // ya está no tiene sentido reofrecérselo.
+            // Trial nunca se compra (no tiene Amount) -- y el plan en el que ya
+            // está no tiene sentido reofrecérselo.
             var plans = await SubscriptionService.GetAllPlansAsync();
             _purchasablePlans = plans
-                .Where(p => !string.IsNullOrWhiteSpace(p.StripePriceId) && p.IdSubscriptionPlan != _subscription?.IdSubscriptionPlan)
+                .Where(p => p.Amount.HasValue && p.IdSubscriptionPlan != _subscription?.IdSubscriptionPlan)
                 .ToList();
         }
         catch (Exception)

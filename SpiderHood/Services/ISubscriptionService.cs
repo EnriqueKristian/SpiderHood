@@ -21,10 +21,10 @@ namespace SpiderHood.Services
         // no tiene MaxBuildings, no se restringe nada.
         Task<OperationResult> EnsureCanCreateBuildingAsync(Guid idUser, string role);
 
-        // Llamado únicamente desde el webhook de Stripe (checkout.session.completed),
-        // nunca desde el redirect de éxito del navegador -- ver
-        // Docs/Design-Subscripcion-Administrador.md.
-        Task ActivateSubscriptionAsync(Guid idUser, int idSubscriptionPlan, string stripeCustomerId, string stripeSubscriptionId);
+        // Llamado únicamente desde el webhook de MercadoPago (evento
+        // subscription_preapproval, status "authorized"), nunca desde el redirect
+        // de éxito del navegador -- ver Docs/Design-Subscripcion-Administrador.md.
+        Task ActivateSubscriptionAsync(Guid idUser, int idSubscriptionPlan, string mercadoPagoPreapprovalId);
     }
 
     public class SubscriptionService : ISubscriptionService
@@ -95,9 +95,9 @@ namespace SpiderHood.Services
             return OperationResult.Success();
         }
 
-        public async Task ActivateSubscriptionAsync(Guid idUser, int idSubscriptionPlan, string stripeCustomerId, string stripeSubscriptionId)
+        public async Task ActivateSubscriptionAsync(Guid idUser, int idSubscriptionPlan, string mercadoPagoPreapprovalId)
         {
-            await Ec.ActivateSubscriptionAsync(idUser, idSubscriptionPlan, stripeCustomerId, stripeSubscriptionId);
+            await Ec.ActivateSubscriptionAsync(idUser, idSubscriptionPlan, mercadoPagoPreapprovalId);
         }
     }
 }

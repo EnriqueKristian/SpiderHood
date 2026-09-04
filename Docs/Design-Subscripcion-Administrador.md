@@ -73,93 +73,118 @@ negocio, no del edificio.
 - **`Settings.razor`**: tarjeta de suscripción read-only en vez del carrito
   falso.
 
-## Segunda vuelta: cobro real con Stripe (modo test)
+## Segunda vuelta: cobro real con Stripe (modo test) -- abandonada
+
+Se implementó primero con Stripe (`Mode="subscription"`, Price recurrente
+pre-creado en su Dashboard, webhook `checkout.session.completed`). **Se
+descartó por completo** porque Stripe no está disponible para cuentas de
+Perú -- nunca llegó a activarse ninguna suscripción real con esa integración.
+Reemplazada por MercadoPago en la vuelta siguiente (mismo día).
+
+## Tercera vuelta: cobro real con MercadoPago (modo test)
 
 Decisiones acordadas para esta parte:
 
-1. **Recurrente, no pago único**: `Mode = "subscription"` (Stripe cobra solo
-   todos los meses mientras la suscripción siga activa), no `Mode = "payment"`
-   -- eso sería un cobro único que habría que repetir a mano cada vez.
-2. **Prices pre-creados, no `PriceData` inline**: cada plan pago necesita un
-   Product + Price recurrente creado a mano en el Dashboard de Stripe (modo
-   test), guardado en `SubscriptionPlan.StripePriceId`. El plan Trial nunca
-   tiene uno -- no se cobra.
-3. **Activación por webhook, no por el redirect de éxito**: `/pago-exitoso` es
-   sólo una pantalla de cortesía -- la Suscripción se activa cuando Stripe le
-   avisa al servidor (`POST /api/stripe/webhook`, evento
-   `checkout.session.completed`), verificado contra `Stripe:WebhookSecret`. El
-   redirect del navegador no es confiable (el usuario puede cerrar la pestaña
-   antes de que cargue).
-4. **Secretos nunca commiteados**: `appsettings.json` trae `Stripe` con los 3
-   valores vacíos a propósito (mismo patrón que ya usaba `SmtpPassword`). Los
-   valores reales van con `dotnet user-secrets` en desarrollo, o como variables
-   de entorno (`Stripe__SecretKey`, etc.) en el servidor real -- nunca en un
-   archivo commiteado. Ver también la sección de abajo sobre la contraseña de
-   SQL Server que sí había quedado expuesta.
+1. **Recurrente vía Preapproval**: la API de "pago recurrente" de MercadoPago
+   se llama *Preapproval* -- equivalente a una Subscription de Stripe. Cobra
+   solo todos los meses mientras siga "authorized", no hay que repetirlo a
+   mano.
+2. **Monto inline, sin "Plan" pre-creado**: a diferencia de Stripe (que exigía
+   crear el Price en su Dashboard antes), la Preapproval API acepta el
+   monto/moneda directo en la llamada (`AutoRecurring.TransactionAmount`) --
+   así que el precio se guarda directo en `SubscriptionPlan.Amount`/
+   `CurrencyId`, sin ningún paso manual en el Dashboard de MercadoPago. Más
+   simple que el runbook de Stripe. Precios elegidos: **Básico S/49.00/mes,
+   Empresarial S/99.00/mes** (fáciles de cambiar con un `UPDATE`).
+3. **Activación por webhook, no por el redirect (`BackUrl`)**: igual razón que
+   con Stripe -- el navegador no es confiable. El webhook
+   (`POST /api/mercadopago/webhook`) llega con el evento
+   `subscription_preapproval`; ahí se vuelve a pedir el recurso completo a la
+   API (`PreapprovalClient.GetAsync(id)`, nunca se confía en el body de la
+   notificación) y, si `Status == "authorized"`, recién ahí se activa.
+4. **Firma verificada a mano**: MercadoPago no tiene un helper tipo
+   `EventUtility.ConstructEvent` de Stripe -- la validación del header
+   `x-signature` (manifest `id:{dataId};request-id:{requestId};ts:{ts};` +
+   HMAC-SHA256 contra el secreto de webhook, comparación en tiempo constante)
+   se implementó a mano en `Program.cs` (`IsValidMercadoPagoSignature`),
+   siguiendo el mismo patrón que ya usa `AuthService.VerifyLegacySha256Password`
+   para comparar hashes.
+5. **Identificación del usuario/plan**: en vez del `Metadata` de Stripe, la
+   Preapproval usa `ExternalReference` (string libre) -- se guarda como
+   `"{IdUser}:{IdSubscriptionPlan}"` y se parsea de vuelta en el webhook.
+6. **Secretos nunca commiteados**: mismo criterio que con Stripe --
+   `appsettings.json` trae `MercadoPago` con los 2 valores vacíos a propósito.
+   Los reales van con `dotnet user-secrets` en desarrollo, o como variable de
+   entorno (`MercadoPago__AccessToken`, etc.) en el servidor real.
 
 ### Qué se implementó
 
-- **`Database/Scripts/2026-09-04_45_Subscription_Stripe.sql`**: agrega
-  `SubscriptionPlan.StripePriceId`, `Subscription.StripeCustomerId`/
-  `StripeSubscriptionId`, y `UPD_ActivateSubscription` (upsert: pisa la fila
-  más reciente del usuario -- normalmente la del Trial -- o inserta una nueva
-  si no tiene ninguna).
-- **`SpiderHood/Services/IPaymentService.cs`** (nuevo):
-  `CreateCheckoutSessionAsync(idUser, userEmail, idSubscriptionPlan, domain)`
-  arma la Checkout Session y devuelve la URL. Tira si el plan no tiene
-  `StripePriceId` cargado todavía.
-- **`Program.cs`**: `StripeConfiguration.ApiKey` desde config,
-  `POST /api/stripe/webhook` (público, sin autenticación de usuario --
-  verificado por firma) que llama a
-  `ISubscriptionService.ActivateSubscriptionAsync` en
-  `checkout.session.completed`.
-- **`Settings.razor`**: lista los planes con `StripePriceId` cargado (menos el
-  actual) con botón "Suscribirse" -> redirige a Stripe Checkout.
-- **`/pago-exitoso`, `/pago-cancelado`**: pantallas de cortesía post-checkout.
+- **`Database/Scripts/2026-09-04_46_Subscription_MercadoPago.sql`**: saca las
+  columnas de Stripe (nunca llegaron a usarse con datos reales) y agrega
+  `SubscriptionPlan.Amount`/`CurrencyId` (con el `UPDATE` de los precios de
+  arriba) y `Subscription.MercadoPagoPreapprovalId`. Reescribe
+  `GET_SubscriptionByUser`, `GET_AllSubscriptionPlans` y
+  `UPD_ActivateSubscription` (mismo upsert de antes, ahora con un solo Id en
+  vez de dos).
+- **`SpiderHood/Services/IPaymentService.cs`**: reemplazado -- ahora arma un
+  `PreapprovalCreateRequest` (paquete NuGet `mercadopago-sdk`) y devuelve
+  `preapproval.InitPoint`.
+- **`Program.cs`**: `MercadoPagoConfig.AccessToken` desde config,
+  `POST /api/mercadopago/webhook` (público, verificado por firma en vez de
+  autenticación de usuario) que llama a
+  `ISubscriptionService.ActivateSubscriptionAsync`.
+- **`Settings.razor`**: los botones de plan ahora muestran el precio real
+  (`Amount`/`CurrencyId`).
+- **`/pago-exitoso`**: sigue sirviendo -- MercadoPago sólo tiene un `BackUrl`
+  único (no hay success/cancel separados como en Stripe), así que
+  `/pago-cancelado` queda sin usar por ahora (la página sigue existiendo, no
+  se borró, pero nada redirige ahí).
 
 ### Runbook -- lo que falta del lado del usuario
 
-1. Cuenta de Stripe en **modo test**, tomar `pk_test_...` y `sk_test_...` desde
-   el Dashboard.
-2. Crear un **Product** por cada plan pago (Básico, Empresarial) con un
-   **Price recurrente mensual** (Dashboard -> Product catalog -> + Add
-   product -> Recurring). Copiar cada `price_...`.
-3. Cargar los Price ID en la BD:
-   ```sql
-   UPDATE SubscriptionPlan SET StripePriceId = 'price_XXXX' WHERE Name = 'Basico';
-   UPDATE SubscriptionPlan SET StripePriceId = 'price_YYYY' WHERE Name = 'Empresarial';
-   ```
-4. Secretos locales (nunca en `appsettings.json`):
+1. Cuenta de MercadoPago (ya en trámite) y, adentro, una aplicación en **Tus
+   integraciones** (developers.mercadopago.com.pe) -- de ahí salen las
+   credenciales de **prueba** (Access Token, `TEST-...`).
+2. Correr `Database/Scripts/2026-09-04_46_Subscription_MercadoPago.sql` contra
+   la BD (ya deja cargados los precios de Básico/Empresarial).
+3. Secretos locales (nunca en `appsettings.json`):
    ```
    dotnet user-secrets init
-   dotnet user-secrets set "Stripe:SecretKey" "sk_test_..."
-   dotnet user-secrets set "Stripe:PublishableKey" "pk_test_..."
+   dotnet user-secrets set "MercadoPago:AccessToken" "TEST-..."
    ```
-5. Instalar la **Stripe CLI** y correr, en paralelo a la app:
+4. Webhook: en la misma aplicación, **Webhooks -> Configurar notificaciones**,
+   activar el evento **"Suscripciones"** (`subscription_preapproval`) y pegar
+   la URL pública de `/api/mercadopago/webhook`. A diferencia de Stripe (que
+   tiene una CLI que reenvía directo a `localhost`), acá hace falta exponer el
+   puerto local con un túnel -- por ejemplo `ngrok http https://localhost:7175`
+   -- y usar esa URL de ngrok en el Dashboard. Al guardar, el Dashboard
+   muestra la **clave secreta** del webhook:
    ```
-   stripe listen --forward-to https://localhost:7175/api/stripe/webhook
+   dotnet user-secrets set "MercadoPago:WebhookSecret" "..."
    ```
-   Ese comando imprime un `whsec_...` -- cargarlo también:
-   ```
-   dotnet user-secrets set "Stripe:WebhookSecret" "whsec_..."
-   ```
-6. Probar: `/Settings` -> "Suscribirse" a un plan -> Stripe Checkout (tarjeta
-   de test `4242 4242 4242 4242`, cualquier fecha futura/CVC) -> `/pago-exitoso`
-   -> refrescar `/Settings` (la Stripe CLI tiene que mostrar el evento
-   `checkout.session.completed` recibido) y confirmar que el Plan/Estado
-   cambiaron.
+5. Probar con un **usuario de prueba comprador** (se crean en el mismo panel
+   de developers, "Usuarios de prueba" -- necesario porque con tu propia
+   cuenta de vendedor no podés pagarte a vos mismo): loguearse en la app real
+   como Administrador, `/Settings` -> "Suscribirse" -> te redirige a
+   MercadoPago -> loguearse ahí con el usuario de prueba comprador, autorizar
+   -> vuelve a `/pago-exitoso` -> confirmar en el log que llegó el webhook y
+   que `/Settings` ya muestra el Plan/Estado actualizados.
 
 ### Sin hacer todavía (fuera de alcance de esta vuelta)
 
-- Cancelación desde la UI, y su webhook (`customer.subscription.deleted`) que
-  marque `Status = 'Cancelled'`.
-- Pago fallido en una renovación (`invoice.payment_failed`) -- hoy no se
+- Cancelación desde la UI y su lado del webhook (`status` pasando a
+  `cancelled`/`paused`) -- hoy no se refleja.
+- Pago fallido en una renovación mensual (evento
+  `subscription_authorized_payment` con el cargo rechazado) -- hoy no se
   entera nadie.
-- Reusar el `StripeCustomerId` existente en una re-suscripción (hoy Stripe crea
-  un Customer nuevo cada vez, vía `CustomerEmail`).
-- Deploy real: falta decidir cómo se cargan los secretos de Stripe en el
+- `/pago-cancelado`: quedó sin ruta real que la use (MercadoPago no tiene
+  cancel_url separado) -- se podría aprovechar leyendo el query param que
+  MercadoPago agrega al volver a `BackUrl`, si en algún momento hace falta
+  distinguir el caso.
+- Deploy real: falta decidir cómo se cargan los secretos de MercadoPago en el
   servidor de QA/producción (variables de entorno, igual que se dejó
-  documentado para la connection string en `DEPLOY-Production.md`).
+  documentado para la connection string en `DEPLOY-Production.md`), y cuándo
+  pasar de credenciales de prueba a las reales.
 
 ## Nota de seguridad encontrada de paso
 

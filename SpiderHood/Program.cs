@@ -240,7 +240,11 @@ app.MapPost("/api/mercadopago/webhook", async (HttpRequest request, ISubscriptio
 
     if (!IsValidMercadoPagoSignature(signatureHeader, requestId, dataId, webhookSecret))
     {
-        logger.LogWarning("Webhook de MercadoPago: firma inválida o WebhookSecret no configurado");
+        // Diagnóstico temporal -- ver Docs/Design-Subscripcion-Administrador.md.
+        // No loguea el WebhookSecret en sí, sólo si está configurado o no.
+        logger.LogWarning(
+            "Webhook de MercadoPago: firma inválida. QueryString={QueryString} x-signature={Signature} x-request-id={RequestId} WebhookSecret configurado={HasSecret}",
+            request.QueryString, signatureHeader, requestId, !string.IsNullOrEmpty(webhookSecret));
         return Results.BadRequest();
     }
 

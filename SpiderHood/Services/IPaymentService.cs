@@ -24,7 +24,6 @@ namespace SpiderHood.Services
     {
         private readonly ISubscriptionService _subscriptionService;
         private readonly string _baseUrl;
-        private readonly bool _isTestMode;
         private readonly string? _testPayerEmail;
 
         // BaseUrl viene de configuración (mismo valor que ya usa AuthService para
@@ -36,14 +35,16 @@ namespace SpiderHood.Services
         {
             _subscriptionService = subscriptionService;
             _baseUrl = (configuration["BaseUrl"] ?? "https://localhost:7175").TrimEnd('/');
-            // Convención de MercadoPago: sus Access Token de prueba arrancan con
-            // "TEST-", los de producción no.
-            _isTestMode = (configuration["MercadoPago:AccessToken"] ?? "").StartsWith("TEST-");
             // Email real de la cuenta "Comprador" de MercadoPago > Cuentas de prueba
             // -- NO puede ser cualquier email inventado ("Payer is associated with a
             // different site", probado): tiene que ser una cuenta que exista de
             // verdad en el mismo país/site que el vendedor. Se configura por
-            // usuario/máquina vía dotnet user-secrets, nunca commiteado.
+            // usuario/máquina vía dotnet user-secrets, nunca commiteado. Si está
+            // configurado, se lo usa en vez del email real -- "modo test" se define
+            // por esto, NO por el prefijo del Access Token: un vendedor que a su vez
+            // es una cuenta de MercadoPago de prueba (creada en "Cuentas de prueba")
+            // sólo tiene un juego de credenciales, etiquetado "de producción" en su
+            // Dashboard, pese a operar 100% en el ambiente de test (probado).
             _testPayerEmail = configuration["MercadoPago:TestPayerEmail"];
         }
 
@@ -56,22 +57,15 @@ namespace SpiderHood.Services
             if (plan.Amount is not { } amount || string.IsNullOrWhiteSpace(plan.CurrencyId))
                 throw new InvalidOperationException($"El plan '{plan.Name}' todavía no tiene un precio configurado.");
 
-            // payer_email es obligatorio para la API, pero en modo test NO puede ser
-            // el email real del Administrador (choca con la cuenta de prueba que
-            // autoriza -- "una de las partes es de prueba", probado) ni uno
-            // inventado (tiene que existir de verdad -- "Payer is associated with a
-            // different site", también probado). En modo test hace falta el email
-            // real de una cuenta de MercadoPago > Cuentas de prueba.
-            if (_isTestMode && string.IsNullOrWhiteSpace(_testPayerEmail))
-            {
-                throw new InvalidOperationException(
-                    "Falta configurar \"MercadoPago:TestPayerEmail\" (dotnet user-secrets) con el email de una cuenta de MercadoPago > Cuentas de prueba.");
-            }
-
             var request = new PreapprovalCreateRequest
             {
                 Reason = $"Suscripción SpiderHood - {plan.Name}",
-                PayerEmail = _isTestMode ? _testPayerEmail : userEmail,
+                // payer_email es obligatorio para la API. Si hay un TestPayerEmail
+                // configurado, se usa ese (probando contra un vendedor de prueba) --
+                // el email real del Administrador choca con eso ("una de las partes
+                // es de prueba", probado). Sin TestPayerEmail configurado (producción
+                // real), va el email real del Administrador.
+                PayerEmail = string.IsNullOrWhiteSpace(_testPayerEmail) ? userEmail : _testPayerEmail,
                 BackUrl = $"{_baseUrl}/pago-exitoso",
                 // El webhook (subscription_preapproval) parsea esto para saber a
                 // qué usuario/plan activar -- ver Program.cs.

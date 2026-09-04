@@ -17,19 +17,26 @@ namespace SpiderHood.Services
         // redirigir el navegador. Tira InvalidOperationException si el plan no
         // existe o todavía no tiene un Amount configurado (runbook en el
         // documento de diseño).
-        Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan, string domain);
+        Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan);
     }
 
     public class PaymentService : IPaymentService
     {
         private readonly ISubscriptionService _subscriptionService;
+        private readonly string _baseUrl;
 
-        public PaymentService(ISubscriptionService subscriptionService)
+        // BaseUrl viene de configuración (mismo valor que ya usa AuthService para
+        // los links de los emails), NO de NavigationManager.BaseUri -- ese refleja
+        // lo que el navegador tiene puesto en ese momento (p.ej. "localhost" si
+        // entraste directo, en vez del túnel público), y MercadoPago rechaza
+        // back_url que no sea una URL pública real ("Invalid value for back_url").
+        public PaymentService(ISubscriptionService subscriptionService, IConfiguration configuration)
         {
             _subscriptionService = subscriptionService;
+            _baseUrl = (configuration["BaseUrl"] ?? "https://localhost:7175").TrimEnd('/');
         }
 
-        public async Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan, string domain)
+        public async Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan)
         {
             var plans = await _subscriptionService.GetAllPlansAsync();
             var plan = plans.FirstOrDefault(p => p.IdSubscriptionPlan == idSubscriptionPlan)
@@ -42,7 +49,7 @@ namespace SpiderHood.Services
             {
                 Reason = $"Suscripción SpiderHood - {plan.Name}",
                 PayerEmail = userEmail,
-                BackUrl = $"{domain}/pago-exitoso",
+                BackUrl = $"{_baseUrl}/pago-exitoso",
                 // El webhook (subscription_preapproval) parsea esto para saber a
                 // qué usuario/plan activar -- ver Program.cs.
                 ExternalReference = $"{idUser}:{plan.IdSubscriptionPlan}",

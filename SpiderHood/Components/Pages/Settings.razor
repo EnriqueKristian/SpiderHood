@@ -125,8 +125,7 @@
         _redirecting = true;
         try
         {
-            var domain = Navigation.BaseUri.TrimEnd('/');
-            var checkoutUrl = await PaymentService.CreateCheckoutSessionAsync(_idUser, _userEmail, plan.IdSubscriptionPlan, domain);
+            var checkoutUrl = await PaymentService.CreateCheckoutSessionAsync(_idUser, _userEmail, plan.IdSubscriptionPlan);
             Navigation.NavigateTo(checkoutUrl, forceLoad: true);
         }
         catch (Exception ex)

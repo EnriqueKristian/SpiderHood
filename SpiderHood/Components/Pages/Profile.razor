@@ -25,9 +25,6 @@
             <button class="btn btn-outline-secondary" @onclick="() => _activeTab = Tab.Info">
                 <i class="bi bi-person-vcard"></i> Personal
             </button>
-            <button class="btn btn-outline-secondary" @onclick="() => _activeTab = Tab.Security">
-                <i class="bi bi-shield-lock"></i> Seguridad
-            </button>
             <button class="btn btn-outline-secondary" @onclick="() => _activeTab = Tab.Buildings">
                 <i class="bi bi-building"></i> Edificios
             </button>
@@ -78,9 +75,6 @@
                     case Tab.Info:
                         @RenderInfoTab()
                         break;
-                    case Tab.Security:
-                        @RenderSecurityTab()
-                        break;
                     case Tab.Buildings:
                         @RenderBuildingsTab()
                         break;
@@ -107,7 +101,6 @@
 
     private bool _loading = true;
     private bool _savingProfile;
-    private bool _savingPassword;
     private bool _savingPreferences;
     private bool _savingBuilding;
     private UserModel? _user;
@@ -120,11 +113,10 @@
 
     // Tab activa
     private Tab _activeTab = Tab.Info;
-    private enum Tab { Info, Security, Buildings, Finances, Preferences }
+    private enum Tab { Info, Buildings, Finances, Preferences }
 
     // Modelos de formularios
     private ProfileFormModel _profileForm = new();
-    private ChangePasswordFormModel _passwordForm = new();
     private Services.Preferences _preferences = new();
 
     // Datos adicionales
@@ -331,136 +323,6 @@
                             Guardar Cambios
                         </button>
                     </EditForm>
-                </div>
-            </div>
-        </div>
-    </div>;
-
-    private RenderFragment RenderSecurityTab() => @<div class="row">
-        <div class="col-lg-6">
-            <!-- Cambiar Contraseña -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-secondary text-white">
-                    <i class="bi bi-lock me-2"></i>Cambiar Contraseña
-                </div>
-                <div class="card-body">
-                    <EditForm Model="@_passwordForm" OnValidSubmit="@HandlePasswordSubmit" FormName="passwordForm">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary class="text-danger" />
-
-                        <div class="row g-3">
-                            <div class="col-md-12">
-                                <label for="currentPassword" class="form-label">Contraseña Actual</label>
-                                <InputText id="currentPassword" type="password" class="form-control" @bind-Value="_passwordForm.CurrentPassword" />
-                                <ValidationMessage For="@(() => _passwordForm.CurrentPassword)" class="text-danger small" />
-                            </div>
-                            <div class="col-md-6">
-                                <label for="newPassword" class="form-label">Nueva Contraseña</label>
-                                <InputText id="newPassword" type="password" class="form-control" @bind-Value="_passwordForm.NewPassword" />
-                                <ValidationMessage For="@(() => _passwordForm.NewPassword)" class="text-danger small" />
-                                <small class="text-muted">Mínimo 8 caracteres.</small>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="confirmPassword" class="form-label">Confirmar Nueva Contraseña</label>
-                                <InputText id="confirmPassword" type="password" class="form-control" @bind-Value="_passwordForm.ConfirmNewPassword" />
-                                <ValidationMessage For="@(() => _passwordForm.ConfirmNewPassword)" class="text-danger small" />
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn btn-secondary mt-3" disabled="@_savingPassword">
-                            @if (_savingPassword)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2"></span>
-                            }
-                            Cambiar Contraseña
-                        </button>
-                    </EditForm>
-                </div>
-            </div>
-
-            <!-- Autenticación de Dos Factores -->
-            <div class="card shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <i class="bi bi-shield-check me-2"></i>Autenticación en Dos Pasos (2FA)
-                </div>
-                <div class="card-body">
-                    <p class="text-muted">Añade una capa extra de seguridad a tu cuenta.</p>
-                    @if (_is2FAEnabled)
-                    {
-                        <div class="alert alert-success">
-                            <i class="bi bi-check-circle me-2"></i>
-                            2FA está <strong>activado</strong> para tu cuenta.
-                        </div>
-                        <button class="btn btn-outline-danger" @onclick="Disable2FA">
-                            <i class="bi bi-x-circle me-1"></i> Desactivar 2FA
-                        </button>
-                    }
-                    else
-                    {
-                        <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            2FA está <strong>desactivado</strong>. Recomendamos activarlo.
-                        </div>
-                        <button class="btn btn-outline-success" @onclick="Enable2FA">
-                            <i class="bi bi-shield-plus me-1"></i> Activar 2FA
-                        </button>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-6">
-            <!-- Sesiones Activas -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-warning text-dark">
-                    <i class="bi bi-devices me-2"></i>Sesiones Activas
-                </div>
-                <div class="card-body">
-                    <p class="text-muted">
-                        Todavía no identificamos cada sesión individualmente (dispositivo, IP,
-                        último acceso) — pero si sospechás que alguien más tiene acceso a tu
-                        cuenta, esto cierra <strong>todas</strong> las sesiones activas de una:
-                    </p>
-                    <button class="btn btn-outline-warning" @onclick="LogoutAllSessions">
-                        <i class="bi bi-power"></i> Cerrar sesión en todos los dispositivos
-                    </button>
-                    <small class="d-block text-muted mt-1">
-                        Esto también cierra esta sesión — vas a tener que volver a iniciar sesión.
-                    </small>
-                </div>
-            </div>
-
-            <!-- Historial de Accesos -->
-            <div class="card shadow-sm">
-                <div class="card-header bg-dark text-white">
-                    <i class="bi bi-clock-history me-2"></i>Historial de Accesos Recientes
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>IP</th>
-                                    <th>Dispositivo</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var access in _recentAccessLogs.Take(5))
-                                {
-                                    <tr>
-                                        <td>@access.Date.ToString("dd/MM/yyyy HH:mm")</td>
-                                        <td>@access.IPAddress</td>
-                                        <td>@access.Device</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                    @if (_recentAccessLogs.Count() > 5)
-                    {
-                        <button class="btn btn-link btn-sm" @onclick="ViewFullAccessLog">Ver historial completo</button>
-                    }
                 </div>
             </div>
         </div>
@@ -760,62 +622,6 @@
         }
     }
 
-    private async Task HandlePasswordSubmit()
-    {
-        if (_user == null) return;
-
-        if (_passwordForm.NewPassword != _passwordForm.ConfirmNewPassword)
-        {
-            _notificationMessage = "Las contraseñas no coinciden.";
-            _notificationType = "danger";
-            return;
-        }
-
-        try
-        {
-            _savingPassword = true;
-            ClearNotification();
-
-            var result = await AuthService.ChangePasswordAsync(
-                _user.IdUser,
-                _passwordForm.CurrentPassword,
-                _passwordForm.NewPassword
-            );
-
-            if (result.Success)
-            {
-                _passwordForm = new();
-                Logger.LogInformation("Contraseña cambiada exitosamente para usuario {UserId}", _user.IdUser);
-
-                // ChangePasswordAsync ya invalidó toda cookie emitida para este usuario
-                // (ver AuthService.RevokeAllSessions) — incluida esta misma, aunque no se
-                // note hasta la próxima navegación real. En vez de dejar que eso pase
-                // solo, más tarde y sin explicación, cerramos la sesión actual ahora
-                // mismo y mandamos a loguearse de nuevo con la contraseña nueva.
-                _notificationMessage = "Contraseña actualizada. Por seguridad, tienes que volver a iniciar sesión...";
-                _notificationType = "success";
-                StateHasChanged();
-                await Task.Delay(1500);
-                Navigation.NavigateTo("/Logout", forceLoad: true);
-                return;
-            }
-
-            _notificationMessage = result.Message;
-            _notificationType = "danger";
-            Logger.LogWarning("Intento fallido de cambio de contraseña para usuario {UserId}: {Message}", _user.IdUser, result.Message);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error al cambiar contraseña para usuario {UserId}", _user.IdUser);
-            _notificationMessage = "Ocurrió un error al cambiar la contraseña. Por favor, intenta de nuevo.";
-            _notificationType = "danger";
-        }
-        finally
-        {
-            _savingPassword = false;
-        }
-    }
-
     private async Task SetDefaultBuilding(Guid buildingId, string role)
     {
         try
@@ -899,89 +705,6 @@
         }
     }
 
-    private async Task Enable2FA()
-    {
-        try
-        {
-            ClearNotification();
-            var result = new AuthResult { Success = true }; //await AuthService.Enable2FAAsync(_user!.IdUser);
-
-            if (result.Success)
-            {
-                _is2FAEnabled = true;
-                _notificationMessage = "2FA activado exitosamente. Escanea el código QR con tu aplicación autenticadora.";
-                _notificationType = "success";
-                // Aquí mostrarías el QR code en un modal
-                //await JSRuntime.InvokeVoidAsync("showQRCode", result.QRCodeUri); TODO
-            }
-            else
-            {
-                _notificationMessage = result.Message;
-                _notificationType = "danger";
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error al activar 2FA para usuario {UserId}", _user?.IdUser);
-            _notificationMessage = "Error al activar 2FA.";
-            _notificationType = "danger";
-        }
-    }
-
-    private async Task Disable2FA()
-    {
-        try
-        {
-            ClearNotification();
-            var result = new AuthResult { Success = true }; //await AuthService.Disable2FAAsync(_user!.IdUser);
-
-            if (result.Success)
-            {
-                _is2FAEnabled = false;
-                _notificationMessage = "2FA desactivado exitosamente.";
-                _notificationType = "success";
-            }
-            else
-            {
-                _notificationMessage = result.Message;
-                _notificationType = "danger";
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error al desactivar 2FA para usuario {UserId}", _user?.IdUser);
-            _notificationMessage = "Error al desactivar 2FA.";
-            _notificationType = "danger";
-        }
-    }
-
-    private async Task LogoutAllSessions()
-    {
-        if (_user == null) return;
-
-        try
-        {
-            // Invalida toda cookie ya emitida para este usuario (ver
-            // ISessionRevocationService) — incluida esta misma pestaña: no hay forma de
-            // "perdonar" la sesión actual sin reemitir su cookie, y eso sólo se puede
-            // hacer desde una request HTTP real, no desde este circuito ya conectado
-            // (ver Login.razor/HandleLogin). Por eso el redirect de abajo saca al
-            // usuario también a él — tiene que volver a loguearse para confirmar que
-            // sigue siendo dueño de la cuenta, igual que "cerrar todo" en la mayoría de
-            // los servicios (Google, GitHub, etc.).
-            AuthService.RevokeAllSessions(_user.IdUser);
-            Logger.LogInformation("Sesiones cerradas por el usuario {UserId} desde Profile", _user.IdUser);
-
-            Navigation.NavigateTo("/Logout", forceLoad: true);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error al cerrar todas las sesiones para usuario {UserId}", _user?.IdUser);
-            _notificationMessage = "Error al cerrar las sesiones.";
-            _notificationType = "danger";
-        }
-    }
-
     private void ClearNotification()
     {
         _notificationMessage = string.Empty;
@@ -998,7 +721,6 @@
 
     // Métodos placeholder para acciones adicionales
     private void ViewFullHistory() => Navigation.NavigateTo("/MyReceipts");
-    private void ViewFullAccessLog() => Navigation.NavigateTo("/access-log");
 
     // =========================================================
     // 5. MODELOS DE DATOS (Inner classes)
@@ -1019,21 +741,6 @@
         public string PhoneNumber { get; set; } = string.Empty;
     }
 
-    private class ChangePasswordFormModel
-    {
-        [Required(ErrorMessage = "La contraseña actual es requerida")]
-        public string CurrentPassword { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "La nueva contraseña es requerida")]
-        [MinLength(8, ErrorMessage = "La contraseña debe tener al menos 8 caracteres")]
-        [MaxLength(100, ErrorMessage = "La contraseña no puede exceder los 100 caracteres")]
-        public string NewPassword { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "Debes confirmar la nueva contraseña")]
-        [Compare(nameof(NewPassword), ErrorMessage = "Las contraseñas no coinciden")]
-        public string ConfirmNewPassword { get; set; } = string.Empty;
-    }
-
     private class PaymentHistory
     {
         public DateTime Date { get; set; }
@@ -1043,12 +750,4 @@
         public string Status { get; set; } = string.Empty;
     }
 
-    private class AccessLog
-    {
-        public DateTime Date { get; set; }
-        public string IPAddress { get; set; } = string.Empty;
-        public string Device { get; set; } = string.Empty;
-    }
-
-    private IEnumerable<AccessLog> _recentAccessLogs = new List<AccessLog>();
 }

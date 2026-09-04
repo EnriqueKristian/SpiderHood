@@ -1,12 +1,13 @@
 -- =============================================================================
--- RealEstateUnit (tabla física dbo.RealStateUnit -- así está escrita en la BD,
--- sin la "E" de "Estate"; el modelo C# y los stored procedures usan "Unit" a
--- secas) traía muy pocos campos propios -- UnitNumber, Area, Number, TypeUnit,
--- IsAvailable eran las únicas columnas reales que persistían INS_Unit/UPD_Unit;
+-- RealEstateUnit (tabla física dbo.RealEstateUnit; los stored procedures usan
+-- "Unit" a secas -- INS_Unit/UPD_Unit/GET_UnitsByBuilding -- por convención de
+-- nombres, no porque la tabla se llame distinto) traía muy pocos campos
+-- propios -- UnitNumber, Area, Number, TypeUnit, IsAvailable eran las únicas
+-- columnas reales que persistían INS_Unit/UPD_Unit;
 -- el resto de propiedades del modelo C# (GroupName, Names, Surname, TypeOwner,
 -- IdOwner, Building, AreaTotal, TypeGroupUnit, IdGroupOwner) vienen de un JOIN
 -- contra Owner/GroupOwner en GET_UnitsByBuilding -- son de una vista, no de la
--- tabla RealStateUnit. No se toca GET_UnitsByBuilding en
+-- tabla RealEstateUnit. No se toca GET_UnitsByBuilding en
 -- este script (su JOIN no está confirmado por sp_helptext, y romperlo
 -- afectaría a Owners.razor/UnitGroups.razor) -- los campos nuevos se traen con
 -- un proc aparte (GET_UnitExtraFieldsByBuilding) y se mergean en memoria en
@@ -35,54 +36,54 @@
 SET NOCOUNT ON;
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'Floor')
-    ALTER TABLE dbo.RealStateUnit ADD Floor INT NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'Tower')
-    ALTER TABLE dbo.RealStateUnit ADD Tower NVARCHAR(50) NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'LocationCode')
-    ALTER TABLE dbo.RealStateUnit ADD LocationCode NVARCHAR(50) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'Floor')
+    ALTER TABLE dbo.RealEstateUnit ADD Floor INT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'Tower')
+    ALTER TABLE dbo.RealEstateUnit ADD Tower NVARCHAR(50) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'LocationCode')
+    ALTER TABLE dbo.RealEstateUnit ADD LocationCode NVARCHAR(50) NULL;
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'Bedrooms')
-    ALTER TABLE dbo.RealStateUnit ADD Bedrooms INT NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'Bathrooms')
-    ALTER TABLE dbo.RealStateUnit ADD Bathrooms INT NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'BuiltArea')
-    ALTER TABLE dbo.RealStateUnit ADD BuiltArea DECIMAL(18, 2) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'Bedrooms')
+    ALTER TABLE dbo.RealEstateUnit ADD Bedrooms INT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'Bathrooms')
+    ALTER TABLE dbo.RealEstateUnit ADD Bathrooms INT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'BuiltArea')
+    ALTER TABLE dbo.RealEstateUnit ADD BuiltArea DECIMAL(18, 2) NULL;
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'IsCovered')
-    ALTER TABLE dbo.RealStateUnit ADD IsCovered BIT NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'IsForDisabled')
-    ALTER TABLE dbo.RealStateUnit ADD IsForDisabled BIT NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'VehicleType')
-    ALTER TABLE dbo.RealStateUnit ADD VehicleType NVARCHAR(30) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'IsCovered')
+    ALTER TABLE dbo.RealEstateUnit ADD IsCovered BIT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'IsForDisabled')
+    ALTER TABLE dbo.RealEstateUnit ADD IsForDisabled BIT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'VehicleType')
+    ALTER TABLE dbo.RealEstateUnit ADD VehicleType NVARCHAR(30) NULL;
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'Height')
-    ALTER TABLE dbo.RealStateUnit ADD Height DECIMAL(18, 2) NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'HasVentilation')
-    ALTER TABLE dbo.RealStateUnit ADD HasVentilation BIT NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'HasElectricity')
-    ALTER TABLE dbo.RealStateUnit ADD HasElectricity BIT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'Height')
+    ALTER TABLE dbo.RealEstateUnit ADD Height DECIMAL(18, 2) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'HasVentilation')
+    ALTER TABLE dbo.RealEstateUnit ADD HasVentilation BIT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'HasElectricity')
+    ALTER TABLE dbo.RealEstateUnit ADD HasElectricity BIT NULL;
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'Notes')
-    ALTER TABLE dbo.RealStateUnit ADD Notes NVARCHAR(500) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'Notes')
+    ALTER TABLE dbo.RealEstateUnit ADD Notes NVARCHAR(500) NULL;
 GO
 
 -- Auditoría (mismo patrón que Building/Owner/BudgetHeader/Expense, ver
 -- 2026-09-01_01_Audit_HeaderColumns.sql) -- no se agregan al modelo C# ni a
 -- ningún formulario: son sólo trazabilidad en la BD, estampada aparte vía
 -- BDLayout.StampAuditAsync justo después del INSERT/UPDATE de negocio.
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'CreatedBy')
-    ALTER TABLE dbo.RealStateUnit ADD CreatedBy NVARCHAR(256) NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'CreatedOn')
-    ALTER TABLE dbo.RealStateUnit ADD CreatedOn DATETIME2 NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'ModifiedBy')
-    ALTER TABLE dbo.RealStateUnit ADD ModifiedBy NVARCHAR(256) NULL;
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealStateUnit') AND name = 'ModifiedOn')
-    ALTER TABLE dbo.RealStateUnit ADD ModifiedOn DATETIME2 NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'CreatedBy')
+    ALTER TABLE dbo.RealEstateUnit ADD CreatedBy NVARCHAR(256) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'CreatedOn')
+    ALTER TABLE dbo.RealEstateUnit ADD CreatedOn DATETIME2 NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'ModifiedBy')
+    ALTER TABLE dbo.RealEstateUnit ADD ModifiedBy NVARCHAR(256) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.RealEstateUnit') AND name = 'ModifiedOn')
+    ALTER TABLE dbo.RealEstateUnit ADD ModifiedOn DATETIME2 NULL;
 GO
 
 -- ---------------------------------------------------------------------------
@@ -116,7 +117,7 @@ CREATE OR ALTER PROCEDURE dbo.INS_Unit
 AS
 BEGIN
     SET NOCOUNT ON;
-    INSERT INTO dbo.RealStateUnit
+    INSERT INTO dbo.RealEstateUnit
         (IdUnit, UnitNumber, Area, Number, TypeUnit, IsAvailable, IdBuilding,
          Floor, Tower, LocationCode, Bedrooms, Bathrooms, BuiltArea,
          IsCovered, IsForDisabled, VehicleType, Height, HasVentilation, HasElectricity, Notes)
@@ -149,7 +150,7 @@ CREATE OR ALTER PROCEDURE dbo.UPD_Unit
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE dbo.RealStateUnit
+    UPDATE dbo.RealEstateUnit
     SET UnitNumber = @UnitNumber,
         Area = @Area,
         TypeUnit = COALESCE(@TypeUnit, TypeUnit),
@@ -182,7 +183,7 @@ BEGIN
     SELECT
         IdUnit, Floor, Tower, LocationCode, Bedrooms, Bathrooms, BuiltArea,
         IsCovered, IsForDisabled, VehicleType, Height, HasVentilation, HasElectricity, Notes
-    FROM dbo.RealStateUnit
+    FROM dbo.RealEstateUnit
     WHERE IdBuilding = @IdBuilding;
 END
 GO
@@ -196,12 +197,12 @@ AS
 BEGIN
     SET NOCOUNT ON;
     IF @IsCreate = 1
-        UPDATE dbo.RealStateUnit
+        UPDATE dbo.RealEstateUnit
         SET CreatedBy = @PerformedBy, CreatedOn = SYSUTCDATETIME(),
             ModifiedBy = @PerformedBy, ModifiedOn = SYSUTCDATETIME()
         WHERE IdUnit = @IdUnit;
     ELSE
-        UPDATE dbo.RealStateUnit
+        UPDATE dbo.RealEstateUnit
         SET ModifiedBy = @PerformedBy, ModifiedOn = SYSUTCDATETIME()
         WHERE IdUnit = @IdUnit;
 END

@@ -210,6 +210,7 @@ namespace SpiderHood.Data
             public const string INS_Subscription = "INS_Subscription";
             public const string GET_SubscriptionByUser = "GET_SubscriptionByUser";
             public const string GET_AllSubscriptionPlans = "GET_AllSubscriptionPlans";
+            public const string UPD_ActivateSubscription = "UPD_ActivateSubscription";
 
             // Audit Procedures (ver BDLayout.Audit.cs)
             public const string UPD_BuildingAudit = "UPD_BuildingAudit";

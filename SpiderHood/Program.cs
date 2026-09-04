@@ -8,6 +8,7 @@ using SpiderHood.Components;
 using SpiderHood.Data;
 using SpiderHood.Services;
 using SpiderHood.Services.Logging;
+using Stripe;
 using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -174,6 +175,13 @@ builder.Services.AddScoped<IMonthlyInstallmentService, MonthlyInstallmentService
 builder.Services.AddScoped<IPendingExpenseService, PendingExpenseService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+
+// Stripe (Docs/Design-Subscripcion-Administrador.md): las claves NUNCA van
+// commiteadas -- appsettings.json trae "Stripe" vacío a propósito, el valor
+// real se setea con `dotnet user-secrets` en desarrollo (o una variable de
+// entorno Stripe__SecretKey en el servidor real).
+StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IWorkflowAuditService, WorkflowAuditService>();
 builder.Services.AddScoped<IIncidentService, IncidentService>();
@@ -209,6 +217,48 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
+
+// Webhook de Stripe (Docs/Design-Subscripcion-Administrador.md): confirma el
+// pago del lado del servidor y recién ahí activa la Suscripción -- nunca desde
+// el redirect de éxito del navegador, que no es confiable (el usuario puede
+// cerrar la pestaña antes de que cargue). Público a propósito -- Stripe llama
+// sin cookie de sesión; la seguridad la da la firma (header Stripe-Signature)
+// verificada contra Stripe:WebhookSecret, no autenticación de usuario. Para
+// probarlo en local hace falta la Stripe CLI: `stripe listen --forward-to
+// https://localhost:7175/api/stripe/webhook` (imprime el WebhookSecret real a
+// usar en desarrollo).
+app.MapPost("/api/stripe/webhook", async (HttpRequest request, ISubscriptionService subscriptionService, IConfiguration configuration, ILogger<Program> logger) =>
+{
+    var json = await new StreamReader(request.Body).ReadToEndAsync();
+    var webhookSecret = configuration["Stripe:WebhookSecret"];
+
+    Event stripeEvent;
+    try
+    {
+        stripeEvent = EventUtility.ConstructEvent(json, request.Headers["Stripe-Signature"], webhookSecret);
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Webhook de Stripe: firma inválida o WebhookSecret no configurado");
+        return Results.BadRequest();
+    }
+
+    if (stripeEvent.Type == "checkout.session.completed" &&
+        stripeEvent.Data.Object is Stripe.Checkout.Session session &&
+        session.Metadata.TryGetValue("IdUser", out var idUserRaw) &&
+        session.Metadata.TryGetValue("IdSubscriptionPlan", out var idPlanRaw) &&
+        Guid.TryParse(idUserRaw, out var idUser) &&
+        int.TryParse(idPlanRaw, out var idSubscriptionPlan))
+    {
+        await subscriptionService.ActivateSubscriptionAsync(idUser, idSubscriptionPlan, session.CustomerId, session.SubscriptionId);
+    }
+    else
+    {
+        logger.LogInformation("Webhook de Stripe: evento {Type} ignorado (no es checkout.session.completed con metadata válida)", stripeEvent.Type);
+    }
+
+    return Results.Ok();
+});
 
 // Landing pública (wwwroot/index.html) en "/" -- pero SÓLO para quien no tiene
 // sesión iniciada. Home.razor (@page "/") sigue siendo el Dashboard para

@@ -9,6 +9,8 @@ namespace SpiderHood.Services
     {
         Task<Subscription?> GetSubscriptionByUserAsync(Guid idUser);
 
+        Task<List<SubscriptionPlan>> GetAllPlansAsync();
+
         // Alta "Piloto" (AuthService.RegisterNewAdministratorAsync): todo
         // Administrador nuevo arranca en el plan Trial, sin límite de edificios
         // ni vencimiento real todavía.
@@ -18,6 +20,11 @@ namespace SpiderHood.Services
         // Fail-open: si la cuenta no tiene ninguna Subscription todavía, o su plan
         // no tiene MaxBuildings, no se restringe nada.
         Task<OperationResult> EnsureCanCreateBuildingAsync(Guid idUser, string role);
+
+        // Llamado únicamente desde el webhook de Stripe (checkout.session.completed),
+        // nunca desde el redirect de éxito del navegador -- ver
+        // Docs/Design-Subscripcion-Administrador.md.
+        Task ActivateSubscriptionAsync(Guid idUser, int idSubscriptionPlan, string stripeCustomerId, string stripeSubscriptionId);
     }
 
     public class SubscriptionService : ISubscriptionService
@@ -32,6 +39,11 @@ namespace SpiderHood.Services
         public async Task<Subscription?> GetSubscriptionByUserAsync(Guid idUser)
         {
             return await Ec.GetSubscriptionByUserAsync(idUser);
+        }
+
+        public async Task<List<SubscriptionPlan>> GetAllPlansAsync()
+        {
+            return await Ec.GetAllSubscriptionPlansAsync();
         }
 
         // Si el plan Trial no existe todavía (seed del script no corrido), no
@@ -81,6 +93,11 @@ namespace SpiderHood.Services
             }
 
             return OperationResult.Success();
+        }
+
+        public async Task ActivateSubscriptionAsync(Guid idUser, int idSubscriptionPlan, string stripeCustomerId, string stripeSubscriptionId)
+        {
+            await Ec.ActivateSubscriptionAsync(idUser, idSubscriptionPlan, stripeCustomerId, stripeSubscriptionId);
         }
     }
 }

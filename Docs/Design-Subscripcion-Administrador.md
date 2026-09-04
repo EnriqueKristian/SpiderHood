@@ -73,6 +73,104 @@ negocio, no del edificio.
 - **`Settings.razor`**: tarjeta de suscripción read-only en vez del carrito
   falso.
 
+## Segunda vuelta: cobro real con Stripe (modo test)
+
+Decisiones acordadas para esta parte:
+
+1. **Recurrente, no pago único**: `Mode = "subscription"` (Stripe cobra solo
+   todos los meses mientras la suscripción siga activa), no `Mode = "payment"`
+   -- eso sería un cobro único que habría que repetir a mano cada vez.
+2. **Prices pre-creados, no `PriceData` inline**: cada plan pago necesita un
+   Product + Price recurrente creado a mano en el Dashboard de Stripe (modo
+   test), guardado en `SubscriptionPlan.StripePriceId`. El plan Trial nunca
+   tiene uno -- no se cobra.
+3. **Activación por webhook, no por el redirect de éxito**: `/pago-exitoso` es
+   sólo una pantalla de cortesía -- la Suscripción se activa cuando Stripe le
+   avisa al servidor (`POST /api/stripe/webhook`, evento
+   `checkout.session.completed`), verificado contra `Stripe:WebhookSecret`. El
+   redirect del navegador no es confiable (el usuario puede cerrar la pestaña
+   antes de que cargue).
+4. **Secretos nunca commiteados**: `appsettings.json` trae `Stripe` con los 3
+   valores vacíos a propósito (mismo patrón que ya usaba `SmtpPassword`). Los
+   valores reales van con `dotnet user-secrets` en desarrollo, o como variables
+   de entorno (`Stripe__SecretKey`, etc.) en el servidor real -- nunca en un
+   archivo commiteado. Ver también la sección de abajo sobre la contraseña de
+   SQL Server que sí había quedado expuesta.
+
+### Qué se implementó
+
+- **`Database/Scripts/2026-09-04_45_Subscription_Stripe.sql`**: agrega
+  `SubscriptionPlan.StripePriceId`, `Subscription.StripeCustomerId`/
+  `StripeSubscriptionId`, y `UPD_ActivateSubscription` (upsert: pisa la fila
+  más reciente del usuario -- normalmente la del Trial -- o inserta una nueva
+  si no tiene ninguna).
+- **`SpiderHood/Services/IPaymentService.cs`** (nuevo):
+  `CreateCheckoutSessionAsync(idUser, userEmail, idSubscriptionPlan, domain)`
+  arma la Checkout Session y devuelve la URL. Tira si el plan no tiene
+  `StripePriceId` cargado todavía.
+- **`Program.cs`**: `StripeConfiguration.ApiKey` desde config,
+  `POST /api/stripe/webhook` (público, sin autenticación de usuario --
+  verificado por firma) que llama a
+  `ISubscriptionService.ActivateSubscriptionAsync` en
+  `checkout.session.completed`.
+- **`Settings.razor`**: lista los planes con `StripePriceId` cargado (menos el
+  actual) con botón "Suscribirse" -> redirige a Stripe Checkout.
+- **`/pago-exitoso`, `/pago-cancelado`**: pantallas de cortesía post-checkout.
+
+### Runbook -- lo que falta del lado del usuario
+
+1. Cuenta de Stripe en **modo test**, tomar `pk_test_...` y `sk_test_...` desde
+   el Dashboard.
+2. Crear un **Product** por cada plan pago (Básico, Empresarial) con un
+   **Price recurrente mensual** (Dashboard -> Product catalog -> + Add
+   product -> Recurring). Copiar cada `price_...`.
+3. Cargar los Price ID en la BD:
+   ```sql
+   UPDATE SubscriptionPlan SET StripePriceId = 'price_XXXX' WHERE Name = 'Basico';
+   UPDATE SubscriptionPlan SET StripePriceId = 'price_YYYY' WHERE Name = 'Empresarial';
+   ```
+4. Secretos locales (nunca en `appsettings.json`):
+   ```
+   dotnet user-secrets init
+   dotnet user-secrets set "Stripe:SecretKey" "sk_test_..."
+   dotnet user-secrets set "Stripe:PublishableKey" "pk_test_..."
+   ```
+5. Instalar la **Stripe CLI** y correr, en paralelo a la app:
+   ```
+   stripe listen --forward-to https://localhost:7175/api/stripe/webhook
+   ```
+   Ese comando imprime un `whsec_...` -- cargarlo también:
+   ```
+   dotnet user-secrets set "Stripe:WebhookSecret" "whsec_..."
+   ```
+6. Probar: `/Settings` -> "Suscribirse" a un plan -> Stripe Checkout (tarjeta
+   de test `4242 4242 4242 4242`, cualquier fecha futura/CVC) -> `/pago-exitoso`
+   -> refrescar `/Settings` (la Stripe CLI tiene que mostrar el evento
+   `checkout.session.completed` recibido) y confirmar que el Plan/Estado
+   cambiaron.
+
+### Sin hacer todavía (fuera de alcance de esta vuelta)
+
+- Cancelación desde la UI, y su webhook (`customer.subscription.deleted`) que
+  marque `Status = 'Cancelled'`.
+- Pago fallido en una renovación (`invoice.payment_failed`) -- hoy no se
+  entera nadie.
+- Reusar el `StripeCustomerId` existente en una re-suscripción (hoy Stripe crea
+  un Customer nuevo cada vez, vía `CustomerEmail`).
+- Deploy real: falta decidir cómo se cargan los secretos de Stripe en el
+  servidor de QA/producción (variables de entorno, igual que se dejó
+  documentado para la connection string en `DEPLOY-Production.md`).
+
+## Nota de seguridad encontrada de paso
+
+Al revisar cómo manejar los secretos de Stripe se encontró que
+`appsettings.Production.json` tenía la contraseña real de SQL Server
+commiteada en texto plano desde hace varios commits, en un repo público. Se
+vació ese valor (mismo patrón que ya usaba `SmtpPassword`) y se actualizó
+`DEPLOY-Production.md` -- pero **la contraseña ya estuvo pública**, así que
+rotarla en el SQL Server real queda pendiente del lado del usuario (sacarla
+del archivo no deshace la exposición).
+
 ## Cabos sueltos / sin confirmar
 
 - **Migración de administradores existentes**: no se les crea ninguna fila de

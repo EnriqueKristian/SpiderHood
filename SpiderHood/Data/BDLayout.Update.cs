@@ -31,6 +31,25 @@ namespace SpiderHood.Data
             }, "UpdateUser", cancellationToken);
         }
 
+        // Llamado sólo desde el webhook de Stripe (checkout.session.completed) --
+        // ver Docs/Design-Subscripcion-Administrador.md. UPD_ActivateSubscription
+        // hace el upsert (pisa la fila más reciente del usuario, o inserta una
+        // nueva si no tiene ninguna) del lado del stored procedure.
+        public async Task ActivateSubscriptionAsync(Guid idUser, int idSubscriptionPlan, string stripeCustomerId, string stripeSubscriptionId, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ActivateSubscription,
+                    cancellationToken,
+                    idUser,
+                    idSubscriptionPlan,
+                    stripeCustomerId,
+                    stripeSubscriptionId);
+                return true;
+            }, "ActivateSubscription", cancellationToken);
+        }
+
         public async Task<bool> UpdateTokenUserAsync(UserModel user, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

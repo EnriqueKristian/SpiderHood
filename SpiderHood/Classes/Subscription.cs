@@ -10,6 +10,13 @@ namespace SpiderHood.Models
         // ISubscriptionService.EnsureCanCreateBuildingAsync.
         public int? MaxBuildings { get; set; }
         public bool IsActive { get; set; } = true;
+
+        // Price recurrente (mensual) creado a mano en el Dashboard de Stripe --
+        // NULL hasta que alguien lo cree y lo pegue con un UPDATE (ver runbook en
+        // Docs/Design-Subscripcion-Administrador.md). El plan Trial nunca tiene
+        // uno -- no se paga, IPaymentService.CreateCheckoutSessionAsync rechaza
+        // intentar cobrarlo.
+        public string? StripePriceId { get; set; }
     }
 
     // Suscripción SaaS del Administrador (Docs/Design-Subscripcion-Administrador.md):
@@ -30,5 +37,11 @@ namespace SpiderHood.Models
         public string Status { get; set; } = "Trial"; // Trial, Active, Expired, Cancelled
         public DateTime StartDate { get; set; }
         public DateTime? EndDate { get; set; }
+
+        // Sólo se completan tras un pago confirmado por el webhook de Stripe
+        // (checkout.session.completed) -- ver ISubscriptionService.ActivateSubscriptionAsync.
+        // NULL en el Trial automático.
+        public string? StripeCustomerId { get; set; }
+        public string? StripeSubscriptionId { get; set; }
     }
 }

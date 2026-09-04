@@ -3,6 +3,8 @@
 @using SpiderHood.Models
 @inject Services.AuthService AuthService
 @inject Services.ISubscriptionService SubscriptionService
+@inject Services.IPaymentService PaymentService
+@inject NavigationManager Navigation
 
 <section>
     <div><h4><strong>Mi Suscripción</strong></h4></div>
@@ -48,29 +50,89 @@
     </div>
 </section>
 
+@if (_purchasablePlans.Count > 0)
+{
+    <section style="max-width: 480px;">
+        <h6 class="mt-4 mb-2">Cambiar de plan</h6>
+        @if (_paymentError != null)
+        {
+            <div class="alert alert-danger py-2">@_paymentError</div>
+        }
+        <div class="list-group">
+            @foreach (var plan in _purchasablePlans)
+            {
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold">@plan.Name</div>
+                        <small class="text-muted">
+                            @(plan.MaxBuildings.HasValue ? $"{plan.MaxBuildings} edificio(s)" : "Edificios ilimitados")
+                        </small>
+                    </div>
+                    <button class="btn btn-primary btn-sm" disabled="@_redirecting" @onclick="() => SuscribirseAsync(plan)">
+                        Suscribirse
+                    </button>
+                </div>
+            }
+        </div>
+    </section>
+}
+
 @code{
     private Models.Subscription? _subscription;
     private int _administeredBuildingsCount;
+    private List<Models.SubscriptionPlan> _purchasablePlans = [];
+    private string? _paymentError;
+    private bool _redirecting;
+    private Guid _idUser;
+    private string _userEmail = "";
 
     protected override async Task OnInitializedAsync()
     {
         var currentUser = await AuthService.GetCurrentUserAsync();
         if (currentUser == null) return;
 
+        _idUser = currentUser.IdUser;
+        _userEmail = currentUser.Email;
         _administeredBuildingsCount = currentUser.Buildings
             .Count(b => b.Role == "Administrador" && b.IsApproved);
 
-        // No deja caerse toda la página de Settings si el script de Subscription
-        // (Database/Scripts/2026-09-04_44_Subscription.sql) todavía no corrió contra
-        // esta BD -- GetSubscriptionByUserAsync relanza la excepción de SQL Server
-        // (procedure no existe), y acá simplemente se muestra como "sin suscripción".
+        // No deja caerse toda la página de Settings si los scripts de Subscription
+        // (Database/Scripts/2026-09-04_44_*.sql y _45_*.sql) todavía no corrieron
+        // contra esta BD -- GetSubscriptionByUserAsync/GetAllPlansAsync relanzan la
+        // excepción de SQL Server (procedure no existe), y acá simplemente se
+        // muestra sin datos de suscripción ni planes para comprar.
         try
         {
-            _subscription = await SubscriptionService.GetSubscriptionByUserAsync(currentUser.IdUser);
+            _subscription = await SubscriptionService.GetSubscriptionByUserAsync(_idUser);
+
+            // Trial nunca se compra (no tiene StripePriceId) -- y el plan en el que
+            // ya está no tiene sentido reofrecérselo.
+            var plans = await SubscriptionService.GetAllPlansAsync();
+            _purchasablePlans = plans
+                .Where(p => !string.IsNullOrWhiteSpace(p.StripePriceId) && p.IdSubscriptionPlan != _subscription?.IdSubscriptionPlan)
+                .ToList();
         }
         catch (Exception)
         {
             _subscription = null;
+            _purchasablePlans = [];
+        }
+    }
+
+    private async Task SuscribirseAsync(Models.SubscriptionPlan plan)
+    {
+        _paymentError = null;
+        _redirecting = true;
+        try
+        {
+            var domain = Navigation.BaseUri.TrimEnd('/');
+            var checkoutUrl = await PaymentService.CreateCheckoutSessionAsync(_idUser, _userEmail, plan.IdSubscriptionPlan, domain);
+            Navigation.NavigateTo(checkoutUrl, forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _paymentError = $"No se pudo iniciar el pago: {ex.Message}";
+            _redirecting = false;
         }
     }
 }

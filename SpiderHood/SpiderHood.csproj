@@ -30,6 +30,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="10.0.2" />
     <PackageReference Include="QuestPDF" Version="2025.12.3" />
+    <PackageReference Include="Stripe.net" Version="52.4.1" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.6" />
     <PackageReference Include="NuGet.Protocol" Version="6.12.5" />
   </ItemGroup>

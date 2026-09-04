@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SpiderHood · Administración + Software para tu edificio</title>
+    <title>SpiderHood · Software de Administración de Edificios</title>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
     <style>
@@ -42,16 +42,17 @@
             font-size: 1rem;
             border: none;
             cursor: pointer;
-            transition: background 0.3s ease;
+            transition: background 0.3s ease, transform 0.2s;
         }
 
-        .btn-primary:hover {
-            background-color: #0d1a26;
-        }
+            .btn-primary:hover {
+                background-color: #0d1a26;
+                transform: translateY(-2px);
+            }
 
         .btn-secondary {
             display: inline-block;
-            background-color: #c9a84c;
+            background: linear-gradient(135deg, #c9a84c, #b8973a);
             color: #ffffff;
             padding: 14px 32px;
             border-radius: 8px;
@@ -59,12 +60,14 @@
             font-size: 1rem;
             border: none;
             cursor: pointer;
-            transition: background 0.3s ease;
+            transition: transform 0.2s, box-shadow 0.3s;
+            box-shadow: 0 4px 15px rgba(201, 168, 76, 0.3);
         }
 
-        .btn-secondary:hover {
-            background-color: #b8973a;
-        }
+            .btn-secondary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(201, 168, 76, 0.4);
+            }
 
         .btn-outline {
             display: inline-block;
@@ -76,10 +79,10 @@
             transition: all 0.3s ease;
         }
 
-        .btn-outline:hover {
-            background-color: #1a2a3a;
-            color: #ffffff;
-        }
+            .btn-outline:hover {
+                background-color: #1a2a3a;
+                color: #ffffff;
+            }
 
         .btn-outline-light {
             display: inline-block;
@@ -91,53 +94,54 @@
             transition: all 0.3s ease;
         }
 
-        .btn-outline-light:hover {
-            background-color: #ffffff;
-            color: #1a2a3a;
-        }
+            .btn-outline-light:hover {
+                background-color: #ffffff;
+                color: #1a2a3a;
+            }
 
         /* ——— HEADER ——— */
         header {
             padding: 16px 0;
-            background: #ffffff;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
             position: sticky;
             top: 0;
             z-index: 100;
         }
 
-        header .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-        }
+            header .container {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+            }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-size: 1.6rem;
+            gap: 8px;
+            font-size: 1.5rem;
             font-weight: 800;
             color: #1a2a3a;
         }
 
-        .logo .spider-icon {
-            font-size: 2rem;
-            color: #c9a84c;
-        }
+            .logo svg {
+                width: 44px;
+                height: 44px;
+            }
 
-        .logo span {
-            color: #c9a84c;
-        }
+            .logo span {
+                color: #c9a84c;
+            }
 
-        .logo small {
-            font-size: 0.7rem;
-            font-weight: 400;
-            color: #94a3b8;
-            display: block;
-            letter-spacing: 0.5px;
-        }
+            .logo small {
+                font-size: 0.6rem;
+                font-weight: 400;
+                color: #94a3b8;
+                display: block;
+                letter-spacing: 0.5px;
+            }
 
         nav {
             display: flex;
@@ -146,15 +150,16 @@
             flex-wrap: wrap;
         }
 
-        nav a {
-            color: #475569;
-            font-weight: 500;
-            transition: color 0.3s;
-        }
+            nav a {
+                color: #475569;
+                font-weight: 500;
+                transition: color 0.3s;
+                font-size: 0.95rem;
+            }
 
-        nav a:hover {
-            color: #1a2a3a;
-        }
+                nav a:hover {
+                    color: #1a2a3a;
+                }
 
         .nav-login {
             font-weight: 600 !important;
@@ -162,75 +167,113 @@
         }
 
         .nav-cta {
-            background: #c9a84c;
+            background: linear-gradient(135deg, #c9a84c, #b8973a);
             color: #ffffff !important;
             padding: 8px 20px;
             border-radius: 8px;
             font-weight: 600;
         }
 
-        .nav-cta:hover {
-            background: #b8973a !important;
-            color: #ffffff !important;
-        }
+            .nav-cta:hover {
+                background: #b8973a !important;
+                color: #ffffff !important;
+            }
 
         /* ——— HERO ——— */
         .hero {
-            padding: 80px 0 100px;
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            padding: 100px 0 120px;
+            background: linear-gradient(160deg, #f1f5f9 0%, #e2e8f0 50%, #d4dce8 100%);
             text-align: center;
             position: relative;
             overflow: hidden;
         }
 
-        .hero::before {
-            content: "🕷️";
-            position: absolute;
-            font-size: 20rem;
-            opacity: 0.04;
-            top: -60px;
-            right: -60px;
-            transform: rotate(15deg);
-        }
+            .hero::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background-image: radial-gradient(circle at 20% 50%, rgba(201, 168, 76, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(26, 42, 58, 0.05) 0%, transparent 50%);
+                z-index: 0;
+            }
 
-        .hero h1 {
-            font-size: 3.2rem;
-            font-weight: 800;
-            color: #0f172a;
-            margin-bottom: 16px;
-            line-height: 1.2;
-        }
+            .hero::after {
+                content: "";
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 120px;
+                background: linear-gradient(to top, #f8fafc, transparent);
+                z-index: 0;
+            }
 
-        .hero h1 span {
-            color: #c9a84c;
-        }
+            .hero .container {
+                position: relative;
+                z-index: 1;
+            }
 
-        .hero .tagline {
-            font-size: 1.4rem;
-            font-weight: 600;
-            color: #1a2a3a;
-            margin-bottom: 8px;
-        }
+            .hero .badge {
+                display: inline-block;
+                background: rgba(201, 168, 76, 0.15);
+                color: #1a2a3a;
+                padding: 6px 20px;
+                border-radius: 100px;
+                font-weight: 600;
+                font-size: 0.85rem;
+                margin-bottom: 20px;
+                border: 1px solid rgba(201, 168, 76, 0.2);
+            }
 
-        .hero .tagline .highlight {
-            background: #c9a84c20;
-            padding: 2px 16px;
-            border-radius: 100px;
-        }
+            .hero h1 {
+                font-size: 3.4rem;
+                font-weight: 800;
+                color: #0f172a;
+                margin-bottom: 16px;
+                line-height: 1.15;
+            }
 
-        .hero p {
-            font-size: 1.2rem;
-            color: #475569;
-            max-width: 640px;
-            margin: 12px auto 36px;
-        }
+                .hero h1 span {
+                    color: #c9a84c;
+                    background: linear-gradient(135deg, #c9a84c, #a8872e);
+                    -webkit-background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    background-clip: text;
+                }
 
-        .hero .buttons {
-            display: flex;
-            justify-content: center;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
+            .hero p {
+                font-size: 1.25rem;
+                color: #475569;
+                max-width: 640px;
+                margin: 12px auto 36px;
+            }
+
+            .hero .buttons {
+                display: flex;
+                justify-content: center;
+                gap: 16px;
+                flex-wrap: wrap;
+            }
+
+            .hero .trust-badges {
+                margin-top: 48px;
+                display: flex;
+                justify-content: center;
+                gap: 40px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+
+                .hero .trust-badges span {
+                    color: #64748b;
+                    font-size: 0.85rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                    .hero .trust-badges span strong {
+                        color: #1a2a3a;
+                    }
 
         /* ——— SECCIONES ——— */
         section {
@@ -245,6 +288,10 @@
             margin-bottom: 12px;
         }
 
+            .section-title span {
+                color: #c9a84c;
+            }
+
         .section-subtitle {
             text-align: center;
             color: #64748b;
@@ -253,236 +300,211 @@
             font-size: 1.1rem;
         }
 
-        /* ——— SERVICIOS ——— */
-        .services-grid {
+        /* ——— MÓDULOS ——— */
+        .modules-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
         }
 
-        .service-card {
+        .module-card {
             background: #ffffff;
-            padding: 30px 24px;
+            padding: 32px 28px;
             border-radius: 16px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-            text-align: center;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .service-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
-        }
-
-        .service-card .icon {
-            font-size: 2.8rem;
-            margin-bottom: 16px;
-        }
-
-        .service-card h3 {
-            font-size: 1.2rem;
-            color: #0f172a;
-            margin-bottom: 8px;
-        }
-
-        .service-card p {
-            color: #64748b;
-            font-size: 0.95rem;
-        }
-
-        /* ——— SOFTWARE ——— */
-        .software-section {
-            background: linear-gradient(135deg, #0f172a 0%, #1a2a3a 100%);
-            color: #ffffff;
-        }
-
-        .software-section .section-title {
-            color: #ffffff;
-        }
-
-        .software-section .section-subtitle {
-            color: #94a3b8;
-        }
-
-        .software-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 50px;
-            align-items: center;
-        }
-
-        .software-info h2 {
-            font-size: 1.8rem;
-            margin-bottom: 16px;
-            color: #ffffff;
-        }
-
-        .software-info h2 span {
-            color: #c9a84c;
-        }
-
-        .software-info p {
-            color: #cbd5e1;
-            margin-bottom: 20px;
-            font-size: 1.05rem;
-        }
-
-        .software-features {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px 24px;
-            margin: 20px 0 28px;
-        }
-
-        .software-features li {
-            list-style: none;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #e2e8f0;
-            font-size: 0.95rem;
-        }
-
-        .software-features li::before {
-            content: "✅";
-            font-size: 1.1rem;
-        }
-
-        .software-image {
-            background: #1e293b;
-            border-radius: 16px;
-            height: 320px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #334155;
-            color: #94a3b8;
-            font-weight: 500;
-            background-image: url('https://placehold.co/600x400/1e293b/94a3b8?text=Demo+SpiderHood');
-            background-size: cover;
-            background-position: center;
+            transition: all 0.3s ease;
+            border: 1px solid #f1f5f9;
             position: relative;
+            overflow: hidden;
         }
 
-        .software-image .play-btn {
-            width: 70px;
-            height: 70px;
-            background: #c9a84c;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            color: #ffffff;
-            cursor: pointer;
-            transition: transform 0.2s;
-            box-shadow: 0 0 0 15px rgba(201, 168, 76, 0.2);
+            .module-card:hover {
+                transform: translateY(-6px);
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+                border-color: #c9a84c40;
+            }
+
+            .module-card .icon {
+                font-size: 2.4rem;
+                margin-bottom: 12px;
+                display: block;
+            }
+
+            .module-card .badge-module {
+                font-size: 0.65rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: #c9a84c;
+                background: #c9a84c15;
+                padding: 2px 12px;
+                border-radius: 100px;
+                display: inline-block;
+                margin-bottom: 8px;
+            }
+
+            .module-card h3 {
+                font-size: 1.2rem;
+                color: #0f172a;
+                margin-bottom: 8px;
+            }
+
+            .module-card p {
+                color: #64748b;
+                font-size: 0.95rem;
+            }
+
+            .module-card .features-list {
+                margin-top: 12px;
+                list-style: none;
+                padding: 0;
+            }
+
+                .module-card .features-list li {
+                    font-size: 0.85rem;
+                    color: #475569;
+                    padding: 4px 0;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                    .module-card .features-list li::before {
+                        content: "✓";
+                        color: #c9a84c;
+                        font-weight: 700;
+                    }
+
+        /* ——— CÓMO FUNCIONA ——— */
+        .how-it-works {
+            background: #f1f5f9;
         }
 
-        .software-image .play-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .software-cta-group {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            margin-top: 8px;
-        }
-
-        .badge-new {
-            background: #c9a84c;
-            color: #0f172a;
-            font-size: 0.7rem;
-            font-weight: 700;
-            padding: 2px 12px;
-            border-radius: 100px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            display: inline-block;
-            margin-left: 10px;
-            vertical-align: middle;
-        }
-
-        /* ——— SOBRE NOSOTROS ——— */
-        .about-grid {
+        .steps-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 50px;
-            align-items: center;
-        }
-
-        .about-grid h2 {
-            font-size: 2rem;
-            color: #0f172a;
-            margin-bottom: 16px;
-        }
-
-        .about-grid h2 span {
-            color: #c9a84c;
-        }
-
-        .about-grid p {
-            color: #475569;
-            margin-bottom: 16px;
-        }
-
-        .about-grid ul {
-            list-style: none;
-            padding: 0;
-        }
-
-        .about-grid ul li {
-            padding: 6px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #334155;
-        }
-
-        .about-grid ul li::before {
-            content: "🕷️";
-            color: #c9a84c;
-            font-size: 1.2rem;
-        }
-
-        .about-image {
-            background: #cbd5e1;
-            border-radius: 16px;
-            height: 320px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #64748b;
-            font-weight: 500;
-            background-image: url('https://placehold.co/600x400/e2e8f0/64748b?text=SpiderHood+Team');
-            background-size: cover;
-            background-position: center;
-        }
-
-        /* ——— NÚMEROS ——— */
-        .numbers {
-            background: #1a2a3a;
-            color: #ffffff;
-        }
-
-        .numbers-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 30px;
             text-align: center;
         }
 
-        .numbers-grid .num {
-            font-size: 2.8rem;
-            font-weight: 700;
-            color: #c9a84c;
+        .step {
+            padding: 20px;
         }
 
-        .numbers-grid .label {
-            font-size: 1rem;
-            opacity: 0.8;
+            .step .num {
+                width: 56px;
+                height: 56px;
+                background: linear-gradient(135deg, #1a2a3a, #0d1a26);
+                color: #c9a84c;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.5rem;
+                font-weight: 800;
+                margin: 0 auto 16px;
+            }
+
+            .step h4 {
+                font-size: 1.1rem;
+                color: #0f172a;
+                margin-bottom: 4px;
+            }
+
+            .step p {
+                color: #64748b;
+                font-size: 0.95rem;
+            }
+
+        /* ——— PRECIOS / PLANES ——— */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            align-items: stretch;
         }
+
+        .pricing-card {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 40px 32px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+            text-align: center;
+            border: 1px solid #f1f5f9;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+            .pricing-card:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+            }
+
+            .pricing-card.popular {
+                border-color: #c9a84c;
+                box-shadow: 0 4px 20px rgba(201, 168, 76, 0.15);
+            }
+
+            .pricing-card .popular-badge {
+                background: #c9a84c;
+                color: #ffffff;
+                font-size: 0.7rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                padding: 4px 16px;
+                border-radius: 100px;
+                display: inline-block;
+                margin-bottom: 12px;
+                letter-spacing: 0.5px;
+            }
+
+            .pricing-card .price {
+                font-size: 2.8rem;
+                font-weight: 800;
+                color: #0f172a;
+                margin: 12px 0 4px;
+            }
+
+                .pricing-card .price span {
+                    font-size: 1rem;
+                    font-weight: 400;
+                    color: #94a3b8;
+                }
+
+            .pricing-card .period {
+                color: #94a3b8;
+                font-size: 0.85rem;
+                margin-bottom: 20px;
+            }
+
+            .pricing-card ul {
+                list-style: none;
+                padding: 0;
+                margin: 0 0 24px;
+                text-align: left;
+                flex: 1;
+            }
+
+                .pricing-card ul li {
+                    padding: 6px 0;
+                    color: #475569;
+                    font-size: 0.95rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+
+                    .pricing-card ul li::before {
+                        content: "✅";
+                        font-size: 0.9rem;
+                    }
+
+            .pricing-card .btn-primary,
+            .pricing-card .btn-secondary {
+                width: 100%;
+                text-align: center;
+            }
 
         /* ——— TESTIMONIOS ——— */
         .testimonials-grid {
@@ -498,28 +520,28 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         }
 
-        .testimonial .stars {
-            color: #c9a84c;
-            font-size: 1.2rem;
-            letter-spacing: 2px;
-            margin-bottom: 8px;
-        }
+            .testimonial .stars {
+                color: #c9a84c;
+                font-size: 1.2rem;
+                letter-spacing: 2px;
+                margin-bottom: 8px;
+            }
 
-        .testimonial p {
-            color: #334155;
-            font-style: italic;
-            margin-bottom: 12px;
-        }
+            .testimonial p {
+                color: #334155;
+                font-style: italic;
+                margin-bottom: 12px;
+            }
 
-        .testimonial .author {
-            font-weight: 600;
-            color: #0f172a;
-        }
+            .testimonial .author {
+                font-weight: 600;
+                color: #0f172a;
+            }
 
-        .testimonial .role {
-            font-size: 0.85rem;
-            color: #94a3b8;
-        }
+            .testimonial .role {
+                font-size: 0.85rem;
+                color: #94a3b8;
+            }
 
         /* ——— FAQ ——— */
         .faq-list {
@@ -535,18 +557,25 @@
             border-radius: 12px;
             padding: 20px 24px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            border: 1px solid #f1f5f9;
+            transition: border 0.3s;
         }
 
-        .faq-item h4 {
-            font-weight: 600;
-            color: #0f172a;
-            margin-bottom: 4px;
-        }
+            .faq-item:hover {
+                border-color: #c9a84c40;
+            }
 
-        .faq-item p {
-            color: #64748b;
-            font-size: 0.95rem;
-        }
+            .faq-item h4 {
+                font-weight: 600;
+                color: #0f172a;
+                margin-bottom: 4px;
+                cursor: pointer;
+            }
+
+            .faq-item p {
+                color: #64748b;
+                font-size: 0.95rem;
+            }
 
         /* ——— CONTACTO ——— */
         .contact-grid {
@@ -562,9 +591,9 @@
             margin-bottom: 12px;
         }
 
-        .contact-info h3 span {
-            color: #c9a84c;
-        }
+            .contact-info h3 span {
+                color: #c9a84c;
+            }
 
         .contact-info p {
             color: #475569;
@@ -579,9 +608,9 @@
             color: #334155;
         }
 
-        .contact-info .item strong {
-            color: #0f172a;
-        }
+            .contact-info .item strong {
+                color: #0f172a;
+            }
 
         .contact-form input,
         .contact-form textarea,
@@ -594,6 +623,7 @@
             font-size: 1rem;
             margin-bottom: 16px;
             background: #ffffff;
+            transition: border 0.3s;
         }
 
         .contact-form textarea {
@@ -601,12 +631,13 @@
             resize: vertical;
         }
 
-        .contact-form input:focus,
-        .contact-form textarea:focus,
-        .contact-form select:focus {
-            outline: 2px solid #1a2a3a;
-            border-color: transparent;
-        }
+            .contact-form input:focus,
+            .contact-form textarea:focus,
+            .contact-form select:focus {
+                outline: none;
+                border-color: #c9a84c;
+                box-shadow: 0 0 0 3px rgba(201, 168, 76, 0.1);
+            }
 
         .contact-form label {
             font-weight: 600;
@@ -624,69 +655,86 @@
             text-align: center;
         }
 
-        footer .footer-logo {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: #ffffff;
-            margin-bottom: 8px;
-        }
+            footer .footer-logo {
+                font-size: 1.3rem;
+                font-weight: 700;
+                color: #ffffff;
+                margin-bottom: 8px;
+            }
 
-        footer .footer-logo span {
-            color: #c9a84c;
-        }
+                footer .footer-logo span {
+                    color: #c9a84c;
+                }
 
-        footer .socials {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin: 16px 0;
-        }
+            footer .socials {
+                display: flex;
+                justify-content: center;
+                gap: 20px;
+                margin: 16px 0;
+            }
 
-        footer .socials a {
-            color: #94a3b8;
-            font-size: 1.2rem;
-            transition: color 0.3s;
-        }
+                footer .socials a {
+                    color: #94a3b8;
+                    font-size: 1.2rem;
+                    transition: color 0.3s;
+                }
 
-        footer .socials a:hover {
-            color: #ffffff;
-        }
+                    footer .socials a:hover {
+                        color: #ffffff;
+                    }
 
-        footer p {
-            font-size: 0.9rem;
-        }
+            footer p {
+                font-size: 0.9rem;
+            }
+
+            footer .footer-links {
+                display: flex;
+                justify-content: center;
+                gap: 30px;
+                flex-wrap: wrap;
+                margin-bottom: 16px;
+            }
+
+                footer .footer-links a {
+                    color: #94a3b8;
+                    font-size: 0.85rem;
+                    transition: color 0.3s;
+                }
+
+                    footer .footer-links a:hover {
+                        color: #ffffff;
+                    }
 
         /* ——— RESPONSIVE ——— */
         @media (max-width: 768px) {
-            .hero h1 {
-                font-size: 2.2rem;
+            .hero {
+                padding: 60px 0 80px;
             }
 
-            .hero .tagline {
-                font-size: 1.1rem;
-            }
+                .hero h1 {
+                    font-size: 2.2rem;
+                }
 
-            .about-grid,
-            .contact-grid,
-            .software-grid {
+                .hero p {
+                    font-size: 1rem;
+                }
+
+                .hero .trust-badges {
+                    gap: 20px;
+                    flex-direction: column;
+                    align-items: center;
+                }
+
+            .contact-grid {
                 grid-template-columns: 1fr;
             }
 
-            .software-features {
-                grid-template-columns: 1fr;
-            }
-
-            .about-image,
-            .software-image {
-                height: 200px;
-            }
-
-            .software-image {
-                order: -1;
+            .modules-grid {
+                grid-template-columns: 1fr 1fr;
             }
 
             nav {
-                gap: 16px;
+                gap: 14px;
                 margin-top: 12px;
             }
 
@@ -703,20 +751,42 @@
                 font-size: 1.8rem;
             }
 
-            .software-cta-group {
+            .pricing-grid {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+                margin: 0 auto;
+            }
+
+            .steps-grid {
+                grid-template-columns: 1fr;
+                max-width: 300px;
+                margin: 0 auto;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .logo small {
+                display: none;
+            }
+
+            .logo {
+                font-size: 1.2rem;
+            }
+
+            .hero .buttons {
                 flex-direction: column;
+                align-items: center;
             }
 
-            .software-cta-group .btn-primary,
-            .software-cta-group .btn-outline-light {
-                text-align: center;
-            }
-
-            .hero::before {
-                font-size: 10rem;
-                top: -20px;
-                right: -30px;
-            }
+                .hero .buttons a {
+                    width: 100%;
+                    max-width: 280px;
+                    text-align: center;
+                }
         }
     </style>
 </head>
@@ -726,18 +796,36 @@
     <header>
         <div class="container">
             <a href="/" class="logo">
-                <img src="logo.png" alt="SpiderHood" width="130" height="auto">
-                Spider<span>Hood</span>
-                <small>Administración + Software</small>
+                <!-- SVG LOGO (copia el SVG de arriba, simplificado) -->
+                <svg width="44" height="44" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:44px;height:44px;">
+                    <g transform="translate(0,5)">
+                        <rect x="8" y="10" width="24" height="36" rx="3" fill="#1a2a3a" />
+                        <rect x="13" y="16" width="4" height="8" fill="#c9a84c" />
+                        <rect x="21" y="16" width="4" height="8" fill="#c9a84c" />
+                        <rect x="13" y="28" width="12" height="4" fill="#c9a84c" />
+                        <rect x="13" y="36" width="12" height="4" fill="#c9a84c" />
+                        <path d="M0 16 L8 22" stroke="#1a2a3a" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M40 16 L32 22" stroke="#1a2a3a" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M2 28 L8 26" stroke="#1a2a3a" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M38 28 L32 26" stroke="#1a2a3a" stroke-width="2.5" stroke-linecap="round" />
+                        <circle cx="12" cy="12" r="2.5" fill="#c9a84c" />
+                        <circle cx="24" cy="12" r="2.5" fill="#c9a84c" />
+                    </g>
+                    <text x="48" y="38" font-family="Inter, sans-serif" font-size="28" font-weight="800" fill="#1a2a3a">Spider</text>
+                    <text x="48" y="38" font-family="Inter, sans-serif" font-size="28" font-weight="800" fill="#c9a84c">Hood</text>
+                </svg>
+                <div>
+                    Spider<span>Hood</span>
+                    <small>BUILDING MANAGEMENT SOFTWARE</small>
+                </div>
             </a>
             <nav>
-                <a href="#servicios">Servicios</a>
-                <a href="#software">Software</a>
+                <a href="#modulos">Módulos</a>
+                <a href="#precios">Precios</a>
                 <a href="#nosotros">Nosotros</a>
-                <a href="#testimonios">Testimonios</a>
                 <a href="#faq">FAQ</a>
                 <a href="/login" class="nav-login">Acceso al Sistema</a>
-                <a href="/register-admin" class="nav-cta">Piloto gratuito</a>
+                <a href="/register" class="nav-cta">Piloto gratuito</a>
             </nav>
         </div>
     </header>
@@ -745,126 +833,219 @@
     <!-- ===== HERO ===== -->
     <section class="hero">
         <div class="container">
-            <div class="tagline">
-                🕷️ <span class="highlight">Tejemos la red que tu edificio necesita</span>
-            </div>
-            <h1>Todo lo que tu edificio necesita<br /><span>en un solo lugar</span></h1>
-            <p>Más de 05 años administrando comunidades de propietarios. Ahora también ofrecemos nuestro software de gestión para que tengas el control total de tu edificio.</p>
+            <div class="badge">🚀 Lanzamiento 2026 · Piloto gratuito disponible</div>
+            <h1>El sistema que tu edificio<br /><span>necesita para funcionar</span></h1>
+            <p>SpiderHood es el software de administración de edificios que conecta a propietarios, administradores y proveedores en una sola plataforma. Transparente, intuitivo y sin necesidad de personal externo.</p>
             <div class="buttons">
-                <a href="#software" class="btn-secondary">🔍 Descubre el software</a>
-                <a href="/register-admin" class="btn-primary">Solicitar piloto gratuito</a>
+                <a href="/register" class="btn-secondary">🚀 Probar gratis ahora</a>
+                <a href="#modulos" class="btn-outline">Ver módulos</a>
+            </div>
+            <div class="trust-badges">
+                <span>✅ <strong>Sin tarjeta de crédito</strong></span>
+                <span>⏱️ <strong>Configuración en 5 min</strong></span>
+                <span>🔒 <strong>Datos seguros</strong></span>
+                <span>📱 <strong>Acceso móvil</strong></span>
             </div>
         </div>
     </section>
 
-    <!-- ===== SERVICIOS ===== -->
-    <section id="servicios">
+    <!-- ===== MÓDULOS ===== -->
+    <section id="modulos">
         <div class="container">
-            <h2 class="section-title">Nuestra red de servicios</h2>
-            <p class="section-subtitle">Tejemos una red completa para que tu comunidad funcione sin preocupaciones.</p>
-            <div class="services-grid">
-                <div class="service-card">
-                    <div class="icon">🏢</div>
-                    <h3>Gestión de comunidades</h3>
-                    <p>Administración de edificios, junta de propietarios y cumplimiento normativo.</p>
-                </div>
-                <div class="service-card">
-                    <div class="icon">⚖️</div>
-                    <h3>Asesoría legal</h3>
-                    <p>Resolución de conflictos, revisión de contratos y apoyo jurídico especializado.</p>
-                </div>
-                <div class="service-card">
-                    <div class="icon">🔧</div>
-                    <h3>Incidencias y mantenimiento</h3>
-                    <p>Atención rápida a averías, control de proveedores y mantenimiento preventivo.</p>
-                </div>
-                <div class="service-card">
-                    <div class="icon">📊</div>
-                    <h3>Gestión económica</h3>
-                    <p>Presupuestos, cuentas claras, cobros y pagos con total transparencia.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+            <h2 class="section-title">Todo lo que necesitas en <span>un solo sistema</span></h2>
+            <p class="section-subtitle">SpiderHood integra todos los módulos que un edificio necesita para su gestión diaria.</p>
+            <div class="modules-grid">
 
-    <!-- ===== SOFTWARE ===== -->
-    <section id="software" class="software-section">
-        <div class="container">
-            <h2 class="section-title">
-                Software SpiderHood
-                <span class="badge-new">Nuevo</span>
-            </h2>
-            <p class="section-subtitle">El centro de control de tu edificio. Transparente, intuitivo y siempre accesible.</p>
-
-            <div class="software-grid">
-                <div class="software-info">
-                    <h2>Donde la administración se encuentra <span>con la tecnología</span></h2>
-                    <p>SpiderHood Software te permite gestionar incidencias, cuentas, documentación y comunicaciones desde cualquier lugar. Ideal para administradores profesionales y comunidades que quieren autonomía.</p>
-
-                    <ul class="software-features">
-                        <li>Portal para propietarios</li>
-                        <li>Gestión de incidencias 24/7</li>
-                        <li>Cuentas claras en tiempo real</li>
-                        <li>Documentación digitalizada</li>
-                        <li>Comunicación interna</li>
-                        <li>Informes y alertas automáticas</li>
+                <!-- Módulo 1: Gestión -->
+                <div class="module-card">
+                    <span class="icon">🏢</span>
+                    <span class="badge-module">Módulo</span>
+                    <h3>Gestión de Edificios</h3>
+                    <p>Administra toda la información de tus edificios, propietarios, inquilinos y unidades.</p>
+                    <ul class="features-list">
+                        <li>Registro de edificios y unidades</li>
+                        <li>Gestión de propietarios e inquilinos</li>
+                        <li>Historial de cambios y documentos</li>
+                        <li>Control de accesos y roles</li>
                     </ul>
-
-                    <div class="software-cta-group">
-                        <a href="/register-admin" class="btn-secondary">🚀 Solicitar piloto gratuito</a>
-                        <a href="#" class="btn-outline-light">Ver demo</a>
-                    </div>
                 </div>
 
-                <div class="software-image">
-                    <div class="play-btn">▶</div>
+                <!-- Módulo 2: Gestión Económica -->
+                <div class="module-card">
+                    <span class="icon">💰</span>
+                    <span class="badge-module">Módulo</span>
+                    <h3>Gestión Económica</h3>
+                    <p>Lleva el control financiero completo de tu comunidad con total transparencia.</p>
+                    <ul class="features-list">
+                        <li>Presupuestos anuales y mensuales</li>
+                        <li>Ingresos y egresos detallados</li>
+                        <li>Cuotas ordinarias y extraordinarias</li>
+                        <li>Informes financieros automáticos</li>
+                    </ul>
+                </div>
+
+                <!-- Módulo 3: Incidencias -->
+                <div class="module-card">
+                    <span class="icon">🔧</span>
+                    <span class="badge-module">Módulo</span>
+                    <h3>Gestión de Incidencias</h3>
+                    <p>Reporta, asigna y da seguimiento a cualquier problema en el edificio.</p>
+                    <ul class="features-list">
+                        <li>Reporte desde app móvil</li>
+                        <li>Asignación automática a técnicos</li>
+                        <li>Seguimiento en tiempo real</li>
+                        <li>Historial de incidencias</li>
+                    </ul>
+                </div>
+
+                <!-- Módulo 4: Alertas -->
+                <div class="module-card">
+                    <span class="icon">📢</span>
+                    <span class="badge-module">Módulo</span>
+                    <h3>Alertas y Comunicados</h3>
+                    <p>Mantén informada a toda la comunidad con comunicaciones efectivas.</p>
+                    <ul class="features-list">
+                        <li>Comunicados masivos</li>
+                        <li>Alertas por email y app</li>
+                        <li>Calendario de eventos</li>
+                        <li>Notificaciones personalizadas</li>
+                    </ul>
+                </div>
+
+                <!-- Módulo 5: Mantenimiento -->
+                <div class="module-card">
+                    <span class="icon">🛠️</span>
+                    <span class="badge-module">Módulo</span>
+                    <h3>Gestión de Mantenimientos</h3>
+                    <p>Planifica y controla todos los mantenimientos preventivos y correctivos.</p>
+                    <ul class="features-list">
+                        <li>Calendario de mantenimiento</li>
+                        <li>Control de proveedores</li>
+                        <li>Órdenes de trabajo</li>
+                        <li>Historial de servicios</li>
+                    </ul>
+                </div>
+
+                <!-- Módulo 6: Documentos (nuevo) -->
+                <div class="module-card">
+                    <span class="icon">📄</span>
+                    <span class="badge-module">Módulo</span>
+                    <h3>Documentación Digital</h3>
+                    <p>Centraliza todos los documentos importantes de tu edificio.</p>
+                    <ul class="features-list">
+                        <li>Actas de juntas</li>
+                        <li>Contratos y seguros</li>
+                        <li>Planos y certificados</li>
+                        <li>Buscador inteligente</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== CÓMO FUNCIONA ===== -->
+    <section class="how-it-works">
+        <div class="container">
+            <h2 class="section-title">Empieza en <span>3 pasos</span></h2>
+            <p class="section-subtitle">No necesitas conocimientos técnicos ni personal adicional. SpiderHood está diseñado para ser intuitivo.</p>
+            <div class="steps-grid">
+                <div class="step">
+                    <div class="num">1</div>
+                    <h4>Crea tu cuenta</h4>
+                    <p>Regístrate gratis y configura tu edificio en menos de 5 minutos.</p>
+                </div>
+                <div class="step">
+                    <div class="num">2</div>
+                    <h4>Invita a tu comunidad</h4>
+                    <p>Agrega propietarios, administradores y proveedores fácilmente.</p>
+                </div>
+                <div class="step">
+                    <div class="num">3</div>
+                    <h4>Empieza a gestionar</h4>
+                    <p>Usa todos los módulos desde el primer día. Sin curvas de aprendizaje.</p>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- ===== PRECIOS ===== -->
+    <section id="precios">
+        <div class="container">
+            <h2 class="section-title">Planes para cada <span>comunidad</span></h2>
+            <p class="section-subtitle">Elige el plan que mejor se adapte a las necesidades de tu edificio.</p>
+            <div class="pricing-grid">
+                <!-- Plan Básico -->
+                <div class="pricing-card">
+                    <h3>Básico</h3>
+                    <div class="price">$19<span>/mes</span></div>
+                    <div class="period">Hasta 50 unidades</div>
+                    <ul>
+                        <li>Gestión de edificios</li>
+                        <li>Gestión económica básica</li>
+                        <li>Incidencias</li>
+                        <li>Alertas y comunicados</li>
+                        <li>Soporte por email</li>
+                    </ul>
+                    <a href="/register" class="btn-primary">Empezar gratis</a>
+                </div>
+
+                <!-- Plan Profesional (popular) -->
+                <div class="pricing-card popular">
+                    <div class="popular-badge">⭐ Más popular</div>
+                    <h3>Profesional</h3>
+                    <div class="price">$39<span>/mes</span></div>
+                    <div class="period">Hasta 200 unidades</div>
+                    <ul>
+                        <li>✓ Todo lo del plan Básico</li>
+                        <li>Gestión económica avanzada</li>
+                        <li>Mantenimientos programados</li>
+                        <li>Documentación digital</li>
+                        <li>Portal para propietarios</li>
+                        <li>Soporte prioritario</li>
+                    </ul>
+                    <a href="/register" class="btn-secondary">Probar gratis</a>
+                </div>
+
+                <!-- Plan Empresarial -->
+                <div class="pricing-card">
+                    <h3>Empresarial</h3>
+                    <div class="price">$79<span>/mes</span></div>
+                    <div class="period">Ilimitado</div>
+                    <ul>
+                        <li>✓ Todo lo del plan Profesional</li>
+                        <li>Múltiples edificios</li>
+                        <li>API para integraciones</li>
+                        <li>Informes personalizados</li>
+                        <li>Auditoría y cumplimiento</li>
+                        <li>Soporte 24/7</li>
+                    </ul>
+                    <a href="/register" class="btn-primary">Empezar gratis</a>
+                </div>
+            </div>
+            <p style="text-align:center;color:#94a3b8;font-size:0.9rem;margin-top:24px;">
+                🔒 Todos los planes incluyen 60 días de prueba gratuita · Sin necesidad de tarjeta de crédito
+            </p>
         </div>
     </section>
 
     <!-- ===== SOBRE NOSOTROS ===== -->
     <section id="nosotros" style="background:#f1f5f9;">
         <div class="container">
-            <div class="about-grid">
+            <div class="about-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:center;">
                 <div>
-                    <h2>SpiderHood: <span>tejiendo confianza</span> desde hace 05 años</h2>
-                    <p>Somos un despacho de administración de fincas con más de una década de experiencia. Nuestro equipo multidisciplinar combina expertise legal, técnica y económica para ofrecer un servicio integral.</p>
-                    <ul>
-                        <li>Administradores colegiados con años de trayectoria</li>
-                        <li>Atención personalizada y cercana a los vecinos</li>
-                        <li>Compromiso con la transparencia en cada gestión</li>
-                        <li>Más de 50 comunidades confían en nosotros</li>
+                    <h2 style="font-size:2rem;color:#0f172a;margin-bottom:16px;">SpiderHood: <span style="color:#c9a84c;">tejiendo tecnología</span> para edificios</h2>
+                    <p style="color:#475569;margin-bottom:16px;">Somos un equipo de desarrolladores y expertos en administración de propiedades que creamos la herramienta que siempre quisimos tener: un sistema completo, intuitivo y accesible para cualquier comunidad.</p>
+                    <ul style="list-style:none;padding:0;">
+                        <li style="padding:6px 0;display:flex;align-items:center;gap:10px;color:#334155;">✓ Más de 5 años desarrollando software inmobiliario</li>
+                        <li style="padding:6px 0;display:flex;align-items:center;gap:10px;color:#334155;">✓ Diseñado con feedback de administradores reales</li>
+                        <li style="padding:6px 0;display:flex;align-items:center;gap:10px;color:#334155;">✓ Tecnología moderna y datos seguros</li>
+                        <li style="padding:6px 0;display:flex;align-items:center;gap:10px;color:#334155;">✓ Comunidades en 3 países confían en SpiderHood</li>
                     </ul>
                     <br />
                     <a href="#contacto" class="btn-primary">Habla con nosotros</a>
                 </div>
-                <div class="about-image">
-                    <!-- Aquí puedes colocar tu imagen -->
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ===== NÚMEROS ===== -->
-    <section class="numbers">
-        <div class="container">
-            <div class="numbers-grid">
-                <div>
-                    <div class="num">05</div>
-                    <div class="label">Años tejiendo redes</div>
-                </div>
-                <div>
-                    <div class="num">50+</div>
-                    <div class="label">Comunidades gestionadas</div>
-                </div>
-                <div>
-                    <div class="num">2.400</div>
-                    <div class="label">Propietarios atendidos</div>
-                </div>
-                <div>
-                    <div class="num">98%</div>
-                    <div class="label">Satisfacción de clientes</div>
+                <div style="background:linear-gradient(135deg,#1a2a3a,#0d1a26);border-radius:16px;height:320px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-weight:500;background-image:url('https://placehold.co/600x400/1a2a3a/c9a84c?text=SpiderHood+Team');background-size:cover;background-position:center;">
                 </div>
             </div>
         </div>
@@ -873,24 +1054,24 @@
     <!-- ===== TESTIMONIOS ===== -->
     <section id="testimonios">
         <div class="container">
-            <h2 class="section-title">Lo que teje nuestra red</h2>
-            <p class="section-subtitle">La confianza de las comunidades que ya gestionamos es nuestra mejor carta de presentación.</p>
+            <h2 class="section-title">Lo que dicen quienes <span>ya lo usan</span></h2>
+            <p class="section-subtitle">Más de 50 comunidades confían en SpiderHood para la gestión de sus edificios.</p>
             <div class="testimonials-grid">
                 <div class="testimonial">
                     <div class="stars">★★★★★</div>
-                    <p>"SpiderHood ha transformado nuestra comunidad. El software es increíble y el equipo humano, excepcional."</p>
+                    <p>"SpiderHood ha transformado nuestra comunidad. Ahora todo está en un solo lugar y los propietarios están más informados que nunca."</p>
                     <div class="author">Ana Martínez</div>
                     <div class="role">Presidenta, Comunidad Los Pinos</div>
                 </div>
                 <div class="testimonial">
                     <div class="stars">★★★★★</div>
-                    <p>"La transparencia en la gestión económica ha sido clave. Llevamos 3 años con ellos y no podríamos estar más contentos."</p>
+                    <p>"Como administrador, SpiderHood me ahorra horas de trabajo. La gestión económica y las incidencias son un sueño."</p>
                     <div class="author">Carlos Ruiz</div>
-                    <div class="role">Administrador, Edificio Centro</div>
+                    <div class="role">Administrador de Edificios</div>
                 </div>
                 <div class="testimonial">
                     <div class="stars">★★★★★</div>
-                    <p>"Resuelven las incidencias en tiempo récord. Tener un administrador así es tener tranquilidad."</p>
+                    <p>"Los propietarios aman el portal. Pueden ver sus cuentas, reportar incidencias y estar al día sin llamar a nadie."</p>
                     <div class="author">Laura Gómez</div>
                     <div class="role">Vecina, Residencial Jardín</div>
                 </div>
@@ -901,24 +1082,28 @@
     <!-- ===== FAQ ===== -->
     <section id="faq" style="background:#f1f5f9;">
         <div class="container">
-            <h2 class="section-title">Preguntas frecuentes</h2>
+            <h2 class="section-title">Preguntas <span>frecuentes</span></h2>
             <p class="section-subtitle">Resolvemos las dudas más comunes sobre SpiderHood.</p>
             <div class="faq-list">
                 <div class="faq-item">
-                    <h4>¿Cuánto cuesta contratar SpiderHood?</h4>
-                    <p>El coste depende del número de viviendas y los servicios que necesite la comunidad. Ofrecemos presupuestos personalizados sin compromiso.</p>
+                    <h4>¿Necesito ser administrador profesional para usar SpiderHood?</h4>
+                    <p>No. SpiderHood está diseñado para que cualquier comunidad de propietarios pueda usarlo, incluso sin un administrador profesional. También es ideal para administradores que quieren digitalizar su trabajo.</p>
                 </div>
                 <div class="faq-item">
                     <h4>¿El software es solo para administradores o también para propietarios?</h4>
-                    <p>Ambos. Los administradores tienen un panel de control completo y los propietarios acceden a un portal donde pueden ver cuentas, reportar incidencias y comunicarse.</p>
+                    <p>Ambos. Los administradores tienen un panel de control completo con todos los módulos. Los propietarios acceden a un portal donde pueden ver cuentas, reportar incidencias, descargar documentos y recibir comunicados.</p>
                 </div>
                 <div class="faq-item">
-                    <h4>¿Cómo funciona el piloto gratuito del software?</h4>
-                    <p>Es instantáneo: hacé clic en "Piloto gratuito", creá tu cuenta y armá tu edificio de inmediato -- sin esperar aprobación ni demo previa.</p>
+                    <h4>¿Cómo funciona el piloto gratuito?</h4>
+                    <p>Es instantáneo: hacé clic en "Probar gratis" o "Piloto gratuito", creá tu cuenta con tu email y empezá a configurar tu edificio de inmediato. Sin esperar aprobación ni demo previa. 14 días de prueba completa.</p>
                 </div>
                 <div class="faq-item">
-                    <h4>¿Qué cobertura tienen para incidencias urgentes?</h4>
-                    <p>Contamos con un servicio de atención 24/7 para averías y emergencias, con una red de proveedores de confianza.</p>
+                    <h4>¿Puedo importar datos de mi edificio?</h4>
+                    <p>Sí. SpiderHood permite importar datos de propietarios, unidades y movimientos económicos desde Excel. También ofrecemos asistencia para migraciones más complejas.</p>
+                </div>
+                <div class="faq-item">
+                    <h4>¿Qué pasa si mi comunidad crece?</h4>
+                    <p>Puedes cambiar de plan en cualquier momento. Nuestros planes son flexibles y escalan con las necesidades de tu edificio.</p>
                 </div>
             </div>
         </div>
@@ -927,15 +1112,15 @@
     <!-- ===== CONTACTO ===== -->
     <section id="contacto">
         <div class="container">
-            <h2 class="section-title">Únete a la red SpiderHood</h2>
+            <h2 class="section-title">¿Listo para <span>empezar</span>?</h2>
             <p class="section-subtitle">
-                ¿Sólo querés probar el software? <a href="/register-admin" style="color:#1a2a3a;font-weight:700;">Empezá gratis ahora mismo →</a><br />
-                Para administración tradicional o el paquete completo, contanos tu caso y te asesoramos sin compromiso.
+                ¿Querés probar el software? <a href="/register" style="color:#c9a84c;font-weight:700;">Empezá gratis ahora mismo →</a><br />
+                ¿Tenés dudas o necesitás una demo personalizada? Contanos y te ayudamos.
             </p>
             <div class="contact-grid">
                 <div class="contact-info">
                     <h3>¿Qué necesita <span>tu edificio</span>?</h3>
-                    <p>Cuéntanos tu caso y te daremos una respuesta personalizada en menos de 24 horas.</p>
+                    <p>Contanos tu caso y te daremos una respuesta personalizada en menos de 24 horas.</p>
                     <div class="item">📞 <div><strong>Teléfono:</strong> +51 992 786 125</div></div>
                     <div class="item">✉️ <div><strong>Email:</strong> hola@spiderhood.com</div></div>
                     <div class="item">📍 <div><strong>Oficina:</strong> Calle Victor Alzamora 286, Lima</div></div>
@@ -948,12 +1133,14 @@
 
                     <label for="interes">¿Qué te interesa?</label>
                     <select id="interes">
-                        <option value="ambos">Paquete completo: Administración + Software</option>
-                        <option value="administracion">Solo administración tradicional</option>
+                        <option value="software">Probar el software SpiderHood</option>
+                        <option value="demo">Solicitar una demo personalizada</option>
+                        <option value="info">Recibir más información</option>
+                        <option value="migracion">Ayuda para migrar datos</option>
                     </select>
 
-                    <textarea placeholder="Cuéntanos qué necesita tu edificio..."></textarea>
-                    <button type="submit" class="btn-primary" style="width:100%;">🕷️ Solicitar información</button>
+                    <textarea placeholder="Contanos qué necesitas o qué dudas tenés..."></textarea>
+                    <button type="submit" class="btn-primary" style="width:100%;">🕷️ Enviar mensaje</button>
                 </form>
             </div>
         </div>
@@ -963,13 +1150,21 @@
     <footer>
         <div class="container">
             <div class="footer-logo">🕷️ Spider<span>Hood</span></div>
+            <div class="footer-links">
+                <a href="#modulos">Módulos</a>
+                <a href="#precios">Precios</a>
+                <a href="#nosotros">Nosotros</a>
+                <a href="#faq">FAQ</a>
+                <a href="/login">Acceso al Sistema</a>
+                <a href="/register">Piloto gratuito</a>
+            </div>
             <div class="socials">
                 <a href="#">📘</a>
                 <a href="#">📸</a>
                 <a href="#">🐦</a>
                 <a href="#">💼</a>
             </div>
-            <p>&copy; 2026 SpiderHood · Administración + Software para tu edificio · Todos los derechos reservados</p>
+            <p>&copy; 2026 SpiderHood · Software de Administración de Edificios · Todos los derechos reservados</p>
         </div>
     </footer>
 

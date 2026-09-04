@@ -42,29 +42,29 @@ todo en la misma máquina Windows 11.
    que normalmente **no** tiene acceso a SQL Server. Como la connection string
    de QA usa autenticación de Windows (`Trusted_Connection=True`), tenés que
    crear un login en SQL Server para esa cuenta virtual y darle permisos sobre
-   `SpiderHoodContext_QA` (db_datareader + db_datawriter + EXECUTE sobre los
+   `SpiderHoodContext` (db_datareader + db_datawriter + EXECUTE sobre los
    SPs alcanza). Se hace después de crear el sitio en el paso 3, una vez que
    sabés el nombre exacto del Application Pool.
 
 ## 3. Sitio en IIS
 
-1. Abrí **IIS Manager**. Creá un Application Pool nuevo (ej. `SpiderHoodQA`):
+1. Abrí **IIS Manager**. Creá un Application Pool nuevo (ej. `SpiderHood`):
    - .NET CLR version: **No Managed Code** (obligatorio -- ASP.NET Core no corre
      bajo el pipeline clásico de IIS).
    - Managed pipeline mode: Integrated.
 2. Creá un sitio nuevo (o una aplicación dentro de Default Web Site) apuntando
    como *Physical path* a la carpeta donde vas a publicar (por defecto en el
-   perfil de publish: `C:\inetpub\wwwroot\SpiderHoodQA\`), usando el
+   perfil de publish: `C:\inetpub\wwwroot\SpiderHood\`), usando el
    Application Pool que acabás de crear.
 3. Volvé al paso 2.4 y otorgale el login de SQL Server a la identidad de este
    Application Pool.
 
 ## 4. Configurar la connection string de QA
 
-El repo trae `SpiderHood/appsettings.QA.json` con placeholders:
+El repo trae `SpiderHood/appsettings.Production.json` con placeholders:
 
 ```json
-"SpiderHoodContext": "Server=CAMBIAR_SERVIDOR_SQL;Database=SpiderHoodContext_QA;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+"SpiderHoodContext": "Data Source=EK-DESKTOP;Initial Catalog=SpiderHood;Persist Security Info=True;User ID=sa1;Password=123456;Pooling=False;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True;"
 ```
 
 Editalo con el nombre real de tu instancia SQL (ej. `localhost\SQLEXPRESS`) y
@@ -74,7 +74,7 @@ confirmación/invitación).
 
 Este archivo **no** se sobreescribe con datos de producción ni de tu
 `appsettings.json` de desarrollo -- ASP.NET Core lo carga solo cuando
-`ASPNETCORE_ENVIRONMENT=QA`, que el perfil de publish (`QA-IIS.pubxml`) ya deja
+`ASPNETCORE_ENVIRONMENT=QA`, que el perfil de publish (`IIS.pubxml`) ya deja
 grabado en el `web.config` generado. No hace falta tocar nada en IIS Manager
 para esto.
 
@@ -118,4 +118,4 @@ para esto.
   persistente para el circuito.
 - **Error de login/timeout hacia SQL Server**: falta el login del Application
   Pool en SQL Server (paso 2.4), o el nombre de servidor en
-  `appsettings.QA.json` está mal.
+  `appsettings.Production.json` está mal.

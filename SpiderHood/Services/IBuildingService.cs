@@ -222,6 +222,13 @@ namespace SpiderHood.Services
                     ParentId = Guid.Empty,
                     IdBuilding = newBuildingId,
                     Nivel = 0,
+                    // Sin esto quedaba en el default 0 de int para toda categoría raíz
+                    // clonada -- mismo bug que CategoryPage.AddItem (ver
+                    // Database/Scripts/2026-09-04_43_*): view_categories propaga el Sort
+                    // de la raíz a sus hijos, así que con todas las raíces clonadas en
+                    // Sort = 0, GET_BudgetDetailDefault las colapsaba en una sola sección
+                    // en cada edificio nuevo. Se preserva el orden del Template.
+                    Sort = raiz.Sort,
                     ShowDetailInReceipt = raiz.ShowDetailInReceipt
                 });
             }

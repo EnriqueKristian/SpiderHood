@@ -21,6 +21,15 @@
         }
         else
         {
+            @if (_subscription.Status == "Trial" && _subscription.EndDate.HasValue)
+            {
+                var daysLeft = Math.Max(0, (int)Math.Ceiling((_subscription.EndDate.Value - DateTime.UtcNow).TotalDays));
+                <div class="alert @(daysLeft <= 10 ? "alert-warning" : "alert-info") py-2 mb-3">
+                    <i class="bi bi-hourglass-split me-2"></i>
+                    Estás en el período de prueba: te quedan <strong>@daysLeft día(s)</strong> (hasta @_subscription.EndDate.Value.ToString("dd/MM/yyyy"))
+                    para elegir un plan pago antes de que venza.
+                </div>
+            }
             <ul class="list-group list-group-flush">
                 <li class="list-group-item d-flex justify-content-between lh-sm">
                     <div>

@@ -112,7 +112,17 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 // el botón "Nuevo Edificio", se le abre el modal de una -- es su único
                 // paso pendiente para poder usar el sistema.
                 if (_canCreateBuilding)
+                {
+                    // Sin ningún Building todavía no hay un IdBuilding real con el que
+                    // pedir ParameterService.LoadParametersAsync -- pero GET_AllParameters
+                    // trae "WHERE IdBuilding = @IdBuilding OR IdBuilding IS NULL", así que
+                    // cualquier Guid sirve para traer los parámetros de Sistema globales
+                    // (Tipo Edificio IdParent=34 entre ellos). Sin este llamado,
+                    // ListParameters quedaba vacía y el <select> de "Tipo" en el modal de
+                    // "Nuevo Edificio" no mostraba ninguna opción la primera vez.
+                    await ParameterService.LoadParametersAsync(Guid.Empty);
                     await ShowCreateModal();
+                }
 
                 return;
             }

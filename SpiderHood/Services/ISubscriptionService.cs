@@ -60,6 +60,13 @@ namespace SpiderHood.Services
             if (trial == null)
                 return;
 
+            // 60 días de prueba (prometidos en la landing, wwwroot/index.html: "Todos
+            // los planes incluyen 60 días de prueba gratuita") -- antes quedaba en
+            // NULL, sin ningún vencimiento real. Settings.razor avisa cuántos días
+            // quedan; qué pasa efectivamente al vencer (bloquear, degradar a Básico,
+            // etc.) queda para cuando haya una tarea programada que lo chequee -- por
+            // ahora sólo informa.
+            var now = DateTime.UtcNow;
             await Ec.AddNewRecordAsync(new Subscription
             {
                 IdSubscription = Guid.NewGuid(),
@@ -67,7 +74,8 @@ namespace SpiderHood.Services
                 IdAccount = idAccount,
                 IdSubscriptionPlan = trial.IdSubscriptionPlan,
                 Status = "Trial",
-                StartDate = DateTime.UtcNow
+                StartDate = now,
+                EndDate = now.AddDays(60)
             });
         }
 

@@ -17,7 +17,7 @@ namespace SpiderHood.Services
         // redirigir el navegador. Tira InvalidOperationException si el plan no
         // existe o todavía no tiene un Amount configurado (runbook en el
         // documento de diseño).
-        Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan);
+        Task<string> CreateCheckoutSessionAsync(Guid idUser, int idSubscriptionPlan);
     }
 
     public class PaymentService : IPaymentService
@@ -36,7 +36,7 @@ namespace SpiderHood.Services
             _baseUrl = (configuration["BaseUrl"] ?? "https://localhost:7175").TrimEnd('/');
         }
 
-        public async Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan)
+        public async Task<string> CreateCheckoutSessionAsync(Guid idUser, int idSubscriptionPlan)
         {
             var plans = await _subscriptionService.GetAllPlansAsync();
             var plan = plans.FirstOrDefault(p => p.IdSubscriptionPlan == idSubscriptionPlan)
@@ -48,7 +48,13 @@ namespace SpiderHood.Services
             var request = new PreapprovalCreateRequest
             {
                 Reason = $"Suscripción SpiderHood - {plan.Name}",
-                PayerEmail = userEmail,
+                // NO se manda PayerEmail: si se manda el email real del Administrador
+                // logueado en SpiderHood, pero quien autoriza en MercadoPago es una
+                // cuenta de prueba, MercadoPago tira "una de las partes con la que
+                // intentas hacer el pago es de prueba" -- ata la operación a una
+                // identidad real que no coincide con quien la termina pagando. Sin
+                // este campo, MercadoPago identifica al pagador por la sesión con la
+                // que autoriza en su propio checkout, no por lo que mandemos acá.
                 BackUrl = $"{_baseUrl}/pago-exitoso",
                 // El webhook (subscription_preapproval) parsea esto para saber a
                 // qué usuario/plan activar -- ver Program.cs.

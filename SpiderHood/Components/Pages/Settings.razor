@@ -84,7 +84,6 @@
     private string? _paymentError;
     private bool _redirecting;
     private Guid _idUser;
-    private string _userEmail = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -92,7 +91,6 @@
         if (currentUser == null) return;
 
         _idUser = currentUser.IdUser;
-        _userEmail = currentUser.Email;
         _administeredBuildingsCount = currentUser.Buildings
             .Count(b => b.Role == "Administrador" && b.IsApproved);
 
@@ -125,7 +123,7 @@
         _redirecting = true;
         try
         {
-            var checkoutUrl = await PaymentService.CreateCheckoutSessionAsync(_idUser, _userEmail, plan.IdSubscriptionPlan);
+            var checkoutUrl = await PaymentService.CreateCheckoutSessionAsync(_idUser, plan.IdSubscriptionPlan);
             Navigation.NavigateTo(checkoutUrl, forceLoad: true);
         }
         catch (Exception ex)

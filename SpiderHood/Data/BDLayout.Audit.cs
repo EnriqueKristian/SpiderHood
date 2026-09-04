@@ -31,6 +31,7 @@ namespace SpiderHood.Data
                 AuditableEntity.BankAccount => StoredProcedures.UPD_BankAccountAudit,
                 AuditableEntity.Category => StoredProcedures.UPD_CategoryAudit,
                 AuditableEntity.BuildingConfiguration => StoredProcedures.UPD_BuildingConfigurationAudit,
+                AuditableEntity.Unit => StoredProcedures.UPD_UnitAudit,
                 _ => throw new ArgumentOutOfRangeException(nameof(entity), entity, "Entidad sin Stored Procedure de auditoría asociado")
             };
 

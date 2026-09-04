@@ -44,6 +44,84 @@
                             <InputNumber id="Area" @bind-Value="View_Unit.Area" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
                             <ValidationMessage For="() => View_Unit.Area" class="text-danger" />
                         </div>
+
+                        <hr />
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="floor" class="form-label">Piso/Nivel</label>
+                                <InputNumber id="floor" @bind-Value="View_Unit.Floor" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="tower" class="form-label">Torre/Bloque</label>
+                                <InputText id="tower" @bind-Value="View_Unit.Tower" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="locationCode" class="form-label">Sótano/Ubicación</label>
+                                <InputText id="locationCode" @bind-Value="View_Unit.LocationCode" class="form-control" placeholder="Ej: S1, SS" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                <small class="text-muted">Texto libre -- ej. "S1", "SS", "Torre A-3".</small>
+                            </div>
+                        </div>
+
+                        @* Tipo de Unidad (Parameter.IdParent == 4): 1=DPTO, 2=ESTACIONAMIENTO,
+                           3=DEPOSITO, 4=OFICINA -- ver comentario del <select> de arriba. Cada
+                           bloque de abajo sólo aplica al tipo correspondiente. *@
+                        @if (View_Unit.TypeUnit == 1 || View_Unit.TypeUnit == 4)
+                        {
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="bedrooms" class="form-label">Dormitorios</label>
+                                    <InputNumber id="bedrooms" @bind-Value="View_Unit.Bedrooms" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="bathrooms" class="form-label">Baños</label>
+                                    <InputNumber id="bathrooms" @bind-Value="View_Unit.Bathrooms" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="builtArea" class="form-label">Área Construida</label>
+                                    <InputNumber id="builtArea" @bind-Value="View_Unit.BuiltArea" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                </div>
+                            </div>
+                        }
+                        else if (View_Unit.TypeUnit == 2)
+                        {
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="vehicleType" class="form-label">Tipo de Vehículo</label>
+                                    <InputText id="vehicleType" @bind-Value="View_Unit.VehicleType" class="form-control" placeholder="Auto, Moto, Camioneta" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                </div>
+                                <div class="col-md-4 mb-3 form-check pt-4 mt-2">
+                                    <input type="checkbox" id="isCovered" @bind="View_Unit.IsCovered" class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    <label for="isCovered" class="form-check-label">Techado</label>
+                                </div>
+                                <div class="col-md-4 mb-3 form-check pt-4 mt-2">
+                                    <input type="checkbox" id="isForDisabled" @bind="View_Unit.IsForDisabled" class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    <label for="isForDisabled" class="form-check-label">Para discapacitados</label>
+                                </div>
+                            </div>
+                        }
+                        else if (View_Unit.TypeUnit == 3)
+                        {
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="height" class="form-label">Altura (m)</label>
+                                    <InputNumber id="height" @bind-Value="View_Unit.Height" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                </div>
+                                <div class="col-md-4 mb-3 form-check pt-4 mt-2">
+                                    <input type="checkbox" id="hasVentilation" @bind="View_Unit.HasVentilation" class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    <label for="hasVentilation" class="form-check-label">Ventilación</label>
+                                </div>
+                                <div class="col-md-4 mb-3 form-check pt-4 mt-2">
+                                    <input type="checkbox" id="hasElectricity" @bind="View_Unit.HasElectricity" class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    <label for="hasElectricity" class="form-check-label">Electricidad</label>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label for="notes" class="form-label">Observaciones</label>
+                            <InputTextArea id="notes" @bind-Value="View_Unit.Notes" class="form-control" rows="2" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">

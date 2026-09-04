@@ -158,6 +158,7 @@ namespace SpiderHood.Data
             public const string GET_AccountStatementDetailByHeader = "GET_AccountStatementDetailByHeader";
             public const string GET_UnitsByBuilding = "GET_UnitsByBuilding";
             public const string GET_UnitsByType = "GET_UnitsByType";
+            public const string GET_UnitExtraFieldsByBuilding = "GET_UnitExtraFieldsByBuilding";
             public const string GET_AllParameters = "GET_AllParameters";
             public const string GET_ListParameterParent = "GET_ListParameterParent";
             public const string GET_Budgets = "GET_Budgets";
@@ -231,6 +232,7 @@ namespace SpiderHood.Data
             public const string UPD_PeriodAudit = "UPD_PeriodAudit";
             public const string UPD_ServiceReadingAudit = "UPD_ServiceReadingAudit";
             public const string UPD_BankAccountAudit = "UPD_BankAccountAudit";
+            public const string UPD_UnitAudit = "UPD_UnitAudit";
             public const string UPD_CategoryAudit = "UPD_CategoryAudit";
             public const string UPD_BuildingConfigurationAudit = "UPD_BuildingConfigurationAudit";
 

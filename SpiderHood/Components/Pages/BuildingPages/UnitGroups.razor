@@ -100,6 +100,7 @@
                                     <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
                                 </a>
                             </th>
+                            <th class="text-nowrap">Ubicación</th>
                             <th class="text-nowrap">
                                 <a href="#" class="text-decoration-none text-dark d-flex align-items-center">
                                     Área (m²)
@@ -124,6 +125,18 @@
                                 </td>
                                 <td>
                                     <span class="fw-semibold">@unidad.UnitNumber</span>
+                                </td>
+                                <td>
+                                    @if (string.IsNullOrWhiteSpace(unidad.LocationCode) && string.IsNullOrWhiteSpace(unidad.Tower) && unidad.Floor == null)
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                    else
+                                    {
+                                        <small class="text-muted">
+                                            @(string.Join(" · ", new[] { unidad.LocationCode, unidad.Tower, unidad.Floor.HasValue ? $"Piso {unidad.Floor}" : null }.Where(s => !string.IsNullOrWhiteSpace(s))))
+                                        </small>
+                                    }
                                 </td>
                                 <td>
                                     <div class="d-flex align-items-center">

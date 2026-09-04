@@ -206,6 +206,11 @@ namespace SpiderHood.Data
             public const string DEL_WorkflowStep = "DEL_WorkflowStep";
             public const string GET_WorkflowStepsByWorkflow = "GET_WorkflowStepsByWorkflow";
 
+            // Subscription Procedures (Docs/Design-Subscripcion-Administrador.md)
+            public const string INS_Subscription = "INS_Subscription";
+            public const string GET_SubscriptionByUser = "GET_SubscriptionByUser";
+            public const string GET_AllSubscriptionPlans = "GET_AllSubscriptionPlans";
+
             // Audit Procedures (ver BDLayout.Audit.cs)
             public const string UPD_BuildingAudit = "UPD_BuildingAudit";
             public const string UPD_OwnerAudit = "UPD_OwnerAudit";

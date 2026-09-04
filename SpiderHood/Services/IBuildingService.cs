@@ -62,11 +62,13 @@ namespace SpiderHood.Services
         private BDLayout ec { get; set; }
         private ParameterService ParameterService { get; set; } = default!;
         private readonly AuthService _authService;
+        private readonly ISubscriptionService _subscriptionService;
 
-        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService)
+        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, ISubscriptionService subscriptionService)
         {
             ec = new BDLayout(contextFactory);
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+            _subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
         }
 
         private async Task<string> GetPerformedByAsync()
@@ -91,6 +93,14 @@ namespace SpiderHood.Services
         {
             try
             {
+                // Suscripción (Docs/Design-Subscripcion-Administrador.md): el plan del
+                // Administrador limita cuántos edificios puede administrar -- se chequea
+                // antes de tocar la BD. Fail-open si no tiene ninguna Subscription
+                // todavía, ver EnsureCanCreateBuildingAsync.
+                var subscriptionCheck = await _subscriptionService.EnsureCanCreateBuildingAsync(createdByUserId, createdByRole);
+                if (!subscriptionCheck.IsSuccess)
+                    return subscriptionCheck;
+
                 // Un solo lookup del template, reusado por BuildingConfiguration (Paso 2)
                 // y por los Parameter Mixto (Paso 3) -- si building.IsTemplate, este
                 // edificio ES el template (o uno más, no hay tope de uno solo), así que

@@ -173,6 +173,7 @@ builder.Services.AddScoped<IInstallmentService, InstallmentService>();
 builder.Services.AddScoped<IMonthlyInstallmentService, MonthlyInstallmentService>();
 builder.Services.AddScoped<IPendingExpenseService, PendingExpenseService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IWorkflowAuditService, WorkflowAuditService>();
 builder.Services.AddScoped<IIncidentService, IncidentService>();

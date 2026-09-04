@@ -451,6 +451,45 @@ namespace SpiderHood.Data
             }
         }
 
+        // La suscripción vigente (más reciente) del Administrador -- null si la
+        // cuenta todavía no tiene ninguna fila en Subscription (cuentas de antes
+        // de este feature). Ver ISubscriptionService.EnsureCanCreateBuildingAsync,
+        // que trata ese caso como "sin límite".
+        public async Task<Models.Subscription?> GetSubscriptionByUserAsync(Guid idUser, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExecuteWithErrorHandlingAsync(async () =>
+                {
+                    var subscriptions = await ExecuteQueryListAsync<Models.Subscription>(
+                        StoredProcedures.GET_SubscriptionByUser, idUser);
+                    return subscriptions.FirstOrDefault();
+                }, "GetSubscriptionByUser", cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                throw;
+            }
+        }
+
+        public async Task<List<Models.SubscriptionPlan>> GetAllSubscriptionPlansAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await ExecuteWithErrorHandlingAsync(async () =>
+                {
+                    return await ExecuteQueryListAsync<Models.SubscriptionPlan>(
+                        StoredProcedures.GET_AllSubscriptionPlans);
+                }, "GetAllSubscriptionPlans", cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return [];
+            }
+        }
+
         public async Task<List<MenuItemWithRoles>> GetMenuItemsAsync(CancellationToken cancellationToken = default)
         {
             List<MenuItemWithRoles> list = [];

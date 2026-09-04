@@ -59,6 +59,7 @@ namespace SpiderHood.Services
         private readonly IConfiguration _configuration;
         private readonly CustomAuthenticationStateProvider _authStateProvider;
         private readonly ISessionRevocationService _sessionRevocation;
+        private readonly ISubscriptionService _subscriptionService;
 
         private List<UserModel> _users = new();
         private List<UserBuildingAssociation> _userBuildings = new();
@@ -81,7 +82,8 @@ namespace SpiderHood.Services
            CustomAuthenticationStateProvider authStateProvider,
            ISessionRevocationService sessionRevocation,
            IJSRuntime jsRuntime,
-           IConfiguration configuration) // Added parameter to satisfy readonly field assignment
+           IConfiguration configuration,
+           ISubscriptionService subscriptionService) // Added parameter to satisfy readonly field assignment
         {
             _logger = logger;
             _authStateProvider = authStateProvider;
@@ -92,6 +94,7 @@ namespace SpiderHood.Services
             //InitializeSampleData();
             _configuration = configuration;
             _baseUrl = _configuration["BaseUrl"] ?? "https://localhost:7175";
+            _subscriptionService = subscriptionService;
         }
 
         // NOTA: se eliminó InitializeSampleData() — era código muerto (nunca se llamaba,
@@ -844,6 +847,18 @@ namespace SpiderHood.Services
 
                 await AddNewUserAsync(user);
                 await GrantGlobalAdministradorRoleAsync(user.IdUser);
+
+                // Trial automático (Docs/Design-Subscripcion-Administrador.md): sin
+                // vencimiento ni límite todavía, no bloquea el registro si falla --
+                // el usuario simplemente queda sin fila de Subscription.
+                try
+                {
+                    await _subscriptionService.CreateTrialSubscriptionAsync(user.IdUser);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "No se pudo crear la suscripción Trial para {Email}", normalizedEmail);
+                }
 
                 var login = await LoginAsync(new LoginModel
                 {

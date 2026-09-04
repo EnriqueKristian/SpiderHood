@@ -891,6 +891,25 @@ namespace SpiderHood.Data
                 return step;
             }, "AddWorkflowStep", cancellationToken);
         }
+
+        public async Task<Models.Subscription> AddNewRecordAsync(Models.Subscription subscription, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(subscription, nameof(subscription));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Subscription,
+                    cancellationToken,
+                    subscription.IdSubscription,
+                    subscription.IdUser,
+                    subscription.IdSubscriptionPlan,
+                    subscription.Status,
+                    subscription.StartDate,
+                    (object?)subscription.EndDate);
+                return subscription;
+            }, "AddSubscription", cancellationToken);
+        }
         #endregion
     }
 }

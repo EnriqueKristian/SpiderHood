@@ -15,7 +15,7 @@
                         <i class="bi @GetModalIcon() me-2 text-primary"></i>
                         @GetModalTitle()
                     </h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                    <button type="button" class="btn-close" @onclick="() => CerrarModal()"></button>
                 </div>
 
                 <!-- Body del Modal -->
@@ -177,7 +177,7 @@
 
                 <!-- Footer del Modal -->
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => CerrarModal()">
                         <i class="bi bi-x-lg me-2"></i>Cancelar
                     </button>
                     <button type="submit" form="unitForm" class="btn btn-primary" disabled="@(!CanSubmit())">
@@ -383,7 +383,11 @@
                 await OnSaveGroupUnit.InvokeAsync(unitsToSave);
             }
 
-            await CerrarModal();
+            // skipConfirm: la unidad ya se guardó bien acá arriba -- el aviso de
+            // "vas a dejarlo huérfano" es sólo para cuando de verdad se cancela sin
+            // guardar nada (Cancelar / clic afuera), no para el cierre normal
+            // después de un Guardar exitoso.
+            await CerrarModal(skipConfirm: true);
         }
         catch (Exception ex)
         {
@@ -392,9 +396,9 @@
         }
     }
 
-    private async Task CerrarModal()
+    private async Task CerrarModal(bool skipConfirm = false)
     {
-        if (OpenMode == Models.OpenType.Create)
+        if (!skipConfirm && OpenMode == Models.OpenType.Create)
         {
             // En este modal, Create sólo se usa hoy para asignarle la primera
             // unidad a un propietario recién creado (Owners.razor,

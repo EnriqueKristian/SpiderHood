@@ -231,17 +231,30 @@
                                     {
                                         <tr class="owner-row" @onclick="() => SelectOwner(owner)" style="cursor: pointer;">
                                             <td class="ps-3">
-                                                <span class="badge bg-primary"> @ParameterService.GetChildParameterDescription(4, 1) @owner.GroupNumber</span>
+                                                @if (owner.HasGroup)
+                                                {
+                                                    <span class="badge bg-primary"> @ParameterService.GetChildParameterDescription(4, 1) @owner.GroupNumber</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Sin unidad</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (owner.HasGroup)
+                                                {
+                                                    <div class="d-flex flex-column">
+                                                        <span class="fw-bold">Area Total</span>
+                                                        <small class="text-muted">@owner.TotalArea.ToString("F2") m² total</small>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small">&ndash;</span>
+                                                }
                                             </td>
                                             <td>
                                                 <div class="d-flex flex-column">
-                                                    <span class="fw-bold">Area Total</span>
-                                                    <small class="text-muted">@owner.TotalArea.ToString("F2") m² total</small>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex flex-column">
-                                                    @*foreach (var propietario in Owners.Where(c => c.IdOwner == owner.IdOwner && c.TypeUnit == 1))*@
                                                     @foreach (var propietario in owner.Owners)
                                                     {
                                                         <div class="mb-1">
@@ -254,31 +267,49 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="badge @GetUnitTypeBadge(1)">
-                                                    @ParameterService.GetChildParameterDescription(4, 1)
-                                                </span>
+                                                @if (owner.HasGroup)
+                                                {
+                                                    <span class="badge @GetUnitTypeBadge(1)">
+                                                        @ParameterService.GetChildParameterDescription(4, 1)
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small">&ndash;</span>
+                                                }
                                             </td>
                                             <td align="center">
-                                                <span class="fw-bold">@owner.GroupNumber</span>
+                                                @if (owner.HasGroup)
+                                                {
+                                                    <span class="fw-bold">@owner.GroupNumber</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small">&ndash;</span>
+                                                }
                                             </td>
                                             <td>
-                                                <div class="d-flex flex-column">
-                                                    <span class="fw-semibold">@owner.Area.ToString("F2")<small class="text-muted"> m²</small></span>
-                                                    @*  @if (owner.AreaEstacionamiento > 0)
-                                                    {
-                                                        <small class="text-muted">
-                                                            + @owner.AreaEstacionamiento.ToString("F2") est.
-                                                        </small>
-                                                    }*@
-                                                </div>
+                                                @if (owner.HasGroup)
+                                                {
+                                                    <div class="d-flex flex-column">
+                                                        <span class="fw-semibold">@owner.Area.ToString("F2")<small class="text-muted"> m²</small></span>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small">&ndash;</span>
+                                                }
                                             </td>
                                             <td class="text-center">
                                                 <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-primary"
-                                                            title="Ver detalles"
-                                                            @onclick:stopPropagation @onclick="() => ViewOwnerDetails(owner)">
-                                                        <i class="bi bi-eye"></i>
-                                                    </button>
+                                                    @if (owner.HasGroup)
+                                                    {
+                                                        <button class="btn btn-outline-primary"
+                                                                title="Ver detalles"
+                                                                @onclick:stopPropagation @onclick="() => ViewOwnerDetails(owner)">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                    }
                                                     @if (_canEditOwner)
                                                     {
                                                         <button class="btn btn-outline-secondary"
@@ -287,59 +318,72 @@
                                                             <i class="bi bi-pencil"></i>
                                                         </button>
                                                     }
-                                                    @if (_canCreateOwner)
+                                                    @if (owner.HasGroup)
                                                     {
-                                                        <button class="btn btn-outline-success"
-                                                                title="Agregar residente"
-                                                                @onclick:stopPropagation @onclick="() => AddResident(owner)">
-                                                            <i class="bi bi-person-plus"></i>
+                                                        @if (_canCreateOwner)
+                                                        {
+                                                            <button class="btn btn-outline-success"
+                                                                    title="Agregar residente"
+                                                                    @onclick:stopPropagation @onclick="() => AddResident(owner)">
+                                                                <i class="bi bi-person-plus"></i>
+                                                            </button>
+                                                        }
+                                                        <button class="btn btn-outline-info"
+                                                                title="Asignar unidades"
+                                                                @onclick:stopPropagation @onclick="() => GoToAssignUnits(owner)">
+                                                            <i class="bi bi-diagram-3"></i>
                                                         </button>
                                                     }
-                                                    <button class="btn btn-outline-info"
-                                                            title="Asignar unidades"
-                                                            @onclick:stopPropagation @onclick="() => GoToAssignUnits(owner)">
-                                                        <i class="bi bi-diagram-3"></i>
-                                                    </button>
+                                                    else if (_canAssignUnits)
+                                                    {
+                                                        <button class="btn btn-primary"
+                                                                title="Asignar unidad"
+                                                                @onclick:stopPropagation @onclick="() => SelectOwner(owner)">
+                                                            <i class="bi bi-diagram-3 me-1"></i>Asignar unidad
+                                                        </button>
+                                                    }
                                                 </div>
                                             </td>
                                         </tr>
                                         <!-- Detalle de subunidades -->
-                                    @*foreach (var subunidad in Owners.Where(c => c.IdOwner == owner.IdOwner && c.Role == 1 && c.TypeUnit != 1))*@
-                                    @foreach (var subunidad in owner.Units.Where(c => c.TypeUnit != 1))
+                                    @if (owner.HasGroup)
                                     {
-                                        <tr class="table-group-child">
-                                            <td class="ps-5">
-                                                <i class="bi bi-arrow-return-right me-1 text-muted"></i>
-                                            </td>
-                                            <td class="ps-3">
-                                                <div class="d-flex align-items-center">
-                                                    <i class="bi bi-arrow-right-short me-2 text-muted"></i>
-                                                <span class="text-muted">@subunidad.TypeUnit @subunidad.UnitNumber</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                @if (!string.IsNullOrEmpty(subunidad.UnitNumber))
-                                                {
-                                                    <div class="text-muted small">
-                                                        <i class="bi bi-person me-1"></i>
+                                        @foreach (var subunidad in owner.Units.Where(c => c.TypeUnit != 1))
+                                        {
+                                            <tr class="table-group-child">
+                                                <td class="ps-5">
+                                                    <i class="bi bi-arrow-return-right me-1 text-muted"></i>
+                                                </td>
+                                                <td class="ps-3">
+                                                    <div class="d-flex align-items-center">
+                                                        <i class="bi bi-arrow-right-short me-2 text-muted"></i>
+                                                    <span class="text-muted">@subunidad.TypeUnit @subunidad.UnitNumber</span>
                                                     </div>
-                                                }
-                                            </td>
-                                            <td>
-                                                    <span class="badge @GetUnitTypeBadge(subunidad.TypeUnit)">
-                                                        @ParameterService.GetChildParameterDescription(4, subunidad.TypeUnit)
-                                                    </span>
-                                            </td>
-                                            <td align="center">@subunidad.UnitNumber</td>
-                                        <td>@subunidad.Area.ToString("F2")<small class="text-muted"> m²</small></td>
-                                            <td class="text-center">
-                                                <button class="btn btn-sm btn-outline-secondary"
-                                                        title="Gestionar subunidad"
-                                                        @onclick:stopPropagation @onclick="() => ManageSubUnit(subunidad)">
-                                                    <i class="bi bi-gear"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
+                                                </td>
+                                                <td>
+                                                    @if (!string.IsNullOrEmpty(subunidad.UnitNumber))
+                                                    {
+                                                        <div class="text-muted small">
+                                                            <i class="bi bi-person me-1"></i>
+                                                        </div>
+                                                    }
+                                                </td>
+                                                <td>
+                                                        <span class="badge @GetUnitTypeBadge(subunidad.TypeUnit)">
+                                                            @ParameterService.GetChildParameterDescription(4, subunidad.TypeUnit)
+                                                        </span>
+                                                </td>
+                                                <td align="center">@subunidad.UnitNumber</td>
+                                            <td>@subunidad.Area.ToString("F2")<small class="text-muted"> m²</small></td>
+                                                <td class="text-center">
+                                                    <button class="btn btn-sm btn-outline-secondary"
+                                                            title="Gestionar subunidad"
+                                                            @onclick:stopPropagation @onclick="() => ManageSubUnit(subunidad)">
+                                                        <i class="bi bi-gear"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
                                     }
                                         <!-- Separador -->
                                         <tr>
@@ -527,6 +571,15 @@
         public decimal Area { get; set; }
         public List<RealEstateUnit> Units { get; set; } = new();
         public List<ApartmentOwner> Owners { get; set; } = new();
+        // VW_OwnerUnit (script 2026-09-03_39) trae Guid.Empty acá cuando el
+        // propietario todavía no tiene ninguna unidad asignada -- mismo sentinel
+        // que ya usa RealEstateUnit.IdGroupOwner en el resto del código.
+        public bool HasGroup => IdGroupUnit != Guid.Empty;
+        // Clave real usada para juntar Units/Owners en LoadDataAsync -- IdGroupUnit
+        // para un grupo real, o el propio IdOwner cuando no hay grupo (si se usara
+        // Guid.Empty tal cual, dos propietarios sin unidad distintos terminarían
+        // compartiendo la misma entrada y mezclando sus nombres entre sí).
+        public Guid GroupKey { get; set; }
     }
 
     public class RealEstateUnit
@@ -606,14 +659,22 @@
         // Procesar todo en una sola pasada
         foreach (var ownerUnit in ownerUnits)
         {
-            var groupId = ownerUnit.IdGroupUnit;
+            // Un propietario sin grupo todavía trae IdGroupUnit == Guid.Empty desde
+            // la vista (LEFT JOIN, script 39) -- si se usara ese valor tal cual como
+            // clave de los diccionarios de abajo, dos propietarios distintos sin
+            // unidad terminarían compartiendo la misma entrada. Se usa su propio
+            // IdOwner como clave alternativa en ese caso (GroupUnit1.IdGroupUnit
+            // sigue siendo Guid.Empty de verdad -- HasGroup depende de ese, no de
+            // esta clave interna).
+            var groupId = ownerUnit.IdGroupUnit != Guid.Empty ? ownerUnit.IdGroupUnit : ownerUnit.IdOwner;
 
             // Procesar GroupUnits (solo si TypeUnit == 1 y Role == 1)
             if (ownerUnit.TypeUnit == 1 && ownerUnit.Role == 1)
             {
                 GroupUnits.Add(new GroupUnit1
                 {
-                    IdGroupUnit = groupId,
+                    IdGroupUnit = ownerUnit.IdGroupUnit,
+                    GroupKey = groupId,
                     GroupNumber = ownerUnit.GroupNumber.ToString(),
                     Area = ownerUnit.Area,
                     TotalArea = ownerUnit.TotalArea
@@ -634,7 +695,7 @@
                     TypeUnit = ownerUnit.TypeUnit,
                     Number = ownerUnit.Number,
                     IsAvailable = ownerUnit.IsAvailable,
-                    IdGroupUnit = groupId,
+                    IdGroupUnit = ownerUnit.IdGroupUnit,
                     IdBuilding = ownerUnit.IdBuilding
                 });
             }
@@ -656,19 +717,21 @@
                     Email = ownerUnit.Email,
                     IsActive = ownerUnit.IsActive,
                     IdBuilding = ownerUnit.IdBuilding,
-                    IdGroupUnit = groupId,
+                    IdGroupUnit = ownerUnit.IdGroupUnit,
                     IdTypeIdNumber = ownerUnit.IdTypeIdNumber
                 });
             }
         }
 
-        // Asignar Units y Owners a cada GroupUnit
+        // Asignar Units y Owners a cada GroupUnit -- por GroupKey, no por
+        // IdGroupUnit (que es Guid.Empty compartido por todos los propietarios sin
+        // unidad, ver comentario más arriba).
         foreach (var groupUnit in GroupUnits)
         {
-            if (unitsByGroup.TryGetValue(groupUnit.IdGroupUnit, out var units))
+            if (unitsByGroup.TryGetValue(groupUnit.GroupKey, out var units))
                 groupUnit.Units = units;
 
-            if (ownersByGroup.TryGetValue(groupUnit.IdGroupUnit, out var owners))
+            if (ownersByGroup.TryGetValue(groupUnit.GroupKey, out var owners))
                 groupUnit.Owners = owners;
         }
 
@@ -923,6 +986,18 @@
     private async Task SelectOwner(GroupUnit1 owner)
     {
         if (!_canAssignUnits) return;
+
+        if (!owner.HasGroup)
+        {
+            // Todavía no tiene ninguna unidad -- no hay "grupo existente" al que
+            // agregar más unidades (que es lo que hace AbrirModalProp/modo Update),
+            // hay que armarle el primero desde cero.
+            var titular = owner.Owners.FirstOrDefault();
+            if (titular == null) return;
+            await AbrirModalAsignarGrupo(titular.IdOwner, titular.FirstName, titular.LastName);
+            return;
+        }
+
         await AbrirModalProp(owner, OpenType.Update);
     }
 
@@ -1041,7 +1116,7 @@
         // directo al modal de asignación en vez de dejarlo huérfano.
         if (nuevoSinUnidad != null && nuevoSinUnidad.IdOwner != Guid.Empty && _canAssignUnits)
         {
-            await AbrirModalUnidadesParaNuevoPropietario(nuevoSinUnidad);
+            await AbrirModalAsignarGrupo(nuevoSinUnidad.IdOwner, nuevoSinUnidad.Names, nuevoSinUnidad.Surname ?? string.Empty);
         }
     }
 
@@ -1068,15 +1143,19 @@
         return created;
     }
 
-    private async Task AbrirModalUnidadesParaNuevoPropietario(SpiderHood.Models.Owner owner)
+    // Abre el modal de Asignar Unidades en modo Create -- para armarle el primer
+    // grupo/unidad a un propietario que todavía no tiene ninguno. Usado tanto
+    // justo después de crear un propietario nuevo (SaveItem) como al hacer clic
+    // en cualquier propietario sin unidad ya existente en la grilla (SelectOwner).
+    private async Task AbrirModalAsignarGrupo(Guid idOwner, string names, string surname)
     {
         MostrarModalUnit = true;
         OpenMode = Models.OpenType.Create;
         FreeUnits = await BuildingService.GetUnitsByBuildingAsync(currentUser!.CurrentBuildingId);
 
-        _OwnerUnit.IdOwner = owner.IdOwner;
-        _OwnerUnit.Names = owner.Names;
-        _OwnerUnit.Surname = owner.Surname ?? string.Empty;
+        _OwnerUnit.IdOwner = idOwner;
+        _OwnerUnit.Names = names;
+        _OwnerUnit.Surname = surname ?? string.Empty;
     }
 
     private async Task UpdateItem(SpiderHood.Models.Owner item)

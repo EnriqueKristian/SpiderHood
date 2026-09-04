@@ -26,6 +26,12 @@ namespace SpiderHood.Models
         public string Ruta { get; set; } = null!;
         public string ParentName { get; set; } = null!;
         public int Nivel { get; set; }
+        // Identifica la sección del presupuesto (ver Database/Scripts view_categories):
+        // los hijos heredan el Sort de su categoría raíz por la recursión de esa vista, así
+        // que sólo importa que cada categoría RAÍZ (Nivel == 0) tenga un valor único por
+        // edificio -- si dos raíces comparten Sort, GET_BudgetDetailDefault las colapsa en
+        // una sola sección (ver CategoryPage.AddItem).
+        public int Sort { get; set; }
         public TypeDistribution Distribution { get; set; } = TypeDistribution.Fija;
         // Solo aplica a categorías raíz (Nivel == 0, una sección del recibo). Controla
         // únicamente el PDF del recibo de mantenimiento (InstallmentExportService): si es

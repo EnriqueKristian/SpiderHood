@@ -252,6 +252,17 @@
         // renderizaba como su propia tarjeta duplicada en la vista de nivel superior
         // (CategoryPage.LoadCategories filtra _catParent por Nivel == 0).
         item.Nivel = item.ParentId == Guid.Empty ? 0 : 1;
+
+        // INS_Category recibía item.Nivel en el lugar de @Sort (bug de BDLayout.Add.cs,
+        // ya corregido) -- como Nivel de una categoría raíz siempre es 0, TODA categoría
+        // raíz terminaba con Sort = 0 en BD, y GET_BudgetDetailDefault (usado por "Nueva
+        // Plantilla" en Presupuesto) las mostraba a todas colapsadas en una sola sección.
+        // Sólo importa un valor único por categoría RAÍZ (ver Category.Sort) -- las
+        // subcategorías heredan el de su padre porque así arma la sección view_categories.
+        item.Sort = item.ParentId == Guid.Empty
+            ? (_catParent.Any() ? _catParent.Max(c => c.Sort) + 1 : 1)
+            : (_categories.FirstOrDefault(c => c.IdCategory == item.ParentId)?.Sort ?? 0);
+
         await CategoryService.AddCategoryAsync(item);
         //await ParameterService.Context.SaveChangesAsync();
     }

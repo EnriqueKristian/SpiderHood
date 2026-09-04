@@ -25,6 +25,7 @@ namespace SpiderHood.Services
         private readonly ISubscriptionService _subscriptionService;
         private readonly string _baseUrl;
         private readonly string? _testPayerEmail;
+        private readonly bool _simulate;
 
         // BaseUrl viene de configuración (mismo valor que ya usa AuthService para
         // los links de los emails), NO de NavigationManager.BaseUri -- ese refleja
@@ -46,6 +47,11 @@ namespace SpiderHood.Services
             // sólo tiene un juego de credenciales, etiquetado "de producción" en su
             // Dashboard, pese a operar 100% en el ambiente de test (probado).
             _testPayerEmail = configuration["MercadoPago:TestPayerEmail"];
+            // Simulador (Docs/Design-Subscripcion-Administrador.md): pensado para no
+            // bloquearse en configuración de MercadoPago mientras se prueba el resto
+            // del flujo (activación, BD, /Settings). Apagado por default -- nunca
+            // "true" commiteado, se prende sólo por dotnet user-secrets.
+            _simulate = configuration.GetValue<bool>("MercadoPago:Simulate");
         }
 
         public async Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan)
@@ -56,6 +62,9 @@ namespace SpiderHood.Services
 
             if (plan.Amount is not { } amount || string.IsNullOrWhiteSpace(plan.CurrencyId))
                 throw new InvalidOperationException($"El plan '{plan.Name}' todavía no tiene un precio configurado.");
+
+            if (_simulate)
+                return $"{_baseUrl}/pago-simulado?u={idUser}&p={idSubscriptionPlan}";
 
             var request = new PreapprovalCreateRequest
             {

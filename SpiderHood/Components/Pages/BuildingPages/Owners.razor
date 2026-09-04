@@ -1218,7 +1218,11 @@
             _GroupUnit.IdGroupOwner = Guid.NewGuid();
             _GroupUnit.IdOwner = _cUnit.IdOwner;
             _GroupUnit.GroupName = "DPTO " + _cUnit.UnitNumber.ToString();
-            _GroupUnit.GroupNumber = _cUnit.Number;
+            // RealEstateUnit.Number (el int) nunca se completa en ningún flujo de alta de
+            // unidades (UnitGroups.razor.GenerateBlockUnits/ModalUnit.razor sólo llenan
+            // UnitNumber, el string) -- por eso siempre da 0 acá. Se parsea del
+            // UnitNumber real ("101" -> 101), que es el que sí tiene el valor visible.
+            _GroupUnit.GroupNumber = int.TryParse(_cUnit.UnitNumber, out var parsedNumber) ? parsedNumber : 0;
             _GroupUnit.TypeOwner =1;            //Titular
             _GroupUnit.AreaTotal = _cUnit.Area;
             

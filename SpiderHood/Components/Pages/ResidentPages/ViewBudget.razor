@@ -92,7 +92,7 @@
          el RENDER del modal (p.ej. algo puntual de los BudgetDetail de este presupuesto),
          esa excepción pasa por otro lado y antes no dejaba rastro visible: el clic no hacía
          "nada" en vez de mostrar un error. ErrorBoundary la atrapa y la muestra en pantalla,
-         mismo patrón que ya usa BankReconciliation.razor para su modal de conciliación. -->
+         mismo patrón que ya usa ReconciliationWorkspace.razor para su modal de conciliación. -->
     <ErrorBoundary @ref="_modalErrorBoundary">
         <ChildContent>
             <BudgetDetailModal Presupuesto="_budgetDetail" Categorias="_categorias" OnClose="CerrarModalDetalle" />

@@ -1,6 +1,4 @@
-﻿@page "/ReconcileExpenses"
-@page "/ReconcileExpenses/{accountId:guid}"
-@using SpiderHood.Components.Pages.MovementPages
+﻿@using SpiderHood.Components.Pages.MovementPages
 @using SpiderHood.Models
 @using SpiderHood.Services
 @using SpiderHood.Utilities
@@ -13,7 +11,7 @@
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
 
-<PageTitle>SpiderHood - Conciliación Bancaria</PageTitle>
+<PageTitle>SpiderHood - @TituloPagina</PageTitle>
 
 <div class="container-fluid">
     <!-- Header -->
@@ -25,12 +23,12 @@
                         <i class="bi bi-receipt"></i>
                     </div>
                     <div>
-                        <h1 class="h3 fw-bold mb-1">Conciliación Bancaria</h1>
+                        <h1 class="h3 fw-bold mb-1">@TituloPagina</h1>
                         <nav aria-label="breadcrumb">
                             <ol class="breadcrumb mb-0">
                                 <li class="breadcrumb-item"><a href="/dashboard">Inicio</a></li>
                                 <li class="breadcrumb-item"><a href="/finanzas">Finanzas</a></li>
-                                <li class="breadcrumb-item active">Conciliación</li>
+                                <li class="breadcrumb-item active">@TituloPagina</li>
                             </ol>
                         </nav>
                     </div>
@@ -172,23 +170,26 @@
                                     </label>
                                 </div>
                                 
-                                <div class="vr"></div>
-                                
-                                <!--    BOTONES DE FILTRO   -->
-                                <div class="btn-group" role="group">
-                                    <button class="btn @(filtroTipo == null ? "btn-primary" : "btn-outline-primary")" 
-                                            @onclick="() => FiltrarPorTipo(null)">
-                                        Todas (@totalTransacciones)
-                                    </button>
-                                    <button class="btn @(filtroTipo == "Gasto" ? "btn-primary" : "btn-outline-primary")" 
-                                            @onclick="() => FiltrarPorTipo(Gasto)">
-                                        Gastos (@transacciones.Count(t => t.Tipo == "Gasto"))
-                                    </button>
-                                    <button class="btn @(filtroTipo == "Ingreso" ? "btn-primary" : "btn-outline-primary")" 
-                                            @onclick="() => FiltrarPorTipo(Ingreso)">
-                                        Ingresos (@transacciones.Count(t => t.Tipo == "Ingreso"))
-                                    </button>
-                                </div>
+                                @if (ModoFijo == null)
+                                {
+                                    <div class="vr"></div>
+
+                                    <!--    BOTONES DE FILTRO   -->
+                                    <div class="btn-group" role="group">
+                                        <button class="btn @(filtroTipo == null ? "btn-primary" : "btn-outline-primary")"
+                                                @onclick="() => FiltrarPorTipo(null)">
+                                            Todas (@totalTransacciones)
+                                        </button>
+                                        <button class="btn @(filtroTipo == "Gasto" ? "btn-primary" : "btn-outline-primary")"
+                                                @onclick="() => FiltrarPorTipo(Gasto)">
+                                            Gastos (@transacciones.Count(t => t.Tipo == "Gasto"))
+                                        </button>
+                                        <button class="btn @(filtroTipo == "Ingreso" ? "btn-primary" : "btn-outline-primary")"
+                                                @onclick="() => FiltrarPorTipo(Ingreso)">
+                                            Ingresos (@transacciones.Count(t => t.Tipo == "Ingreso"))
+                                        </button>
+                                    </div>
+                                }
                             </div>
                             
                             <div class="d-flex gap-2">
@@ -241,7 +242,7 @@
                                         @onclick="() => CambiarTab(todos)">
                                     <i class="bi bi-list me-2"></i>
                                     Todas las Transacciones
-                                    <span class="badge bg-secondary ms-2">@transacciones.Count</span>
+                                    <span class="badge bg-secondary ms-2">@TransaccionesDelModo.Count()</span>
                                 </button>
                             </li>
                         </ul>
@@ -983,6 +984,20 @@
     [Parameter]
     public Guid AccountId { get; set; }
 
+    // null = vista combinada (Pagos + Gastos, con el toggle Todas/Gastos/Ingresos visible --
+    // uso de /ReconcileExpenses, la página vieja, ahora oculta del menú). "Gasto"/"Ingreso" =
+    // vista fija para /ConciliacionGastos y /ConciliacionPagos respectivamente -- mismos datos,
+    // mismo motor de conciliación, sólo cambia qué filtro queda trabado y visible.
+    [Parameter]
+    public string? ModoFijo { get; set; }
+
+    private string TituloPagina => ModoFijo switch
+    {
+        "Gasto" => "Conciliación de Gastos",
+        "Ingreso" => "Conciliación de Pagos",
+        _ => "Conciliación Bancaria"
+    };
+
     [Inject]
     public ICategoryService CategoryService { get; set; } = default!;
 
@@ -1057,10 +1072,15 @@
     private string Ingreso = "Ingreso";
 
     // Propiedades calculadas
+    // En modo fijo (Pagos/Gastos), estos conteos/badges quedan acotados al tipo de la
+    // página -- si no, mostrarían números de ambos tipos mezclados aunque la tabla de
+    // abajo (GetTransaccionesFiltradas, que sí respeta filtroTipo) sólo muestre uno.
+    private IEnumerable<TransactionBankDetail> TransaccionesDelModo =>
+        ModoFijo == null ? transacciones : transacciones.Where(t => t.Tipo == ModoFijo);
     private List<TransactionBankDetail> transaccionesConciliadas =>
-        transacciones.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada).ToList();
+        TransaccionesDelModo.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada).ToList();
     private List<TransactionBankDetail> transaccionesNoConciliadas =>
-        transacciones.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada).ToList();
+        TransaccionesDelModo.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -1069,6 +1089,12 @@
         _canReconcileInstallments = await PermissionService.HasPermissionAsync(currentUser, "reconcile_installments");
 
         pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
+
+        // Vista fija (Pagos o Gastos): arranca ya filtrada por ese tipo -- el toggle
+        // Todas/Gastos/Ingresos queda oculto (ver ModoFijo más arriba), así que sin esto
+        // se seguiría viendo la lista completa hasta que el usuario tocara algo.
+        if (ModoFijo != null)
+            filtroTipo = ModoFijo;
 
         await CargarDatosIniciales();
         //AccountId = 1;
@@ -1833,7 +1859,9 @@
 
     private void LimpiarFiltros()
     {
-        filtroTipo = null;
+        // En modo fijo (Pagos/Gastos) no se limpia el tipo -- si no, el botón "Limpiar
+        // filtros" (la X) se saltaría el candado y volvería a mostrar ambos tipos mezclados.
+        filtroTipo = ModoFijo;
         textoBusqueda = "";
         mostrarSoloNoConciliados = false;
         ActualizarPaginacion();

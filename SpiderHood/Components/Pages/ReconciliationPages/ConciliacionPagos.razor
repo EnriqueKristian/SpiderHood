@@ -1,0 +1,13 @@
+@page "/ConciliacionPagos"
+@page "/ConciliacionPagos/{accountId:guid}"
+@rendermode InteractiveServer
+
+<!-- Conciliación de Pagos (Ingresos/cuotas) -- vista dedicada sobre el mismo motor de
+     ReconciliationWorkspace que usa Conciliación de Gastos, sólo con el filtro de tipo
+     trabado en "Ingreso" para no mezclar ambos flujos en pantalla. -->
+<ReconciliationWorkspace AccountId="AccountId" ModoFijo="Ingreso" />
+
+@code {
+    [Parameter]
+    public Guid AccountId { get; set; }
+}

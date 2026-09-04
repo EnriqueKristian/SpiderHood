@@ -61,14 +61,21 @@ todo en la misma máquina Windows 11.
 
 ## 4. Configurar la connection string de QA
 
-El repo trae `SpiderHood/appsettings.Production.json` con placeholders:
+El repo trae `SpiderHood/appsettings.Production.json` con
+`ConnectionStrings:SpiderHoodContext` **vacío a propósito**:
 
 ```json
-"SpiderHoodContext": "Data Source=EK-DESKTOP;Initial Catalog=SpiderHood;Persist Security Info=True;User ID=sa1;Password=123456;Pooling=False;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True;"
+"SpiderHoodContext": ""
 ```
 
-Editalo con el nombre real de tu instancia SQL (ej. `localhost\SQLEXPRESS`) y
-el nombre de base que usaste al restaurar. También ajustá `BaseUrl` al
+Completalo en tu copia local con el connection string real (usuario, password,
+servidor) siguiendo el mismo formato que usaba antes
+(`Data Source=...;Initial Catalog=...;User ID=...;Password=...;...`), pero
+**nunca hagas commit de ese cambio** -- este archivo viaja al repo público de
+GitHub. La contraseña real de SQL Server sólo tiene que existir en la copia
+publicada en el servidor de QA (o, mejor, seteala ahí como variable de entorno
+`ConnectionStrings__SpiderHoodContext`, que ASP.NET Core prioriza por sobre lo
+que diga el JSON, sin tocar el archivo para nada). También ajustá `BaseUrl` al
 host/puerto real del sitio de QA (se usa para armar links en los correos de
 confirmación/invitación).
 

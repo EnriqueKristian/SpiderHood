@@ -47,23 +47,27 @@
 </div>
 
 @code {
-    [SupplyParameterFromQuery(Name = "u")]
-    public string? IdUserRaw { get; set; }
-
-    [SupplyParameterFromQuery(Name = "p")]
-    public int? IdSubscriptionPlan { get; set; }
-
     private bool _allowed;
     private bool _procesando;
     private bool? _resultado;
     private Guid _idUser;
+    private int _idSubscriptionPlan;
     private Models.SubscriptionPlan? _plan;
 
     protected override async Task OnInitializedAsync()
     {
+        // [SupplyParameterFromQuery] no llegaba a mapear acá (probado) -- se
+        // parsea el query string directo desde la URL en vez de depender de eso.
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+
         var currentUser = await AuthService.GetCurrentUserAsync();
-        if (currentUser == null || !Guid.TryParse(IdUserRaw, out _idUser) || IdSubscriptionPlan == null)
+        if (currentUser == null
+            || !query.TryGetValue("u", out var uRaw) || !Guid.TryParse(uRaw, out _idUser)
+            || !query.TryGetValue("p", out var pRaw) || !int.TryParse(pRaw, out _idSubscriptionPlan))
+        {
             return;
+        }
 
         // Sólo el dueño de la cuenta puede simular su propio pago -- nadie puede
         // activar la suscripción de otro adivinando/editando la URL.
@@ -72,7 +76,7 @@
 
         _allowed = true;
         var plans = await SubscriptionService.GetAllPlansAsync();
-        _plan = plans.FirstOrDefault(p => p.IdSubscriptionPlan == IdSubscriptionPlan);
+        _plan = plans.FirstOrDefault(p => p.IdSubscriptionPlan == _idSubscriptionPlan);
     }
 
     private void Reintentar() => _resultado = null;
@@ -89,7 +93,7 @@
         {
             // Mismo llamado que haría el webhook real (Program.cs) al confirmar
             // un pago -- así se prueba de verdad el camino de activación/BD.
-            await SubscriptionService.ActivateSubscriptionAsync(_idUser, IdSubscriptionPlan!.Value, $"SIMULATED-{Guid.NewGuid()}");
+            await SubscriptionService.ActivateSubscriptionAsync(_idUser, _idSubscriptionPlan, $"SIMULATED-{Guid.NewGuid()}");
             Navigation.NavigateTo("/pago-exitoso", forceLoad: true);
         }
 

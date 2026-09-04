@@ -36,6 +36,12 @@ namespace SpiderHood.Services
         // edificio todavía -- mismo mecanismo que ya usa SysAdmin, ver UserRole) y
         // lo deja logueado, listo para crear su primer edificio.
         Task<AuthResult> RegisterNewAdministratorAsync(RegisterAdminModel model);
+
+        // /aceptar-invitacion, caso "email nuevo": crea el UserModel y en el mismo
+        // paso lo asocia como Colaborador de la Account de la invitación (ver
+        // IAccountService.AcceptInvitationAsync), autologueado -- igual criterio que
+        // RegisterNewAdministratorAsync.
+        Task<AuthResult> RegisterCollaboratorAsync(AcceptInvitationModel model, string email, string invitationCode);
         Task SetCurrentBuilding(Guid? Idbuilding, string role);
         Task<bool> TryApplyDefaultBuildingAsync();
 
@@ -60,6 +66,7 @@ namespace SpiderHood.Services
         private readonly CustomAuthenticationStateProvider _authStateProvider;
         private readonly ISessionRevocationService _sessionRevocation;
         private readonly ISubscriptionService _subscriptionService;
+        private readonly IAccountService _accountService;
 
         private List<UserModel> _users = new();
         private List<UserBuildingAssociation> _userBuildings = new();
@@ -83,7 +90,8 @@ namespace SpiderHood.Services
            ISessionRevocationService sessionRevocation,
            IJSRuntime jsRuntime,
            IConfiguration configuration,
-           ISubscriptionService subscriptionService) // Added parameter to satisfy readonly field assignment
+           ISubscriptionService subscriptionService,
+           IAccountService accountService) // Added parameter to satisfy readonly field assignment
         {
             _logger = logger;
             _authStateProvider = authStateProvider;
@@ -95,6 +103,7 @@ namespace SpiderHood.Services
             _configuration = configuration;
             _baseUrl = _configuration["BaseUrl"] ?? "https://localhost:7175";
             _subscriptionService = subscriptionService;
+            _accountService = accountService;
         }
 
         // NOTA: se eliminó InitializeSampleData() — era código muerto (nunca se llamaba,
@@ -848,16 +857,23 @@ namespace SpiderHood.Services
                 await AddNewUserAsync(user);
                 await GrantGlobalAdministradorRoleAsync(user.IdUser);
 
-                // Trial automático (Docs/Design-Subscripcion-Administrador.md): sin
-                // vencimiento ni límite todavía, no bloquea el registro si falla --
-                // el usuario simplemente queda sin fila de Subscription.
+                // Account de facturación (Docs/Design-Account-Facturacion.md): quien se
+                // registra queda como Owner -- la Subscription cuelga de esta Account,
+                // no de la persona, para poder invitar colaboradores más adelante que
+                // compartan el mismo plan/edificios. No bloquea el registro si falla
+                // (mismo criterio fail-soft que el Trial de abajo, que además depende
+                // de esto): el usuario simplemente queda sin Account ni Subscription.
                 try
                 {
-                    await _subscriptionService.CreateTrialSubscriptionAsync(user.IdUser);
+                    var account = await _accountService.CreateAccountAsync(
+                        user.IdUser, model.RazonSocial, model.RucDni, model.Telefono);
+
+                    // Trial automático: sin vencimiento ni límite todavía.
+                    await _subscriptionService.CreateTrialSubscriptionAsync(user.IdUser, account.IdAccount);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "No se pudo crear la suscripción Trial para {Email}", normalizedEmail);
+                    _logger.LogError(ex, "No se pudo crear la Account/suscripción Trial para {Email}", normalizedEmail);
                 }
 
                 var login = await LoginAsync(new LoginModel
@@ -887,6 +903,64 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en RegisterNewAdministratorAsync para email: {Email}", model.Email);
+                return new AuthResult { Success = false, Message = "No se pudo completar el registro" };
+            }
+        }
+
+        public async Task<AuthResult> RegisterCollaboratorAsync(AcceptInvitationModel model, string email, string invitationCode)
+        {
+            try
+            {
+                var normalizedEmail = email.Trim().ToLowerInvariant();
+
+                var existing = await Ec.GetUsersByEmailAsync(normalizedEmail);
+                if (existing.Any(u => u.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return new AuthResult { Success = false, Message = "Ya existe una cuenta con ese email" };
+                }
+
+                var user = new UserModel
+                {
+                    IdUser = Guid.NewGuid(),
+                    Email = normalizedEmail,
+                    FirstName = model.FirstName,
+                    LastName = model.LastName,
+                    PhoneNumber = "",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                user.PasswordHash = _passwordHasher.HashPassword(user, model.Password);
+
+                await AddNewUserAsync(user);
+
+                var acceptResult = await _accountService.AcceptInvitationAsync(invitationCode, user.IdUser);
+                if (!acceptResult.IsSuccess)
+                {
+                    return new AuthResult { Success = false, Message = acceptResult.ErrorMessage ?? "No se pudo aceptar la invitación" };
+                }
+
+                var login = await LoginAsync(new LoginModel
+                {
+                    Email = normalizedEmail,
+                    Password = model.Password,
+                    RememberMe = false
+                });
+
+                if (!login.Success)
+                {
+                    _logger.LogError("RegisterCollaboratorAsync: usuario {Email} creado pero el autologin falló", normalizedEmail);
+                    return new AuthResult
+                    {
+                        Success = false,
+                        Message = "Tu cuenta se creó, pero no se pudo iniciar sesión automáticamente. Iniciá sesión manualmente."
+                    };
+                }
+
+                return new AuthResult { Success = true, Message = "Cuenta creada.", User = user };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en RegisterCollaboratorAsync para email: {Email}", email);
                 return new AuthResult { Success = false, Message = "No se pudo completar el registro" };
             }
         }

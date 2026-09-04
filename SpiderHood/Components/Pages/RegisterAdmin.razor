@@ -58,6 +58,30 @@
                     <InputText class="form-control" @bind-Value="_model.PhoneNumber" />
                 </div>
 
+                <hr class="my-3" />
+                <p class="small text-muted mb-2">
+                    <i class="bi bi-receipt me-1"></i>Datos de facturación -- la suscripción se le cobra a esta cuenta.
+                </p>
+
+                <div class="form-group mb-3">
+                    <label class="form-label">Razón Social</label>
+                    <InputText class="form-control" @bind-Value="_model.RazonSocial" placeholder="Mi Empresa S.A.C." />
+                    <ValidationMessage For="@(() => _model.RazonSocial)" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 form-group mb-3">
+                        <label class="form-label">RUC / DNI</label>
+                        <InputText class="form-control" @bind-Value="_model.RucDni" />
+                        <ValidationMessage For="@(() => _model.RucDni)" />
+                    </div>
+                    <div class="col-md-6 form-group mb-3">
+                        <label class="form-label">Teléfono de facturación</label>
+                        <InputText class="form-control" @bind-Value="_model.Telefono" />
+                        <ValidationMessage For="@(() => _model.Telefono)" />
+                    </div>
+                </div>
+
                 <div class="row">
                     <div class="col-md-6 form-group mb-3">
                         <label class="form-label"><i class="bi bi-lock me-2"></i>Contraseña</label>

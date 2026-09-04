@@ -1517,7 +1517,14 @@
         {
             var errorDetails = string.Join("\n• ", warnings);
             var message = $"Se encontraron los siguientes problemas:\n\n• {errorDetails}\n\n¿Desea continuar de todos modos?";
-            await util.ExecuteWithConfirmation(proceed, "actionName", _confirmationModal, message, "danger", true);
+            // isCancelOnly=false (antes estaba en true por error): ConfirmationModal
+            // esconde el botón de confirmar cuando IsCancelOnly=true, así que este
+            // diálogo preguntaba "¿Desea continuar de todos modos?" pero sólo ofrecía
+            // "Cancelar" -- de hecho bloqueaba el envío a aprobación/publicación
+            // siempre que hubiera cualquier advertencia "blanda" (típicamente, falta
+            // de lectura de agua), en vez de dejarlo a criterio del Administrador
+            // como documenta el comentario de ConfirmarYProceder.
+            await util.ExecuteWithConfirmation(proceed, "actionName", _confirmationModal, message, "danger", false);
         }
         else
         {

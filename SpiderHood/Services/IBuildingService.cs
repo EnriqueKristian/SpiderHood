@@ -63,12 +63,14 @@ namespace SpiderHood.Services
         private ParameterService ParameterService { get; set; } = default!;
         private readonly AuthService _authService;
         private readonly ISubscriptionService _subscriptionService;
+        private readonly IAccountService _accountService;
 
-        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, ISubscriptionService subscriptionService)
+        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, ISubscriptionService subscriptionService, IAccountService accountService)
         {
             ec = new BDLayout(contextFactory);
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
+            _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
         }
 
         private async Task<string> GetPerformedByAsync()
@@ -100,6 +102,13 @@ namespace SpiderHood.Services
                 var subscriptionCheck = await _subscriptionService.EnsureCanCreateBuildingAsync(createdByUserId, createdByRole);
                 if (!subscriptionCheck.IsSuccess)
                     return subscriptionCheck;
+
+                // Building.IdAccount (Docs/Design-Account-Facturacion.md): de acá sale el
+                // conteo de MaxBuildings del plan. Fail-open si el creador todavía no
+                // tiene ninguna Account (SysAdmin creando un Template, o cuentas de antes
+                // de este feature) -- el edificio simplemente queda con IdAccount NULL.
+                var account = await _accountService.GetAccountByUserAsync(createdByUserId);
+                building.IdAccount = account?.IdAccount;
 
                 // Un solo lookup del template, reusado por BuildingConfiguration (Paso 2)
                 // y por los Parameter Mixto (Paso 3) -- si building.IsTemplate, este

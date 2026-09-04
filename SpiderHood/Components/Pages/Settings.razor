@@ -4,6 +4,7 @@
 @inject Services.AuthService AuthService
 @inject Services.ISubscriptionService SubscriptionService
 @inject Services.IPaymentService PaymentService
+@inject Services.IAccountService AccountService
 @inject NavigationManager Navigation
 
 <section>
@@ -20,6 +21,15 @@
         }
         else
         {
+            @if (_subscription.Status == "Trial" && _subscription.EndDate.HasValue)
+            {
+                var daysLeft = Math.Max(0, (int)Math.Ceiling((_subscription.EndDate.Value - DateTime.UtcNow).TotalDays));
+                <div class="alert @(daysLeft <= 10 ? "alert-warning" : "alert-info") py-2 mb-3">
+                    <i class="bi bi-hourglass-split me-2"></i>
+                    Estás en el período de prueba: te quedan <strong>@daysLeft día(s)</strong> (hasta @_subscription.EndDate.Value.ToString("dd/MM/yyyy"))
+                    para elegir un plan pago antes de que venza.
+                </div>
+            }
             <ul class="list-group list-group-flush">
                 <li class="list-group-item d-flex justify-content-between lh-sm">
                     <div>
@@ -49,6 +59,55 @@
         }
     </div>
 </section>
+
+@if (_account != null)
+{
+    <section style="max-width: 700px;">
+        <h6 class="mt-4 mb-2">Colaboradores</h6>
+        <div class="card">
+            <div class="card-body">
+                <p class="text-muted small mb-2">
+                    Las personas que invites acá administran los mismos edificios que vos, bajo la misma suscripción (@_account.RazonSocial).
+                </p>
+                <ul class="list-group list-group-flush mb-3">
+                    @foreach (var collaborator in _collaborators)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>@collaborator.FirstName @collaborator.LastName <small class="text-muted">(@collaborator.Email)</small></span>
+                            <span class="badge bg-secondary">@collaborator.Role</span>
+                        </li>
+                    }
+                </ul>
+
+                @foreach (var invitation in _pendingInvitations)
+                {
+                    <div class="alert alert-warning py-2 d-flex justify-content-between align-items-center">
+                        <span>Invitación pendiente: <strong>@invitation.Email</strong></span>
+                        <code class="small">/aceptar-invitacion?code=@invitation.Code</code>
+                    </div>
+                }
+
+                @if (_inviteError != null)
+                {
+                    <div class="alert alert-danger py-2">@_inviteError</div>
+                }
+                @if (_inviteLink != null)
+                {
+                    <div class="alert alert-success py-2">
+                        Invitación creada. Compartí este link: <code>@_inviteLink</code>
+                    </div>
+                }
+
+                <div class="input-group">
+                    <input class="form-control" placeholder="email@colaborador.com" @bind="_inviteEmail" />
+                    <button class="btn btn-outline-primary" disabled="@_inviting" @onclick="InviteAsync">
+                        <i class="bi bi-person-plus me-1"></i>Invitar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+}
 
 @if (_purchasablePlans.Count > 0)
 {
@@ -93,6 +152,14 @@
     private Guid _idUser;
     private string _userEmail = "";
 
+    private Models.Account? _account;
+    private List<Models.AccountUserView> _collaborators = [];
+    private List<Models.AccountInvitation> _pendingInvitations = [];
+    private string _inviteEmail = "";
+    private string? _inviteError;
+    private string? _inviteLink;
+    private bool _inviting;
+
     protected override async Task OnInitializedAsync()
     {
         var currentUser = await AuthService.GetCurrentUserAsync();
@@ -123,6 +190,51 @@
         {
             _subscription = null;
             _purchasablePlans = [];
+        }
+
+        // Colaboradores (Docs/Design-Account-Facturacion.md): igual que arriba, no
+        // deja caerse la página si la Account todavía no existe (registros de antes
+        // de este feature) -- esa sección simplemente no se muestra.
+        try
+        {
+            _account = await AccountService.GetAccountByUserAsync(_idUser);
+            if (_account != null)
+            {
+                _collaborators = await AccountService.GetCollaboratorsAsync(_account.IdAccount);
+                _pendingInvitations = await AccountService.GetPendingInvitationsAsync(_account.IdAccount);
+            }
+        }
+        catch (Exception)
+        {
+            _account = null;
+        }
+    }
+
+    private async Task InviteAsync()
+    {
+        _inviteError = null;
+        _inviteLink = null;
+        if (_account == null || string.IsNullOrWhiteSpace(_inviteEmail))
+            return;
+
+        _inviting = true;
+        try
+        {
+            var result = await AccountService.InviteCollaboratorAsync(_account.IdAccount, _inviteEmail, _idUser);
+            if (!result.IsSuccess)
+            {
+                _inviteError = result.ErrorMessage;
+                return;
+            }
+
+            var invitation = (Models.AccountInvitation)result.Data!;
+            _inviteLink = $"{Navigation.BaseUri.TrimEnd('/')}/aceptar-invitacion?code={invitation.Code}";
+            _inviteEmail = "";
+            _pendingInvitations = await AccountService.GetPendingInvitationsAsync(_account.IdAccount);
+        }
+        finally
+        {
+            _inviting = false;
         }
     }
 

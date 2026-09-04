@@ -490,6 +490,57 @@ namespace SpiderHood.Data
             }
         }
 
+        // La Account a la que pertenece este usuario (Owner o Colaborador) -- null
+        // si todavía no tiene ninguna (cuentas de antes de este feature, ver
+        // Docs/Design-Account-Facturacion.md). Todo el resto de ISubscriptionService
+        // cae de vuelta al comportamiento viejo por IdUser directo cuando esto da null.
+        public async Task<Models.Account?> GetAccountByUserAsync(Guid idUser, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var accounts = await ExecuteQueryListAsync<Models.Account>(
+                    StoredProcedures.GET_AccountByUser, idUser);
+                return accounts.FirstOrDefault();
+            }, "GetAccountByUser", cancellationToken);
+        }
+
+        public async Task<List<Models.AccountUserView>> GetAccountUsersByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.AccountUserView>(
+                    StoredProcedures.GET_AccountUsersByAccount, idAccount);
+            }, "GetAccountUsersByAccount", cancellationToken);
+        }
+
+        public async Task<Models.AccountInvitation?> GetAccountInvitationByCodeAsync(string code, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var invitations = await ExecuteQueryListAsync<Models.AccountInvitation>(
+                    StoredProcedures.GET_AccountInvitationByCode, code);
+                return invitations.FirstOrDefault();
+            }, "GetAccountInvitationByCode", cancellationToken);
+        }
+
+        public async Task<List<Models.AccountInvitation>> GetPendingInvitationsByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.AccountInvitation>(
+                    StoredProcedures.GET_PendingInvitationsByAccount, idAccount);
+            }, "GetPendingInvitationsByAccount", cancellationToken);
+        }
+
+        public async Task<List<Models.Building>> GetBuildingsByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Building>(
+                    StoredProcedures.GET_BuildingsByAccount, idAccount);
+            }, "GetBuildingsByAccount", cancellationToken);
+        }
+
         public async Task<List<MenuItemWithRoles>> GetMenuItemsAsync(CancellationToken cancellationToken = default)
         {
             List<MenuItemWithRoles> list = [];

@@ -179,6 +179,7 @@ builder.Services.AddScoped<IPendingExpenseService, PendingExpenseService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 
 // MercadoPago (Docs/Design-Subscripcion-Administrador.md): las claves NUNCA
 // van commiteadas -- appsettings.json trae "MercadoPago" vacío a propósito, el

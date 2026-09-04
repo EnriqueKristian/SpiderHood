@@ -17,13 +17,14 @@ namespace SpiderHood.Services
         // redirigir el navegador. Tira InvalidOperationException si el plan no
         // existe o todavía no tiene un Amount configurado (runbook en el
         // documento de diseño).
-        Task<string> CreateCheckoutSessionAsync(Guid idUser, int idSubscriptionPlan);
+        Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan);
     }
 
     public class PaymentService : IPaymentService
     {
         private readonly ISubscriptionService _subscriptionService;
         private readonly string _baseUrl;
+        private readonly bool _isTestMode;
 
         // BaseUrl viene de configuración (mismo valor que ya usa AuthService para
         // los links de los emails), NO de NavigationManager.BaseUri -- ese refleja
@@ -34,9 +35,12 @@ namespace SpiderHood.Services
         {
             _subscriptionService = subscriptionService;
             _baseUrl = (configuration["BaseUrl"] ?? "https://localhost:7175").TrimEnd('/');
+            // Convención de MercadoPago: sus Access Token de prueba arrancan con
+            // "TEST-", los de producción no.
+            _isTestMode = (configuration["MercadoPago:AccessToken"] ?? "").StartsWith("TEST-");
         }
 
-        public async Task<string> CreateCheckoutSessionAsync(Guid idUser, int idSubscriptionPlan)
+        public async Task<string> CreateCheckoutSessionAsync(Guid idUser, string userEmail, int idSubscriptionPlan)
         {
             var plans = await _subscriptionService.GetAllPlansAsync();
             var plan = plans.FirstOrDefault(p => p.IdSubscriptionPlan == idSubscriptionPlan)
@@ -48,13 +52,13 @@ namespace SpiderHood.Services
             var request = new PreapprovalCreateRequest
             {
                 Reason = $"Suscripción SpiderHood - {plan.Name}",
-                // NO se manda PayerEmail: si se manda el email real del Administrador
-                // logueado en SpiderHood, pero quien autoriza en MercadoPago es una
-                // cuenta de prueba, MercadoPago tira "una de las partes con la que
-                // intentas hacer el pago es de prueba" -- ata la operación a una
-                // identidad real que no coincide con quien la termina pagando. Sin
-                // este campo, MercadoPago identifica al pagador por la sesión con la
-                // que autoriza en su propio checkout, no por lo que mandemos acá.
+                // payer_email es obligatorio para la API, pero en modo test NO puede
+                // ser el email real del Administrador: si quien autoriza en
+                // MercadoPago es una cuenta de prueba, la identidad real que trae
+                // este campo choca con eso y tira "una de las partes con la que
+                // intentas hacer el pago es de prueba" (probado). En producción sí
+                // va el email real -- así vincula la suscripción a esa cuenta.
+                PayerEmail = _isTestMode ? "test_payer@testuser.com" : userEmail,
                 BackUrl = $"{_baseUrl}/pago-exitoso",
                 // El webhook (subscription_preapproval) parsea esto para saber a
                 // qué usuario/plan activar -- ver Program.cs.

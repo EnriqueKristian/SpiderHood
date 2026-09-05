@@ -10,42 +10,45 @@ namespace SpiderHood.Models
     public enum GroupUnitType { Individual = 1, Shared = 0 }
     public enum OwnerType { NaturalPerson = 1, LegalEntity = 2 }
 
+    // OJO al leer esta clase: mezcla dos cosas de origen distinto, heredado de cómo
+    // se armó GetUnitsByBuildingAsync (BDLayout.Get.cs) -- un JOIN de Unit contra
+    // Owner/GroupOwner que devuelve UNA FILA POR CADA DUEÑO de cada unidad. NO se
+    // separaron en dos clases todavía porque eso implicaría tocar los ~6 call
+    // sites que hoy dependen de esta forma (UnitGroups.razor, AssignUnits.razor,
+    // Owners.razor, Home.razor.cs, ModalUnit.razor) -- queda pendiente para
+    // cuando haya forma de probarlo en vivo antes de tocar tantos archivos a la
+    // vez. Por ahora, la sección de abajo dice qué es qué:
+    //
+    //   SECCIÓN 1 (real, editable): columnas físicas de dbo.RealEstateUnit.
+    //   Son las únicas que persisten INS_Unit/UPD_Unit -- lo que se edita desde
+    //   ModalUnit.razor.
+    //
+    //   SECCIÓN 2 (denormalizada, sólo lectura): NO son columnas de
+    //   RealEstateUnit -- vienen del JOIN contra ApartmentOwner/GroupOwner en
+    //   GET_UnitsByBuilding. Sólo tienen datos cuando el objeto salió de
+    //   GetUnitsByBuildingAsync; en cualquier otro contexto (p.ej. un
+    //   RealEstateUnit recién creado en memoria) quedan en su valor default.
+    //   Escribirles algo acá NO actualiza ni a Owner ni a GroupOwner -- para eso
+    //   están los métodos dedicados (AddOwnerUnitAsync, etc.).
     public class RealEstateUnit
     {
+        // ===== SECCIÓN 1: columnas reales de dbo.RealEstateUnit =====
+
         public Guid IdUnit { get; set; }
         public string UnitNumber { get; set; } = string.Empty;
 
         [Precision(18, 2)]
         public decimal Area { get; set; }
 
-        public GroupUnitType TypeGroupUnit { get; set; }
-
-        public Guid IdGroupOwner { get; set; }
-
-        public string GroupName { get; set; } = string.Empty;
-
-        [Precision(18, 2)]
-        public decimal AreaTotal { get; set; }
-
-        public OwnerType TypeOwner { get; set; }
-
-        public string Names { get; set; } = string.Empty;
-
-        public string Surname { get; set; } = string.Empty;
-
         public Guid IdBuilding { get; set; }
 
         public int TypeUnit { get; set; }
 
-        public Guid IdOwner { get; set; }
-        
         public int Number { get; set; }
 
         public bool IsAvailable { get; set; }
 
-        public string Building { get; set; } = string.Empty;
-
-        // --- Campos propios de la unidad (dbo.Unit) -- ver
+        // --- Campos propios agregados en
         // Database/Scripts/2026-09-04_49_Unit_ExtraFields.sql. Todos opcionales:
         // unidades cargadas antes de este feature quedan sin estos datos hasta que
         // alguien las edite (fail-open, mismo criterio que el resto de la app).
@@ -76,6 +79,25 @@ namespace SpiderHood.Models
         public bool? HasElectricity { get; set; }
 
         public string? Notes { get; set; }
+
+        // ===== SECCIÓN 2: denormalizado del JOIN con Owner/GroupOwner (sólo
+        // lectura, ver comentario de la clase) =====
+
+        public GroupUnitType TypeGroupUnit { get; set; }
+        public Guid IdGroupOwner { get; set; }
+        public string GroupName { get; set; } = string.Empty;
+
+        [Precision(18, 2)]
+        public decimal AreaTotal { get; set; }
+
+        public OwnerType TypeOwner { get; set; }
+        public string Names { get; set; } = string.Empty;
+        public string Surname { get; set; } = string.Empty;
+        public Guid IdOwner { get; set; }
+
+        // Nombre del edificio (no confundir con IdBuilding, de arriba) -- también
+        // viene del JOIN, no de dbo.RealEstateUnit.
+        public string Building { get; set; } = string.Empty;
     }
 
     public class UnitView

@@ -498,8 +498,7 @@ namespace SpiderHood.Data
                     bankaccount.IdBuilding!,
                     bankaccount.Status!,
                     bankaccount.CCI!,
-                    bankaccount.ReconciledBalance,
-                    bankaccount.CurrentBalance);
+                    bankaccount.InitialBalance);
                 return bankaccount;
             }, "AddBankAccount", cancellationToken);
         }

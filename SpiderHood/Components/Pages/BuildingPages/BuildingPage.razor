@@ -1336,10 +1336,24 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label class="form-label">Saldo Inicial *</label>
-                        <InputNumber @bind-Value="_editingBankAccout.ReconciledBalance" class="form-control" min="0" />
-                        <ValidationMessage For="@(() => _editingBankAccout.ReconciledBalance)" />
+                        <InputNumber @bind-Value="_editingBankAccout.InitialBalance" class="form-control" min="0" disabled="@_isEditingBanckAccount" />
+                        <ValidationMessage For="@(() => _editingBankAccout.InitialBalance)" />
+                        @if (_isEditingBanckAccount)
+                        {
+                            <small class="text-muted">No se puede modificar después de creada la cuenta.</small>
+                        }
                     </div>
                 </div>
+                @if (_isEditingBanckAccount)
+                {
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">Saldo Actual</label>
+                            <InputNumber @bind-Value="_editingBankAccout.CurrentBalance" class="form-control" disabled="true" />
+                            <small class="text-muted">Se actualiza automáticamente con cada conciliación.</small>
+                        </div>
+                    </div>
+                }
                 <div class="col-md-6">
                     <div class="form-group">
                         <label class="form-label">Estado</label>

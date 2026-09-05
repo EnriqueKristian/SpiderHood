@@ -6,7 +6,7 @@
 @if (ShowModal)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
             <div class="modal-content shadow-lg">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -18,216 +18,142 @@
                     <DataAnnotationsValidator />
                     <ValidationSummary class="text-danger" role="alert" />
                     <div class="modal-body">
-                        <table class="table-color">
-                            <tr>
-                                <td width="100px"><strong>Tipo Persona</strong></td>
-                                <td colspan="3">
-                                    <table width="60%">
-                                        <tr>
-                                            <td>
-                                                <div class="radio-option">
-                                                    <input type="radio"
-                                                           id="Natural"
-                                                           name="tipoPersona"
-                                                           @onchange="CambiarPersona"
-                                                           value="Natural"
-                                                           checked />
-                                                    <label for="distFijo" class="radio-label">
-                                                        <span class="radio-title">Natural</span>
-                                                    </label>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div class="radio-option">
-                                                    <input type="radio"
-                                                           id="Juridica"
-                                                           name="tipoPersona"
-                                                           @onchange="CambiarPersona"
-                                                           value="Juridica" />
-                                                    <label for="distProporcional" class="radio-label">
-                                                        <span class="radio-title">Jurídica</span>
-                                                    </label>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span class="text-danger">*</span>
-                                    <label for="names" class="form-label"><strong>@((SelectedPersonType == "Natural") ? "Nombres" : "Razon Social"):</strong></label>
-                                </td>
-                                <td colspan="3">
-                                    <div class="mb-3">
-                                        <InputText id="names" @bind-Value="ViewOwner.Names" class="form-control" aria-required="true" />
-                                        <ValidationMessage For="() => ViewOwner.Names" class="text-danger" />
-                                    </div>
-                                </td>
-                            </tr>
+
+                        <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3">Tipo de Persona</h6>
+                        <div class="d-flex gap-4 mb-3">
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" id="Natural" name="tipoPersona"
+                                       @onchange="CambiarPersona" value="Natural" checked />
+                                <label for="Natural" class="form-check-label">Natural</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" id="Juridica" name="tipoPersona"
+                                       @onchange="CambiarPersona" value="Juridica" />
+                                <label for="Juridica" class="form-check-label">Jurídica</label>
+                            </div>
+                        </div>
+
+                        <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3">Identificación</h6>
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-@((SelectedPersonType == "Natural") ? "6" : "12")">
+                                <label for="names" class="form-label small text-muted">
+                                    <span class="text-danger">*</span> @((SelectedPersonType == "Natural") ? "Nombres" : "Razón Social")
+                                </label>
+                                <InputText id="names" @bind-Value="ViewOwner.Names" class="form-control" aria-required="true" />
+                                <ValidationMessage For="() => ViewOwner.Names" class="text-danger" />
+                            </div>
                             @if (SelectedPersonType == "Natural")
                             {
-                                <tr>
-                                    <td>
-                                        <label for="surnamem" class="form-label"><strong>Apellidos:</strong></label>
-                                    </td>
-                                    <td colspan="3">
-                                        <div class="mb-1">
-                                            <InputText id="surnamem" @bind-Value="ViewOwner.Surname" class="form-control" />
-                                            <ValidationMessage For="() => ViewOwner.Surname" class="text-danger" />
-                                        </div>
-                                    </td>
-                                </tr>
+                                <div class="col-md-6">
+                                    <label for="surnamem" class="form-label small text-muted">Apellidos</label>
+                                    <InputText id="surnamem" @bind-Value="ViewOwner.Surname" class="form-control" />
+                                    <ValidationMessage For="() => ViewOwner.Surname" class="text-danger" />
+                                </div>
                             }
                             else
                             {
                                 ViewOwner.Surname = ViewOwner.Names;
                             }
-                            <tr>
-                                <td>
-                                    <!--<span class="text-danger">*</span>-->
-                                    <label for="typedoc" class="form-label"><strong>Tipo Doc:</strong></label>
-                                </td>
-                                <td>
-                                    <div class="mb-3">
-                                        <InputSelect id="typedoc" @bind-Value="ViewOwner.IdTypeIdNumber" class="form-select">
+                        </div>
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label for="typedoc" class="form-label small text-muted">Tipo Doc.</label>
+                                <InputSelect id="typedoc" @bind-Value="ViewOwner.IdTypeIdNumber" class="form-select">
+                                    @foreach (var param in ParameterService.ListParameters.Where(c => c.IdParent == Convert.ToInt32(Models.ParamParent.DocumentType)))
+                                    {
+                                        <option value="@param.Value" selected>@param.ShortDescription</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="() => ViewOwner.IdTypeIdNumber" class="text-danger" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="nrodoc" class="form-label small text-muted">N° Documento</label>
+                                <InputText id="nrodoc" @bind-Value="ViewOwner.IdNumber" class="form-control" aria-required="true" />
+                                <ValidationMessage For="() => ViewOwner.IdNumber" class="text-danger" />
+                            </div>
+                        </div>
 
-                                            @foreach (var param in ParameterService.ListParameters.Where(c => c.IdParent == Convert.ToInt32(Models.ParamParent.DocumentType)))
-                                            {
-                                                <option value="@param.Value" selected>@param.ShortDescription</option>
-                                            }
+                        @if (SelectedPersonType == "Juridica")
+                        {
+                            <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3 mt-4">Datos de la Empresa</h6>
+                            <div class="row g-3 mb-2">
+                                <div class="col-md-6">
+                                    <label for="legalrep" class="form-label small text-muted">Representante Legal</label>
+                                    <InputText id="legalrep" @bind-Value="ViewOwner.LegalRepresentative" class="form-control" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="ructype" class="form-label small text-muted">Tipo de RUC</label>
+                                    <InputText id="ructype" @bind-Value="ViewOwner.RucType" class="form-control" />
+                                </div>
+                            </div>
+                        }
 
-                                        </InputSelect>
-                                        <ValidationMessage For="() => ViewOwner.IdTypeIdNumber" class="text-danger" />
-                                    </div>
-                                </td>
-                                <td>
-                                    <!--<span class="text-danger">*</span>-->
-                                    <label for="nrodoc" class="form-label"><strong>Doc:</strong></label>
-                                </td>
-                                <td>
-                                    <div class="mb-3">
-                                        <InputText id="nrodoc" @bind-Value="ViewOwner.IdNumber" class="form-control" aria-required="true" />
-                                        <ValidationMessage For="() => ViewOwner.IdNumber" class="text-danger" />
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <span class="text-danger">*</span>
-                                    <label for="address" class="form-label"><strong>Direccion:</strong></label>
-                                </td>
-                                <td colspan="3">
-                                    <div class="mb-3">
-                                        <InputText id="address" @bind-Value="ViewOwner.Address" class="form-control" aria-required="true" />
-                                        <ValidationMessage For="() => ViewOwner.Address" class="text-danger" />
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><label for="phonenumber" class="form-label"><strong>Teléfono:</strong></label></td>
-                                <td>
-                                    <div class="mb-1">
-                                        <InputText id="phonenumber" @bind-Value="ViewOwner.PhoneNumber" class="form-control" />
-                                        <ValidationMessage For="() => ViewOwner.PhoneNumber" class="text-danger" />
-                                    </div>
-                                </td>
-                                <td><label for="mobilephone" class="form-label"><strong>Celular:</strong></label></td>
-                                <td>
-                                    <div class="mb-1">
-                                        <InputText id="mobilephone" @bind-Value="ViewOwner.MobilePhone" class="form-control" />
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><label for="workphone" class="form-label"><strong>Tel. Trabajo:</strong></label></td>
-                                <td>
-                                    <div class="mb-1">
-                                        <InputText id="workphone" @bind-Value="ViewOwner.WorkPhone" class="form-control" />
-                                    </div>
-                                </td>
-                                <td><label for="email" class="form-label"><strong>Email:</strong></label></td>
-                                <td>
-                                    <div class="mb-1">
-                                        <InputText id="email" @bind-Value="ViewOwner.Email" class="form-control" />
-                                        <ValidationMessage For="() => ViewOwner.Email" class="text-danger" />
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><label for="relationshiptype" class="form-label"><strong>Relación:</strong></label></td>
-                                <td colspan="3">
-                                    <div class="mb-1">
-                                        <InputSelect id="relationshiptype" @bind-Value="ViewOwner.RelationshipType" class="form-select">
-                                            <option value="">-- Seleccione --</option>
-                                            <option value="Propietario">Propietario</option>
-                                            <option value="Co-Propietario">Co-Propietario</option>
-                                            <option value="Inquilino">Inquilino</option>
-                                            <option value="Usufructuario">Usufructuario</option>
-                                        </InputSelect>
-                                    </div>
-                                </td>
-                            </tr>
-                            @if (SelectedPersonType == "Juridica")
-                            {
-                                <tr>
-                                    <td><label for="businessname" class="form-label"><strong>Razón Social:</strong></label></td>
-                                    <td colspan="3">
-                                        <div class="mb-1">
-                                            <InputText id="businessname" @bind-Value="ViewOwner.BusinessName" class="form-control" />
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td><label for="legalrep" class="form-label"><strong>Repr. Legal:</strong></label></td>
-                                    <td>
-                                        <div class="mb-1">
-                                            <InputText id="legalrep" @bind-Value="ViewOwner.LegalRepresentative" class="form-control" />
-                                        </div>
-                                    </td>
-                                    <td><label for="ructype" class="form-label"><strong>Tipo RUC:</strong></label></td>
-                                    <td>
-                                        <div class="mb-1">
-                                            <InputText id="ructype" @bind-Value="ViewOwner.RucType" class="form-control" />
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                            <tr>
-                                <td><label for="nationality" class="form-label"><strong>Nacionalidad:</strong></label></td>
-                                <td>
-                                    <div class="mb-1">
-                                        <InputText id="nationality" @bind-Value="ViewOwner.Nationality" class="form-control" />
-                                    </div>
-                                </td>
-                                <td><label for="civilstatus" class="form-label"><strong>Est. Civil:</strong></label></td>
-                                <td>
-                                    <div class="mb-1">
-                                        <InputSelect id="civilstatus" @bind-Value="ViewOwner.CivilStatus" class="form-select">
-                                            <option value="">-- Seleccione --</option>
-                                            <option value="Soltero">Soltero</option>
-                                            <option value="Casado">Casado</option>
-                                            <option value="Divorciado">Divorciado</option>
-                                            <option value="Viudo">Viudo</option>
-                                        </InputSelect>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><label for="birthdate" class="form-label"><strong>Fecha Nac.:</strong></label></td>
-                                <td>
-                                    <div class="mb-1">
-                                        <InputDate id="birthdate" @bind-Value="ViewOwner.BirthDate" class="form-control" />
-                                    </div>
-                                </td>
-                                <td><label for="isactive" class="form-label"><strong>Activo:</strong></label></td>
-                                <td>
-                                    <div class="mb-1">
-                                        <InputCheckbox id="isactive" @bind-Value="ViewOwner.IsActive" class="form-check-input" />
-                                    </div>
-                                </td>
-                            </tr>
-                        </table>
+                        <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3 mt-4">Contacto</h6>
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label for="address" class="form-label small text-muted"><span class="text-danger">*</span> Dirección</label>
+                                <InputText id="address" @bind-Value="ViewOwner.Address" class="form-control" aria-required="true" />
+                                <ValidationMessage For="() => ViewOwner.Address" class="text-danger" />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email" class="form-label small text-muted">Email</label>
+                                <InputText id="email" @bind-Value="ViewOwner.Email" class="form-control" />
+                                <ValidationMessage For="() => ViewOwner.Email" class="text-danger" />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-4">
+                                <label for="phonenumber" class="form-label small text-muted">Teléfono</label>
+                                <InputText id="phonenumber" @bind-Value="ViewOwner.PhoneNumber" class="form-control" />
+                                <ValidationMessage For="() => ViewOwner.PhoneNumber" class="text-danger" />
+                            </div>
+                            <div class="col-md-4">
+                                <label for="mobilephone" class="form-label small text-muted">Celular</label>
+                                <InputText id="mobilephone" @bind-Value="ViewOwner.MobilePhone" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label for="workphone" class="form-label small text-muted">Tel. Trabajo</label>
+                                <InputText id="workphone" @bind-Value="ViewOwner.WorkPhone" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label for="relationshiptype" class="form-label small text-muted">Relación con la Unidad</label>
+                                <InputSelect id="relationshiptype" @bind-Value="ViewOwner.RelationshipType" class="form-select">
+                                    <option value="">-- Seleccione --</option>
+                                    <option value="Propietario">Propietario</option>
+                                    <option value="Co-Propietario">Co-Propietario</option>
+                                    <option value="Inquilino">Inquilino</option>
+                                    <option value="Usufructuario">Usufructuario</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3 mt-4">Datos Adicionales</h6>
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-4">
+                                <label for="nationality" class="form-label small text-muted">Nacionalidad</label>
+                                <InputText id="nationality" @bind-Value="ViewOwner.Nationality" class="form-control" />
+                            </div>
+                            <div class="col-md-4">
+                                <label for="civilstatus" class="form-label small text-muted">Estado Civil</label>
+                                <InputSelect id="civilstatus" @bind-Value="ViewOwner.CivilStatus" class="form-select">
+                                    <option value="">-- Seleccione --</option>
+                                    <option value="Soltero">Soltero</option>
+                                    <option value="Casado">Casado</option>
+                                    <option value="Divorciado">Divorciado</option>
+                                    <option value="Viudo">Viudo</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="birthdate" class="form-label small text-muted">Fecha de Nacimiento</label>
+                                <InputDate id="birthdate" @bind-Value="ViewOwner.BirthDate" class="form-control" />
+                            </div>
+                        </div>
+                        <div class="form-check form-switch mt-2">
+                            <InputCheckbox id="isactive" @bind-Value="ViewOwner.IsActive" class="form-check-input" />
+                            <label for="isactive" class="form-check-label small text-muted">Propietario activo</label>
+                        </div>
 
                     </div>
                     <div class="modal-footer">

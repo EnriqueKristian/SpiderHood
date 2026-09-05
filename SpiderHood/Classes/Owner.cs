@@ -23,6 +23,42 @@ namespace SpiderHood.Models
         public int IdTypeIdNumber { get; set; }
         public Guid IdBuilding { get; set; }
 
+        // --- Ya existían como columnas reales de dbo.ApartmentOwner (confirmado
+        // contra sys.columns) pero el formulario de Alta/Edición nunca las usaba --
+        // OwnerUnitView (la vista de sólo lectura de Owners.razor) ya las traía.
+        [EmailAddress(ErrorMessage = "Email inválido")]
+        public string? Email { get; set; }
+        public bool IsActive { get; set; } = true;
+
+        // --- Campos nuevos (Database/Scripts/2026-09-05_52_Owner_ExtraFields.sql).
+        // Todos opcionales: propietarios cargados antes de este feature quedan sin
+        // estos datos hasta que alguien los edite (fail-open).
+
+        // Contacto ampliado
+        public string? MobilePhone { get; set; }
+        public string? WorkPhone { get; set; }
+        // Propietario, Co-Propietario, Inquilino, Usufructuario -- texto libre por
+        // ahora, no hay todavía un catálogo de Parameter para esto.
+        public string? RelationshipType { get; set; }
+
+        // Sólo Persona Jurídica (ver SelectedPersonType en ModalOwner.razor) -- hoy
+        // "Razón Social" reutiliza Names/Surname sin distinción; estos campos son
+        // adicionales, no reemplazan ese comportamiento existente.
+        public string? BusinessName { get; set; }
+        public string? LegalRepresentative { get; set; }
+        public string? RucType { get; set; }
+
+        // Datos legales
+        public string? Nationality { get; set; }
+        public string? CivilStatus { get; set; }
+        public DateTime? BirthDate { get; set; }
+
+        // Morosidad/riesgo: NO se expone en el formulario de Alta/Edición a
+        // propósito -- es un dato que debería calcularse a partir de las cuotas
+        // vencidas del propietario (Installment), no algo que se tipee a mano.
+        // Queda la columna lista para cuando se implemente ese cálculo.
+        public bool IsDelinquent { get; set; }
+
         public string FullName => $"{Names} {Surname ?? ""}";
 
     }

@@ -1304,7 +1304,7 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label class="form-label">Nro. de cuenta *</label>
-                        <InputText @bind-Value="_editingBankAccout.AccountNumber" class="form-control" />
+                        <InputText @bind-Value="_editingBankAccout.AccountNumber" class="form-control" maxlength="30" />
                         <ValidationMessage For="@(() => _editingBankAccout.AccountNumber)" />
                     </div>
                 </div>
@@ -1317,7 +1317,8 @@
                 <div class="col-md-6">
                     <div class="form-group">
                         <label class="form-label">CCI</label>
-                        <InputText @bind-Value="_editingBankAccout.CCI" class="form-control" />
+                        <InputText @bind-Value="_editingBankAccout.CCI" class="form-control" maxlength="30" />
+                        <ValidationMessage For="@(() => _editingBankAccout.CCI)" />
                     </div>
                 </div>
                 <div class="col-md-6">
@@ -1343,7 +1344,7 @@
                     <div class="form-group">
                         <label class="form-label">Estado</label>
                         <div class="form-check">
-                            <InputCheckbox @bind-Value="_editingBuilding.IsActive" class="form-check-input" />
+                            <InputCheckbox @bind-Value="BankAccountIsActive" class="form-check-input" />
                             <label class="form-check-label">Activo</label>
                         </div>
                     </div>

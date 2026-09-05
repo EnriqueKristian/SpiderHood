@@ -20,6 +20,17 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private Building _editingBuilding = new();
         private Building _quickConfigBuilding = null;
         private BankAccount _editingBankAccout = new();
+
+        // El checkbox "Activo" del modal de Cuenta Bancaria estaba conectado por error
+        // a _editingBuilding.IsActive (el estado del EDIFICIO, no de la cuenta) --
+        // BankAccount.Status es un int (no bool), así que además hace falta este wrapper
+        // para poder usarlo con InputCheckbox. Convención 1=Activo/0=Inactivo -- Status
+        // no tenía ningún otro lugar en la app que lo leyera todavía.
+        private bool BankAccountIsActive
+        {
+            get => _editingBankAccout.Status == 1;
+            set => _editingBankAccout.Status = value ? 1 : 0;
+        }
         private Exoneration _Exoneration = new();
         private IReadOnlyList<Models.Parameter> filteredParameters;
         private List<Models.Category> filteredCategory = new();
@@ -432,15 +443,6 @@ namespace SpiderHood.Components.Pages.BuildingPages
                                 if (bankaccount.IdBankAccount == Guid.Empty)
                                 {
                                     //add BankAccount
-
-                                    // Busca el primer elemento que cumpla las condiciones
-                                    //<!--    PARAMETRO_PADRE     -->
-                                    var match = filteredParameters!
-                                        .FirstOrDefault(c => c.IdParent == 31 && c.Value == bankaccount.AccountType);
-
-                                    // Asigna el nombre si se encontró coincidencia, de lo contrario usa un valor por defecto
-                                    bankaccount.AccountName = match?.ShortDescription ?? "Nombre no disponible";
-
                                     bankaccount.IdBankAccount = Guid.NewGuid();
                                     bankaccount.IdBuilding = interno.IdBuilding;
 
@@ -552,7 +554,11 @@ namespace SpiderHood.Components.Pages.BuildingPages
             }
             catch (Exception ex)
             {
+                // Antes esto sólo se logueaba a consola -- un error real de guardado
+                // (p.ej. el truncamiento de CCI que motivó este fix) no se le mostraba
+                // nunca al usuario, así que "Guardar" simplemente no parecía hacer nada.
                 Console.WriteLine($"Error al guardar: {ex.Message}");
+                await JSRuntime.InvokeVoidAsync("alert", $"No se pudo guardar: {ex.Message}");
             }
         }
 
@@ -595,7 +601,11 @@ namespace SpiderHood.Components.Pages.BuildingPages
         {
             if (SelectedBuilding != null)
             {
-                //SelectedBuilding.Configuration.BankAccounts.Add(new BankAccount());
+                // Sin este reset, si antes se había abierto "Editar" sobre otra cuenta,
+                // "Nuevo Cta." reabría el modal reusando ese mismo objeto (_isEditingBanckAccount
+                // seguía en true) -- terminaba editando la cuenta vieja en vez de crear una nueva.
+                _editingBankAccout = new BankAccount { Status = 1 };
+                _isEditingBanckAccount = false;
                 _bankAccount.ShowAsync();
             }
         }
@@ -610,7 +620,10 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private void EditBankAccount(int index)
         {
-            if (SelectedBuilding != null && SelectedBuilding.Configuration.BankAccounts.Count > 1)
+            // "> 1" dejaba a este método sin efecto cuando el edificio tenía exactamente
+            // UNA cuenta bancaria (el caso más común) -- el modal se abría igual, pero sin
+            // cargar los datos de esa cuenta.
+            if (SelectedBuilding != null && index >= 0 && index < SelectedBuilding.Configuration.BankAccounts.Count)
             {
                 _editingBankAccout = SelectedBuilding.Configuration.BankAccounts[index];
                 _isEditingBanckAccount = true;

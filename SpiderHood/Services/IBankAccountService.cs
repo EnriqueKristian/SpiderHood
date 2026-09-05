@@ -162,7 +162,12 @@ namespace SpiderHood.Services
             }
             catch (Exception ex)
             {
+                // Antes se atrapaba y sólo se logueaba acá -- el caller (BuildingPage.razor.cs,
+                // SaveSection) también atrapaba todo en silencio, así que un error real (p.ej.
+                // truncamiento de CCI, ver Database/Scripts/2026-09-05_50_BankAccount_Fixes.sql)
+                // no se le mostraba nunca al usuario: "guardar" simplemente no hacía nada.
                 Console.WriteLine($"Error al crear la cuenta bancaria: {ex.Message}");
+                throw;
             }
 
         }
@@ -176,7 +181,8 @@ namespace SpiderHood.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al crear la cuenta bancaria: {ex.Message}");
+                Console.WriteLine($"Error al actualizar la cuenta bancaria: {ex.Message}");
+                throw;
             }
 
         }

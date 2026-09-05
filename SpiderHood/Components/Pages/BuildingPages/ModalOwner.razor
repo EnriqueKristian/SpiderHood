@@ -126,10 +126,104 @@
                             </tr>
                             <tr>
                                 <td><label for="phonenumber" class="form-label"><strong>Teléfono:</strong></label></td>
-                                <td colspan="3">
+                                <td>
                                     <div class="mb-1">
                                         <InputText id="phonenumber" @bind-Value="ViewOwner.PhoneNumber" class="form-control" />
                                         <ValidationMessage For="() => ViewOwner.PhoneNumber" class="text-danger" />
+                                    </div>
+                                </td>
+                                <td><label for="mobilephone" class="form-label"><strong>Celular:</strong></label></td>
+                                <td>
+                                    <div class="mb-1">
+                                        <InputText id="mobilephone" @bind-Value="ViewOwner.MobilePhone" class="form-control" />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="workphone" class="form-label"><strong>Tel. Trabajo:</strong></label></td>
+                                <td>
+                                    <div class="mb-1">
+                                        <InputText id="workphone" @bind-Value="ViewOwner.WorkPhone" class="form-control" />
+                                    </div>
+                                </td>
+                                <td><label for="email" class="form-label"><strong>Email:</strong></label></td>
+                                <td>
+                                    <div class="mb-1">
+                                        <InputText id="email" @bind-Value="ViewOwner.Email" class="form-control" />
+                                        <ValidationMessage For="() => ViewOwner.Email" class="text-danger" />
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="relationshiptype" class="form-label"><strong>Relación:</strong></label></td>
+                                <td colspan="3">
+                                    <div class="mb-1">
+                                        <InputSelect id="relationshiptype" @bind-Value="ViewOwner.RelationshipType" class="form-select">
+                                            <option value="">-- Seleccione --</option>
+                                            <option value="Propietario">Propietario</option>
+                                            <option value="Co-Propietario">Co-Propietario</option>
+                                            <option value="Inquilino">Inquilino</option>
+                                            <option value="Usufructuario">Usufructuario</option>
+                                        </InputSelect>
+                                    </div>
+                                </td>
+                            </tr>
+                            @if (SelectedPersonType == "Juridica")
+                            {
+                                <tr>
+                                    <td><label for="businessname" class="form-label"><strong>Razón Social:</strong></label></td>
+                                    <td colspan="3">
+                                        <div class="mb-1">
+                                            <InputText id="businessname" @bind-Value="ViewOwner.BusinessName" class="form-control" />
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><label for="legalrep" class="form-label"><strong>Repr. Legal:</strong></label></td>
+                                    <td>
+                                        <div class="mb-1">
+                                            <InputText id="legalrep" @bind-Value="ViewOwner.LegalRepresentative" class="form-control" />
+                                        </div>
+                                    </td>
+                                    <td><label for="ructype" class="form-label"><strong>Tipo RUC:</strong></label></td>
+                                    <td>
+                                        <div class="mb-1">
+                                            <InputText id="ructype" @bind-Value="ViewOwner.RucType" class="form-control" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            <tr>
+                                <td><label for="nationality" class="form-label"><strong>Nacionalidad:</strong></label></td>
+                                <td>
+                                    <div class="mb-1">
+                                        <InputText id="nationality" @bind-Value="ViewOwner.Nationality" class="form-control" />
+                                    </div>
+                                </td>
+                                <td><label for="civilstatus" class="form-label"><strong>Est. Civil:</strong></label></td>
+                                <td>
+                                    <div class="mb-1">
+                                        <InputSelect id="civilstatus" @bind-Value="ViewOwner.CivilStatus" class="form-select">
+                                            <option value="">-- Seleccione --</option>
+                                            <option value="Soltero">Soltero</option>
+                                            <option value="Casado">Casado</option>
+                                            <option value="Divorciado">Divorciado</option>
+                                            <option value="Viudo">Viudo</option>
+                                        </InputSelect>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="birthdate" class="form-label"><strong>Fecha Nac.:</strong></label></td>
+                                <td>
+                                    <div class="mb-1">
+                                        <InputDate id="birthdate" @bind-Value="ViewOwner.BirthDate" class="form-control" />
+                                    </div>
+                                </td>
+                                <td><label for="isactive" class="form-label"><strong>Activo:</strong></label></td>
+                                <td>
+                                    <div class="mb-1">
+                                        <InputCheckbox id="isactive" @bind-Value="ViewOwner.IsActive" class="form-check-input" />
                                     </div>
                                 </td>
                             </tr>

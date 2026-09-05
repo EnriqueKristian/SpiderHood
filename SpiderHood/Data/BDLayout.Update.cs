@@ -183,7 +183,18 @@ namespace SpiderHood.Data
                     owner.Surname!,
                     owner.Address!,
                     owner.PhoneNumber!,
-                    owner.IdTypeIdNumber);
+                    owner.IdTypeIdNumber,
+                    (object?)owner.Email,
+                    owner.IsActive,
+                    (object?)owner.MobilePhone,
+                    (object?)owner.WorkPhone,
+                    (object?)owner.RelationshipType,
+                    (object?)owner.BusinessName,
+                    (object?)owner.LegalRepresentative,
+                    (object?)owner.RucType,
+                    (object?)owner.Nationality,
+                    (object?)owner.CivilStatus,
+                    (object?)owner.BirthDate);
                 return owner;
             }, "UpdateOwner", cancellationToken);
         }

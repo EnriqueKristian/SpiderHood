@@ -668,7 +668,18 @@ namespace SpiderHood.Data
                     owner.Address,
                     owner.PhoneNumber,
                     owner.IdBuilding,
-                    owner.IdTypeIdNumber);
+                    owner.IdTypeIdNumber,
+                    (object?)owner.Email,
+                    owner.IsActive,
+                    (object?)owner.MobilePhone,
+                    (object?)owner.WorkPhone,
+                    (object?)owner.RelationshipType,
+                    (object?)owner.BusinessName,
+                    (object?)owner.LegalRepresentative,
+                    (object?)owner.RucType,
+                    (object?)owner.Nationality,
+                    (object?)owner.CivilStatus,
+                    (object?)owner.BirthDate);
                 owner.IdOwner = newId;
                 return owner;
             }, "AddOwner", cancellationToken);

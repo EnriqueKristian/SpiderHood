@@ -138,8 +138,13 @@
     private List<RealEstateUnit> FreeUnits = new();
     private HashSet<Guid> _selectedUnits = new();
 
-    private IEnumerable<RealEstateUnit> AvailableParking => FreeUnits.Where(u => u.IdGroupOwner == Guid.Empty && u.TypeUnit == 2);
-    private IEnumerable<RealEstateUnit> AvailableStorage => FreeUnits.Where(u => u.IdGroupOwner == Guid.Empty && u.TypeUnit == 3);
+    // GetUnitsByBuildingAsync trae una fila por cada Owner/GroupOwner asociado a
+    // la unidad (ver comentario en BDLayout.Get.cs) -- una unidad libre puede
+    // venir repetida más de una vez. Se dedupea por IdUnit antes de listarla.
+    private IEnumerable<RealEstateUnit> AvailableParking => FreeUnits.Where(u => u.IdGroupOwner == Guid.Empty && u.TypeUnit == 2)
+        .GroupBy(u => u.IdUnit).Select(g => g.First());
+    private IEnumerable<RealEstateUnit> AvailableStorage => FreeUnits.Where(u => u.IdGroupOwner == Guid.Empty && u.TypeUnit == 3)
+        .GroupBy(u => u.IdUnit).Select(g => g.First());
 
     protected override async Task OnInitializedAsync()
     {

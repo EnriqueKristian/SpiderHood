@@ -155,16 +155,28 @@
                                     <label class="form-label fw-bold">Grupo de Departamento:</label>
                                     <InputSelect @bind-Value="@SelectedUnitId" class="form-select">
                                         <option value="">-- Seleccionar Grupo --</option>
-                                        @foreach (var row in GetAvailableGroups())
+                                        @{
+                                            var groups = GetAvailableGroups().ToList();
+                                            var freeUnits = groups.Where(r => r.IdGroupOwner == Guid.Empty).ToList();
+                                            var existingGroups = groups.Where(r => r.IdGroupOwner != Guid.Empty).ToList();
+                                        }
+                                        @if (freeUnits.Any())
                                         {
-                                            @if (row.IdGroupOwner == Guid.Empty)
-                                            {
-                                                <option value="@row.IdUnit">@row.UnitNumber (unidad libre -- crea grupo nuevo)</option>
-                                            }
-                                            else
-                                            {
-                                                <option value="@row.IdGroupOwner">@row.GroupName (agregar como copropietario)</option>
-                                            }
+                                            <optgroup label="Unidades libres (crean grupo nuevo)">
+                                                @foreach (var row in freeUnits)
+                                                {
+                                                    <option value="@row.IdUnit">@row.UnitNumber</option>
+                                                }
+                                            </optgroup>
+                                        }
+                                        @if (existingGroups.Any())
+                                        {
+                                            <optgroup label="Grupos existentes (agregar como copropietario)">
+                                                @foreach (var row in existingGroups)
+                                                {
+                                                    <option value="@row.IdGroupOwner">@row.GroupName</option>
+                                                }
+                                            </optgroup>
                                         }
                                     </InputSelect>
                                     @if (string.IsNullOrEmpty(SelectedUnitId))
@@ -278,11 +290,17 @@
         if (FreeUnits == null)
             return Enumerable.Empty<Models.RealEstateUnit>();
 
+        // GetUnitsByBuildingAsync trae una fila por cada Owner/GroupOwner asociado
+        // a la unidad (ver comentario en BDLayout.Get.cs) -- una unidad libre puede
+        // venir repetida más de una vez. Se dedupea por IdUnit antes de listarla.
         return FreeUnits.Where(c =>
                         c.IdGroupOwner == Guid.Empty &&
                         c.TypeUnit == typeUnit &&
                         !_selectedUnits.Any(u => u.IdUnit == c.IdUnit)
-                    ).ToList();
+                    )
+                    .GroupBy(c => c.IdUnit)
+                    .Select(g => g.First())
+                    .ToList();
     }
 
     private IEnumerable<Models.RealEstateUnit> GetAvailableGroups()
@@ -293,9 +311,18 @@
         // Antes sólo ofrecía grupos ya con propietario (c.IdGroupOwner != Guid.Empty)
         // -- no había ninguna forma de elegir una unidad libre para armarle su
         // primer grupo a un propietario recién creado. Se incluyen ambos; el
-        // dropdown distingue "unidad libre" de "grupo existente" en el label de
-        // cada <option> (ver el .razor).
-        return FreeUnits.Where(c => c.TypeUnit == 1).ToList();
+        // dropdown distingue "unidad libre" de "grupo existente" en el <optgroup>
+        // de cada sección (ver el .razor).
+        //
+        // Dedupe: GetUnitsByBuildingAsync trae una fila por cada Owner/GroupOwner
+        // asociado a la unidad -- una unidad libre o un grupo con varios
+        // copropietarios aparecía repetido tantas veces como filas trajera el
+        // JOIN. La clave de dedupe es IdUnit para unidades libres (no tienen
+        // grupo todavía) o IdGroupOwner para grupos existentes.
+        return FreeUnits.Where(c => c.TypeUnit == 1)
+                    .GroupBy(c => c.IdGroupOwner == Guid.Empty ? c.IdUnit : c.IdGroupOwner)
+                    .Select(g => g.First())
+                    .ToList();
     }
 
     private void ToggleParking(Models.RealEstateUnit unit, bool isChecked)

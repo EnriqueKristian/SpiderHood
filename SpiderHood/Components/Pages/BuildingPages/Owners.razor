@@ -89,11 +89,11 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold mb-1">Torre/Piso</label>
-                            <select class="form-select" @bind="selectedTower">
-                                <option value="0">Todas las torres</option>
-                                @foreach (var tower in availableTowers)
+                            <select class="form-select" @bind="selectedFloor" @bind:after="FilterOwners">
+                                <option value="0">Todos los pisos</option>
+                                @foreach (var floor in availableFloors)
                                 {
-                                    <option value="@tower">@tower</option>
+                                    <option value="@floor">Piso @floor</option>
                                 }
                             </select>
                         </div>
@@ -506,12 +506,16 @@
 
     // Variables de filtro
     private int selectedUnitType = 0;
-    private int selectedTower = 0;
+    // "Torre/Piso" en la UI, pero el único dato real disponible es RealEstateUnit.Floor
+    // (Tower es texto libre tipo "Torre A-3", sin estructura para filtrar por él) --
+    // se filtra por piso. 0 = todos (mismo criterio que selectedUnitType).
+    private int selectedFloor = 0;
     private string selectedStatus = "all";
     private string searchTerm = string.Empty;
 
-    // Datos auxiliares
-    private List<int> availableTowers = new() { 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+    // Pisos que realmente existen en este edificio -- se calcula en LoadDataAsync a
+    // partir de las unidades cargadas, ya no es una lista fija de 1 a 9.
+    private List<int> availableFloors = new();
 
     // Propiedades calculadas -- GroupUnits (no filteredGroupUnits) porque estas
     // tarjetas resumen son sobre TODO el edificio, no sobre el resultado de los
@@ -581,6 +585,10 @@
         public bool IsAvailable { get; set; } = true;
         public Guid IdGroupUnit { get; set; }
         public Guid IdBuilding { get; set; }
+        // No viene de GetOwnersByBuildingAsync (OwnerUnitView no lo trae) -- se
+        // completa en LoadDataAsync cruzando con GetUnitsByBuildingAsync por IdUnit,
+        // para el filtro de Piso.
+        public int? Floor { get; set; }
     }
 
     public class ApartmentOwner
@@ -637,6 +645,15 @@
 
         await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId, true);
 
+        // GetOwnersByBuildingAsync (OwnerUnitView) no trae Floor -- se saca de
+        // GetUnitsByBuildingAsync, la misma llamada que ya se usaba para FreeUnits,
+        // y se cruza por IdUnit para completar el filtro de Piso.
+        FreeUnits = await BuildingService.GetUnitsByBuildingAsync(currentUser.CurrentBuildingId);
+        var floorByUnit = FreeUnits
+            .Where(u => u.Floor.HasValue)
+            .GroupBy(u => u.IdUnit)
+            .ToDictionary(g => g.Key, g => g.First().Floor);
+
         // Se recarga desde cero para no duplicar los grupos ya cargados en una ejecución previa.
         GroupUnits = new();
 
@@ -684,7 +701,8 @@
                     Number = ownerUnit.Number,
                     IsAvailable = ownerUnit.IsAvailable,
                     IdGroupUnit = ownerUnit.IdGroupUnit,
-                    IdBuilding = ownerUnit.IdBuilding
+                    IdBuilding = ownerUnit.IdBuilding,
+                    Floor = floorByUnit.TryGetValue(ownerUnit.IdUnit, out var floor) ? floor : null
                 });
             }
 
@@ -723,6 +741,14 @@
                 groupUnit.Owners = owners;
         }
 
+        availableFloors = unitsByGroup.Values
+            .SelectMany(list => list)
+            .Where(u => u.Floor.HasValue)
+            .Select(u => u.Floor!.Value)
+            .Distinct()
+            .OrderBy(f => f)
+            .ToList();
+
         FilterOwners();
     }
 
@@ -734,6 +760,7 @@
             filteredGroupUnits = GroupUnits
                 .Where(group => selectedUnitType == 0 ||
                        group.Units.Any(u => u.TypeUnit == selectedUnitType))
+                .Where(group => selectedFloor == 0 || group.Units.Any(u => u.Floor == selectedFloor))
                 .Where(group => selectedStatus != "delinquent" || _gruposMorosos.Contains(group.IdGroupUnit))
                 .Select(group => new GroupUnit1
                 {
@@ -776,6 +803,10 @@
             !group.Units.Any(u => u.TypeUnit == selectedUnitType))
             return false;
 
+        // Filtro por piso
+        if (selectedFloor != 0 && !group.Units.Any(u => u.Floor == selectedFloor))
+            return false;
+
         // Verificar si hay matches en el grupo
         bool hasOwnerMatch = group.Owners.Any(owner =>
             (selectedStatus == "all" ||
@@ -795,6 +826,7 @@
     {
         var unitsInGroup = group.Units
             .Where(u => selectedUnitType == 0 || u.TypeUnit == selectedUnitType)
+            .Where(u => selectedFloor == 0 || u.Floor == selectedFloor)
             .ToList();
 
         bool shouldIncludeAllOwners = includeAllIfUnitMatches &&
@@ -833,6 +865,10 @@
             {
                 // Filtro por tipo
                 if (selectedUnitType != 0 && unit.TypeUnit != selectedUnitType)
+                    return false;
+
+                // Filtro por piso
+                if (selectedFloor != 0 && unit.Floor != selectedFloor)
                     return false;
 
                 // Filtro por búsqueda

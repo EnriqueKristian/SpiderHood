@@ -79,18 +79,18 @@
                     <div class="row g-3">
                         <div class="col-md-3">
                             <label class="form-label fw-semibold mb-1">Tipo de Unidad</label>
-                            <select class="form-select" @bind="selectedUnitType">
-                                <option value="all">Todos los tipos</option>
-                                <option value="DPTO">Departamento</option>
-                                <option value="EST">Estacionamiento</option>
-                                <option value="LOC">Local Comercial</option>
-                                <option value="OFI">Oficina</option>
+                            <select class="form-select" @bind="selectedUnitType" @bind:after="FilterOwners">
+                                <option value="0">Todos los tipos</option>
+                                <option value="1">Departamento</option>
+                                <option value="2">Estacionamiento</option>
+                                <option value="3">Depósito</option>
+                                <option value="4">Oficina</option>
                             </select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold mb-1">Torre/Piso</label>
                             <select class="form-select" @bind="selectedTower">
-                                <option value="all">Todas las torres</option>
+                                <option value="0">Todas las torres</option>
                                 @foreach (var tower in availableTowers)
                                 {
                                     <option value="@tower">@tower</option>
@@ -99,11 +99,11 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label fw-semibold mb-1">Estado</label>
-                            <select class="form-select" @bind="selectedStatus">
+                            <select class="form-select" @bind="selectedStatus" @bind:after="FilterOwners">
                                 <option value="all">Todos los estados</option>
-                                <option value="Activo">Activo</option>
-                                <option value="Inactivo">Inactivo</option>
-                                <option value="Moroso">Moroso</option>
+                                <option value="active">Activo</option>
+                                <option value="inactive">Inactivo</option>
+                                <option value="delinquent">Moroso</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -734,6 +734,7 @@
             filteredGroupUnits = GroupUnits
                 .Where(group => selectedUnitType == 0 ||
                        group.Units.Any(u => u.TypeUnit == selectedUnitType))
+                .Where(group => selectedStatus != "delinquent" || _gruposMorosos.Contains(group.IdGroupUnit))
                 .Select(group => new GroupUnit1
                 {
                     IdGroupUnit = group.IdGroupUnit,
@@ -751,6 +752,7 @@
             // Con búsqueda - lógica especial
             filteredGroupUnits = GroupUnits
                 .Where(group => GroupMatchesSearch(group))
+                .Where(group => selectedStatus != "delinquent" || _gruposMorosos.Contains(group.IdGroupUnit))
                 .Select(group => new GroupUnit1
                 {
                     IdGroupUnit = group.IdGroupUnit,
@@ -1054,23 +1056,6 @@
         {
             Console.WriteLine($"Error mostrando toast: {ex.Message}");
             Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
-        }
-    }
-
-    // Watchers para filtros
-    private string _searchTerm = string.Empty, _selectedStatus = "all";
-    private int _selectedUnitType = 0, _selectedTower = 0;
-
-    protected override void OnParametersSet()
-    {
-        if (_selectedUnitType != selectedUnitType || _selectedTower != selectedTower ||
-            _selectedStatus != selectedStatus || _searchTerm != searchTerm)
-        {
-            _selectedUnitType = selectedUnitType;
-            _selectedTower = selectedTower;
-            _selectedStatus = selectedStatus;
-            _searchTerm = searchTerm;
-            FilterOwners();
         }
     }
 

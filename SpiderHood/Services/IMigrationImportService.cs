@@ -1,4 +1,6 @@
 using ClosedXML.Excel;
+using Microsoft.EntityFrameworkCore;
+using SpiderHood.Data;
 
 namespace SpiderHood.Services
 {
@@ -38,6 +40,21 @@ namespace SpiderHood.Services
     //
     // Unidades sin fila en "Propietarios" quedan creadas pero sin grupo -- "libres",
     // igual que si se cargaran desde la UI sin asignarles propietario todavía.
+    //
+    // OJO -- por qué Unidades/Propietarios y Lecturas de Agua usan BDLayout directo
+    // (campo _ec) en vez de IBuildingService/IOwnerService/IServiceReadingService
+    // para sus Add: AddUnitAsync, AddOwnerUnitAsync, AddGroupUnitAsync (BuildingService)
+    // y AddServiceReadingAsync/AddServiceReadingDetailAsync (ServiceReadingService)
+    // atrapan la excepción con un catch mudo (Console.WriteLine, sin throw) -- un
+    // INSERT que falla de verdad en SQL (encontrado en producción: INS_ServiceReading
+    // fallando en cada periodo) queda invisible para quien los llama, y este
+    // importador reportaba "importado con éxito" habiendo guardado prácticamente
+    // nada. BDLayout.AddNewRecordAsync sí relanza (como RepositoryException, con la
+    // excepción real de SQL en .InnerException) -- por eso se usa directo acá, y se
+    // captura por fila/periodo para no abortar todo el lote por un solo error.
+    // AddOwnerAsync/AddInstallmentAsync/AgregarPagoAsync/AddTransactionBankHeaderAsync/
+    // AddTransactionFromEECCAsync/CreatePresupuestoAsync/AddDetalleToPresupuestoAsync
+    // sí relanzan correctamente -- esos importadores no tenían este problema.
     public interface IMigrationImportService
     {
         Task<MigrationImportResult> ImportarUnidadesYPropietariosAsync(Guid idBuilding, Stream archivo);
@@ -58,6 +75,7 @@ namespace SpiderHood.Services
         private readonly IInstallmentService _installmentService;
         private readonly IBankAccountService _bankAccountService;
         private readonly AuthService _authService;
+        private readonly BDLayout _ec;
 
         private static readonly Dictionary<string, int> MapaTipoUnidad = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -80,7 +98,8 @@ namespace SpiderHood.Services
             ICategoryService categoryService,
             IInstallmentService installmentService,
             IBankAccountService bankAccountService,
-            AuthService authService)
+            AuthService authService,
+            IDbContextFactory<SpiderHoodContext> contextFactory)
         {
             _buildingService = buildingService;
             _ownerService = ownerService;
@@ -91,12 +110,24 @@ namespace SpiderHood.Services
             _installmentService = installmentService;
             _bankAccountService = bankAccountService;
             _authService = authService;
+            _ec = new BDLayout(contextFactory);
         }
 
         private async Task<string> GetPerformedByAsync()
         {
             var user = await _authService.GetCurrentUserAsync();
             return user?.Email ?? "migracion";
+        }
+
+        // BDLayout.ExecuteWithErrorHandlingAsync envuelve cualquier falla real de SQL
+        // en un RepositoryException genérico ("Operation X failed") -- el mensaje útil
+        // está en .InnerException.
+        private static string MensajeErrorReal(Exception ex)
+        {
+            var interno = ex;
+            while (interno.InnerException != null)
+                interno = interno.InnerException;
+            return interno.Message;
         }
 
         // "AAAA-MM" (lo que trae la plantilla) o una fecha real si Excel la
@@ -245,10 +276,21 @@ namespace SpiderHood.Services
                         IsAvailable = true,
                         IdBuilding = idBuilding
                     };
-                    await _buildingService.AddUnitAsync(unidad);
+                    try
+                    {
+                        await _ec.AddNewRecordAsync(unidad);
+                    }
+                    catch (Exception ex)
+                    {
+                        resultado.Errores.Add($"Unidades: no se pudo crear '{f.Codigo}' -- {MensajeErrorReal(ex)}");
+                        continue;
+                    }
                     codigoToUnidad[f.Codigo] = new UnidadResuelta(unidad.IdUnit, unidad.TypeUnit, unidad.Area);
                     resultado.UnidadesCreadas++;
                 }
+
+                if (resultado.Errores.Count > 0)
+                    return resultado;
 
                 // ---------------- Hoja Propietarios ----------------
                 await _parameterService.LoadParametersAsync(idBuilding);
@@ -294,10 +336,13 @@ namespace SpiderHood.Services
                         IsActive = true
                     };
 
-                    var creado = await _ownerService.AddOwnerAsync(owner);
-                    if (creado.IdOwner == Guid.Empty)
+                    try
                     {
-                        resultado.Errores.Add($"Propietarios, fila {row.RowNumber()}: no se pudo crear el propietario '{owner.Names}' (error al guardar).");
+                        await _ec.AddNewRecordAsync(owner);
+                    }
+                    catch (Exception ex)
+                    {
+                        resultado.Errores.Add($"Propietarios, fila {row.RowNumber()}: no se pudo crear el propietario '{owner.Names}' -- {MensajeErrorReal(ex)}");
                         continue;
                     }
                     resultado.PropietariosCreados++;
@@ -314,30 +359,37 @@ namespace SpiderHood.Services
                     var ownerUnit = new Models.OwnerUnit
                     {
                         IdGroupOwner = idGroupOwner,
-                        IdOwner = creado.IdOwner,
+                        IdOwner = owner.IdOwner,
                         GroupName = (cabezaResuelta.TipoUnidad == 4 ? "OFICINA " : "DPTO ") + cabeza,
                         GroupNumber = int.TryParse(cabeza, out var gn) ? gn : 0,
                         TypeOwner = 1, // Titular
                         AreaTotal = areaTotal
                     };
-                    await _buildingService.AddOwnerUnitAsync(ownerUnit);
-
-                    await _buildingService.AddGroupUnitAsync(new Models.GroupUnit
+                    try
                     {
-                        IdUnit = cabezaResuelta.IdUnit,
-                        IdGroupOwner = idGroupOwner,
-                        TypeGroupUnit = Models.GroupUnitType.Individual
-                    });
+                        await _ec.AddNewRecordAsync(ownerUnit);
 
-                    foreach (var agregado in agregados)
-                    {
-                        var idUnit = codigoToUnidad[agregado.Codigo].IdUnit;
-                        await _buildingService.AddGroupUnitAsync(new Models.GroupUnit
+                        await _ec.AddNewRecordAsync(new Models.GroupUnit
                         {
-                            IdUnit = idUnit,
+                            IdUnit = cabezaResuelta.IdUnit,
                             IdGroupOwner = idGroupOwner,
-                            TypeGroupUnit = Models.GroupUnitType.Shared
+                            TypeGroupUnit = Models.GroupUnitType.Individual
                         });
+
+                        foreach (var agregado in agregados)
+                        {
+                            var idUnit = codigoToUnidad[agregado.Codigo].IdUnit;
+                            await _ec.AddNewRecordAsync(new Models.GroupUnit
+                            {
+                                IdUnit = idUnit,
+                                IdGroupOwner = idGroupOwner,
+                                TypeGroupUnit = Models.GroupUnitType.Shared
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        resultado.Errores.Add($"Propietarios, fila {row.RowNumber()}: '{owner.Names}' se creó, pero no se pudo armar su grupo de unidades ('{cabeza}') -- {MensajeErrorReal(ex)}");
                     }
                 }
             }
@@ -508,16 +560,24 @@ namespace SpiderHood.Services
                         lecturaAnteriorPorUnidad[f.Codigo] = f.Lectura;
                     }
 
-                    await _serviceReadingService.AddServiceReadingAsync(new Models.ServiceReading
+                    try
                     {
-                        IdServiceReading = idServiceReading,
-                        Period = periodo,
-                        Status = 1,
-                        IdBuilding = idBuilding,
-                        FileName = "Migración histórica",
-                        IdPeriod = Guid.Empty
-                    });
-                    await _serviceReadingService.AddServiceReadingDetailAsync(detalles);
+                        await _ec.AddNewRecordAsync(new Models.ServiceReading
+                        {
+                            IdServiceReading = idServiceReading,
+                            Period = periodo,
+                            Status = 1,
+                            IdBuilding = idBuilding,
+                            FileName = "Migración histórica",
+                            IdPeriod = Guid.Empty
+                        });
+                        await _ec.AddNewRecordAsync(detalles);
+                    }
+                    catch (Exception ex)
+                    {
+                        resultado.Errores.Add($"Lecturas, periodo {periodo:yyyy-MM}: no se pudo guardar -- {MensajeErrorReal(ex)}");
+                        continue;
+                    }
 
                     resultado.LecturasCreadas += detalles.Count;
                 }

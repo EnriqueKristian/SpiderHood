@@ -7,6 +7,9 @@ namespace SpiderHood.Services
         public int UnidadesCreadas { get; set; }
         public int UnidadesOmitidas { get; set; }
         public int PropietariosCreados { get; set; }
+        public int LecturasCreadas { get; set; }
+        public int PresupuestosCreados { get; set; }
+        public int ItemsPresupuestoCreados { get; set; }
         public List<string> Errores { get; } = new();
         public List<string> Advertencias { get; } = new();
         public bool Success => Errores.Count == 0;
@@ -32,6 +35,8 @@ namespace SpiderHood.Services
     public interface IMigrationImportService
     {
         Task<MigrationImportResult> ImportarUnidadesYPropietariosAsync(Guid idBuilding, Stream archivo);
+        Task<MigrationImportResult> ImportarLecturasAguaAsync(Guid idBuilding, Stream archivo);
+        Task<MigrationImportResult> ImportarPresupuestoHistoricoAsync(Guid idBuilding, Stream archivo);
     }
 
     public class MigrationImportService : IMigrationImportService
@@ -39,6 +44,9 @@ namespace SpiderHood.Services
         private readonly IBuildingService _buildingService;
         private readonly IOwnerService _ownerService;
         private readonly ParameterService _parameterService;
+        private readonly IServiceReadingService _serviceReadingService;
+        private readonly IBudgetService _budgetService;
+        private readonly ICategoryService _categoryService;
 
         private static readonly Dictionary<string, int> MapaTipoUnidad = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -55,11 +63,48 @@ namespace SpiderHood.Services
         public MigrationImportService(
             IBuildingService buildingService,
             IOwnerService ownerService,
-            ParameterService parameterService)
+            ParameterService parameterService,
+            IServiceReadingService serviceReadingService,
+            IBudgetService budgetService,
+            ICategoryService categoryService)
         {
             _buildingService = buildingService;
             _ownerService = ownerService;
             _parameterService = parameterService;
+            _serviceReadingService = serviceReadingService;
+            _budgetService = budgetService;
+            _categoryService = categoryService;
+        }
+
+        // "AAAA-MM" (lo que trae la plantilla) o una fecha real si Excel la
+        // reformateó -- siempre se normaliza al día 1 del mes.
+        private static bool TryParsePeriodo(IXLCell cell, out DateTime periodo)
+        {
+            if (!cell.IsEmpty())
+            {
+                try
+                {
+                    var fecha = cell.GetDateTime();
+                    periodo = new DateTime(fecha.Year, fecha.Month, 1);
+                    return true;
+                }
+                catch { /* no es una fecha real de Excel -- probar como texto */ }
+            }
+
+            var texto = cell.GetString().Trim();
+            if (System.DateTime.TryParseExact(texto, "yyyy-MM", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var exacto))
+            {
+                periodo = new DateTime(exacto.Year, exacto.Month, 1);
+                return true;
+            }
+            if (DateTime.TryParse(texto, out var libre))
+            {
+                periodo = new DateTime(libre.Year, libre.Month, 1);
+                return true;
+            }
+
+            periodo = default;
+            return false;
         }
 
         public async Task<MigrationImportResult> ImportarUnidadesYPropietariosAsync(Guid idBuilding, Stream archivo)
@@ -270,6 +315,347 @@ namespace SpiderHood.Services
                             IdGroupOwner = idGroupOwner,
                             TypeGroupUnit = Models.GroupUnitType.Shared
                         });
+                    }
+                }
+            }
+
+            return resultado;
+        }
+
+        // Importador de la plantilla "Lecturas de Agua Históricas". Un ServiceReading
+        // por periodo distinto del archivo, con un ServiceReadingDetail por unidad
+        // dentro de ese periodo.
+        //
+        // A diferencia de Unidades/Owner/RealEstateUnit, ServiceReading y
+        // ServiceReadingDetail NO auto-generan su Guid en BDLayout.AddNewRecordAsync
+        // -- hay que asignarlo acá antes de llamar al servicio (ver
+        // BDLayout.Add.cs:550-607, INS_ServiceReading/INS_ServiceReadingDetail toman
+        // el Id tal cual viene).
+        //
+        // 'IdGroupUnit' de cada detalle es el MISMO Guid que usa Installment.IdGroupUnit
+        // (confirmado en InstallmentExportService, que cruza ambos por ese campo) --
+        // no es RealEstateUnit.IdUnit, es el IdGroupOwner de la unidad (nace al
+        // asignarle un propietario, ver ImportarUnidadesYPropietariosAsync). Por eso
+        // una unidad sin propietario/grupo asignado no puede recibir una lectura
+        // todavía -- se resuelve vía GetUnitsByBuildingAsync, que ya devuelve ese
+        // campo denormalizado (Guid.Empty para las unidades libres, confirmado porque
+        // AssignUnits.razor usa el mismo llamado para listar "unidades libres" sin
+        // reventar).
+        //
+        // CalculatedAmount se guarda en 0 -- no se recalcula la tarifa de agua
+        // histórica (bandas de consumo, cargo fijo, IGV) para un import de lecturas
+        // puras; el monto ya facturado de cada periodo, si se conoce, se carga aparte
+        // como Extraordinaria "Reg. Agua" en la plantilla de Cuotas y Pagos.
+        // IdPeriod queda en Guid.Empty -- no existe un Period histórico por mes
+        // pasado, y ServiceReading no lo exige para guardarse (columna FK simple).
+        public async Task<MigrationImportResult> ImportarLecturasAguaAsync(Guid idBuilding, Stream archivo)
+        {
+            var resultado = new MigrationImportResult();
+
+            List<Models.RealEstateUnit> unidadesConGrupo;
+            try
+            {
+                unidadesConGrupo = await _buildingService.GetUnitsByBuildingAsync(idBuilding);
+            }
+            catch (Exception ex)
+            {
+                resultado.Errores.Add($"No se pudo obtener las unidades del edificio: {ex.Message}");
+                return resultado;
+            }
+
+            var idGroupUnitPorCodigo = unidadesConGrupo
+                .Where(u => !string.IsNullOrWhiteSpace(u.UnitNumber))
+                .GroupBy(u => u.UnitNumber, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().IdGroupOwner, StringComparer.OrdinalIgnoreCase);
+
+            XLWorkbook workbook;
+            try
+            {
+                workbook = new XLWorkbook(archivo);
+            }
+            catch (Exception ex)
+            {
+                resultado.Errores.Add($"No se pudo abrir el archivo -- ¿es un .xlsx válido? ({ex.Message})");
+                return resultado;
+            }
+            using (workbook)
+            {
+                if (!workbook.Worksheets.TryGetWorksheet("Lecturas", out var ws))
+                {
+                    resultado.Errores.Add("El archivo no tiene una hoja llamada 'Lecturas' -- ¿es la plantilla correcta?");
+                    return resultado;
+                }
+
+                var filas = new List<(string Codigo, DateTime Periodo, decimal Lectura, decimal? LecturaInicial, DateTime FechaLectura)>();
+                foreach (var row in ws.RowsUsed().Skip(1))
+                {
+                    var codigo = row.Cell(1).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(codigo)) continue;
+
+                    if (!TryParsePeriodo(row.Cell(2), out var periodo))
+                    {
+                        resultado.Errores.Add($"Lecturas, fila {row.RowNumber()}: 'Periodo' inválido -- use AAAA-MM.");
+                        continue;
+                    }
+
+                    if (!decimal.TryParse(row.Cell(3).GetString().Trim(), out var lectura))
+                    {
+                        resultado.Errores.Add($"Lecturas, fila {row.RowNumber()}: 'Lectura' no es un número válido.");
+                        continue;
+                    }
+
+                    decimal? lecturaInicial = null;
+                    if (!row.Cell(4).IsEmpty())
+                    {
+                        if (decimal.TryParse(row.Cell(4).GetString().Trim(), out var li))
+                            lecturaInicial = li;
+                        else
+                        {
+                            resultado.Errores.Add($"Lecturas, fila {row.RowNumber()}: 'Lectura Inicial' no es un número válido.");
+                            continue;
+                        }
+                    }
+
+                    DateTime fechaLectura;
+                    if (row.Cell(5).IsEmpty() || !DateTime.TryParse(row.Cell(5).GetString().Trim(), out fechaLectura))
+                        fechaLectura = new DateTime(periodo.Year, periodo.Month, DateTime.DaysInMonth(periodo.Year, periodo.Month));
+
+                    if (!idGroupUnitPorCodigo.TryGetValue(codigo, out var idGroupUnit) || idGroupUnit == Guid.Empty)
+                    {
+                        resultado.Errores.Add($"Lecturas, fila {row.RowNumber()}: la unidad '{codigo}' no existe o no tiene propietario/grupo asignado -- cárguela primero en 'Unidades y Propietarios'.");
+                        continue;
+                    }
+
+                    filas.Add((codigo, periodo, lectura, lecturaInicial, fechaLectura));
+                }
+
+                if (resultado.Errores.Count > 0)
+                    return resultado;
+
+                // Cada unidad necesita 'Lectura Inicial' en su periodo más antiguo DEL
+                // ARCHIVO -- no hay forma de traer "la última lectura ya guardada en BD
+                // antes de este import" sin una consulta dedicada que hoy no existe
+                // (limitación conocida: si el edificio ya tenía lecturas cargadas antes,
+                // este import debe empezar justo donde se quedaron, con Lectura Inicial
+                // en el primer periodo nuevo).
+                var primerPeriodoPorUnidad = filas
+                    .GroupBy(f => f.Codigo, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.OrderBy(f => f.Periodo).First(), StringComparer.OrdinalIgnoreCase);
+
+                foreach (var (codigo, primera) in primerPeriodoPorUnidad)
+                {
+                    if (primera.LecturaInicial == null)
+                        resultado.Errores.Add($"Lecturas: la unidad '{codigo}' no tiene 'Lectura Inicial' en su primer periodo ({primera.Periodo:yyyy-MM}) -- es obligatoria para calcular el primer consumo.");
+                }
+
+                if (resultado.Errores.Count > 0)
+                    return resultado;
+
+                var lecturaAnteriorPorUnidad = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var grupoPeriodo in filas.GroupBy(f => f.Periodo).OrderBy(g => g.Key))
+                {
+                    var periodo = grupoPeriodo.Key;
+                    var idServiceReading = Guid.NewGuid();
+                    var detalles = new List<Models.ServiceReadingDetail>();
+
+                    foreach (var f in grupoPeriodo.OrderBy(f => f.Codigo))
+                    {
+                        var anterior = f.LecturaInicial ?? lecturaAnteriorPorUnidad[f.Codigo];
+                        if (f.Lectura < anterior)
+                            resultado.Advertencias.Add($"Lecturas: '{f.Codigo}' en {periodo:yyyy-MM} tiene Lectura ({f.Lectura}) menor que la anterior ({anterior}) -- se guardó el consumo como 0.");
+                        var consumo = Math.Max(0, f.Lectura - anterior);
+
+                        detalles.Add(new Models.ServiceReadingDetail
+                        {
+                            IdServiceReadingDetail = Guid.NewGuid(),
+                            IdGroupUnit = idGroupUnitPorCodigo[f.Codigo],
+                            GroupNumber = int.TryParse(f.Codigo, out var gn) ? gn : 0,
+                            Code = $"{f.Codigo}{periodo:MMyyyy}",
+                            PreviousReading = (double)anterior,
+                            CurrentReading = (double)f.Lectura,
+                            Consumption = (double)consumo,
+                            ReadingDate = f.FechaLectura,
+                            CalculatedAmount = 0,
+                            Minimum = false,
+                            IdServiceReading = idServiceReading,
+                            Period = periodo
+                        });
+
+                        lecturaAnteriorPorUnidad[f.Codigo] = f.Lectura;
+                    }
+
+                    await _serviceReadingService.AddServiceReadingAsync(new Models.ServiceReading
+                    {
+                        IdServiceReading = idServiceReading,
+                        Period = periodo,
+                        Status = 1,
+                        IdBuilding = idBuilding,
+                        FileName = "Migración histórica",
+                        IdPeriod = Guid.Empty
+                    });
+                    await _serviceReadingService.AddServiceReadingDetailAsync(detalles);
+
+                    resultado.LecturasCreadas += detalles.Count;
+                }
+            }
+
+            return resultado;
+        }
+
+        // Importador de la plantilla "Presupuesto Histórico por Periodo". Un
+        // BudgetHeader por periodo distinto del archivo (CreatePresupuestoAsync, sin
+        // efectos secundarios) con un BudgetDetail 'header' de sección por cada
+        // categoría usada y un BudgetDetail de línea por cada fila -- mismo criterio
+        // de IsHeader/IdSection que usa InstallmentExportService.GetSections() para
+        // imprimir el recibo por secciones.
+        //
+        // A propósito NO se usa IBudgetService.SaveBudgetAsync: ese método también
+        // genera Installments reales con las reglas y propietarios VIGENTES HOY,
+        // algo incorrecto para un presupuesto de un periodo de hace años (duplicaría
+        // lo que ya carga la plantilla de Cuotas y Pagos, con datos del propietario
+        // equivocados).
+        //
+        // 'Type' de cada línea queda en 1 (Por Unidad) por defecto -- la plantilla no
+        // captura el tipo de distribución real de cada ítem histórico.
+        public async Task<MigrationImportResult> ImportarPresupuestoHistoricoAsync(Guid idBuilding, Stream archivo)
+        {
+            var resultado = new MigrationImportResult();
+
+            List<Models.Category> categorias;
+            try
+            {
+                categorias = await _categoryService.GetCategoriesAsync(idBuilding);
+            }
+            catch (Exception)
+            {
+                categorias = new List<Models.Category>();
+            }
+
+            var categoriaPorNombre = categorias
+                .Where(c => c.Nivel == 0)
+                .GroupBy(c => c.Description, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            XLWorkbook workbook;
+            try
+            {
+                workbook = new XLWorkbook(archivo);
+            }
+            catch (Exception ex)
+            {
+                resultado.Errores.Add($"No se pudo abrir el archivo -- ¿es un .xlsx válido? ({ex.Message})");
+                return resultado;
+            }
+            using (workbook)
+            {
+                if (!workbook.Worksheets.TryGetWorksheet("Presupuesto", out var ws))
+                {
+                    resultado.Errores.Add("El archivo no tiene una hoja llamada 'Presupuesto' -- ¿es la plantilla correcta?");
+                    return resultado;
+                }
+
+                var filas = new List<(DateTime Periodo, string Categoria, string Descripcion, decimal Monto)>();
+                foreach (var row in ws.RowsUsed().Skip(1))
+                {
+                    var periodoCell = row.Cell(1);
+                    if (periodoCell.IsEmpty()) continue;
+
+                    if (!TryParsePeriodo(periodoCell, out var periodo))
+                    {
+                        resultado.Errores.Add($"Presupuesto, fila {row.RowNumber()}: 'Periodo' inválido -- use AAAA-MM.");
+                        continue;
+                    }
+
+                    var categoriaTexto = row.Cell(2).GetString().Trim();
+                    if (!categoriaPorNombre.ContainsKey(categoriaTexto))
+                    {
+                        resultado.Errores.Add($"Presupuesto, fila {row.RowNumber()}: la categoría '{categoriaTexto}' no existe en este edificio -- créela primero en Categorías.");
+                        continue;
+                    }
+
+                    var descripcion = row.Cell(3).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(descripcion))
+                    {
+                        resultado.Errores.Add($"Presupuesto, fila {row.RowNumber()}: falta 'Descripción del Ítem'.");
+                        continue;
+                    }
+
+                    if (!decimal.TryParse(row.Cell(4).GetString().Trim(), out var monto))
+                    {
+                        resultado.Errores.Add($"Presupuesto, fila {row.RowNumber()}: 'Monto Mensual' no es un número válido.");
+                        continue;
+                    }
+
+                    filas.Add((periodo, categoriaTexto, descripcion, monto));
+                }
+
+                if (resultado.Errores.Count > 0)
+                    return resultado;
+
+                foreach (var grupoPeriodo in filas.GroupBy(f => f.Periodo).OrderBy(g => g.Key))
+                {
+                    var periodo = grupoPeriodo.Key;
+                    var idBudgetHeader = Guid.NewGuid();
+                    var totalMensual = grupoPeriodo.Sum(f => f.Monto);
+
+                    await _budgetService.CreatePresupuestoAsync(new Models.BudgetHeader
+                    {
+                        IdBudgetHeader = idBudgetHeader,
+                        BudgetName = $"Presupuesto histórico {periodo:MMMM yyyy}",
+                        BudgetDate = periodo,
+                        Amount = totalMensual,
+                        AnnualAmount = totalMensual * 12,
+                        BudgetType = "Histórico",
+                        IdBuilding = idBuilding,
+                        CreatedBy = "Migración",
+                        Status = Models.BudgetStatus.Closed
+                    });
+                    resultado.PresupuestosCreados++;
+
+                    var siguienteIdSection = 1;
+                    foreach (var grupoCategoria in grupoPeriodo.GroupBy(f => f.Categoria, StringComparer.OrdinalIgnoreCase))
+                    {
+                        var categoria = categoriaPorNombre[grupoCategoria.Key];
+                        var idSection = siguienteIdSection++;
+
+                        await _budgetService.AddDetalleToPresupuestoAsync(new Models.BudgetDetail
+                        {
+                            IdBudgetDetail = Guid.NewGuid(),
+                            IdCategory = categoria.IdCategory,
+                            IdSection = idSection,
+                            ItemNumber = idSection,
+                            Description = categoria.Description,
+                            MonthlyAmount = 0,
+                            AnnualAmount = 0,
+                            Frequency = 0,
+                            Type = 0,
+                            IsHeader = true,
+                            IdBudgetHeader = idBudgetHeader,
+                            IdParent = Guid.Empty
+                        });
+
+                        var secuencia = 1;
+                        foreach (var f in grupoCategoria)
+                        {
+                            await _budgetService.AddDetalleToPresupuestoAsync(new Models.BudgetDetail
+                            {
+                                IdBudgetDetail = Guid.NewGuid(),
+                                IdCategory = categoria.IdCategory,
+                                IdSection = idSection,
+                                ItemNumber = idSection + secuencia * 0.01m,
+                                Description = f.Descripcion,
+                                MonthlyAmount = f.Monto,
+                                AnnualAmount = f.Monto * 12,
+                                Frequency = 1,
+                                Type = 1,
+                                IsHeader = false,
+                                IdBudgetHeader = idBudgetHeader,
+                                IdParent = Guid.Empty
+                            });
+                            resultado.ItemsPresupuestoCreados++;
+                            secuencia++;
+                        }
                     }
                 }
             }

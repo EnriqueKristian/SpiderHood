@@ -125,103 +125,136 @@
             (un estado de cuenta o una lectura de agua por periodo) use los importadores habituales de cada módulo.
         </div>
 
-        <div class="card mt-4">
-            <div class="card-header d-flex align-items-center gap-2">
-                <i class="bi bi-upload"></i>
-                <strong>Importar Unidades y Propietarios</strong>
-                <span class="badge bg-secondary ms-2">único importador disponible por ahora</span>
-            </div>
-            <div class="card-body">
-                <p class="text-muted small mb-3">
-                    Suba el archivo <code>Plantilla_UnidadesYPropietarios</code> ya completado. Se valida todo
-                    primero -- si hay algún error, no se crea ninguna unidad ni propietario.
-                </p>
-
-                <InputFile id="fileInputUnidades" OnChange="CargarArchivoUnidades" accept=".xlsx" style="display:none;" />
-                <div class="d-flex align-items-center gap-2 mb-3">
-                    <button class="btn btn-outline-secondary" @onclick="AbrirSelectorArchivoUnidades" disabled="@_importando">
-                        <i class="bi bi-folder2-open me-2"></i>Seleccionar archivo
-                    </button>
-                    <span class="text-muted small">@(_archivoNombre ?? "Ningún archivo seleccionado")</span>
-                    <button class="btn btn-success ms-auto" @onclick="ImportarUnidadesYPropietarios" disabled="@(_archivoUnidades == null || _importando)">
-                        @if (_importando)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
-                        }
-                        <i class="bi bi-check2-circle me-2"></i>Importar
-                    </button>
+        <h5 class="mt-4 mb-2">Importar</h5>
+        @foreach (var imp in _importadores)
+        {
+            <div class="card mb-3">
+                <div class="card-header d-flex align-items-center gap-2">
+                    <i class="bi bi-upload"></i>
+                    <strong>@imp.Titulo</strong>
                 </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Suba el archivo <code>@imp.NombrePlantilla</code> ya completado. Se valida todo primero --
+                        si hay algún error, no se guarda nada de esta plantilla.
+                    </p>
 
-                @if (_resultadoImport != null)
-                {
-                    <div class="alert @(_resultadoImport.Success ? "alert-success" : "alert-danger") mb-2">
-                        <div class="fw-bold mb-1">
-                            @(_resultadoImport.Success
-                                ? $"Importado: {_resultadoImport.UnidadesCreadas} unidad(es), {_resultadoImport.PropietariosCreados} propietario(s)."
-                                : "No se importó nada -- corrija los errores y vuelva a intentar.")
+                    <InputFile id="@imp.InputId" OnChange="@(e => CargarArchivo(imp, e))" accept=".xlsx" style="display:none;" />
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <button class="btn btn-outline-secondary" @onclick="@(() => AbrirSelectorArchivo(imp.InputId))" disabled="@imp.Importando">
+                            <i class="bi bi-folder2-open me-2"></i>Seleccionar archivo
+                        </button>
+                        <span class="text-muted small">@(imp.ArchivoNombre ?? "Ningún archivo seleccionado")</span>
+                        <button class="btn btn-success ms-auto" @onclick="@(() => EjecutarImport(imp))" disabled="@(imp.Archivo == null || imp.Importando)">
+                            @if (imp.Importando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            <i class="bi bi-check2-circle me-2"></i>Importar
+                        </button>
+                    </div>
+
+                    @if (imp.Resultado != null)
+                    {
+                        <div class="alert @(imp.Resultado.Success ? "alert-success" : "alert-danger") mb-2">
+                            <div class="fw-bold mb-1">@(imp.Resultado.Success ? imp.MensajeExito(imp.Resultado) : "No se importó nada -- corrija los errores y vuelva a intentar.")</div>
+                            @if (imp.Resultado.Errores.Count > 0)
+                            {
+                                <ul class="mb-0 small">
+                                    @foreach (var e in imp.Resultado.Errores)
+                                    {
+                                        <li>@e</li>
+                                    }
+                                </ul>
+                            }
                         </div>
-                        @if (_resultadoImport.UnidadesOmitidas > 0)
-                        {
-                            <div class="small">@_resultadoImport.UnidadesOmitidas unidad(es) omitida(s) por ya existir en el edificio.</div>
-                        }
-                        @if (_resultadoImport.Errores.Count > 0)
-                        {
-                            <ul class="mb-0 small">
-                                @foreach (var e in _resultadoImport.Errores)
+                    }
+                    @if (imp.Resultado?.Advertencias.Count > 0)
+                    {
+                        <div class="alert alert-warning small mb-0">
+                            <ul class="mb-0">
+                                @foreach (var a in imp.Resultado.Advertencias)
                                 {
-                                    <li>@e</li>
+                                    <li>@a</li>
                                 }
                             </ul>
-                        }
-                    </div>
-                }
-                @if (_resultadoImport?.Advertencias.Count > 0)
-                {
-                    <div class="alert alert-warning small mb-0">
-                        <ul class="mb-0">
-                            @foreach (var a in _resultadoImport.Advertencias)
-                            {
-                                <li>@a</li>
-                            }
-                        </ul>
-                    </div>
-                }
+                        </div>
+                    }
+                </div>
             </div>
-        </div>
+        }
     }
 </div>
 
 @code {
     private bool _canManage;
     private bool _descargando;
-    private bool _importando;
-    private IBrowserFile? _archivoUnidades;
-    private string? _archivoNombre;
-    private MigrationImportResult? _resultadoImport;
+    private List<ImportadorState> _importadores = new();
+
+    private class ImportadorState
+    {
+        public string Titulo { get; set; } = "";
+        public string NombrePlantilla { get; set; } = "";
+        public string InputId { get; set; } = "";
+        public IBrowserFile? Archivo { get; set; }
+        public string? ArchivoNombre { get; set; }
+        public bool Importando { get; set; }
+        public MigrationImportResult? Resultado { get; set; }
+        public Func<Guid, Stream, Task<MigrationImportResult>> Importar { get; set; } = default!;
+        public Func<MigrationImportResult, string> MensajeExito { get; set; } = default!;
+    }
 
     protected override async Task OnInitializedAsync()
     {
         var currentUser = await AuthService.GetCurrentUserAsync();
         _canManage = await PermissionService.HasPermissionAsync(currentUser, "edit_building");
+
+        _importadores = new List<ImportadorState>
+        {
+            new()
+            {
+                Titulo = "Unidades y Propietarios",
+                NombrePlantilla = "Plantilla_UnidadesYPropietarios",
+                InputId = "fileInputUnidades",
+                Importar = MigrationImportService.ImportarUnidadesYPropietariosAsync,
+                MensajeExito = r => $"Importado: {r.UnidadesCreadas} unidad(es), {r.PropietariosCreados} propietario(s)."
+            },
+            new()
+            {
+                Titulo = "Lecturas de Agua",
+                NombrePlantilla = "Plantilla_LecturasAgua",
+                InputId = "fileInputLecturas",
+                Importar = MigrationImportService.ImportarLecturasAguaAsync,
+                MensajeExito = r => $"Importado: {r.LecturasCreadas} lectura(s)."
+            },
+            new()
+            {
+                Titulo = "Presupuesto Histórico",
+                NombrePlantilla = "Plantilla_PresupuestoHistorico",
+                InputId = "fileInputPresupuesto",
+                Importar = MigrationImportService.ImportarPresupuestoHistoricoAsync,
+                MensajeExito = r => $"Importado: {r.PresupuestosCreados} presupuesto(s), {r.ItemsPresupuestoCreados} ítem(s)."
+            }
+        };
     }
 
     private Guid IdBuilding => ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty;
 
-    private async Task AbrirSelectorArchivoUnidades()
+    private async Task AbrirSelectorArchivo(string inputId)
     {
-        await JSRuntime.InvokeVoidAsync("clickElement", "fileInputUnidades");
+        await JSRuntime.InvokeVoidAsync("clickElement", inputId);
     }
 
-    private void CargarArchivoUnidades(InputFileChangeEventArgs e)
+    private void CargarArchivo(ImportadorState imp, InputFileChangeEventArgs e)
     {
-        _archivoUnidades = e.File;
-        _archivoNombre = e.File.Name;
-        _resultadoImport = null;
+        imp.Archivo = e.File;
+        imp.ArchivoNombre = e.File.Name;
+        imp.Resultado = null;
     }
 
-    private async Task ImportarUnidadesYPropietarios()
+    private async Task EjecutarImport(ImportadorState imp)
     {
-        if (_archivoUnidades == null) return;
+        if (imp.Archivo == null) return;
 
         if (IdBuilding == Guid.Empty)
         {
@@ -231,18 +264,18 @@
 
         try
         {
-            _importando = true;
-            _resultadoImport = null;
+            imp.Importando = true;
+            imp.Resultado = null;
 
-            using var stream = _archivoUnidades.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var stream = imp.Archivo.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
             using var memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
             memoryStream.Position = 0;
 
-            _resultadoImport = await MigrationImportService.ImportarUnidadesYPropietariosAsync(IdBuilding, memoryStream);
+            imp.Resultado = await imp.Importar(IdBuilding, memoryStream);
 
-            if (_resultadoImport.Success)
-                await ShowToast("Importación completada", $"{_resultadoImport.UnidadesCreadas} unidad(es) y {_resultadoImport.PropietariosCreados} propietario(s) creados.", "success");
+            if (imp.Resultado.Success)
+                await ShowToast("Importación completada", imp.MensajeExito(imp.Resultado), "success");
             else
                 await ShowToast("La importación no se aplicó", "Hay errores de validación -- revise el detalle debajo del botón.", "danger");
         }
@@ -252,7 +285,7 @@
         }
         finally
         {
-            _importando = false;
+            imp.Importando = false;
         }
     }
 

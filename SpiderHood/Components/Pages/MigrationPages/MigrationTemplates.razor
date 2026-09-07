@@ -1,0 +1,167 @@
+@page "/migracion/plantillas"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IMigrationTemplateService MigrationTemplateService
+@inject Services.ParameterService ParameterService
+@inject Services.AuthService AuthService
+@inject Services.IPermissionService PermissionService
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-file-earmark-arrow-down"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Plantillas de Carga Histórica</h1>
+                <p class="text-muted mb-0">
+                    Para migrar el historial de un edificio que llevaba su control en Excel u otro sistema.
+                    Cada plantilla ya trae, en sus listas desplegables, las unidades, cuentas bancarias y
+                    categorías registradas en <strong>@(ParameterService.CurrentBuilding?.Name ?? "este edificio")</strong>.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    @if (!_canManage)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-lock me-2"></i>No tiene permiso para descargar plantillas de migración.
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card h-100">
+                    <div class="card-body d-flex flex-column">
+                        <div class="icon-badge icon-badge-sm mb-3"><i class="bi bi-receipt"></i></div>
+                        <h5 class="card-title">Cuotas y Pagos</h5>
+                        <p class="card-text text-muted small flex-grow-1">
+                            Cuotas ordinarias y extraordinarias generadas históricamente, con sus pagos.
+                        </p>
+                        <button class="btn btn-outline-primary" @onclick="DescargarCuotasYPagos" disabled="@_descargando">
+                            <i class="bi bi-download me-2"></i>Descargar plantilla
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card h-100">
+                    <div class="card-body d-flex flex-column">
+                        <div class="icon-badge icon-badge-sm mb-3"><i class="bi bi-bank"></i></div>
+                        <h5 class="card-title">Estado de Cuenta</h5>
+                        <p class="card-text text-muted small flex-grow-1">
+                            Movimientos bancarios históricos (ingresos y egresos) de todas las cuentas del edificio.
+                        </p>
+                        <button class="btn btn-outline-primary" @onclick="DescargarEstadoDeCuenta" disabled="@_descargando">
+                            <i class="bi bi-download me-2"></i>Descargar plantilla
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card h-100">
+                    <div class="card-body d-flex flex-column">
+                        <div class="icon-badge icon-badge-sm mb-3"><i class="bi bi-droplet"></i></div>
+                        <h5 class="card-title">Lecturas de Agua</h5>
+                        <p class="card-text text-muted small flex-grow-1">
+                            Historial de lecturas del medidor de agua por unidad y periodo.
+                        </p>
+                        <button class="btn btn-outline-primary" @onclick="DescargarLecturasAgua" disabled="@_descargando">
+                            <i class="bi bi-download me-2"></i>Descargar plantilla
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card h-100">
+                    <div class="card-body d-flex flex-column">
+                        <div class="icon-badge icon-badge-sm mb-3"><i class="bi bi-pie-chart"></i></div>
+                        <h5 class="card-title">Presupuesto Histórico</h5>
+                        <p class="card-text text-muted small flex-grow-1">
+                            Ítems de presupuesto por periodo (mes), la base de cada cuota generada.
+                        </p>
+                        <button class="btn btn-outline-primary" @onclick="DescargarPresupuestoHistorico" disabled="@_descargando">
+                            <i class="bi bi-download me-2"></i>Descargar plantilla
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="alert alert-light border mt-4 small">
+            <i class="bi bi-info-circle me-2"></i>
+            Estas plantillas son solo para <strong>carga inicial de historial</strong>. Para el día a día
+            (un estado de cuenta o una lectura de agua por periodo) use los importadores habituales de cada módulo.
+        </div>
+    }
+</div>
+
+@code {
+    private bool _canManage;
+    private bool _descargando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        _canManage = await PermissionService.HasPermissionAsync(currentUser, "edit_building");
+    }
+
+    private Guid IdBuilding => ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty;
+
+    private async Task DescargarCuotasYPagos()
+        => await Descargar(() => MigrationTemplateService.GenerarPlantillaCuotasYPagosAsync(IdBuilding));
+
+    private async Task DescargarEstadoDeCuenta()
+        => await Descargar(() => MigrationTemplateService.GenerarPlantillaEstadoDeCuentaAsync(IdBuilding));
+
+    private async Task DescargarLecturasAgua()
+        => await Descargar(() => MigrationTemplateService.GenerarPlantillaLecturasAguaAsync(IdBuilding));
+
+    private async Task DescargarPresupuestoHistorico()
+        => await Descargar(() => MigrationTemplateService.GenerarPlantillaPresupuestoHistoricoAsync(IdBuilding));
+
+    private async Task Descargar(Func<Task<(string FileName, byte[] Bytes)>> generar)
+    {
+        if (IdBuilding == Guid.Empty)
+        {
+            await ShowToast("Sin edificio seleccionado", "Seleccione un edificio antes de descargar una plantilla.", "warning");
+            return;
+        }
+
+        try
+        {
+            _descargando = true;
+            var (fileName, bytes) = await generar();
+            await JSRuntime.InvokeVoidAsync("descargarArchivo", fileName, Convert.ToBase64String(bytes));
+        }
+        catch (Exception ex)
+        {
+            await ShowToast("Error al generar plantilla", ex.Message, "danger");
+        }
+        finally
+        {
+            _descargando = false;
+        }
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+        }
+    }
+}

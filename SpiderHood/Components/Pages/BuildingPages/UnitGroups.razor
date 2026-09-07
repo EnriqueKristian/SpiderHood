@@ -491,10 +491,29 @@
     private IEnumerable<Models.RealEstateUnit> SortedUnits => _unitSortColumn switch
     {
         UnitSortColumn.Tipo => _unitSortAscending ? FilteredUnits.OrderBy(u => u.TypeUnit) : FilteredUnits.OrderByDescending(u => u.TypeUnit),
-        UnitSortColumn.UnitNumber => _unitSortAscending ? FilteredUnits.OrderBy(u => u.UnitNumber) : FilteredUnits.OrderByDescending(u => u.UnitNumber),
+        // Ordena por Number (el int, ver ExtractUnitNumber más abajo) y no por
+        // UnitNumber (el string) -- con el string "1001" ordena antes que "101".
+        UnitSortColumn.UnitNumber => _unitSortAscending ? FilteredUnits.OrderBy(u => EffectiveUnitNumber(u)) : FilteredUnits.OrderByDescending(u => EffectiveUnitNumber(u)),
         UnitSortColumn.Area => _unitSortAscending ? FilteredUnits.OrderBy(u => u.Area) : FilteredUnits.OrderByDescending(u => u.Area),
         _ => FilteredUnits
     };
+
+    // Number no se llenaba en ningún alta hasta este fix (ver SaveItem/GenerateBlockUnits
+    // más abajo), así que las unidades creadas antes van a seguir en 0 hasta correr el
+    // script de backfill (Database/Scripts/2026-09-07_54_Unit_BackfillNumber.sql). Mientras
+    // tanto, se recalcula al vuelo desde UnitNumber para que el orden funcione igual.
+    private static int EffectiveUnitNumber(Models.RealEstateUnit unit) =>
+        unit.Number != 0 ? unit.Number : ExtractUnitNumber(unit.UnitNumber);
+
+    // Extrae solo los dígitos de UnitNumber (ej. "E1" -> 1, "101" -> 101, "1001" -> 1001)
+    // para poder ordenar numéricamente incluso códigos alfanuméricos como los de
+    // Estacionamiento/Depósito.
+    private static int ExtractUnitNumber(string? unitNumber)
+    {
+        if (string.IsNullOrWhiteSpace(unitNumber)) return 0;
+        var digits = new string(unitNumber.Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var parsed) ? parsed : 0;
+    }
 
     private void SortBy(UnitSortColumn column)
     {
@@ -765,6 +784,7 @@
                     _blockunit.Area = _formCreateUnit.Area;
                     string cad1 = _formCreateUnit.formatUnit.Substring(0, _formCreateUnit.formatUnit.Length - 1);
                     _blockunit.UnitNumber = _formCreateUnit.StarFloor.ToString() + cad1 + StarUnitLocal.ToString();
+                    _blockunit.Number = ExtractUnitNumber(_blockunit.UnitNumber);
 
                     await BuildingService.AddUnitAsync(_blockunit);
 
@@ -943,6 +963,13 @@
     {
         if (OpenMode == Models.OpenType.Create && !_canCreateUnit) return;
         if (OpenMode == Models.OpenType.Update && !_canEditUnit) return;
+
+        // Number (el int) se creó para ordenar bien -- UnitNumber es texto, así que
+        // "1001" ordena antes que "101". Ni ModalUnit.razor ni GenerateBlockUnits lo
+        // llenaban nunca, así que quedaba siempre en 0 (default de int). Se deriva acá
+        // de UnitNumber en cada alta/edición, extrayendo solo los dígitos para que
+        // también funcione con códigos alfanuméricos como "E1" (Estacionamiento).
+        item.Number = ExtractUnitNumber(item.UnitNumber);
 
         switch (OpenMode)
         {

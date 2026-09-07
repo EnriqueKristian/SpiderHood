@@ -7,6 +7,12 @@ namespace SpiderHood.Services
     public interface IInstallmentService
     {
         //Installments
+        // Mismo patrón que el resto del servicio (ec.AddNewRecordAsync directo) --
+        // hasta acá la única forma de crear una Installment era vía
+        // ExtraChargeService/MonthlyInstallmentService, cada uno con su propia
+        // instancia de BDLayout; esto lo expone también para quien no necesite toda
+        // la lógica de generación batch (ver Services/IMigrationImportService.cs).
+        Task<Models.Installment> AddInstallmentAsync(Installment installment);
         Task<List<Models.Installment>> GetInstallmentsByBudgetAsync(Guid IdBudgetHeader);
         Task<List<Models.Installment>> GetPendingInstallmentsAsync(Guid IdBuilding);
         Task<Models.InstallmentPaid> AgregarPagoAsync(InstallmentPaid paid);
@@ -39,6 +45,19 @@ namespace SpiderHood.Services
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             ec = new BDLayout(contextFactory);
+        }
+
+        public async Task<Models.Installment> AddInstallmentAsync(Installment installment)
+        {
+            try
+            {
+                return await ec.AddNewRecordAsync(installment);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al crear la cuota: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<List<Installment>> GetInstallmentsByBudgetAsync(Guid IdBudgetHeader)

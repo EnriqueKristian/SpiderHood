@@ -234,6 +234,22 @@
                 InputId = "fileInputPresupuesto",
                 Importar = MigrationImportService.ImportarPresupuestoHistoricoAsync,
                 MensajeExito = r => $"Importado: {r.PresupuestosCreados} presupuesto(s), {r.ItemsPresupuestoCreados} ítem(s)."
+            },
+            new()
+            {
+                Titulo = "Cuotas y Pagos",
+                NombrePlantilla = "Plantilla_CuotasYPagos",
+                InputId = "fileInputCuotas",
+                Importar = MigrationImportService.ImportarCuotasYPagosAsync,
+                MensajeExito = r => $"Importado: {r.CuotasCreadas} cuota(s), {r.PagosCreados} pago(s)."
+            },
+            new()
+            {
+                Titulo = "Estado de Cuenta",
+                NombrePlantilla = "Plantilla_EstadoDeCuenta",
+                InputId = "fileInputEstadoCuenta",
+                Importar = MigrationImportService.ImportarEstadoDeCuentaAsync,
+                MensajeExito = r => $"Importado: {r.MovimientosCreados} movimiento(s)."
             }
         };
     }

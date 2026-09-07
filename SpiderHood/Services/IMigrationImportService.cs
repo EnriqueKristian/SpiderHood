@@ -10,18 +10,24 @@ namespace SpiderHood.Services
         public int LecturasCreadas { get; set; }
         public int PresupuestosCreados { get; set; }
         public int ItemsPresupuestoCreados { get; set; }
+        public int CuotasCreadas { get; set; }
+        public int PagosCreados { get; set; }
+        public int MovimientosCreados { get; set; }
         public List<string> Errores { get; } = new();
         public List<string> Advertencias { get; } = new();
         public bool Success => Errores.Count == 0;
     }
 
-    // Importador de la plantilla "Unidades y Propietarios"
-    // (IMigrationTemplateService.GenerarPlantillaUnidadesYPropietariosAsync). Primer
-    // importador de migración -- los otros 4 (Cuotas, Estado de Cuenta, Lecturas,
-    // Presupuesto) quedan pendientes, ver Docs/Pendientes-Negocio-Migracion.md.
+    // Importadores de las 5 plantillas de migración histórica (ver
+    // IMigrationTemplateService para la generación de cada una). No concilian pagos
+    // contra movimientos bancarios entre sí (Cuotas y Estado de Cuenta se cargan
+    // independientes, con IdTransaction = Guid.Empty) ni recalculan tarifas/cuotas
+    // en vivo -- ver Docs/Pendientes-Negocio-Migracion.md para lo que queda afuera
+    // a propósito.
     //
-    // Reproduce a mano la misma secuencia de escritura que ya usa Owners.razor al
-    // asignar un propietario (rastreada ahí, no hay documentación aparte del modelo):
+    // Unidades y Propietarios reproduce a mano la misma secuencia de escritura que
+    // ya usa Owners.razor al asignar un propietario (rastreada ahí, no hay
+    // documentación aparte del modelo):
     //   1) RealEstateUnit por cada unidad física (AddUnitAsync).
     //   2) Owner por cada propietario (AddOwnerAsync).
     //   3) UN OwnerUnit por grupo, con un IdGroupOwner nuevo (AddOwnerUnitAsync) --
@@ -37,6 +43,8 @@ namespace SpiderHood.Services
         Task<MigrationImportResult> ImportarUnidadesYPropietariosAsync(Guid idBuilding, Stream archivo);
         Task<MigrationImportResult> ImportarLecturasAguaAsync(Guid idBuilding, Stream archivo);
         Task<MigrationImportResult> ImportarPresupuestoHistoricoAsync(Guid idBuilding, Stream archivo);
+        Task<MigrationImportResult> ImportarCuotasYPagosAsync(Guid idBuilding, Stream archivo);
+        Task<MigrationImportResult> ImportarEstadoDeCuentaAsync(Guid idBuilding, Stream archivo);
     }
 
     public class MigrationImportService : IMigrationImportService
@@ -47,6 +55,9 @@ namespace SpiderHood.Services
         private readonly IServiceReadingService _serviceReadingService;
         private readonly IBudgetService _budgetService;
         private readonly ICategoryService _categoryService;
+        private readonly IInstallmentService _installmentService;
+        private readonly IBankAccountService _bankAccountService;
+        private readonly AuthService _authService;
 
         private static readonly Dictionary<string, int> MapaTipoUnidad = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -66,7 +77,10 @@ namespace SpiderHood.Services
             ParameterService parameterService,
             IServiceReadingService serviceReadingService,
             IBudgetService budgetService,
-            ICategoryService categoryService)
+            ICategoryService categoryService,
+            IInstallmentService installmentService,
+            IBankAccountService bankAccountService,
+            AuthService authService)
         {
             _buildingService = buildingService;
             _ownerService = ownerService;
@@ -74,6 +88,15 @@ namespace SpiderHood.Services
             _serviceReadingService = serviceReadingService;
             _budgetService = budgetService;
             _categoryService = categoryService;
+            _installmentService = installmentService;
+            _bankAccountService = bankAccountService;
+            _authService = authService;
+        }
+
+        private async Task<string> GetPerformedByAsync()
+        {
+            var user = await _authService.GetCurrentUserAsync();
+            return user?.Email ?? "migracion";
         }
 
         // "AAAA-MM" (lo que trae la plantilla) o una fecha real si Excel la
@@ -656,6 +679,411 @@ namespace SpiderHood.Services
                             resultado.ItemsPresupuestoCreados++;
                             secuencia++;
                         }
+                    }
+                }
+            }
+
+            return resultado;
+        }
+
+        // Importador de la plantilla "Cuotas y Pagos Históricos". Agrupa filas por
+        // (Periodo, Unidad, Tipo, Concepto): cada grupo es UNA Installment; si dentro
+        // del grupo hay más de una fila con pago, cada una se guarda como un
+        // InstallmentPaid separado contra esa misma cuota (fraccionado, tal como lo
+        // describe la hoja de Instrucciones de la plantilla).
+        //
+        // IdBudgetHeader: si ya existe un presupuesto para ese Periodo en este
+        // edificio (cargado por ImportarPresupuestoHistoricoAsync, o ya existente
+        // desde la app) se reutiliza; si no, se crea uno sintético mínimo ("Cuota
+        // histórica migrada", sin desglose de BudgetDetail) -- Installment exige un
+        // IdBudgetHeader válido y no tiene sentido bloquear la carga de cuotas por
+        // esto.
+        //
+        // Percent/TotalArea se aproximan con el Área ya cargada de cada unidad
+        // (GetUnitsByBuildingAsync) contra la suma de áreas de TODAS las unidades con
+        // grupo del edificio -- no hay un método que traiga Building.TotalArea desde
+        // acá, así que esto es una aproximación, no el mismo cálculo exacto que usa
+        // el generador de presupuestos en vivo.
+        //
+        // 'Cuenta Bancaria del Pago' y 'Referencia de Pago' de la plantilla NO se usan
+        // todavía -- conciliar cada pago contra un movimiento real de
+        // ImportarEstadoDeCuentaAsync queda pendiente (ver
+        // Docs/Pendientes-Negocio-Migracion.md); todo pago migrado queda con
+        // IdTransaction = Guid.Empty, sin bloquear el registro del pago en sí.
+        public async Task<MigrationImportResult> ImportarCuotasYPagosAsync(Guid idBuilding, Stream archivo)
+        {
+            var resultado = new MigrationImportResult();
+            var performedBy = await GetPerformedByAsync();
+
+            List<Models.RealEstateUnit> unidadesConGrupo;
+            try
+            {
+                unidadesConGrupo = await _buildingService.GetUnitsByBuildingAsync(idBuilding);
+            }
+            catch (Exception ex)
+            {
+                resultado.Errores.Add($"No se pudo obtener las unidades del edificio: {ex.Message}");
+                return resultado;
+            }
+
+            var unidadPorCodigo = unidadesConGrupo
+                .Where(u => !string.IsNullOrWhiteSpace(u.UnitNumber))
+                .GroupBy(u => u.UnitNumber, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            var areaTotalEdificio = unidadPorCodigo.Values.Sum(u => u.AreaTotal);
+
+            List<Models.BudgetHeader> presupuestosExistentes;
+            try
+            {
+                presupuestosExistentes = await _budgetService.GetPresupuestosAsync(idBuilding);
+            }
+            catch (Exception)
+            {
+                presupuestosExistentes = new List<Models.BudgetHeader>();
+            }
+
+            XLWorkbook workbook;
+            try
+            {
+                workbook = new XLWorkbook(archivo);
+            }
+            catch (Exception ex)
+            {
+                resultado.Errores.Add($"No se pudo abrir el archivo -- ¿es un .xlsx válido? ({ex.Message})");
+                return resultado;
+            }
+            using (workbook)
+            {
+                if (!workbook.Worksheets.TryGetWorksheet("Cuotas", out var ws))
+                {
+                    resultado.Errores.Add("El archivo no tiene una hoja llamada 'Cuotas' -- ¿es la plantilla correcta?");
+                    return resultado;
+                }
+
+                var filas = new List<(DateTime Periodo, string Unidad, int Tipo, string Concepto, decimal Monto,
+                    DateTime Vencimiento, decimal MontoPagado, DateTime? FechaPago)>();
+
+                foreach (var row in ws.RowsUsed().Skip(1))
+                {
+                    if (!TryParsePeriodo(row.Cell(1), out var periodo))
+                    {
+                        if (!row.Cell(1).IsEmpty())
+                            resultado.Errores.Add($"Cuotas, fila {row.RowNumber()}: 'Periodo' inválido -- use AAAA-MM.");
+                        continue;
+                    }
+
+                    var unidad = row.Cell(2).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(unidad)) continue;
+
+                    if (!unidadPorCodigo.TryGetValue(unidad, out var unidadResuelta) || unidadResuelta.IdGroupOwner == Guid.Empty)
+                    {
+                        resultado.Errores.Add($"Cuotas, fila {row.RowNumber()}: la unidad '{unidad}' no existe o no tiene propietario/grupo asignado -- cárguela primero en 'Unidades y Propietarios'.");
+                        continue;
+                    }
+
+                    var tipoTexto = row.Cell(3).GetString().Trim();
+                    int tipo;
+                    if (tipoTexto.Equals("Ordinaria", StringComparison.OrdinalIgnoreCase)) tipo = (int)Models.InstallmentType.Ordinaria;
+                    else if (tipoTexto.Equals("Extraordinaria", StringComparison.OrdinalIgnoreCase)) tipo = (int)Models.InstallmentType.Extraordinaria;
+                    else
+                    {
+                        resultado.Errores.Add($"Cuotas, fila {row.RowNumber()}: 'Tipo de Cuota' debe ser Ordinaria o Extraordinaria.");
+                        continue;
+                    }
+
+                    var concepto = row.Cell(4).GetString().Trim();
+
+                    if (!decimal.TryParse(row.Cell(5).GetString().Trim(), out var monto))
+                    {
+                        resultado.Errores.Add($"Cuotas, fila {row.RowNumber()}: 'Monto Cuota' no es un número válido.");
+                        continue;
+                    }
+
+                    var vencimiento = !row.Cell(6).IsEmpty() && DateTime.TryParse(row.Cell(6).GetString().Trim(), out var venc)
+                        ? venc
+                        : new DateTime(periodo.Year, periodo.Month, DateTime.DaysInMonth(periodo.Year, periodo.Month));
+
+                    decimal montoPagado = 0;
+                    if (!row.Cell(7).IsEmpty() && !decimal.TryParse(row.Cell(7).GetString().Trim(), out montoPagado))
+                    {
+                        resultado.Errores.Add($"Cuotas, fila {row.RowNumber()}: 'Monto Pagado' no es un número válido.");
+                        continue;
+                    }
+
+                    DateTime? fechaPago = null;
+                    if (montoPagado > 0)
+                    {
+                        fechaPago = !row.Cell(8).IsEmpty() && DateTime.TryParse(row.Cell(8).GetString().Trim(), out var fp)
+                            ? fp
+                            : vencimiento;
+                    }
+
+                    filas.Add((periodo, unidad, tipo, concepto, monto, vencimiento, montoPagado, fechaPago));
+                }
+
+                if (resultado.Errores.Count > 0)
+                    return resultado;
+
+                // Cache de BudgetHeader por (Año, Mes) -- reusa uno existente o crea el
+                // sintético una sola vez por periodo, aunque el periodo se repita en
+                // muchas filas de Cuotas.
+                var budgetHeaderPorPeriodo = new Dictionary<(int, int), Guid>();
+
+                foreach (var grupo in filas.GroupBy(f => (f.Periodo, Unidad: f.Unidad, f.Tipo, Concepto: f.Concepto ?? "")))
+                {
+                    var (periodo, unidadCodigo, tipo, _) = grupo.Key;
+                    var primera = grupo.First();
+                    var unidadResuelta = unidadPorCodigo[unidadCodigo];
+
+                    var claveMes = (periodo.Year, periodo.Month);
+                    if (!budgetHeaderPorPeriodo.TryGetValue(claveMes, out var idBudgetHeader))
+                    {
+                        var existente = presupuestosExistentes.FirstOrDefault(b => b.BudgetDate.Year == periodo.Year && b.BudgetDate.Month == periodo.Month);
+                        if (existente != null)
+                        {
+                            idBudgetHeader = existente.IdBudgetHeader;
+                        }
+                        else
+                        {
+                            var nuevo = await _budgetService.CreatePresupuestoAsync(new Models.BudgetHeader
+                            {
+                                BudgetName = $"Cuota histórica migrada {periodo:MMMM yyyy}",
+                                BudgetDate = periodo,
+                                Amount = 0,
+                                AnnualAmount = 0,
+                                BudgetType = "Histórico",
+                                IdBuilding = idBuilding,
+                                CreatedBy = performedBy,
+                                Status = Models.BudgetStatus.Closed
+                            });
+                            idBudgetHeader = nuevo.IdBudgetHeader;
+                            presupuestosExistentes.Add(nuevo);
+                        }
+                        budgetHeaderPorPeriodo[claveMes] = idBudgetHeader;
+                    }
+
+                    var totalPagado = grupo.Sum(f => f.MontoPagado);
+                    var deuda = Math.Max(0, primera.Monto - totalPagado);
+                    var status = totalPagado <= 0
+                        ? Models.ConcilationType.NoConciliada
+                        : (deuda > 0 ? Models.ConcilationType.Parcial : Models.ConcilationType.Conciliada);
+
+                    var percent = areaTotalEdificio > 0 ? (unidadResuelta.AreaTotal / areaTotalEdificio) * 100 : 0;
+
+                    var installment = new Models.Installment
+                    {
+                        IdInstallment = Guid.NewGuid(),
+                        IdBudgetHeader = idBudgetHeader,
+                        Number = 1,
+                        UnitName = unidadCodigo,
+                        OwnerName = $"{unidadResuelta.Names} {unidadResuelta.Surname}".Trim(),
+                        CreationDate = DateTime.Now,
+                        Amount = primera.Monto,
+                        Percent = percent,
+                        TotalArea = unidadResuelta.AreaTotal,
+                        Period = periodo,
+                        CreatedBy = performedBy,
+                        Status = status,
+                        AmountPaid = totalPagado,
+                        Debt = deuda,
+                        IdGroupUnit = unidadResuelta.IdGroupOwner,
+                        DueDate = primera.Vencimiento,
+                        Type = (Models.InstallmentType)tipo,
+                        Concept = grupo.Key.Concepto,
+                        SourceInstallmentId = Guid.Empty
+                    };
+                    await _installmentService.AddInstallmentAsync(installment);
+                    resultado.CuotasCreadas++;
+
+                    foreach (var f in grupo.Where(f => f.MontoPagado > 0))
+                    {
+                        var esParcial = f.MontoPagado < primera.Monto || grupo.Count(g => g.MontoPagado > 0) > 1;
+                        await _installmentService.AgregarPagoAsync(new Models.InstallmentPaid
+                        {
+                            IdPaid = Guid.NewGuid(),
+                            IdInstallment = installment.IdInstallment,
+                            PaymentDate = f.FechaPago ?? f.Vencimiento,
+                            IdTransaction = Guid.Empty,
+                            Amount = f.MontoPagado,
+                            CreatedBy = performedBy,
+                            Status = esParcial ? Models.ConcilationType.Parcial : Models.ConcilationType.Conciliada,
+                            IsAutoReconcile = false,
+                            IsPartialPayment = esParcial
+                        });
+                        resultado.PagosCreados++;
+                    }
+                }
+            }
+
+            return resultado;
+        }
+
+        // Importador de la plantilla "Estado de Cuenta Histórico". Un
+        // TransactionBankHeader ("Carga histórica -- migración") por cuenta bancaria
+        // usada en el archivo, con un TransactionBankDetail por fila.
+        //
+        // 'Categoría' de la plantilla NO se guarda -- TransactionBankDetail no tiene
+        // una columna de categoría propia (la categorización real vive en Expense,
+        // conciliado aparte contra el movimiento vía la pantalla de Conciliación);
+        // cargar egresos ya categorizados como Expense es un alcance más grande, fuera
+        // de este importador.
+        //
+        // 'Es Saldo Inicial' = Sí en una fila: además de guardarse como movimiento
+        // normal, actualiza BankAccount.InitialBalance de esa cuenta (con el valor
+        // absoluto del Monto). Como máximo una fila por cuenta puede marcarlo -- es
+        // ambiguo si hay más de una.
+        public async Task<MigrationImportResult> ImportarEstadoDeCuentaAsync(Guid idBuilding, Stream archivo)
+        {
+            var resultado = new MigrationImportResult();
+
+            List<Models.BankAccount> cuentas;
+            try
+            {
+                cuentas = await _bankAccountService.ObtenerCuentasBancariasAsync(idBuilding);
+            }
+            catch (Exception ex)
+            {
+                resultado.Errores.Add($"No se pudo obtener las cuentas bancarias del edificio: {ex.Message}");
+                return resultado;
+            }
+
+            var cuentaPorNumero = cuentas
+                .Where(c => !string.IsNullOrWhiteSpace(c.AccountNumber))
+                .GroupBy(c => c.AccountNumber, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            XLWorkbook workbook;
+            try
+            {
+                workbook = new XLWorkbook(archivo);
+            }
+            catch (Exception ex)
+            {
+                resultado.Errores.Add($"No se pudo abrir el archivo -- ¿es un .xlsx válido? ({ex.Message})");
+                return resultado;
+            }
+            using (workbook)
+            {
+                if (!workbook.Worksheets.TryGetWorksheet("Movimientos", out var ws))
+                {
+                    resultado.Errores.Add("El archivo no tiene una hoja llamada 'Movimientos' -- ¿es la plantilla correcta?");
+                    return resultado;
+                }
+
+                var filas = new List<(string Cuenta, DateTime Fecha, bool EsIngreso, string Descripcion, string Moneda, decimal Itf, decimal Monto, bool EsSaldoInicial)>();
+
+                foreach (var row in ws.RowsUsed().Skip(1))
+                {
+                    var cuenta = row.Cell(1).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(cuenta)) continue;
+
+                    if (!cuentaPorNumero.ContainsKey(cuenta))
+                    {
+                        resultado.Errores.Add($"Movimientos, fila {row.RowNumber()}: la cuenta '{cuenta}' no existe en este edificio.");
+                        continue;
+                    }
+
+                    if (!DateTime.TryParse(row.Cell(2).GetString().Trim(), out var fecha))
+                    {
+                        resultado.Errores.Add($"Movimientos, fila {row.RowNumber()}: 'Fecha' inválida.");
+                        continue;
+                    }
+
+                    var tipoTexto = row.Cell(3).GetString().Trim();
+                    bool esIngreso;
+                    if (tipoTexto.Equals("Ingreso", StringComparison.OrdinalIgnoreCase)) esIngreso = true;
+                    else if (tipoTexto.Equals("Egreso", StringComparison.OrdinalIgnoreCase)) esIngreso = false;
+                    else
+                    {
+                        resultado.Errores.Add($"Movimientos, fila {row.RowNumber()}: 'Tipo' debe ser Ingreso o Egreso.");
+                        continue;
+                    }
+
+                    var descripcion = row.Cell(5).GetString().Trim();
+                    var moneda = row.Cell(6).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(moneda)) moneda = "S/";
+
+                    decimal itf = 0;
+                    if (!row.Cell(7).IsEmpty() && !decimal.TryParse(row.Cell(7).GetString().Trim(), out itf))
+                    {
+                        resultado.Errores.Add($"Movimientos, fila {row.RowNumber()}: 'ITF' no es un número válido.");
+                        continue;
+                    }
+
+                    if (!decimal.TryParse(row.Cell(8).GetString().Trim(), out var monto))
+                    {
+                        resultado.Errores.Add($"Movimientos, fila {row.RowNumber()}: 'Monto' no es un número válido.");
+                        continue;
+                    }
+
+                    var esSaldoInicial = row.Cell(9).GetString().Trim().Equals("Sí", StringComparison.OrdinalIgnoreCase)
+                        || row.Cell(9).GetString().Trim().Equals("Si", StringComparison.OrdinalIgnoreCase);
+
+                    filas.Add((cuenta, fecha, esIngreso, descripcion, moneda, itf, monto, esSaldoInicial));
+                }
+
+                foreach (var grupoCuenta in filas.GroupBy(f => f.Cuenta, StringComparer.OrdinalIgnoreCase))
+                {
+                    var marcasSaldoInicial = grupoCuenta.Count(f => f.EsSaldoInicial);
+                    if (marcasSaldoInicial > 1)
+                        resultado.Errores.Add($"Movimientos: la cuenta '{grupoCuenta.Key}' tiene más de una fila marcada 'Es Saldo Inicial' -- solo puede haber una.");
+                }
+
+                if (resultado.Errores.Count > 0)
+                    return resultado;
+
+                var idUser = (await _authService.GetCurrentUserAsync())?.IdUser ?? Guid.Empty;
+
+                foreach (var grupoCuenta in filas.GroupBy(f => f.Cuenta, StringComparer.OrdinalIgnoreCase))
+                {
+                    var cuentaBancaria = cuentaPorNumero[grupoCuenta.Key];
+                    var idStatementHeader = Guid.NewGuid();
+                    var detallesGrupo = grupoCuenta.ToList();
+
+                    await _bankAccountService.AddTransactionBankHeaderAsync(new Models.TransactionBankHeader
+                    {
+                        IdStatementHeader = idStatementHeader,
+                        UploadDate = DateTime.Now,
+                        FileName = "Migración histórica",
+                        IdUser = idUser,
+                        TotalRecords = detallesGrupo.Count,
+                        UploadState = 1,
+                        IdBankAccount = cuentaBancaria.IdBankAccount,
+                        Details = new List<Models.TransactionBankDetail>()
+                    });
+
+                    var secuencia = 1;
+                    foreach (var f in detallesGrupo.OrderBy(f => f.Fecha))
+                    {
+                        var montoFirmado = f.EsIngreso ? Math.Abs(f.Monto) : -Math.Abs(f.Monto);
+
+                        await _bankAccountService.AddTransactionFromEECCAsync(new Models.TransactionBankDetail
+                        {
+                            IdStatementDetail = Guid.NewGuid(),
+                            IdBankAccount = cuentaBancaria.IdBankAccount,
+                            IdStatementHeader = idStatementHeader,
+                            IdParent = Guid.Empty,
+                            IdGroupUnit = Guid.Empty,
+                            StatementDate = f.Fecha,
+                            Description = f.Descripcion,
+                            ITF = f.Itf,
+                            Amount = montoFirmado,
+                            SequenceNumber = secuencia++,
+                            Currency = f.Moneda,
+                            Origen = Models.TransactionOrigen.BankAccountState,
+                            ReconciliationStatus = Models.ConcilationType.NoConciliada,
+                            ReconciliationDate = null,
+                            AmountPaid = 0,
+                            Balance = montoFirmado
+                        });
+                        resultado.MovimientosCreados++;
+                    }
+
+                    if (detallesGrupo.Any(f => f.EsSaldoInicial))
+                    {
+                        var filaSaldoInicial = detallesGrupo.First(f => f.EsSaldoInicial);
+                        cuentaBancaria.InitialBalance = Math.Abs(filaSaldoInicial.Monto);
+                        await _bankAccountService.UpdateBankAccount(cuentaBancaria);
                     }
                 }
             }

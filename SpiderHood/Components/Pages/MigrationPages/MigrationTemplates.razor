@@ -3,6 +3,7 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject IMigrationTemplateService MigrationTemplateService
+@inject IMigrationImportService MigrationImportService
 @inject Services.ParameterService ParameterService
 @inject Services.AuthService AuthService
 @inject Services.IPermissionService PermissionService
@@ -123,12 +124,80 @@
             Estas plantillas son solo para <strong>carga inicial de historial</strong>. Para el día a día
             (un estado de cuenta o una lectura de agua por periodo) use los importadores habituales de cada módulo.
         </div>
+
+        <div class="card mt-4">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="bi bi-upload"></i>
+                <strong>Importar Unidades y Propietarios</strong>
+                <span class="badge bg-secondary ms-2">único importador disponible por ahora</span>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Suba el archivo <code>Plantilla_UnidadesYPropietarios</code> ya completado. Se valida todo
+                    primero -- si hay algún error, no se crea ninguna unidad ni propietario.
+                </p>
+
+                <InputFile id="fileInputUnidades" OnChange="CargarArchivoUnidades" accept=".xlsx" style="display:none;" />
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <button class="btn btn-outline-secondary" @onclick="AbrirSelectorArchivoUnidades" disabled="@_importando">
+                        <i class="bi bi-folder2-open me-2"></i>Seleccionar archivo
+                    </button>
+                    <span class="text-muted small">@(_archivoNombre ?? "Ningún archivo seleccionado")</span>
+                    <button class="btn btn-success ms-auto" @onclick="ImportarUnidadesYPropietarios" disabled="@(_archivoUnidades == null || _importando)">
+                        @if (_importando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-check2-circle me-2"></i>Importar
+                    </button>
+                </div>
+
+                @if (_resultadoImport != null)
+                {
+                    <div class="alert @(_resultadoImport.Success ? "alert-success" : "alert-danger") mb-2">
+                        <div class="fw-bold mb-1">
+                            @(_resultadoImport.Success
+                                ? $"Importado: {_resultadoImport.UnidadesCreadas} unidad(es), {_resultadoImport.PropietariosCreados} propietario(s)."
+                                : "No se importó nada -- corrija los errores y vuelva a intentar.")
+                        </div>
+                        @if (_resultadoImport.UnidadesOmitidas > 0)
+                        {
+                            <div class="small">@_resultadoImport.UnidadesOmitidas unidad(es) omitida(s) por ya existir en el edificio.</div>
+                        }
+                        @if (_resultadoImport.Errores.Count > 0)
+                        {
+                            <ul class="mb-0 small">
+                                @foreach (var e in _resultadoImport.Errores)
+                                {
+                                    <li>@e</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                }
+                @if (_resultadoImport?.Advertencias.Count > 0)
+                {
+                    <div class="alert alert-warning small mb-0">
+                        <ul class="mb-0">
+                            @foreach (var a in _resultadoImport.Advertencias)
+                            {
+                                <li>@a</li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
     }
 </div>
 
 @code {
     private bool _canManage;
     private bool _descargando;
+    private bool _importando;
+    private IBrowserFile? _archivoUnidades;
+    private string? _archivoNombre;
+    private MigrationImportResult? _resultadoImport;
 
     protected override async Task OnInitializedAsync()
     {
@@ -137,6 +206,55 @@
     }
 
     private Guid IdBuilding => ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty;
+
+    private async Task AbrirSelectorArchivoUnidades()
+    {
+        await JSRuntime.InvokeVoidAsync("clickElement", "fileInputUnidades");
+    }
+
+    private void CargarArchivoUnidades(InputFileChangeEventArgs e)
+    {
+        _archivoUnidades = e.File;
+        _archivoNombre = e.File.Name;
+        _resultadoImport = null;
+    }
+
+    private async Task ImportarUnidadesYPropietarios()
+    {
+        if (_archivoUnidades == null) return;
+
+        if (IdBuilding == Guid.Empty)
+        {
+            await ShowToast("Sin edificio seleccionado", "Seleccione un edificio antes de importar.", "warning");
+            return;
+        }
+
+        try
+        {
+            _importando = true;
+            _resultadoImport = null;
+
+            using var stream = _archivoUnidades.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            _resultadoImport = await MigrationImportService.ImportarUnidadesYPropietariosAsync(IdBuilding, memoryStream);
+
+            if (_resultadoImport.Success)
+                await ShowToast("Importación completada", $"{_resultadoImport.UnidadesCreadas} unidad(es) y {_resultadoImport.PropietariosCreados} propietario(s) creados.", "success");
+            else
+                await ShowToast("La importación no se aplicó", "Hay errores de validación -- revise el detalle debajo del botón.", "danger");
+        }
+        catch (Exception ex)
+        {
+            await ShowToast("Error al importar", ex.Message, "danger");
+        }
+        finally
+        {
+            _importando = false;
+        }
+    }
 
     private async Task DescargarUnidadesYPropietarios()
         => await Descargar(() => MigrationTemplateService.GenerarPlantillaUnidadesYPropietariosAsync(IdBuilding));

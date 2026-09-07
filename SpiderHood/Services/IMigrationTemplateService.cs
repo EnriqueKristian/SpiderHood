@@ -15,6 +15,7 @@ namespace SpiderHood.Services
     // (ver análisis de migración) -- no se llenan copiando el reporte del banco tal cual.
     public interface IMigrationTemplateService
     {
+        Task<(string FileName, byte[] Bytes)> GenerarPlantillaUnidadesYPropietariosAsync(Guid idBuilding);
         Task<(string FileName, byte[] Bytes)> GenerarPlantillaCuotasYPagosAsync(Guid idBuilding);
         Task<(string FileName, byte[] Bytes)> GenerarPlantillaEstadoDeCuentaAsync(Guid idBuilding);
         Task<(string FileName, byte[] Bytes)> GenerarPlantillaLecturasAguaAsync(Guid idBuilding);
@@ -35,6 +36,85 @@ namespace SpiderHood.Services
             _buildingService = buildingService;
             _bankAccountService = bankAccountService;
             _categoryService = categoryService;
+        }
+
+        // Modelo real de agrupamiento (rastreado en Owners.razor/AssignUnits.razor, no
+        // hay documentación aparte): un Depto/Oficina (TypeUnit 1/4) es la "cabeza" --
+        // al asignarle un propietario nace un IdGroupOwner nuevo. Cada Estacionamiento/
+        // Depósito (TypeUnit 2/3) que se agrega a ese propietario es OTRA fila de
+        // GroupUnit apuntando al MISMO IdGroupOwner (TypeGroupUnit=Shared). Una unidad
+        // sin GroupUnit queda "libre" (AssignUnits.razor.FreeUnits) -- hoy eso significa
+        // que no genera cuota a nadie (ver conversación sobre RealEstateCompany como
+        // pagador por defecto, pendiente en IBudgetService.LoadDataDefaultAsync).
+        //
+        // Esta plantilla sólo genera el archivo de carga -- igual que las otras 4, el
+        // importador (que arma Owner + OwnerUnit + GroupUnit a partir de estas filas)
+        // es la fase siguiente.
+        public async Task<(string FileName, byte[] Bytes)> GenerarPlantillaUnidadesYPropietariosAsync(Guid idBuilding)
+        {
+            var cabezasExistentes = await ObtenerCabezasDeGrupoAsync(idBuilding);
+
+            using var workbook = new XLWorkbook();
+
+            var wsUnidades = workbook.Worksheets.Add("Unidades");
+            var headersUnidades = new[]
+            {
+                "Código de Unidad", "Tipo", "Área (m²)", "Unidad Cabeza de Grupo (vacío si ESTA fila es la cabeza)"
+            };
+            EscribirEncabezado(wsUnidades, headersUnidades);
+
+            EscribirFilaEjemplo(wsUnidades, 2, new object[] { "301", "Departamento", 85.4, "" });
+            EscribirFilaEjemplo(wsUnidades, 3, new object[] { "E-12", "Estacionamiento", 12.0, "301" });
+            EscribirFilaEjemplo(wsUnidades, 4, new object[] { "D-05", "Depósito", 4.5, "301" });
+
+            AplicarListaInline(wsUnidades, "B5:B2000", "Departamento,Oficina,Estacionamiento,Depósito");
+            var referenciaCabezas = cabezasExistentes.Count > 0 ? cabezasExistentes : new List<string> { "301" };
+            AplicarListaValidacion(wsUnidades, "D5:D2000", referenciaCabezas, "UnidadCabeza");
+
+            AjustarColumnas(wsUnidades, 20, 16, 12, 44);
+
+            var wsPropietarios = workbook.Worksheets.Add("Propietarios");
+            var headersPropietarios = new[]
+            {
+                "Unidad Cabeza de Grupo", "Tipo de Propietario", "Nombres / Razón Social", "Apellidos",
+                "Tipo de Documento", "Número de Documento", "Dirección", "Teléfono", "Email"
+            };
+            EscribirEncabezado(wsPropietarios, headersPropietarios);
+
+            EscribirFilaEjemplo(wsPropietarios, 2, new object[]
+            {
+                "301", "Persona Natural", "Jocelyn", "Coronel Villegas", "DNI", "45678912",
+                "Av. Siempre Viva 123", "987654321", "jocelyn@correo.com"
+            });
+            EscribirFilaEjemplo(wsPropietarios, 3, new object[]
+            {
+                "302", "Persona Jurídica", "Inmobiliaria XYZ S.A.C.", "", "RUC", "20123456789",
+                "Av. Los Olivos 456", "014567890", "contacto@xyz.com"
+            });
+
+            AplicarListaInline(wsPropietarios, "B4:B2000", "Persona Natural,Persona Jurídica");
+            AplicarListaValidacion(wsPropietarios, "A4:A2000", referenciaCabezas, "UnidadCabezaProp");
+
+            AjustarColumnas(wsPropietarios, 20, 16, 26, 20, 14, 18, 26, 14, 24);
+
+            AgregarInstrucciones(workbook, "Plantilla: Unidades y Propietarios", new[]
+            {
+                "Hoja 'Unidades': una fila por CADA unidad física del edificio (Departamentos, Oficinas, Estacionamientos, Depósitos), incluyendo las que aún no tienen dueño.",
+                "Solo Departamento u Oficina pueden ser 'cabeza de grupo' -- son las unidades que se venden con nombre propio. Un Estacionamiento o Depósito SIEMPRE pertenece a una cabeza: complete su columna 'Unidad Cabeza de Grupo' con el código del Departamento/Oficina correspondiente.",
+                "Hoja 'Propietarios': una fila por cada Departamento/Oficina QUE YA TIENE dueño (no hace falta fila para Estacionamientos/Depósitos -- se heredan de su cabeza; ni para unidades todavía sin vender).",
+                "Las unidades que no aparezcan en 'Propietarios' quedan registradas como disponibles/sin vender -- igual que si se crearan desde la pantalla de Unidades sin asignarles propietario todavía.",
+                "El % de cuota de cada unidad NO se ingresa a mano -- el sistema lo calcula del 'Área (m²)' al generar el presupuesto.",
+                "Copropietarios o residentes adicionales sobre una misma unidad se agregan después, desde Propietarios en la pantalla, no en esta carga inicial.",
+                cabezasExistentes.Count == 0
+                    ? "Este edificio todavía no tiene Departamentos/Oficinas registrados -- la lista de 'Unidad Cabeza de Grupo' viene vacía, escriba el código a mano."
+                    : $"Departamentos/Oficinas ya registrados en este edificio (disponibles como referencia): {string.Join(", ", cabezasExistentes)}."
+            });
+
+            workbook.Worksheet("Instrucciones").Position = 1;
+
+            using var ms = new MemoryStream();
+            workbook.SaveAs(ms);
+            return ($"Plantilla_UnidadesYPropietarios_{DateTime.Now:yyyyMMdd}.xlsx", ms.ToArray());
         }
 
         public async Task<(string FileName, byte[] Bytes)> GenerarPlantillaCuotasYPagosAsync(Guid idBuilding)
@@ -236,6 +316,33 @@ namespace SpiderHood.Services
         // ---------------------------------------------------------------
         // Datos maestros del edificio (para las listas desplegables)
         // ---------------------------------------------------------------
+
+        // Departamentos/Oficinas ya existentes (TypeUnit 1/4) -- referencia para que,
+        // al agregar unidades nuevas a un edificio que ya tiene algunas cargadas, el
+        // admin pueda apuntar un Estacionamiento/Depósito nuevo a una cabeza que ya
+        // existe sin volver a escribirla a mano. Usa GetUnitsByBuildingAsync (no
+        // GetGroupUnitsByTypeAsync) porque es la misma consulta que ya usa
+        // AssignUnits.razor para listar "unidades libres" en producción -- pero se
+        // atrapa igual por las dudas, para que un problema de datos acá tampoco tumbe
+        // esta plantilla.
+        private async Task<List<string>> ObtenerCabezasDeGrupoAsync(Guid idBuilding)
+        {
+            try
+            {
+                var unidades = await _buildingService.GetUnitsByBuildingAsync(idBuilding);
+                return unidades
+                    .Where(u => u.TypeUnit == 1 || u.TypeUnit == 4)
+                    .Select(u => u.UnitNumber)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct()
+                    .OrderBy(n => n)
+                    .ToList();
+            }
+            catch (Exception)
+            {
+                return new List<string>();
+            }
+        }
 
         // GetGroupUnitsByTypeAsync (GET_UnitsByType) puede reventar con
         // SqlNullValueException si alguna unidad del edificio tiene una columna Guid en

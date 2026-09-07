@@ -33,7 +33,28 @@
     }
     else
     {
+        <div class="alert alert-light border mb-3 small">
+            <i class="bi bi-signpost-split me-2"></i>
+            Empiece por <strong>Unidades y Propietarios</strong> -- las otras 4 plantillas asumen que las unidades y
+            propietarios de este edificio ya están cargados, y jalan sus datos para armar los desplegables.
+        </div>
+
         <div class="row g-3">
+
+            <div class="col-md-6 col-xl-3">
+                <div class="card h-100 border-primary">
+                    <div class="card-body d-flex flex-column">
+                        <div class="icon-badge icon-badge-sm mb-3"><i class="bi bi-people"></i></div>
+                        <h5 class="card-title">Unidades y Propietarios</h5>
+                        <p class="card-text text-muted small flex-grow-1">
+                            Departamentos, oficinas, estacionamientos, depósitos y sus propietarios -- el punto de partida.
+                        </p>
+                        <button class="btn btn-primary" @onclick="DescargarUnidadesYPropietarios" disabled="@_descargando">
+                            <i class="bi bi-download me-2"></i>Descargar plantilla
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <div class="col-md-6 col-xl-3">
                 <div class="card h-100">
@@ -116,6 +137,9 @@
     }
 
     private Guid IdBuilding => ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty;
+
+    private async Task DescargarUnidadesYPropietarios()
+        => await Descargar(() => MigrationTemplateService.GenerarPlantillaUnidadesYPropietariosAsync(IdBuilding));
 
     private async Task DescargarCuotasYPagos()
         => await Descargar(() => MigrationTemplateService.GenerarPlantillaCuotasYPagosAsync(IdBuilding));

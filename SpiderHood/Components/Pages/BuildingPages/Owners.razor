@@ -351,23 +351,11 @@
                                         @foreach (var subunidad in owner.Units.Where(c => c.TypeUnit != 1))
                                         {
                                             <tr class="table-group-child">
-                                                <td class="ps-5">
-                                                    <i class="bi bi-arrow-return-right me-1 text-muted"></i>
+                                                <td class="ps-5" colspan="2">
+                                                    <i class="bi bi-arrow-return-right me-2 text-muted"></i>
+                                                    <span class="text-muted small">Unidad adicional del grupo</span>
                                                 </td>
-                                                <td class="ps-3">
-                                                    <div class="d-flex align-items-center">
-                                                        <i class="bi bi-arrow-right-short me-2 text-muted"></i>
-                                                    <span class="text-muted">@subunidad.TypeUnit @subunidad.UnitNumber</span>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    @if (!string.IsNullOrEmpty(subunidad.UnitNumber))
-                                                    {
-                                                        <div class="text-muted small">
-                                                            <i class="bi bi-person me-1"></i>
-                                                        </div>
-                                                    }
-                                                </td>
+                                                <td></td>
                                                 <td>
                                                         <span class="badge @GetUnitTypeBadge(subunidad.TypeUnit)">
                                                             @ParameterService.GetChildParameterDescription(4, subunidad.TypeUnit)

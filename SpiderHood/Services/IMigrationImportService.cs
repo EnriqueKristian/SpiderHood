@@ -432,6 +432,14 @@ namespace SpiderHood.Services
         // debe tocar el periodo vigente real del edificio). Se crea con BDLayout
         // directo (no IPeriodService.CreatePeriodAsync, que atrapa cualquier error
         // -- incluida la superposición real -- y solo devuelve false, sin mensaje).
+        //
+        // Idempotente por mes: si el edificio ya tiene un ServiceReading para un
+        // periodo (de una corrida anterior de este mismo archivo, o cargado a mano
+        // desde la UI), esa fila se omite con una Advertencia en vez de reintentarse
+        // -- no existe ninguna función de borrado de lecturas en la app hoy (no hay
+        // DeleteServiceReadingAsync ni un DEL_ServiceReading), así que sin este chequeo
+        // reimportar el mismo archivo completo después de corregir un dato puntual
+        // duplicaría todos los periodos que ya se habían guardado bien.
         public async Task<MigrationImportResult> ImportarLecturasAguaAsync(Guid idBuilding, Stream archivo)
         {
             var resultado = new MigrationImportResult();
@@ -558,14 +566,34 @@ namespace SpiderHood.Services
                         idPeriodPorMes.TryAdd((mes.Year, mes.Month), p.IdPeriod);
                 }
 
+                // Idempotencia: si ya existe un ServiceReading de este edificio para un mes
+                // (de una corrida anterior de este mismo importador, o cargado a mano desde
+                // la UI), NO se vuelve a crear -- no hay forma de borrar lecturas desde la
+                // app hoy (no existe DeleteServiceReadingAsync ni un DEL_ServiceReading), así
+                // que reimportar el mismo archivo completo después de corregir un dato
+                // puntual en el Excel duplicaría todos los periodos ya cargados si no se
+                // omiten acá.
+                List<Models.ServiceReading> lecturasExistentes;
+                try
+                {
+                    lecturasExistentes = await _ec.GetServiceReadingListAsync(idBuilding);
+                }
+                catch (Exception)
+                {
+                    lecturasExistentes = new List<Models.ServiceReading>();
+                }
+                var mesesYaImportados = new HashSet<(int Year, int Month)>(lecturasExistentes.Select(sr => (sr.Period.Year, sr.Period.Month)));
+
                 foreach (var grupoPeriodo in filas.GroupBy(f => f.Periodo).OrderBy(g => g.Key))
                 {
                     var periodo = grupoPeriodo.Key;
                     var idServiceReading = Guid.NewGuid();
                     var detalles = new List<Models.ServiceReadingDetail>();
-
                     var claveMes = (periodo.Year, periodo.Month);
-                    if (!idPeriodPorMes.TryGetValue(claveMes, out var idPeriod))
+                    var yaImportado = mesesYaImportados.Contains(claveMes);
+
+                    var idPeriod = Guid.Empty;
+                    if (!yaImportado && !idPeriodPorMes.TryGetValue(claveMes, out idPeriod))
                     {
                         var finDeMes = new DateTime(periodo.Year, periodo.Month, DateTime.DaysInMonth(periodo.Year, periodo.Month));
                         var nuevoPeriodo = new Models.Period
@@ -598,7 +626,7 @@ namespace SpiderHood.Services
                     foreach (var f in grupoPeriodo.OrderBy(f => f.Codigo))
                     {
                         var anterior = f.LecturaInicial ?? lecturaAnteriorPorUnidad[f.Codigo];
-                        if (f.Lectura < anterior)
+                        if (!yaImportado && f.Lectura < anterior)
                             resultado.Advertencias.Add($"Lecturas: '{f.Codigo}' en {periodo:yyyy-MM} tiene Lectura ({f.Lectura}) menor que la anterior ({anterior}) -- se guardó el consumo como 0.");
                         var consumo = Math.Max(0, f.Lectura - anterior);
 
@@ -619,6 +647,12 @@ namespace SpiderHood.Services
                         });
 
                         lecturaAnteriorPorUnidad[f.Codigo] = f.Lectura;
+                    }
+
+                    if (yaImportado)
+                    {
+                        resultado.Advertencias.Add($"Lecturas, periodo {periodo:yyyy-MM}: ya existe una lectura cargada para este edificio en ese periodo -- se omitió (no hay forma de borrar lecturas desde la app todavía; si quiere reemplazarla, pida que se borre a mano en la base de datos).");
+                        continue;
                     }
 
                     try

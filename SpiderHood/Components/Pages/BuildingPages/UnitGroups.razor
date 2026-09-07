@@ -571,9 +571,9 @@
 </Modal>
 
 <!--    MODAL PARA ELIMINAR UNIDADES -->
-<Modal @ref="modal" Title="Eliminar Categoria" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true">
+<Modal @ref="modal" Title="Eliminar Unidad" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true">
     <BodyTemplate>
-        ¿Esta seguro que desea eliminar la Categoria?.
+        ¿Esta seguro que desea eliminar la Unidad @_Unit.UnitNumber?.
     </BodyTemplate>
     <FooterTemplate>
         <Button Color="ButtonColor.Primary" @onclick="DeleteItem">Aceptar</Button>
@@ -696,12 +696,16 @@
 
     private async Task DeleteItem()
     {
-        // Lógica adicional después de cerrar el modal, si es necesario
-        await BuildingService.DeleteUnitAsync(_Unit);
+        var result = await BuildingService.DeleteUnitAsync(_Unit);
+        if (!result.IsSuccess)
+        {
+            await modal.HideAsync();
+            await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo eliminar la unidad");
+            return;
+        }
+
         await modal.HideAsync();
         await InicializarPagina();
-        return;
-        //await Task.CompletedTask;
     }
 
     private List<Models.RealEstateUnit> units = new();

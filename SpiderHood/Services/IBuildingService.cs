@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
 
@@ -43,7 +44,7 @@ namespace SpiderHood.Services
         Task AddUnitAsync(Models.RealEstateUnit newunit);
 
 
-        Task DeleteUnitAsync(Models.RealEstateUnit unit);
+        Task<OperationResult> DeleteUnitAsync(Models.RealEstateUnit unit);
 
         Task UpdateUnitAsync(Models.RealEstateUnit unit);
 
@@ -582,18 +583,38 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task DeleteUnitAsync(Models.RealEstateUnit unit)
+        // Igual que CategoryService.DeleteCategoryAsync: la unidad puede tener FKs
+        // reales apuntándole (OwnerUnit/GroupUnit, Installment, etc.), así que
+        // borrarla mientras sigue en uso falla en BD (SQL error 547) en vez de dejar
+        // data huérfana -- antes esto se tragaba en silencio (catch sin rethrow) y la
+        // UI seguía como si el borrado hubiera funcionado.
+        public async Task<OperationResult> DeleteUnitAsync(Models.RealEstateUnit unit)
         {
             try
             {
                 await ec.DeleteRecordAsync(unit);
+                return OperationResult.Success();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error al crear el contacto: {ex.Message}");
+                if (IsForeignKeyViolation(ex))
+                {
+                    return OperationResult.Failure(
+                        "No se puede eliminar: la unidad tiene asociaciones (propietario, grupo de unidades o cuotas) vigentes.");
+                }
+
+                Console.WriteLine($"Error al eliminar la unidad: {ex.Message}");
+                return OperationResult.Failure($"No se pudo eliminar la unidad: {DescribeError(ex)}");
             }
         }
 
+        private static bool IsForeignKeyViolation(Exception ex)
+        {
+            var innermost = ex;
+            while (innermost.InnerException != null)
+                innermost = innermost.InnerException;
+            return innermost is SqlException sqlEx && sqlEx.Number == 547;
+        }
 
         public async Task<List<Departamento>> ObtenerDepartamentosActivosAsync()
         {

@@ -101,22 +101,25 @@
                     <thead class="table-light">
                         <tr>
                             <th class="text-nowrap">
-                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center">
+                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center"
+                                   style="cursor:pointer" @onclick:preventDefault @onclick="() => SortBy(UnitSortColumn.Tipo)">
                                     Tipo
-                                    <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
+                                    <i class="bi @SortIconClass(UnitSortColumn.Tipo) ms-1 text-muted"></i>
                                 </a>
                             </th>
                             <th class="text-nowrap">
-                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center">
+                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center"
+                                   style="cursor:pointer" @onclick:preventDefault @onclick="() => SortBy(UnitSortColumn.UnitNumber)">
                                     N° Unidad
-                                    <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
+                                    <i class="bi @SortIconClass(UnitSortColumn.UnitNumber) ms-1 text-muted"></i>
                                 </a>
                             </th>
                             <th class="text-nowrap">Ubicación</th>
                             <th class="text-nowrap">
-                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center">
+                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center"
+                                   style="cursor:pointer" @onclick:preventDefault @onclick="() => SortBy(UnitSortColumn.Area)">
                                     Área (m²)
-                                    <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
+                                    <i class="bi @SortIconClass(UnitSortColumn.Area) ms-1 text-muted"></i>
                                 </a>
                             </th>
                             <th class="text-nowrap">Propietario/Inquilino</th>
@@ -168,9 +171,9 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <span class="badge @GetStatusBadgeClass(unidad.Names)">
-                                        <i class="bi @GetStatusIcon(unidad.Names) me-1"></i>
-                                        @unidad.Names
+                                    <span class="badge @GetStatusBadgeClass(unidad)">
+                                        <i class="bi @GetStatusIcon(unidad) me-1"></i>
+                                        @GetStatusText(unidad)
                                     </span>
                                 </td>
                                 <td class="text-center">
@@ -406,7 +409,7 @@
     private int _unitPageSize = 10;
     private int _unitPage = 1;
     private int TotalUnitPages => units.Count == 0 ? 1 : (int)Math.Ceiling(units.Count / (double)_unitPageSize);
-    private IEnumerable<Models.RealEstateUnit> PagedUnits => units.Skip((_unitPage - 1) * _unitPageSize).Take(_unitPageSize);
+    private IEnumerable<Models.RealEstateUnit> PagedUnits => SortedUnits.Skip((_unitPage - 1) * _unitPageSize).Take(_unitPageSize);
 
     private void GoToUnitPage(int page)
     {
@@ -418,6 +421,41 @@
     {
         _unitPageSize = newSize;
         _unitPage = 1;
+    }
+
+    // Orden de la grilla de unidades -- los encabezados con flechita (Tipo, N°
+    // Unidad, Área) antes no tenían ningún @onclick, así que la flechita no hacía
+    // nada. Orden en memoria sobre `units`, igual que la paginación de arriba.
+    private enum UnitSortColumn { None, Tipo, UnitNumber, Area }
+    private UnitSortColumn _unitSortColumn = UnitSortColumn.None;
+    private bool _unitSortAscending = true;
+
+    private IEnumerable<Models.RealEstateUnit> SortedUnits => _unitSortColumn switch
+    {
+        UnitSortColumn.Tipo => _unitSortAscending ? units.OrderBy(u => u.TypeUnit) : units.OrderByDescending(u => u.TypeUnit),
+        UnitSortColumn.UnitNumber => _unitSortAscending ? units.OrderBy(u => u.UnitNumber) : units.OrderByDescending(u => u.UnitNumber),
+        UnitSortColumn.Area => _unitSortAscending ? units.OrderBy(u => u.Area) : units.OrderByDescending(u => u.Area),
+        _ => units
+    };
+
+    private void SortBy(UnitSortColumn column)
+    {
+        if (_unitSortColumn == column)
+        {
+            _unitSortAscending = !_unitSortAscending;
+        }
+        else
+        {
+            _unitSortColumn = column;
+            _unitSortAscending = true;
+        }
+        _unitPage = 1;
+    }
+
+    private string SortIconClass(UnitSortColumn column)
+    {
+        if (_unitSortColumn != column) return "bi-arrow-down-up";
+        return _unitSortAscending ? "bi-sort-up" : "bi-sort-down";
     }
 
     // Métodos para clases CSS
@@ -433,29 +471,21 @@
         };
     }
 
-    private string GetStatusBadgeClass(string estado)
-    {
-        return estado switch
-        {
-            "Ocupado" => "bg-success bg-opacity-10 text-success",
-            "Alquilado" => "bg-info bg-opacity-10 text-info",
-            "Vacante" => "bg-warning bg-opacity-10 text-warning",
-            "Mantenimiento" => "bg-danger bg-opacity-10 text-danger",
-            _ => "bg-secondary bg-opacity-10 text-secondary"
-        };
-    }
+    // "Estado" de la unidad: Ocupada cuando está asignada a un grupo de
+    // propietario (IdGroupOwner viene del JOIN en GetUnitsByBuildingAsync, ver
+    // AssignUnits.razor que usa el mismo criterio para "unidad libre"), Disponible
+    // en caso contrario. Antes esta columna mostraba unidad.Names (el nombre del
+    // propietario) en vez de un estado real.
+    private bool IsUnitOccupied(Models.RealEstateUnit unidad) => unidad.IdGroupOwner != Guid.Empty;
 
-    private string GetStatusIcon(string estado)
-    {
-        return estado switch
-        {
-            "Ocupado" => "bi-house-check",
-            "Alquilado" => "bi-house-door",
-            "Vacante" => "bi-house",
-            "Mantenimiento" => "bi-tools",
-            _ => "bi-question-circle"
-        };
-    }
+    private string GetStatusBadgeClass(Models.RealEstateUnit unidad) =>
+        IsUnitOccupied(unidad) ? "bg-success bg-opacity-10 text-success" : "bg-secondary bg-opacity-10 text-secondary";
+
+    private string GetStatusIcon(Models.RealEstateUnit unidad) =>
+        IsUnitOccupied(unidad) ? "bi-house-check" : "bi-house";
+
+    private string GetStatusText(Models.RealEstateUnit unidad) =>
+        IsUnitOccupied(unidad) ? "Ocupada" : "Disponible";
 
     // Métodos de acciones
     private void ViewDetails(Models.RealEstateUnit unidad)

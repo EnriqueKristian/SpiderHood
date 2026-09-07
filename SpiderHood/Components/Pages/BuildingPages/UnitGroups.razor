@@ -335,17 +335,35 @@
                                     <h6 class="card-subtitle mb-3 text-muted">Distribución por Tipo</h6>
                                     <div class="d-flex align-items-center">
                                         <div class="flex-grow-1">
-                                            <div class="progress" style="height: 25px;">
-                                                <div class="progress-bar bg-primary" style="width: 70%">
-                                                    Departamentos (70%)
+                                            @if (units.Any())
+                                            {
+                                                <div class="progress" style="height: 25px;">
+                                                    @if (UnitCountDepartamentos > 0)
+                                                    {
+                                                        <div class="progress-bar bg-primary" style="width: @(PctDepartamentos)%">
+                                                            Departamentos (@(PctDepartamentos.ToString("0.#"))%)
+                                                        </div>
+                                                    }
+                                                    @if (UnitCountOficinas > 0)
+                                                    {
+                                                        <div class="progress-bar bg-success" style="width: @(PctOficinas)%">
+                                                            Oficinas (@(PctOficinas.ToString("0.#"))%)
+                                                        </div>
+                                                    }
+                                                    @if (UnitCountOtros > 0)
+                                                    {
+                                                        <div class="progress-bar bg-info" style="width: @(PctOtros)%">
+                                                            Otros (@(PctOtros.ToString("0.#"))%)
+                                                        </div>
+                                                    }
                                                 </div>
-                                                <div class="progress-bar bg-success" style="width: 20%">
-                                                    Oficinas (20%)
+                                            }
+                                            else
+                                            {
+                                                <div class="progress" style="height: 25px;">
+                                                    <div class="progress-bar bg-secondary" style="width: 100%">Sin unidades</div>
                                                 </div>
-                                                <div class="progress-bar bg-info" style="width: 10%">
-                                                    Otros (10%)
-                                                </div>
-                                            </div>
+                                            }
                                         </div>
                                     </div>
                                 </div>
@@ -784,6 +802,17 @@
 
     private List<Models.RealEstateUnit> units = new();
     private List<Models.RealEstateUnit> list_units = new();
+
+    // Distribución por tipo (tarjeta "Grupo de Unidades") -- antes era una barra
+    // fija en 70/20/10 sin relación con los datos reales. TypeUnit 1 = DPTO, 4 =
+    // Oficina (ver comentario de RealEstateUnit en Classes/Unit.cs); "Otros" junta
+    // Estacionamiento (2) y Depósito (3), igual que hacía la barra original.
+    private int UnitCountDepartamentos => units.Count(u => u.TypeUnit == 1);
+    private int UnitCountOficinas => units.Count(u => u.TypeUnit == 4);
+    private int UnitCountOtros => units.Count - UnitCountDepartamentos - UnitCountOficinas;
+    private double PctDepartamentos => units.Count == 0 ? 0 : Math.Round(UnitCountDepartamentos * 100.0 / units.Count, 1);
+    private double PctOficinas => units.Count == 0 ? 0 : Math.Round(UnitCountOficinas * 100.0 / units.Count, 1);
+    private double PctOtros => units.Count == 0 ? 0 : Math.Round(UnitCountOtros * 100.0 / units.Count, 1);
 
     /*  === Parametros de la Ventana Modal  === */
     private bool MostrarModal = false;

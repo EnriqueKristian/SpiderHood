@@ -421,8 +421,17 @@ namespace SpiderHood.Services
         // histórica (bandas de consumo, cargo fijo, IGV) para un import de lecturas
         // puras; el monto ya facturado de cada periodo, si se conoce, se carga aparte
         // como Extraordinaria "Reg. Agua" en la plantilla de Cuotas y Pagos.
-        // IdPeriod queda en Guid.Empty -- no existe un Period histórico por mes
-        // pasado, y ServiceReading no lo exige para guardarse (columna FK simple).
+        //
+        // ServiceReading.IdPeriod SÍ es obligatorio (Guid no nullable, con FK real
+        // "FK_Readings_Periods_Services" hacia dbo.Periods) -- confirmado en
+        // producción: dejarlo en Guid.Empty tumbaba el INSERT en todos los periodos.
+        // Por cada mes calendario del archivo se reutiliza el Period existente que ya
+        // cubra ese mes (cualquiera sea su granularidad -- mensual, bimestral, etc,
+        // ver idPeriodPorMes más abajo) o, si ninguno lo cubre, se crea uno mensual
+        // nuevo (Status = Cerrado, IsCurrentPeriod = false -- un mes histórico nunca
+        // debe tocar el periodo vigente real del edificio). Se crea con BDLayout
+        // directo (no IPeriodService.CreatePeriodAsync, que atrapa cualquier error
+        // -- incluida la superposición real -- y solo devuelve false, sin mensaje).
         public async Task<MigrationImportResult> ImportarLecturasAguaAsync(Guid idBuilding, Stream archivo)
         {
             var resultado = new MigrationImportResult();
@@ -528,11 +537,63 @@ namespace SpiderHood.Services
 
                 var lecturaAnteriorPorUnidad = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
 
+                // Mapea cada mes calendario (Año, Mes) al Period que ya lo cubre --
+                // "cubre" en el sentido de StartDate/EndDate, sin asumir que todo Period
+                // es mensual (uno Bimestral/Anual cubre varios meses a la vez, y ese mismo
+                // IdPeriod es el correcto para todos ellos).
+                List<Models.Period> periodosExistentes;
+                try
+                {
+                    periodosExistentes = await _ec.GetPeriodsByBuildingAsync(idBuilding);
+                }
+                catch (Exception)
+                {
+                    periodosExistentes = new List<Models.Period>();
+                }
+
+                var idPeriodPorMes = new Dictionary<(int Year, int Month), Guid>();
+                foreach (var p in periodosExistentes)
+                {
+                    for (var mes = new DateTime(p.StartDate.Year, p.StartDate.Month, 1); mes <= p.EndDate; mes = mes.AddMonths(1))
+                        idPeriodPorMes.TryAdd((mes.Year, mes.Month), p.IdPeriod);
+                }
+
                 foreach (var grupoPeriodo in filas.GroupBy(f => f.Periodo).OrderBy(g => g.Key))
                 {
                     var periodo = grupoPeriodo.Key;
                     var idServiceReading = Guid.NewGuid();
                     var detalles = new List<Models.ServiceReadingDetail>();
+
+                    var claveMes = (periodo.Year, periodo.Month);
+                    if (!idPeriodPorMes.TryGetValue(claveMes, out var idPeriod))
+                    {
+                        var finDeMes = new DateTime(periodo.Year, periodo.Month, DateTime.DaysInMonth(periodo.Year, periodo.Month));
+                        var nuevoPeriodo = new Models.Period
+                        {
+                            IdPeriod = Guid.NewGuid(),
+                            IdBuilding = idBuilding,
+                            Name = periodo.ToString("MMMM-yy", System.Globalization.CultureInfo.InvariantCulture),
+                            PeriodType = 1, // Mensual
+                            StartDate = periodo,
+                            EndDate = finDeMes,
+                            ClosingDate = finDeMes.AddDays(15),
+                            Status = 2, // Cerrado -- periodo histórico, no el vigente del edificio
+                            IsCurrentPeriod = false,
+                            Description = "Periodo histórico creado por la migración de Lecturas de Agua"
+                        };
+                        try
+                        {
+                            await _ec.AddNewRecordAsync(nuevoPeriodo);
+                            await _ec.StampAuditAsync(Models.AuditableEntity.Period, nuevoPeriodo.IdPeriod, await GetPerformedByAsync(), isCreate: true);
+                        }
+                        catch (Exception ex)
+                        {
+                            resultado.Errores.Add($"Lecturas, periodo {periodo:yyyy-MM}: no se pudo crear el Periodo histórico -- {MensajeErrorReal(ex)}");
+                            continue;
+                        }
+                        idPeriod = nuevoPeriodo.IdPeriod;
+                        idPeriodPorMes[claveMes] = idPeriod;
+                    }
 
                     foreach (var f in grupoPeriodo.OrderBy(f => f.Codigo))
                     {
@@ -569,7 +630,7 @@ namespace SpiderHood.Services
                             Status = 1,
                             IdBuilding = idBuilding,
                             FileName = "Migración histórica",
-                            IdPeriod = Guid.Empty
+                            IdPeriod = idPeriod
                         });
                         await _ec.AddNewRecordAsync(detalles);
                     }

@@ -116,3 +116,62 @@ descarga de plantillas, pero la causa de fondo (el SP/mapeo EF no filtra ni
 maneja unidades sin grupo) sigue viva en el resto de la app. Diagnóstico
 reutilizable en
 `Database/Scripts/2026-09-07_54_Diagnostico_UnitsNullGuidColumns.sql`.
+
+---
+
+## 6. Bugs encontrados probando el importador (no causados por él)
+
+**Estado: pendiente, sin empezar.** Encontrados por el usuario probando
+`/migracion/plantillas` con datos reales de varios edificios -- son fallas
+generales de la app (gestión de edificios/contactos/cuentas), no del
+importador ni de las plantillas. Quedan para otro branch.
+
+### 6.1 Contactos no se graban con el `IdRelatedEntity` correcto
+
+`Contact.IdRelatedEntity` debería apuntar a
+`BuildingConfiguration.IdBuildingConfiguration` -- así es como
+`GetAllContactsAsync` filtra cuál contacto (Admin/Inmobiliaria/Mantenimiento)
+pertenece a cada edificio.
+
+Revisado el lado C#, y ahí se ve correcto en los dos sentidos:
+- Escritura: `BuildingPage.razor.cs:469/484/499` setea
+  `IdRelatedEntity = interno.IdBuildingConfiguration` antes de
+  `AddContactAsync`, y `BDLayout.Add.cs:626` lo pasa tal cual a `INS_Contact`.
+- Lectura: `BDLayout.Get.cs:164-172` (`GetAllContactsAsync`) pasa
+  `idBuildingConfiguration` tal cual a `GET_AllContacts`.
+
+Como ambos lados parecen correctos desde acá, los sospechosos son: (a) el
+stored procedure `INS_Contact`/`GET_AllContacts` en sí (no está en
+`Database/Scripts/`, no se pudo revisar), o (b) que `interno`/`config`
+tenga un `IdBuildingConfiguration` viejo/de otro edificio al momento de
+guardar -- mismo patrón sospechado en el punto 6.2.
+
+### 6.2 Cuentas bancarias se graban todas con el mismo `IdBuilding`
+
+`BuildingPage.razor.cs:447`:
+```csharp
+bankaccount.IdBuilding = interno.IdBuilding;
+```
+Se asigna en el momento de guardar, tomando `interno.IdBuilding` -- si
+`interno` (el estado de configuración del componente) no se refresca al
+cambiar de edificio dentro de la misma sesión/circuito de Blazor Server
+(navegar de un edificio a otro sin que el componente se recree), toda cuenta
+bancaria que se guarde después queda con el `IdBuilding` del primer edificio
+cargado, no el que se está editando. Revisar el ciclo de vida de `interno`/
+`SelectedBuilding` en `BuildingPage.razor.cs` (`OnParametersSetAsync` o
+equivalente) al cambiar de edificio.
+
+### 6.3 Sin FK real: borrar un edificio deja Contact y Parameter huérfanos
+
+No existe una función de borrado de edificios en la app (no hay
+`DeleteBuildingAsync` en `IBuildingService`, se comprobó buscando en todo el
+repo) -- el borrado se hizo directo en la BD durante pruebas. Ahí se vio que
+`Contact.IdRelatedEntity` y `Parameter.IdBuilding` no tienen una FK real
+hacia `Building`, así que borrar un `Building` deja filas de `Contact` y
+`Parameter` huérfanas en vez de fallar (como sí pasa hoy con `RealEstateUnit`
+y `Category`, que sí tienen FK real -- ver
+`IBuildingService.DeleteUnitAsync`/`ICategoryService.DeleteCategoryAsync`,
+que atrapan el error 547 de SQL). Mismo patrón que resolvió
+`Database/Scripts/2026-09-02_24_Category_RealFK.sql` para Category, pendiente
+de replicar para Contact y Parameter -- o, si nunca va a haber borrado real
+de edificios desde la app, documentar que es intencional.

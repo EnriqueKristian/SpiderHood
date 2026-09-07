@@ -101,26 +101,26 @@
                     <thead class="table-light">
                         <tr>
                             <th class="text-nowrap">
-                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center"
-                                   style="cursor:pointer" @onclick:preventDefault @onclick="() => SortBy(UnitSortColumn.Tipo)">
+                                <span class="text-dark d-flex align-items-center"
+                                      style="cursor:pointer" @onclick="() => SortBy(UnitSortColumn.Tipo)">
                                     Tipo
                                     <i class="bi @SortIconClass(UnitSortColumn.Tipo) ms-1 text-muted"></i>
-                                </a>
+                                </span>
                             </th>
                             <th class="text-nowrap">
-                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center"
-                                   style="cursor:pointer" @onclick:preventDefault @onclick="() => SortBy(UnitSortColumn.UnitNumber)">
+                                <span class="text-dark d-flex align-items-center"
+                                      style="cursor:pointer" @onclick="() => SortBy(UnitSortColumn.UnitNumber)">
                                     N° Unidad
                                     <i class="bi @SortIconClass(UnitSortColumn.UnitNumber) ms-1 text-muted"></i>
-                                </a>
+                                </span>
                             </th>
                             <th class="text-nowrap">Ubicación</th>
                             <th class="text-nowrap">
-                                <a href="#" class="text-decoration-none text-dark d-flex align-items-center"
-                                   style="cursor:pointer" @onclick:preventDefault @onclick="() => SortBy(UnitSortColumn.Area)">
+                                <span class="text-dark d-flex align-items-center"
+                                      style="cursor:pointer" @onclick="() => SortBy(UnitSortColumn.Area)">
                                     Área (m²)
                                     <i class="bi @SortIconClass(UnitSortColumn.Area) ms-1 text-muted"></i>
-                                </a>
+                                </span>
                             </th>
                             <th class="text-nowrap">Propietario/Inquilino</th>
                             <th class="text-nowrap">Estado</th>

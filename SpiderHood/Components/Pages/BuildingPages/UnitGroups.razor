@@ -63,10 +63,11 @@
                             <i class="bi bi-funnel me-1"></i>Filtrar
                         </button>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#"><i class="bi bi-check-circle me-2"></i>Todas las unidades</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="bi bi-building me-2"></i>Departamentos</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="bi bi-shop me-2"></i>Oficinas</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="bi bi-car-front me-2"></i>Estacionamientos</a></li>
+                            <li><button type="button" class="dropdown-item @(_selectedTypeFilter == 0 ? "active" : "")" @onclick="() => SetTypeFilter(0)"><i class="bi bi-check-circle me-2"></i>Todas las unidades</button></li>
+                            <li><button type="button" class="dropdown-item @(_selectedTypeFilter == 1 ? "active" : "")" @onclick="() => SetTypeFilter(1)"><i class="bi bi-building me-2"></i>Departamentos</button></li>
+                            <li><button type="button" class="dropdown-item @(_selectedTypeFilter == 4 ? "active" : "")" @onclick="() => SetTypeFilter(4)"><i class="bi bi-shop me-2"></i>Oficinas</button></li>
+                            <li><button type="button" class="dropdown-item @(_selectedTypeFilter == 2 ? "active" : "")" @onclick="() => SetTypeFilter(2)"><i class="bi bi-car-front me-2"></i>Estacionamientos</button></li>
+                            <li><button type="button" class="dropdown-item @(_selectedTypeFilter == 3 ? "active" : "")" @onclick="() => SetTypeFilter(3)"><i class="bi bi-box-seam me-2"></i>Depósitos</button></li>
                         </ul>
                     </div>
 
@@ -209,7 +210,20 @@
             </div>
 
             <!-- Sin resultados -->
-            @if (!units.Any())
+            @if (units.Any() && !FilteredUnits.Any())
+            {
+                <div class="text-center py-5">
+                    <div class="mb-3">
+                        <i class="bi bi-funnel text-muted display-4"></i>
+                    </div>
+                    <h5 class="text-muted mb-2">Ninguna unidad coincide con el filtro</h5>
+                    <p class="text-muted mb-3">Probá con otro tipo de unidad</p>
+                    <button class="btn btn-outline-secondary" @onclick="() => SetTypeFilter(0)">
+                        <i class="bi bi-x-circle me-2"></i>Quitar filtro
+                    </button>
+                </div>
+            }
+            else if (!units.Any())
             {
                 <div class="text-center py-5">
                     <div class="mb-3">
@@ -232,7 +246,7 @@
         <div class="card-footer bg-transparent border-top py-3">
             <div class="d-flex justify-content-between align-items-center">
                 <div class="text-muted">
-                    Mostrando <strong>@PagedUnits.Count()</strong> de <strong>@units.Count</strong> unidades
+                    Mostrando <strong>@PagedUnits.Count()</strong> de <strong>@FilteredUnits.Count</strong> unidades
                 </div>
 
                 <!-- Paginación -->
@@ -408,7 +422,7 @@
     // completo desde BuildingService.GetUnitsByBuildingAsync en InicializarPagina.
     private int _unitPageSize = 10;
     private int _unitPage = 1;
-    private int TotalUnitPages => units.Count == 0 ? 1 : (int)Math.Ceiling(units.Count / (double)_unitPageSize);
+    private int TotalUnitPages => FilteredUnits.Count == 0 ? 1 : (int)Math.Ceiling(FilteredUnits.Count / (double)_unitPageSize);
     private IEnumerable<Models.RealEstateUnit> PagedUnits => SortedUnits.Skip((_unitPage - 1) * _unitPageSize).Take(_unitPageSize);
 
     private void GoToUnitPage(int page)
@@ -423,19 +437,33 @@
         _unitPage = 1;
     }
 
+    // Filtro por tipo de unidad -- el dropdown "Filtrar" antes eran <a href="#">
+    // sin ningún @onclick: no filtraban nada y, al ser <a>, el clic lo interceptaba
+    // la navegación mejorada de Blazor y mandaba al dashboard (mismo problema que
+    // tenían los encabezados ordenables). 0 = todas las unidades.
+    private int _selectedTypeFilter = 0;
+    private List<Models.RealEstateUnit> FilteredUnits =>
+        units.Where(u => _selectedTypeFilter == 0 || u.TypeUnit == _selectedTypeFilter).ToList();
+
+    private void SetTypeFilter(int type)
+    {
+        _selectedTypeFilter = type;
+        _unitPage = 1;
+    }
+
     // Orden de la grilla de unidades -- los encabezados con flechita (Tipo, N°
     // Unidad, Área) antes no tenían ningún @onclick, así que la flechita no hacía
-    // nada. Orden en memoria sobre `units`, igual que la paginación de arriba.
+    // nada. Orden en memoria sobre FilteredUnits, igual que la paginación de arriba.
     private enum UnitSortColumn { None, Tipo, UnitNumber, Area }
     private UnitSortColumn _unitSortColumn = UnitSortColumn.None;
     private bool _unitSortAscending = true;
 
     private IEnumerable<Models.RealEstateUnit> SortedUnits => _unitSortColumn switch
     {
-        UnitSortColumn.Tipo => _unitSortAscending ? units.OrderBy(u => u.TypeUnit) : units.OrderByDescending(u => u.TypeUnit),
-        UnitSortColumn.UnitNumber => _unitSortAscending ? units.OrderBy(u => u.UnitNumber) : units.OrderByDescending(u => u.UnitNumber),
-        UnitSortColumn.Area => _unitSortAscending ? units.OrderBy(u => u.Area) : units.OrderByDescending(u => u.Area),
-        _ => units
+        UnitSortColumn.Tipo => _unitSortAscending ? FilteredUnits.OrderBy(u => u.TypeUnit) : FilteredUnits.OrderByDescending(u => u.TypeUnit),
+        UnitSortColumn.UnitNumber => _unitSortAscending ? FilteredUnits.OrderBy(u => u.UnitNumber) : FilteredUnits.OrderByDescending(u => u.UnitNumber),
+        UnitSortColumn.Area => _unitSortAscending ? FilteredUnits.OrderBy(u => u.Area) : FilteredUnits.OrderByDescending(u => u.Area),
+        _ => FilteredUnits
     };
 
     private void SortBy(UnitSortColumn column)

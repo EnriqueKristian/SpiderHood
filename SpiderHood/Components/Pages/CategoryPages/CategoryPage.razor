@@ -296,7 +296,7 @@
             var result = await CategoryService.DeleteCategoryAsync(_currentCategory);
             if (!result.IsSuccess)
             {
-                await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo eliminar la categoría");
+                await ShowToast("Error", result.ErrorMessage ?? "No se pudo eliminar la categoría", "danger");
                 return;
             }
 
@@ -331,5 +331,18 @@
     public void Dispose()
     {
         // Liberar recursos si es necesario
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 }

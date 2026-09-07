@@ -221,7 +221,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar datos: {ex.Message}");
+            await ShowToast("Error", $"Error al cargar datos: {ex.Message}", "danger");
         }
         finally
         {
@@ -268,7 +268,7 @@ else
                 var isValid = await MenuAdminService.ValidateMenuItemUrlAsync(_item.Url, _isEdit ? Id : null);
                 if (!isValid)
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "Ya existe un item con esta URL");
+                    await ShowToast("Error", "Ya existe un item con esta URL", "danger");
                     _saving = false;
                     return;
                 }
@@ -280,23 +280,36 @@ else
             if (_isEdit)
             {
                 await MenuAdminService.UpdateMenuItemAsync(_item);
-                await JSRuntime.InvokeVoidAsync("alert", "Item actualizado exitosamente");
+                await ShowToast("Éxito", "Item actualizado exitosamente", "success");
             }
             else
             {
                 await MenuAdminService.CreateMenuItemAsync(_item);
-                await JSRuntime.InvokeVoidAsync("alert", "Item creado exitosamente");
+                await ShowToast("Éxito", "Item creado exitosamente", "success");
             }
 
             Navigation.NavigateTo("/Settings/MenuItems");
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+            await ShowToast("Error", $"Error al guardar: {ex.Message}", "danger");
         }
         finally
         {
             _saving = false;
+        }
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
         }
     }
 }

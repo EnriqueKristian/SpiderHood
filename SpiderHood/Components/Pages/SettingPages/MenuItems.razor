@@ -241,7 +241,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar: {ex.Message}");
+            await ShowToast("Error", $"Error al cargar: {ex.Message}", "danger");
         }
         finally
         {
@@ -386,11 +386,11 @@ else
 
             _pendingChanges.Clear();
             await LoadDataAsync();
-            await JSRuntime.InvokeVoidAsync("alert", "Permisos guardados exitosamente");
+            await ShowToast("Éxito", "Permisos guardados exitosamente", "success");
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+            await ShowToast("Error", $"Error al guardar: {ex.Message}", "danger");
         }
     }
 
@@ -439,12 +439,12 @@ else
             {
                 await MenuAdminService.DeleteMenuItemAsync(id);
                 await LoadDataAsync();
-                await JSRuntime.InvokeVoidAsync("alert", "Item eliminado exitosamente");
+                await ShowToast("Éxito", "Item eliminado exitosamente", "success");
                 StateHasChanged();
             }
             catch (Exception ex)
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Error al eliminar: {ex.Message}");
+                await ShowToast("Error", $"Error al eliminar: {ex.Message}", "danger");
             }
         }
     }
@@ -470,7 +470,7 @@ else
 
         await MenuAdminService.ReorderMenuAsync(itemsToUpdate);
         await LoadDataAsync();
-        await JSRuntime.InvokeVoidAsync("alert", "Orden guardado exitosamente");
+        await ShowToast("Éxito", "Orden guardado exitosamente", "success");
     }
 
     private void ToggleItemExpansion(Guid itemId)
@@ -505,4 +505,17 @@ else
     // si acaso, pero Guid.Empty es el valor real que trae la data.
     private static bool IsRootMenuItem(MenuItemWithRoles item) =>
         item.IdParent == null || item.IdParent == Guid.Empty;
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
+    }
 }

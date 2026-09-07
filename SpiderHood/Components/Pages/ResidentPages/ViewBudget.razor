@@ -176,7 +176,7 @@
             var detalle = await BudgetService.GetPresupuestoByIdAsync(presupuesto.IdBudgetHeader);
             if (detalle == null)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "No se encontró el detalle de este presupuesto.");
+                await ShowToast("Error", "No se encontró el detalle de este presupuesto.", "danger");
                 return;
             }
 
@@ -193,7 +193,7 @@
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar el detalle del presupuesto: {ex.Message}");
+            await ShowToast("Error", $"Error al cargar el detalle del presupuesto: {ex.Message}", "danger");
         }
     }
 
@@ -201,5 +201,18 @@
     {
         _mostrarModalDetalle = false;
         _budgetDetail = null;
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 }

@@ -702,7 +702,20 @@
     private async Task ExportToExcel()
     {
         // Lógica para exportar a Excel
-        await JSRuntime.InvokeVoidAsync("alert", "Exportando gastos a Excel...");
+        await ShowToast("Información", "Exportando gastos a Excel...", "info");
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 
     // Watchers para filtros

@@ -1716,7 +1716,7 @@
     private async Task MostrarReporteDiferencias()
     {
         // Implementar lógica para mostrar reporte
-        await JSRuntime.InvokeVoidAsync("alert", "Reporte de diferencias (función en desarrollo)");
+        await ShowToast("Información", "Reporte de diferencias (función en desarrollo)", "info");
     }
 
     private async Task ExportarConciliacion()
@@ -1900,7 +1900,7 @@
         CerrarModalCargarEstado();
     }
 
-    private void VerDetallesTransaccion(TransactionBankDetail transaccion)
+    private async Task VerDetallesTransaccion(TransactionBankDetail transaccion)
     {
         if (transaccion.Tipo == "Ingreso" && transaccion.ReconciliationStatus != ConcilationType.NoConciliada)
         {
@@ -1909,15 +1909,17 @@
             return;
         }
 
-        // Gasto (o Ingreso sin conciliar todavía): vista simple existente
-        var detalles = $"Fecha: {transaccion.StatementDate:dd/MM/yyyy}\n" +
-              $"Descripción: {transaccion.Description}\n" +
-              $"Monto: {transaccion.Amount:C}\n" +
-              $"Referencia: {transaccion.Reference}\n" +
-              $"Tipo: {transaccion.Tipo}\n" +
+        // Gasto (o Ingreso sin conciliar todavía): vista simple existente. showToast
+        // vuelca el mensaje via innerHTML (ver wwwroot/js/utilidades.js), asi que los
+        // saltos de línea se pasan como <br> en vez de "\n" para que se vean.
+        var detalles = $"Fecha: {transaccion.StatementDate:dd/MM/yyyy}<br>" +
+              $"Descripción: {transaccion.Description}<br>" +
+              $"Monto: {transaccion.Amount:C}<br>" +
+              $"Referencia: {transaccion.Reference}<br>" +
+              $"Tipo: {transaccion.Tipo}<br>" +
               $"Estado: {(transaccion.ReconciliationStatus == ConcilationType.Conciliada ? "Conciliado" : "Pendiente")}";
 
-        JSRuntime.InvokeVoidAsync("alert", detalles);
+        await ShowToast("Detalle de transacción", detalles, "info");
     }
 
     private void CerrarModalVerDetalleIngreso()
@@ -1929,5 +1931,18 @@
     public void Dispose()
     {
         // Limpiar recursos si es necesario
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 }

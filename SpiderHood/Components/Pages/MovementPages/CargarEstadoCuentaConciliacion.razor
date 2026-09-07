@@ -515,7 +515,20 @@
 
     private async Task DownloadReport()
     {
-        await JSRuntime.InvokeVoidAsync("alert", "Función de descarga aún no implementada");
+        await ShowToast("Información", "Función de descarga aún no implementada", "info");
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 
     private async Task SaveData()

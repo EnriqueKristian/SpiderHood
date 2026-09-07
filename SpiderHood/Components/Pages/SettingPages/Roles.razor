@@ -155,12 +155,25 @@ else
             {
                 await PermissionAdminService.DeleteRoleAsync(role.IdRole);
                 await LoadRolesAsync();
-                await JSRuntime.InvokeVoidAsync("alert", "Rol eliminado exitosamente");
+                await ShowToast("Éxito", "Rol eliminado exitosamente", "success");
             }
             catch (Exception ex)
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"Error al eliminar: {ex.Message}");
+                await ShowToast("Error", $"Error al eliminar: {ex.Message}", "danger");
             }
+        }
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
         }
     }
 }

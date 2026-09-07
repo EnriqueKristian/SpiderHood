@@ -230,7 +230,7 @@
             var result = await PromotionService.PromoteAndMergeAsync(cluster.CanonicalIdTabla.Value, cluster.SelectedForMerge.ToList());
             if (!result.IsSuccess)
             {
-                await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo completar la fusión");
+                await ShowToast("Error", result.ErrorMessage ?? "No se pudo completar la fusión", "danger");
                 return;
             }
 
@@ -240,6 +240,19 @@
         finally
         {
             _merging = false;
+        }
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
         }
     }
 }

@@ -299,7 +299,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar datos: {ex.Message}");
+            await ShowToast("Error", $"Error al cargar datos: {ex.Message}", "danger");
         }
         finally
         {
@@ -320,7 +320,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al asignar el rol: {ex.Message}");
+            await ShowToast("Error", $"Error al asignar el rol: {ex.Message}", "danger");
         }
     }
 
@@ -339,7 +339,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al quitar el rol: {ex.Message}");
+            await ShowToast("Error", $"Error al quitar el rol: {ex.Message}", "danger");
         }
     }
 
@@ -355,7 +355,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al aprobar la solicitud: {ex.Message}");
+            await ShowToast("Error", $"Error al aprobar la solicitud: {ex.Message}", "danger");
         }
     }
 
@@ -375,7 +375,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al rechazar la solicitud: {ex.Message}");
+            await ShowToast("Error", $"Error al rechazar la solicitud: {ex.Message}", "danger");
         }
     }
 
@@ -409,7 +409,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al asignar la unidad: {ex.Message}");
+            await ShowToast("Error", $"Error al asignar la unidad: {ex.Message}", "danger");
         }
     }
 
@@ -423,5 +423,18 @@ else
             "Residente" => "bg-info",
             _ => "bg-secondary"
         };
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 }

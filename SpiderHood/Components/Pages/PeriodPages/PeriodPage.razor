@@ -371,7 +371,7 @@
         }
         else
         {
-            await JSRuntime.InvokeVoidAsync("alert", "No se pudo eliminar el periodo");
+            await ShowToast("Error", "No se pudo eliminar el periodo", "danger");
         }
     }
 
@@ -388,7 +388,20 @@
         }
         else
         {
-            await JSRuntime.InvokeVoidAsync("alert", "No se pudo establecer el periodo como actual");
+            await ShowToast("Error", "No se pudo establecer el periodo como actual", "danger");
+        }
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
         }
     }
 

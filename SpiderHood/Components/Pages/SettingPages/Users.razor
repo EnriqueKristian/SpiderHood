@@ -347,7 +347,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al cargar usuarios: {ex.Message}");
+            await ShowToast("Error", $"Error al cargar usuarios: {ex.Message}", "danger");
         }
         finally
         {
@@ -448,7 +448,7 @@ else
                 var result = await AuthService.UpdateUserAdminAsync(model.IdUser, model.FirstName, model.LastName, model.PhoneNumber, model.IsActive);
                 if (!result.Success)
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", result.Message);
+                    await ShowToast("Error", result.Message, "danger");
                     return;
                 }
 
@@ -462,7 +462,7 @@ else
                     var passwordResult = await AuthService.AdminResetPasswordAsync(model.IdUser, model.Password);
                     if (!passwordResult.Success)
                     {
-                        await JSRuntime.InvokeVoidAsync("alert", passwordResult.Message);
+                        await ShowToast("Error", passwordResult.Message, "danger");
                         return;
                     }
                 }
@@ -472,7 +472,7 @@ else
                 var result = await AuthService.CreateUserAsync(model.Email, model.FirstName, model.LastName, model.PhoneNumber, model.Password);
                 if (!result.Success || result.User == null)
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", result.Message);
+                    await ShowToast("Error", result.Message, "danger");
                     return;
                 }
 
@@ -493,7 +493,7 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+            await ShowToast("Error", $"Error al guardar: {ex.Message}", "danger");
         }
     }
 
@@ -522,11 +522,24 @@ else
 
         if (!result.Success)
         {
-            await JSRuntime.InvokeVoidAsync("alert", result.Message);
+            await ShowToast("Error", result.Message, "danger");
             return;
         }
 
         await CargarUsuarios();
         AplicarFiltros();
+    }
+
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 }

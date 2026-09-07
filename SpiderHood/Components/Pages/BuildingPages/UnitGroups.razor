@@ -350,9 +350,21 @@
                                                             Oficinas (@(PctOficinas.ToString("0.#"))%)
                                                         </div>
                                                     }
+                                                    @if (UnitCountEstacionamientos > 0)
+                                                    {
+                                                        <div class="progress-bar bg-info" style="width: @(PctEstacionamientos)%">
+                                                            Estacionamientos (@(PctEstacionamientos.ToString("0.#"))%)
+                                                        </div>
+                                                    }
+                                                    @if (UnitCountDepositos > 0)
+                                                    {
+                                                        <div class="progress-bar bg-warning" style="width: @(PctDepositos)%">
+                                                            Depósitos (@(PctDepositos.ToString("0.#"))%)
+                                                        </div>
+                                                    }
                                                     @if (UnitCountOtros > 0)
                                                     {
-                                                        <div class="progress-bar bg-info" style="width: @(PctOtros)%">
+                                                        <div class="progress-bar bg-secondary" style="width: @(PctOtros)%">
                                                             Otros (@(PctOtros.ToString("0.#"))%)
                                                         </div>
                                                     }
@@ -804,13 +816,19 @@
     private List<Models.RealEstateUnit> list_units = new();
 
     // Distribución por tipo (tarjeta "Grupo de Unidades") -- antes era una barra
-    // fija en 70/20/10 sin relación con los datos reales. TypeUnit 1 = DPTO, 4 =
-    // Oficina (ver comentario de RealEstateUnit en Classes/Unit.cs); "Otros" junta
-    // Estacionamiento (2) y Depósito (3), igual que hacía la barra original.
+    // fija en 70/20/10 sin relación con los datos reales. Departamentos (1),
+    // Estacionamientos (2) y Depósitos (3) van cada uno por separado -- son los
+    // tres tipos que va a tener la mayoría de edificios -- y Oficinas (4) aparte
+    // ya que no todos los edificios los tienen. "Otros" es un colchón para
+    // cualquier TypeUnit fuera de esos cuatro, para que la barra siempre sume 100%.
     private int UnitCountDepartamentos => units.Count(u => u.TypeUnit == 1);
+    private int UnitCountEstacionamientos => units.Count(u => u.TypeUnit == 2);
+    private int UnitCountDepositos => units.Count(u => u.TypeUnit == 3);
     private int UnitCountOficinas => units.Count(u => u.TypeUnit == 4);
-    private int UnitCountOtros => units.Count - UnitCountDepartamentos - UnitCountOficinas;
+    private int UnitCountOtros => units.Count - UnitCountDepartamentos - UnitCountEstacionamientos - UnitCountDepositos - UnitCountOficinas;
     private double PctDepartamentos => units.Count == 0 ? 0 : Math.Round(UnitCountDepartamentos * 100.0 / units.Count, 1);
+    private double PctEstacionamientos => units.Count == 0 ? 0 : Math.Round(UnitCountEstacionamientos * 100.0 / units.Count, 1);
+    private double PctDepositos => units.Count == 0 ? 0 : Math.Round(UnitCountDepositos * 100.0 / units.Count, 1);
     private double PctOficinas => units.Count == 0 ? 0 : Math.Round(UnitCountOficinas * 100.0 / units.Count, 1);
     private double PctOtros => units.Count == 0 ? 0 : Math.Round(UnitCountOtros * 100.0 / units.Count, 1);
 

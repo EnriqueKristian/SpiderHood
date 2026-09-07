@@ -697,15 +697,31 @@
     private async Task DeleteItem()
     {
         var result = await BuildingService.DeleteUnitAsync(_Unit);
+        await modal.HideAsync();
+
         if (!result.IsSuccess)
         {
-            await modal.HideAsync();
-            await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo eliminar la unidad");
+            await ShowToast("Error", result.ErrorMessage ?? "No se pudo eliminar la unidad", "danger");
             return;
         }
 
-        await modal.HideAsync();
         await InicializarPagina();
+    }
+
+    // Mismo patrón que BuildingSelection.razor/PeriodForm.razor/etc. -- showToast
+    // (wwwroot/js/utilidades.js) es la "ventana de mensajes" del sistema, en vez
+    // de un alert() nativo del navegador.
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 
     private List<Models.RealEstateUnit> units = new();

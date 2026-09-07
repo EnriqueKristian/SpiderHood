@@ -573,7 +573,7 @@
 <!--    MODAL PARA ELIMINAR UNIDADES -->
 <Modal @ref="modal" Title="Eliminar Unidad" UseStaticBackdrop="true" CloseOnEscape="false" IsVerticallyCentered="true">
     <BodyTemplate>
-        ¿Esta seguro que desea eliminar la Unidad @_Unit.UnitNumber?.
+        ¿Esta seguro que desea eliminar la Unidad @(_Unit.UnitNumber)?.
     </BodyTemplate>
     <FooterTemplate>
         <Button Color="ButtonColor.Primary" @onclick="DeleteItem">Aceptar</Button>

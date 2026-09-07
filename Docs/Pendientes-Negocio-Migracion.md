@@ -175,3 +175,26 @@ que atrapan el error 547 de SQL). Mismo patrón que resolvió
 `Database/Scripts/2026-09-02_24_Category_RealFK.sql` para Category, pendiente
 de replicar para Contact y Parameter -- o, si nunca va a haber borrado real
 de edificios desde la app, documentar que es intencional.
+
+---
+
+## 7. Los 5 importadores ya existen, pero no concilian entre sí
+
+**Estado: los 5 importadores están construidos y funcionando**
+(`Services/IMigrationImportService.cs`, uno por cada plantilla de
+`/migracion/plantillas`), con dos límites deliberados que quedan para cuando
+se aborde el punto 1 de este documento (reconciliación real):
+
+- **Cuotas y Pagos no concilia contra Estado de Cuenta.** Las columnas
+  'Cuenta Bancaria del Pago' y 'Referencia de Pago' de la plantilla se leen
+  pero no se usan -- cada `InstallmentPaid` migrado queda con
+  `IdTransaction = Guid.Empty`. Si ambas plantillas se cargan para el mismo
+  edificio, los pagos y los movimientos bancarios quedan como dos historiales
+  paralelos sin vincular; conciliarlos hoy requeriría hacerlo a mano desde la
+  pantalla de Conciliación.
+- **Estado de Cuenta no crea `Expense` categorizados.** La columna
+  'Categoría' de la plantilla se lee y se valida, pero no se guarda en
+  ningún lado -- `TransactionBankDetail` no tiene columna de categoría
+  propia (la categorización real vive en `Expense`, conciliado aparte). Cargar
+  egresos históricos ya categorizados como gasto es un alcance más grande que
+  "registrar el movimiento bancario", no incluido todavía.

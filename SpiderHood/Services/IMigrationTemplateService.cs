@@ -39,7 +39,7 @@ namespace SpiderHood.Services
 
         public async Task<(string FileName, byte[] Bytes)> GenerarPlantillaCuotasYPagosAsync(Guid idBuilding)
         {
-            var unidades = await ObtenerCodigosUnidadAsync(idBuilding);
+            var (unidades, errorUnidades) = await ObtenerCodigosUnidadAsync(idBuilding);
             var cuentas = await ObtenerCuentasAsync(idBuilding);
 
             using var workbook = new XLWorkbook();
@@ -78,9 +78,7 @@ namespace SpiderHood.Services
                 "Si una cuota se pagó en más de un abono, agregue una fila adicional igual a la original pero solo con las columnas de pago llenas -- el importador las suma contra la misma cuota.",
                 "'Cuenta Bancaria del Pago' y 'Referencia de Pago' son opcionales: si además carga la plantilla de Estado de Cuenta, el sistema intenta conciliar automáticamente por fecha + monto + cuenta.",
                 "Deje 'Monto Pagado' en 0 y las columnas de pago vacías si la cuota sigue impaga.",
-                unidades.Count == 0
-                    ? "Este edificio todavía no tiene unidades registradas -- la lista de 'Unidad' está vacía. Regístrelas primero en Edificios > Unidades."
-                    : $"Unidades disponibles en este edificio: {unidades.Count}."
+                MensajeUnidades(unidades, errorUnidades)
             });
 
             workbook.Worksheet("Instrucciones").Position = 1;
@@ -149,7 +147,7 @@ namespace SpiderHood.Services
 
         public async Task<(string FileName, byte[] Bytes)> GenerarPlantillaLecturasAguaAsync(Guid idBuilding)
         {
-            var unidades = await ObtenerCodigosUnidadAsync(idBuilding);
+            var (unidades, errorUnidades) = await ObtenerCodigosUnidadAsync(idBuilding);
 
             using var workbook = new XLWorkbook();
             var ws = workbook.Worksheets.Add("Lecturas");
@@ -180,9 +178,7 @@ namespace SpiderHood.Services
                 "'Lectura' es la lectura acumulada del medidor a esa fecha, no el consumo del mes -- el consumo se calcula contra la lectura del periodo anterior de la misma unidad.",
                 "'Lectura Inicial' solo se llena en la fila del primer periodo histórico de cada unidad. Déjela vacía en las demás filas.",
                 "'Fecha de Lectura' es opcional; si se deja vacía, el sistema usa el último día del Periodo indicado.",
-                unidades.Count == 0
-                    ? "Este edificio todavía no tiene unidades registradas -- la lista de 'Unidad' está vacía. Regístrelas primero en Edificios > Unidades."
-                    : $"Unidades disponibles en este edificio: {unidades.Count}."
+                MensajeUnidades(unidades, errorUnidades)
             });
 
             workbook.Worksheet("Instrucciones").Position = 1;
@@ -241,15 +237,41 @@ namespace SpiderHood.Services
         // Datos maestros del edificio (para las listas desplegables)
         // ---------------------------------------------------------------
 
-        private async Task<List<string>> ObtenerCodigosUnidadAsync(Guid idBuilding)
+        // GetGroupUnitsByTypeAsync (GET_UnitsByType) puede reventar con
+        // SqlNullValueException si alguna unidad del edificio tiene una columna Guid en
+        // NULL (p.ej. IdGroupUnit de una unidad todavía sin asignar a ningún
+        // propietario/grupo) -- mismo llamado que ya usa el botón "Descargar plantilla"
+        // de Lecturas de Agua (BlockWaterReading.razor.ObtenerUnidadesDelEdificio), así
+        // que es un problema de datos preexistente del edificio, no de esta plantilla.
+        // Se atrapa acá para que ESA falla no tumbe toda la descarga -- el desplegable de
+        // Unidad queda vacío y AgregarInstrucciones avisa con un mensaje distinto al de
+        // "no hay unidades registradas".
+        private async Task<(List<string> Codigos, bool Error)> ObtenerCodigosUnidadAsync(Guid idBuilding)
         {
-            var unidades = await _buildingService.GetGroupUnitsByTypeAsync(idBuilding, 1);
-            return unidades
-                .Select(u => u.UnitNumber)
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Distinct()
-                .OrderBy(n => n)
-                .ToList();
+            try
+            {
+                var unidades = await _buildingService.GetGroupUnitsByTypeAsync(idBuilding, 1);
+                var codigos = unidades
+                    .Select(u => u.UnitNumber)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct()
+                    .OrderBy(n => n)
+                    .ToList();
+                return (codigos, false);
+            }
+            catch (Exception)
+            {
+                return (new List<string>(), true);
+            }
+        }
+
+        private static string MensajeUnidades(List<string> unidades, bool error)
+        {
+            if (error)
+                return "No se pudo cargar la lista de unidades de este edificio (problema al leer datos de unidades) -- la lista de 'Unidad' quedó vacía. Puede escribir el código de la unidad a mano en cada fila; si el problema persiste, revise si hay unidades sin propietario/grupo asignado en Edificios > Unidades.";
+            if (unidades.Count == 0)
+                return "Este edificio todavía no tiene unidades registradas -- la lista de 'Unidad' está vacía. Regístrelas primero en Edificios > Unidades.";
+            return $"Unidades disponibles en este edificio: {unidades.Count}.";
         }
 
         private async Task<List<(string Numero, string Banco)>> ObtenerCuentasAsync(Guid idBuilding)
@@ -365,9 +387,16 @@ namespace SpiderHood.Services
 
         // Lista fija corta (Ordinaria/Extraordinaria, Ingreso/Egreso, Sí/No, etc.) --
         // sí cabe cómoda como lista inline.
+        //
+        // OJO: List(string) NO encierra el literal entre comillas por su cuenta --
+        // hay que mandárselo ya entrecomillado ("Ordinaria,Extraordinaria" en vez de
+        // Ordinaria,Extraordinaria) o escribe <formula1>Ordinaria,Extraordinaria</formula1>
+        // en vez de <formula1>"Ordinaria,Extraordinaria"</formula1>, que es lo que exige
+        // el formato -- Excel lo marca como contenido dañado al abrir (bug conocido de
+        // ClosedXML, ver https://github.com/ClosedXML/ClosedXML/issues/2822).
         private static void AplicarListaInline(IXLWorksheet ws, string rango, string opciones)
         {
-            ws.Range(rango).SetDataValidation().List(opciones, true);
+            ws.Range(rango).SetDataValidation().List($"\"{opciones}\"", true);
         }
 
         private static void AjustarColumnas(IXLWorksheet ws, params double[] anchos)

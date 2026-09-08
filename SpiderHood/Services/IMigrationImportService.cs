@@ -1136,23 +1136,30 @@ namespace SpiderHood.Services
                                     var claveCache = $"{cuentaResuelta.IdBankAccount}|{f.ReferenciaPago}";
                                     if (!idTransactionPorReferencia.TryGetValue(claveCache, out var idTransactionCacheado))
                                     {
+                                        string? errorBusqueda = null;
                                         try
                                         {
                                             idTransactionCacheado = await _ec.GetTransactionByOriginalReferenceAsync(cuentaResuelta.IdBankAccount, f.ReferenciaPago);
                                         }
-                                        catch (Exception)
+                                        catch (Exception ex)
                                         {
-                                            // Probablemente el script que agrega OriginalReference todavía no
-                                            // corrió en esta base -- el pago igual se guarda, solo sin enlazar.
+                                            // A propósito distinto del mensaje de "no encontrado" de abajo --
+                                            // acá la búsqueda en sí falló (ej. el Stored Procedure o la columna
+                                            // OriginalReference no existen todavía en esta base), muy distinto
+                                            // de que la referencia simplemente no esté.
                                             idTransactionCacheado = null;
+                                            errorBusqueda = MensajeErrorReal(ex);
                                         }
                                         idTransactionPorReferencia[claveCache] = idTransactionCacheado;
+
+                                        if (errorBusqueda != null)
+                                            resultado.Advertencias.Add($"Cuotas: '{unidadCodigo}' en {periodo:yyyy-MM}: la búsqueda del movimiento con Referencia '{f.ReferenciaPago}' falló -- {errorBusqueda}. El pago se guardó sin enlazar.");
+                                        else if (idTransactionCacheado == null)
+                                            resultado.Advertencias.Add($"Cuotas: '{unidadCodigo}' en {periodo:yyyy-MM}: no se encontró ningún movimiento con Referencia '{f.ReferenciaPago}' en la cuenta '{f.CuentaBancariaPago}' -- el pago se guardó sin enlazar.");
                                     }
 
                                     if (idTransactionCacheado.HasValue)
                                         idTransaction = idTransactionCacheado.Value;
-                                    else
-                                        resultado.Advertencias.Add($"Cuotas: '{unidadCodigo}' en {periodo:yyyy-MM}: no se encontró ningún movimiento con Referencia '{f.ReferenciaPago}' en la cuenta '{f.CuentaBancariaPago}' -- el pago se guardó sin enlazar.");
                                 }
                             }
 

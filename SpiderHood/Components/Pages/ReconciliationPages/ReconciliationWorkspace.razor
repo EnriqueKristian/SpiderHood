@@ -287,6 +287,7 @@
                                             <th>Descripción</th>
                                             <th width="80">Referencia</th>
                                             <th width="100" class="text-end">Monto</th>
+                                            <th width="100" class="text-end">Pendiente</th>
                                             <th width="80">Tipo</th>
                                             <th width="150">Conciliado Con</th>
                                             <th width="100">Estado</th>
@@ -330,6 +331,13 @@
                                                 </td>
                                                 <td class="text-end fw-bold @(transaccion.Amount  < 0 ? "text-danger" : "text-success")">
                                                     @Moneda(Math.Abs(transaccion.Amount))
+                                                </td>
+                                                <td class="text-end @(transaccion.Tipo == "Ingreso" && Math.Abs(transaccion.Balance) > 0.01m ? "fw-bold text-warning" : "text-muted")">
+                                                    @* Balance sale de VW_SUM_InstallmentPaidTransaction (pagos de cuota), que
+                                                       no aplica a Gastos -- ahí Balance siempre queda igual a Amount sin
+                                                       importar si ya se conciliό, así que mostrarlo confundiría "pendiente
+                                                       de aplicar" con "gasto ya conciliado". Solo tiene sentido en Ingresos. *@
+                                                    @(transaccion.Tipo == "Ingreso" ? Moneda(Math.Abs(transaccion.Balance)) : "—")
                                                 </td>
                                                 <td>
                                                     <span class="badge @(transaccion.Amount < 0 ? "bg-danger" : "bg-success")">
@@ -389,14 +397,33 @@
                                                     }
                                                     else
                                                     {
-                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial)
                                                         {
+                                                            // Ingreso conciliado con cuota(s), NO con un Gasto -- GastoConciliado
+                                                            // siempre es null acá (ese campo es para Gastos), así que esto se
+                                                            // apoyaba en un valor que nunca existe y la columna quedaba vacía.
+                                                            // pagosCuotas ya trae OwnerName/UnitName por transacción.
+                                                            var pagosDeEsta = pagosCuotas.Where(p => p.IdTransaction == transaccion.IdStatementDetail).ToList();
                                                             <div class="d-flex align-items-center">
                                                                 <i class="bi bi-link-45deg text-primary me-2"></i>
-                                                                <div>
-                                                                    <div class="small">@transaccion.GastoConciliado?.Category</div>
-                                                                    <div class="text-muted small">@transaccion.GastoConciliado?.Description</div>
-                                                                </div>
+                                                                @if (pagosDeEsta.Count == 1)
+                                                                {
+                                                                    <div>
+                                                                        <div class="small">@pagosDeEsta[0].OwnerName</div>
+                                                                        <div class="text-muted small">Unidad @pagosDeEsta[0].UnitName</div>
+                                                                    </div>
+                                                                }
+                                                                else if (pagosDeEsta.Count > 1)
+                                                                {
+                                                                    <div>
+                                                                        <div class="small">@pagosDeEsta.Count cuotas</div>
+                                                                        <div class="text-muted small">@string.Join(", ", pagosDeEsta.Select(p => p.UnitName).Distinct())</div>
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="text-muted">&mdash;</span>
+                                                                }
                                                             </div>
                                                         }
                                                         else if (transaccion.IPosiblesMatches.Any())

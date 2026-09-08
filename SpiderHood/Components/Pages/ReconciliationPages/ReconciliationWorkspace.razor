@@ -287,6 +287,7 @@
                                             <th>Descripción</th>
                                             <th width="80">Referencia</th>
                                             <th width="100" class="text-end">Monto</th>
+                                            <th width="100" class="text-end">Pendiente</th>
                                             <th width="80">Tipo</th>
                                             <th width="150">Conciliado Con</th>
                                             <th width="100">Estado</th>
@@ -330,6 +331,13 @@
                                                 </td>
                                                 <td class="text-end fw-bold @(transaccion.Amount  < 0 ? "text-danger" : "text-success")">
                                                     @Moneda(Math.Abs(transaccion.Amount))
+                                                </td>
+                                                <td class="text-end @(transaccion.Tipo == "Ingreso" && Math.Abs(transaccion.Balance) > 0.01m ? "fw-bold text-warning" : "text-muted")">
+                                                    @* Balance sale de VW_SUM_InstallmentPaidTransaction (pagos de cuota), que
+                                                       no aplica a Gastos -- ahí Balance siempre queda igual a Amount sin
+                                                       importar si ya se conciliό, así que mostrarlo confundiría "pendiente
+                                                       de aplicar" con "gasto ya conciliado". Solo tiene sentido en Ingresos. *@
+                                                    @(transaccion.Tipo == "Ingreso" ? Moneda(Math.Abs(transaccion.Balance)) : "—")
                                                 </td>
                                                 <td>
                                                     <span class="badge @(transaccion.Amount < 0 ? "bg-danger" : "bg-success")">

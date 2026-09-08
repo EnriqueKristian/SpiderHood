@@ -130,14 +130,35 @@ importador ni de las plantillas.
 
 ### 6.1 Contactos no se graban con el `IdRelatedEntity` correcto
 
-**Resuelto (2026-09-08)** -- mismo root cause que 6.2: `SelectBuilding`
-(`BuildingPage.razor.cs`) no refrescaba `SelectedBuilding.Configuration` al
-cambiar de edificio en el mismo circuito, así que `interno.IdBuildingConfiguration`
-podía venir de la versión liviana que trae la sesión (o directamente de otro
-edificio visitado antes) en vez de la que realmente corresponde al edificio
-seleccionado. Ver fix en 6.2 -- ahora `SelectBuilding` es async y vuelve a
-pedir la configuración completa (`GetConfigurationAsync`) de cada edificio al
-seleccionarlo.
+**Resuelto (2026-09-08) -- causa real distinta de lo que se sospechaba acá
+abajo.** No era `SelectBuilding` (ese bug, real y ya arreglado, es el de 6.2,
+pero no era la causa de ESTE síntoma) ni la escritura -- era el SP de lectura,
+confirmado con `sp_helptext GET_AllContacts` en producción:
+
+```sql
+CREATE PROCEDURE dbo.GET_AllContacts
+@IdRelatedEntity    UNIQUEIDENTIFIER
+AS
+BEGIN
+    SELECT IdContact, TypeContact, Name, Phone, Email, Address,
+           ISNULL(OfficePhone,'') AS OfficePhone,
+           ISNULL(MobilePhone,'') AS MobilePhone,
+           IdRelatedEntity
+    FROM   Contact
+    -- sin WHERE -- devolvía TODA la tabla Contact, ignorando @IdRelatedEntity
+END
+```
+
+Cada `Contact` individual SÍ tenía el `IdRelatedEntity` correcto grabado (por
+eso una consulta directa a la tabla no mostraba nada raro) -- el problema es
+que el SP los devolvía TODOS juntos para cualquier edificio, y
+`BuildingService.GetConfigurationAsync` hace
+`contacts.FirstOrDefault(c => c.TypeContact == 1)` sobre esa lista completa:
+cualquier edificio terminaba mostrando el contacto Admin/Inmobiliaria/
+Mantenimiento del PRIMER `Contact` de ese tipo que hubiera en TODA la base
+(en la práctica, el del edificio Template, creado primero). Fix en
+`Database/Scripts/2026-09-08_58_Fix_GET_AllContacts_SinFiltro.sql` --
+agrega `WHERE IdRelatedEntity = @IdRelatedEntity`.
 
 `Contact.IdRelatedEntity` debería apuntar a
 `BuildingConfiguration.IdBuildingConfiguration` -- así es como

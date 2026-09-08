@@ -63,6 +63,25 @@ namespace SpiderHood.Data
             }, "UpdateAccountInvitationStatus", cancellationToken);
         }
 
+        // Solo para migración de datos históricos (IMigrationImportService,
+        // ImportarEstadoDeCuentaAsync) -- estampa la referencia externa del sistema
+        // anterior (columna 'Referencia Original' de la plantilla) en un movimiento
+        // recién insertado. Update separado del INSERT normal (mismo criterio que
+        // StampAuditAsync) para no tocar INS_TransactionBankDetail, que sigue usando la
+        // carga manual diaria de Estado de Cuenta. Ningún flujo de uso diario llama esto.
+        public async Task UpdateTransactionOriginalReferenceAsync(Guid idStatementDetail, string originalReference, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_TransactionBankDetail_OriginalReference,
+                    cancellationToken,
+                    idStatementDetail,
+                    originalReference);
+                return true;
+            }, "UpdateTransactionOriginalReference", cancellationToken);
+        }
+
         public async Task<bool> UpdateTokenUserAsync(UserModel user, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

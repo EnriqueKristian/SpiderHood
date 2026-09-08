@@ -198,16 +198,24 @@ con espacios de entrada.
 
 **Estado: los 5 importadores están construidos y funcionando**
 (`Services/IMigrationImportService.cs`, uno por cada plantilla de
-`/migracion/plantillas`), con dos límites deliberados que quedan para cuando
-se aborde el punto 1 de este documento (reconciliación real):
+`/migracion/plantillas`).
 
-- **Cuotas y Pagos no concilia contra Estado de Cuenta.** Las columnas
-  'Cuenta Bancaria del Pago' y 'Referencia de Pago' de la plantilla se leen
-  pero no se usan -- cada `InstallmentPaid` migrado queda con
-  `IdTransaction = Guid.Empty`. Si ambas plantillas se cargan para el mismo
-  edificio, los pagos y los movimientos bancarios quedan como dos historiales
-  paralelos sin vincular; conciliarlos hoy requeriría hacerlo a mano desde la
-  pantalla de Conciliación.
+- ~~Cuotas y Pagos no concilia contra Estado de Cuenta~~ -- **resuelto**
+  (2026-09-08): ambas plantillas tienen ahora una columna opcional
+  ('Referencia Original' en Estado de Cuenta, 'Referencia de Pago' + 'Cuenta
+  Bancaria del Pago' en Cuotas y Pagos) para enlazar cada `InstallmentPaid`
+  migrado con el `TransactionBankDetail` real que lo pagó, usando el ID que
+  traía el sistema anterior del edificio (NO una conciliación automática por
+  fecha/monto -- se decidió así tras confirmar con datos reales de Nova
+  Alzamora que el `SequenceNumber` que asigna SpiderHood al cargar Estado de
+  Cuenta se desfasa del ID original apenas se descarta una fila del archivo,
+  y que fechas de pago pueden ser meses posteriores a la cuota que cubren).
+  Necesitó una columna nueva, `TransactionBankDetail.OriginalReference` (ver
+  `Database/Scripts/2026-09-08_56_TransactionBankDetail_OriginalReference.sql`)
+  y 2 Stored Procedures nuevos, usados solo por el importador -- ninguna
+  pantalla ni flujo de uso diario los toca. Si las columnas quedan vacías (la
+  mayoría de edificios no van a tener este nivel de detalle), el
+  comportamiento es igual que antes.
 - **Estado de Cuenta no crea `Expense` categorizados.** La columna
   'Categoría' de la plantilla se lee y se valida, pero no se guarda en
   ningún lado -- `TransactionBankDetail` no tiene columna de categoría

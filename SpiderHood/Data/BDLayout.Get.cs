@@ -151,6 +151,41 @@ namespace SpiderHood.Data
             }, "GetBankTransactionsNoConcilied", cancellationToken);
         }
 
+        // Solo para migración de datos históricos (IMigrationImportService,
+        // ImportarCuotasYPagosAsync) -- busca el IdStatementDetail del movimiento
+        // bancario original por la referencia externa que trajo la plantilla de Estado
+        // de Cuenta (columna 'Referencia Original'), no por SequenceNumber (ese lo
+        // asigna SpiderHood al cargar y se desfasa si se descarta alguna fila del
+        // archivo original). Ningún flujo de uso diario llama este método.
+        //
+        // Devuelve solo el Guid (no un TransactionBankDetail completo) a propósito --
+        // ExecuteQueryListAsync<T> mapea contra dbContext.Set<T>(), que exige que el
+        // SELECT devuelva TODAS las columnas que EF mapeó para esa entidad (incluidas
+        // las que llegan por JOIN a MovementHeader, como IdBankAccount, que no vive en
+        // esta tabla). Pedir solo el Guid vía SqlQueryRaw evita depender de esa lista
+        // completa de columnas, que no se pudo confirmar contra el diagrama real.
+        public async Task<Guid?> GetTransactionByOriginalReferenceAsync(Guid idBankAccount, string originalReference, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var dbContext = await RentContextAsync(cancellationToken);
+                try
+                {
+                    var sql = $"EXEC {StoredProcedures.GET_TransactionBankDetail_ByOriginalReference} @p0, @p1";
+                    var resultados = await dbContext.Database
+                        .SqlQueryRaw<Guid>(sql,
+                            new SqlParameter("@p0", idBankAccount),
+                            new SqlParameter("@p1", originalReference))
+                        .ToListAsync(cancellationToken);
+                    return resultados.Count > 0 ? resultados[0] : (Guid?)null;
+                }
+                finally
+                {
+                    ReturnContext(dbContext);
+                }
+            }, "GetTransactionByOriginalReference", cancellationToken);
+        }
+
         public async Task<List<Period>> GetPeriodsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

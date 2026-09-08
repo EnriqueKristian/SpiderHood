@@ -884,11 +884,23 @@ namespace SpiderHood.Services
         // acá, así que esto es una aproximación, no el mismo cálculo exacto que usa
         // el generador de presupuestos en vivo.
         //
-        // 'Cuenta Bancaria del Pago' y 'Referencia de Pago' de la plantilla NO se usan
-        // todavía -- conciliar cada pago contra un movimiento real de
-        // ImportarEstadoDeCuentaAsync queda pendiente (ver
-        // Docs/Pendientes-Negocio-Migracion.md); todo pago migrado queda con
-        // IdTransaction = Guid.Empty, sin bloquear el registro del pago en sí.
+        // 'Cuenta Bancaria del Pago' y 'Referencia de Pago' (ambas opcionales) enlazan
+        // cada pago con el movimiento real que lo pagó: se busca un TransactionBankDetail
+        // de esa cuenta cuyo OriginalReference (columna nueva, solo para migración, ver
+        // Database/Scripts/2026-09-08_56_...sql) sea igual a 'Referencia de Pago', y ese
+        // Guid se usa como InstallmentPaid.IdTransaction. NO es una conciliación
+        // automática por fecha/monto -- exige que ImportarEstadoDeCuentaAsync haya
+        // cargado ese movimiento con la misma referencia en su columna 'Referencia
+        // Original'. Si la cuenta/referencia no vienen, no existen, o el script de la
+        // columna nueva no corrió todavía, el pago igual se guarda -- solo con
+        // IdTransaction = Guid.Empty y una Advertencia, nunca bloquea la fila.
+        //
+        // El caso "una cuota pagada con partes de 2+ movimientos" (ver conversación con
+        // el usuario sobre Recibos.Fraccionado/Conciliado) no necesita lógica especial
+        // acá -- ya se resuelve con el mecanismo de fraccionado que existe desde el
+        // principio (repetir la fila con el mismo Periodo/Unidad/Tipo/Concepto): cada
+        // fila de ese grupo trae su propio Monto Pagado Y su propia Referencia de Pago,
+        // así que cada InstallmentPaid queda enlazado al movimiento que le corresponde.
         //
         // Todo el bloque por grupo (resolver/crear BudgetHeader + Installment +
         // InstallmentPaid) se captura en un solo try/catch -- antes no había ninguno acá,
@@ -928,6 +940,28 @@ namespace SpiderHood.Services
                 presupuestosExistentes = new List<Models.BudgetHeader>();
             }
 
+            // Para resolver 'Cuenta Bancaria del Pago' -> IdBankAccount, al enlazar cada
+            // pago con su movimiento real (ver 'Referencia de Pago' más abajo). .Trim()
+            // por el mismo motivo que ImportarEstadoDeCuentaAsync (Pendientes-Negocio-Migracion.md #6.4).
+            List<Models.BankAccount> cuentasBancarias;
+            try
+            {
+                cuentasBancarias = await _ec.GetBankAccountsByBuildingAsync(idBuilding);
+            }
+            catch (Exception)
+            {
+                cuentasBancarias = new List<Models.BankAccount>();
+            }
+            var cuentaBancariaPorNumero = cuentasBancarias
+                .Where(c => !string.IsNullOrWhiteSpace(c.AccountNumber))
+                .GroupBy(c => c.AccountNumber.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            // Cache de (IdBankAccount, Referencia) -> IdStatementDetail ya resuelto, para no
+            // repetir la búsqueda cuando la misma Referencia aparece en varias filas (un
+            // pago que fraccionó varias cuotas, ver comentario del método).
+            var idTransactionPorReferencia = new Dictionary<string, Guid?>(StringComparer.OrdinalIgnoreCase);
+
             XLWorkbook workbook;
             try
             {
@@ -947,7 +981,7 @@ namespace SpiderHood.Services
                 }
 
                 var filas = new List<(DateTime Periodo, string Unidad, int Tipo, string Concepto, decimal Monto,
-                    DateTime Vencimiento, decimal MontoPagado, DateTime? FechaPago)>();
+                    DateTime Vencimiento, decimal MontoPagado, DateTime? FechaPago, string? CuentaBancariaPago, string? ReferenciaPago)>();
 
                 foreach (var row in ws.RowsUsed().Skip(1))
                 {
@@ -1004,7 +1038,12 @@ namespace SpiderHood.Services
                             : vencimiento;
                     }
 
-                    filas.Add((periodo, unidad, tipo, concepto, monto, vencimiento, montoPagado, fechaPago));
+                    var cuentaBancariaPago = row.Cell(9).IsEmpty() ? null : row.Cell(9).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(cuentaBancariaPago)) cuentaBancariaPago = null;
+                    var referenciaPago = row.Cell(10).IsEmpty() ? null : row.Cell(10).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(referenciaPago)) referenciaPago = null;
+
+                    filas.Add((periodo, unidad, tipo, concepto, monto, vencimiento, montoPagado, fechaPago, cuentaBancariaPago, referenciaPago));
                 }
 
                 if (resultado.Errores.Count > 0)
@@ -1085,13 +1124,45 @@ namespace SpiderHood.Services
 
                         foreach (var f in grupo.Where(f => f.MontoPagado > 0))
                         {
+                            var idTransaction = Guid.Empty;
+                            if (f.CuentaBancariaPago != null && f.ReferenciaPago != null)
+                            {
+                                if (!cuentaBancariaPorNumero.TryGetValue(f.CuentaBancariaPago, out var cuentaResuelta))
+                                {
+                                    resultado.Advertencias.Add($"Cuotas: '{unidadCodigo}' en {periodo:yyyy-MM}: la cuenta '{f.CuentaBancariaPago}' de 'Cuenta Bancaria del Pago' no existe en este edificio -- el pago se guardó sin enlazar al movimiento bancario.");
+                                }
+                                else
+                                {
+                                    var claveCache = $"{cuentaResuelta.IdBankAccount}|{f.ReferenciaPago}";
+                                    if (!idTransactionPorReferencia.TryGetValue(claveCache, out var idTransactionCacheado))
+                                    {
+                                        try
+                                        {
+                                            idTransactionCacheado = await _ec.GetTransactionByOriginalReferenceAsync(cuentaResuelta.IdBankAccount, f.ReferenciaPago);
+                                        }
+                                        catch (Exception)
+                                        {
+                                            // Probablemente el script que agrega OriginalReference todavía no
+                                            // corrió en esta base -- el pago igual se guarda, solo sin enlazar.
+                                            idTransactionCacheado = null;
+                                        }
+                                        idTransactionPorReferencia[claveCache] = idTransactionCacheado;
+                                    }
+
+                                    if (idTransactionCacheado.HasValue)
+                                        idTransaction = idTransactionCacheado.Value;
+                                    else
+                                        resultado.Advertencias.Add($"Cuotas: '{unidadCodigo}' en {periodo:yyyy-MM}: no se encontró ningún movimiento con Referencia '{f.ReferenciaPago}' en la cuenta '{f.CuentaBancariaPago}' -- el pago se guardó sin enlazar.");
+                                }
+                            }
+
                             var esParcial = f.MontoPagado < primera.Monto || grupo.Count(g => g.MontoPagado > 0) > 1;
                             await _installmentService.AgregarPagoAsync(new Models.InstallmentPaid
                             {
                                 IdPaid = Guid.NewGuid(),
                                 IdInstallment = installment.IdInstallment,
                                 PaymentDate = f.FechaPago ?? f.Vencimiento,
-                                IdTransaction = Guid.Empty,
+                                IdTransaction = idTransaction,
                                 Amount = f.MontoPagado,
                                 CreatedBy = performedBy,
                                 Status = esParcial ? Models.ConcilationType.Parcial : Models.ConcilationType.Conciliada,
@@ -1126,6 +1197,16 @@ namespace SpiderHood.Services
         // normal, actualiza BankAccount.InitialBalance de esa cuenta (con el valor
         // absoluto del Monto). Como máximo una fila por cuenta puede marcarlo -- es
         // ambiguo si hay más de una.
+        //
+        // 'Referencia Original' (opcional) es el identificador que traía este
+        // movimiento en el sistema anterior del edificio -- se guarda en
+        // TransactionBankDetail.OriginalReference (columna nueva, solo para
+        // migración, ver Database/Scripts/2026-09-08_56_...sql). Sirve para que
+        // ImportarCuotasYPagosAsync pueda enlazar cada pago con el movimiento bancario
+        // real que lo pagó, en vez de dejar IdTransaction en Guid.Empty. Se estampa con
+        // un UPDATE aparte después del INSERT normal (mismo criterio que
+        // StampAuditAsync) para no tocar el INSERT que también usa la carga manual
+        // diaria de Estado de Cuenta.
         public async Task<MigrationImportResult> ImportarEstadoDeCuentaAsync(Guid idBuilding, Stream archivo)
         {
             var resultado = new MigrationImportResult();
@@ -1176,7 +1257,7 @@ namespace SpiderHood.Services
                     return resultado;
                 }
 
-                var filas = new List<(string Cuenta, DateTime Fecha, bool EsIngreso, string Descripcion, string Moneda, decimal Itf, decimal Monto, bool EsSaldoInicial)>();
+                var filas = new List<(string Cuenta, DateTime Fecha, bool EsIngreso, string Descripcion, string Moneda, decimal Itf, decimal Monto, bool EsSaldoInicial, string? ReferenciaOriginal)>();
 
                 foreach (var row in ws.RowsUsed().Skip(1))
                 {
@@ -1225,7 +1306,10 @@ namespace SpiderHood.Services
                     var esSaldoInicial = row.Cell(9).GetString().Trim().Equals("Sí", StringComparison.OrdinalIgnoreCase)
                         || row.Cell(9).GetString().Trim().Equals("Si", StringComparison.OrdinalIgnoreCase);
 
-                    filas.Add((cuenta, fecha, esIngreso, descripcion, moneda, itf, monto, esSaldoInicial));
+                    var referenciaOriginal = row.Cell(10).IsEmpty() ? null : row.Cell(10).GetString().Trim();
+                    if (string.IsNullOrWhiteSpace(referenciaOriginal)) referenciaOriginal = null;
+
+                    filas.Add((cuenta, fecha, esIngreso, descripcion, moneda, itf, monto, esSaldoInicial, referenciaOriginal));
                 }
 
                 foreach (var grupoCuenta in filas.GroupBy(f => f.Cuenta, StringComparer.OrdinalIgnoreCase))
@@ -1246,50 +1330,75 @@ namespace SpiderHood.Services
                     var idStatementHeader = Guid.NewGuid();
                     var detallesGrupo = grupoCuenta.ToList();
 
-                    await _bankAccountService.AddTransactionBankHeaderAsync(new Models.TransactionBankHeader
+                    try
                     {
-                        IdStatementHeader = idStatementHeader,
-                        UploadDate = DateTime.Now,
-                        FileName = "Migración histórica",
-                        IdUser = idUser,
-                        TotalRecords = detallesGrupo.Count,
-                        UploadState = 1,
-                        IdBankAccount = cuentaBancaria.IdBankAccount,
-                        Details = new List<Models.TransactionBankDetail>()
-                    });
-
-                    var secuencia = 1;
-                    foreach (var f in detallesGrupo.OrderBy(f => f.Fecha))
-                    {
-                        var montoFirmado = f.EsIngreso ? Math.Abs(f.Monto) : -Math.Abs(f.Monto);
-
-                        await _bankAccountService.AddTransactionFromEECCAsync(new Models.TransactionBankDetail
+                        await _bankAccountService.AddTransactionBankHeaderAsync(new Models.TransactionBankHeader
                         {
-                            IdStatementDetail = Guid.NewGuid(),
-                            IdBankAccount = cuentaBancaria.IdBankAccount,
                             IdStatementHeader = idStatementHeader,
-                            IdParent = Guid.Empty,
-                            IdGroupUnit = Guid.Empty,
-                            StatementDate = f.Fecha,
-                            Description = f.Descripcion,
-                            ITF = f.Itf,
-                            Amount = montoFirmado,
-                            SequenceNumber = secuencia++,
-                            Currency = f.Moneda,
-                            Origen = Models.TransactionOrigen.BankAccountState,
-                            ReconciliationStatus = Models.ConcilationType.NoConciliada,
-                            ReconciliationDate = null,
-                            AmountPaid = 0,
-                            Balance = montoFirmado
+                            UploadDate = DateTime.Now,
+                            FileName = "Migración histórica",
+                            IdUser = idUser,
+                            TotalRecords = detallesGrupo.Count,
+                            UploadState = 1,
+                            IdBankAccount = cuentaBancaria.IdBankAccount,
+                            Details = new List<Models.TransactionBankDetail>()
                         });
-                        resultado.MovimientosCreados++;
-                    }
 
-                    if (detallesGrupo.Any(f => f.EsSaldoInicial))
+                        var secuencia = 1;
+                        foreach (var f in detallesGrupo.OrderBy(f => f.Fecha))
+                        {
+                            var montoFirmado = f.EsIngreso ? Math.Abs(f.Monto) : -Math.Abs(f.Monto);
+                            var idStatementDetail = Guid.NewGuid();
+
+                            await _bankAccountService.AddTransactionFromEECCAsync(new Models.TransactionBankDetail
+                            {
+                                IdStatementDetail = idStatementDetail,
+                                IdBankAccount = cuentaBancaria.IdBankAccount,
+                                IdStatementHeader = idStatementHeader,
+                                IdParent = Guid.Empty,
+                                IdGroupUnit = Guid.Empty,
+                                StatementDate = f.Fecha,
+                                Description = f.Descripcion,
+                                ITF = f.Itf,
+                                Amount = montoFirmado,
+                                SequenceNumber = secuencia++,
+                                Currency = f.Moneda,
+                                Origen = Models.TransactionOrigen.BankAccountState,
+                                ReconciliationStatus = Models.ConcilationType.NoConciliada,
+                                ReconciliationDate = null,
+                                AmountPaid = 0,
+                                Balance = montoFirmado
+                            });
+                            resultado.MovimientosCreados++;
+
+                            // Solo para migración -- ver Database/Scripts/2026-09-08_56_...sql. Si
+                            // ese script no corrió todavía (o falla por cualquier otro motivo), el
+                            // movimiento YA se guardó arriba -- no se pierde nada, solo queda sin la
+                            // referencia para enlazar con Cuotas y Pagos.
+                            if (f.ReferenciaOriginal != null)
+                            {
+                                try
+                                {
+                                    await _ec.UpdateTransactionOriginalReferenceAsync(idStatementDetail, f.ReferenciaOriginal);
+                                }
+                                catch (Exception ex)
+                                {
+                                    resultado.Advertencias.Add($"Movimientos: no se pudo guardar la 'Referencia Original' ('{f.ReferenciaOriginal}') del movimiento {f.Fecha:yyyy-MM-dd} en '{grupoCuenta.Key}' -- {MensajeErrorReal(ex)}. El movimiento igual se guardó.");
+                                }
+                            }
+                        }
+
+                        if (detallesGrupo.Any(f => f.EsSaldoInicial))
+                        {
+                            var filaSaldoInicial = detallesGrupo.First(f => f.EsSaldoInicial);
+                            cuentaBancaria.InitialBalance = Math.Abs(filaSaldoInicial.Monto);
+                            await _bankAccountService.UpdateBankAccount(cuentaBancaria);
+                        }
+                    }
+                    catch (Exception ex)
                     {
-                        var filaSaldoInicial = detallesGrupo.First(f => f.EsSaldoInicial);
-                        cuentaBancaria.InitialBalance = Math.Abs(filaSaldoInicial.Monto);
-                        await _bankAccountService.UpdateBankAccount(cuentaBancaria);
+                        resultado.Errores.Add($"Movimientos, cuenta '{grupoCuenta.Key}': no se pudo guardar -- {MensajeErrorReal(ex)}");
+                        continue;
                     }
                 }
             }

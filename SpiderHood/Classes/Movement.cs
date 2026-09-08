@@ -49,6 +49,15 @@ namespace SpiderHood.Models
         public decimal Amount { get; set; }
         public int SequenceNumber { get; set; }
 
+        // Solo para migración de datos históricos (Services/IMigrationImportService.cs) --
+        // el identificador que traía el movimiento en el sistema anterior del edificio
+        // (ej. la columna 'ID' del Consolidado de Excel), NO el SequenceNumber que asigna
+        // SpiderHood al cargar (ese es un contador propio, se desfasa apenas se descarta
+        // una fila del archivo original, no sirve como referencia estable). Ninguna
+        // pantalla ni consulta de uso diario lee esta columna -- solo el importador de
+        // Cuotas y Pagos, para encontrar qué movimiento pagó cada cuota migrada.
+        public string? OriginalReference { get; set; }
+
         [Required(ErrorMessage = "La moneda es obligatoria")]
         public string Currency { get; set; } = string.Empty;
         [NotMapped]

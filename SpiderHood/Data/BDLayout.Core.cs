@@ -121,6 +121,9 @@ namespace SpiderHood.Data
             public const string UPD_InstallmentState = "UPD_InstallmentState";
             public const string UPD_Role = "UPD_Role";
             public const string UPD_USER = "UPD_USER";
+            // Solo para migración de datos históricos (IMigrationImportService) -- no lo
+            // usa ninguna pantalla ni flujo de uso diario.
+            public const string UPD_TransactionBankDetail_OriginalReference = "UPD_TransactionBankDetail_OriginalReference";
 
             // Delete Procedures
             public const string DEL_MenuItemPermission = "DEL_MenuItemPermission";
@@ -184,6 +187,9 @@ namespace SpiderHood.Data
             public const string GET_AllContacts = "GET_AllContacts";
             public const string GET_PendingConciliationExpenses = "GET_PendingConciliationExpenses";
             public const string GET_InstallmentPaid = "GET_InstallmentPaid";
+            // Solo para migración de datos históricos (IMigrationImportService) -- no lo
+            // usa ninguna pantalla ni flujo de uso diario.
+            public const string GET_TransactionBankDetail_ByOriginalReference = "GET_TransactionBankDetail_ByOriginalReference";
             public const string GET_UsersByEmail = "GET_UsersByEmail";
             public const string GET_UserBuildingAssociation = "GET_UserBuildingAssociation";
             public const string GET_AllBuildingsConfig = "GET_AllBuildingsConfig";

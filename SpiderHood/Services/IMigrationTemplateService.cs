@@ -156,7 +156,7 @@ namespace SpiderHood.Services
                 "'Unidad' se elige de la lista desplegable -- son las unidades ya registradas en SpiderHood para este edificio.",
                 "'Tipo de Cuota' = Ordinaria para la cuota mensual normal. Use Extraordinaria para fondos, regularizaciones de agua (\"Reg. Agua\"), multas o cualquier cargo puntual -- y describa el motivo en 'Concepto'.",
                 "Si una cuota se pagó en más de un abono, agregue una fila adicional igual a la original pero solo con las columnas de pago llenas -- el importador las suma contra la misma cuota.",
-                "'Cuenta Bancaria del Pago' y 'Referencia de Pago' son opcionales: si además carga la plantilla de Estado de Cuenta, el sistema intenta conciliar automáticamente por fecha + monto + cuenta.",
+                "'Cuenta Bancaria del Pago' y 'Referencia de Pago' son opcionales, y sirven para enlazar cada pago con el movimiento bancario real (no es una conciliación automática por fecha/monto): use el mismo valor que puso en 'Referencia Original' al cargar ese movimiento en la plantilla de Estado de Cuenta, junto con su cuenta. Si un pago vino de partir dos movimientos distintos, use dos filas (mismo Periodo/Unidad/Tipo/Concepto) -- una por cada monto y su propia Referencia. Si no cargó 'Referencia Original' en Estado de Cuenta, o no le importa este vínculo, déjelas vacías -- el pago igual se registra.",
                 "Deje 'Monto Pagado' en 0 y las columnas de pago vacías si la cuota sigue impaga.",
                 MensajeUnidades(unidades, errorUnidades)
             });
@@ -179,20 +179,20 @@ namespace SpiderHood.Services
             var headers = new[]
             {
                 "Cuenta Bancaria", "Fecha", "Tipo", "Categoría", "Descripción",
-                "Moneda", "ITF (S/.)", "Monto (S/.)", "Es Saldo Inicial"
+                "Moneda", "ITF (S/.)", "Monto (S/.)", "Es Saldo Inicial", "Referencia Original (opcional)"
             };
             EscribirEncabezado(ws, headers);
 
             EscribirFilaEjemplo(ws, 2, new object[]
             {
                 cuentas.FirstOrDefault().Numero ?? "EJEMPLO", DateTime.Today.AddYears(-1), "Egreso",
-                categorias.FirstOrDefault() ?? "", "Apertura de cuenta", "S/", 0, 0, "Sí"
+                categorias.FirstOrDefault() ?? "", "Apertura de cuenta", "S/", 0, 0, "Sí", ""
             });
             EscribirFilaEjemplo(ws, 3, new object[]
             {
                 cuentas.FirstOrDefault().Numero ?? "EJEMPLO", DateTime.Today, "Ingreso",
                 categorias.FirstOrDefault(c => c.Equals("Cuota", StringComparison.OrdinalIgnoreCase)) ?? categorias.FirstOrDefault() ?? "",
-                "Abono de mantenimiento", "S/", 0, 450.00, "No"
+                "Abono de mantenimiento", "S/", 0, 450.00, "No", "164"
             });
 
             AplicarListaValidacion(ws, "A4:A2000", cuentas.Select(c => c.Numero).ToList(), "Cuenta");
@@ -201,7 +201,7 @@ namespace SpiderHood.Services
             AplicarListaInline(ws, "F4:F2000", "S/,US$");
             AplicarListaInline(ws, "I4:I2000", "Sí,No");
 
-            AjustarColumnas(ws, 22, 14, 10, 20, 34, 8, 12, 14, 14);
+            AjustarColumnas(ws, 22, 14, 10, 20, 34, 8, 12, 14, 14, 20);
 
             AgregarInstrucciones(workbook, "Plantilla: Estado de Cuenta Histórico", new[]
             {
@@ -210,6 +210,7 @@ namespace SpiderHood.Services
                 "'Cuenta Bancaria' y 'Categoría' se eligen de listas desplegables con lo que ya existe en este edificio. Si necesita una categoría nueva, créela primero en Categorías y vuelva a descargar la plantilla.",
                 "El monto se ingresa siempre en positivo; el signo lo determina la columna 'Tipo'.",
                 "'Es Saldo Inicial' = Sí SOLO en la fila que representa el saldo de apertura de cada cuenta (normalmente su primera fila). Se usa una única vez por cuenta y queda fijo en la ficha de la cuenta bancaria -- no editable después.",
+                "'Referencia Original' es opcional -- solo hace falta si además va a cargar la plantilla de Cuotas y Pagos y quiere que cada pago quede enlazado al movimiento bancario real que lo pagó. Ponga ahí el identificador que traía este movimiento en su sistema anterior (ej. el número de fila o ID de su Excel de control) -- después, en 'Cuotas y Pagos', use ese mismo valor en la columna 'Referencia de Pago' junto con esta misma 'Cuenta Bancaria'. Si no le importa ese vínculo, déjela vacía.",
                 cuentas.Count == 0
                     ? "Este edificio todavía no tiene cuentas bancarias registradas -- la lista de 'Cuenta Bancaria' está vacía. Regístrelas primero en Edificios > Cuentas Bancarias."
                     : $"Cuentas bancarias disponibles: {string.Join(", ", cuentas.Select(c => c.Numero))}.",

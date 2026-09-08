@@ -49,9 +49,13 @@
                                     <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
                                 }
                             </select>
-                            @if (!cuentasBancarias.Any())
+                            @if (!cuentasBancarias.Any() && _totalCuentasBancarias == 0)
                             {
                                 <small class="text-muted">No hay cuentas bancarias registradas para este edificio.</small>
+                            }
+                            else if (!cuentasBancarias.Any())
+                            {
+                                <small class="text-muted">Todas las cuentas bancarias de este edificio están Inactivas. Activa una cuenta en Edificios &gt; Moneda y Cuentas para poder cargar un Estado de Cuenta nuevo.</small>
                             }
                             else if (selectedBankAccountId == Guid.Empty)
                             {
@@ -471,6 +475,7 @@
     private IBankAccountService BankAccountService { get; set; } = default!;
 
     private List<BankAccount> cuentasBancarias = new();
+    private int _totalCuentasBancarias = 0;
     private Guid selectedBankAccountId = Guid.Empty;
 
     private InputFile? fileInput;
@@ -737,7 +742,12 @@
 
         if (ParameterService.CurrentBuilding != null)
         {
-            cuentasBancarias = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            // Sólo cuentas Activas: una cuenta Inactiva (cerrada) no debe admitir nuevas
+            // cargas de Estado de Cuenta, aunque su histórico se siga consultando en el
+            // resto de la app (Movimientos, Conciliación) sin este filtro.
+            var todasLasCuentas = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            _totalCuentasBancarias = todasLasCuentas.Count;
+            cuentasBancarias = todasLasCuentas.Where(c => c.Status == 1).ToList();
             if (cuentasBancarias.Count == 1)
             {
                 selectedBankAccountId = cuentasBancarias[0].IdBankAccount;
@@ -826,7 +836,7 @@
     {
         // Método para seleccionar una fila (puedes expandirla o mostrar detalles)
         // Por ahora solo muestra un mensaje
-        mensaje = $"Seleccionado: {item.Description} - {item.Amount:C}";
+        mensaje = $"Seleccionado: {item.Description} - {item.Amount.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency)}";
     }
 
 }

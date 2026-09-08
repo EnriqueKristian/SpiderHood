@@ -70,7 +70,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted text-uppercase small">Total General</h6>
-                            <h2 class="mb-0">S/ @TotalGeneral.ToString("N2")</h2>
+                            <h2 class="mb-0">@Moneda(TotalGeneral)</h2>
                         </div>
                         <div style="color: #f59e0b;">
                             <i class="bi bi-building-fill" style="font-size: 1.2rem;"></i>
@@ -200,12 +200,12 @@
                                                 {
                                                     var monto = GetMontoCategoria(presupuesto, categoria.IdCategory);
                                                     <td class="col-categoria text-right">
-                                                        <span>S/ @monto.ToString("N2")</span>
+                                                        <span>@Moneda(monto)</span>
                                                     </td>
                                                 }
 
                                                 <td class="col-total text-right">
-                                                    <strong>S/ @presupuesto.Amount.ToString("N2")</strong>
+                                                    <strong>@Moneda(presupuesto.Amount)</strong>
                                                 </td>
                                                 <td class="col-estado">
                                                     <span class="estado-badge estado-@presupuesto.Status">
@@ -255,12 +255,12 @@
                                             {
                                                 var totalCategoria = GetTotalCategoria(categoria.IdCategory);
                                                 <td class="text-right">
-                                                    <strong>S/ @totalCategoria.ToString("N2")</strong>
+                                                    <strong>@Moneda(totalCategoria)</strong>
                                                 </td>
                                             }
 
                                             <td class="text-right">
-                                                <strong class="total-general">S/ @TotalGeneral.ToString("N2")</strong>
+                                                <strong class="total-general">@Moneda(TotalGeneral)</strong>
                                             </td>
                                             <td colspan="2"></td>
                                         </tr>
@@ -385,6 +385,8 @@
 
 
 @code {
+
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     // Servicios inyectados
     [Inject] private IBudgetService budgetService { get; set; } = null!;

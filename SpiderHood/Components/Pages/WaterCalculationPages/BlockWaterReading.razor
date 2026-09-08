@@ -37,7 +37,7 @@
                             <div class="form-group">
                                 <label class="form-label"><strong>Cargo Fijo:</strong></label>
                                 <div class="input-group">
-                                    <span class="input-group-text">S/</span>
+                                    <span class="input-group-text">@(ParameterService.CurrentBuilding?.Configuration.Currency.ToCurrencySymbol() ?? "S/")</span>
                                     <InputNumber @bind-Value="_ServiceReadingState.CargoFijo" class="form-control" />
                                 </div>
                             </div>
@@ -277,7 +277,7 @@
                                     </td>
                                     <td align="right">
                                         <strong class="text-success">
-                                            S/ @lectura.CalculatedAmount.ToString("F2")
+                                            @Moneda(lectura.CalculatedAmount)
                                         </strong>
                                     </td>
                                     <td>
@@ -306,7 +306,7 @@
                                 <td colspan="6" class="text-end"><strong>TOTAL GENERAL:</strong></td>
                                 <td colspan="2">
                                     <strong class="text-primary">
-                                        S/ @TotalGeneral.ToString("F2")
+                                        @Moneda(TotalGeneral)
                                     </strong>
                                 </td>
                             </tr>
@@ -399,27 +399,27 @@
                                         <tr>
                                             <td>@detalle.Rango</td>
                                             <td align="right">@detalle.Consumo.ToString("F2")</td>
-                                            <td align="right">S/ @detalle.Tarifa.ToString("F3")</td>
-                                            <td align="right">S/ @detalle.Monto.ToString("F2")</td>
+                                            <td align="right">@detalle.Tarifa.ToString("N3") (@Moneda(detalle.Tarifa)/m³)</td>
+                                            <td align="right">@Moneda(detalle.Monto)</td>
                                         </tr>
                                     }
                                 </tbody>
                                 <tfoot>
                                     <tr>
                                         <td colspan="3" class="text-end">Subtotal:</td>
-                                        <td align="right">S/ @_lecturaSeleccionada.CalculationDetail.Subtotal.ToString("F2")</td>
+                                        <td align="right">@Moneda(_lecturaSeleccionada.CalculationDetail.Subtotal)</td>
                                     </tr>
                                     <tr>
                                         <td colspan="3" class="text-end">Cargo Fijo:</td>
-                                        <td align="right">S/ @_lecturaSeleccionada.CalculationDetail.CargoFijo.ToString("F2")</td>
+                                        <td align="right">@Moneda(_lecturaSeleccionada.CalculationDetail.CargoFijo)</td>
                                     </tr>
                                     <tr>
                                         <td colspan="3" class="text-end">Total sin IGV:</td>
-                                        <td align="right">S/ @_lecturaSeleccionada.CalculationDetail.TotalSinIGV.ToString("F2")</td>
+                                        <td align="right">@Moneda(_lecturaSeleccionada.CalculationDetail.TotalSinIGV)</td>
                                     </tr>
                                     <tr class="table-primary">
                                         <td colspan="3" class="text-end"><strong>TOTAL + IGV:</strong></td>
-                                        <td align="right"><strong>S/ @_lecturaSeleccionada.CalculationDetail.TotalConIGV.ToString("F2")</strong></td>
+                                        <td align="right"><strong>@Moneda(_lecturaSeleccionada.CalculationDetail.TotalConIGV)</strong></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -439,6 +439,7 @@
 <PeriodForm ShowModal="ShowModalPeriod" isNew="@isNewPeriod" OnSave="SavePeriod" period="period" />
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     [Inject] private IServiceReadingService ServiceReadingService { get; set; } = default!;
     [Inject] private IBuildingService BuildingService { get; set; } = default!;
@@ -1024,7 +1025,7 @@
             }
         }
 
-        await MostrarMensajeExito($"Cargo fijo actualizado a {nuevoCargoFijo:C}");
+        await MostrarMensajeExito($"Cargo fijo actualizado a {Moneda(nuevoCargoFijo)}");
     }
 
     private async Task SincronizarConPeriodoAnterior()

@@ -105,7 +105,7 @@
                                             <strong>@x</strong>
                                         </td>
                                         <td class="text-end bg-light">
-                                            <strong style="color:darkblue;"><em>@TotalCat.ToString("C2")</em></strong>
+                                            <strong style="color:darkblue;"><em>@Moneda(TotalCat)</em></strong>
                                         </td>
                                         <td class="bg-light"></td>
                                     </tr>
@@ -116,7 +116,7 @@
                                             <td>@item.ExpenseDescription</td>
                                             <td class="text-center">@item.DueDate.ToString("dd-MMM yy")</td>
                                             <td class="text-center">@item.Distribution</td>
-                                            <td class="text-end">@item.TotalAmount.ToString("C2")</td>
+                                            <td class="text-end">@Moneda(item.TotalAmount)</td>
                                             <td class="text-center">
                                                 @if (_canEditExpense)
                                                 {
@@ -153,6 +153,7 @@
                                                        OnSaveItem="@((item) => SaveItem(item))" />
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     [Inject] private IExpenseService ExpenseService { get; set; } = default!;
     [Inject] private ICategoryService CategoryService { get; set; } = default!;

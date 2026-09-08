@@ -59,7 +59,7 @@
                                 </div>
                                 <div class="stat-content">
                                     <h6>Total Cuotas</h6>
-                                    <p class="stat-value">S/ @allInstallments.Sum(i => i.Amount).ToString("N2")</p>
+                                    <p class="stat-value">@Moneda(allInstallments.Sum(i => i.Amount))</p>
                                 </div>
                             </div>
                         </div>
@@ -70,7 +70,7 @@
                                 </div>
                                 <div class="stat-content">
                                     <h6>Total Pagado</h6>
-                                    <p class="stat-value">S/ @allInstallments.Sum(i => i.AmountPaid).ToString("N2")</p>
+                                    <p class="stat-value">@Moneda(allInstallments.Sum(i => i.AmountPaid))</p>
                                 </div>
                             </div>
                         </div>
@@ -81,7 +81,7 @@
                                 </div>
                                 <div class="stat-content">
                                     <h6>Deuda Total</h6>
-                                    <p class="stat-value">S/ @allInstallments.Sum(i => i.Debt).ToString("N2")</p>
+                                    <p class="stat-value">@Moneda(allInstallments.Sum(i => i.Debt))</p>
                                 </div>
                             </div>
                         </div>
@@ -186,10 +186,10 @@
                                                 </td>
                                                 <td class="text-end">@item.Period.ToString("MMM-yy")</td>
                                                 <td class="text-end">@item.DueDate.ToString("dd/MM/yyyy")</td>
-                                                <td class="text-end">S/ @item.Amount.ToString("N2")</td>
-                                                <td class="text-end">S/ @item.AmountPaid.ToString("N2")</td>
+                                                <td class="text-end">@Moneda(item.Amount)</td>
+                                                <td class="text-end">@Moneda(item.AmountPaid)</td>
                                                 <td class="text-end">
-                                                    <span class="@GetDeudaClass(item)">S/ @item.Debt.ToString("N2")</span>
+                                                    <span class="@GetDeudaClass(item)">@Moneda(item.Debt)</span>
                                                 </td>
                                                 <td class="text-center">
                                                     <span class="@EstadoBadgeClass(item)">@EstadoBadgeText(item)</span>
@@ -205,9 +205,9 @@
                                     <tfoot class="table-light">
                                         <tr>
                                             <td colspan="5" class="text-end fw-bold">Totales de la página:</td>
-                                            <td class="text-end fw-bold">S/ @pagination.CurrentPageData.Sum(i => i.Amount).ToString("N2")</td>
-                                            <td class="text-end fw-bold">S/ @pagination.CurrentPageData.Sum(i => i.AmountPaid).ToString("N2")</td>
-                                            <td class="text-end fw-bold text-primary">S/ @pagination.CurrentPageData.Sum(i => i.Debt).ToString("N2")</td>
+                                            <td class="text-end fw-bold">@Moneda(pagination.CurrentPageData.Sum(i => i.Amount))</td>
+                                            <td class="text-end fw-bold">@Moneda(pagination.CurrentPageData.Sum(i => i.AmountPaid))</td>
+                                            <td class="text-end fw-bold text-primary">@Moneda(pagination.CurrentPageData.Sum(i => i.Debt))</td>
                                             <td colspan="2"></td>
                                         </tr>
                                     </tfoot>
@@ -284,7 +284,7 @@
                 <span class="text-muted me-2">Estado:</span>
                 <span class="@EstadoBadgeClass(selectedInstallment)">@EstadoBadgeText(selectedInstallment)</span>
                 <span class="text-muted ms-3 me-2">Deuda:</span>
-                <span class="@GetDeudaClass(selectedInstallment)">S/ @selectedInstallment.Debt.ToString("N2")</span>
+                <span class="@GetDeudaClass(selectedInstallment)">@Moneda(selectedInstallment.Debt)</span>
             </p>
         }
 
@@ -319,7 +319,7 @@
                             <tr>
                                 <td>@pago.Fecha.ToString("dd/MM/yyyy")</td>
                                 <td>@pago.Descripcion</td>
-                                <td class="text-end">S/ @pago.Monto.ToString("N2")</td>
+                                <td class="text-end">@Moneda(pago.Monto)</td>
                             </tr>
                         }
                     </tbody>
@@ -330,6 +330,8 @@
 </InstallmentDetailModal>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     private List<Installment> allInstallments = new();
     private InstallmentPagination pagination = new();
     private bool cargando = true;

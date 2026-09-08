@@ -63,7 +63,7 @@
                                             <span>@categoria.ShortDescript</span>
                                         </div>
                                         <div class="category-body">
-                                            <div class="category-amount">S/ @totalCategoria.ToString("N2")</div>
+                                            <div class="category-amount">@Moneda(totalCategoria)</div>
                                             <div class="category-percentage">
                                                 @{
                                                     var porcentaje = Presupuesto.Amount > 0
@@ -129,7 +129,7 @@
                                             <tr>
                                                 <!--<td style ="width:20px">@item.ItemNumber</td>-->
                                                 <td width="30%">@item.ItemNumber - @item.Description</td>
-                                                <td width="20%" align="right">S/ @item.MonthlyAmount.ToString("N2")</td>
+                                                <td width="20%" align="right">@Moneda(item.MonthlyAmount)</td>
                                                 
                                                 <!--    PARAMETRO PADRE    -->
                                                 <td width="20%" align="center">@ParameterService.GetChildParameterDescription(38, item.Frequency)</td>
@@ -143,7 +143,7 @@
                                 <tr>
                                     <td><strong>TOTAL PRESUPUESTO:</strong></td>
                                     <td align="right">
-                                        <strong>S/ @Presupuesto.Amount.ToString("N2")</strong>
+                                        <strong>@Moneda(Presupuesto.Amount)</strong>
                                     </td>
                                     <td colspan="2"></td>
                                 </tr>
@@ -169,6 +169,8 @@
     [Parameter] public EventCallback OnSave { get; set; }
 
     private BudgetDetail nuevoDetalle = new();
+
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     private void CerrarModal()
     {

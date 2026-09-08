@@ -66,7 +66,7 @@
                                 <td>@presupuesto.Mes</td>
                                 <td>@presupuesto.BudgetName</td>
                                 <td><span class="@TipoBadgeClass(presupuesto)">@TipoBadgeText(presupuesto)</span></td>
-                                <td class="text-end">@presupuesto.Amount.ToString("C2")</td>
+                                <td class="text-end">@Moneda(presupuesto.Amount)</td>
                                 <td>
                                     <span class="badge bg-secondary">
                                         @ParameterService.GetChildParameterDescription(45, (int)presupuesto.Status)
@@ -115,6 +115,8 @@
 }
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     private bool _loading = true;
     private List<BudgetHeader> _presupuestos = new();
     private List<Category> _categorias = new();

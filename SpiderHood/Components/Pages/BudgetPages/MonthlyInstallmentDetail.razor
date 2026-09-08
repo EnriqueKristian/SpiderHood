@@ -5,6 +5,7 @@
 @using System.Globalization
 @inject NavigationManager Navigation
 @inject IMonthlyInstallmentService MonthlyInstallmentService
+@inject ParameterService ParameterService
 
 <PageTitle>Detalle de Cuota</PageTitle>
 
@@ -36,7 +37,7 @@ else
                         </div>
                         <div class="col-md-3">
                             <strong>Total Distribuido:</strong><br />
-                            @cuota.TotalDistribuido.ToString("C")
+                            @Moneda(cuota.TotalDistribuido)
                         </div>
                         <div class="col-md-3">
                             <strong>Estado:</strong><br />
@@ -70,9 +71,9 @@ else
                                     @foreach (var categoria in categoriasUnicas)
                                     {
                                         var detalle = grupo.FirstOrDefault(d => d.CategoriaNombre == categoria);
-                                        <td>@(detalle?.Monto.ToString("C") ?? "-")</td>
+                                        <td>@(detalle != null ? Moneda(detalle.Monto) : "-")</td>
                                     }
-                                    <td><strong>@grupo.Sum(d => d.Monto).ToString("C")</strong></td>
+                                    <td><strong>@Moneda(grupo.Sum(d => d.Monto))</strong></td>
                                 </tr>
                             }
                         </tbody>
@@ -94,7 +95,7 @@ else
                                 <tr>
                                     <td>@gasto.CategoriaNombre</td>
                                     <td>@gasto.Descripcion</td>
-                                    <td>@gasto.Monto.ToString("C")</td>
+                                    <td>@Moneda(gasto.Monto)</td>
                                     <td>
                                         <span class="badge @(gasto.TipoDistribucion == Models.TipoDistribucion.Fija ? "bg-info" : "bg-warning")">
                                             @gasto.TipoDistribucion
@@ -111,6 +112,8 @@ else
 }
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     [Parameter] public int Id { get; set; }
 
     private Models.MonthlyInstallmentBatch cuota = new();

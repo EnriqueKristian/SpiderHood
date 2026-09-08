@@ -64,7 +64,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-muted text-uppercase small mb-1">Monto Deuda</h6>
-                                <h2 class="mb-0">@_misCuotas.Sum(c => c.Debt).ToString("C2")</h2>
+                                <h2 class="mb-0">@Moneda(_misCuotas.Sum(c => c.Debt))</h2>
                             </div>
                             <div style="color: #ef4444;">
                                 <i class="bi bi-exclamation-circle" style="font-size: 1.2rem;"></i>
@@ -79,7 +79,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-muted text-uppercase small mb-1">Total Pagado</h6>
-                                <h2 class="mb-0">@_misCuotas.Sum(c => c.AmountPaid).ToString("C2")</h2>
+                                <h2 class="mb-0">@Moneda(_misCuotas.Sum(c => c.AmountPaid))</h2>
                             </div>
                             <div style="color: #10b981;">
                                 <i class="bi bi-check-circle" style="font-size: 1.2rem;"></i>
@@ -196,10 +196,10 @@
                                 <td>@ReceiptPagination.NombreRecibo(item)</td>
                                 <td>@item.Period.ToString("MMM-yy")</td>
                                 <td>@item.DueDate.ToString("dd/MM/yyyy")</td>
-                                <td class="text-end">@item.Amount.ToString("C2")</td>
-                                <td class="text-end">@item.AmountPaid.ToString("C2")</td>
+                                <td class="text-end">@Moneda(item.Amount)</td>
+                                <td class="text-end">@Moneda(item.AmountPaid)</td>
                                 <td class="text-end">
-                                    <span class="@GetDeudaClass(item)">@item.Debt.ToString("C2")</span>
+                                    <span class="@GetDeudaClass(item)">@Moneda(item.Debt)</span>
                                 </td>
                                 <td>
                                     <span class="badge @EstadoBadgeClass(item)">@EstadoBadgeText(item)</span>
@@ -232,13 +232,15 @@
                 <span class="text-muted me-2">Estado:</span>
                 <span class="badge @EstadoBadgeClass(_selectedInstallment)">@EstadoBadgeText(_selectedInstallment)</span>
                 <span class="text-muted ms-3 me-2">Deuda:</span>
-                <span class="@GetDeudaClass(_selectedInstallment)">@_selectedInstallment.Debt.ToString("C2")</span>
+                <span class="@GetDeudaClass(_selectedInstallment)">@Moneda(_selectedInstallment.Debt)</span>
             </p>
         }
     </ExtraContent>
 </InstallmentDetailModal>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     private bool _loading = true;
     private Guid? _unitId;
     private List<Installment> _misCuotas = new();

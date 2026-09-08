@@ -1,9 +1,11 @@
-﻿<div class="col-md-3">
+@using SpiderHood.Models
+@inject SpiderHood.Services.ParameterService ParameterService
+<div class="col-md-3">
     <div class="@ClassBorder">
         <div class="card-body">
             <h5 class="card-title">@Title</h5>
             <p class="@Class">
-                @TotalExpenses.ToString("C2")
+                @Moneda(TotalExpenses)
             </p>
             <small class="text-muted">@TotalCount gasto(s)</small>
         </div>
@@ -11,6 +13,8 @@
 </div>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     [Parameter] public decimal TotalExpenses { get; set; }
     [Parameter] public int TotalCount { get; set; }
     [Parameter] public string Title { get; set; } = string.Empty;

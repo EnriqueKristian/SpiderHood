@@ -90,11 +90,11 @@
                     </div>
                     <div class="col-md-4">
                         <small class="text-muted">Monto a redistribuir:</small>
-                        <p class="fw-bold">S/ @CalculateTotalRedistribution().ToString("N2")</p>
+                        <p class="fw-bold">@Moneda(CalculateTotalRedistribution())</p>
                     </div>
                     <div class="col-md-4">
                         <small class="text-muted">Ahorro promedio por excepción:</small>
-                        <p class="fw-bold">S/ @CalculateAverageSavings().ToString("N2")</p>
+                        <p class="fw-bold">@Moneda(CalculateAverageSavings())</p>
                     </div>
                 </div>
             </div>
@@ -169,7 +169,7 @@
                 <h6><i class="bi bi-exclamation-triangle me-2"></i>Impacto Estimado</h6>
                 <p class="mb-0">
                     Esta excepción reducirá la cuota del departamento en aproximadamente
-                    <strong>S/ @CalculateExceptionImpact(newException).ToString("N2")</strong>
+                    <strong>@Moneda(CalculateExceptionImpact(newException))</strong>
                     y será redistribuido entre los demás departamentos.
                 </p>
             </div>
@@ -188,6 +188,8 @@
 </Modal>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     [Parameter] public List<Installment>? Installments { get; set; }
     [Parameter] public BudgetHeader? Budget { get; set; }
     [Parameter] public EventCallback OnExceptionsChanged { get; set; }

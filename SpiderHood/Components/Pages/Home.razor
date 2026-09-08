@@ -52,7 +52,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="card-subtitle mb-2">Ingresos del Mes</h6>
-                            <h3 class="card-title mb-0">@_ingresosMes.ToString("C")</h3>
+                            <h3 class="card-title mb-0">@Moneda(_ingresosMes)</h3>
                             <span class="small">cobrado en @DateTime.Now.ToString("MMMM", EsPe)</span>
                         </div>
                         <div class="summary-icon">
@@ -103,7 +103,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="card-subtitle mb-2">Pendiente de Pago</h6>
-                            <h3 class="card-title mb-0">@_cuotasPendientesMonto.ToString("C")</h3>
+                            <h3 class="card-title mb-0">@Moneda(_cuotasPendientesMonto)</h3>
                             <span class="small">@_cuotasPendientesCount cuota(s) - Ordinarias, Extraordinarias, etc.</span>
                         </div>
                         <div class="summary-icon">
@@ -308,7 +308,7 @@
                                     {
                                         <tr>
                                             <td>@payment.PaymentDate.ToString("dd/MM/yyyy")</td>
-                                            <td class="fw-bold text-success">@payment.Amount.ToString("C")</td>
+                                            <td class="fw-bold text-success">@Moneda(payment.Amount)</td>
                                             <td>@(payment.IsPartialPayment ? "Pago parcial" : "Pago completo")</td>
                                             <td>
                                                 <span class="badge @(payment.Status == ConcilationType.Parcial ? "bg-warning" : "bg-success")">

@@ -62,7 +62,7 @@
                                     </div>
                                     <div class="stat-content">
                                         <h6>Total Presupuesto</h6>
-                                        <p class="stat-value">S/ @TotalBudget.ToString("N2")</p>
+                                        <p class="stat-value">@Moneda(TotalBudget)</p>
                                     </div>
                                 </div>
                             </div>
@@ -87,7 +87,7 @@
                                 </div>
                                 <div class="stat-content">
                                     <h6>Total Cuotas</h6>
-                                    <p class="stat-value">S/ @_TotalInstallments.ToString("N2")</p>
+                                    <p class="stat-value">@Moneda(_TotalInstallments)</p>
                                 </div>
                             </div>
                         </div>
@@ -225,7 +225,7 @@
                                                 </td>
                                                 <td class="text-end">
                                                     <span class="amount-badge">
-                                                        S/ @item.Amount.ToString("N2")
+                                                        @Moneda(item.Amount)
                                                     </span>
                                                 </td>
                                                 <td class="text-center">
@@ -268,12 +268,12 @@
                                                 </td>
                                                 <td class="text-end">
                                                     <span>
-                                                        S/ @item.Amount.ToString("N2")
+                                                        @Moneda(item.Amount)
                                                     </span>
                                                 </td>
                                                 <td class="text-end">
                                                     <span class="amount-badge">
-                                                        S/ @item.Debt.ToString("N2")
+                                                        @Moneda(item.Debt)
                                                     </span>
                                                 </td>
                                                 <td class="text-center">
@@ -296,7 +296,7 @@
                                                                            @onclick="() => ConciliarConCuota(item, paid)">
                                                                             <div class="d-flex justify-content-between">
                                                                                 <span>@paid.Description</span>
-                                                                                <span class="text-muted">@paid.Balance.ToString("C")</span>
+                                                                                <span class="text-muted">@Moneda(paid.Balance)</span>
                                                                             </div>
                                                                             <small class="text-muted">@paid.StatementDate.ToString("MMM-dd-yy")</small>
                                                                         </a>
@@ -312,7 +312,7 @@
                                                                                @onclick="() => ConciliarConCuota(item, match)">
                                                                                 <div class="d-flex justify-content-between">
                                                                                     <span>@match.Description</span>
-                                                                                    <span class="text-muted">@match.Balance.ToString("C")</span>
+                                                                                    <span class="text-muted">@Moneda(match.Balance)</span>
                                                                                 </div>
                                                                                 <small class="text-muted">@match.StatementDate.ToString("MMM-dd-yy")</small>
                                                                             </a>
@@ -367,7 +367,7 @@
                                         @Installments!.Sum(x => x.Percent).ToString("N2")%
                                     </td>
                                     <td class="text-end fw-bold text-primary">
-                                        S/ @_TotalInstallments.ToString("N2")
+                                        @Moneda(_TotalInstallments)
                                     </td>
                                     <td></td>
                                 </tr>
@@ -391,6 +391,10 @@
 }
 
 @code {
+
+    // Moneda del edificio actual (BuildingConfiguration.Currency), no la del server --
+    // ver CuotaExtensions.FormatoMoneda.
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     private void CloseModalManual()
     {

@@ -53,7 +53,7 @@
                 <p class="text-muted mb-0">
                     <i class="bi bi-info-circle me-1"></i>
                     @(_BudgetState.Budget.BudgetType == "Cargos" ? "Cargos por Multas y Mora" : "Cuota Extraordinaria")
-                    correspondiente a @_BudgetState.Budget.BudgetDate.ToString("MMMM yyyy") — por S/ @_BudgetState.Budget.Amount.ToString("N2")
+                    correspondiente a @_BudgetState.Budget.BudgetDate.ToString("MMMM yyyy") — por @Moneda(_BudgetState.Budget.Amount)
                     en total. No tiene secciones ni items: el detalle por unidad está en la tabla de Cuotas, más abajo.
                 </p>
             </div>
@@ -179,7 +179,7 @@
                                                     </td>
                                                     <td>
                                                         <div class="currency-input">
-                                                            <span class="currency-symbol" style="font-size:0.6em">S/</span>
+                                                            <span class="currency-symbol" style="font-size:0.6em">@(ParameterService.CurrentBuilding?.Configuration.Currency.ToCurrencySymbol() ?? "S/")</span>
                                                             <input @bind="item.MonthlyAmount" readonly="@(!CanEdit)"
                                                                    class="form-control form-control-sm"
                                                                    step="0.01"
@@ -190,7 +190,7 @@
                                                     </td>
                                                     <td>
                                                         <div class="currency-input">
-                                                            <span class="currency-symbol" style="font-size:0.6em">S/</span>
+                                                            <span class="currency-symbol" style="font-size:0.6em">@(ParameterService.CurrentBuilding?.Configuration.Currency.ToCurrencySymbol() ?? "S/")</span>
                                                             <InputNumber @bind-Value="item.AnnualAmount"
                                                                          class="form-control form-control-sm"
                                                                          step="0.01" readonly
@@ -239,8 +239,8 @@
                                                 <td colspan="2">
                                                     <strong>Total @GetSectionName(section.Id).Substring(0, Math.Min(GetSectionName(section.Id).Length, 26))</strong>
                                                 </td>
-                                                <td align="right"><strong><span class="currency-symbol" style="font-size:0.7em">S/</span> @sectionTotal.Monthly.ToString("N2")</strong></td>
-                                                <td align="right"><strong><label style="font-size:0.8em">S/&nbsp;</label>@sectionTotal.Annual.ToString("N2")</strong></td>
+                                                <td align="right"><strong>@Moneda(sectionTotal.Monthly)</strong></td>
+                                                <td align="right"><strong>@Moneda(sectionTotal.Annual)</strong></td>
                                                 <td></td>
                                                 <td></td>
                                                 <td>
@@ -262,8 +262,8 @@
                                         <td colspan="2">
                                             <strong>TOTAL MENSUAL PRESUPUESTADO</strong>
                                         </td>
-                                        <td><strong>S/ @_BudgetState.TotalMonthly.ToString("N2")</strong></td>
-                                        <td><strong>S/ @_BudgetState.TotalAnnual.ToString("N2")</strong></td>
+                                        <td><strong>@Moneda(_BudgetState.TotalMonthly)</strong></td>
+                                        <td><strong>@Moneda(_BudgetState.TotalAnnual)</strong></td>
                                         <td colspan="3"></td>
                                     </tr>
                                 </tbody>
@@ -276,7 +276,7 @@
                             <div class="calculation-formula">
                                 Cuota por Departamento = (Total Mensual / N° de Departamentos)
                                 <br />
-                                <strong>S/ @_BudgetState.TotalMonthly.ToString("N2") / @_BudgetState.TotalApartments = S/ @_BudgetState.QuotaPerApartment.ToString("N2")</strong>
+                                <strong>@Moneda(_BudgetState.TotalMonthly) / @_BudgetState.TotalApartments = @Moneda(_BudgetState.QuotaPerApartment)</strong>
                             </div>
                         </div>-->
                     }
@@ -477,6 +477,8 @@
                    OnClose="OnConfirmationResult" />
 
 @code {
+
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     [Inject] private IBudgetService presupuestoService { get; set; } = null!;
     [Inject] private IInstallmentService InstallmentService { get; set; } = default!;

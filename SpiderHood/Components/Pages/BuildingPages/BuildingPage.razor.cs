@@ -168,10 +168,20 @@ namespace SpiderHood.Components.Pages.BuildingPages
             return await BuildingService.GetConfigurationAsync(IdBuilding);
         }
 
-        private void SelectBuilding(Building building)
+        private async Task SelectBuilding(Building building)
         {
             SelectedBuilding = building;
             CancelEdit(); // Cancelar cualquier edición en curso
+
+            // Sin este refresh, SelectedBuilding.Configuration quedaba con la versión
+            // "liviana" que trae la sesión (GetAllBuildingsConfigAsync, usada para poblar
+            // currentUser.Buildings al loguear) en vez de la completa que sí carga
+            // GetConfigurationAsync (BankAccounts, Exonerations, etc.) -- sólo el primer
+            // edificio (el que selecciona CargarDatosPagina al entrar) la tenía. Al
+            // cambiar de edificio en el mismo circuito sin recargar la página, las cuentas
+            // bancarias de cualquier otro edificio se veían vacías, y agregar una ahí
+            // corría el riesgo de guardarse contra datos de configuración desactualizados.
+            SelectedBuilding.Configuration = await GetConfigurationAsync(SelectedBuilding.IdBuilding);
         }
 
         private async Task EditBuilding(Building building)

@@ -157,6 +157,13 @@ namespace SpiderHood.Services
         {
             try
             {
+                // Sin este Trim, un número de cuenta cargado con un espacio de más al
+                // inicio/fin desde la UI (BuildingPage.razor) se guardaba tal cual, y
+                // cualquier comparación exacta después (p.ej. el importador de Estado de
+                // Cuenta) fallaba con "la cuenta no existe" aunque fuera visualmente la
+                // misma cuenta.
+                newbankaccount.AccountNumber = newbankaccount.AccountNumber?.Trim() ?? "";
+                newbankaccount.CCI = newbankaccount.CCI?.Trim() ?? "";
                 await ec.AddNewRecordAsync(newbankaccount);
                 await ec.StampAuditAsync(AuditableEntity.BankAccount, newbankaccount.IdBankAccount, await GetPerformedByAsync(), isCreate: true);
             }
@@ -176,6 +183,8 @@ namespace SpiderHood.Services
         {
             try
             {
+                bankaccount.AccountNumber = bankaccount.AccountNumber?.Trim() ?? "";
+                bankaccount.CCI = bankaccount.CCI?.Trim() ?? "";
                 await ec.UpdateRecordAsync(bankaccount);
                 await ec.StampAuditAsync(AuditableEntity.BankAccount, bankaccount.IdBankAccount, await GetPerformedByAsync(), isCreate: false);
             }

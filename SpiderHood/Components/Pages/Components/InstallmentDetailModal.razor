@@ -30,7 +30,7 @@
                         </div>
                         <div class="text-center">
                             <small class="text-muted d-block">Total Cuota</small>
-                            <span class="fw-bold text-primary fs-5">S/ @(_installment?.Amount.ToString("N2"))</span>
+                            <span class="fw-bold text-primary fs-5">@(_installment != null ? Moneda(_installment.Amount) : "")</span>
                         </div>
                     </div>
                 </div>
@@ -125,10 +125,10 @@
                                                     </div>
                                                 </td>
                                                 <td class="text-end">
-                                                    <span class="budget-amount">S/ @item.MonthlyAmount.ToString("N2")</span>
+                                                    <span class="budget-amount">@Moneda(item.MonthlyAmount)</span>
                                                 </td>
                                                 <td class="text-end">
-                                                    <span class="quote-amount fw-bold">S/ @itemAmount.ToString("N2")</span>
+                                                    <span class="quote-amount fw-bold">@Moneda(itemAmount)</span>
                                                 </td>
                                                 <td class="text-center">
                                                     <span class="badge @GetTypeBadgeClass(item.Type)">
@@ -172,7 +172,7 @@
                                                         </td>
                                                         <td class="text-end" valign="middle">
                                                             <span class="water-amount fw-bold">
-                                                                S/ @waterReading.CalculatedAmount.ToString("N2")
+                                                                @Moneda(waterReading.CalculatedAmount)
                                                             </span>
                                                         </td>
                                                         <td class="text-center" valign="middle">
@@ -195,7 +195,7 @@
                                     </td>
                                     <td class="text-end py-3">
                                         <span class="total-amount fs-5 fw-bold text-primary">
-                                            S/ @_TotalAmount.ToString("N2")
+                                            @Moneda(_TotalAmount)
                                         </span>
                                     </td>
                                     <td colspan="2"></td>
@@ -229,14 +229,14 @@
                                     <tr>
                                         <td><span class="@TipoBadgeClass(cargo)">@TipoBadgeText(cargo)</span></td>
                                         <td>@(string.IsNullOrWhiteSpace(cargo.Concept) ? TipoBadgeText(cargo) : cargo.Concept)</td>
-                                        <td class="text-end">S/ @cargo.Amount.ToString("N2")</td>
+                                        <td class="text-end">@Moneda(cargo.Amount)</td>
                                     </tr>
                                 }
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
                                     <td colspan="2" class="text-end fw-bold py-2">Total Adicionales:</td>
-                                    <td class="text-end fw-bold py-2">S/ @_cargosAdicionales.Sum(c => c.Amount).ToString("N2")</td>
+                                    <td class="text-end fw-bold py-2">@Moneda(_cargosAdicionales.Sum(c => c.Amount))</td>
                                 </tr>
                                 <tr class="table-primary">
                                     <td colspan="2" class="text-end fw-bold py-3">
@@ -244,7 +244,7 @@
                                     </td>
                                     <td class="text-end py-3">
                                         <span class="fs-5 fw-bold">
-                                            S/ @((_installment!.Amount + _cargosAdicionales.Sum(c => c.Amount)).ToString("N2"))
+                                            @Moneda(_installment!.Amount + _cargosAdicionales.Sum(c => c.Amount))
                                         </span>
                                     </td>
                                 </tr>
@@ -278,6 +278,8 @@
 </Modal>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     // Contenido extra que agrega el llamador debajo del desglose (ej. la sección
     // "Transacción asociada" que muestra ListadoCuotas.razor).
     [Parameter] public RenderFragment? ExtraContent { get; set; }

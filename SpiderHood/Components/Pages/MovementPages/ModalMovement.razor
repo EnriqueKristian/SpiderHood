@@ -1,6 +1,8 @@
 ﻿﻿@using System.ComponentModel.DataAnnotations
+@using SpiderHood.Models
 
 @inherits LayoutComponentBase
+@inject SpiderHood.Services.ParameterService ParameterService
 
 @if (ShowModal)
 {
@@ -42,7 +44,7 @@
                         <div class="mb-3">
                             <label class="form-label">Monto</label>
                             <div class="input-group">
-                                <span class="input-group-text">$</span>
+                                <span class="input-group-text">@(ParameterService.CurrentBuilding?.Configuration.Currency.ToCurrencySymbol() ?? "S/")</span>
                                 <input type="number"
                                        class="form-control"
                                        step="0.01"

@@ -1,4 +1,6 @@
-﻿<div class="@(showorNot ? "col-md-4" : "col-md-1") transition-all">
+﻿@using SpiderHood.Models
+@inject SpiderHood.Services.ParameterService ParameterService
+<div class="@(showorNot ? "col-md-4" : "col-md-1") transition-all">
     <button class="btn btn-outline-success" @onclick="() => OnShoworNot.InvokeAsync()">
         <i class="@class5"></i>
     </button>
@@ -52,12 +54,12 @@
             <div class="apartment-distribution">
                 <div class="mb-3">
                     <h6>Cuota Promedio por Departamento:</h6>
-                    <h3 class="text-primary">S/ @QuotaPerApartment.ToString("N2")</h3>
+                    <h3 class="text-primary">@Moneda(QuotaPerApartment)</h3>
                 </div>
 
                 <div class="mb-3">
                     <h6>Ingresos Totales Mensuales:</h6>
-                    <h4 class="text-success">S/ @(TotalInstallments.ToString("N2"))</h4>
+                    <h4 class="text-success">@Moneda(TotalInstallments)</h4>
                     <small class="text-muted">
                         Basado en @OccupiedApartments departamentos habitados
                     </small>
@@ -69,7 +71,7 @@
                         var balance = TotalInstallments - TotalMonthly;
                         var balanceClass = balance >= 0 ? "text-success" : "text-danger";
                     }
-                    <h4 class="@balanceClass">S/ @balance.ToString("N2")</h4>
+                    <h4 class="@balanceClass">@Moneda(balance)</h4>
                     <small class="text-muted">
                         @(balance >= 0 ? "Superávit" : "Déficit")
                     </small>
@@ -82,7 +84,7 @@
                         {
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <small>@(section.Name)</small>
-                                <small>S/ @( (section.Monthly / TotalApartments ).ToString("N2"))</small>
+                                <small>@Moneda(section.Monthly / TotalApartments)</small>
                             </div>
                         }
                     </div>
@@ -102,6 +104,8 @@
 </div>
 
 @code {
+
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     [Parameter]
     public decimal QuotaPerApartment { get; set; }

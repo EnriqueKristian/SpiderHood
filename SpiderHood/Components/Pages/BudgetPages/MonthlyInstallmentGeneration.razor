@@ -97,7 +97,7 @@
                             <td>@gasto.FechaGasto.ToShortDateString()</td>
                             <td>@gasto.CategoriaNombre</td>
                             <td>@gasto.Descripcion</td>
-                            <td>@gasto.Monto.ToString("C")</td>
+                            <td>@Moneda(gasto.Monto)</td>
                             <td>
                                 <span class="badge @(gasto.TipoDistribucion == TipoDistribucion.Fija ? "bg-info" : "bg-warning")">
                                     @gasto.TipoDistribucion
@@ -115,7 +115,7 @@
                 <tfoot>
                     <tr>
                         <td colspan="4" class="text-end"><strong>Total Seleccionado:</strong></td>
-                        <td><strong>@totalSeleccionado.ToString("C")</strong></td>
+                        <td><strong>@Moneda(totalSeleccionado)</strong></td>
                         <td colspan="2"></td>
                     </tr>
                 </tfoot>
@@ -135,6 +135,8 @@
 }
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     private int mesSeleccionado = DateTime.Now.Month;
     private int anioSeleccionado = DateTime.Now.Year;
     private DateTime fechaVencimiento = DateTime.Now.AddMonths(1);

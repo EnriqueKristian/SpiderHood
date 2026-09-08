@@ -285,7 +285,6 @@
                                             </th>
                                             <th width="60">Fecha</th>
                                             <th>Descripción</th>
-                                            <th width="80">Referencia</th>
                                             <th width="100" class="text-end">Monto</th>
                                             <th width="100" class="text-end">Pendiente</th>
                                             <th width="80">Tipo</th>
@@ -325,9 +324,6 @@
                                                             }
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td>
-                                                    <code>@transaccion.Reference</code>
                                                 </td>
                                                 <td class="text-end fw-bold @(transaccion.Amount  < 0 ? "text-danger" : "text-success")">
                                                     @Moneda(Math.Abs(transaccion.Amount))

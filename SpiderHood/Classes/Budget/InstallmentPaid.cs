@@ -22,6 +22,7 @@ namespace SpiderHood.Models
         public decimal InstallmentAmount { get; set; }
         [Precision(18, 2)]
         public decimal InstallmentDebt { get; set; }
+        public DateTime Period { get; set; }
 
         [Precision(18, 2)]
         public decimal Amount { get; set; }

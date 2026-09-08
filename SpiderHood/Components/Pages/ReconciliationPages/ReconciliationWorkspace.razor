@@ -940,10 +940,17 @@
                         <div class="list-group">
                             @foreach (var pago in pagosDeEstaTransaccion)
                             {
+                                // pago.OwnerName/UnitName vienen de GET_InstallmentPaid (JOIN a
+                                // Installment); se apoya en cuotaspendientes solo como fallback
+                                // por si la BD todavía no corrió el script que agrega esas
+                                // columnas -- cuotaspendientes no sirve para cuotas ya pagadas
+                                // por completo, que es justo el caso más común acá.
                                 var cuota = cuotaspendientes.FirstOrDefault(c => c.IdInstallment == pago.IdInstallment);
+                                var ownerName = !string.IsNullOrEmpty(pago.OwnerName) ? pago.OwnerName : cuota?.OwnerName;
+                                var unitName = !string.IsNullOrEmpty(pago.UnitName) ? pago.UnitName : cuota?.UnitName;
                                 <div class="list-group-item">
                                     <div class="d-flex justify-content-between">
-                                        <span class="fw-bold">@(cuota != null ? $"{cuota.OwnerName} (Unidad {cuota.UnitName})" : $"Cuota {pago.IdInstallment}")</span>
+                                        <span class="fw-bold">@(!string.IsNullOrEmpty(ownerName) ? $"{ownerName} (Unidad {unitName})" : $"Cuota {pago.IdInstallment}")</span>
                                         <span class="fw-bold text-success">@Moneda(pago.Amount)</span>
                                     </div>
                                     <small class="text-muted">
@@ -951,6 +958,10 @@
                                         @if (pago.IsPartialPayment)
                                         {
                                             <span class="badge bg-warning text-dark ms-1">Pago parcial de la cuota</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success ms-1">Pago total de la cuota</span>
                                         }
                                     </small>
                                 </div>

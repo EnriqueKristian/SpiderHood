@@ -688,8 +688,20 @@ namespace SpiderHood.Components.Pages.BuildingPages
                     if (_copyCurrency)
                     {
                         _quickConfigBuilding.Configuration.Currency = sourceBuilding.Configuration.Currency;
+                        // .Clone() es un MemberwiseClone -- conserva IdBankAccount/IdBuilding
+                        // del edificio ORIGEN. Sin resetearlos acá, al guardar (SaveSection
+                        // "currency") IdBankAccount != Guid.Empty hace que se llame
+                        // UpdateBankAccount en vez de AddBankAccount, y la cuenta bancaria
+                        // real del edificio origen queda re-escrita con estos datos en vez de
+                        // crearse una cuenta nueva para el edificio destino.
                         _quickConfigBuilding.Configuration.BankAccounts = sourceBuilding.Configuration.BankAccounts
-                            .Select(a => a.Clone()).ToList();
+                            .Select(a =>
+                            {
+                                var clon = a.Clone();
+                                clon.IdBankAccount = Guid.Empty;
+                                clon.IdBuilding = Guid.Empty;
+                                return clon;
+                            }).ToList();
                     }
 
                     if (_copyPayments)
@@ -708,9 +720,24 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
                     if (_copyContacts)
                     {
+                        // Mismo problema que con BankAccounts: sin resetear IdContact/
+                        // IdRelatedEntity, "Guardar" en la sección Admin/Inmobiliaria/
+                        // Mantenimiento del edificio destino terminaba llamando
+                        // UpdateContactAsync sobre el Contact real del edificio ORIGEN
+                        // (mismo IdContact) -- el nombre editado se guardaba en el contacto
+                        // del origen, no se creaba uno nuevo para el destino, y el edificio
+                        // destino seguía sin ningún Contact propio en la BD.
                         _quickConfigBuilding.Configuration.AdminContact = sourceBuilding.Configuration.AdminContact.Clone();
+                        _quickConfigBuilding.Configuration.AdminContact.IdContact = Guid.Empty;
+                        _quickConfigBuilding.Configuration.AdminContact.IdRelatedEntity = Guid.Empty;
+
                         _quickConfigBuilding.Configuration.RealEstateCompany = sourceBuilding.Configuration.RealEstateCompany.Clone();
+                        _quickConfigBuilding.Configuration.RealEstateCompany.IdContact = Guid.Empty;
+                        _quickConfigBuilding.Configuration.RealEstateCompany.IdRelatedEntity = Guid.Empty;
+
                         _quickConfigBuilding.Configuration.MaintenanceCompany = sourceBuilding.Configuration.MaintenanceCompany.Clone();
+                        _quickConfigBuilding.Configuration.MaintenanceCompany.IdContact = Guid.Empty;
+                        _quickConfigBuilding.Configuration.MaintenanceCompany.IdRelatedEntity = Guid.Empty;
                     }
 
                     // Si estamos editando el edificio seleccionado, actualizar la vista
@@ -732,7 +759,31 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 // Copiar configuración del edificio seleccionado a todos los demás
                 foreach (var building in Buildings.Where(b => b.IdBuilding != SelectedBuilding.IdBuilding))
                 {
-                    building.Configuration = SelectedBuilding.Configuration.Clone();
+                    // Clone() preserva IdBuildingConfiguration/IdBuilding del edificio
+                    // ORIGEN, además de IdContact/IdBankAccount de cada Contact/BankAccount
+                    // -- sin resetearlos, este building quedaba apuntando a la fila de
+                    // configuración y a los contactos/cuentas reales de otro edificio, y
+                    // guardar cualquier sección después terminaría actualizando esos
+                    // registros ajenos en vez de crear los propios de este edificio (mismo
+                    // problema que ApplyQuickConfig).
+                    var clonedConfig = SelectedBuilding.Configuration.Clone();
+                    clonedConfig.IdBuildingConfiguration = building.Configuration.IdBuildingConfiguration;
+                    clonedConfig.IdBuilding = building.IdBuilding;
+
+                    clonedConfig.AdminContact.IdContact = Guid.Empty;
+                    clonedConfig.AdminContact.IdRelatedEntity = Guid.Empty;
+                    clonedConfig.RealEstateCompany.IdContact = Guid.Empty;
+                    clonedConfig.RealEstateCompany.IdRelatedEntity = Guid.Empty;
+                    clonedConfig.MaintenanceCompany.IdContact = Guid.Empty;
+                    clonedConfig.MaintenanceCompany.IdRelatedEntity = Guid.Empty;
+
+                    foreach (var bankAccount in clonedConfig.BankAccounts)
+                    {
+                        bankAccount.IdBankAccount = Guid.Empty;
+                        bankAccount.IdBuilding = Guid.Empty;
+                    }
+
+                    building.Configuration = clonedConfig;
                 }
 
                 // Mostrar mensaje de éxito

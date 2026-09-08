@@ -457,6 +457,13 @@
                                                             <i class="bi bi-clock me-1"></i> Pendiente
                                                         </span>
                                                     }
+                                                    @{ var esAuto = EsConciliacionAutomatica(transaccion); }
+                                                    @if (esAuto.HasValue)
+                                                    {
+                                                        <span class="badge bg-light text-dark border ms-1" title="@(esAuto.Value ? "Se concilió automáticamente por coincidencia exacta de monto" : "Se concilió manualmente")">
+                                                            <i class="bi @(esAuto.Value ? "bi-robot" : "bi-person") me-1"></i>@(esAuto.Value ? "Auto" : "Manual")
+                                                        </span>
+                                                    }
                                                 </td>
                                                 <td class="text-center">
                                                     <div class="btn-group btn-group-sm" role="group">
@@ -1773,6 +1780,21 @@
 
         diferenciaConciliacion = Math.Abs(totalConciliado) - totalGastosConciliados;
         totalPendiente = Math.Abs(transaccionesNoConciliadas.Where(t => t.Amount < 0).Sum(t => t.Amount));
+    }
+
+    // Null = no se pudo determinar (transacción sin conciliar, o Gasto conciliado en una
+    // sesión anterior -- GastoConciliado solo queda poblado en memoria durante la sesión que
+    // hizo la conciliación, ObtenerTransaccionesAsync no lo trae). Para Ingresos sí es
+    // confiable siempre: pagosCuotas se recarga completo desde BD en cada CargarTransacciones.
+    private bool? EsConciliacionAutomatica(TransactionBankDetail transaccion)
+    {
+        if (transaccion.Tipo == "Ingreso")
+        {
+            var pagos = pagosCuotas.Where(p => p.IdTransaction == transaccion.IdStatementDetail).ToList();
+            return pagos.Any() ? pagos.All(p => p.IsAutoReconcile) : null;
+        }
+
+        return transaccion.GastoConciliado?.AutoReconcile;
     }
 
     private List<TransactionBankDetail> GetTransaccionesFiltradas()

@@ -620,19 +620,26 @@
 
         datos = LeerExcel(memoryStream).AsQueryable();
 
-        DateTime minValue = datos.Min(d => d.StatementDate);
-        DateTime maxValue = datos.Max(d => d.StatementDate);
+        // Sólo de filas válidas -- una fila con "Fecha inválida" (ver LeerExcel) queda con
+        // StatementDate = DateTime.MinValue (0001), y ese valor jamás debe llegar a un
+        // parámetro SQL: el tipo datetime de SQL Server arranca en 1753, así que un solo
+        // dato mal cargado tiraba abajo TODA la carga con un SqlDateTime overflow antes de
+        // siquiera llegar al mensaje de "hay errores" de más abajo.
+        var filasValidas = datos.Where(d => d.Validation == "Ok").ToList();
 
-        // Traer claves existentes en BD
-        var Movements = await BankAccountService.GetTransactionsDetailsAsync(IdBankAccount, minValue, maxValue);
-        var clavesBD = Movements.Select(md => $"{md.StatementDate:yyyyMMdd}|{md.Description}|{md.Amount}"); // Para búsqueda rápida
-
-        int iCont = 0;
-
-        foreach (TransactionBankDetail item in datos.Where(d => clavesBD.Contains(d.KeyDuplicate)).ToList())
+        if (filasValidas.Any())
         {
-            item.Validation = "Duplicado";
-            iCont++;
+            DateTime minValue = filasValidas.Min(d => d.StatementDate);
+            DateTime maxValue = filasValidas.Max(d => d.StatementDate);
+
+            // Traer claves existentes en BD
+            var Movements = await BankAccountService.GetTransactionsDetailsAsync(IdBankAccount, minValue, maxValue);
+            var clavesBD = Movements.Select(md => $"{md.StatementDate:yyyyMMdd}|{md.Description}|{md.Amount}"); // Para búsqueda rápida
+
+            foreach (TransactionBankDetail item in datos.Where(d => clavesBD.Contains(d.KeyDuplicate)).ToList())
+            {
+                item.Validation = "Duplicado";
+            }
         }
 
         if (errores.Any())
@@ -678,7 +685,6 @@
         int fila = 2; // Comienza después del encabezado
         foreach (var row in worksheet.RowsUsed().Skip(1))
         {
-            var fechaStr = row.Cell(1).GetValue<string>();
             var descripcion = row.Cell(2).GetValue<string>()?.Trim();
             var itfStr = row.Cell(3).GetValue<string>()?.Trim();
             var moneda = row.Cell(4).GetValue<string>()?.Trim();
@@ -687,7 +693,25 @@
             string strCheck = "Ok";
 
             // Validaciones
-            if (!DateTime.TryParse(fechaStr, out DateTime fecha))
+            bool fechaValida;
+            DateTime fecha;
+
+            // Si la celda es de verdad una fecha de Excel, se lee como fecha directo --
+            // sin pasar por texto no hay ninguna ambigüedad día/mes que dependa de la
+            // cultura del server. Sólo se cae a texto cuando la celda vino tipeada como
+            // texto plano (p.ej. alguien completó "29/3/2026" a mano en vez de dejar que
+            // Excel la formatee como fecha).
+            if (row.Cell(1).DataType == ClosedXML.Excel.XLDataType.DateTime)
+            {
+                fecha = row.Cell(1).GetDateTime();
+                fechaValida = true;
+            }
+            else
+            {
+                fechaValida = TryParseFechaFlexible(row.Cell(1).GetValue<string>(), out fecha);
+            }
+
+            if (!fechaValida)
                 errores.Add($"Fila {fila}: Fecha inválida");
             else if (fecha > DateTime.Today)
                 errores.Add($"Fila {fila}: Fecha futura no permitida");
@@ -731,6 +755,21 @@
             fila++;
         }
         return lista;
+    }
+
+    // Sólo hace falta para celdas tipeadas como texto (ver LeerExcel) -- una fecha nativa
+    // de Excel nunca pasa por acá. DateTime.TryParse a secas usaba la cultura del server
+    // (CurrentCulture), que no tiene por qué coincidir con la convención día/mes/año de
+    // los estados de cuenta peruanos: un server en en-US interpretaba "29/3/2026" como
+    // mes 29 (inválido) y la fila quedaba con StatementDate = DateTime.MinValue (0001) --
+    // ese valor, si llegaba a usarse para consultar la BD, tira SqlDateTime overflow (el
+    // tipo datetime de SQL Server arranca en 1753). Se prueba primero con es-PE explícito
+    // y sólo se cae a la cultura del server si ni así parsea.
+    private static bool TryParseFechaFlexible(string? valor, out DateTime fecha)
+    {
+        var culturaPeru = System.Globalization.CultureInfo.GetCultureInfo("es-PE");
+        return DateTime.TryParse(valor, culturaPeru, System.Globalization.DateTimeStyles.None, out fecha)
+            || DateTime.TryParse(valor, out fecha);
     }
 
     protected override async Task OnInitializedAsync()

@@ -453,7 +453,14 @@ namespace SpiderHood.Data
                     movementdetail.Currency,
                     movementdetail.Amount,
                     movementdetail.SequenceNumber,
-                    movementdetail.ReconciliationStatus,
+                    // INS_AccountStatementDetail.@ReconciliationStatus es BIT -- pasar el
+                    // enum ConcilationType directo (un objeto boxeado de un tipo que
+                    // ADO.NET no reconoce) hacía que SIEMPRE se guardara 1/Conciliada, sin
+                    // importar el valor real (confirmado: 27 filas recién insertadas con
+                    // ReconciliationStatus = 0/NoConciliada en C# terminaron las 27 en BD
+                    // como 1). Convertir explícito a bool antes de mandarlo evita que
+                    // ADO.NET tenga que adivinar el tipo del parámetro para un enum.
+                    (int)movementdetail.ReconciliationStatus != 0,
                     movementdetail.ReconciliationDate!,
                     movementdetail.IdParent,
                     movementdetail.Origen);

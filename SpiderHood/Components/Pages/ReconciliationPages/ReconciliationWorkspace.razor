@@ -10,6 +10,7 @@
 @inject ParameterService ParameterService
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
+@inject NavigationManager Navigation
 
 <PageTitle>SpiderHood - @TituloPagina</PageTitle>
 
@@ -44,7 +45,7 @@
                          en la BD. La carga real (parseo de Excel + guardado) ya existe y
                          funciona en /movement/cargar (CargarEstadoCuentaConciliacion.razor) --
                          se enlaza ahí en vez de duplicar esa lógica acá. -->
-                    <a href="/movement/cargar" class="btn btn-primary">
+                    <a href="@EnlaceCargarEstado" class="btn btn-primary">
                         <i class="bi bi-upload me-1"></i> Cargar Estado
                     </a>
                 </div>
@@ -1008,6 +1009,13 @@
         "Ingreso" => "Conciliación de Pagos",
         _ => "Conciliación Bancaria"
     };
+
+    // Antes /movement/cargar no sabía si venías de Conciliación de Pagos, de Gastos o de la
+    // vista genérica -- ni tenía cómo volver, así que había que navegar a mano de nuevo. Se le
+    // pasa la URL actual (con su propio querystring, ej. ?cuenta=...) para que muestre un botón
+    // "Volver a Conciliación" apenas termine de cargar.
+    private string EnlaceCargarEstado =>
+        $"/movement/cargar?returnTo={Uri.EscapeDataString(Navigation.Uri.Substring(Navigation.BaseUri.Length - 1))}";
 
     [Inject]
     public ICategoryService CategoryService { get; set; } = default!;

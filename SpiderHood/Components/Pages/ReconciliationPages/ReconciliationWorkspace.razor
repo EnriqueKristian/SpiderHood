@@ -1014,7 +1014,13 @@
     private DateTime fechaDesde = DateTime.Now.AddMonths(-1);
     private DateTime fechaHasta = DateTime.Now;
     private string tabActiva = "noConciliados";
-    private bool mostrarSoloNoConciliados = true;
+    // false: la pestaña "Todas las Transacciones" ya la cubre el tab por defecto
+    // (tabActiva = "noConciliados"); dejar este checkbox en true colisionaba con esa
+    // pestaña -- al entrar a "Todas" (badge sin filtrar, ej. 27) el checkbox seguía
+    // activo y aplicaba el mismo filtro de "no conciliados" a la tabla, mostrando 0
+    // filas pese al badge de 27. El checkbox sigue disponible para quien lo quiera
+    // usar explícitamente dentro de esa pestaña.
+    private bool mostrarSoloNoConciliados = false;
     private string? filtroTipo = null;
     private string textoBusqueda = "";
     private bool seleccionarTodos = false;

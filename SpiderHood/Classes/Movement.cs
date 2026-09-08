@@ -5,6 +5,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace SpiderHood.Models
 {
 
+    // Nombres reales de tabla (confirmados en la BD, no coinciden con la clase C#
+    // ni con los Stored Procedures que los usan -- mismo patrón que Owner/
+    // ApartmentOwner y Period/Periods): TransactionBankHeader vive en
+    // dbo.AccountStatementHeader (SPs: INS_MovementHeader/GET_MovementHeaders) y
+    // TransactionBankDetail vive en dbo.AccountStatementDetail (SPs:
+    // INS_AccountStatementDetail/GET_AccountStatementDetailByHeader). Relevante si
+    // escribes SQL crudo contra estas tablas (ver Database/Scripts/2026-09-08_56_...sql).
     public class TransactionBankHeader
     {
         public Guid IdStatementHeader { get; set; }

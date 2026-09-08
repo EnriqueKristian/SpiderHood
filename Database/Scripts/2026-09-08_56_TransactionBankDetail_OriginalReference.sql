@@ -5,13 +5,14 @@
 -- movimiento real de "Estado de Cuenta" que los pagó (hoy quedan sin vincular,
 -- ver Docs/Pendientes-Negocio-Migracion.md #7).
 --
--- IMPORTANTE -- nombres de tabla: la clase C# se llama TransactionBankDetail,
--- pero el Insert real (BDLayout.Add.cs) usa el Stored Procedure
--- INS_AccountStatementDetail (cabecera: INS_MovementHeader) -- asumo que las
--- tablas reales se llaman dbo.AccountStatementDetail y dbo.MovementHeader.
--- Revisa contra tu diagrama real antes de correr y ajusta los nombres si no
--- coinciden (mismo caso que Owner/ApartmentOwner y Period/Periods en scripts
--- anteriores).
+-- Nombres de tabla -- confirmado por el usuario contra la BD real: la clase
+-- C# se llama TransactionBankDetail/TransactionBankHeader, el Stored
+-- Procedure de inserción es INS_AccountStatementDetail/INS_MovementHeader,
+-- pero las tablas reales son dbo.AccountStatementDetail y
+-- dbo.AccountStatementHeader (NO dbo.MovementHeader -- ese nombre solo lo
+-- llevan los SPs GET_MovementHeaders/INS_MovementHeader, no la tabla). Mismo
+-- patrón de nombres-que-no-coinciden que Owner/ApartmentOwner y
+-- Period/Periods en scripts anteriores.
 --
 -- Alcance -- solo migración, no toca nada de uso diario:
 --   - La columna nueva (OriginalReference) no la lee ni la escribe ninguna
@@ -22,8 +23,8 @@
 --     usa exclusivamente IMigrationImportService.
 --
 -- AccountStatementDetail no guarda IdBankAccount directo -- se filtra por
--- cuenta a través de MovementHeader.IdStatementHeader (igual que ya hace
--- GET_BankTransactionsNoConcilied/GET_MovementHeaders).
+-- cuenta a través de AccountStatementHeader.IdStatementHeader (igual que ya
+-- hace GET_BankTransactionsNoConcilied/GET_MovementHeaders).
 --
 -- Idempotente: se puede correr más de una vez.
 -- =============================================================================
@@ -60,7 +61,7 @@ BEGIN
     SET NOCOUNT ON;
     SELECT TOP 1 d.IdStatementDetail
     FROM dbo.AccountStatementDetail d
-    INNER JOIN dbo.MovementHeader h ON h.IdStatementHeader = d.IdStatementHeader
+    INNER JOIN dbo.AccountStatementHeader h ON h.IdStatementHeader = d.IdStatementHeader
     WHERE h.IdBankAccount = @IdBankAccount
       AND d.OriginalReference = @OriginalReference;
 END

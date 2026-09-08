@@ -161,9 +161,9 @@ namespace SpiderHood.Data
         // Devuelve solo el Guid (no un TransactionBankDetail completo) a propósito --
         // ExecuteQueryListAsync<T> mapea contra dbContext.Set<T>(), que exige que el
         // SELECT devuelva TODAS las columnas que EF mapeó para esa entidad (incluidas
-        // las que llegan por JOIN a MovementHeader, como IdBankAccount, que no vive en
-        // esta tabla). Pedir solo el Guid vía SqlQueryRaw evita depender de esa lista
-        // completa de columnas, que no se pudo confirmar contra el diagrama real.
+        // las que llegan por JOIN a AccountStatementHeader, como IdBankAccount, que no
+        // vive en esta tabla). Pedir solo el Guid vía SqlQueryRaw evita depender de esa
+        // lista completa de columnas.
         public async Task<Guid?> GetTransactionByOriginalReferenceAsync(Guid idBankAccount, string originalReference, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

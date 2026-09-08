@@ -971,6 +971,13 @@
                                             <span class="badge bg-success ms-1">Pago total de la cuota</span>
                                         }
                                     </small>
+                                    @if (pago.InstallmentAmount > 0)
+                                    {
+                                        <div class="small text-muted mt-1">
+                                            Cuota: @Moneda(pago.InstallmentAmount)
+                                            &middot; Pendiente de la cuota: @Moneda(Math.Max(pago.InstallmentDebt, 0))
+                                        </div>
+                                    }
                                 </div>
                             }
                         </div>

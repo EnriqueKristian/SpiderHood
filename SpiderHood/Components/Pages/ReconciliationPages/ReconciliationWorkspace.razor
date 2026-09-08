@@ -1296,9 +1296,16 @@
             gasto.ReconciledTransactionId = transaccion.IdStatementDetail;
             gasto.AutoReconcile = automatico;
 
-            // Actualizar en base de datos
-            //await BankService.ConciliarTransaccionAsync(transaccion.IdStatementDetail, gasto.IdExpense);
-            //await ExpenseService.MarcarGastoComoConciliadoAsync(gasto.IdExpense, transaccion.IdStatementDetail);
+            // Actualizar en base de datos -- estas dos líneas estaban comentadas (la primera
+            // además con una firma que ya no compilaba: ConciliarTransaccionAsync recibe
+            // (TransactionBankDetail, ViewExpense), no dos Guid), así que conciliar un Gasto
+            // desde esta pantalla nunca persistía nada: se veía "Conciliado" en memoria y al
+            // recargar la página volvía a NoConciliada. ConciliarTransaccionAsync ya hace todo
+            // lo necesario en un solo UPD_ExpenseReconcilied (ReconciliationStatus/Date en la
+            // transacción + IdStatementDetail/AutoReconcile en el gasto), así que
+            // MarcarGastoComoConciliadoAsync (que además solo tocaba una lista en memoria, no
+            // la BD) no hace falta.
+            await BankService.ConciliarTransaccionAsync(transaccion, gasto);
 
             // Remover de listas pendientes
             gastosPendientes.Remove(gasto);

@@ -267,10 +267,23 @@ con espacios de entrada.
   y que fechas de pago pueden ser meses posteriores a la cuota que cubren).
   Necesitó una columna nueva, `TransactionBankDetail.OriginalReference` (ver
   `Database/Scripts/2026-09-08_56_TransactionBankDetail_OriginalReference.sql`)
-  y 2 Stored Procedures nuevos, usados solo por el importador -- ninguna
-  pantalla ni flujo de uso diario los toca. Si las columnas quedan vacías (la
-  mayoría de edificios no van a tener este nivel de detalle), el
-  comportamiento es igual que antes.
+  y 2 Stored Procedures nuevos, usados solo por el importador. Si las
+  columnas quedan vacías (la mayoría de edificios no van a tener este nivel
+  de detalle), el comportamiento es igual que antes.
+
+  **Corrección (2026-09-08):** la frase "ninguna pantalla ni flujo de uso
+  diario los toca" de más arriba era incorrecta -- agregar una columna
+  MAPEADA en `TransactionBankDetail` (Classes/Movement.cs) rompe cualquier
+  SP existente que devuelva esa entidad vía `FromSqlRaw<T>` y no incluya la
+  columna nueva en su SELECT, sin importar si esa columna le importa a ese
+  flujo o no (EF exige que estén TODAS las columnas mapeadas). Rompió
+  `GET_BankTransactionsNoConcilied` -- toda la pantalla de Conciliación
+  (`ReconciliationWorkspace.razor`) tiraba "The required column
+  'OriginalReference' was not present..." al cargar transacciones. Fix en
+  `Database/Scripts/2026-09-08_59_Fix_GET_BankTransactionsNoConcilied_OriginalReference.sql`
+  (agrega `md.OriginalReference` al SELECT). Lección para la próxima columna
+  mapeada que se agregue a una entidad con varios SPs: revisar TODOS los SPs
+  que la devuelven, no sólo los que la van a usar.
 - **Estado de Cuenta no crea `Expense` categorizados.** La columna
   'Categoría' de la plantilla se lee y se valida, pero no se guarda en
   ningún lado -- `TransactionBankDetail` no tiene columna de categoría

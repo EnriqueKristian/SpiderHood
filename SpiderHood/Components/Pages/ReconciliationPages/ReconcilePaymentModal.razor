@@ -57,7 +57,7 @@
                                         </span>
                                     </div>
                                     <small class="text-muted">
-                                        Unidad @cuota.UnitName &middot; Cuota #@cuota.Number &middot; Vence @cuota.DueDate.ToString("dd/MM/yyyy")
+                                        Unidad @cuota.UnitName &middot; Periodo @cuota.Period.ToString("MMM-yy") &middot; Cuota #@cuota.Number &middot; Vence @cuota.DueDate.ToString("dd/MM/yyyy")
                                         @if (cuota.Status == ConcilationType.Parcial)
                                         {
                                             <span class="badge bg-warning text-dark ms-1">Parcial</span>

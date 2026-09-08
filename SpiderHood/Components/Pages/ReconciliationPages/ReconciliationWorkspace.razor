@@ -974,7 +974,7 @@
                                     @if (pago.InstallmentAmount > 0)
                                     {
                                         <div class="small text-muted mt-1">
-                                            Cuota: @Moneda(pago.InstallmentAmount)
+                                            Cuota @pago.Period.ToString("MMM-yy"): @Moneda(pago.InstallmentAmount)
                                             &middot; Pendiente de la cuota: @Moneda(Math.Max(pago.InstallmentDebt, 0))
                                         </div>
                                     }

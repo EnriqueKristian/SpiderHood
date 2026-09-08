@@ -55,6 +55,14 @@ namespace SpiderHood.Services
     // AddOwnerAsync/AddInstallmentAsync/AgregarPagoAsync/AddTransactionBankHeaderAsync/
     // AddTransactionFromEECCAsync/CreatePresupuestoAsync/AddDetalleToPresupuestoAsync
     // sí relanzan correctamente -- esos importadores no tenían este problema.
+    //
+    // Mismo antipatrón encontrado después en una LECTURA:
+    // IBankAccountService.ObtenerCuentasBancariasAsync (usado por
+    // ImportarEstadoDeCuentaAsync) también atrapa cualquier error y devuelve una
+    // lista vacía -- ahí el efecto era más engañoso todavía, porque con la lista
+    // vacía CADA fila del archivo reporta "la cuenta no existe" (una validación que
+    // sí corre, pero sobre datos vacíos por la falla oculta) en vez de mostrar el
+    // error real. Se reemplazó por BDLayout.GetBankAccountsByBuildingAsync directo.
     public interface IMigrationImportService
     {
         Task<MigrationImportResult> ImportarUnidadesYPropietariosAsync(Guid idBuilding, Stream archivo);
@@ -1091,14 +1099,22 @@ namespace SpiderHood.Services
         {
             var resultado = new MigrationImportResult();
 
+            // IBankAccountService.ObtenerCuentasBancariasAsync atrapa cualquier error con
+            // un catch mudo (Console.WriteLine, sin throw) y devuelve una lista vacía --
+            // mismo antipatrón ya encontrado en Unidades/Lecturas de Agua. Acá es
+            // particularmente engañoso: con la lista vacía, CADA fila del archivo reporta
+            // "la cuenta no existe en este edificio" aunque la cuenta sí exista, ocultando
+            // la falla real (confirmado: una cuenta verificada por SQL directo en la BD
+            // salió como inexistente para el importador). Se usa BDLayout directo, que sí
+            // relanza con el error real.
             List<Models.BankAccount> cuentas;
             try
             {
-                cuentas = await _bankAccountService.ObtenerCuentasBancariasAsync(idBuilding);
+                cuentas = await _ec.GetBankAccountsByBuildingAsync(idBuilding);
             }
             catch (Exception ex)
             {
-                resultado.Errores.Add($"No se pudo obtener las cuentas bancarias del edificio: {ex.Message}");
+                resultado.Errores.Add($"No se pudo obtener las cuentas bancarias del edificio -- {MensajeErrorReal(ex)}");
                 return resultado;
             }
 

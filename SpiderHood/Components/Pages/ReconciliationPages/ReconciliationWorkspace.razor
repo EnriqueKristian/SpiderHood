@@ -406,18 +406,11 @@
                                                             var pagosDeEsta = pagosCuotas.Where(p => p.IdTransaction == transaccion.IdStatementDetail).ToList();
                                                             <div class="d-flex align-items-center">
                                                                 <i class="bi bi-link-45deg text-primary me-2"></i>
-                                                                @if (pagosDeEsta.Count == 1)
+                                                                @if (pagosDeEsta.Any())
                                                                 {
                                                                     <div>
-                                                                        <div class="small">@pagosDeEsta[0].OwnerName</div>
-                                                                        <div class="text-muted small">Unidad @pagosDeEsta[0].UnitName</div>
-                                                                    </div>
-                                                                }
-                                                                else if (pagosDeEsta.Count > 1)
-                                                                {
-                                                                    <div>
-                                                                        <div class="small">@pagosDeEsta.Count cuotas</div>
-                                                                        <div class="text-muted small">@string.Join(", ", pagosDeEsta.Select(p => p.UnitName).Distinct())</div>
+                                                                        <div class="small">Unidad @string.Join(", ", pagosDeEsta.Select(p => p.UnitName).Distinct())</div>
+                                                                        <div class="text-muted small">@pagosDeEsta.Count cuota@(pagosDeEsta.Count != 1 ? "s" : "")</div>
                                                                     </div>
                                                                 }
                                                                 else

@@ -1118,9 +1118,13 @@ namespace SpiderHood.Services
                 return resultado;
             }
 
+            // .Trim() acá -- confirmado con el usuario: una cuenta bancaria guardada con un
+            // espacio de más al inicio/fin (la UI de Edificios no lo recorta al guardar)
+            // hacía que TODAS las filas de esa cuenta en el archivo salieran como "no
+            // existe", aunque fuera visualmente la misma cuenta -- ver Pendientes-Negocio-Migracion.md #6.4.
             var cuentaPorNumero = cuentas
                 .Where(c => !string.IsNullOrWhiteSpace(c.AccountNumber))
-                .GroupBy(c => c.AccountNumber, StringComparer.OrdinalIgnoreCase)
+                .GroupBy(c => c.AccountNumber.Trim(), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
             XLWorkbook workbook;

@@ -176,6 +176,22 @@ que atrapan el error 547 de SQL). Mismo patrón que resolvió
 de replicar para Contact y Parameter -- o, si nunca va a haber borrado real
 de edificios desde la app, documentar que es intencional.
 
+### 6.4 Cuentas bancarias se pueden guardar con espacios al inicio/fin
+
+`AccountNumber` no se recorta (`.Trim()`) antes de guardarse -- confirmado en
+producción: una cuenta de Nova Alzamora se guardó con un espacio de más al
+inicio y al final desde la UI de Edificios (`BuildingPage.razor`), y cualquier
+comparación exacta contra ese número (el importador de Estado de Cuenta, en
+este caso) fallaba con "la cuenta no existe", aunque fuera visualmente la
+misma cuenta. El importador ya se blindó recortando ambos lados de la
+comparación (`Services/IMigrationImportService.cs`,
+`ImportarEstadoDeCuentaAsync`) y `IMigrationTemplateService.ObtenerCuentasAsync`
+también recorta al armar el dropdown de la plantilla, pero la causa de fondo
+-- que se pueda guardar así desde la UI -- sigue sin corregirse. Revisar si
+conviene hacer `.Trim()` en `IBankAccountService.AddBankAccount`/
+`UpdateBankAccount` (o antes, en el formulario) para que no se pueda guardar
+con espacios de entrada.
+
 ---
 
 ## 7. Los 5 importadores ya existen, pero no concilian entre sí

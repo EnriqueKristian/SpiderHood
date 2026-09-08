@@ -385,8 +385,8 @@ namespace SpiderHood.Services
         {
             var cuentas = await _bankAccountService.ObtenerCuentasBancariasAsync(idBuilding);
             return cuentas
-                .Select(c => (Numero: c.AccountNumber, Banco: c.BankName))
-                .Where(c => !string.IsNullOrWhiteSpace(c.Numero))
+                .Where(c => !string.IsNullOrWhiteSpace(c.AccountNumber))
+                .Select(c => (Numero: c.AccountNumber.Trim(), Banco: c.BankName))
                 .ToList();
         }
 

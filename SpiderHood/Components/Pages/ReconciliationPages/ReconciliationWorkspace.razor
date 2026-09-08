@@ -544,11 +544,7 @@
                                                                 @onclick="() => VerDetallesTransaccion(transaccion)">
                                                             <i class="bi bi-eye"></i>
                                                         </button>
-                                                        @* Por ahora sólo Ingresos -- Gastos necesita un wrapper real de
-                                                           UPD_ExpenseDeReconcilied (existe en BD, sin usar todavía) que
-                                                           todavía no se conectó; hasta entonces, mejor no mostrar un botón
-                                                           que no revierte nada real. *@
-                                                        @if (!transaccion.PropuestaPendiente && transaccion.ReconciliationStatus == ConcilationType.Conciliada && _puedeCorregir && transaccion.Tipo == "Ingreso")
+                                                        @if (!transaccion.PropuestaPendiente && transaccion.ReconciliationStatus == ConcilationType.Conciliada && _puedeCorregir)
                                                         {
                                                             <button class="btn btn-outline-danger"
                                                                     title="Corregir (requiere motivo, queda en el log de auditoría)"
@@ -1495,13 +1491,22 @@
     // "Enviar a Conciliar" (mientras es solo una PROPUESTA), deshacer sigue siendo libre y
     // gratis vía QuitarPropuesta, porque ahí todavía no hay nada guardado en BD.
     //
-    // Por ahora solo cubre Ingresos -- el botón ni siquiera se muestra para Gastos (ver el
-    // comentario junto al botón en la tabla) hasta conectar un wrapper real de
-    // UPD_ExpenseDeReconcilied.
     private async Task CorregirConciliacion(TransactionBankDetail transaccion)
     {
         if (!_puedeCorregir) return;
-        if (transaccion.Tipo != "Ingreso") return;
+
+        if (transaccion.Tipo == "Ingreso")
+        {
+            await CorregirConciliacionIngreso(transaccion);
+        }
+        else
+        {
+            await CorregirConciliacionGasto(transaccion);
+        }
+    }
+
+    private async Task CorregirConciliacionIngreso(TransactionBankDetail transaccion)
+    {
         if (!_canReconcileInstallments) return;
 
         var pagosDeEstaTransaccion = pagosCuotas.Where(p => p.IdTransaction == transaccion.IdStatementDetail).ToList();
@@ -1535,6 +1540,53 @@
             await ActualizarListasPendientes();
 
             mensajeExito = "Conciliación corregida y cuota(s) liberada(s)";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al corregir: {ex.Message}";
+        }
+    }
+
+    private async Task CorregirConciliacionGasto(TransactionBankDetail transaccion)
+    {
+        if (!_canReconcileExpenses) return;
+        if (transaccion.GastoConciliado == null)
+        {
+            mensajeError = "Esta transacción no tiene un gasto conciliado asociado.";
+            return;
+        }
+
+        var motivo = await JSRuntime.InvokeAsync<string?>("prompt",
+            $"Vas a corregir la conciliación de '{transaccion.Description}' con el gasto '{transaccion.GastoConciliado.Description}'.\n\nMotivo de la corrección (obligatorio):");
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            return;
+        }
+
+        try
+        {
+            var gastoAnterior = transaccion.GastoConciliado;
+
+            await BankService.DesconciliarGastoRealAsync(transaccion.IdStatementDetail, gastoAnterior.IdExpense);
+
+            transaccion.ReconciliationStatus = ConcilationType.NoConciliada;
+            transaccion.ReconciliationDate = null;
+            gastoAnterior.Reconciled = false;
+            gastoAnterior.ReconciledTransactionId = null;
+            gastoAnterior.AutoReconcile = false;
+            gastosPendientes.Add(gastoAnterior);
+            transaccion.GastoConciliado = null;
+
+            var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
+            await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Corrected,
+                performedBy, ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty,
+                $"Se liberó la conciliación con gasto '{gastoAnterior.Description}'. Motivo: {motivo}");
+
+            CalcularEstadisticas();
+            ActualizarPaginacion();
+
+            mensajeExito = "Conciliación corregida";
             StateHasChanged();
         }
         catch (Exception ex)

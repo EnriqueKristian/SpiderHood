@@ -574,6 +574,25 @@ namespace SpiderHood.Data
                 return true;
             }, "UpdateExpenseReconciliation", cancellationToken);
         }
+
+        // Contraparte de UpdateRecordAsync(TransactionBankDetail) de arriba -- "Corregir"
+        // (Fase B) para Gastos: revierte tanto AccountStatementDetail.ReconciliationStatus/
+        // ReconciliationDate como Expense.IdStatementDetail/AutoReconcile en un solo golpe.
+        public async Task<bool> DesconciliarGastoAsync(Guid idStatementDetail, Guid idExpense, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ExpenseDeReconcilied,
+                    cancellationToken,
+                    idStatementDetail,
+                    (int)ConcilationType.NoConciliada,
+                    idExpense,
+                    false);
+                return true;
+            }, "DesconciliarGasto", cancellationToken);
+        }
+
         public async Task<Models.Workflow> UpdateRecordAsync(Models.Workflow workflow, CancellationToken cancellationToken = default)
         {
             ValidateEntity(workflow, nameof(workflow));

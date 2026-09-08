@@ -15,6 +15,7 @@ namespace SpiderHood.Services
         Task<Models.Installment> AddInstallmentAsync(Installment installment);
         Task<List<Models.Installment>> GetInstallmentsByBudgetAsync(Guid IdBudgetHeader);
         Task<List<Models.Installment>> GetPendingInstallmentsAsync(Guid IdBuilding);
+        Task<List<Models.Installment>> GetInstallmentsByBuildingAsync(Guid IdBuilding);
         Task<Models.InstallmentPaid> AgregarPagoAsync(InstallmentPaid paid);
         Task<List<Models.InstallmentPaid>> GetInstallmentsPaidAsync(Guid IdBuilding);
         Task<int> BuscarCoincidencias(List<Installment> Installments, List<TransactionBankDetail> transacciones);
@@ -83,6 +84,19 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al guardar Pago de Cuota: {ex.Message}");
+                return new List<Installment>();
+            }
+        }
+
+        public async Task<List<Installment>> GetInstallmentsByBuildingAsync(Guid IdBuilding)
+        {
+            try
+            {
+                return await ec.GetInstallmentsByBuildingAsync(IdBuilding);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al obtener las cuotas del edificio: {ex.Message}");
                 return new List<Installment>();
             }
         }

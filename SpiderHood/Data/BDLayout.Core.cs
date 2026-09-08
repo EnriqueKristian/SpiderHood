@@ -179,6 +179,7 @@ namespace SpiderHood.Data
             public const string GET_ServiceReadingList = "GET_ServiceReadingList";
             public const string GET_InstallmentsByBudget = "GET_InstallmentsByBudget";
             public const string GET_PendingInstallments = "GET_PendingInstallments";
+            public const string GET_InstallmentsByBuilding = "GET_InstallmentsByBuilding";
             public const string GET_ServiceReading = "GET_ServiceReading";
             public const string GET_ServiceReadingDetailList = "GET_ServiceReadingDetailList";
             public const string GET_FirstWaterReadingDetailList = "GET_FirstWaterReadingDetailList";

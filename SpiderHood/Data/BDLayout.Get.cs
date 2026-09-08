@@ -823,6 +823,20 @@ namespace SpiderHood.Data
             }, "GetPendingInstallments", cancellationToken);
         }
 
+        // A diferencia de GetPendingInstallmentsAsync (GET_PendingInstallments filtra
+        // Status <> 1), esta trae TODAS las cuotas del edificio sin importar su estado
+        // -- la usa /cuotas (InstallmentList.razor), que necesita poder listar y
+        // filtrar también por "Pagadas".
+        public async Task<List<Installment>> GetInstallmentsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Installment>(
+                    StoredProcedures.GET_InstallmentsByBuilding,
+                    idBuilding);
+            }, "GetInstallmentsByBuilding", cancellationToken);
+        }
+
         public async Task<List<Exoneration>> GetExonerationByBudgetHeaderAsync(Guid idBudgetHeader, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

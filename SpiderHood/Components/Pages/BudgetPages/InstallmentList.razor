@@ -24,7 +24,7 @@
                         <i class="bi bi-receipt display-6 me-2"></i>
                         <div>
                             <h1 class="h3 mb-1">Listado de Cuotas</h1>
-                            <p class="mb-0 opacity-75">Cuotas pendientes de pago de todos los periodos</p>
+                            <p class="mb-0 opacity-75">Cuotas de todos los periodos</p>
                         </div>
                     </div>
                 </div>
@@ -380,7 +380,11 @@
         // de nuevo en cada visita es barato.
         await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
 
-        allInstallments = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+        // GetInstallmentsByBuildingAsync (no GetPendingInstallmentsAsync): esta página
+        // necesita listar y filtrar también por cuotas Pagadas, que GET_PendingInstallments
+        // excluye a nivel de SQL (Status <> 1) -- con GetPendingInstallmentsAsync el filtro
+        // "Pagadas" del combo de abajo nunca tenía nada que mostrar.
+        allInstallments = await InstallmentService.GetInstallmentsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         pagination.Initialize(allInstallments.OrderByDescending(i => i.Period).ThenBy(i => i.UnitName).ToList());
         AplicarFiltros();

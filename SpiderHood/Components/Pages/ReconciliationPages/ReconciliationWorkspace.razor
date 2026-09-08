@@ -38,9 +38,15 @@
                     <button class="btn btn-outline-primary" @onclick="ExportarConciliacion">
                         <i class="bi bi-file-earmark-arrow-up me-1"></i> Exportar
                     </button>
-                    <button class="btn btn-primary" @onclick="MostrarModalCargarEstado">
+                    <!-- Antes abría un modal (UploadAccountStatementModal) que nunca llegó a
+                         parsear el archivo real -- generaba transacciones de ejemplo al azar
+                         (GenerarDatosEjemplo) y las agregaba solo en memoria, sin guardar nada
+                         en la BD. La carga real (parseo de Excel + guardado) ya existe y
+                         funciona en /movement/cargar (CargarEstadoCuentaConciliacion.razor) --
+                         se enlaza ahí en vez de duplicar esa lógica acá. -->
+                    <a href="/movement/cargar" class="btn btn-primary">
                         <i class="bi bi-upload me-1"></i> Cargar Estado
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
@@ -742,29 +748,6 @@
     }
 </div>
 
-<!-- Modal para Cargar Estado de Cuenta -->
-@if (mostrarModalCargarEstado)
-{
-    <div class="modal-backdrop show"></div>
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-upload me-2"></i>Cargar Estado de Cuenta
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModalCargarEstado"></button>
-                </div>
-                <div class="modal-body">
-                    <UploadAccountStatementModal OnClose="CerrarModalCargarEstado"
-                                       OnCargado="EstadoCuentaCargado" />
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-
 <!-- Modal para Conciliar Manualmente -->
 @if (mostrarModalConciliar && transaccionSeleccionada != null)
 {
@@ -1038,7 +1021,6 @@
     private bool cargando = false;
 
     // Modales
-    private bool mostrarModalCargarEstado = false;
     private bool mostrarModalConciliar = false;
     private bool mostrarModalCrearGasto = false;
     private TransactionBankDetail? transaccionSeleccionada = null;
@@ -1879,38 +1861,6 @@
         mostrarSoloNoConciliados = false;
         ActualizarPaginacion();
         DeseleccionarTodo();
-    }
-
-    private void MostrarModalCargarEstado()
-    {
-        mostrarModalCargarEstado = true;
-        StateHasChanged();
-    }
-
-    private void CerrarModalCargarEstado()
-    {
-        mostrarModalCargarEstado = false;
-    }
-
-    private async Task EstadoCuentaCargado(List<TransactionBankDetail> nuevasTransacciones)
-    {
-        if (cuentaSeleccionadaId == Guid.Empty && cuentasBancarias.Any())
-        {
-            cuentaSeleccionadaId = cuentasBancarias.First().IdBankAccount;
-        }
-
-        // Agregar nuevas transacciones
-        transacciones.AddRange(nuevasTransacciones);
-
-        // Buscar coincidencias con las nuevas transacciones
-        await BuscarCoincidencias();
-
-        // Recalcular estadísticas
-        CalcularEstadisticas();
-        ActualizarPaginacion();
-
-        mensajeExito = $"Se cargaron {nuevasTransacciones.Count} nuevas transacciones";
-        CerrarModalCargarEstado();
     }
 
     private async Task VerDetallesTransaccion(TransactionBankDetail transaccion)

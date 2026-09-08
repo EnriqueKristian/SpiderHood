@@ -5,9 +5,42 @@ namespace SpiderHood.Models
     // Extension methods para utilidades
     public static class CuotaExtensions
     {
+        // BuildingConfiguration.Currency (PEN/USD/EUR, ver Classes/Building.cs) es la
+        // moneda con la que transacciona CADA edificio -- .ToString("C")/"C2" (que se
+        // usaba en toda la app) ignora esto por completo y formatea según la cultura del
+        // SERVIDOR, no la del edificio, así que un edificio en USD podía mostrarse en
+        // soles o viceversa según qué cultura tuviera configurado el server. Símbolo +
+        // InvariantCulture en vez de CultureInfo.GetCultureInfo(código de moneda): un
+        // código de moneda ISO no define una cultura/formato regional real (separadores
+        // de miles, orden del símbolo), y son 3 monedas nada más -- no vale la pena
+        // mantener ese mapeo.
+        private static readonly Dictionary<string, string> _currencySymbols = new()
+        {
+            ["PEN"] = "S/",
+            ["USD"] = "$",
+            ["EUR"] = "€",
+        };
+
+        public static string ToCurrencySymbol(this string? currencyCode)
+        {
+            if (string.IsNullOrWhiteSpace(currencyCode))
+                return "S/"; // Default histórico de BuildingConfiguration.Currency
+
+            return _currencySymbols.TryGetValue(currencyCode, out var symbol) ? symbol : currencyCode;
+        }
+
+        // Reemplaza a valor.ToString("C"/"C2") en toda la UI -- ver comentario arriba.
+        public static string FormatoMoneda(this decimal valor, string? currencyCode)
+        {
+            return $"{currencyCode.ToCurrencySymbol()} {valor.ToString("N2", CultureInfo.InvariantCulture)}";
+        }
+
+        // Sobrecarga sin moneda: sólo para código que no tiene forma de acceder al
+        // edificio actual (reportes/exports fuera de un componente Razor). Prefer
+        // siempre la sobrecarga con currencyCode cuando esté disponible.
         public static string FormatoMoneda(this decimal valor)
         {
-            return valor.ToString("C");
+            return valor.FormatoMoneda(null);
         }
 
         public static string FormatoPorcentaje(this decimal valor)

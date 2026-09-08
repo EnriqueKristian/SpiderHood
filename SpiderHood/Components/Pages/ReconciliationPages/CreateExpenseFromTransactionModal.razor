@@ -1,4 +1,5 @@
 ﻿@using SpiderHood.Models
+@inject SpiderHood.Services.ParameterService ParameterService
 
 <div class="crear-gasto-form">
     <div class="mb-4">
@@ -33,7 +34,7 @@
 
                 <dt class="col-sm-4">Monto:</dt>
                 <dd class="col-sm-8 fw-bold text-danger">
-                    @Math.Abs(Transaccion.Amount).ToString("C")
+                    @Moneda(Math.Abs(Transaccion.Amount))
                 </dd>
             </dl>
         </div>
@@ -106,7 +107,7 @@
             <div class="col-md-6">
                 <label class="form-label">Monto *</label>
                 <div class="input-group">
-                    <span class="input-group-text">S/</span>
+                    <span class="input-group-text">@(ParameterService.CurrentBuilding?.Configuration.Currency.ToCurrencySymbol() ?? "S/")</span>
                     <input type="number"
                            class="form-control @(errores.ContainsKey("Monto") ? "is-invalid" : "")"
                            step="0.01"
@@ -121,7 +122,7 @@
                     </div>
                 }
                 <small class="form-text text-muted">
-                    Monto de la transacción: @Math.Abs(Transaccion.Amount).ToString("C")
+                    Monto de la transacción: @Moneda(Math.Abs(Transaccion.Amount))
                 </small>
             </div>
 
@@ -215,6 +216,8 @@
 </div>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     [Parameter]
     public TransactionBankDetail? Transaccion { get; set; }
 

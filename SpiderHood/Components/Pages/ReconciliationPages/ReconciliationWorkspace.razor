@@ -85,6 +85,7 @@
                         <div class="col-md-4">
                             <label class="form-label">Período</label>
                             <select class="form-select" @bind="periodoSeleccionado" @bind:after="CambiarPeriodo">
+                                <option value="todos">Todos</option>
                                 <option value="mesActual">Mes Actual</option>
                                 <option value="mesAnterior">Mes Anterior</option>
                                 <option value="trimestreActual">Trimestre Actual</option>
@@ -122,7 +123,7 @@
                         <div class="col-6">
                             <div class="stat-card">
                                 <div class="stat-value @(totalPendiente > 0 ? "text-warning" : "text-success")">
-                                    @totalPendiente.ToString("C")
+                                    @Moneda(totalPendiente)
                                 </div>
                                 <div class="stat-label">Pendiente</div>
                             </div>
@@ -321,7 +322,7 @@
                                                     <code>@transaccion.Reference</code>
                                                 </td>
                                                 <td class="text-end fw-bold @(transaccion.Amount  < 0 ? "text-danger" : "text-success")">
-                                                    @Math.Abs(transaccion.Amount).ToString("C")
+                                                    @Moneda(Math.Abs(transaccion.Amount))
                                                 </td>
                                                 <td>
                                                     <span class="badge @(transaccion.Amount < 0 ? "bg-danger" : "bg-success")">
@@ -360,7 +361,7 @@
                                                                             @onclick="() => ConciliarConGasto(transaccion, match)">
                                                                             <div class="d-flex justify-content-between">
                                                                                 <span>@match.Category</span>
-                                                                                <span class="text-muted">@match.Amount.ToString("C")</span>
+                                                                                <span class="text-muted">@Moneda(match.Amount)</span>
                                                                             </div>
                                                                             <small class="text-muted">@match.Description</small>
                                                                         </a>
@@ -411,7 +412,7 @@
                                                                                    @onclick="() => ConciliarConCuota(transaccion, match)">
                                                                                     <div class="d-flex justify-content-between">
                                                                                         <span>@match.OwnerName</span>
-                                                                                        <span class="text-muted">@match.Amount.ToString("C")</span>
+                                                                                        <span class="text-muted">@Moneda(match.Amount)</span>
                                                                                     </div>
                                                                                     <small class="text-muted">Unidad @match.UnitName &middot; Cuota #@match.Number</small>
                                                                                 </a>
@@ -630,20 +631,20 @@
                                 <div class="list-group list-group-flush">
                                     <div class="list-group-item d-flex justify-content-between align-items-center">
                                         <span>Saldo Inicial:</span>
-                                        <span class="fw-bold">@saldoInicial.ToString("C")</span>
+                                        <span class="fw-bold">@Moneda(saldoInicial)</span>
                                     </div>
                                     <div class="list-group-item d-flex justify-content-between align-items-center">
                                         <span>Total Gastos:</span>
-                                        <span class="fw-bold text-danger">@totalGastos.ToString("C")</span>
+                                        <span class="fw-bold text-danger">@Moneda(totalGastos)</span>
                                     </div>
                                     <div class="list-group-item d-flex justify-content-between align-items-center">
                                         <span>Total Ingresos:</span>
-                                        <span class="fw-bold text-success">@totalIngresos.ToString("C")</span>
+                                        <span class="fw-bold text-success">@Moneda(totalIngresos)</span>
                                     </div>
                                     <div class="list-group-item d-flex justify-content-between align-items-center">
                                         <span>Saldo Final (Calculado):</span>
                                         <span class="fw-bold @(saldoFinalCalculado < 0 ? "text-danger" : "text-success")">
-                                            @saldoFinalCalculado.ToString("C")
+                                            @Moneda(saldoFinalCalculado)
                                         </span>
                                     </div>
                                 </div>
@@ -667,7 +668,7 @@
                                     <div class="list-group-item d-flex justify-content-between align-items-center">
                                         <span>Diferencia:</span>
                                         <span class="fw-bold @(diferenciaConciliacion < 0 ? "text-danger" : "text-success")">
-                                            @diferenciaConciliacion.ToString("C")
+                                            @Moneda(diferenciaConciliacion)
                                         </span>
                                     </div>
                                 </div>
@@ -794,7 +795,7 @@
                                     
                                     <dt class="col-sm-4">Monto:</dt>
                                     <dd class="col-sm-8 fw-bold @(transaccionSeleccionada.Amount < 0 ? "text-danger" : "text-success")">
-                                        @Math.Abs(transaccionSeleccionada.Amount).ToString("C")
+                                        @Moneda(Math.Abs(transaccionSeleccionada.Amount))
                                     </dd>
                                 </dl>
                             </div>
@@ -824,7 +825,7 @@
                                             </div>
                                             <div class="text-end">
                                                 <div class="fw-bold @(gasto.Amount < 0 ? "text-danger" : "text-success")">
-                                                    @Math.Abs(gasto.Amount).ToString("C")
+                                                    @Moneda(Math.Abs(gasto.Amount))
                                                 </div>
                                                 <small class="text-muted">
                                                     @gasto.ExpenseDate.ToString("dd/MM/yy")
@@ -936,9 +937,9 @@
                         <dt class="col-sm-4">Descripción:</dt>
                         <dd class="col-sm-8">@transaccionDetalleIngreso.Description</dd>
                         <dt class="col-sm-4">Monto:</dt>
-                        <dd class="col-sm-8 fw-bold text-success">@Math.Abs(transaccionDetalleIngreso.Amount).ToString("C")</dd>
+                        <dd class="col-sm-8 fw-bold text-success">@Moneda(Math.Abs(transaccionDetalleIngreso.Amount))</dd>
                         <dt class="col-sm-4">Saldo sin aplicar:</dt>
-                        <dd class="col-sm-8">@Math.Abs(transaccionDetalleIngreso.Balance).ToString("C")</dd>
+                        <dd class="col-sm-8">@Moneda(Math.Abs(transaccionDetalleIngreso.Balance))</dd>
                     </dl>
 
                     @{
@@ -960,7 +961,7 @@
                                 <div class="list-group-item">
                                     <div class="d-flex justify-content-between">
                                         <span class="fw-bold">@(cuota != null ? $"{cuota.OwnerName} (Unidad {cuota.UnitName})" : $"Cuota {pago.IdInstallment}")</span>
-                                        <span class="fw-bold text-success">@pago.Amount.ToString("C")</span>
+                                        <span class="fw-bold text-success">@Moneda(pago.Amount)</span>
                                     </div>
                                     <small class="text-muted">
                                         @pago.PaymentDate.ToString("dd/MM/yyyy")
@@ -981,6 +982,8 @@
 
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     [Parameter]
     public Guid AccountId { get; set; }
 
@@ -1021,7 +1024,10 @@
 
     // Filtros y estado
     private Guid cuentaSeleccionadaId = Guid.Empty;
-    private string periodoSeleccionado = "mesActual";
+    // Default "Todos": la conciliación necesita ver movimientos sin conciliar de
+    // cualquier fecha, no sólo del mes en curso -- un pendiente de meses atrás se
+    // perdía de la vista por defecto.
+    private string periodoSeleccionado = "todos";
     private DateTime fechaDesde = DateTime.Now.AddMonths(-1);
     private DateTime fechaHasta = DateTime.Now;
     private string tabActiva = "noConciliados";
@@ -1079,8 +1085,11 @@
         ModoFijo == null ? transacciones : transacciones.Where(t => t.Tipo == ModoFijo);
     private List<TransactionBankDetail> transaccionesConciliadas =>
         TransaccionesDelModo.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada).ToList();
+    // "No Conciliados" agrupa Pendientes (NoConciliada) y Parciales -- una transacción
+    // Parcial todavía tiene saldo por conciliar, así que antes se perdía de este tab
+    // (y del de "Conciliados", que exige == Conciliada) y sólo aparecía en "Todas".
     private List<TransactionBankDetail> transaccionesNoConciliadas =>
-        TransaccionesDelModo.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada).ToList();
+        TransaccionesDelModo.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -1778,7 +1787,7 @@
         }
         else if (tabActiva == "noConciliados")
         {
-            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada);
+            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial);
         }
 
         // Aplicar filtro de tipo
@@ -1800,7 +1809,7 @@
         // Aplicar filtro de no conciliados
         if (mostrarSoloNoConciliados && tabActiva == "todos")
         {
-            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada);
+            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial);
         }
 
         return resultado.OrderByDescending(t => t.StatementDate).ToList();
@@ -1812,6 +1821,10 @@
 
         return periodoSeleccionado switch
         {
+            // Rango amplio (no DateTime.MinValue: desborda el tipo datetime de SQL
+            // Server, que arranca en 1753) en vez de un caso especial que salte el
+            // filtro de fechas -- así ObtenerTransaccionesAsync no necesita cambios.
+            "todos" => (new DateTime(1900, 1, 1), DateTime.Today.AddDays(1)),
             "mesAnterior" => (
                 new DateTime(hoy.Year, hoy.Month, 1).AddMonths(-1),
                 new DateTime(hoy.Year, hoy.Month, 1).AddDays(-1)
@@ -1914,7 +1927,7 @@
         // saltos de línea se pasan como <br> en vez de "\n" para que se vean.
         var detalles = $"Fecha: {transaccion.StatementDate:dd/MM/yyyy}<br>" +
               $"Descripción: {transaccion.Description}<br>" +
-              $"Monto: {transaccion.Amount:C}<br>" +
+              $"Monto: {Moneda(transaccion.Amount)}<br>" +
               $"Referencia: {transaccion.Reference}<br>" +
               $"Tipo: {transaccion.Tipo}<br>" +
               $"Estado: {(transaccion.ReconciliationStatus == ConcilationType.Conciliada ? "Conciliado" : "Pendiente")}";

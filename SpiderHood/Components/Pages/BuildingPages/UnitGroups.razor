@@ -449,6 +449,8 @@
 
 @code {
 
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     // Paginación de la grilla de unidades -- todo en memoria, ya que `units` se carga
     // completo desde BuildingService.GetUnitsByBuildingAsync en InicializarPagina.
     private int _unitPageSize = 10;
@@ -743,14 +745,14 @@
                             <tr>
                                 <td>@cuota.DueDate.ToString("dd/MM/yyyy")</td>
                                 <td>@(string.IsNullOrWhiteSpace(cuota.Concept) ? cuota.Type.ToString() : cuota.Concept)</td>
-                                <td class="text-end">@cuota.Debt.ToString("C")</td>
+                                <td class="text-end">@Moneda(cuota.Debt)</td>
                             </tr>
                         }
                     </tbody>
                     <tfoot>
                         <tr class="fw-bold">
                             <td colspan="2">Total</td>
-                            <td class="text-end">@_financesDebts.Sum(c => c.Debt).ToString("C")</td>
+                            <td class="text-end">@Moneda(_financesDebts.Sum(c => c.Debt))</td>
                         </tr>
                     </tfoot>
                 </table>

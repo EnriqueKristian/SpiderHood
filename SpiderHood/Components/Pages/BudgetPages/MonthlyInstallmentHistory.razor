@@ -54,7 +54,7 @@
             <tr>
                 <td>@GetNombreMes(cuota.Mes) @cuota.Anio</td>
                 <td>@cuota.FechaGeneracion.ToString("dd/MM/yyyy HH:mm")</td>
-                <td>@cuota.TotalDistribuido.ToString("C")</td>
+                <td>@Moneda(cuota.TotalDistribuido)</td>
                 <td>
                     <span class="badge @(cuota.Procesada ? "bg-success" : "bg-warning")">
                         @(cuota.Procesada ? "Procesada" : "Pendiente")
@@ -77,6 +77,8 @@
 </table>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     private List<MonthlyInstallmentBatch> cuotas = new();
     private int anioFiltro = DateTime.Now.Year;
     private int mesFiltro = 0;

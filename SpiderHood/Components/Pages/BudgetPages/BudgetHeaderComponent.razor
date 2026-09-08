@@ -1,4 +1,6 @@
-﻿﻿<div class="d-flex justify-content-between align-items-center mb-4">
+﻿﻿@using SpiderHood.Models
+@inject SpiderHood.Services.ParameterService ParameterService
+<div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h1 class="mb-1"><i class="bi @IconoPagina"></i>@TituloPagina</h1>
         <p class="text-muted mb-0">@SubtituloPagina</p>
@@ -46,12 +48,12 @@
                                  S/ 0.00 acá. El monto real por unidad ya está en Installments,
                                  el mismo total que se ve en "Total Cuotas" más abajo. -->
                             <h6 class="text-muted text-uppercase small">Total Cuotas</h6>
-                            <h2 class="mb-0">S/ @_budgetState!.TotalInstallments.ToString("N2")</h2>
+                            <h2 class="mb-0">@Moneda(_budgetState!.TotalInstallments)</h2>
                         }
                         else
                         {
                             <h6 class="text-muted text-uppercase small">Total Mensual</h6>
-                            <h2 class="mb-0">S/ @_budgetState!.TotalMonthly.ToString("N2")</h2>
+                            <h2 class="mb-0">@Moneda(_budgetState!.TotalMonthly)</h2>
                         }
                     </div>
                     <div style="color: #3b82f6;">
@@ -70,7 +72,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted text-uppercase small">Total Anual</h6>
-                            <h2 class="mb-0">S/ @_budgetState!.TotalAnnual.ToString("N2")</h2>
+                            <h2 class="mb-0">@Moneda(_budgetState!.TotalAnnual)</h2>
                         </div>
                         <div style="color: #10b981;">
                             <i class="bi bi-calendar-check-fill" style="font-size: 1.2rem;"></i>
@@ -135,6 +137,8 @@
 </div>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     [Parameter]
     public Models.BudgetState? _budgetState { get; set; }
 

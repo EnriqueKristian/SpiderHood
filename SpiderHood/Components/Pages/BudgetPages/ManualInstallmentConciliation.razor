@@ -1,6 +1,7 @@
 ﻿.﻿@using SpiderHood.Components.Pages.Components
 @using SpiderHood.Models
 @inherits LayoutComponentBase
+@inject SpiderHood.Services.ParameterService ParameterService
 
 <div class="modal-backdrop show"></div>
 <div class="modal show d-block" tabindex="-1">
@@ -22,7 +23,7 @@
                                 <dd class="col-sm-8">@cuota!.Period.ToString("dd/MM/yyyy")</dd>
                                 <dt class="col-sm-4">Monto:</dt>
                                 <dd class="col-sm-8 fw-bold @(cuota.Debt < 0 ? "text-danger" : "text-success")">
-                                    @Math.Abs(cuota.Debt).ToString("C")
+                                    @Moneda(Math.Abs(cuota.Debt))
                                 </dd>
                             </dl>
                         </div>
@@ -47,7 +48,7 @@
                                         </div>
                                         <div class="text-end">
                                             <div class="fw-bold @(transaccion.Balance < 0 ? "text-danger" : "text-success")">
-                                                @Math.Abs(transaccion.Balance).ToString("C")
+                                                @Moneda(Math.Abs(transaccion.Balance))
                                             </div>
                                             <small class="text-muted">
                                                 @transaccion.StatementDate.ToString("dd/MM/yy")
@@ -86,6 +87,7 @@
                    OnClose="OnConfirmationResult" />
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     [Parameter] public DateTime _period { get; set; }
     [Parameter] public Installment? cuota { get; set; }

@@ -242,7 +242,7 @@
                                                 <span class="badge bg-secondary">Total categoría</span>
                                             </td>
                                             <td class="text-end fw-bold text-primary">
-                                                S/ @categoryGroup.Value.Sum(e => e.TotalAmount).ToString("N2")
+                                                @Moneda(categoryGroup.Value.Sum(e => e.TotalAmount))
                                             </td>
                                             <td class="text-center">
                                                 <button class="btn btn-sm btn-outline-primary"
@@ -291,7 +291,7 @@
                                                     </td>
                                                     <td class="text-end">
                                                         <span class="fw-bold @(expense.TotalAmount > 0 ? "text-danger" : "text-success")">
-                                                            S/ @expense.TotalAmount.ToString("N2")
+                                                            @Moneda(expense.TotalAmount)
                                                         </span>
                                                     </td>
                                                     <td class="text-center">
@@ -367,7 +367,7 @@
                                 </div>
                                 <div>
                                     <h6 class="mb-1">Promedio por Gasto</h6>
-                                    <p class="mb-0 fw-bold">S/ @(totalGastos > 0 ? (totalGastos / totalExpenses).ToString("N2") : "0.00")</p>
+                                    <p class="mb-0 fw-bold">@(totalGastos > 0 ? Moneda(totalGastos / totalExpenses) : Moneda(0))</p>
                                 </div>
                             </div>
                         </div>
@@ -427,7 +427,7 @@
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Monto (S/) *</label>
                                 <div class="input-group">
-                                    <span class="input-group-text">S/</span>
+                                    <span class="input-group-text">@(ParameterService.CurrentBuilding?.Configuration.Currency.ToCurrencySymbol() ?? "S/")</span>
                                     <input type="number" class="form-control" @bind="currentExpense.TotalAmount"
                                            step="0.01" min="0" />
                                 </div>
@@ -476,6 +476,7 @@
 
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
     [Inject] private IExpenseService ExpenseService { get; set; } = default!;

@@ -10,6 +10,10 @@ namespace SpiderHood.Components.Pages
     {
         private Guid IdBuilding = Guid.Empty;
 
+        // Formatea siempre en la moneda configurada del edificio actual (BuildingConfiguration.Currency),
+        // no en la del server -- ver CuotaExtensions.FormatoMoneda.
+        private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
         [Inject]
         private ParameterService ParameterService { get; set; } = default!;
 
@@ -314,7 +318,7 @@ namespace SpiderHood.Components.Pages
                     Title = TipoCuotaLabel(i.Type),
                     Description = string.IsNullOrWhiteSpace(i.Concept) ? i.OwnerName : i.Concept,
                     Unit = i.UnitName,
-                    Amount = i.Debt.ToString("C"),
+                    Amount = Moneda(i.Debt),
                     DateColor = i.DueDate.Date < now.Date ? "bg-danger" : "bg-primary",
                     IsUrgent = i.DueDate.Date < now.Date
                 })
@@ -350,7 +354,7 @@ namespace SpiderHood.Components.Pages
                 .Select(p => new ActivityItem
                 {
                     Title = p.IsPartialPayment ? "Pago parcial registrado" : "Pago registrado",
-                    Description = p.Amount.ToString("C"),
+                    Description = Moneda(p.Amount),
                     When = p.PaymentDate,
                     Time = TiempoRelativo(p.PaymentDate, now),
                     User = string.Empty,

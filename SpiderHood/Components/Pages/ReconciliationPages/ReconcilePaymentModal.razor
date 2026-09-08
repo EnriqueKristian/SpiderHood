@@ -1,4 +1,5 @@
 ﻿@using SpiderHood.Models
+@inject SpiderHood.Services.ParameterService ParameterService
 
 <div class="modal-backdrop show"></div>
 <div class="modal show d-block" tabindex="-1">
@@ -20,7 +21,7 @@
                                 <dt class="col-sm-3">Descripción:</dt>
                                 <dd class="col-sm-9">@Pago.Description</dd>
                                 <dt class="col-sm-3">Saldo del pago:</dt>
-                                <dd class="col-sm-9 fw-bold text-success">@SaldoPago.ToString("C")</dd>
+                                <dd class="col-sm-9 fw-bold text-success">@Moneda(SaldoPago)</dd>
                             </dl>
                         </div>
                     </div>
@@ -52,7 +53,7 @@
                                     <div class="d-flex justify-content-between">
                                         <span class="fw-bold">@cuota.OwnerName</span>
                                         <span class="fw-bold @(cuota.Debt <= 0 ? "text-success" : "text-warning")">
-                                            @cuota.Debt.ToString("C")
+                                            @Moneda(cuota.Debt)
                                         </span>
                                     </div>
                                     <small class="text-muted">
@@ -71,8 +72,8 @@
                 <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top">
                     <div>
                         <span class="text-muted">Total seleccionado:</span>
-                        <span class="fw-bold @(totalSeleccionado > SaldoPago ? "text-danger" : "")">@totalSeleccionado.ToString("C")</span>
-                        <span class="text-muted"> de @SaldoPago.ToString("C")</span>
+                        <span class="fw-bold @(totalSeleccionado > SaldoPago ? "text-danger" : "")">@Moneda(totalSeleccionado)</span>
+                        <span class="text-muted"> de @Moneda(SaldoPago)</span>
                     </div>
                     @if (!string.IsNullOrEmpty(mensajeError))
                     {
@@ -98,6 +99,8 @@
 </div>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     [Parameter] public TransactionBankDetail? Pago { get; set; }
     [Parameter] public List<Installment> CuotasDisponibles { get; set; } = new();
     [Parameter] public string? ErrorExterno { get; set; }

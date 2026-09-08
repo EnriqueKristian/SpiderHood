@@ -6,6 +6,7 @@
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
 @inject Services.IPreferenceService PreferenceService
 @inject Services.IInstallmentService InstallmentService
+@inject Services.ParameterService ParameterService
 @*@inject Services.ISessionService SessionService*@
 @inject NavigationManager Navigation
 @inject ILogger<Profile> Logger
@@ -95,6 +96,8 @@
    ============================================================ *@
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     // =========================================================
     // 1. ESTADO Y MODELOS
     // =========================================================
@@ -418,7 +421,7 @@
                             <div class="p-3 bg-light rounded">
                                 <small class="text-muted">Total Pagado</small>
                                 <h5 class="mb-0 text-success">
-                                    @_accountBalance.ToString("C")
+                                    @Moneda(_accountBalance)
                                 </h5>
                             </div>
                         </div>
@@ -426,7 +429,7 @@
                             <div class="p-3 bg-light rounded">
                                 <small class="text-muted">Deuda Pendiente</small>
                                 <h5 class="mb-0 text-danger">
-                                    @_outstandingDebt.ToString("C")
+                                    @Moneda(_outstandingDebt)
                                 </h5>
                             </div>
                         </div>
@@ -468,7 +471,7 @@
                                             <td>@payment.Date.ToString("dd/MM/yyyy")</td>
                                             <td>@payment.Concept</td>
                                             <td>@payment.BuildingName</td>
-                                            <td>@payment.Amount.ToString("C")</td>
+                                            <td>@Moneda(payment.Amount)</td>
                                             <td>
                                                 <span class="badge bg-@(payment.Status == "Pagado" ? "success" : "warning")">
                                                     @payment.Status

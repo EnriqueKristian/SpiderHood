@@ -207,7 +207,7 @@
     [CascadingParameter]
     private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
 
-    private string Moneda => ParameterService.CurrentBuilding?.Configuration.Currency == "PEN" ? "S/" : "$";
+    private string Moneda => ParameterService.CurrentBuilding?.Configuration.Currency.ToCurrencySymbol() ?? "S/";
 
     private decimal TotalAsignado => montosPorUnidad.Values.Sum();
 

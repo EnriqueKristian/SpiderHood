@@ -5,6 +5,7 @@
 @inject ICalendarService CalendarService
 @inject ICategoryService CategoryService
 @inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.ParameterService ParameterService
 
 <PageTitle>Calendario</PageTitle>
 
@@ -66,7 +67,7 @@
             <div class="card h-100">
                 <div class="card-body">
                     <div class="text-muted small">Costo Mensual</div>
-                    <div class="h4 fw-bold mb-0">@CostoMensual.ToString("C")</div>
+                    <div class="h4 fw-bold mb-0">@Moneda(CostoMensual)</div>
                 </div>
             </div>
         </div>
@@ -193,7 +194,7 @@
                             <td>@item.StartDate.ToString("dd/MM/yyyy")</td>
                             <td>@item.StartDate.ToString("HH:mm")</td>
                             <td>@(string.IsNullOrWhiteSpace(item.Responsible) ? "-" : item.Responsible)</td>
-                            <td>@(item.Cost.HasValue ? item.Cost.Value.ToString("C") : "-")</td>
+                            <td>@(item.Cost.HasValue ? Moneda(item.Cost.Value) : "-")</td>
                             <td>
                                 @if (_isStaff)
                                 {
@@ -385,6 +386,8 @@
 }
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     private const int MaxRecurrenceOccurrencesDisplay = 60;
     private string MaxOccurrencesLabel => $"{MaxRecurrenceOccurrencesDisplay} ocurrencias o 3 años";
 

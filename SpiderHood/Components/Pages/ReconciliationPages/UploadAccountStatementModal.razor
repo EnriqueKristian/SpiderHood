@@ -1,5 +1,6 @@
 ﻿﻿@using SpiderHood.Models
 @using System.Text.Json
+@inject SpiderHood.Services.ParameterService ParameterService
 
 <script src=@Assets["js/reconciliation.js"]></script>
 
@@ -140,7 +141,7 @@
                                                     <td>@fila.StatementDate.ToString("dd/MM/yyyy")</td>
                                                     <td>@fila.Description</td>
                                                     <td class="@(fila.Amount < 0 ? "text-danger" : "text-success")">
-                                                        @fila.Amount.ToString("C")
+                                                        @Moneda(fila.Amount)
                                                     </td>
                                                     <td>@fila.Reference</td>
                                                     <td>
@@ -202,6 +203,8 @@
 </div>
 
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     [Parameter]
     public EventCallback OnClose { get; set; }
 

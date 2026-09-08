@@ -121,12 +121,23 @@ reutilizable en
 
 ## 6. Bugs encontrados probando el importador (no causados por él)
 
-**Estado: pendiente, sin empezar.** Encontrados por el usuario probando
+**Estado: 6.1, 6.2 y 6.4 resueltos (2026-09-08, branch
+`claude/fixes-al-aplicativo-8mtchm`); 6.3 mitigado (FK preventiva, sigue sin
+existir borrado de edificios).** Encontrados por el usuario probando
 `/migracion/plantillas` con datos reales de varios edificios -- son fallas
 generales de la app (gestión de edificios/contactos/cuentas), no del
-importador ni de las plantillas. Quedan para otro branch.
+importador ni de las plantillas.
 
 ### 6.1 Contactos no se graban con el `IdRelatedEntity` correcto
+
+**Resuelto (2026-09-08)** -- mismo root cause que 6.2: `SelectBuilding`
+(`BuildingPage.razor.cs`) no refrescaba `SelectedBuilding.Configuration` al
+cambiar de edificio en el mismo circuito, así que `interno.IdBuildingConfiguration`
+podía venir de la versión liviana que trae la sesión (o directamente de otro
+edificio visitado antes) en vez de la que realmente corresponde al edificio
+seleccionado. Ver fix en 6.2 -- ahora `SelectBuilding` es async y vuelve a
+pedir la configuración completa (`GetConfigurationAsync`) de cada edificio al
+seleccionarlo.
 
 `Contact.IdRelatedEntity` debería apuntar a
 `BuildingConfiguration.IdBuildingConfiguration` -- así es como
@@ -148,6 +159,18 @@ guardar -- mismo patrón sospechado en el punto 6.2.
 
 ### 6.2 Cuentas bancarias se graban todas con el mismo `IdBuilding`
 
+**Resuelto (2026-09-08).** Confirmado: `SelectBuilding` sólo hacía
+`SelectedBuilding = building;` -- nunca volvía a pedir la `Configuration`
+completa de ese edificio. Sólo el primer edificio (el que carga
+`CargarDatosPagina` al entrar a la página, vía `GetConfigurationAsync`) tenía
+la versión completa (con `BankAccounts`, `Exonerations`, etc.); cualquier otro
+edificio seleccionado después seguía con la versión liviana que ya traía
+`currentUser.Buildings` desde el login (`GetAllBuildingsConfigAsync`, ver
+`IUserSessionLoader`). `SelectBuilding` ahora es `async Task` y llama a
+`GetConfigurationAsync(SelectedBuilding.IdBuilding)` cada vez que cambia el
+edificio seleccionado, antes de que el usuario pueda tocar nada de esa
+configuración.
+
 `BuildingPage.razor.cs:447`:
 ```csharp
 bankaccount.IdBuilding = interno.IdBuilding;
@@ -163,6 +186,14 @@ equivalente) al cambiar de edificio.
 
 ### 6.3 Sin FK real: borrar un edificio deja Contact y Parameter huérfanos
 
+**Mitigado (2026-09-08)** -- FK preventiva agregada en
+`Database/Scripts/2026-09-08_57_Contact_Parameter_RealFK.sql`, mismo patrón
+autocontenido/re-ejecutable que `2026-09-02_24_Category_RealFK.sql`
+(se saltea sola por tabla si ya existe el FK o si hay filas huérfanas, sin
+ON DELETE en cascada). Sigue sin existir un `DeleteBuildingAsync` real en la
+app -- este script sólo dispara si ese borrado se implementa a futuro o si
+alguien vuelve a borrar un `Building` directo en la BD.
+
 No existe una función de borrado de edificios en la app (no hay
 `DeleteBuildingAsync` en `IBuildingService`, se comprobó buscando en todo el
 repo) -- el borrado se hizo directo en la BD durante pruebas. Ahí se vio que
@@ -177,6 +208,9 @@ de replicar para Contact y Parameter -- o, si nunca va a haber borrado real
 de edificios desde la app, documentar que es intencional.
 
 ### 6.4 Cuentas bancarias se pueden guardar con espacios al inicio/fin
+
+**Resuelto (2026-09-08)** -- `IBankAccountService.AddBankAccount`/
+`UpdateBankAccount` ahora recortan `AccountNumber` y `CCI` antes de guardar.
 
 `AccountNumber` no se recorta (`.Trim()`) antes de guardarse -- confirmado en
 producción: una cuenta de Nova Alzamora se guardó con un espacio de más al

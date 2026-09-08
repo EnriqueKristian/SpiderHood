@@ -704,6 +704,13 @@ namespace SpiderHood.Services
         //
         // 'Type' de cada línea queda en 1 (Por Unidad) por defecto -- la plantilla no
         // captura el tipo de distribución real de cada ítem histórico.
+        //
+        // CreatePresupuestoAsync/AddDetalleToPresupuestoAsync sí relanzan (no atrapan
+        // en silencio, ver comentario al inicio del archivo), pero antes nada acá los
+        // envolvía en try/catch -- una falla real (encontrada en producción: BudgetHeader
+        // .CreatedBy en la BD es más angosto que el email de algunos usuarios, ver
+        // Database/Scripts/2026-09-08_55_BudgetHeader_CreatedBy_Widen.sql) tumbaba todo
+        // el import sin guardar ni reportar nada. Ahora se captura por periodo.
         public async Task<MigrationImportResult> ImportarPresupuestoHistoricoAsync(Guid idBuilding, Stream archivo)
         {
             var resultado = new MigrationImportResult();
@@ -785,64 +792,73 @@ namespace SpiderHood.Services
                     var idBudgetHeader = Guid.NewGuid();
                     var totalMensual = grupoPeriodo.Sum(f => f.Monto);
 
-                    await _budgetService.CreatePresupuestoAsync(new Models.BudgetHeader
+                    try
                     {
-                        IdBudgetHeader = idBudgetHeader,
-                        BudgetName = $"Presupuesto histórico {periodo:MMMM yyyy}",
-                        BudgetDate = periodo,
-                        Amount = totalMensual,
-                        AnnualAmount = totalMensual * 12,
-                        BudgetType = "Histórico",
-                        IdBuilding = idBuilding,
-                        CreatedBy = "Migración",
-                        Status = Models.BudgetStatus.Closed
-                    });
-                    resultado.PresupuestosCreados++;
-
-                    var siguienteIdSection = 1;
-                    foreach (var grupoCategoria in grupoPeriodo.GroupBy(f => f.Categoria, StringComparer.OrdinalIgnoreCase))
-                    {
-                        var categoria = categoriaPorNombre[grupoCategoria.Key];
-                        var idSection = siguienteIdSection++;
-
-                        await _budgetService.AddDetalleToPresupuestoAsync(new Models.BudgetDetail
+                        await _budgetService.CreatePresupuestoAsync(new Models.BudgetHeader
                         {
-                            IdBudgetDetail = Guid.NewGuid(),
-                            IdCategory = categoria.IdCategory,
-                            IdSection = idSection,
-                            ItemNumber = idSection,
-                            Description = categoria.Description,
-                            MonthlyAmount = 0,
-                            AnnualAmount = 0,
-                            Frequency = 0,
-                            Type = 0,
-                            IsHeader = true,
                             IdBudgetHeader = idBudgetHeader,
-                            IdParent = Guid.Empty
+                            BudgetName = $"Presupuesto histórico {periodo:MMMM yyyy}",
+                            BudgetDate = periodo,
+                            Amount = totalMensual,
+                            AnnualAmount = totalMensual * 12,
+                            BudgetType = "Histórico",
+                            IdBuilding = idBuilding,
+                            CreatedBy = "Migración",
+                            Status = Models.BudgetStatus.Closed
                         });
 
-                        var secuencia = 1;
-                        foreach (var f in grupoCategoria)
+                        var siguienteIdSection = 1;
+                        foreach (var grupoCategoria in grupoPeriodo.GroupBy(f => f.Categoria, StringComparer.OrdinalIgnoreCase))
                         {
+                            var categoria = categoriaPorNombre[grupoCategoria.Key];
+                            var idSection = siguienteIdSection++;
+
                             await _budgetService.AddDetalleToPresupuestoAsync(new Models.BudgetDetail
                             {
                                 IdBudgetDetail = Guid.NewGuid(),
                                 IdCategory = categoria.IdCategory,
                                 IdSection = idSection,
-                                ItemNumber = idSection + secuencia * 0.01m,
-                                Description = f.Descripcion,
-                                MonthlyAmount = f.Monto,
-                                AnnualAmount = f.Monto * 12,
-                                Frequency = 1,
-                                Type = 1,
-                                IsHeader = false,
+                                ItemNumber = idSection,
+                                Description = categoria.Description,
+                                MonthlyAmount = 0,
+                                AnnualAmount = 0,
+                                Frequency = 0,
+                                Type = 0,
+                                IsHeader = true,
                                 IdBudgetHeader = idBudgetHeader,
                                 IdParent = Guid.Empty
                             });
-                            resultado.ItemsPresupuestoCreados++;
-                            secuencia++;
+
+                            var secuencia = 1;
+                            foreach (var f in grupoCategoria)
+                            {
+                                await _budgetService.AddDetalleToPresupuestoAsync(new Models.BudgetDetail
+                                {
+                                    IdBudgetDetail = Guid.NewGuid(),
+                                    IdCategory = categoria.IdCategory,
+                                    IdSection = idSection,
+                                    ItemNumber = idSection + secuencia * 0.01m,
+                                    Description = f.Descripcion,
+                                    MonthlyAmount = f.Monto,
+                                    AnnualAmount = f.Monto * 12,
+                                    Frequency = 1,
+                                    Type = 1,
+                                    IsHeader = false,
+                                    IdBudgetHeader = idBudgetHeader,
+                                    IdParent = Guid.Empty
+                                });
+                                resultado.ItemsPresupuestoCreados++;
+                                secuencia++;
+                            }
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        resultado.Errores.Add($"Presupuesto, periodo {periodo:yyyy-MM}: no se pudo guardar -- {MensajeErrorReal(ex)}");
+                        continue;
+                    }
+
+                    resultado.PresupuestosCreados++;
                 }
             }
 
@@ -873,6 +889,13 @@ namespace SpiderHood.Services
         // ImportarEstadoDeCuentaAsync queda pendiente (ver
         // Docs/Pendientes-Negocio-Migracion.md); todo pago migrado queda con
         // IdTransaction = Guid.Empty, sin bloquear el registro del pago en sí.
+        //
+        // Todo el bloque por grupo (resolver/crear BudgetHeader + Installment +
+        // InstallmentPaid) se captura en un solo try/catch -- antes no había ninguno acá,
+        // y una falla real (encontrada en producción: BudgetHeader.CreatedBy en la BD es
+        // más angosto que el email real del usuario, ver
+        // Database/Scripts/2026-09-08_55_BudgetHeader_CreatedBy_Widen.sql) tumbaba todo
+        // el import de las ~3000 cuotas del archivo en vez de reportarse por fila.
         public async Task<MigrationImportResult> ImportarCuotasYPagosAsync(Guid idBuilding, Stream archivo)
         {
             var resultado = new MigrationImportResult();
@@ -998,82 +1021,90 @@ namespace SpiderHood.Services
                     var primera = grupo.First();
                     var unidadResuelta = unidadPorCodigo[unidadCodigo];
 
-                    var claveMes = (periodo.Year, periodo.Month);
-                    if (!budgetHeaderPorPeriodo.TryGetValue(claveMes, out var idBudgetHeader))
+                    try
                     {
-                        var existente = presupuestosExistentes.FirstOrDefault(b => b.BudgetDate.Year == periodo.Year && b.BudgetDate.Month == periodo.Month);
-                        if (existente != null)
+                        var claveMes = (periodo.Year, periodo.Month);
+                        if (!budgetHeaderPorPeriodo.TryGetValue(claveMes, out var idBudgetHeader))
                         {
-                            idBudgetHeader = existente.IdBudgetHeader;
-                        }
-                        else
-                        {
-                            var nuevo = await _budgetService.CreatePresupuestoAsync(new Models.BudgetHeader
+                            var existente = presupuestosExistentes.FirstOrDefault(b => b.BudgetDate.Year == periodo.Year && b.BudgetDate.Month == periodo.Month);
+                            if (existente != null)
                             {
-                                BudgetName = $"Cuota histórica migrada {periodo:MMMM yyyy}",
-                                BudgetDate = periodo,
-                                Amount = 0,
-                                AnnualAmount = 0,
-                                BudgetType = "Histórico",
-                                IdBuilding = idBuilding,
-                                CreatedBy = performedBy,
-                                Status = Models.BudgetStatus.Closed
-                            });
-                            idBudgetHeader = nuevo.IdBudgetHeader;
-                            presupuestosExistentes.Add(nuevo);
+                                idBudgetHeader = existente.IdBudgetHeader;
+                            }
+                            else
+                            {
+                                var nuevo = await _budgetService.CreatePresupuestoAsync(new Models.BudgetHeader
+                                {
+                                    BudgetName = $"Cuota histórica migrada {periodo:MMMM yyyy}",
+                                    BudgetDate = periodo,
+                                    Amount = 0,
+                                    AnnualAmount = 0,
+                                    BudgetType = "Histórico",
+                                    IdBuilding = idBuilding,
+                                    CreatedBy = performedBy,
+                                    Status = Models.BudgetStatus.Closed
+                                });
+                                idBudgetHeader = nuevo.IdBudgetHeader;
+                                presupuestosExistentes.Add(nuevo);
+                            }
+                            budgetHeaderPorPeriodo[claveMes] = idBudgetHeader;
                         }
-                        budgetHeaderPorPeriodo[claveMes] = idBudgetHeader;
-                    }
 
-                    var totalPagado = grupo.Sum(f => f.MontoPagado);
-                    var deuda = Math.Max(0, primera.Monto - totalPagado);
-                    var status = totalPagado <= 0
-                        ? Models.ConcilationType.NoConciliada
-                        : (deuda > 0 ? Models.ConcilationType.Parcial : Models.ConcilationType.Conciliada);
+                        var totalPagado = grupo.Sum(f => f.MontoPagado);
+                        var deuda = Math.Max(0, primera.Monto - totalPagado);
+                        var status = totalPagado <= 0
+                            ? Models.ConcilationType.NoConciliada
+                            : (deuda > 0 ? Models.ConcilationType.Parcial : Models.ConcilationType.Conciliada);
 
-                    var percent = areaTotalEdificio > 0 ? (unidadResuelta.AreaTotal / areaTotalEdificio) * 100 : 0;
+                        var percent = areaTotalEdificio > 0 ? (unidadResuelta.AreaTotal / areaTotalEdificio) * 100 : 0;
 
-                    var installment = new Models.Installment
-                    {
-                        IdInstallment = Guid.NewGuid(),
-                        IdBudgetHeader = idBudgetHeader,
-                        Number = 1,
-                        UnitName = unidadCodigo,
-                        OwnerName = $"{unidadResuelta.Names} {unidadResuelta.Surname}".Trim(),
-                        CreationDate = DateTime.Now,
-                        Amount = primera.Monto,
-                        Percent = percent,
-                        TotalArea = unidadResuelta.AreaTotal,
-                        Period = periodo,
-                        CreatedBy = performedBy,
-                        Status = status,
-                        AmountPaid = totalPagado,
-                        Debt = deuda,
-                        IdGroupUnit = unidadResuelta.IdGroupOwner,
-                        DueDate = primera.Vencimiento,
-                        Type = (Models.InstallmentType)tipo,
-                        Concept = grupo.Key.Concepto,
-                        SourceInstallmentId = Guid.Empty
-                    };
-                    await _installmentService.AddInstallmentAsync(installment);
-                    resultado.CuotasCreadas++;
-
-                    foreach (var f in grupo.Where(f => f.MontoPagado > 0))
-                    {
-                        var esParcial = f.MontoPagado < primera.Monto || grupo.Count(g => g.MontoPagado > 0) > 1;
-                        await _installmentService.AgregarPagoAsync(new Models.InstallmentPaid
+                        var installment = new Models.Installment
                         {
-                            IdPaid = Guid.NewGuid(),
-                            IdInstallment = installment.IdInstallment,
-                            PaymentDate = f.FechaPago ?? f.Vencimiento,
-                            IdTransaction = Guid.Empty,
-                            Amount = f.MontoPagado,
+                            IdInstallment = Guid.NewGuid(),
+                            IdBudgetHeader = idBudgetHeader,
+                            Number = 1,
+                            UnitName = unidadCodigo,
+                            OwnerName = $"{unidadResuelta.Names} {unidadResuelta.Surname}".Trim(),
+                            CreationDate = DateTime.Now,
+                            Amount = primera.Monto,
+                            Percent = percent,
+                            TotalArea = unidadResuelta.AreaTotal,
+                            Period = periodo,
                             CreatedBy = performedBy,
-                            Status = esParcial ? Models.ConcilationType.Parcial : Models.ConcilationType.Conciliada,
-                            IsAutoReconcile = false,
-                            IsPartialPayment = esParcial
-                        });
-                        resultado.PagosCreados++;
+                            Status = status,
+                            AmountPaid = totalPagado,
+                            Debt = deuda,
+                            IdGroupUnit = unidadResuelta.IdGroupOwner,
+                            DueDate = primera.Vencimiento,
+                            Type = (Models.InstallmentType)tipo,
+                            Concept = grupo.Key.Concepto,
+                            SourceInstallmentId = Guid.Empty
+                        };
+                        await _installmentService.AddInstallmentAsync(installment);
+                        resultado.CuotasCreadas++;
+
+                        foreach (var f in grupo.Where(f => f.MontoPagado > 0))
+                        {
+                            var esParcial = f.MontoPagado < primera.Monto || grupo.Count(g => g.MontoPagado > 0) > 1;
+                            await _installmentService.AgregarPagoAsync(new Models.InstallmentPaid
+                            {
+                                IdPaid = Guid.NewGuid(),
+                                IdInstallment = installment.IdInstallment,
+                                PaymentDate = f.FechaPago ?? f.Vencimiento,
+                                IdTransaction = Guid.Empty,
+                                Amount = f.MontoPagado,
+                                CreatedBy = performedBy,
+                                Status = esParcial ? Models.ConcilationType.Parcial : Models.ConcilationType.Conciliada,
+                                IsAutoReconcile = false,
+                                IsPartialPayment = esParcial
+                            });
+                            resultado.PagosCreados++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        resultado.Errores.Add($"Cuotas: '{unidadCodigo}' en {periodo:yyyy-MM}: no se pudo guardar -- {MensajeErrorReal(ex)}");
+                        continue;
                     }
                 }
             }

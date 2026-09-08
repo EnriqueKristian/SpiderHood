@@ -28,6 +28,10 @@ namespace SpiderHood.Models
         Reviewed,
         Assigned,
         Resolved,
-        Reopened
+        Reopened,
+        // Agregados para Conciliación en dos pasos (Fase B) -- mismo motivo que arriba,
+        // se guarda como string, no rompe historial existente.
+        Reconciled,
+        Corrected
     }
 }

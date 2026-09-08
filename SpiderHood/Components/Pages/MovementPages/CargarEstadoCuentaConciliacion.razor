@@ -412,9 +412,18 @@
                                 <div>
                                     @if (guardadoExitoso)
                                     {
-                                        <button class="btn btn-success" @onclick="VolverALista">
-                                            <i class="bi bi-arrow-left me-2"></i>Volver a Estados de Cuenta
-                                        </button>
+                                        @if (TieneReturnToSeguro)
+                                        {
+                                            <button class="btn btn-success" @onclick="VolverAConciliacion">
+                                                <i class="bi bi-arrow-left me-2"></i>Volver a Conciliación
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-success" @onclick="VolverALista">
+                                                <i class="bi bi-arrow-left me-2"></i>Volver a Estados de Cuenta
+                                            </button>
+                                        }
                                     }
                                     else
                                     {
@@ -477,6 +486,20 @@
     private List<BankAccount> cuentasBancarias = new();
     private int _totalCuentasBancarias = 0;
     private Guid selectedBankAccountId = Guid.Empty;
+
+    // Ruta a la que volver tras guardar (ej. /ConciliacionPagos?cuenta=...), pasada por
+    // ReconciliationWorkspace.razor en su link "Cargar Estado" -- antes no había forma de
+    // volver a Conciliación de Pagos/Gastos, solo a "Estados de Cuenta" en general. Se valida
+    // que sea una ruta relativa propia (empieza con "/" y no con "//") para no abrir la puerta
+    // a un open-redirect si alguien arma el link a mano.
+    [SupplyParameterFromQuery(Name = "returnTo")]
+    [Parameter]
+    public string? ReturnTo { get; set; }
+
+    private bool TieneReturnToSeguro =>
+        !string.IsNullOrWhiteSpace(ReturnTo) && ReturnTo.StartsWith('/') && !ReturnTo.StartsWith("//");
+
+    private void VolverAConciliacion() => Navigation.NavigateTo(ReturnTo!);
 
     private InputFile? fileInput;
     private string fileName = string.Empty;

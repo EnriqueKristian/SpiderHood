@@ -74,6 +74,8 @@
                         <span class="text-muted">Total seleccionado:</span>
                         <span class="fw-bold @(totalSeleccionado > SaldoPago ? "text-danger" : "")">@Moneda(totalSeleccionado)</span>
                         <span class="text-muted"> de @Moneda(SaldoPago)</span>
+                        <span class="text-muted ms-2">&middot; Restante:</span>
+                        <span class="fw-bold @(montoRestante < 0 ? "text-danger" : "text-muted")">@Moneda(montoRestante)</span>
                     </div>
                     @if (!string.IsNullOrEmpty(mensajeError))
                     {
@@ -114,6 +116,11 @@
     private decimal SaldoPago => Pago == null ? 0 : (Pago.Balance != 0 ? Math.Abs(Pago.Balance) : Math.Abs(Pago.Amount));
 
     private decimal totalSeleccionado => seleccionadas.Sum(c => c.Debt);
+
+    // Negativo = las cuotas seleccionadas exceden el saldo del pago; AplicarPagoAsync ya
+    // maneja ese caso (aplica el saldo a la primera cuota como pago total y el resto queda
+    // como pago parcial de la siguiente), esto es solo para que se vea antes de confirmar.
+    private decimal montoRestante => SaldoPago - totalSeleccionado;
 
     private IEnumerable<Installment> CuotasFiltradas
     {

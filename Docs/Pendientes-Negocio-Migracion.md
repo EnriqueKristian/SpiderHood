@@ -192,6 +192,54 @@ conviene hacer `.Trim()` en `IBankAccountService.AddBankAccount`/
 `UpdateBankAccount` (o antes, en el formulario) para que no se pueda guardar
 con espacios de entrada.
 
+### 6.5 "Listado de Cuotas" (`/cuotas`) no respeta el orden que le pide la página
+
+**Estado: pendiente, sin empezar.** Encontrado revisando cuotas migradas de
+Nova Alzamora, pero es un bug general de `Classes/PaginationClass.cs` -- pasa
+con cualquier edificio, no solo con datos migrados.
+
+`InstallmentList.razor:383` arma la lista con
+`.OrderByDescending(i => i.Period).ThenBy(i => i.UnitName)` antes de pasarla a
+`pagination.Initialize(...)`, pero ese orden nunca llega a aplicarse:
+`InstallmentPagination` (en `PaginationClass.cs`) se configura con
+`InitializeConfiguration(..., "Period")`, y mientras no haya una columna
+elegida a mano (`SortColumn` vacío), `ApplyFilterAndSort()` siempre reordena
+con `FilteredData.OrderBy(defaultSort)` -- ascendente, de un solo criterio --
+descartando por completo el orden (y el `ThenBy`) que le pasó el llamador.
+Confirmado con el usuario: la pantalla debería mostrar lo más reciente
+primero (descendente), no ascendente como sale hoy.
+
+Dos formas de arreglarlo, a decidir cuando se aborde:
+- Puntual: que `InstallmentPagination` arranque con orden descendente por
+  columna 'Period' (revisar si `PaginationClass` ya soporta un
+  `defaultSortAscending` o hay que agregarlo).
+- De fondo: que `ApplyFilterAndSort()` respete el orden ya aplicado por el
+  llamador cuando no hay `SortColumn` explícito, en vez de siempre re-ordenar
+  por `_defaultSortColumn` ascendente -- afecta a cualquier otra pantalla que
+  use `PaginationClass<T>` con esta misma suposición implícita, así que
+  conviene revisar los demás usos antes de tocarlo.
+
+### 6.6 "Conciliación de Pagos" falla con rangos de fecha amplios
+
+**Estado: pendiente, sin diagnosticar la causa real.** El usuario reportó
+`Error al cargar transacciones: Operation GetBankTransactionsNoConciliedAsync
+failed` en `/conciliacion` (`ReconciliationPages/ReconciliationWorkspace.razor`)
+al ampliar el filtro de fechas a todo el historial migrado (2015-2026) de
+Nova Alzamora -- no se pudo confirmar la causa de fondo (el `GET_BankTransactionsNoConcilied`
+no está en este repo, el mensaje visible es el wrapper genérico de
+`RepositoryException`, sin el error real de SQL). Hipótesis más probable: un
+timeout (`CommandTimeout` fijo en 30s en `BDLayout.ExecuteStoredProcedureAsync`)
+al filtrar/mapear miles de movimientos en un rango de una década -- la
+pantalla probablemente nunca se probó antes con tanto historial junto,
+migración incluida. A confirmar con el detalle real del error la próxima vez
+que se reproduzca.
+
+De paso, revisando `CargarTransacciones()` (`ReconciliationWorkspace.razor:1148`)
+se encontró un bug de UI aparte, menor pero real: `mensajeExito` y
+`mensajeError` no se limpian al inicio del método, así que un mensaje de
+éxito de una carga anterior se queda pegado en pantalla junto al error de una
+carga posterior que sí falló -- confuso, pero no la causa del error en sí.
+
 ---
 
 ## 7. Los 5 importadores ya existen, pero no concilian entre sí
@@ -222,3 +270,30 @@ con espacios de entrada.
   propia (la categorización real vive en `Expense`, conciliado aparte). Cargar
   egresos históricos ya categorizados como gasto es un alcance más grande que
   "registrar el movimiento bancario", no incluido todavía.
+
+---
+
+## 8. Tolerancia de redondeo al conciliar cuotas (diferencias < S/ 0.05)
+
+**Estado: pendiente, sin empezar -- a confirmar si aplica** (palabras del
+usuario: "la regla lo veremos luego a ver si aplica").
+
+Con cuotas migradas de Nova Alzamora, `/cuotas` muestra varias como
+"Parcial" con una `Deuda` de centavos (S/ 0.01 a S/ 0.05) que en la práctica
+es solo redondeo acumulado del Excel original (LecAgua/MontoAgua con más
+decimales de los que se guardan en `Monto`/`Fraccionado`), no una deuda real
+pendiente de cobro. El usuario pidió: **diferencias menores a S/ 0.05 se
+deberían dar por conciliadas totalmente**, no como "Parcial".
+
+Es un cambio a la lógica de conciliación que corre para todos los edificios
+a diario (dónde se calcula `Installment.Status`/`ConcilationType`, no solo
+en la migración), así que queda fuera de este branch aunque salió a la luz
+acá. Falta:
+- Confirmar si aplica solo a cuotas migradas (donde el redondeo es
+  conocido) o a la conciliación en general (edificios con datos cargados
+  normalmente desde la app, sin este problema de origen).
+- Ubicar dónde se decide hoy `Parcial` vs `Conciliada` (candidatos:
+  `ImportarCuotasYPagosAsync` para lo migrado -- ya usa `deuda > 0`
+  estrictamente -- y el flujo de conciliación en vivo,
+  `ReconciliationWorkspace.razor`/`IInstallmentService`, para lo diario) y
+  aplicar la tolerancia de forma consistente en ambos si corresponde.

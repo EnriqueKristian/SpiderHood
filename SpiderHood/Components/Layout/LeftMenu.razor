@@ -189,18 +189,18 @@
     {
         if (_currentUser != null)
         {
-            _currentUser.Role = role;
-
-            // Persistir el cambio ANTES de refrescar: Navigation.Refresh() tira abajo el
-            // circuito actual y arranca uno nuevo, que restaura la sesión desde localStorage
-            // (CustomAuthenticationStateProvider.InitializeClientAsync). Sin este guardado,
-            // el rol nuevo solo vivía en memoria del circuito viejo y el refresh lo revertía
-            // silenciosamente al rol original.
-            await AuthStateProvider.MarkUserAsAuthenticated(_currentUser);
-            await PermissionService.RefreshMenu();
-            await LoadMenuAsync();
-            StateHasChanged();
-            Navigation.Refresh();
+            // Persistir el cambio ANTES de recargar: a diferencia de lo que decía el
+            // comentario anterior, la sesión YA NO se restaura de localStorage -- un
+            // circuito nuevo la reconstruye desde la base de datos vía IUserSessionLoader
+            // (ver su comentario de clase), que no sabe nada de este cambio en memoria.
+            // Sin guardar el rol elegido en localStorage (mismo mecanismo que usa
+            // HeaderMainLayout.OnRoleSelected/AuthService.SetCurrentBuilding),
+            // Navigation.Refresh() de más abajo tiraba el circuito abajo y el rol nuevo
+            // se perdía -- volvía a resolver el primero que trajera la consulta.
+            await AuthService.SetCurrentBuilding(_currentUser.CurrentBuildingId, role);
+            await AuthService.SetDefaultBuildingAsync(_currentUser.CurrentBuildingId);
+            await AuthService.SetDefaultRoleAsync(role);
+            Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
         }
     }
 

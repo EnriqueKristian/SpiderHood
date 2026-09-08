@@ -96,6 +96,43 @@
             }
         </ul>
 
+        <!-- Selector de rol: sólo aparece cuando el usuario tiene más de un rol
+             aprobado sobre el edificio ACTUAL (p.ej. Administrador y Junta a la vez) --
+             para todo el resto (el caso normal, un solo rol por edificio) queda oculto
+             para no agregar ruido. Mismo mecanismo que el selector de edificio de al
+             lado: persiste la elección (localStorage) y fuerza una recarga real de la
+             página -- así el resto de los componentes (permisos, menú, datos ya
+             cargados en otras páginas) se re-inicializan con el rol nuevo, sin
+             necesidad de cerrar sesión. -->
+        @if (RolesForCurrentBuilding.Count() > 1)
+        {
+            <div class="building-selector" data-bs-toggle="dropdown" aria-expanded="false">
+                <div class="building-info">
+                    <div class="building-icon">
+                        <i class="bi bi-person-badge"></i>
+                    </div>
+                    <div class="building-details">
+                        <span class="building-name">@(_currentUser?.Role ?? "Rol")</span>
+                    </div>
+                </div>
+                <i class="bi bi-chevron-down ms-2"></i>
+            </div>
+
+            <ul class="dropdown-menu building-dropdown">
+                <li><h6 class="dropdown-header">Cambiar Rol</h6></li>
+                @foreach (var role in RolesForCurrentBuilding)
+                {
+                    <li>
+                        <a class="dropdown-item @(role == _currentUser?.Role ? "active" : "")"
+                           href="javascript:void(0)"
+                           @onclick="() => OnRoleSelected(role)">
+                            <i class="bi bi-person-badge me-2"></i>@role
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
+
         <!-- Menú Usuario -->
         <div class="user-dropdown @(Buildings.Count == 0 ? "disabled" : "")">
             <button class="btn-user" data-bs-toggle="dropdown">
@@ -191,6 +228,15 @@
             .Where(b => b.Building != null)
             .GroupBy(b => b.Building!.IdBuilding)
             .Select(g => g.FirstOrDefault(b => b.Building!.IdBuilding == CurrentBuildingId && b.Role == _currentUser?.Role) ?? g.First());
+
+    // Roles distintos que el usuario tiene aprobados sobre el edificio ACTUAL --
+    // UniqueBuildings colapsa esto a una sola fila por edificio (es sólo un selector de
+    // edificio), así que hace falta esta lista aparte para el selector de rol.
+    private IEnumerable<string> RolesForCurrentBuilding =>
+        Buildings
+            .Where(b => b.Building?.IdBuilding == CurrentBuildingId)
+            .Select(b => b.Role)
+            .Distinct();
 
     protected override void OnInitialized()
     {
@@ -295,8 +341,22 @@
             var defaultBuildingId = await AuthService.GetDefaultBuildingAsync();
             if (defaultBuildingId.HasValue)
             {
-                var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == defaultBuildingId.Value);
-                if (building != null)
+                // Preferir la fila que matchea también el ROL guardado -- un edificio con
+                // más de un rol (p.ej. Administrador y Junta) tiene varias filas acá, y
+                // sin este match por rol siempre se agarraba la primera que apareciera
+                // (cualquiera, según el orden de la consulta), ignorando el rol que el
+                // usuario realmente había elegido la última vez (ver OnRoleSelected).
+                var defaultRole = await AuthService.GetDefaultRoleAsync();
+                var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == defaultBuildingId.Value
+                    && (defaultRole == null || b.Role == defaultRole));
+
+                // Si no había rol guardado (sesiones viejas, de antes de que este edificio
+                // tuviera más de un rol) Y el edificio SÍ es ambiguo hoy, no alcanza con
+                // "cualquier fila de ese edificio" -- eso es exactamente lo que resolvía
+                // solo a Administrador en cuanto alguien le agregaba Junta al mismo
+                // usuario, sin pasar nunca por /select-building. Sólo confiamos en la
+                // preferencia sin rol cuando el edificio tiene un único rol posible.
+                if (building != null && (defaultRole != null || IsUnambiguous(defaultBuildingId.Value)))
                 {
                     await SetCurrentBuilding(building);
                     return;
@@ -323,13 +383,15 @@
             }
         }
 
-        // 2. Intentar con ParameterService
+        // 2. Intentar con ParameterService -- sólo si es unívoco (ver IsUnambiguous):
+        // ninguno de estos dos matchea por rol, así que sobre un edificio con 2+ roles
+        // resolvían arbitrariamente al primero que trajera la consulta.
         if (ParameterService.CurrentBuilding != null)
         {
             var building = Buildings.FirstOrDefault(b =>
                 b.Building?.IdBuilding == ParameterService.CurrentBuilding.IdBuilding);
 
-            if (building != null)
+            if (building != null && IsUnambiguous(ParameterService.CurrentBuilding.IdBuilding))
             {
                 await SetCurrentBuilding(building);
                 return;
@@ -344,7 +406,7 @@
             if (Guid.TryParse(buildingIdString, out Guid buildingId))
             {
                 var building = Buildings.FirstOrDefault(b => b.Building?.IdBuilding == buildingId);
-                if (building != null)
+                if (building != null && IsUnambiguous(buildingId))
                 {
                     await SetCurrentBuilding(building);
                     return;
@@ -352,12 +414,30 @@
             }
         }
 
-        // 4. Usar el primer edificio
-        if (Buildings.Any())
+        // 4. Usar el primer edificio -- este era el más peligroso de los cuatro: es el
+        // que corre siempre que ninguno de los anteriores resolvió nada, que es
+        // exactamente el caso de un login nuevo sin preferencia guardada todavía.
+        // Buildings.First() ignoraba por completo la ambigüedad de rol y elegía
+        // cualquiera de las filas -- en la práctica, Administrador, porque suele ser el
+        // primer rol que se le asigna a un usuario. Eso resolvía CurrentBuildingId (acá,
+        // vía SetCurrentBuilding) ANTES de que Home.razor.cs llegara a chequear si hacía
+        // falta mandar a /select-building, así que nunca se pedía elegir. Sólo
+        // auto-resolvemos acá cuando el primer edificio con datos es unívoco; si no,
+        // dejamos CurrentBuildingId sin tocar (Guid.Empty) para que ese chequeo sí
+        // dispare el redirect.
+        var primerEdificioUnivoco = Buildings.FirstOrDefault(b => b.Building != null && IsUnambiguous(b.Building.IdBuilding));
+        if (primerEdificioUnivoco != null)
         {
-            await SetCurrentBuilding(Buildings.First());
+            await SetCurrentBuilding(primerEdificioUnivoco);
         }
     }
+
+    // Un edificio es "unívoco" cuando el usuario tiene un solo rol aprobado sobre él --
+    // recién ahí tiene sentido resolverlo en silencio. Con 2+ roles (p.ej. Administrador
+    // y Junta a la vez) es una elección real que le corresponde al usuario, no a un
+    // default automático -- ver el mismo criterio en AuthService.TryApplyDefaultBuildingAsync.
+    private bool IsUnambiguous(Guid buildingId) =>
+        Buildings.Count(b => b.Building?.IdBuilding == buildingId) == 1;
 
     private async Task SetCurrentBuilding(Models.UserBuilding building)
     {
@@ -457,6 +537,23 @@
         // pisado por el default de UserSessionLoader (el primer edificio) apenas se
         // recargaba la página. Mismo mecanismo que ya usa /select-building.
         await AuthService.SetDefaultBuildingAsync(building.Building.IdBuilding);
+        NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
+    }
+
+    // Mismo mecanismo que OnBuildingSelected (mismo edificio, rol distinto): persistir
+    // ANTES del forceLoad, porque el circuito nuevo reconstruye la sesión desde la BD
+    // (UserSessionLoader), no desde lo que quedó en memoria acá -- sin guardar el rol
+    // elegido, la próxima carga volvía a resolver el "primer rol" que trajera la
+    // consulta, exactamente el bug reportado ("elijo Junta y no cambia").
+    private async Task OnRoleSelected(string role)
+    {
+        if (_currentUser == null || CurrentBuildingId == null || role == _currentUser.Role) return;
+
+        _switchingBuilding = true;
+
+        await AuthService.SetCurrentBuilding(CurrentBuildingId.Value, role);
+        await AuthService.SetDefaultBuildingAsync(CurrentBuildingId.Value);
+        await AuthService.SetDefaultRoleAsync(role);
         NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
     }
 

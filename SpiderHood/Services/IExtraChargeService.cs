@@ -226,18 +226,31 @@ namespace SpiderHood.Services
                 .Where(b => b.BudgetType == "Extraordinario" && periodos.Contains((b.BudgetDate.Year, b.BudgetDate.Month)))
                 .ToList();
 
-            foreach (var header in extraordinarios)
-            {
-                var installments = await ec.GetInstallmentsByBudgetAsync(header.IdBudgetHeader);
-                resultado.AddRange(installments.Where(i => idsGroupUnit.Contains(i.IdGroupUnit)));
-            }
-
             // Multas y Mora generadas específicamente contra estas cuotas Ordinarias.
             var cargosHeader = presupuestos.FirstOrDefault(b => b.BudgetType == "Cargos");
-            if (cargosHeader != null)
+
+            // Antes: un GetInstallmentsByBudgetAsync por header dentro del foreach (mismo
+            // N+1 que en Reporte de Recaudación, ver CollectionReport.razor) -- acá pega
+            // más fuerte porque este método se llama por cada cuota individual en pantallas
+            // como InstallmentList.razor/MyReceipts.razor (Ver Detalle, recibo), no una vez
+            // por reporte. Ahora trae todas las cuotas del edificio en una sola consulta y
+            // filtra en memoria por IdBudgetHeader con ToLookup.
+            if (extraordinarios.Any() || cargosHeader != null)
             {
-                var cargos = await ec.GetInstallmentsByBudgetAsync(cargosHeader.IdBudgetHeader);
-                resultado.AddRange(cargos.Where(c => idsOrdinarias.Contains(c.SourceInstallmentId)));
+                var todasLasCuotas = await ec.GetInstallmentsByBuildingAsync(idBuilding);
+                var cuotasPorPresupuesto = todasLasCuotas.ToLookup(c => c.IdBudgetHeader);
+
+                foreach (var header in extraordinarios)
+                {
+                    var installments = cuotasPorPresupuesto[header.IdBudgetHeader];
+                    resultado.AddRange(installments.Where(i => idsGroupUnit.Contains(i.IdGroupUnit)));
+                }
+
+                if (cargosHeader != null)
+                {
+                    var cargos = cuotasPorPresupuesto[cargosHeader.IdBudgetHeader];
+                    resultado.AddRange(cargos.Where(c => idsOrdinarias.Contains(c.SourceInstallmentId)));
+                }
             }
 
             return resultado.OrderBy(i => i.Type).ThenBy(i => i.CreationDate).ToList();

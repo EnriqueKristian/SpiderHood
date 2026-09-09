@@ -94,8 +94,9 @@ lecturas guardadas como comentario.
 
 ## 3. `GET_ServiceReadingDetailList` devuelve cada fila duplicada, y sin filtrar por edificio
 
-**Estado: causa raíz corregida (2026-09-09), branch `claude/lista-pendientes-0gb03a`
--- pendiente de que el usuario corra el script en su BD.**
+**Estado: resuelto y verificado (2026-09-09), branch `claude/lista-pendientes-0gb03a`
+-- el usuario corrió los dos scripts y confirmó en "Mi Consumo de Agua" que
+ya no hay periodos duplicados.**
 
 **Actualización:** el usuario compartió la definición real del SP. La causa
 del punto 2 (filas duplicadas) es exactamente la hipótesis planteada más
@@ -177,9 +178,9 @@ entre los que el propio SP ya devolvió (el más alto fue el correcto en los
 dos periodos verificados). Al vivir en `BDLayout.Get.cs`, corrige la
 duplicación para TODA la app de una sola vez (no sólo los reportes nuevos).
 
-**Pendiente:** correr `2026-09-09_73_...sql` y `2026-09-09_74_...sql` en la
-BD real -- ambos ya están en el repo, sin verificar en un entorno con datos
-reales (sin acceso a BD acá).
+**Verificado:** el usuario corrió `2026-09-09_73_...sql` y `2026-09-09_74_...sql`
+en su BD y confirmó en "Mi Consumo de Agua" que cada periodo (marzo-setiembre
+2026) aparece una sola vez, sin duplicados.
 
 ---
 

@@ -66,6 +66,12 @@ namespace SpiderHood.Components.Pages
             public string Amount { get; set; } = string.Empty;
             public string DateColor { get; set; } = "bg-secondary";
             public bool IsUrgent { get; set; }
+            // Periodo de la CUOTA (mes que factura, ej. "set-2026") -- distinto del
+            // Day/Month de arriba, que son de DueDate (cuándo vence). No son siempre el
+            // mismo mes (ej. una cuota de un periodo vence recién el mes siguiente), y sin
+            // esto no había forma de saber de qué mes era el vencimiento con solo mirar la
+            // tarjeta.
+            public string Periodo { get; set; } = string.Empty;
         }
 
         private List<ActivityItem> recentActivities = [];
@@ -94,6 +100,8 @@ namespace SpiderHood.Components.Pages
         private decimal _cuotasPendientesMonto;
         private int _unidadesMorosas;
         private double _morosidadPct;
+        // Denominador real de Morosidad -- ver LoadDashboardStatsAsync.
+        private int _totalGruposUnidad;
 
         // Campanita del header: cosas que de verdad requieren atención ahora --
         // incidencias sin cerrar + cuotas ya vencidas (no toda cuota pendiente, sólo
@@ -300,10 +308,20 @@ namespace SpiderHood.Components.Pages
             _cuotasPendientesCount = pending.Count;
             _cuotasPendientesMonto = pending.Sum(i => i.Debt);
 
-            // KPI: morosidad -- % de unidades (por grupo de unidad) con al menos una
-            // cuota vencida sobre el total de unidades del edificio.
+            // KPI: morosidad -- % de unidades morosas por Grupo de Unidad, no por
+            // RealEstateUnit individual. El numerador (_unidadesMorosas) ya agrupaba por
+            // IdGroupUnit, pero el denominador usaba _totalUnidades (units.Count,
+            // RealEstateUnit físicas) -- un grupo con más de una unidad (ej. depto +
+            // cochera + depósito facturados juntos bajo un mismo Installment.IdGroupUnit)
+            // hacía que el % saliera más bajo de lo real, porque el denominador contaba
+            // esas 3 unidades por separado mientras el numerador las contaba como un solo
+            // grupo moroso. _totalGruposUnidad usa el mismo campo (IdGroupUnit) que el
+            // numerador, sobre "owners" (ya cargado arriba) -- grupos sin ningún
+            // propietario asignado tampoco generan cuotas, así que no deberían contar acá
+            // (mismo criterio que "_unidadesAsignadas", pero a nivel de grupo).
             _unidadesMorosas = pending.Select(i => i.IdGroupUnit).Distinct().Count();
-            _morosidadPct = _totalUnidades > 0 ? _unidadesMorosas * 100.0 / _totalUnidades : 0;
+            _totalGruposUnidad = owners.Select(o => o.IdGroupUnit).Distinct().Count();
+            _morosidadPct = _totalGruposUnidad > 0 ? _unidadesMorosas * 100.0 / _totalGruposUnidad : 0;
 
             _alertasUrgentes = _incidenciasPendientes + pending.Count(i => i.DueDate.Date < now.Date);
 
@@ -320,7 +338,8 @@ namespace SpiderHood.Components.Pages
                     Unit = i.UnitName,
                     Amount = Moneda(i.Debt),
                     DateColor = i.DueDate.Date < now.Date ? "bg-danger" : "bg-primary",
-                    IsUrgent = i.DueDate.Date < now.Date
+                    IsUrgent = i.DueDate.Date < now.Date,
+                    Periodo = PeriodoLabel(i.Period)
                 })
                 .ToList();
 
@@ -348,16 +367,20 @@ namespace SpiderHood.Components.Pages
                     IsImportant = i.Status == IncidentStatus.Reported
                 });
 
+            // InstallmentPaid ya trae UnitName/OwnerName/Period por el JOIN a Installment en
+            // GET_InstallmentPaid (mismos campos que ya usa el detalle de conciliación) --
+            // antes esto se descartaba acá y sólo quedaba el monto, así que "Pago
+            // registrado" no decía de quién ni de qué cuota.
             var actividadPagos = paid
                 .OrderByDescending(p => p.PaymentDate)
                 .Take(5)
                 .Select(p => new ActivityItem
                 {
                     Title = p.IsPartialPayment ? "Pago parcial registrado" : "Pago registrado",
-                    Description = Moneda(p.Amount),
+                    Description = $"{Moneda(p.Amount)} -- {p.UnitName} (Cuota {PeriodoLabel(p.Period)})",
                     When = p.PaymentDate,
                     Time = TiempoRelativo(p.PaymentDate, now),
-                    User = string.Empty,
+                    User = p.OwnerName,
                     Icon = "bi-cash-coin",
                     IconColor = "bg-success",
                     IsImportant = false
@@ -369,6 +392,11 @@ namespace SpiderHood.Components.Pages
                 .Take(6)
                 .ToList();
         }
+
+        // Mismo formato que el Month del due-date box (MMM, sin el punto de es-PE), pero
+        // en minúscula + año -- para distinguir a simple vista "vence el día X" (Day/Month)
+        // de "es la cuota de qué mes" (Periodo), que no siempre coinciden.
+        private static string PeriodoLabel(DateTime period) => $"{period.ToString("MMM", EsPe).TrimEnd('.')}-{period:yyyy}";
 
         private static string TipoCuotaLabel(InstallmentType type) => type switch
         {

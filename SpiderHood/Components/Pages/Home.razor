@@ -121,7 +121,7 @@
                         <div>
                             <h6 class="card-subtitle mb-2">Morosidad</h6>
                             <h3 class="card-title mb-0">@_morosidadPct.ToString("0.0")%</h3>
-                            <span class="small">@_unidadesMorosas de @_totalUnidades unidades</span>
+                            <span class="small">@_unidadesMorosas de @_totalGruposUnidad unidades</span>
                         </div>
                         <div class="summary-icon">
                             <i class="bi bi-graph-down"></i>
@@ -258,7 +258,7 @@
                                         <span class="month">@due.Month</span>
                                     </div>
                                     <div class="due-content">
-                                        <h6 class="mb-1">@due.Title</h6>
+                                        <h6 class="mb-1">@due.Title <span class="badge bg-light text-dark border fw-normal">@due.Periodo</span></h6>
                                         <p class="mb-0 text-muted">@due.Description</p>
                                         <small class="text-muted">
                                             <i class="bi bi-building me-1"></i>@due.Unit
@@ -298,6 +298,7 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Fecha</th>
+                                        <th>Detalle</th>
                                         <th>Monto</th>
                                         <th>Tipo</th>
                                         <th>Estado</th>
@@ -308,6 +309,10 @@
                                     {
                                         <tr>
                                             <td>@payment.PaymentDate.ToString("dd/MM/yyyy")</td>
+                                            <td>
+                                                <div class="fw-semibold">@payment.UnitName</div>
+                                                <small class="text-muted">Cuota @PeriodoLabel(payment.Period) &middot; @payment.OwnerName</small>
+                                            </td>
                                             <td class="fw-bold text-success">@Moneda(payment.Amount)</td>
                                             <td>@(payment.IsPartialPayment ? "Pago parcial" : "Pago completo")</td>
                                             <td>

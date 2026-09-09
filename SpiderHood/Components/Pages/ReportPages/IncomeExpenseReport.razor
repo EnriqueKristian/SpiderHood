@@ -1,0 +1,373 @@
+@page "/reportes/ingresos-egresos"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+@using ClosedXML.Excel
+@inject IBankAccountService BankAccountService
+@inject ParameterService ParameterService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>SpiderHood - Ingresos y Egresos</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Ingresos y Egresos</h1>
+                <p class="text-muted mb-0">Movimientos bancarios reales, por mes</p>
+            </div>
+        </div>
+    </div>
+
+    @if (!_inicializado)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-3 mb-0">Cargando...</p>
+        </div>
+    }
+    else if (!_canView)
+    {
+        <div class="alert alert-warning">No tenés permiso para ver este reporte.</div>
+    }
+    else if (ParameterService.CurrentBuilding == null)
+    {
+        <div class="alert alert-warning">Selecciona un edificio para continuar.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Cuenta Bancaria</label>
+                        <select class="form-select" @bind="selectedBankAccountId">
+                            <option value="@Guid.Empty">Todas las cuentas</option>
+                            @foreach (var cuenta in cuentasBancarias)
+                            {
+                                <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Periodo desde</label>
+                        <input type="date" class="form-control" @bind="fechaDesde" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Periodo hasta</label>
+                        <input type="date" class="form-control" @bind="fechaHasta" />
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button class="btn btn-primary" @onclick="CargarAsync" disabled="@cargando">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+                        </button>
+                        <button class="btn btn-outline-success" @onclick="ExportarExcel" disabled="@(cargando || !_filas.Any())">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Exportar
+                        </button>
+                    </div>
+                </div>
+                @if (cuentasBancarias.Count > 1)
+                {
+                    <small class="text-muted d-block mt-2">
+                        <i class="bi bi-info-circle me-1"></i>"Todas las cuentas" suma los movimientos de todas
+                        las cuentas activas del edificio juntas -- si necesitás el detalle de una sola, seleccionala arriba.
+                    </small>
+                }
+            </div>
+        </div>
+
+        @if (cargando)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="text-muted mt-3 mb-0">Procesando...</p>
+            </div>
+        }
+        else if (!_filas.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>No hay movimientos bancarios cargados en el periodo seleccionado.
+            </div>
+        }
+        else
+        {
+            <!-- Resumen -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card border-success border-start border-4 h-100">
+                        <div class="card-body">
+                            <h6 class="text-success mb-1">Total Ingresos</h6>
+                            <p class="fs-4 fw-bold mb-0">@Moneda(_filas.Sum(f => f.Ingresos))</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-danger border-start border-4 h-100">
+                        <div class="card-body">
+                            <h6 class="text-danger mb-1">Total Egresos</h6>
+                            <p class="fs-4 fw-bold mb-0">@Moneda(_filas.Sum(f => f.Egresos))</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    @{ var resultadoNeto = _filas.Sum(f => f.Ingresos) - _filas.Sum(f => f.Egresos); }
+                    <div class="card border-start border-4 h-100 @(resultadoNeto >= 0 ? "border-primary" : "border-warning")">
+                        <div class="card-body">
+                            <h6 class="mb-1 @(resultadoNeto >= 0 ? "text-primary" : "text-warning")">Resultado Neto</h6>
+                            <p class="fs-4 fw-bold mb-0">@Moneda(resultadoNeto)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0">Detalle por periodo</h6>
+                        </div>
+                        <div class="table-responsive" style="max-height: 500px;">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="sticky-top table-light">
+                                    <tr>
+                                        <th>Periodo</th>
+                                        <th class="text-end">Ingresos</th>
+                                        <th class="text-end">Egresos</th>
+                                        <th class="text-end">Resultado</th>
+                                        <th class="text-end">Acumulado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var f in _filas)
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">@f.Periodo</td>
+                                            <td class="text-end text-success">@Moneda(f.Ingresos)</td>
+                                            <td class="text-end text-danger">@Moneda(f.Egresos)</td>
+                                            <td class="text-end @(f.Resultado >= 0 ? "text-success" : "text-danger")">@Moneda(f.Resultado)</td>
+                                            <td class="text-end fw-semibold @(f.Acumulado >= 0 ? "text-primary" : "text-warning")">@Moneda(f.Acumulado)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-secondary fw-bold">
+                                        <td>TOTAL</td>
+                                        <td class="text-end">@Moneda(_filas.Sum(f => f.Ingresos))</td>
+                                        <td class="text-end">@Moneda(_filas.Sum(f => f.Egresos))</td>
+                                        <td class="text-end">@Moneda(_filas.Sum(f => f.Resultado))</td>
+                                        <td class="text-end">@Moneda(_filas.Last().Acumulado)</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0">Ingresos, Egresos y Resultado acumulado</h6>
+                        </div>
+                        <div class="card-body" style="height: 420px;">
+                            <canvas id="chartIngresosEgresos"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private UserSession currentUser = new();
+    private bool _canView;
+    private bool _inicializado;
+    private bool cargando = true;
+    private bool _debeRedibujarGrafico;
+
+    private List<BankAccount> cuentasBancarias = new();
+    private Guid selectedBankAccountId = Guid.Empty;
+
+    private DateTime fechaDesde = new DateTime(DateTime.Today.Year, 1, 1);
+    private DateTime fechaHasta = DateTime.Today;
+
+    private List<FilaIngresoEgreso> _filas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        // Mismo caveat que el resto de los reportes (Recaudación/Morosidad/Consumo de Agua):
+        // no se tocó la BD del catálogo de Permission/RolePermissions desde este entorno --
+        // si nadie tiene "view_income_expense_report" asignado todavía, hay que sumarlo a
+        // los roles correspondientes desde /roles.
+        _canView = await PermissionService.HasPermissionAsync(currentUser, "view_income_expense_report");
+
+        if (_canView && ParameterService.CurrentBuilding != null)
+        {
+            // Sólo cuentas Activas -- mismo filtro que /movement/cargar.
+            var todasLasCuentas = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            cuentasBancarias = todasLasCuentas.Where(c => c.Status == 1).ToList();
+
+            await CargarAsync();
+        }
+        else
+        {
+            cargando = false;
+        }
+
+        _inicializado = true;
+    }
+
+    // Ver el comentario equivalente en CollectionReport.razor.OnAfterRenderAsync -- el
+    // <canvas> recién existe en el DOM del browser después de que el render se aplicó, no
+    // apenas se llama StateHasChanged().
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_debeRedibujarGrafico)
+        {
+            _debeRedibujarGrafico = false;
+            await RenderizarGraficoAsync();
+        }
+    }
+
+    private async Task CargarAsync()
+    {
+        if (ParameterService.CurrentBuilding == null)
+        {
+            cargando = false;
+            return;
+        }
+
+        cargando = true;
+        StateHasChanged();
+
+        try
+        {
+            var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
+            Guid? filtroCuenta = selectedBankAccountId == Guid.Empty ? null : selectedBankAccountId;
+
+            // Misma fuente que la pestaña "Detalle" de Estados de Cuenta -- son los
+            // movimientos bancarios reales tal como se cargaron (Ingresos = Amount > 0,
+            // Egresos = Amount < 0), no una reconstrucción a partir de Cuotas/Gastos. Un
+            // Ingreso o Gasto todavía sin conciliar sigue siendo un movimiento real de la
+            // cuenta -- por eso este reporte no filtra por ReconciliationStatus.
+            var detalles = await BankAccountService.GetStatementDetailsByBuildingAsync(idBuilding, filtroCuenta);
+            var enRango = detalles
+                .Where(d => d.StatementDate.Date >= fechaDesde.Date && d.StatementDate.Date <= fechaHasta.Date)
+                .ToList();
+
+            var filas = enRango
+                .GroupBy(d => new { d.StatementDate.Year, d.StatementDate.Month })
+                .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                .Select(g => new FilaIngresoEgreso
+                {
+                    Periodo = $"{g.Key.Year:D4}-{g.Key.Month:D2}",
+                    Ingresos = g.Where(d => d.Amount > 0).Sum(d => d.Amount),
+                    Egresos = g.Where(d => d.Amount < 0).Sum(d => Math.Abs(d.Amount))
+                })
+                .ToList();
+
+            // Acumulado = suma corrida del Resultado (Ingresos - Egresos) de cada mes
+            // DENTRO del rango elegido -- no es el saldo real de la cuenta bancaria (para
+            // eso haría falta partir de BankAccount.InitialBalance, que este reporte no usa
+            // porque puede mezclar varias cuentas si se eligió "Todas las cuentas").
+            decimal acumulado = 0;
+            foreach (var fila in filas)
+            {
+                acumulado += fila.Resultado;
+                fila.Acumulado = acumulado;
+            }
+
+            _filas = filas;
+        }
+        finally
+        {
+            cargando = false;
+        }
+
+        StateHasChanged();
+        _debeRedibujarGrafico = _filas.Any();
+    }
+
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
+    private async Task RenderizarGraficoAsync()
+    {
+        if (!_filas.Any()) return;
+
+        var labels = _filas.Select(f => f.Periodo).ToArray();
+        var datasets = new[]
+        {
+            new { label = "Ingresos", data = _filas.Select(f => f.Ingresos).ToArray(), color = "rgba(25, 135, 84, 0.9)", dashed = false },
+            new { label = "Egresos", data = _filas.Select(f => f.Egresos).ToArray(), color = "rgba(220, 53, 69, 0.9)", dashed = false },
+            new { label = "Resultado acumulado", data = _filas.Select(f => f.Acumulado).ToArray(), color = "rgba(13, 110, 253, 0.9)", dashed = false }
+        };
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("spiderHoodReportCharts.lineChart", "chartIngresosEgresos", labels, datasets, null);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuito cerrándose (navegación afuera de la página) -- nada que hacer.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerender estático -- ver el comentario equivalente en CollectionReport.razor.
+            // OnAfterRenderAsync(firstRender) reintenta ya con el circuito real conectado.
+        }
+    }
+
+    private async Task ExportarExcel()
+    {
+        if (ParameterService.CurrentBuilding == null || !_filas.Any()) return;
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Ingresos y Egresos");
+
+        ws.Cell(1, 1).Value = "Periodo";
+        ws.Cell(1, 2).Value = "Ingresos";
+        ws.Cell(1, 3).Value = "Egresos";
+        ws.Cell(1, 4).Value = "Resultado";
+        ws.Cell(1, 5).Value = "Acumulado";
+        ws.Row(1).Style.Font.Bold = true;
+
+        var fila = 2;
+        foreach (var f in _filas)
+        {
+            ws.Cell(fila, 1).Value = f.Periodo;
+            ws.Cell(fila, 2).Value = f.Ingresos;
+            ws.Cell(fila, 3).Value = f.Egresos;
+            ws.Cell(fila, 4).Value = f.Resultado;
+            ws.Cell(fila, 5).Value = f.Acumulado;
+            fila++;
+        }
+        ws.Cell(fila, 1).Value = "TOTAL";
+        ws.Cell(fila, 2).Value = _filas.Sum(f => f.Ingresos);
+        ws.Cell(fila, 3).Value = _filas.Sum(f => f.Egresos);
+        ws.Cell(fila, 4).Value = _filas.Sum(f => f.Resultado);
+        ws.Row(fila).Style.Font.Bold = true;
+        ws.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+
+        var fileName = $"IngresosEgresos_{ParameterService.CurrentBuilding.Name}_{DateTime.Now:yyyyMMdd}.xlsx";
+        await JSRuntime.InvokeVoidAsync("descargarArchivo", fileName, Convert.ToBase64String(ms.ToArray()));
+    }
+
+    private class FilaIngresoEgreso
+    {
+        public string Periodo = "";
+        public decimal Ingresos;
+        public decimal Egresos;
+        public decimal Resultado => Ingresos - Egresos;
+        public decimal Acumulado;
+    }
+}

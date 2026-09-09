@@ -311,6 +311,23 @@ namespace SpiderHood.Data
             }, "SetBankAccountInitialBalance", cancellationToken);
         }
 
+        // Ver Docs/Pendientes-Negocio-Conciliacion.md #1 -- reemplaza el stub de
+        // IBankAccountService.MarcarTransaccionComoIgnoradaAsync, que no tocaba la BD.
+        public async Task MarkTransactionIgnoredAsync(Guid idStatementDetail, bool ignored, string? ignoredReason, int? ignoredType, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_AccountStatementDetail_Ignored,
+                    cancellationToken,
+                    idStatementDetail,
+                    ignored,
+                    (object?)ignoredReason ?? DBNull.Value,
+                    (object?)ignoredType ?? DBNull.Value);
+                return true;
+            }, "MarkTransactionIgnored", cancellationToken);
+        }
+
         public async Task<Models.RealEstateUnit> UpdateRecordAsync(Models.RealEstateUnit unit, CancellationToken cancellationToken = default)
         {
             ValidateEntity(unit, nameof(unit));

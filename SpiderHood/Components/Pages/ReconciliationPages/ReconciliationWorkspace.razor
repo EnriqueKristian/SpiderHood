@@ -256,6 +256,15 @@
                                     <span class="badge bg-primary ms-2">@TransaccionesDelModo.Count(t => t.PropuestaPendiente && !t.PropuestaAutomatica)</span>
                                 </button>
                             </li>
+                            <li class="nav-item" role="presentation">
+                                <!-- Docs/Pendientes-Negocio-Conciliacion.md #1 -->
+                                <button class="nav-link @(tabActiva == "ignorados" ? "active" : "")"
+                                        @onclick="() => CambiarTab(ignorados)">
+                                    <i class="bi bi-eye-slash me-2"></i>
+                                    Ignorados
+                                    <span class="badge bg-secondary ms-2">@TransaccionesDelModo.Count(t => t.Ignored)</span>
+                                </button>
+                            </li>
                         </ul>
                         
                         <div class="tab-content">
@@ -488,7 +497,14 @@
                                                     }
                                                 </td>
                                                 <td>
-                                                    @if (transaccion.PropuestaPendiente)
+                                                    @if (transaccion.Ignored)
+                                                    {
+                                                        <!-- Docs/Pendientes-Negocio-Conciliacion.md #1 -->
+                                                        <span class="badge bg-secondary" title="@transaccion.IgnoredReason">
+                                                            <i class="bi bi-eye-slash me-1"></i> Ignorado@(transaccion.IgnoredType.HasValue ? $" ({DescribirTipoIgnorado(transaccion.IgnoredType.Value)})" : "")
+                                                        </span>
+                                                    }
+                                                    else if (transaccion.PropuestaPendiente)
                                                     {
                                                         <span class="badge bg-primary" title="Todavía no se guardó en BD -- confirma con 'Enviar a Conciliar' o quítala con el botón de al lado">
                                                             <i class="bi bi-hourglass-top me-1"></i> Propuesto
@@ -536,7 +552,7 @@
                                                                 </button>
                                                             }
                                                         }
-                                                        else
+                                                        else if (!transaccion.Ignored)
                                                         {
                                                             @if (transaccion.Tipo == "Ingreso")
                                                             {
@@ -1131,6 +1147,42 @@
     </div>
 }
 
+@* Docs/Pendientes-Negocio-Conciliacion.md #1 -- "Ignorar" ahora pide tipo (catálogo
+   chico y cerrado, ver IgnoredReasonType en Classes/Movement.cs) + motivo obligatorio,
+   mismo look & feel que el modal de motivo de Corregir. *@
+@if (mostrarModalIgnorar)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-eye-slash me-2"></i>Ignorar transacción(es)</h5>
+                    <button type="button" class="btn-close" @onclick="() => CerrarModalIgnorar(false)"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@mensajeModalIgnorar</p>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" @bind="tipoIgnorarSeleccionado">
+                            <option value="@IgnoredReasonType.ErrorBancario">Error bancario</option>
+                            <option value="@IgnoredReasonType.DepositoRevertido">Depósito revertido</option>
+                            <option value="@IgnoredReasonType.Otro">Otro</option>
+                        </select>
+                    </div>
+                    <textarea class="form-control" rows="3" @bind="textoMotivoIgnorar" @bind:event="oninput" placeholder="Motivo (obligatorio)"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" @onclick="() => CerrarModalIgnorar(false)">Cancelar</button>
+                    <button class="btn btn-danger" disabled="@string.IsNullOrWhiteSpace(textoMotivoIgnorar)" @onclick="() => CerrarModalIgnorar(true)">
+                        <i class="bi bi-eye-slash me-1"></i>Ignorar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
@@ -1176,6 +1228,37 @@
         mostrarModalMotivo = false;
         _motivoTcs?.TrySetResult(string.IsNullOrWhiteSpace(motivo) ? null : motivo);
     }
+
+    private bool mostrarModalIgnorar = false;
+    private string mensajeModalIgnorar = "";
+    private string textoMotivoIgnorar = "";
+    private IgnoredReasonType tipoIgnorarSeleccionado = IgnoredReasonType.Otro;
+    private TaskCompletionSource<(string motivo, IgnoredReasonType tipo)?>? _ignorarTcs;
+
+    private Task<(string motivo, IgnoredReasonType tipo)?> PedirMotivoYTipoIgnorarAsync(string mensaje)
+    {
+        mensajeModalIgnorar = mensaje;
+        textoMotivoIgnorar = "";
+        tipoIgnorarSeleccionado = IgnoredReasonType.Otro;
+        mostrarModalIgnorar = true;
+        _ignorarTcs = new TaskCompletionSource<(string motivo, IgnoredReasonType tipo)?>();
+        return _ignorarTcs.Task;
+    }
+
+    private void CerrarModalIgnorar(bool confirmar)
+    {
+        mostrarModalIgnorar = false;
+        _ignorarTcs?.TrySetResult(confirmar && !string.IsNullOrWhiteSpace(textoMotivoIgnorar)
+            ? (textoMotivoIgnorar, tipoIgnorarSeleccionado)
+            : null);
+    }
+
+    private string DescribirTipoIgnorado(IgnoredReasonType tipo) => tipo switch
+    {
+        IgnoredReasonType.ErrorBancario => "Error bancario",
+        IgnoredReasonType.DepositoRevertido => "Depósito revertido",
+        _ => "Otro"
+    };
 
     [Parameter]
     public Guid AccountId { get; set; }
@@ -1279,6 +1362,7 @@
     private string noConciliados = "noConciliados";
     private string propuestosAuto = "propuestosAuto";
     private string propuestosManual = "propuestosManual";
+    private string ignorados = "ignorados";
     private string Gasto = "Gasto";
     private string Ingreso = "Ingreso";
 
@@ -1293,8 +1377,14 @@
     // "No Conciliados" agrupa Pendientes (NoConciliada) y Parciales -- una transacción
     // Parcial todavía tiene saldo por conciliar, así que antes se perdía de este tab
     // (y del de "Conciliados", que exige == Conciliada) y sólo aparecía en "Todas".
+    // Excluye Ignored -- Docs/Pendientes-Negocio-Conciliacion.md #1: ignorar una
+    // transacción tiene que sacarla de la cola de pendientes, si no la acción no tiene
+    // ningún efecto visible.
     private List<TransactionBankDetail> transaccionesNoConciliadas =>
-        TransaccionesDelModo.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial).ToList();
+        TransaccionesDelModo.Where(t => !t.Ignored &&
+            (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial)).ToList();
+    private List<TransactionBankDetail> transaccionesIgnoradas =>
+        TransaccionesDelModo.Where(t => t.Ignored).ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -1968,19 +2058,48 @@
             return;
         }
 
-        if (await ConfirmarAsync(
-            $"¿Ignorar {transaccionesSeleccionadas.Count} transacciones seleccionadas?"))
+        // Docs/Pendientes-Negocio-Conciliacion.md #1 -- tipo + motivo obligatorios, mismo
+        // motivo/tipo se aplica a todo el lote seleccionado (no tiene sentido pedirlo
+        // transacción por transacción para una acción en lote).
+        var respuesta = await PedirMotivoYTipoIgnorarAsync(
+            $"Vas a ignorar {transaccionesSeleccionadas.Count} transacción(es) seleccionada(s). Van a dejar de aparecer como pendientes (quedan en la pestaña 'Ignorados').");
+        if (respuesta == null)
         {
-            foreach (var transaccion in transaccionesSeleccionadas)
-            {
-                transaccion.Ignored = true;
-                await BankService.MarcarTransaccionComoIgnoradaAsync(transaccion);
-            }
-
-            DeseleccionarTodo();
-            mensajeExito = $"Se ignoraron {transaccionesSeleccionadas.Count} transacciones";
-            StateHasChanged();
+            return;
         }
+
+        var (motivo, tipo) = respuesta.Value;
+        var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
+        var idBuilding = ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty;
+        var errores = 0;
+
+        foreach (var transaccion in transaccionesSeleccionadas)
+        {
+            try
+            {
+                await BankService.MarcarTransaccionComoIgnoradaAsync(transaccion, motivo, tipo);
+                transaccion.Ignored = true;
+                transaccion.IgnoredReason = motivo;
+                transaccion.IgnoredType = tipo;
+
+                await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Ignored,
+                    performedBy, idBuilding,
+                    $"Ignorada ({DescribirTipoIgnorado(tipo)}). Motivo: {motivo}");
+            }
+            catch (Exception ex)
+            {
+                errores++;
+                Console.WriteLine($"Error al ignorar '{transaccion.Description}': {ex.Message}");
+            }
+        }
+
+        DeseleccionarTodo();
+        CalcularEstadisticas();
+        ActualizarPaginacion();
+        mensajeExito = errores == 0
+            ? $"Se ignoraron {transaccionesSeleccionadas.Count} transacciones"
+            : $"Se ignoraron {transaccionesSeleccionadas.Count - errores} de {transaccionesSeleccionadas.Count} transacciones ({errores} con error)";
+        StateHasChanged();
     }
 
     private void SeleccionarTodosTransacciones(ChangeEventArgs e)
@@ -2158,7 +2277,7 @@
         // vive en /movement -> "Detalle" (estado real en BD).
         if (tabActiva == "noConciliados")
         {
-            resultado = resultado.Where(t => !t.PropuestaPendiente &&
+            resultado = resultado.Where(t => !t.Ignored && !t.PropuestaPendiente &&
                 (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial));
         }
         else if (tabActiva == "propuestosAuto")
@@ -2168,6 +2287,10 @@
         else if (tabActiva == "propuestosManual")
         {
             resultado = resultado.Where(t => t.PropuestaPendiente && !t.PropuestaAutomatica);
+        }
+        else if (tabActiva == "ignorados")
+        {
+            resultado = resultado.Where(t => t.Ignored);
         }
 
         // Aplicar filtro de tipo

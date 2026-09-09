@@ -31,6 +31,19 @@ namespace SpiderHood.Models
         public required List<TransactionBankDetail> Details { get; set; }
     }
 
+    // Catálogo chico y cerrado (Docs/Pendientes-Negocio-Conciliacion.md #1) -- se guarda
+    // como INT en dbo.AccountStatementDetail.IgnoredType. Un enum C# alcanza acá (no un
+    // grupo más de Parameter, que además es por-edificio o requiere el mecanismo Sistema/
+    // Mixto): son 3 valores fijos, iguales para todos los edificios, y el propio pendiente
+    // los deja como "a evaluar casos" -- si en el futuro hace falta que cada edificio
+    // agregue los suyos, ahí sí conviene migrar a Parameter.
+    public enum IgnoredReasonType
+    {
+        ErrorBancario = 1,
+        DepositoRevertido = 2,
+        Otro = 3
+    }
+
     public class TransactionBankDetail
     {
         public Guid IdStatementDetail { get; set; }
@@ -82,8 +95,14 @@ namespace SpiderHood.Models
         public List<ViewExpense> PosiblesMatches { get; set; } = [];
         public List<Installment> IPosiblesMatches { get; set; } = [];
 
-        [NotMapped]
+        // Docs/Pendientes-Negocio-Conciliacion.md #1 -- antes era [NotMapped] y
+        // GET_BankTransactionsNoConcilied lo devolvía como literal @FALSE: "Ignorar"
+        // no se guardaba en ningún lado, ni tenía motivo/tipo. Ahora es una columna real
+        // de dbo.AccountStatementDetail (ver
+        // Database/Scripts/2026-09-09_70_AccountStatementDetail_Ignored.sql).
         public bool Ignored { get; set; } = false;
+        public string? IgnoredReason { get; set; }
+        public IgnoredReasonType? IgnoredType { get; set; }
         [NotMapped]
         public bool Selected { get; set; } = false;
         public string Reference => (Amount < 0 ? "G" : "I") + SequenceNumber.ToString("D4");

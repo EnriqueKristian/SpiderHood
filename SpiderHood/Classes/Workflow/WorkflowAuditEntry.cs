@@ -38,6 +38,9 @@ namespace SpiderHood.Models
         Deleted,
         // Agregado para "Marcar como Saldo Inicial" en Conciliación (Docs/Pendientes-
         // Negocio-Migracion.md #3) -- mismo motivo que arriba.
-        InitialBalanceSet
+        InitialBalanceSet,
+        // Agregado para "Ignorar transacción" con motivo + tipo (Docs/Pendientes-
+        // Negocio-Conciliacion.md #1) -- mismo motivo que arriba.
+        Ignored
     }
 }

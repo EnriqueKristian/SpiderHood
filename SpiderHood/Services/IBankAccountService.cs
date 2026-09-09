@@ -19,7 +19,7 @@ namespace SpiderHood.Services
         // (nunca tocó la BD, ver comentario en su implementación), esta sí revierte de
         // verdad vía UPD_ExpenseDeReconcilied.
         Task DesconciliarGastoRealAsync(Guid idStatementDetail, Guid idExpense);
-        Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion);
+        Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion, string motivo, IgnoredReasonType tipo);
         Task<Conciliacion?> ObtenerUltimaConciliacionAsync();
         Task GuardarConciliacionAsync(Conciliacion conciliacion);
         Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
@@ -277,10 +277,19 @@ namespace SpiderHood.Services
             await ec.DesconciliarGastoAsync(idStatementDetail, idExpense);
         }
 
-        public async Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion)
+        // Docs/Pendientes-Negocio-Conciliacion.md #1 -- antes era un stub que no tocaba la
+        // BD (Task.Delay + Console.WriteLine); "Ignorar" no se guardaba en ningún lado.
+        public async Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion, string motivo, IgnoredReasonType tipo)
         {
-            await Task.Delay(200);
-            Console.WriteLine($"Transacción {transaccion.IdStatementDetail} marcada como ignorada");
+            try
+            {
+                await ec.MarkTransactionIgnoredAsync(transaccion.IdStatementDetail, true, motivo, (int)tipo);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al marcar la transacción como ignorada: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<Conciliacion?> ObtenerUltimaConciliacionAsync()

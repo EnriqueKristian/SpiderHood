@@ -70,7 +70,21 @@
                                         <td class="text-end">@l.PreviousReading.ToString("N2")</td>
                                         <td class="text-end">@l.CurrentReading.ToString("N2")</td>
                                         <td class="text-end">@l.Consumption.ToString("N2")</td>
-                                        <td class="text-end">@Moneda(l.CalculatedAmount)</td>
+                                        @if (l.CalculatedAmount <= 0 && l.Consumption > 0)
+                                        {
+                                            <!-- Un consumo > 0 nunca debería costar exactamente S/ 0.00 -- si pasa, es
+                                                 porque esta lectura viene de una migración de histórico
+                                                 (ImportarLecturasAguaAsync guarda CalculatedAmount = 0 a propósito, no
+                                                 recalcula la tarifa vigente en su momento; el monto real facturado de
+                                                 ese periodo, si se conoce, se carga aparte como Extraordinaria "Reg.
+                                                 Agua" en Cuotas y Pagos). Mostrar "S/ 0.00" acá se leía como un bug --
+                                                 esto distingue "no se calculó" de un monto real de cero. -->
+                                            <td class="text-end text-muted" title="Este período viene de un histórico migrado -- no se calculó un monto de agua para él.">No calculado</td>
+                                        }
+                                        else
+                                        {
+                                            <td class="text-end">@Moneda(l.CalculatedAmount)</td>
+                                        }
                                     </tr>
                                 }
                             </tbody>

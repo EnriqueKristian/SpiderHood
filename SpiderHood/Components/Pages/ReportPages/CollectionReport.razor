@@ -102,7 +102,13 @@
                                 <tbody>
                                     @foreach (var f in _filas)
                                     {
-                                        <tr>
+                                        <!-- Clickeable: elegir un periodo muestra sus deudores en el detalle de
+                                             abajo (misma cuota que ya se cargó para calcular Dif, sin pedir nada
+                                             nuevo a la BD). -->
+                                        <tr class="@(f == _filaSeleccionada ? "table-primary" : "")"
+                                            style="cursor:pointer"
+                                            title="Ver deudores de este periodo"
+                                            @onclick="() => SeleccionarFila(f)">
                                             <td class="fw-semibold">@f.Periodo</td>
                                             <td>@f.Nombre</td>
                                             <td class="text-end">@Moneda(f.Presupuesto)</td>
@@ -135,6 +141,70 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Deudores del periodo seleccionado -- pedido explícito del usuario: qué
+                 DPTO(s) explican el "Dif" de cada presupuesto, sin abrir un modal. -->
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">
+                        @if (_filaSeleccionada != null)
+                        {
+                            <text>Deudores -- @_filaSeleccionada.Nombre (@_filaSeleccionada.Periodo)</text>
+                        }
+                        else
+                        {
+                            <text>Deudores por periodo</text>
+                        }
+                    </h6>
+                </div>
+                @if (_filaSeleccionada == null)
+                {
+                    <div class="card-body text-muted">
+                        Hacé click en un periodo de la tabla de arriba para ver qué unidades componen su "Dif".
+                    </div>
+                }
+                else if (!_filaSeleccionada.Deudores.Any())
+                {
+                    <div class="card-body">
+                        <div class="alert alert-success mb-0">
+                            <i class="bi bi-check-circle me-2"></i>Sin deudores en este periodo -- se recaudó el 100%.
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive" style="max-height: 400px;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="sticky-top table-light">
+                                <tr>
+                                    <th>DPTO</th>
+                                    <th>Propietario</th>
+                                    <th class="text-end">Deuda</th>
+                                    <th class="text-end">Cuotas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in _filaSeleccionada.Deudores)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@d.UnitName</td>
+                                        <td>@d.OwnerName</td>
+                                        <td class="text-end">@Moneda(d.Deuda)</td>
+                                        <td class="text-end">@d.Cuotas</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-secondary fw-bold">
+                                    <td colspan="2">TOTAL</td>
+                                    <td class="text-end">@Moneda(_filaSeleccionada.Deudores.Sum(d => d.Deuda))</td>
+                                    <td class="text-end">@_filaSeleccionada.Deudores.Sum(d => d.Cuotas)</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+            </div>
         }
     }
 </div>
@@ -149,6 +219,7 @@
     private DateTime fechaHasta = DateTime.Today;
 
     private List<FilaRecaudacion> _filas = new();
+    private FilaRecaudacion? _filaSeleccionada;
     private bool _debeRedibujarGrafico;
 
     private string TituloGrafico => $"Recaudación al {DateTime.Today.ToString("dd-MMMM-yy", new CultureInfo("es-ES"))}";
@@ -246,17 +317,40 @@
                 var recaudado = cuotas.Sum(c => c.AmountPaid);
                 var deuda = cuotas.Sum(c => c.Debt);
 
+                // Deudores de este presupuesto -- mismas cuotas ya traídas arriba, sin pedir
+                // nada nuevo a la BD. Pedido explícito del usuario: qué DPTO(s) explican el
+                // "Dif" de cada periodo.
+                var deudores = cuotas
+                    .Where(c => c.Debt > 0)
+                    .GroupBy(c => new { c.IdGroupUnit, c.UnitName, c.OwnerName })
+                    .Select(g => new DeudorFila
+                    {
+                        UnitName = g.Key.UnitName,
+                        OwnerName = g.Key.OwnerName,
+                        Deuda = g.Sum(c => c.Debt),
+                        Cuotas = g.Count()
+                    })
+                    .OrderByDescending(d => d.Deuda)
+                    .ToList();
+
                 filas.Add(new FilaRecaudacion
                 {
                     Periodo = $"{presupuesto.Year:D4}-{presupuesto.Month:D2}",
                     Nombre = presupuesto.BudgetName,
                     Presupuesto = montoPresupuesto,
                     Recaudado = recaudado,
-                    Diferencia = deuda
+                    Diferencia = deuda,
+                    Deudores = deudores
                 });
             }
 
             _filas = filas;
+            // La fila seleccionada (por Periodo) puede ya no existir tras recargar con otro
+            // rango de fechas -- si sigue estando, mantenerla seleccionada en vez de perder
+            // el detalle que el usuario ya estaba mirando.
+            _filaSeleccionada = _filaSeleccionada == null
+                ? null
+                : _filas.FirstOrDefault(f => f.Periodo == _filaSeleccionada.Periodo);
         }
         finally
         {
@@ -294,6 +388,11 @@
             // DelinquencyReport.razor.RenderizarGraficoAsync. OnAfterRenderAsync(firstRender)
             // reintenta ya con el circuito real conectado.
         }
+    }
+
+    private void SeleccionarFila(FilaRecaudacion fila)
+    {
+        _filaSeleccionada = fila == _filaSeleccionada ? null : fila;
     }
 
     private async Task ExportarExcel()
@@ -341,5 +440,14 @@
         public decimal Presupuesto;
         public decimal Recaudado;
         public decimal Diferencia;
+        public List<DeudorFila> Deudores = new();
+    }
+
+    private class DeudorFila
+    {
+        public string UnitName = "";
+        public string OwnerName = "";
+        public decimal Deuda;
+        public int Cuotas;
     }
 }

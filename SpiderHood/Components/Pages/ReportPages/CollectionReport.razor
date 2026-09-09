@@ -326,20 +326,29 @@
                 .OrderBy(p => p.BudgetDate)
                 .ToList();
 
+            // Una sola consulta para TODAS las cuotas del edificio, agrupadas acá abajo por
+            // IdBudgetHeader -- antes era un GetInstallmentsByBudgetAsync POR presupuesto
+            // dentro del foreach (N+1: 1 consulta por los presupuestos + 1 más por cada uno
+            // de ellos). Con 6 presupuestos en el rango eran 7 idas a la BD; con dos años de
+            // historial (24 presupuestos) serían 25. Mismo dato final, muchas menos
+            // consultas.
+            var todasLasCuotas = await InstallmentService.GetInstallmentsByBuildingAsync(idBuilding);
+            var cuotasPorPresupuesto = todasLasCuotas.ToLookup(c => c.IdBudgetHeader);
+
             var filas = new List<FilaRecaudacion>();
             foreach (var presupuesto in ordinarios)
             {
                 // Presupuesto/Recaudado/Dif se calculan los tres a partir de las MISMAS
-                // cuotas que lee el reporte de Morosidad (GetInstallmentsByBudgetAsync),
-                // no de BudgetHeader.Amount -- ese campo se graba una vez al generar el
-                // presupuesto y puede no reflejar ajustes posteriores a las cuotas
-                // individuales (exoneraciones, correcciones), lo que hacía que "Dif" acá
-                // no cuadrara con "Deuda" en Morosidad para el mismo periodo. Dif usa
-                // Installment.Debt (no Presupuesto - Recaudado) por el mismo motivo: es
-                // el campo que de verdad se decrementa al aplicar pagos parciales
-                // (IInstallmentService.cs:275/313/351), no necesariamente idéntico a
-                // Amount - AmountPaid en todos los casos (redondeo, cargos parciales).
-                var cuotas = await InstallmentService.GetInstallmentsByBudgetAsync(presupuesto.IdBudgetHeader);
+                // cuotas que lee el reporte de Morosidad, no de BudgetHeader.Amount -- ese
+                // campo se graba una vez al generar el presupuesto y puede no reflejar
+                // ajustes posteriores a las cuotas individuales (exoneraciones,
+                // correcciones), lo que hacía que "Dif" acá no cuadrara con "Deuda" en
+                // Morosidad para el mismo periodo. Dif usa Installment.Debt (no
+                // Presupuesto - Recaudado) por el mismo motivo: es el campo que de verdad
+                // se decrementa al aplicar pagos parciales (IInstallmentService.cs:
+                // 275/313/351), no necesariamente idéntico a Amount - AmountPaid en todos
+                // los casos (redondeo, cargos parciales).
+                var cuotas = cuotasPorPresupuesto[presupuesto.IdBudgetHeader].ToList();
                 var montoPresupuesto = cuotas.Sum(c => c.Amount);
                 var recaudado = cuotas.Sum(c => c.AmountPaid);
                 var deuda = cuotas.Sum(c => c.Debt);

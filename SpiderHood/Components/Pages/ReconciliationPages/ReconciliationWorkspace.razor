@@ -1,4 +1,5 @@
 ﻿@using SpiderHood.Components.Pages.MovementPages
+@using SpiderHood.Components.Pages.Components
 @using SpiderHood.Models
 @using SpiderHood.Services
 @using SpiderHood.Utilities
@@ -1096,9 +1097,81 @@
     </div>
 }
 
+<ConfirmationModal @ref="_confirmationModal" OnClose="OnConfirmationResult" />
+
+@* Modal de motivo para "Corregir" -- ConfirmationModal no tiene campo de texto, y no
+   conviene agregárselo ahí porque lo comparten otras 4 pantallas; se arma uno chico acá
+   mismo, mismo look & feel que el resto de los modales de esta página. *@
+@if (mostrarModalMotivo)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Motivo de la corrección</h5>
+                    <button type="button" class="btn-close" @onclick="() => CerrarModalMotivo(null)"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@mensajeModalMotivo</p>
+                    <textarea class="form-control" rows="3" @bind="textoModalMotivo" @bind:event="oninput" placeholder="Motivo (obligatorio)"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" @onclick="() => CerrarModalMotivo(null)">Cancelar</button>
+                    <button class="btn btn-danger" disabled="@string.IsNullOrWhiteSpace(textoModalMotivo)" @onclick="() => CerrarModalMotivo(textoModalMotivo)">
+                        <i class="bi bi-check2 me-1"></i>Confirmar corrección
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
+    // Reemplazan a JSRuntime.InvokeAsync<bool>("confirm", ...) / "prompt" -- usaban el
+    // diálogo nativo del navegador ("localhost:7175 says") en vez del modal propio de la
+    // app (ConfirmationModal, ya usado en otras 4 pantallas).
+    private ConfirmationModal? _confirmationModal;
+    private TaskCompletionSource<bool>? _confirmTcs;
+
+    private Task<bool> ConfirmarAsync(string mensaje, string type = "warning")
+    {
+        _confirmTcs = new TaskCompletionSource<bool>();
+        _confirmationModal?.Show(type);
+        if (_confirmationModal != null)
+        {
+            _confirmationModal.Message = mensaje;
+        }
+        return _confirmTcs.Task;
+    }
+
+    private Task OnConfirmationResult(bool confirmado)
+    {
+        _confirmTcs?.TrySetResult(confirmado);
+        return Task.CompletedTask;
+    }
+
+    private bool mostrarModalMotivo = false;
+    private string mensajeModalMotivo = "";
+    private string textoModalMotivo = "";
+    private TaskCompletionSource<string?>? _motivoTcs;
+
+    private Task<string?> PedirMotivoAsync(string mensaje)
+    {
+        mensajeModalMotivo = mensaje;
+        textoModalMotivo = "";
+        mostrarModalMotivo = true;
+        _motivoTcs = new TaskCompletionSource<string?>();
+        return _motivoTcs.Task;
+    }
+
+    private void CerrarModalMotivo(string? motivo)
+    {
+        mostrarModalMotivo = false;
+        _motivoTcs?.TrySetResult(string.IsNullOrWhiteSpace(motivo) ? null : motivo);
+    }
 
     [Parameter]
     public Guid AccountId { get; set; }
@@ -1485,7 +1558,7 @@
         var propuestas = transacciones.Where(t => t.PropuestaPendiente).ToList();
         if (!propuestas.Any()) return false;
 
-        if (!await JSRuntime.InvokeAsync<bool>("confirm",
+        if (!await ConfirmarAsync(
             $"¿Confirmar la conciliación de {propuestas.Count} transacción(es)? Una vez confirmada, una transacción solo se puede corregir con motivo (rol Administrador), no deshacer libremente."))
         {
             return false;
@@ -1587,8 +1660,8 @@
             return;
         }
 
-        var motivo = await JSRuntime.InvokeAsync<string?>("prompt",
-            $"Vas a corregir la conciliación de '{transaccion.Description}' y liberar {pagosDeEstaTransaccion.Count} cuota(s) asociada(s).\n\nMotivo de la corrección (obligatorio):");
+        var motivo = await PedirMotivoAsync(
+            $"Vas a corregir la conciliación de '{transaccion.Description}' y liberar {pagosDeEstaTransaccion.Count} cuota(s) asociada(s).");
         if (string.IsNullOrWhiteSpace(motivo))
         {
             return;
@@ -1628,8 +1701,8 @@
             return;
         }
 
-        var motivo = await JSRuntime.InvokeAsync<string?>("prompt",
-            $"Vas a corregir la conciliación de '{transaccion.Description}' con el gasto '{transaccion.GastoConciliado.Description}'.\n\nMotivo de la corrección (obligatorio):");
+        var motivo = await PedirMotivoAsync(
+            $"Vas a corregir la conciliación de '{transaccion.Description}' con el gasto '{transaccion.GastoConciliado.Description}'.");
         if (string.IsNullOrWhiteSpace(motivo))
         {
             return;
@@ -1847,7 +1920,7 @@
             return;
         }
 
-        if (await JSRuntime.InvokeAsync<bool>("confirm", 
+        if (await ConfirmarAsync(
             $"¿Ignorar {transaccionesSeleccionadas.Count} transacciones seleccionadas?"))
         {
             foreach (var transaccion in transaccionesSeleccionadas)
@@ -1895,7 +1968,7 @@
         var sinPropuesta = transaccionesNoConciliadas.Where(t => !t.PropuestaPendiente).ToList();
         if (sinPropuesta.Any())
         {
-            if (!await JSRuntime.InvokeAsync<bool>("confirm",
+            if (!await ConfirmarAsync(
                 $"Hay {sinPropuesta.Count} transacción(es) pendiente(s) sin ninguna propuesta de conciliación. ¿Deseas finalizar de todos modos?"))
             {
                 return;

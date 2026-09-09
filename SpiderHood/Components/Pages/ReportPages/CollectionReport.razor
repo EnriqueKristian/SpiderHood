@@ -149,6 +149,7 @@
     private DateTime fechaHasta = DateTime.Today;
 
     private List<FilaRecaudacion> _filas = new();
+    private bool _debeRedibujarGrafico;
 
     private string TituloGrafico => $"Recaudación al {DateTime.Today.ToString("dd-MMMM-yy", new CultureInfo("es-ES"))}";
 
@@ -173,14 +174,21 @@
         _inicializado = true;
     }
 
-    // Red de seguridad además de la llamada al final de CargarAsync -- ver el comentario
-    // en RenderizarGraficoAsync (mismo fix que DelinquencyReport.razor: el guard con
-    // RendererInfo.IsInteractive que había acá bloqueaba el dibujo real del gráfico, no
-    // sólo el intento durante prerender).
+    // El gráfico se dibuja acá, no al final de CargarAsync -- StateHasChanged() sólo
+    // ENCOLA el render, no espera a que el DOM del browser ya tenga el <canvas> antes de
+    // seguir ejecutando; un JS interop llamado justo después corre el riesgo real de que
+    // document.getElementById todavía no encuentre el elemento (no tira excepción, sólo
+    // no dibuja nada -- exactamente el síntoma reportado). OnAfterRenderAsync es la única
+    // garantía de "el render ya se aplicó" -- corre después de CADA render, no sólo el
+    // primero, así que también cubre la recarga vía el botón Actualizar. Bonus: nunca
+    // corre durante el prerender estático, así que de paso evita el
+    // InvalidOperationException de JS interop en ese pase sin necesitar adivinar
+    // RendererInfo.IsInteractive.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _filas.Any())
+        if (_debeRedibujarGrafico)
         {
+            _debeRedibujarGrafico = false;
             await RenderizarGraficoAsync();
         }
     }
@@ -223,18 +231,28 @@
             var filas = new List<FilaRecaudacion>();
             foreach (var presupuesto in ordinarios)
             {
-                // Recaudado = suma de lo efectivamente pagado (AmountPaid) de todas las
-                // cuotas que aplican a este presupuesto -- pedido explícito del usuario,
-                // no el monto de la cuota en sí (que sería igual al Presupuesto).
+                // Presupuesto/Recaudado/Dif se calculan los tres a partir de las MISMAS
+                // cuotas que lee el reporte de Morosidad (GetInstallmentsByBudgetAsync),
+                // no de BudgetHeader.Amount -- ese campo se graba una vez al generar el
+                // presupuesto y puede no reflejar ajustes posteriores a las cuotas
+                // individuales (exoneraciones, correcciones), lo que hacía que "Dif" acá
+                // no cuadrara con "Deuda" en Morosidad para el mismo periodo. Dif usa
+                // Installment.Debt (no Presupuesto - Recaudado) por el mismo motivo: es
+                // el campo que de verdad se decrementa al aplicar pagos parciales
+                // (IInstallmentService.cs:275/313/351), no necesariamente idéntico a
+                // Amount - AmountPaid en todos los casos (redondeo, cargos parciales).
                 var cuotas = await InstallmentService.GetInstallmentsByBudgetAsync(presupuesto.IdBudgetHeader);
+                var montoPresupuesto = cuotas.Sum(c => c.Amount);
                 var recaudado = cuotas.Sum(c => c.AmountPaid);
+                var deuda = cuotas.Sum(c => c.Debt);
 
                 filas.Add(new FilaRecaudacion
                 {
                     Periodo = $"{presupuesto.Year:D4}-{presupuesto.Month:D2}",
                     Nombre = presupuesto.BudgetName,
-                    Presupuesto = presupuesto.Amount,
-                    Recaudado = recaudado
+                    Presupuesto = montoPresupuesto,
+                    Recaudado = recaudado,
+                    Diferencia = deuda
                 });
             }
 
@@ -246,7 +264,7 @@
         }
 
         StateHasChanged();
-        await RenderizarGraficoAsync();
+        _debeRedibujarGrafico = _filas.Any();
     }
 
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
@@ -322,6 +340,6 @@
         public string Nombre = "";
         public decimal Presupuesto;
         public decimal Recaudado;
-        public decimal Diferencia => Presupuesto - Recaudado;
+        public decimal Diferencia;
     }
 }

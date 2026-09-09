@@ -211,6 +211,7 @@
     private List<Installment> _cuotasPendientes = new();
     private List<FilaUnidad> _filasPorUnidad = new();
     private List<GrupoConcepto> _gruposConcepto = new();
+    private bool _debeRedibujarGrafico;
 
     private decimal TotalGeneral => _filasPorUnidad.Sum(f => f.Total);
 
@@ -237,15 +238,21 @@
         _inicializado = true;
     }
 
-    // Red de seguridad además de la llamada al final de CargarAsync: si la primera carga
-    // corrió durante el pase de prerender estático (RenderizarGraficoAsync atrapó el
-    // InvalidOperationException y no dibujó nada), esto reintenta ya con el circuito real
-    // conectado. Si CargarAsync ya lo dibujó bien, esto sólo lo redibuja de nuevo (destroy +
-    // create en el JS), inofensivo.
+    // El gráfico se dibuja acá, no al final de CargarAsync -- StateHasChanged() sólo
+    // ENCOLA el render, no espera a que el DOM del browser ya tenga el <canvas> antes de
+    // seguir ejecutando; un JS interop llamado justo después corre el riesgo real de que
+    // document.getElementById todavía no encuentre el elemento (no tira excepción, sólo
+    // no dibuja nada -- exactamente el bug reportado). OnAfterRenderAsync es la única
+    // garantía de "el render ya se aplicó" -- corre después de CADA render, no sólo el
+    // primero, así que también cubre la recarga vía el botón Actualizar. Bonus: nunca
+    // corre durante el prerender estático, así que de paso evita el
+    // InvalidOperationException de JS interop en ese pase sin necesitar adivinar
+    // RendererInfo.IsInteractive.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _filasPorUnidad.Any())
+        if (_debeRedibujarGrafico)
         {
+            _debeRedibujarGrafico = false;
             await RenderizarGraficoAsync();
         }
     }
@@ -279,7 +286,7 @@
         }
 
         StateHasChanged();
-        await RenderizarGraficoAsync();
+        _debeRedibujarGrafico = _filasPorUnidad.Any();
     }
 
     private void ArmarFilasPorUnidad()

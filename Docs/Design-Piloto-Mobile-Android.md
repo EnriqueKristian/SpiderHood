@@ -7,6 +7,12 @@ arrancando por Android. Basado en revisar el código real (`Program.cs`,
 `Services/`, `Components/Pages/ResidentPages`, `IncidentPages`, csproj), no en
 suposiciones.
 
+**Decisión tomada (2026-09-09):** se arranca por la **Opción A (PWA/TWA)** --
+sección 5 -- y en un par de semanas se migra a la **Opción B (MAUI Blazor
+Hybrid)**. Ver sección 6 para qué implica esto en términos de reutilización
+de trabajo entre pantallas web y mobile durante esa ventana de un par de
+semanas.
+
 ---
 
 ## 1. Resumen ejecutivo
@@ -221,7 +227,50 @@ Dado que se pidió explícitamente **"piloto"** y **"empecemos con Android"**
 
 ---
 
-## 6. Qué construir nuevo (para cualquiera de las 3 opciones, en distinto grado)
+## 6. ¿Las correcciones de pantalla se comparten entre web y mobile, o se duplican?
+
+Pregunta real del usuario, mientras seguía corrigiendo pantallas en paralelo
+a este diagnóstico: si arreglo algo en una pantalla, ¿ese arreglo aplica
+también al otro lado, o hay que hacerlo dos veces? La respuesta depende
+100% de cuál de las 3 opciones de la sección 5 esté activa en ese momento.
+
+### Con la Opción A (PWA/TWA) -- **cero duplicación**
+No hay "versión web" y "versión mobile" -- es **la misma app corriendo**,
+sólo empaquetada distinto para que se instale en el celular (TWA). Un fix en
+cualquier pantalla es automáticamente lo que ve el usuario mobile, sin
+desplegar nada aparte. Mientras estemos en esta fase (las próximas semanas,
+según la decisión tomada), **todo el trabajo de corrección de pantallas
+sigue su curso normal y cuenta directo como avance del piloto mobile** -- no
+hay nada que reharcer ni que esperar.
+
+### Con la Opción B (MAUI Blazor Hybrid) -- compartido, pero no automático
+Acá sí hay dos superficies (la app web Blazor Server, y la app MAUI que
+corre en el celular). Si las páginas de residente se organizan en una
+**librería de componentes Razor compartida** que referencian ambos
+proyectos, un fix a un componente compartido corrige los dos lados a la vez
+-- pero:
+- Hace falta esa reestructuración primero (sacar las páginas de residente a
+  la librería compartida) -- no es automático como en la Opción A.
+- En la práctica, las pantallas mobile casi siempre necesitan ajustes
+  propios de layout (navegación táctil, pantalla chica) -- ahí sí queda algo
+  de trabajo duplicado, acotado a layout/UX, no a la lógica de negocio (esa
+  se comparte siempre, sea cual sea la opción).
+
+### Con la Opción C (Nativo) -- duplicación total de UI
+No aplica acá (se descartó como punto de partida), pero para referencia: cada
+pantalla se reconstruye a mano, un fix web no toca la app nativa para nada.
+
+### Implicancia práctica para la ventana de "PWA ahora, MAUI en un par de
+semanas" (decisión tomada arriba)
+Toda corrección de pantalla que se haga **ahora**, durante la Opción A, es
+trabajo 100% aprovechado -- no se pierde nada, no hay apuro por "terminar
+antes de migrar". Al pasar a la Opción B, esas mismas páginas Razor
+(ajustadas y ya probadas en el piloto PWA) son la base de la librería
+compartida -- se portan, no se reescriben desde cero.
+
+---
+
+## 7. Qué construir nuevo (para cualquiera de las 3 opciones, en distinto grado)
 
 | Pieza | Necesaria para A (PWA) | Necesaria para B (MAUI) | Necesaria para C (Nativo) |
 |---|---|---|---|
@@ -234,15 +283,22 @@ Dado que se pidió explícitamente **"piloto"** y **"empecemos con Android"**
 
 ---
 
-## 7. Plan de piloto propuesto (fases)
+## 8. Plan de piloto propuesto (fases)
 
-**Fase 0 -- Decisión (antes de escribir código):**
-- Confirmar la Opción A como piloto (o ajustar si el usuario prefiere otra).
-- Decidir pasalera de pago para el residente (si el pago entra en el piloto
-  o queda para después -- se recomienda dejarlo fuera del piloto inicial,
-  ver sección 2).
-- Si se elige B o C directamente (saltando el piloto PWA), confirmarlo --
-  cambia todo el plan de abajo.
+**Fase -1 -- Cerrar las observaciones de pantalla en curso (en progreso,
+antes de arrancar la Fase 1):** el usuario pidió explícitamente terminar
+primero las correcciones que ya tenía identificadas en las pantallas
+existentes. Por lo visto en la sección 6, esto no es tiempo "perdido" de cara
+al piloto -- con la Opción A activa, cada corrección que se cierre ahora ES
+directamente parte de lo que va a ver el usuario mobile, así que no hay
+tensión entre "terminar las observaciones" y "arrancar el piloto": es
+la misma base de código.
+
+**Fase 0 -- Decisión de arquitectura -- ✅ tomada (2026-09-09):** Opción A
+(PWA/TWA) ahora, migrar a Opción B (MAUI Blazor Hybrid) en un par de
+semanas. Queda pendiente sólo decidir la pasarela de pago para el residente
+(si entra al piloto o queda para después -- se recomienda dejarlo fuera,
+ver sección 2) y el resto de las preguntas abiertas de la sección 9.
 
 **Fase 1 -- Piloto PWA/TWA (Opción A), sólo lectura:**
 - Manifest PWA (`manifest.json`, íconos, `theme-color`) sobre las páginas de
@@ -268,7 +324,8 @@ Dado que se pidió explícitamente **"piloto"** y **"empecemos con Android"**
 limitaciones de la Opción A):**
 - Nuevo recibo emitido, incidente respondido.
 
-**Fase 4 (si el piloto valida demanda) -- Migrar a Opción B:**
+**Fase 4 (decidido: en un par de semanas, no condicionado a validar demanda
+primero) -- Migrar a Opción B:**
 - Construir la API (auth por token + endpoints sobre los `Services`
   existentes).
 - Adaptar páginas Razor del piloto a MAUI Blazor Hybrid.
@@ -280,10 +337,11 @@ riesgo/esfuerzo.
 
 ---
 
-## 8. Preguntas abiertas para el usuario
+## 9. Preguntas abiertas para el usuario
 
-1. ¿Confirmás la Opción A (PWA/TWA) como punto de partida del piloto, o
-   preferís saltar directo a MAUI (Opción B)?
+1. ~~¿Confirmás la Opción A (PWA/TWA) como punto de partida del piloto, o
+   preferís saltar directo a MAUI (Opción B)?~~ -- **Resuelto:** Opción A
+   ahora, migrar a Opción B en un par de semanas (ver Fase 0).
 2. ¿El pago de cuota desde el celular es un requisito del piloto, o puede
    esperar a una fase posterior (recomendado)?
 3. Para las fotos de incidentes: ¿hay ya alguna cuenta de storage (Azure,

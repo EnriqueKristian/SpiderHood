@@ -233,10 +233,10 @@
                            "Detalle". *@
                         <ul class="nav nav-tabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link @(tabActiva == "pendientes" ? "active" : "")"
-                                        @onclick="() => CambiarTab(pendientes)">
+                                <button class="nav-link @(tabActiva == "noConciliados" ? "active" : "")"
+                                        @onclick="() => CambiarTab(noConciliados)">
                                     <i class="bi bi-question-circle me-2"></i>
-                                    Pendientes
+                                    No Conciliados
                                     <span class="badge bg-warning ms-2">@TransaccionesDelModo.Count(t => !t.PropuestaPendiente && (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial))</span>
                                 </button>
                             </li>
@@ -244,7 +244,7 @@
                                 <button class="nav-link @(tabActiva == "propuestosAuto" ? "active" : "")"
                                         @onclick="() => CambiarTab(propuestosAuto)">
                                     <i class="bi bi-robot me-2"></i>
-                                    Propuestos Auto
+                                    Auto
                                     <span class="badge bg-primary ms-2">@TransaccionesDelModo.Count(t => t.PropuestaPendiente && t.PropuestaAutomatica)</span>
                                 </button>
                             </li>
@@ -252,7 +252,7 @@
                                 <button class="nav-link @(tabActiva == "propuestosManual" ? "active" : "")"
                                         @onclick="() => CambiarTab(propuestosManual)">
                                     <i class="bi bi-person me-2"></i>
-                                    Propuestos Manual
+                                    Manual
                                     <span class="badge bg-primary ms-2">@TransaccionesDelModo.Count(t => t.PropuestaPendiente && !t.PropuestaAutomatica)</span>
                                 </button>
                             </li>
@@ -1220,7 +1220,7 @@
     private string periodoSeleccionado = "todos";
     private DateTime fechaDesde = DateTime.Now.AddMonths(-1);
     private DateTime fechaHasta = DateTime.Now;
-    private string tabActiva = "pendientes";
+    private string tabActiva = "noConciliados";
     private string? filtroTipo = null;
     private string textoBusqueda = "";
     private bool seleccionarTodos = false;
@@ -1266,7 +1266,7 @@
     // aportar nada distinto a chequear el rol directo.
     private bool _puedeCorregir => _currentUser.Role == "Administrador";
 
-    private string pendientes = "pendientes";
+    private string noConciliados = "noConciliados";
     private string propuestosAuto = "propuestosAuto";
     private string propuestosManual = "propuestosManual";
     private string Gasto = "Gasto";
@@ -2099,7 +2099,7 @@
         // Aplicar filtro de tab -- esta pantalla es solo para trabajar lo pendiente
         // (Fase B): "Conciliados"/"Todas las Transacciones" ya no existen acá, esa consulta
         // vive en /movement -> "Detalle" (estado real en BD).
-        if (tabActiva == "pendientes")
+        if (tabActiva == "noConciliados")
         {
             resultado = resultado.Where(t => !t.PropuestaPendiente &&
                 (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial));

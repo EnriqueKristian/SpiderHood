@@ -193,6 +193,10 @@
     [Inject] private Services.IPermissionService PermissionService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
     [Inject] private ILogger<HeaderMainLayout> Logger { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    // Ver Docs/Pendientes-Negocio-Sesion.md #1 y wwwroot/js/idleTimeout.js.
+    private const int IdleTimeoutMs = 20 * 60 * 1000;
 
     private bool _initialized = false;
     private bool _isLoading = true;
@@ -313,6 +317,36 @@
             Buildings = new List<Models.UserBuilding>();
             BuildingName = "Seleccionar Edificio";
             Logger.LogDebug("⚠️ Usuario sin edificios");
+        }
+
+        await UpdateIdleTimeoutAsync();
+    }
+
+    // Arranca/para el timer de inactividad del browser (wwwroot/js/idleTimeout.js)
+    // según haya o no un usuario autenticado en este circuito. Se llama desde
+    // LoadUserDataAsync, que corre en firstRender y en cada AuthenticationStateChanged
+    // -- así el timer arranca recién cuando el login realmente sucede (no en /login,
+    // donde este mismo componente se inicializa todavía anónimo) y se apaga si el
+    // usuario deja de estar autenticado en el mismo circuito.
+    private async Task UpdateIdleTimeoutAsync()
+    {
+        if (!RendererInfo.IsInteractive) return;
+
+        try
+        {
+            if (_currentUser != null)
+            {
+                await JS.InvokeVoidAsync("spiderHoodIdleTimeout.start", IdleTimeoutMs);
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("spiderHoodIdleTimeout.stop");
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // El circuito ya se está cerrando (navegación con forceLoad, etc.) -- no hay
+            // nada que hacer del lado del cliente.
         }
     }
 

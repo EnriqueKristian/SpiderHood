@@ -8,7 +8,7 @@ otros documentos de esta carpeta).
 
 ## 1. La sesión no expira por inactividad (~20 min) — cambiar de página la "renueva" sin revisar el tiempo real
 
-**Estado: identificado, sin empezar a implementar.**
+**Estado: resuelto (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
 
 Regla de negocio esperada (indicada por el usuario): tras **20 minutos o más
 de inactividad**, el usuario debería perder la sesión y tener que volver a
@@ -72,3 +72,29 @@ que el usuario haga nada.
   `[Authorize]`/`AuthorizeRouteView` estándar de Blazor) como gate central,
   en vez de que cada página maneje su propia verificación de sesión de forma
   ad-hoc.
+
+**Cómo se resolvió:** ya que la navegación interna no genera requests HTTP y
+el usuario autenticado vive cacheado en memoria por circuito (ver arriba),
+el timer no podía depender del servidor por request -- se agregó
+`wwwroot/js/idleTimeout.js`, un timer 100% client-side que escucha actividad
+real del usuario (`mousemove`/`mousedown`/`keydown`/`scroll`/`touchstart`) y,
+tras 20 minutos sin ninguna, redirige con `window.location.href = "/logout"`
+-- un *full page load* a propósito, porque `/logout` (`Logout.razor`) es la
+única página sin `@rendermode` que puede llamar `HttpContext.SignOutAsync`
+para de verdad borrar la cookie (mismo motivo que evita hacerlo desde un
+circuito ya conectado, documentado en el propio `Logout.razor`).
+
+El script se referencia una vez en `App.razor` (junto a `theme.js`, etc.) y
+se arranca/para desde `HeaderMainLayout.razor` (`UpdateIdleTimeoutAsync`,
+llamado al final de `LoadUserDataAsync`) -- ese método ya corre una vez por
+circuito en `OnAfterRenderAsync(firstRender)` y de nuevo en cada
+`AuthenticationStateChanged`, así que el timer arranca recién cuando hay un
+`_currentUser` real (no en `/login`, donde este mismo componente también se
+inicializa pero todavía anónimo) y se apaga si el usuario deja de estar
+autenticado en el mismo circuito. El umbral vive como constante
+`IdleTimeoutMs` en `HeaderMainLayout.razor`.
+
+**Pendiente de verificar manualmente** (no se pudo levantar el proyecto en
+este entorno, no hay SDK de .NET instalado): probar en un browser real que
+tras 20 minutos sin tocar mouse/teclado la sesión efectivamente expira, y
+que interactuar con la página sí reinicia el conteo.

@@ -153,7 +153,11 @@
                             <tr>
                                 <th>DPTO</th>
                                 <th>Propietario</th>
-                                <th class="text-end">Monto</th>
+                                <th class="text-end">Ordinaria</th>
+                                <th class="text-end" title="Cuota Extraordinaria">CE</th>
+                                <th class="text-end">Multa</th>
+                                <th class="text-end">Mora</th>
+                                <th class="text-end">Total</th>
                                 <th class="text-end">Cuotas</th>
                             </tr>
                         </thead>
@@ -161,14 +165,21 @@
                             @foreach (var grupo in _gruposConcepto)
                             {
                                 <tr class="table-light">
-                                    <td colspan="4" class="fw-bold">@grupo.Concepto</td>
+                                    <td colspan="8" class="fw-bold">@grupo.Concepto</td>
                                 </tr>
                                 @foreach (var f in grupo.Filas)
                                 {
+                                    <!-- Cada grupo es de un solo InstallmentType (ver ArmarGruposConcepto) --
+                                         sólo la columna de ese tipo trae el monto de esta fila, el resto
+                                         queda en "-", así las dos tablas comparten las mismas columnas. -->
                                     <tr class="@ClaseCalor(f.Monto)">
                                         <td>@f.UnitName</td>
                                         <td>@f.OwnerName</td>
-                                        <td class="text-end">@Moneda(f.Monto)</td>
+                                        <td class="text-end">@(grupo.Tipo == InstallmentType.Ordinaria ? Moneda(f.Monto) : "-")</td>
+                                        <td class="text-end">@(grupo.Tipo == InstallmentType.Extraordinaria ? Moneda(f.Monto) : "-")</td>
+                                        <td class="text-end">@(grupo.Tipo == InstallmentType.Multa ? Moneda(f.Monto) : "-")</td>
+                                        <td class="text-end">@(grupo.Tipo == InstallmentType.Mora ? Moneda(f.Monto) : "-")</td>
+                                        <td class="text-end fw-bold">@Moneda(f.Monto)</td>
                                         <td class="text-end">@f.Cuotas</td>
                                     </tr>
                                 }
@@ -176,7 +187,7 @@
                         </tbody>
                         <tfoot>
                             <tr class="table-secondary fw-bold">
-                                <td colspan="2">TOTAL DEUDA</td>
+                                <td colspan="6">TOTAL DEUDA</td>
                                 <td class="text-end">@Moneda(TotalGeneral)</td>
                                 <td class="text-end">@_filasPorUnidad.Sum(f => f.CantidadCuotas)</td>
                             </tr>
@@ -309,10 +320,14 @@
     private void ArmarGruposConcepto()
     {
         _gruposConcepto = _cuotasPendientes
-            .GroupBy(EtiquetaConcepto)
+            // Agrupa por (etiqueta, Type) -- en la práctica equivalen a lo mismo (cada
+            // etiqueta de EtiquetaConcepto sale de un único Type), pero así el grupo
+            // lleva el Type explícito para pintar la columna correcta en la tabla.
+            .GroupBy(i => (Etiqueta: EtiquetaConcepto(i), i.Type))
             .Select(g => new GrupoConcepto
             {
-                Concepto = g.Key,
+                Concepto = g.Key.Etiqueta,
+                Tipo = g.Key.Type,
                 Filas = g.GroupBy(i => new { i.IdGroupUnit, i.UnitName, i.OwnerName })
                     .Select(u => new FilaConcepto
                     {
@@ -414,29 +429,39 @@
         var wsConcepto = workbook.Worksheets.Add("Por Concepto");
         wsConcepto.Cell(1, 1).Value = "DPTO";
         wsConcepto.Cell(1, 2).Value = "Propietario";
-        wsConcepto.Cell(1, 3).Value = "Monto";
-        wsConcepto.Cell(1, 4).Value = "Cuotas";
+        wsConcepto.Cell(1, 3).Value = "Ordinaria";
+        wsConcepto.Cell(1, 4).Value = "Extraordinaria";
+        wsConcepto.Cell(1, 5).Value = "Multa";
+        wsConcepto.Cell(1, 6).Value = "Mora";
+        wsConcepto.Cell(1, 7).Value = "Total";
+        wsConcepto.Cell(1, 8).Value = "Cuotas";
         wsConcepto.Row(1).Style.Font.Bold = true;
 
         var filaConcepto = 2;
         foreach (var grupo in _gruposConcepto)
         {
             wsConcepto.Cell(filaConcepto, 1).Value = grupo.Concepto;
-            wsConcepto.Range(filaConcepto, 1, filaConcepto, 4).Style.Font.Bold = true;
-            wsConcepto.Range(filaConcepto, 1, filaConcepto, 4).Style.Fill.BackgroundColor = XLColor.LightGray;
+            wsConcepto.Range(filaConcepto, 1, filaConcepto, 8).Style.Font.Bold = true;
+            wsConcepto.Range(filaConcepto, 1, filaConcepto, 8).Style.Fill.BackgroundColor = XLColor.LightGray;
             filaConcepto++;
 
+            // Mismo criterio que en pantalla: cada grupo es de un solo InstallmentType, así
+            // que sólo la columna de ese tipo trae el monto de esta fila.
             foreach (var f in grupo.Filas)
             {
                 wsConcepto.Cell(filaConcepto, 1).Value = f.UnitName;
                 wsConcepto.Cell(filaConcepto, 2).Value = f.OwnerName;
-                wsConcepto.Cell(filaConcepto, 3).Value = f.Monto;
-                wsConcepto.Cell(filaConcepto, 4).Value = f.Cuotas;
+                if (grupo.Tipo == InstallmentType.Ordinaria) wsConcepto.Cell(filaConcepto, 3).Value = f.Monto;
+                if (grupo.Tipo == InstallmentType.Extraordinaria) wsConcepto.Cell(filaConcepto, 4).Value = f.Monto;
+                if (grupo.Tipo == InstallmentType.Multa) wsConcepto.Cell(filaConcepto, 5).Value = f.Monto;
+                if (grupo.Tipo == InstallmentType.Mora) wsConcepto.Cell(filaConcepto, 6).Value = f.Monto;
+                wsConcepto.Cell(filaConcepto, 7).Value = f.Monto;
+                wsConcepto.Cell(filaConcepto, 8).Value = f.Cuotas;
                 filaConcepto++;
             }
         }
         wsConcepto.Cell(filaConcepto, 1).Value = "TOTAL DEUDA";
-        wsConcepto.Cell(filaConcepto, 3).Value = TotalGeneral;
+        wsConcepto.Cell(filaConcepto, 7).Value = TotalGeneral;
         wsConcepto.Row(filaConcepto).Style.Font.Bold = true;
         wsConcepto.Columns().AdjustToContents();
 
@@ -462,6 +487,7 @@
     private class GrupoConcepto
     {
         public string Concepto = "";
+        public InstallmentType Tipo;
         public List<FilaConcepto> Filas = new();
     }
 

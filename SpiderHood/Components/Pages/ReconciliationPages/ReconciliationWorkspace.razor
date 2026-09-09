@@ -176,17 +176,6 @@
                     <div class="card-body py-2">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex gap-3 align-items-center">
-                                <div class="form-check">
-                                    <input class="form-check-input"
-                                           type="checkbox"
-                                           id="showOnlyUnmatched"
-                                           @bind="mostrarSoloNoConciliados"
-                                           @bind:after="ActualizarPaginacion" />
-                                    <label class="form-check-label" for="showOnlyUnmatched">
-                                        Mostrar solo no conciliados
-                                    </label>
-                                </div>
-                                
                                 @if (ModoFijo == null)
                                 {
                                     <div class="vr"></div>
@@ -237,29 +226,34 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-body p-0">
+                        @* Esta pantalla es solo para TRABAJAR lo pendiente -- ya no tiene pestañas
+                           "Conciliados"/"Todas las Transacciones": una vez confirmado (Enviar a
+                           Conciliar), la transacción sale de acá; para consultar el historial real
+                           (estado en BD, incluye lo ya confirmado) está /movement -> pestaña
+                           "Detalle". *@
                         <ul class="nav nav-tabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link @(tabActiva == "noConciliados" ? "active" : "")" 
+                                <button class="nav-link @(tabActiva == "noConciliados" ? "active" : "")"
                                         @onclick="() => CambiarTab(noConciliados)">
                                     <i class="bi bi-question-circle me-2"></i>
                                     No Conciliados
-                                    <span class="badge bg-warning ms-2">@transaccionesNoConciliadas.Count</span>
+                                    <span class="badge bg-warning ms-2">@TransaccionesDelModo.Count(t => !t.PropuestaPendiente && (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial))</span>
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link @(tabActiva == "conciliados" ? "active" : "")" 
-                                        @onclick="() => CambiarTab(conciliados)">
-                                    <i class="bi bi-check-circle me-2"></i>
-                                    Conciliados
-                                    <span class="badge bg-success ms-2">@transaccionesConciliadas.Count</span>
+                                <button class="nav-link @(tabActiva == "propuestosAuto" ? "active" : "")"
+                                        @onclick="() => CambiarTab(propuestosAuto)">
+                                    <i class="bi bi-robot me-2"></i>
+                                    Auto
+                                    <span class="badge bg-primary ms-2">@TransaccionesDelModo.Count(t => t.PropuestaPendiente && t.PropuestaAutomatica)</span>
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link @(tabActiva == "todos" ? "active" : "")" 
-                                        @onclick="() => CambiarTab(todos)">
-                                    <i class="bi bi-list me-2"></i>
-                                    Todas las Transacciones
-                                    <span class="badge bg-secondary ms-2">@TransaccionesDelModo.Count()</span>
+                                <button class="nav-link @(tabActiva == "propuestosManual" ? "active" : "")"
+                                        @onclick="() => CambiarTab(propuestosManual)">
+                                    <i class="bi bi-person me-2"></i>
+                                    Manual
+                                    <span class="badge bg-primary ms-2">@TransaccionesDelModo.Count(t => t.PropuestaPendiente && !t.PropuestaAutomatica)</span>
                                 </button>
                             </li>
                         </ul>
@@ -1227,13 +1221,6 @@
     private DateTime fechaDesde = DateTime.Now.AddMonths(-1);
     private DateTime fechaHasta = DateTime.Now;
     private string tabActiva = "noConciliados";
-    // false: la pestaña "Todas las Transacciones" ya la cubre el tab por defecto
-    // (tabActiva = "noConciliados"); dejar este checkbox en true colisionaba con esa
-    // pestaña -- al entrar a "Todas" (badge sin filtrar, ej. 27) el checkbox seguía
-    // activo y aplicaba el mismo filtro de "no conciliados" a la tabla, mostrando 0
-    // filas pese al badge de 27. El checkbox sigue disponible para quien lo quiera
-    // usar explícitamente dentro de esa pestaña.
-    private bool mostrarSoloNoConciliados = false;
     private string? filtroTipo = null;
     private string textoBusqueda = "";
     private bool seleccionarTodos = false;
@@ -1279,9 +1266,9 @@
     // aportar nada distinto a chequear el rol directo.
     private bool _puedeCorregir => _currentUser.Role == "Administrador";
 
-    private string conciliados = "conciliados";
     private string noConciliados = "noConciliados";
-    private string todos = "todos";
+    private string propuestosAuto = "propuestosAuto";
+    private string propuestosManual = "propuestosManual";
     private string Gasto = "Gasto";
     private string Ingreso = "Ingreso";
 
@@ -1606,9 +1593,13 @@
             }
         }
 
-        await ActualizarListasPendientes();
-        CalcularEstadisticas();
-        ActualizarPaginacion();
+        // Recarga completa (no solo ActualizarListasPendientes) a propósito: para Ingresos,
+        // AplicarPagoAsync puede dejar la transacción en Conciliada o Parcial según cuánto
+        // cubrió el pago -- ese resultado lo decide el SP, no algo que convenga adivinar acá.
+        // Sin recargar, la fila confirmada seguía con su ReconciliationStatus viejo en
+        // memoria y, con las pestañas nuevas (solo Pendientes/Propuestos), volvía a aparecer
+        // en "Pendientes" como si no se hubiera confirmado nada.
+        await CargarTransacciones();
 
         if (confirmadas > 0)
         {
@@ -2105,14 +2096,21 @@
     {
         IEnumerable<TransactionBankDetail> resultado = transacciones;
 
-        // Aplicar filtro de tab
-        if (tabActiva == "conciliados")
+        // Aplicar filtro de tab -- esta pantalla es solo para trabajar lo pendiente
+        // (Fase B): "Conciliados"/"Todas las Transacciones" ya no existen acá, esa consulta
+        // vive en /movement -> "Detalle" (estado real en BD).
+        if (tabActiva == "noConciliados")
         {
-            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada);
+            resultado = resultado.Where(t => !t.PropuestaPendiente &&
+                (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial));
         }
-        else if (tabActiva == "noConciliados")
+        else if (tabActiva == "propuestosAuto")
         {
-            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial);
+            resultado = resultado.Where(t => t.PropuestaPendiente && t.PropuestaAutomatica);
+        }
+        else if (tabActiva == "propuestosManual")
+        {
+            resultado = resultado.Where(t => t.PropuestaPendiente && !t.PropuestaAutomatica);
         }
 
         // Aplicar filtro de tipo
@@ -2129,12 +2127,6 @@
                 t.Description.ToLower().Contains(busqueda) ||
                 t.Reference.ToLower().Contains(busqueda) ||
                 t.Notes?.ToLower().Contains(busqueda) == true);
-        }
-
-        // Aplicar filtro de no conciliados
-        if (mostrarSoloNoConciliados && tabActiva == "todos")
-        {
-            resultado = resultado.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial);
         }
 
         return resultado.OrderByDescending(t => t.StatementDate).ToList();
@@ -2201,7 +2193,6 @@
         // filtros" (la X) se saltaría el candado y volvería a mostrar ambos tipos mezclados.
         filtroTipo = ModoFijo;
         textoBusqueda = "";
-        mostrarSoloNoConciliados = false;
         ActualizarPaginacion();
         DeseleccionarTodo();
     }

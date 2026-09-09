@@ -16,7 +16,15 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContextFactory<SpiderHoodContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("SpiderHoodContext") ?? throw new InvalidOperationException("Connection string 'SpiderHoodContext' not found.")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("SpiderHoodContext") ?? throw new InvalidOperationException("Connection string 'SpiderHoodContext' not found."),
+        // Default de SqlClient es 30s -- Docs/Pendientes-Negocio-Migracion.md #6.6: con
+        // rangos de fecha amplios (ej. Conciliación con todo el histórico migrado de un
+        // edificio, 2015-2026) algunas consultas legítimamente tardan más que eso. Sube el
+        // límite a todas las consultas/SPs que pasan por BDLayout (ExecuteQueryListAsync /
+        // ExecuteStoredProcedureAsync comparten el mismo DbContext), no sólo a esa pantalla
+        // -- no hay forma de fijarlo por consulta sin tocar cada método de BDLayout.Get.cs.
+        sqlOptions => sqlOptions.CommandTimeout(120)));
 
 builder.Services.AddQuickGridEntityFrameworkAdapter();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();

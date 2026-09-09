@@ -310,12 +310,20 @@ namespace SpiderHood.Data
                 catch (DbUpdateException ex)
                 {
                     // _logger.LogError(ex, "Database update error during {OperationName}: {Message}", operationName, ex.Message);
-                    throw new RepositoryException($"Database update failed for {operationName}", ex);
+                    throw new RepositoryException($"Database update failed for {operationName}: {ex.InnerException?.Message ?? ex.Message}", ex);
                 }
                 catch (Exception ex)
                 {
                     //_logger.LogError(ex, "Error during {OperationName}: {Message}", operationName, ex.Message);
-                    throw new RepositoryException($"Operation {operationName} failed", ex);
+                    // Antes el mensaje era sólo "Operation {operationName} failed", sin el
+                    // detalle real -- Docs/Pendientes-Negocio-Migracion.md #6.6: un usuario
+                    // viendo "Error al cargar transacciones: Operation
+                    // GetBankTransactionsNoConciliedAsync failed" en pantalla no tiene forma de
+                    // saber si es un timeout, una violación de constraint u otra cosa, y acá no
+                    // hay logging real (ver comentarios apagados arriba) para mirarlo del lado
+                    // servidor. ex.InnerException es la SqlException/excepción real de ADO.NET;
+                    // se antepone ex.Message (el mensaje de más alto nivel) sólo si no hay inner.
+                    throw new RepositoryException($"Operation {operationName} failed: {ex.InnerException?.Message ?? ex.Message}", ex);
                 }
             }
 

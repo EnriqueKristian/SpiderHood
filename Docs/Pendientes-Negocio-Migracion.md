@@ -346,24 +346,46 @@ resuelve sin ese riesgo.
 
 ### 6.6 "Conciliación de Pagos" falla con rangos de fecha amplios
 
-**Estado: pendiente, sin diagnosticar la causa real.** El usuario reportó
-`Error al cargar transacciones: Operation GetBankTransactionsNoConciliedAsync
-failed` en `/conciliacion` (`ReconciliationPages/ReconciliationWorkspace.razor`)
-al ampliar el filtro de fechas a todo el historial migrado (2015-2026) de
-Nova Alzamora -- no se pudo confirmar la causa de fondo (el `GET_BankTransactionsNoConcilied`
-no está en este repo, el mensaje visible es el wrapper genérico de
-`RepositoryException`, sin el error real de SQL). Hipótesis más probable: un
-timeout (`CommandTimeout` fijo en 30s en `BDLayout.ExecuteStoredProcedureAsync`)
-al filtrar/mapear miles de movimientos en un rango de una década -- la
-pantalla probablemente nunca se probó antes con tanto historial junto,
-migración incluida. A confirmar con el detalle real del error la próxima vez
-que se reproduzca.
+**Estado: mitigado (2026-09-09), branch `claude/lista-pendientes-0gb03a`
+-- sin poder confirmar en este entorno que era la causa real (no hay
+acceso a BD acá).**
 
-De paso, revisando `CargarTransacciones()` (`ReconciliationWorkspace.razor:1148`)
-se encontró un bug de UI aparte, menor pero real: `mensajeExito` y
-`mensajeError` no se limpian al inicio del método, así que un mensaje de
-éxito de una carga anterior se queda pegado en pantalla junto al error de una
-carga posterior que sí falló -- confuso, pero no la causa del error en sí.
+Diagnóstico: `ExecuteQueryListAsync<T>` (usado por `GetBankTransactionsNoConciliedAsync`
+y por prácticamente todo `BDLayout.Get.cs`) no fijaba ningún `CommandTimeout`
+explícito -- ni tampoco `AddDbContextFactory<SpiderHoodContext>` en
+`Program.cs:18-19`, que registraba `UseSqlServer(connectionString)` sin
+opciones. Eso deja el default de `Microsoft.Data.SqlClient`, que es
+**30 segundos**, aplicando a TODA consulta que pasa por BDLayout, no sólo a
+la de Conciliación. Con un rango de fecha de una década (2015-2026) de
+historial migrado, es plausible que el `GET_BankTransactionsNoConcilied` (no
+está en este repo, así que no se pudo revisar directamente) simplemente
+tarde más que eso al filtrar/mapear miles de movimientos.
+
+**Cambios:**
+- `Program.cs`: `UseSqlServer(..., sqlOptions => sqlOptions.CommandTimeout(120))`
+  -- sube el límite a 2 minutos para toda consulta/SP que pase por BDLayout
+  (no hay forma de fijarlo por consulta individual sin tocar cada método de
+  `BDLayout.Get.cs`).
+- `BDLayout.Core.cs` (`ExecuteWithErrorHandlingAsync`): el mensaje de
+  `RepositoryException` ahora incluye `ex.InnerException?.Message` (el
+  mensaje real de la `SqlException`/excepción de ADO.NET), no sólo
+  `"Operation {operationName} failed"` a secas -- antes, si esto volvía a
+  fallar (por timeout o cualquier otra causa), el mensaje en pantalla no
+  daba ninguna pista de cuál era el problema real, y no hay logging
+  server-side activo para mirarlo del otro lado (`_logger.LogError` está
+  comentado en ese mismo método).
+- Bug de UI aparte encontrado de paso, ya corregido: `CargarTransacciones()`
+  (`ReconciliationWorkspace.razor:1452`) no limpiaba `mensajeExito`/
+  `mensajeError` al empezar, así que un mensaje de éxito de una carga
+  anterior se quedaba pegado en pantalla junto al error de una carga
+  posterior que sí falló (o viceversa).
+
+**Pendiente de verificar con datos reales:** si el rango de una década
+sigue fallando después de este cambio, el mensaje de error ahora sí va a
+mostrar la causa real (ej. "Timeout expired" vs. algún otro error de SQL) en
+vez del wrapper genérico -- eso va a decir si hace falta subir el timeout
+más todavía, optimizar el SP en sí (índices, o paginar el rango en el
+cliente), o si la causa era otra cosa.
 
 ---
 

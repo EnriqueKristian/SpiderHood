@@ -1452,6 +1452,12 @@
     private async Task CargarTransacciones()
     {
         cargando = true;
+        // Docs/Pendientes-Negocio-Migracion.md #6.6: no se limpiaban acá -- un mensajeExito
+        // de una carga anterior se quedaba pegado en pantalla junto al mensajeError de una
+        // carga posterior que sí falló (o viceversa), confundiendo cuál de los dos reflejaba
+        // el estado real de ESTA carga.
+        mensajeExito = null;
+        mensajeError = null;
 
         try
         {

@@ -219,23 +219,18 @@
             // (número de Dpto) e IdGroupUnit, no el nombre del propietario (a diferencia de
             // Installment, que ya lo trae resuelto). Se arma acá con una sola consulta más,
             // no una por unidad.
+            // GetServiceReadingDetailsByBuildingAsync ya filtra por edificio internamente
+            // (ver su comentario en ICalculoService.cs) -- acá sólo hace falta para
+            // resolver nombre de unidad/propietario, que ServiceReadingDetail no trae.
             var propietarios = await BuildingService.GetOwnersByBuildingAsync(idBuilding);
-            var unidadesDelEdificio = propietarios.Select(p => p.IdGroupUnit).ToHashSet();
             var nombrePorUnidad = propietarios
                 .Where(p => p.Role == 1 && p.TypeUnit == 1)
                 .GroupBy(p => p.IdGroupUnit)
                 .ToDictionary(g => g.Key, g => $"{g.First().FirstName} {g.First().LastName}".Trim());
 
-            // Descarta lecturas de unidades que no son de este edificio -- defensivo:
-            // GetServiceReadingDetailbyPeriodAsync (usado adentro de
-            // GetServiceReadingDetailsByBuildingAsync) sólo filtra por Period, no por
-            // IdBuilding, así que si dos edificios comparten el mismo periodo de lectura
-            // esto evita mezclar datos entre ellos.
-            var detallesDelEdificio = detalles.Where(d => unidadesDelEdificio.Contains(d.IdGroupUnit)).ToList();
+            _periodos = detalles.Select(d => d.Period.Date).Distinct().OrderBy(p => p).ToList();
 
-            _periodos = detallesDelEdificio.Select(d => d.Period.Date).Distinct().OrderBy(p => p).ToList();
-
-            _filas = detallesDelEdificio
+            _filas = detalles
                 .GroupBy(d => d.IdGroupUnit)
                 .Select(g => new FilaConsumo
                 {

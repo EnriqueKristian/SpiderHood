@@ -373,7 +373,23 @@ namespace SpiderHood.Services
                 detalles.AddRange(await ec.GetServiceReadingDetailbyPeriodAsync(periodo));
             }
 
-            return detalles;
+            // GetServiceReadingDetailbyPeriodAsync sólo filtra por Period, no por
+            // IdBuilding (no toma ese parámetro) -- si otro edificio tiene una lectura
+            // con el mismo Period exacto, sus filas se mezclan acá adentro. Antes esto
+            // se filtraba "a mano" en WaterConsumptionReport.razor pero NO en
+            // MyWaterConsumption.razor (que sólo filtraba por IdGroupUnit del residente,
+            // sin filtrar primero por edificio) -- un IdGroupUnit repetido entre dos
+            // edificios (ej. datos de prueba con GUIDs no únicos) hacía que el residente
+            // viera lecturas ajenas mezcladas con las propias, con distinto
+            // PreviousReading/CurrentReading para "el mismo" periodo. Se mueve el filtro
+            // acá adentro para que TODOS los que llamen a este método (reporte admin y
+            // el de residente) queden protegidos por igual, no sólo el que se acordó de
+            // filtrar.
+            var unidadesDelEdificio = (await ec.GetOwnersByBuildingAsync(idBuilding))
+                .Select(o => o.IdGroupUnit)
+                .ToHashSet();
+
+            return detalles.Where(d => unidadesDelEdificio.Contains(d.IdGroupUnit)).ToList();
         }
     }
 

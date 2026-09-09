@@ -707,9 +707,29 @@ namespace SpiderHood.Data
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<ServiceReadingDetail>(
+                var resultado = await ExecuteQueryListAsync<ServiceReadingDetail>(
                     StoredProcedures.GET_ServiceReadingDetailList,
                     period);
+
+                // GET_ServiceReadingDetailList (no versionado en el repo, sin acceso a BD
+                // acá para ver su SQL) devuelve cada fila DUPLICADA -- mismo
+                // IdServiceReadingDetail dos veces, con TODAS las demás columnas
+                // idénticas (CurrentReading, Consumption, CalculatedAmount, IdServiceReading,
+                // ...) EXCEPTO PreviousReading, donde una copia trae el valor real y la
+                // otra 0. Confirmado con datos reales (consulta directa a BD) para varias
+                // unidades y dos periodos distintos -- todo indica un JOIN/subquery del
+                // lado del SP para resolver "el CurrentReading del periodo anterior" que
+                // hace fan-out (dos filas candidatas) en vez de matchear una sola, con la
+                // fila "perdedora" quedando en 0 (ISNULL o similar). Se deduplica por PK y,
+                // dentro de cada duplicado, se prefiere el PreviousReading más alto (nunca
+                // se inventa un valor nuevo, sólo se elige entre los que el propio SP ya
+                // devolvió) -- evita mostrar dos filas por lectura en toda la app (Lecturas
+                // de Agua, Mi Consumo de Agua, Ver Detalle, recibos, etc.), que comparten
+                // este mismo método.
+                return resultado
+                    .GroupBy(d => d.IdServiceReadingDetail)
+                    .Select(g => g.Count() == 1 ? g.First() : g.OrderByDescending(d => d.PreviousReading).First())
+                    .ToList();
             }, "GetServiceReadingDetailbyPeriod", cancellationToken);
         }
 

@@ -92,7 +92,69 @@ lecturas guardadas como comentario.
 
 ---
 
-## 3. (No verificable en este entorno) Comportamiento del INSERT de `ServiceReadingDetail` al re-guardar un período existente
+## 3. `GET_ServiceReadingDetailList` devuelve cada fila duplicada, y sin filtrar por edificio
+
+**Estado: mitigado en el cliente (2026-09-09), branch `claude/lista-pendientes-0gb03a`
+-- causa raíz sin corregir, vive en un SP no versionado en el repo.**
+
+Reportado por el usuario: "Mi Consumo de Agua" mostraba dos filas para el
+mismo periodo (ej. dos "Abril 2026") con `Lec. Ant.` distinto para la misma
+unidad. Se investigó con consultas directas a BD (el usuario) + revisión de
+código (acá), y se encontraron DOS bugs reales, ambos en
+`GET_ServiceReadingDetailList` (usado por `GetServiceReadingDetailbyPeriodAsync`,
+que a su vez usan `BlockWaterReading.razor`, `MyPayments.razor`,
+`MyReceipts.razor`, `InstallmentDetailModal.razor`, `BudgetGenerator.razor` y
+los reportes de Consumo de Agua):
+
+1. **No filtra por `IdBuilding`** (sólo toma `@Period`) -- confirmado con una
+   consulta real: para el mismo `Period`, devolvía filas de un
+   `IdServiceReading` que NO estaba en la lista de cabeceras del edificio en
+   cuestión (`GET_ServiceReadingList @IdBuilding=...`), con el mismo
+   `GroupNumber` ("101") pero un `IdGroupUnit` distinto -- es decir, la
+   unidad "101" de OTRO edificio, coincidencia de número de puerta, no de
+   `IdGroupUnit`. Mitigado en `ICalculoService.GetServiceReadingDetailsByBuildingAsync`
+   (ver punto siguiente), que ahora filtra por los `IdGroupUnit` reales del
+   edificio antes de devolver nada -- pero sólo protege a los dos reportes
+   nuevos, no a `BlockWaterReading.razor` ni al resto de las pantallas que
+   llaman a `GetServiceReadingDetailbyPeriodAsync` directamente (ver Pendiente
+   más abajo).
+2. **Devuelve cada fila duplicada.** Confirmado con la misma consulta: CADA
+   `IdServiceReadingDetail` (la PK) aparecía exactamente DOS veces, con
+   `CurrentReading`, `Consumption`, `CalculatedAmount` e `IdServiceReading`
+   IDÉNTICOS entre ambas copias -- sólo `PreviousReading` cambiaba (una copia
+   traía el valor real, la otra 0). Patrón 100% consistente en decenas de
+   filas de dos periodos distintos. Todo indica un JOIN/subquery del lado del
+   SP para resolver "el `CurrentReading` del periodo anterior" que hace
+   fan-out (dos filas candidatas) en vez de matchear una sola -- la fila
+   "perdedora" queda con `PreviousReading = 0` (`ISNULL(...)` o similar). No
+   se pudo confirmar la causa exacta ni corregir el SP: no está versionado en
+   `Database/Scripts/`, sin acceso a BD desde este entorno.
+
+**Mitigación aplicada (`BDLayout.GetServiceReadingDetailbyPeriodAsync`):**
+deduplica por `IdServiceReadingDetail` y, dentro de cada duplicado, prefiere
+el `PreviousReading` más alto -- nunca inventa un valor nuevo, sólo elige
+entre los que el propio SP ya devolvió (el más alto fue el correcto en los
+dos periodos verificados). Al vivir en `BDLayout.Get.cs`, corrige la
+duplicación para TODA la app de una sola vez (no sólo los reportes nuevos).
+
+**Pendiente:**
+- Corregir el SP de raíz (`GET_ServiceReadingDetailList`) requiere ver su
+  definición real -- si el usuario puede compartirla, se puede diagnosticar
+  el JOIN exacto y arreglarlo ahí en vez de mitigarlo del lado del cliente.
+- El filtro por `IdBuilding` sigue faltando a nivel SP -- sólo está mitigado
+  para los dos reportes de Consumo de Agua (que pasan por
+  `GetServiceReadingDetailsByBuildingAsync`). `BlockWaterReading.razor` y el
+  resto de las pantallas que llaman a `GetServiceReadingDetailbyPeriodAsync`
+  directamente siguen expuestas a traer lecturas de otro edificio si
+  coincide el `Period` exacto -- de momento no se vio evidencia de que esto
+  pase en la práctica (necesitaría que dos edificios tengan `ServiceReading`
+  con el mismo `Period` Y unidades con `IdGroupUnit` iguales para que se
+  note en pantalla), pero la causa de fondo (el SP no filtra por edificio)
+  sigue sin corregirse.
+
+---
+
+## 4. (No verificable en este entorno) Comportamiento del INSERT de `ServiceReadingDetail` al re-guardar un período existente
 
 **Estado: no verificado -- sin acceso a BD, SP no versionado en el repo.**
 

@@ -4,10 +4,6 @@
     overflow: hidden;
 }
 
-.card-header {
-    border-bottom: none;
-}
-
 .summary-stats {
     background: linear-gradient(135deg, var(--sh-surface-muted) 0%, var(--sh-border) 100%);
     padding: 1.5rem;

@@ -1,5 +1,7 @@
 ﻿@using SpiderHood.Models
 @inject SpiderHood.Services.ParameterService ParameterService
+@inject SpiderHood.Services.IExpenseTemplateService ExpenseTemplateService
+@inject SpiderHood.Services.AuthService AuthService
 
 <div class="crear-gasto-form">
     <div class="mb-4">
@@ -39,6 +41,18 @@
             </dl>
         </div>
     </div>
+
+    @if (_plantillaAplicada != null)
+    {
+        <!-- Sólo informa qué se pre-llenó -- el usuario sigue revisando y confirmando a
+             mano con "Crear Gasto", nada se crea ni concilia solo (Docs/Pendientes-Negocio-
+             Conciliacion.md #5). -->
+        <div class="alert alert-info py-2">
+            <i class="bi bi-magic me-2"></i>
+            Se completó Categoría/Distribución según una plantilla guardada para
+            "@_plantillaAplicada.DescriptionPattern". Revisá y ajustá si hace falta.
+        </div>
+    }
 
     <!-- Formulario del gasto -->
     <form @onsubmit="CrearGasto">
@@ -182,6 +196,21 @@
                 </div>
             </div>
 
+            <div class="col-12">
+                <div class="form-check">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           @bind="guardarComoPlantilla" />
+                    <label class="form-check-label">
+                        Guardar como plantilla para transacciones similares
+                    </label>
+                    <div class="form-text">
+                        La próxima vez que una transacción empiece con "@Transaccion.Description",
+                        el formulario se va a pre-llenar con esta Categoría y Distribución.
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- Botones de acción -->
@@ -222,24 +251,51 @@
 
     private ViewExpense nuevoGasto = new();
     private bool procesando = false;
+    private bool guardarComoPlantilla = false;
     private Dictionary<string, string> errores = new();
+    private ExpenseTemplate? _plantillaAplicada;
+    // Evita reconstruir nuevoGasto (y perder lo que el usuario ya tipeó) cada vez que el
+    // padre re-renderiza mientras el modal sigue abierto para LA MISMA transacción --
+    // OnParametersSet(Async) corre en cada ciclo de parámetros, no sólo cuando Transaccion
+    // realmente cambia.
+    private Guid? _idTransaccionInicializada;
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        if (Transaccion != null)
+        if (Transaccion == null || Transaccion.IdStatementDetail == _idTransaccionInicializada)
+            return;
+
+        _idTransaccionInicializada = Transaccion.IdStatementDetail;
+
+        // Inicializar el gasto con datos de la transacción
+        nuevoGasto = new ViewExpense
         {
-            // Inicializar el gasto con datos de la transacción
-            nuevoGasto = new ViewExpense
+            Description = Transaccion.Description,
+            Amount = Math.Abs(Transaccion.Amount),
+            ExpenseDate = Transaccion.StatementDate,
+            Status = StatusExpense.Approved,
+            Distribution = TypeDistribution.Fija,
+            Reconciled = false,
+            AutoReconcile = true,
+            Notes = $"Creado desde transacción bancaria. Referencia: {Transaccion.Reference}"
+        };
+        guardarComoPlantilla = false;
+
+        // Docs/Pendientes-Negocio-Conciliacion.md #5 -- si hay una plantilla guardada cuyo
+        // texto es prefijo de esta descripción, pre-llena Categoría/Distribución/Proveedor.
+        // Sólo pre-llena: el usuario sigue revisando y tocando "Crear Gasto" él mismo.
+        if (ParameterService.CurrentBuilding != null)
+        {
+            _plantillaAplicada = await ExpenseTemplateService.BuscarPlantillaAsync(
+                ParameterService.CurrentBuilding.IdBuilding, Transaccion.Description);
+
+            if (_plantillaAplicada != null)
             {
-                Description = Transaccion.Description,
-                Amount = Math.Abs(Transaccion.Amount),
-                ExpenseDate = Transaccion.StatementDate,
-                Status = StatusExpense.Approved,
-                Distribution = TypeDistribution.Fija,
-                Reconciled = false,
-                AutoReconcile = true,
-                Notes = $"Creado desde transacción bancaria. Referencia: {Transaccion.Reference}"
-            };
+                nuevoGasto.IdCategory = _plantillaAplicada.IdCategory;
+                nuevoGasto.Distribution = _plantillaAplicada.Distribution;
+                if (!string.IsNullOrWhiteSpace(_plantillaAplicada.Supplier))
+                    nuevoGasto.Supplier = _plantillaAplicada.Supplier;
+            }
         }
     }
 
@@ -294,6 +350,23 @@
             {
                 nuevoGasto.Reconciled = true;
                 nuevoGasto.ReconciledTransactionId = Transaccion.IdStatementDetail;
+            }
+
+            // Docs/Pendientes-Negocio-Conciliacion.md #5 -- el patrón se guarda contra el
+            // texto ORIGINAL del banco (Transaccion.Description), no nuevoGasto.Description
+            // (que el usuario pudo haber editado): las transacciones FUTURAS que hay que
+            // reconocer también van a traer el texto crudo del banco, no uno editado a mano.
+            if (guardarComoPlantilla && Transaccion != null && ParameterService.CurrentBuilding != null)
+            {
+                var currentUser = await AuthService.GetCurrentUserAsync();
+                var performedBy = string.IsNullOrWhiteSpace(currentUser?.FullName) ? currentUser?.Email ?? "system" : currentUser.FullName;
+                await ExpenseTemplateService.GuardarPlantillaAsync(
+                    ParameterService.CurrentBuilding.IdBuilding,
+                    Transaccion.Description,
+                    nuevoGasto.IdCategory,
+                    nuevoGasto.Distribution ?? TypeDistribution.Fija,
+                    nuevoGasto.Supplier,
+                    performedBy);
             }
 
             // Notificar al componente padre

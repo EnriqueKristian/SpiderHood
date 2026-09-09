@@ -156,11 +156,8 @@ Las tres eran reales:
    ninguna funcionalidad.** Confirmado: el checkbox sólo escribía una
    variable local (`guardarComoPlantilla`) que ningún otro código leía --
    no existe en el proyecto ningún concepto de "plantilla de transacción"
-   (tabla, matching automático, nada). En vez de dejar un control que
-   miente sobre lo que hace, se sacó. Implementar la función real (guardar
-   un patrón descripción→categoría/distribución y usarlo para sugerir
-   automáticamente en transacciones futuras similares) sería una feature
-   nueva de verdad, no pedida todavía -- si se quiere, es un tema aparte.
+   (tabla, matching automático, nada). Se había sacado por eso, pero el
+   usuario sí la necesita -- implementada de verdad (ver punto 5).
 3. **"Finalizar Conciliación" parecía "no hacer nada".** Tres causas
    reales encontradas, ninguna del botón en sí:
    - `ReconciliationWorkspace.GastoCreadoExitosamente` pisaba el mensaje
@@ -187,3 +184,54 @@ entorno): confirmar que, tras crear un gasto desde una transacción, el
 mensaje ahora sí dice "Propuesta... Usa 'Enviar a Conciliar'" (no
 "conciliado exitosamente"), y que "Finalizar Conciliación" muestra el modal
 de confirmación con el texto correcto desde el primer render.
+
+---
+
+## 5. "Guardar como plantilla para transacciones similares" -- implementación real
+
+**Estado: implementado (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
+
+Diseño acordado con el usuario (3 decisiones):
+
+1. **Criterio de match: la descripción del banco EMPIEZA con el mismo
+   texto** que se guardó como patrón (case-insensitive) -- no exacto, no
+   fuzzy-matching. Si más de una plantilla matchea, gana la de patrón más
+   largo (más específica).
+2. **Nivel de automatización: sólo pre-llena el formulario, el usuario
+   confirma.** Nunca crea ni concilia nada por su cuenta -- al abrir
+   "Crear Gasto desde Transacción" para una transacción que matchea, el
+   formulario ya viene con Categoría/Distribución/Proveedor completos (con
+   un aviso visible de qué plantilla se aplicó), pero sigue siendo el
+   usuario quien revisa y toca "Crear Gasto".
+3. **v1 sin pantalla de gestión.** Guardar el checkbox hace upsert por
+   (edificio, texto exacto de la descripción) -- volver a guardar la misma
+   descripción con otra categoría/distribución actualiza la plantilla
+   existente en vez de duplicarla. Ver/editar/borrar plantillas desde una
+   pantalla dedicada queda para más adelante si hace falta.
+
+**Cambios:**
+- Tabla nueva `dbo.ExpenseTemplate` + `INS_ExpenseTemplate`/
+  `UPD_ExpenseTemplate`/`GET_ExpenseTemplatesByBuilding`
+  (`Database/Scripts/2026-09-09_75_ExpenseTemplate.sql`) -- mismo patrón
+  que `ReconciliationSession`/`WorkflowAuditLog`, tabla 100% nueva.
+- `IExpenseTemplateService` nuevo: `BuscarPlantillaAsync` (prefijo más
+  largo que matchee) y `GuardarPlantillaAsync` (upsert por descripción
+  exacta).
+- `CreateExpenseFromTransactionModal.razor`: al abrir para una transacción,
+  busca una plantilla que aplique y pre-llena Categoría/Distribución/
+  Proveedor (con aviso visible, no silencioso) -- el checkbox "Guardar como
+  plantilla" vuelve a existir, ahora con función real detrás. El patrón se
+  guarda contra el texto ORIGINAL del banco (`Transaccion.Description`), no
+  contra una descripción que el usuario haya editado a mano, porque las
+  transacciones futuras a reconocer también van a traer el texto crudo del
+  banco.
+- De paso: `OnParametersSet` (síncrono) pasó a `OnParametersSetAsync`
+  (necesario para poder buscar la plantilla), y ahora sólo reinicializa el
+  formulario cuando la transacción realmente CAMBIÓ (antes lo hacía en
+  cada ciclo de parámetros, así que un re-render del padre mientras el
+  modal seguía abierto podía borrar lo que el usuario ya había tipeado).
+
+**Pendiente de probar con datos reales** (no hay acceso a BD en este
+entorno): guardar una plantilla desde un gasto real, y confirmar que una
+transacción posterior con descripción parecida la aplica sola al abrir el
+modal.

@@ -811,6 +811,27 @@ namespace SpiderHood.Data
             }, "AddWorkflowAuditLog", cancellationToken);
         }
 
+        // Docs/Pendientes-Negocio-Conciliacion.md #5
+        public async Task<Models.ExpenseTemplate> AddNewRecordAsync(Models.ExpenseTemplate plantilla, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(plantilla, nameof(plantilla));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ExpenseTemplate,
+                    cancellationToken,
+                    plantilla.IdExpenseTemplate,
+                    plantilla.IdBuilding,
+                    plantilla.DescriptionPattern,
+                    plantilla.IdCategory,
+                    (int)plantilla.Distribution,
+                    (object?)plantilla.Supplier,
+                    plantilla.CreatedBy);
+                return plantilla;
+            }, "AddExpenseTemplate", cancellationToken);
+        }
+
         // Docs/Pendientes-Negocio-Conciliacion.md #3
         public async Task<Models.Conciliacion> AddNewRecordAsync(Models.Conciliacion sesion, CancellationToken cancellationToken = default)
         {

@@ -1096,6 +1096,15 @@ namespace SpiderHood.Data
             }, "GetLastReconciliationSession", cancellationToken);
         }
 
+        // Docs/Pendientes-Negocio-Conciliacion.md #5
+        public async Task<List<Models.ExpenseTemplate>> GetExpenseTemplatesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.ExpenseTemplate>(StoredProcedures.GET_ExpenseTemplatesByBuilding, idBuilding);
+            }, "GetExpenseTemplatesByBuilding", cancellationToken);
+        }
+
         public async Task<List<Models.IncidentComment>> GetIncidentCommentsAsync(Guid idIncident, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

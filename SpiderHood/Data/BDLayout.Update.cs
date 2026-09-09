@@ -167,6 +167,25 @@ namespace SpiderHood.Data
             }, "UpdateServiceReading", cancellationToken);
         }
 
+        // Docs/Pendientes-Negocio-Conciliacion.md #5
+        public async Task<Models.ExpenseTemplate> UpdateRecordAsync(Models.ExpenseTemplate plantilla, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(plantilla, nameof(plantilla));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ExpenseTemplate,
+                    cancellationToken,
+                    plantilla.IdExpenseTemplate,
+                    plantilla.IdCategory,
+                    (int)plantilla.Distribution,
+                    (object?)plantilla.Supplier,
+                    (object?)plantilla.ModifiedBy);
+                return plantilla;
+            }, "UpdateExpenseTemplate", cancellationToken);
+        }
+
         public async Task<Models.BudgetHeader> UpdateRecordAsync(Models.BudgetHeader budgetheader, CancellationToken cancellationToken = default)
         {
             ValidateEntity(budgetheader, nameof(budgetheader));

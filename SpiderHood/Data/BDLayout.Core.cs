@@ -255,6 +255,11 @@ namespace SpiderHood.Data
             public const string INS_ReconciliationSession = "INS_ReconciliationSession";
             public const string GET_LastReconciliationSession = "GET_LastReconciliationSession";
 
+            // Expense Template Procedures -- Docs/Pendientes-Negocio-Conciliacion.md #5
+            public const string INS_ExpenseTemplate = "INS_ExpenseTemplate";
+            public const string UPD_ExpenseTemplate = "UPD_ExpenseTemplate";
+            public const string GET_ExpenseTemplatesByBuilding = "GET_ExpenseTemplatesByBuilding";
+
             // System Log Procedures
             public const string INS_SystemLog = "INS_SystemLog";
             public const string GET_SystemLogSettings = "GET_SystemLogSettings";

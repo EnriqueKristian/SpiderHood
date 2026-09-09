@@ -6,6 +6,7 @@
 @inject NavigationManager Navigation
 @inject ParameterService ParameterService
 @inject IBankAccountService BankAccountService
+@inject IInstallmentService InstallmentService
 
 <PageTitle>Estados de Cuenta</PageTitle>
 
@@ -13,107 +14,117 @@
     <div class="row justify-content-center">
         <div class="col-lg-12 col-xl-10">
             <div class="card shadow-lg border-0">
-                <div class="card-header bg-gradient-primary text-white py-4">
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-bank display-6 me-2"></i>
-                            <div>
-                                <h1 class="h3 mb-1">Estados de Cuenta</h1>
-                                <p class="mb-0 opacity-75">Historial de estados de cuenta cargados</p>
+                @* Cabecera + selector de cuenta + tabs + filtros (Detalle) pegados arriba al
+                   hacer scroll -- antes se perdían de vista en listas largas (81+ filas) y
+                   había que volver a subir para ver qué cuenta/pestaña estaba activa o para
+                   usar el buscador. top: 3.5rem porque el header global de la app
+                   (.top-row en MainLayout.razor.css) ya es sticky con esa altura mínima --
+                   este header de página se pega justo debajo, no lo tapa. *@
+                <div style="position: sticky; top: 3.5rem; z-index: 5; background: var(--sh-surface, #fff);">
+                    <div class="card-header bg-gradient-primary text-white py-4">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-bank display-6 me-2"></i>
+                                <div>
+                                    <h1 class="h3 mb-1">Estados de Cuenta</h1>
+                                    <p class="mb-0 opacity-75">Historial de estados de cuenta cargados</p>
+                                </div>
+                            </div>
+                            <button class="btn btn-light" @onclick="IrACargar">
+                                <i class="bi bi-upload me-2"></i>Cargar Estado de Cuenta
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="px-4 pt-4">
+                        <!-- Filtro por cuenta -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label">Cuenta Bancaria</label>
+                                <select class="form-select" @bind="selectedBankAccountId" @bind:after="CargarEstadosDeCuentaAsync">
+                                    <option value="@Guid.Empty">Todos</option>
+                                    @foreach (var cuenta in cuentasBancarias)
+                                    {
+                                        <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
+                                    }
+                                </select>
                             </div>
                         </div>
-                        <button class="btn btn-light" @onclick="IrACargar">
-                            <i class="bi bi-upload me-2"></i>Cargar Estado de Cuenta
-                        </button>
-                    </div>
-                </div>
 
-                <div class="card-body p-4">
-                    <!-- Filtro por cuenta -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <label class="form-label">Cuenta Bancaria</label>
-                            <select class="form-select" @bind="selectedBankAccountId" @bind:after="CargarEstadosDeCuentaAsync">
-                                <option value="@Guid.Empty">Todos</option>
-                                @foreach (var cuenta in cuentasBancarias)
-                                {
-                                    <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
-                                }
-                            </select>
-                        </div>
-                    </div>
+                        <!-- Tabs: cargas realizadas / detalle de movimientos -->
+                        <ul class="nav nav-tabs mb-3">
+                            <li class="nav-item">
+                                <button type="button" class="nav-link @(activeTab == "cargas" ? "active" : "")" @onclick='() => SetActiveTab("cargas")'>
+                                    Cargas
+                                </button>
+                            </li>
+                            <li class="nav-item">
+                                <button type="button" class="nav-link @(activeTab == "detalle" ? "active" : "")" @onclick='() => SetActiveTab("detalle")'>
+                                    Detalle
+                                </button>
+                            </li>
+                        </ul>
 
-                    <!-- Tabs: cargas realizadas / detalle de movimientos -->
-                    <ul class="nav nav-tabs mb-3">
-                        <li class="nav-item">
-                            <button type="button" class="nav-link @(activeTab == "cargas" ? "active" : "")" @onclick='() => SetActiveTab("cargas")'>
-                                Cargas
-                            </button>
-                        </li>
-                        <li class="nav-item">
-                            <button type="button" class="nav-link @(activeTab == "detalle" ? "active" : "")" @onclick='() => SetActiveTab("detalle")'>
-                                Detalle
-                            </button>
-                        </li>
-                    </ul>
+                        @if (activeTab == "detalle")
+                        {
+                            <!-- Filtros y búsqueda del detalle (mismo estilo que la conciliación bancaria) -->
+                            <div class="card mb-3">
+                                <div class="card-body py-2">
+                                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                        <div class="d-flex flex-wrap gap-3 align-items-center">
+                                            <div class="form-check">
+                                                <input class="form-check-input"
+                                                       type="checkbox"
+                                                       id="soloNoConciliadosDetalle"
+                                                       @bind="soloNoConciliadosDetalle"
+                                                       @bind:after="AplicarFiltrosDetalle">
+                                                <label class="form-check-label" for="soloNoConciliadosDetalle">
+                                                    Mostrar solo no conciliados
+                                                </label>
+                                            </div>
 
-                    @if (activeTab == "detalle")
-                    {
-                        <!-- Filtros y búsqueda del detalle (mismo estilo que la conciliación bancaria) -->
-                        <div class="card mb-3">
-                            <div class="card-body py-2">
-                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                                    <div class="d-flex flex-wrap gap-3 align-items-center">
-                                        <div class="form-check">
-                                            <input class="form-check-input"
-                                                   type="checkbox"
-                                                   id="soloNoConciliadosDetalle"
-                                                   @bind="soloNoConciliadosDetalle"
-                                                   @bind:after="AplicarFiltrosDetalle">
-                                            <label class="form-check-label" for="soloNoConciliadosDetalle">
-                                                Mostrar solo no conciliados
-                                            </label>
+                                            <div class="vr"></div>
+
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn @(filtroTipoDetalle == "todos" ? "btn-primary" : "btn-outline-primary")"
+                                                        @onclick='() => FiltrarTipoDetalle("todos")'>
+                                                    Todas (@paginationDetalle.AllData.Count)
+                                                </button>
+                                                <button type="button" class="btn @(filtroTipoDetalle == "egresos" ? "btn-primary" : "btn-outline-primary")"
+                                                        @onclick='() => FiltrarTipoDetalle("egresos")'>
+                                                    Gastos (@paginationDetalle.AllData.Count(d => d.Amount < 0))
+                                                </button>
+                                                <button type="button" class="btn @(filtroTipoDetalle == "ingresos" ? "btn-primary" : "btn-outline-primary")"
+                                                        @onclick='() => FiltrarTipoDetalle("ingresos")'>
+                                                    Ingresos (@paginationDetalle.AllData.Count(d => d.Amount >= 0))
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <div class="vr"></div>
+                                        <div class="d-flex gap-2">
+                                            <div class="input-group" style="width: 300px;">
+                                                <span class="input-group-text">
+                                                    <i class="bi bi-search"></i>
+                                                </span>
+                                                <input type="text"
+                                                       class="form-control"
+                                                       placeholder="Buscar descripción o monto..."
+                                                       value="@searchTermDetalle"
+                                                       @oninput="OnSearchDetalleInput" />
+                                            </div>
 
-                                        <div class="btn-group" role="group">
-                                            <button type="button" class="btn @(filtroTipoDetalle == "todos" ? "btn-primary" : "btn-outline-primary")"
-                                                    @onclick='() => FiltrarTipoDetalle("todos")'>
-                                                Todas (@paginationDetalle.AllData.Count)
-                                            </button>
-                                            <button type="button" class="btn @(filtroTipoDetalle == "egresos" ? "btn-primary" : "btn-outline-primary")"
-                                                    @onclick='() => FiltrarTipoDetalle("egresos")'>
-                                                Gastos (@paginationDetalle.AllData.Count(d => d.Amount < 0))
-                                            </button>
-                                            <button type="button" class="btn @(filtroTipoDetalle == "ingresos" ? "btn-primary" : "btn-outline-primary")"
-                                                    @onclick='() => FiltrarTipoDetalle("ingresos")'>
-                                                Ingresos (@paginationDetalle.AllData.Count(d => d.Amount >= 0))
+                                            <button class="btn btn-outline-secondary" @onclick="LimpiarFiltrosDetalle">
+                                                <i class="bi bi-x-lg"></i>
                                             </button>
                                         </div>
-                                    </div>
-
-                                    <div class="d-flex gap-2">
-                                        <div class="input-group" style="width: 300px;">
-                                            <span class="input-group-text">
-                                                <i class="bi bi-search"></i>
-                                            </span>
-                                            <input type="text"
-                                                   class="form-control"
-                                                   placeholder="Buscar descripción o monto..."
-                                                   value="@searchTermDetalle"
-                                                   @oninput="OnSearchDetalleInput" />
-                                        </div>
-
-                                        <button class="btn btn-outline-secondary" @onclick="LimpiarFiltrosDetalle">
-                                            <i class="bi bi-x-lg"></i>
-                                        </button>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    }
+                        }
+                    </div>
+                </div>
 
+                <div class="card-body p-4 pt-0">
                     @if (activeTab == "cargas")
                     {
                         @if (cargando)
@@ -313,6 +324,7 @@
                                             <th>Moneda</th>
                                             <th>Monto</th>
                                             <th>Estado</th>
+                                            <th class="text-center">Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -341,6 +353,20 @@
                                                     else
                                                     {
                                                         <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Pendiente</span>
+                                                    }
+                                                </td>
+                                                <td class="text-center">
+                                                    @* Con la Fase B, ReconciliationWorkspace ya no muestra lo confirmado --
+                                                       esta es la única pantalla donde queda consultar cómo se aplicó un
+                                                       pago ya conciliado. Por ahora solo Ingresos (cuotas): Gastos
+                                                       necesita antes limpiar la inconsistencia entre Expense.IdMovDetail
+                                                       (que lee GET_ExpensesByBuilding) y Expense.IdStatementDetail (el que
+                                                       realmente actualiza la conciliación, ver UPD_ExpenseReconcilied). *@
+                                                    @if (item.Amount >= 0 && (item.ReconciliationStatus == ConcilationType.Conciliada || item.ReconciliationStatus == ConcilationType.Parcial))
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetallePago(item)">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
                                                     }
                                                 </td>
                                             </tr>
@@ -424,7 +450,82 @@
     </div>
 </div>
 
+@* Detalle de cómo se aplicó un pago -- mismo contenido que "Cuotas asociadas al pago" en
+   ReconciliationWorkspace.razor (esa pantalla ya no lo muestra, ver Fase B). *@
+@if (mostrarModalDetallePago && pagoSeleccionado != null)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Cuotas asociadas al pago</h5>
+                    <button type="button" class="btn-close" @onclick="() => mostrarModalDetallePago = false"></button>
+                </div>
+                <div class="modal-body">
+                    @{
+                        var pagosDeEstePago = pagosCuotas.Where(p => p.IdTransaction == pagoSeleccionado.IdStatementDetail).ToList();
+                        var saldoSinAplicar = Math.Abs(pagoSeleccionado.Amount) - pagosDeEstePago.Sum(p => p.Amount);
+                    }
+                    <dl class="row mb-3">
+                        <dt class="col-sm-4">Fecha:</dt>
+                        <dd class="col-sm-8">@pagoSeleccionado.StatementDate.ToString("dd/MM/yyyy")</dd>
+                        <dt class="col-sm-4">Descripción:</dt>
+                        <dd class="col-sm-8">@pagoSeleccionado.Description</dd>
+                        <dt class="col-sm-4">Monto:</dt>
+                        <dd class="col-sm-8 fw-bold text-success">@Moneda(Math.Abs(pagoSeleccionado.Amount))</dd>
+                        <dt class="col-sm-4">Saldo sin aplicar:</dt>
+                        <dd class="col-sm-8">@Moneda(Math.Max(saldoSinAplicar, 0))</dd>
+                    </dl>
+
+                    @if (!pagosDeEstePago.Any())
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            No se encontraron cuotas asociadas a este pago.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="list-group">
+                            @foreach (var pago in pagosDeEstePago)
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="fw-bold">@pago.OwnerName (Unidad @pago.UnitName)</span>
+                                        <span class="fw-bold text-success">@Moneda(pago.Amount)</span>
+                                    </div>
+                                    <small class="text-muted">
+                                        @pago.PaymentDate.ToString("dd/MM/yyyy")
+                                        @if (pago.IsPartialPayment)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-1">Pago parcial de la cuota</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success ms-1">Pago total de la cuota</span>
+                                        }
+                                    </small>
+                                    @if (pago.InstallmentAmount > 0)
+                                    {
+                                        <div class="small text-muted mt-1">
+                                            Cuota @pago.Period.ToString("MMM-yy"): @Moneda(pago.InstallmentAmount)
+                                            &middot; Pendiente de la cuota: @Moneda(Math.Max(pago.InstallmentDebt, 0))
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
     private List<BankAccount> cuentasBancarias = new();
     private Guid selectedBankAccountId = Guid.Empty;
     private bool cargando = true;
@@ -442,6 +543,11 @@
     private string searchTermDetalle = string.Empty;
     private string filtroTipoDetalle = "todos";
     private bool soloNoConciliadosDetalle = false;
+
+    // Para el modal "Cuotas asociadas al pago" (ver comentario junto al modal).
+    private List<InstallmentPaid> pagosCuotas = new();
+    private bool mostrarModalDetallePago = false;
+    private AccountStatementDetailView? pagoSeleccionado = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -498,6 +604,7 @@
 
         Guid? filtroCuenta = selectedBankAccountId == Guid.Empty ? null : selectedBankAccountId;
         var detalles = await BankAccountService.GetStatementDetailsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding, filtroCuenta);
+        pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         paginationDetalle.Initialize(detalles.OrderByDescending(d => d.StatementDate).ToList());
         if (!string.IsNullOrWhiteSpace(searchTermDetalle))
@@ -586,5 +693,11 @@
     private void VerDetalle(Guid idStatementHeader)
     {
         Navigation.NavigateTo($"/movement/detalle/{idStatementHeader}");
+    }
+
+    private void VerDetallePago(AccountStatementDetailView item)
+    {
+        pagoSeleccionado = item;
+        mostrarModalDetallePago = true;
     }
 }

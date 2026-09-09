@@ -269,7 +269,11 @@
             _unitId = await AuthService.GetCurrentUnitIdAsync();
             if (_unitId != null && ParameterService.CurrentBuilding != null)
             {
-                var todas = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+                // GetInstallmentsByBuildingAsync (no GetPendingInstallmentsAsync): esta página
+                // necesita poder filtrar por "Pagado" -- GetPendingInstallmentsAsync excluye las
+                // cuotas Conciliada a nivel de SQL (Status <> 1), así que ese filtro nunca
+                // mostraba nada y las cuotas ya pagadas ni siquiera llegaban a la lista general.
+                var todas = await InstallmentService.GetInstallmentsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
                 _misCuotas = todas.Where(i => i.IdGroupUnit == _unitId).ToList();
                 _pagination.Initialize(_misCuotas);
             }

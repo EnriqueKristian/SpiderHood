@@ -6,6 +6,8 @@
 @using SpiderHood.Components.Pages.Components
 @inject Services.AuthService AuthService
 @inject Services.IInstallmentService InstallmentService
+@inject Services.IBudgetService BudgetService
+@inject Services.IServiceReadingService ServiceReadingService
 @inject ParameterService ParameterService
 
 <PageTitle>Mis Pagos - SpiderHood</PageTitle>
@@ -87,16 +89,32 @@
         </div>
 
         <!-- Filtros -->
-        <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-            <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroPeriodoChanged">
-                <option value="">Todos los periodos</option>
-                @foreach (var periodo in PeriodosDisponibles())
-                {
-                    <option value="@periodo.ToString("yyyy-MM-dd")" selected="@(_filtroPeriodo == periodo)">
-                        @periodo.ToString("MMM-yy")
-                    </option>
-                }
-            </select>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroPeriodoChanged">
+                    <option value="">Todos los periodos</option>
+                    @foreach (var periodo in PeriodosDisponibles())
+                    {
+                        <option value="@periodo.ToString("yyyy-MM-dd")" selected="@(_filtroPeriodo == periodo)">
+                            @periodo.ToString("MMM-yy")
+                        </option>
+                    }
+                </select>
+
+                <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroTipoChanged">
+                    <option value="todos" selected="@(_filtroTipo == "todos")">Todos los tipos</option>
+                    <option value="total" selected="@(_filtroTipo == "total")">Pago total</option>
+                    <option value="parcial" selected="@(_filtroTipo == "parcial")">Pago parcial</option>
+                </select>
+            </div>
+
+            <div class="search-box">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" class="form-control form-control-sm" style="min-width:220px;"
+                       placeholder="Buscar por monto..."
+                       value="@_filtroMonto"
+                       @oninput="OnFiltroMontoInput" />
+            </div>
         </div>
 
         @if (!_pagination.AllData.Any())
@@ -125,6 +143,7 @@
                             <th>Tipo</th>
                             <th class="text-end">Total de la Cuota</th>
                             <th class="text-end">Pendiente de la Cuota</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -146,6 +165,11 @@
                                 </td>
                                 <td class="text-end">@Moneda(pago.InstallmentAmount)</td>
                                 <td class="text-end">@Moneda(Math.Max(pago.InstallmentDebt, 0))</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerCuota(pago)">
+                                        <i class="bi bi-eye me-1"></i>Ver Cuota
+                                    </button>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -160,15 +184,24 @@
     }
 </div>
 
+<InstallmentDetailModal @ref="_detalleModal" />
+
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     private bool _loading = true;
     private Guid? _unitId;
     private List<InstallmentPaid> _misPagos = new();
+    // Se guarda para poder resolver la Installment completa en VerCuota (InstallmentDetailModal
+    // necesita el objeto Installment, no solo el InstallmentPaid).
+    private List<Installment> _misCuotas = new();
     private PaginationClass<InstallmentPaid> _pagination = new();
 
     private DateTime? _filtroPeriodo;
+    private string _filtroTipo = "todos";
+    private string _filtroMonto = string.Empty;
+
+    private InstallmentDetailModal _detalleModal = null!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -184,7 +217,8 @@
                 // a cuáles de mis cuotas corresponde cada InstallmentPaid -- las pendientes solas
                 // no alcanzan (una cuota ya totalmente pagada desaparece de esa lista).
                 var todasCuotas = await InstallmentService.GetInstallmentsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
-                var misCuotaIds = todasCuotas.Where(i => i.IdGroupUnit == _unitId).Select(i => i.IdInstallment).ToHashSet();
+                _misCuotas = todasCuotas.Where(i => i.IdGroupUnit == _unitId).ToList();
+                var misCuotaIds = _misCuotas.Select(i => i.IdInstallment).ToHashSet();
 
                 var todosPagos = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
                 _misPagos = todosPagos.Where(p => misCuotaIds.Contains(p.IdInstallment))
@@ -212,8 +246,40 @@
         AplicarFiltros();
     }
 
+    private void OnFiltroTipoChanged(ChangeEventArgs e)
+    {
+        _filtroTipo = e.Value?.ToString() ?? "todos";
+        AplicarFiltros();
+    }
+
+    private void OnFiltroMontoInput(ChangeEventArgs e)
+    {
+        _filtroMonto = e.Value?.ToString() ?? string.Empty;
+        AplicarFiltros();
+    }
+
     private void AplicarFiltros()
     {
-        _pagination.ApplyCustomFilter(item => _filtroPeriodo == null || item.Period.Date == _filtroPeriodo.Value.Date);
+        _pagination.ApplyCustomFilter(item =>
+            (_filtroPeriodo == null || item.Period.Date == _filtroPeriodo.Value.Date)
+            && _filtroTipo switch
+            {
+                "total" => !item.IsPartialPayment,
+                "parcial" => item.IsPartialPayment,
+                _ => true
+            }
+            && (string.IsNullOrWhiteSpace(_filtroMonto) || item.Amount.ToString("F2").Contains(_filtroMonto)));
+    }
+
+    private async Task VerCuota(InstallmentPaid pago)
+    {
+        var cuota = _misCuotas.FirstOrDefault(c => c.IdInstallment == pago.IdInstallment);
+        if (cuota == null || ParameterService.CurrentBuilding == null) return;
+
+        var budget = await BudgetService.GetPresupuestoByIdAsync(cuota.IdBudgetHeader);
+        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(cuota.Period);
+        var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(cuota.IdBudgetHeader);
+
+        await _detalleModal.ShowAsync(cuota, budget, waterReadings, exonerations);
     }
 }

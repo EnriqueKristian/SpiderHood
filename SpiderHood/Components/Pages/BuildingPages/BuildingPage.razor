@@ -160,6 +160,17 @@
                                                     @onclick:stopPropagation>
                                                 <i class="bi bi-gear"></i>
                                             </button>
+                                            @if (currentUser.Role == "SysAdmin")
+                                            {
+                                                <!-- Docs/Pendientes-Negocio-Migracion.md #6.3 -- sólo SysAdmin, sólo
+                                                     para edificios de PRUEBA vacíos (falla si tiene datos asociados). -->
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        title="Eliminar (sólo edificios de prueba vacíos)"
+                                                        @onclick="() => ShowDeleteBuildingModal(building)"
+                                                        @onclick:stopPropagation>
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            }
                                         </div>
                                     </div>
                                 </div>
@@ -1442,6 +1453,44 @@
             <i class="bi bi-check me-1"></i>Crear
         </button>
         <button class="btn btn-secondary" @onclick="() => CloseExonerationModal()">
+            <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+    </FooterTemplate>
+</Modal>
+
+<!-- Eliminar edificio (sólo SysAdmin) -- Docs/Pendientes-Negocio-Migracion.md #6.3 -->
+<Modal @ref="_deleteBuildingModal"
+       Title="Eliminar Edificio"
+       UseStaticBackdrop="true"
+       CloseOnEscape="false"
+       IsVerticallyCentered="true">
+    <BodyTemplate>
+        @if (_buildingToDelete != null)
+        {
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Esta acción es <strong>permanente</strong> y no se puede deshacer. Sólo
+                funciona si el edificio está vacío (sin unidades, propietarios, cuentas
+                bancarias, categorías u otros datos) -- pensado para limpiar edificios de
+                <strong>prueba</strong>, no para borrar un edificio con actividad real.
+            </div>
+            <p>
+                Para confirmar, escriba el nombre del edificio
+                (<strong>@_buildingToDelete.Name</strong>) exactamente como aparece:
+            </p>
+            <input class="form-control"
+                   @bind="_deleteBuildingConfirmText"
+                   @bind:event="oninput"
+                   placeholder="@_buildingToDelete.Name" />
+        }
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-danger"
+                disabled="@(_buildingToDelete == null || _deleteBuildingConfirmText != _buildingToDelete.Name)"
+                @onclick="DeleteBuildingConfirmed">
+            <i class="bi bi-trash me-1"></i>Eliminar definitivamente
+        </button>
+        <button class="btn btn-secondary" @onclick="() => HideDeleteBuildingModal()">
             <i class="bi bi-x me-1"></i>Cancelar
         </button>
     </FooterTemplate>

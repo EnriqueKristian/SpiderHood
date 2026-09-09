@@ -51,6 +51,9 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private Modal _quickConfigModal = null!;
         private Modal _bankAccount = null!;
         private Modal _exoneration = null!;
+        private Modal _deleteBuildingModal = null!;
+        private Building _buildingToDelete = null;
+        private string _deleteBuildingConfirmText = "";
 
         private List<string> _paymentMethods = new();// { "Transferencia Bancaria", "Pago en Efectivo", "Tarjeta de Crédito", "Cheque" };
         private List<Currency> _currencies = new()
@@ -182,6 +185,74 @@ namespace SpiderHood.Components.Pages.BuildingPages
             // bancarias de cualquier otro edificio se veían vacías, y agregar una ahí
             // corría el riesgo de guardarse contra datos de configuración desactualizados.
             SelectedBuilding.Configuration = await GetConfigurationAsync(SelectedBuilding.IdBuilding);
+        }
+
+        // Docs/Pendientes-Negocio-Migracion.md #6.3 -- sólo SysAdmin (gate repetido acá
+        // porque este método es la puerta real: el botón que lo dispara ya está
+        // condicionado a currentUser.Role == "SysAdmin" en el markup, pero un método
+        // invocable desde @onclick no debe confiar únicamente en que el botón que lo
+        // llama esté oculto). Sólo sirve para edificios de PRUEBA vacíos -- ver el
+        // comentario en IBuildingService.DeleteBuildingAsync.
+        private async Task ShowDeleteBuildingModal(Building building)
+        {
+            if (currentUser.Role != "SysAdmin") return;
+
+            _buildingToDelete = building;
+            _deleteBuildingConfirmText = "";
+            await _deleteBuildingModal.ShowAsync();
+        }
+
+        private async Task HideDeleteBuildingModal()
+        {
+            _buildingToDelete = null;
+            _deleteBuildingConfirmText = "";
+            await _deleteBuildingModal.HideAsync();
+        }
+
+        // Requiere escribir el nombre exacto del edificio -- borrar un edificio es
+        // mucho más grave que borrar una categoría o unidad (que sólo tienen un modal
+        // de "¿Está seguro?"), así que el botón "Eliminar" queda deshabilitado
+        // (ver el markup) hasta que el texto matchee exacto.
+        private async Task DeleteBuildingConfirmed()
+        {
+            if (currentUser.Role != "SysAdmin" || _buildingToDelete == null) return;
+            if (_deleteBuildingConfirmText != _buildingToDelete.Name) return;
+
+            var building = _buildingToDelete;
+
+            try
+            {
+                var result = await BuildingService.DeleteBuildingAsync(building);
+                if (!result.IsSuccess)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", result.ErrorMessage ?? "No se pudo eliminar el edificio");
+                    return;
+                }
+
+                Buildings.RemoveAll(b => b.IdBuilding == building.IdBuilding);
+
+                if (SelectedBuilding?.IdBuilding == building.IdBuilding)
+                {
+                    SelectedBuilding = Buildings.FirstOrDefault();
+                    if (SelectedBuilding != null)
+                    {
+                        SelectedBuilding.Configuration = await GetConfigurationAsync(SelectedBuilding.IdBuilding);
+                    }
+                }
+
+                // Mismo motivo que en SaveBuilding: sin esto, el edificio borrado seguía
+                // apareciendo en el header/selector del resto de la app (currentUser.Buildings
+                // cacheado en la sesión del circuito) hasta un F5.
+                await AuthService.RefreshCurrentUserBuildingsAsync();
+
+                await HideDeleteBuildingModal();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al eliminar edificio: {ex.Message}");
+                await JSRuntime.InvokeVoidAsync("alert", "No se pudo eliminar el edificio");
+            }
         }
 
         private async Task EditBuilding(Building building)

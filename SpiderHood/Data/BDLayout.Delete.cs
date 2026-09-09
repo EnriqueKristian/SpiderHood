@@ -92,6 +92,26 @@ namespace SpiderHood.Data
             }, "DeleteCategory", cancellationToken);
         }
 
+        // Ver Docs/Pendientes-Negocio-Migracion.md #6.3 -- DEL_Building (script
+        // Database/Scripts/2026-09-09_68_DEL_Building_Procedure.sql) sólo borra
+        // UserBuildingAssociation + BuildingConfiguration + Building, en ese orden,
+        // dentro de una transacción. NO borra en cascada Category/Parameter/Unit/
+        // Owner/BankAccount/Contact/etc. -- si el edificio ya tiene cualquiera de
+        // esas filas, el DELETE de BuildingConfiguration o Building falla por FK
+        // (error 547, atrapado en IBuildingService.DeleteBuildingAsync) en vez de
+        // dejar datos huérfanos. Pensado para borrar edificios de PRUEBA vacíos,
+        // no para borrar edificios con actividad real.
+        public async Task<bool> DeleteRecordAsync(Building building, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(building, nameof(building));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Building, cancellationToken, building.IdBuilding);
+                return true;
+            }, "DeleteBuilding", cancellationToken);
+        }
+
         public async Task<bool> DeleteRecordAsync(Period period, CancellationToken cancellationToken = default)
         {
             ValidateEntity(period, nameof(period));

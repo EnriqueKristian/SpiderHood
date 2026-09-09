@@ -207,26 +207,62 @@ equivalente) al cambiar de edificio.
 
 ### 6.3 Sin FK real: borrar un edificio deja Contact y Parameter huérfanos
 
-**Mitigado (2026-09-08)** -- FK preventiva agregada en
-`Database/Scripts/2026-09-08_57_Contact_Parameter_RealFK.sql`, mismo patrón
-autocontenido/re-ejecutable que `2026-09-02_24_Category_RealFK.sql`
-(se saltea sola por tabla si ya existe el FK o si hay filas huérfanas, sin
-ON DELETE en cascada). Sigue sin existir un `DeleteBuildingAsync` real en la
-app -- este script sólo dispara si ese borrado se implementa a futuro o si
-alguien vuelve a borrar un `Building` directo en la BD.
+**Implementado (2026-09-09), branch `claude/lista-pendientes-0gb03a`** --
+`IBuildingService.DeleteBuildingAsync` ya existe, pero con alcance
+deliberadamente acotado: sólo borra edificios de **prueba realmente vacíos**,
+gateado en la UI a **SysAdmin únicamente** (a pedido explícito del usuario,
+"me ayudará en pruebas, luego le quito permisos" -- por eso el gate es un
+`currentUser.Role == "SysAdmin"` hardcodeado en `BuildingPage.razor`/
+`.razor.cs`, NO el sistema de permisos configurable por rol -- ver "Por qué no
+se usó el permiso `delete_building`" más abajo).
 
-No existe una función de borrado de edificios en la app (no hay
-`DeleteBuildingAsync` en `IBuildingService`, se comprobó buscando en todo el
-repo) -- el borrado se hizo directo en la BD durante pruebas. Ahí se vio que
-`Contact.IdRelatedEntity` y `Parameter.IdBuilding` no tienen una FK real
-hacia `Building`, así que borrar un `Building` deja filas de `Contact` y
-`Parameter` huérfanas en vez de fallar (como sí pasa hoy con `RealEstateUnit`
-y `Category`, que sí tienen FK real -- ver
-`IBuildingService.DeleteUnitAsync`/`ICategoryService.DeleteCategoryAsync`,
-que atrapan el error 547 de SQL). Mismo patrón que resolvió
-`Database/Scripts/2026-09-02_24_Category_RealFK.sql` para Category, pendiente
-de replicar para Contact y Parameter -- o, si nunca va a haber borrado real
-de edificios desde la app, documentar que es intencional.
+**Qué hace:** botón de eliminar (ícono de basurero) en cada fila de la lista
+de edificios de `/buildings`, sólo visible para SysAdmin. Abre un modal que
+exige escribir el nombre exacto del edificio para habilitar "Eliminar
+definitivamente" (`BuildingPage.razor`, `_deleteBuildingModal`) -- mucho más
+estricto que el "¿Está seguro?" que usan `DeleteUnitAsync`/
+`DeleteCategoryAsync`, porque el radio de impacto es mayor. Llama a
+`DeleteBuildingAsync`, que ejecuta el nuevo stored procedure `DEL_Building`
+(`Database/Scripts/2026-09-09_68_DEL_Building_Procedure.sql`): dentro de una
+transacción, borra `UserBuildingAssociation` + `BuildingConfiguration` +
+`Building`, en ese orden -- **sin cascada** hacia `Category`/`Parameter`/
+`RealEstateUnit`/`Owner`/`BankAccount`/`Contact`/`Installment`/etc. Si el
+edificio tiene cualquiera de esas filas, el `DELETE` falla por FK (SQL 547,
+atrapado igual que en `DeleteUnitAsync`/`DeleteCategoryAsync`) en vez de dejar
+datos huérfanos -- mismo criterio que ya usaba el borrado manual de
+`2026-09-02_23_Cleanup_TestBuildings.sql`.
+
+**Limitación importante, sin confirmar todavía:** el entorno donde se
+implementó esto no tiene acceso a la base de datos real, así que no se pudo
+verificar el schema completo. Se confirmó FK real hacia `Building`/
+`BuildingConfiguration` sólo para `Category` (`2026-09-02_24_Category_RealFK.sql`)
+y `Contact`/`Parameter` (`2026-09-08_57_Contact_Parameter_RealFK.sql`) -- hay
+al menos **12 tablas más** con columna `IdBuilding` (`RealEstateUnit`, `Owner`,
+`BankAccount`, `BudgetHeader`, `Incident`, `CalendarItem`,
+`WorkflowAuditEntry`, `SystemLogEntry`, `UserBuildingRoleAssignment`, etc.)
+cuyo FK real no se pudo confirmar. Si alguna de esas tablas NO tiene FK real,
+borrar un edificio que sí tiene filas ahí **no va a fallar** -- las va a dejar
+huérfanas, el mismo bug que este punto documentaba originalmente, sólo que en
+otra tabla. **Antes de confiar en este botón para algo más que un edificio de
+prueba recién creado y genuinamente vacío, probarlo contra una copia de la BD
+real** (o, mejor, pedirle a alguien con acceso que corra
+`sp_helptext`/consulte `sys.foreign_keys` sobre esas ~12 tablas y confirme).
+
+**Por qué no se usó el permiso `delete_building`:** ya existe una entrada
+`delete_building` como permiso conceptual (`PermissionService.GetModuleButtons("buildings")`),
+pensada para integrarse al sistema de permisos configurable por rol
+(`/roles`, `IPermissionAdminService`, tablas `Permission`/`RolePermissions`
+vía stored procedures `GET_ALLPermissions`/`GET_PermissionsByRole` que no
+están en este repo). No se usó ese camino porque hubiera requerido escribir
+un script SQL para insertar una fila en el catálogo de `Permission` y
+asignarla al rol SysAdmin, sin poder confirmar el nombre real de esas tablas
+ni sus columnas (son `[HasNoKey]` en EF, mapeadas 100% por stored procedure,
+sin ningún DDL en este repo) -- mismo problema de "no hay acceso a la BD para
+verificar" de arriba, pero sobre tablas de seguridad/permisos, donde un
+script mal escrito es peor que no escribirlo. El hardcode a `"SysAdmin"` evita
+ese riesgo; si se quiere pasar al sistema de permisos configurable más
+adelante, alguien con acceso a la BD real tiene que confirmar el schema de
+`Permission`/`RolePermissions` primero.
 
 ### 6.4 Cuentas bancarias se pueden guardar con espacios al inicio/fin
 

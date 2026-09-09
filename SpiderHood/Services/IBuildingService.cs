@@ -18,6 +18,7 @@ namespace SpiderHood.Services
         Task<List<Models.Building>> GetAllBuildingsPublicAsync();
         Task<OperationResult> CreateBuildingAsync(Models.Building building, Guid createdByUserId, string createdByRole);
         Task<OperationResult> UpdateBuildingAsync(Models.Building building);
+        Task<OperationResult> DeleteBuildingAsync(Models.Building building);
         /*Task<List<Models.BuildingConfiguration>> GetBuildingConfigurationAsync(Guid IdBuilding);
         Task<List<Models.BankAccount>> GetBankAccountsByBuildingAsync(Guid IdBuilding);
         Task<List<Models.Contact>> GetAllContactsAsync(Guid IdBuildingConfiguration);
@@ -65,13 +66,15 @@ namespace SpiderHood.Services
         private readonly AuthService _authService;
         private readonly ISubscriptionService _subscriptionService;
         private readonly IAccountService _accountService;
+        private readonly IWorkflowAuditService _workflowAuditService;
 
-        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, ISubscriptionService subscriptionService, IAccountService accountService)
+        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, ISubscriptionService subscriptionService, IAccountService accountService, IWorkflowAuditService workflowAuditService)
         {
             ec = new BDLayout(contextFactory);
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
             _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
+            _workflowAuditService = workflowAuditService ?? throw new ArgumentNullException(nameof(workflowAuditService));
         }
 
         private async Task<string> GetPerformedByAsync()
@@ -288,6 +291,45 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 return OperationResult.Failure($"No se pudo actualizar el edificio: {DescribeError(ex)}");
+            }
+        }
+
+        // Docs/Pendientes-Negocio-Migracion.md #6.3 -- gateado en la UI (BuildingPage)
+        // a SysAdmin únicamente, a pedido explícito del usuario, sólo para poder borrar
+        // edificios de PRUEBA sin tener que hacerlo a mano en la BD. DEL_Building
+        // (Database/Scripts/2026-09-09_68_DEL_Building_Procedure.sql) SOLO borra
+        // UserBuildingAssociation + BuildingConfiguration + Building -- no hay cascada a
+        // Category/Parameter/Unit/Owner/BankAccount/Contact/Installment/etc., así que un
+        // edificio con cualquier actividad real falla acá por FK (error 547) en vez de
+        // dejar esas tablas huérfanas, igual que DeleteUnitAsync/DeleteCategoryAsync.
+        //
+        // OJO: esto sólo protege contra huérfanos en las tablas que hoy tienen FK real
+        // hacia Building/BuildingConfiguration (Category, Parameter, Contact -- ver
+        // 2026-09-02_24 y 2026-09-08_57). No se pudo confirmar cuáles de las otras ~12
+        // tablas con columna IdBuilding (Unit, Owner, BankAccount, BudgetHeader,
+        // Incident, CalendarItem, WorkflowAuditEntry, SystemLogEntry, etc.) tienen FK
+        // real también, porque este entorno no tiene acceso a la base de datos para
+        // revisar el schema -- probar primero contra un edificio de prueba realmente
+        // vacío, y no asumir que esto es seguro para un edificio con actividad real
+        // hasta confirmarlo contra la BD real.
+        public async Task<OperationResult> DeleteBuildingAsync(Models.Building building)
+        {
+            try
+            {
+                await ec.DeleteRecordAsync(building);
+                await _workflowAuditService.LogAsync("Building", building.IdBuilding, WorkflowAction.Deleted, await GetPerformedByAsync(), building.IdBuilding, building.Name);
+                return OperationResult.Success();
+            }
+            catch (Exception ex)
+            {
+                if (IsForeignKeyViolation(ex))
+                {
+                    return OperationResult.Failure(
+                        "No se puede eliminar: el edificio tiene datos asociados (unidades, propietarios, cuentas, categorías u otros registros). Sólo se pueden eliminar edificios vacíos (de prueba).");
+                }
+
+                Console.WriteLine($"Error al eliminar el edificio: {ex.Message}");
+                return OperationResult.Failure($"No se pudo eliminar el edificio: {DescribeError(ex)}");
             }
         }
 

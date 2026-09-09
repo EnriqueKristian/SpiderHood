@@ -32,6 +32,9 @@ namespace SpiderHood.Models
         // Agregados para Conciliación en dos pasos (Fase B) -- mismo motivo que arriba,
         // se guarda como string, no rompe historial existente.
         Reconciled,
-        Corrected
+        Corrected,
+        // Agregado para el borrado de edificios de prueba (SysAdmin, Docs/Pendientes-
+        // Negocio-Migracion.md #6.3) -- mismo motivo que arriba, se guarda como string.
+        Deleted
     }
 }

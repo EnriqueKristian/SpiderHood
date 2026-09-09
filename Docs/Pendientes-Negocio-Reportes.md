@@ -82,11 +82,23 @@ campo hoy -- ver "Pendiente" más abajo).
   acumulado" explicada arriba (no tiene sentido mezclado entre varias
   cuentas, y una sola cuenta ya se puede ver eligiendo el filtro).
 
+**Actualización:** el usuario confirmó con una consulta directa
+(`select * from Permissions where PermissionKey = 'view_income_expense_report'`)
+que la fila no existe -- como era de esperar, no hay ninguna pantalla en la
+app para CREAR un permiso nuevo (`IPermissionAdminService` sólo lee/asigna
+permisos YA EXISTENTES a un rol). Se agregó
+`Database/Scripts/2026-09-09_76_Seed_ReportPermissions.sql`, que siembra
+este permiso y, de paso, los otros tres que tienen el mismo problema
+(`view_budget_execution`/`view_delinquency`/`view_consumption_report` --
+Recaudación/Morosidad/Consumo de Agua, agregados antes en esta misma
+sesión y nunca sembrados tampoco). `IF NOT EXISTS` por cada uno, seguro de
+correr aunque alguno ya se haya agregado a mano.
+
 **Pendiente de probar con datos reales** (no hay acceso a BD en este
 entorno):
-1. Asignar el permiso `view_income_expense_report` a los roles
-   correspondientes desde `/roles` -- si no, la página muestra "No tenés
-   permiso para ver este reporte" a todo el mundo.
+1. Correr `2026-09-09_76_Seed_ReportPermissions.sql` y después asignar cada
+   permiso a los roles correspondientes desde `/roles` -- el script sólo
+   crea el catálogo, la asignación a un rol sigue siendo manual desde ahí.
 2. Confirmar que `/reportes/ingresos-egresos` con datos reales carga la
    tabla, el gráfico y el resumen sin errores, y que el filtro por Cuenta
    Bancaria da los mismos totales que "Resumen de Conciliación" en

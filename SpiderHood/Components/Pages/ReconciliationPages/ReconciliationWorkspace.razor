@@ -266,7 +266,21 @@
                                 </button>
                             </li>
                         </ul>
-                        
+
+                        @if (transaccionesConciliadas.Any())
+                        {
+                            <!-- Antes esto sólo estaba explicado en un comentario de código (línea
+                                 229 más arriba) -- invisible para quien usa la pantalla. Un usuario
+                                 viendo "Cargadas 131 transacciones" y sólo 1 fila en estas pestañas
+                                 no tiene forma de saber que las otras 130 existen a propósito en
+                                 otro lado, no que se perdieron. -->
+                            <div class="px-3 py-2 small text-muted border-top">
+                                <i class="bi bi-info-circle me-1"></i>
+                                @transaccionesConciliadas.Count transacción@(transaccionesConciliadas.Count != 1 ? "es" : "") ya conciliada@(transaccionesConciliadas.Count != 1 ? "s" : "") de este periodo no se muestra@(transaccionesConciliadas.Count != 1 ? "n" : "") acá --
+                                <a href="/movement">ver en Estados de Cuenta</a>.
+                            </div>
+                        }
+
                         <div class="tab-content">
                             <!-- Paginación: encabezado con estadísticas y selector de página -->
                             <div class="d-flex flex-wrap justify-content-between align-items-center px-3 pt-3">
@@ -1487,7 +1501,17 @@
             CalcularEstadisticas();
             ActualizarPaginacion();
 
-            mensajeExito = $"Cargadas {transacciones.Count} transacciones";
+            // Antes decía "Cargadas {transacciones.Count} transacciones" -- transacciones
+            // trae TODO el periodo (incluye lo ya Conciliado, necesario para calcular Saldo
+            // Final/% Conciliado del resumen de abajo), pero esta pantalla sólo MUESTRA lo
+            // pendiente (No Conciliados/Auto/Manual/Ignorados -- lo Conciliado vive en
+            // Estados de Cuenta). Con 130 de 131 ya conciliadas, ese mensaje hacía parecer
+            // que la carga había fallado (dice 131, la tabla muestra 1). Ahora refleja lo que
+            // esta pantalla realmente hace: cuántas quedan por trabajar acá.
+            var porTrabajar = transacciones.Count - transaccionesConciliadas.Count;
+            mensajeExito = porTrabajar > 0
+                ? $"{porTrabajar} transacción(es) por trabajar en este periodo ({transaccionesConciliadas.Count} ya conciliada(s) -- ver Estados de Cuenta)"
+                : $"Todas las transacciones del periodo ya están conciliadas ({transaccionesConciliadas.Count}). Ver Estados de Cuenta para el detalle.";
         }
         catch (Exception ex)
         {
@@ -2256,7 +2280,18 @@
             .Sum(t => t.GastoConciliado?.Amount ?? 0);
 
         diferenciaConciliacion = Math.Abs(totalConciliado) - totalGastosConciliados;
-        totalPendiente = Math.Abs(transaccionesNoConciliadas.Where(t => t.Amount < 0).Sum(t => t.Amount));
+
+        // Antes sumaba sólo transaccionesNoConciliadas.Where(t => t.Amount < 0) -- el monto
+        // COMPLETO de los Gastos pendientes, ignorando por completo los Ingresos pendientes
+        // (Amount siempre es > 0 ahí). Con una transacción "Conciliada Parcialmente" (un
+        // Ingreso con Balance > 0 -- ver la columna "Pendiente" de la tabla, línea 343) esto
+        // mostraba "S/ 0.00" en el resumen de arriba mientras la tabla, dos secciones más
+        // abajo, mostraba un pendiente real de S/ 3.97 para esa misma transacción -- mismo
+        // bug reportado por el usuario. Para Ingresos el pendiente real es t.Balance (sale de
+        // VW_SUM_InstallmentPaidTransaction, ver el comentario de esa columna); para Gastos
+        // Balance no aplica (siempre == Amount) así que se usa Amount directamente, igual que
+        // en la tabla.
+        totalPendiente = transaccionesNoConciliadas.Sum(t => t.Tipo == "Ingreso" ? Math.Abs(t.Balance) : Math.Abs(t.Amount));
     }
 
     // Null = no se pudo determinar (transacción sin conciliar, o Gasto conciliado en una

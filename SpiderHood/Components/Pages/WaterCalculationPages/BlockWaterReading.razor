@@ -11,6 +11,7 @@
 @inject IJSRuntime JSRuntime
 @inject AuthService AuthService
 @inject IPermissionService PermissionService
+@inject IWorkflowAuditService WorkflowAuditService
 
 <div class="lectura-bloque-container">
     <div class="card mb-4">
@@ -524,11 +525,12 @@
     // Un solo permiso cubre importar/guardar/limpiar lecturas — no hay un flujo de
     // aprobación distinto por paso como en Presupuesto.
     private bool _canManageWaterReadings;
+    private UserSession _currentUser = new();
 
     protected override async Task OnInitializedAsync()
     {
-        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
-        _canManageWaterReadings = await PermissionService.HasPermissionAsync(currentUser, "manage_water_readings");
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canManageWaterReadings = await PermissionService.HasPermissionAsync(_currentUser, "manage_water_readings");
 
         if (ParameterService.CurrentBuilding == null) return;
         await CargarDatosIniciales();
@@ -626,8 +628,21 @@
 
                 if (_ServiceReadingState.CurrentReadingDetail.Count > 0)
                 {
+                    // MarcarTodasComoProcesadas() sí corresponde acá (habilita "Guardar" y no
+                    // toca CalculatedAmount) -- lo que se sacó fue un RecalcularTodas() que
+                    // había acá antes. Este período YA tiene lecturas guardadas en BD, con su
+                    // CalculatedAmount ya calculado con la tarifa vigente EN ESE MOMENTO (ver
+                    // GuardarLecturas). Ese RecalcularTodas() volvía a llamar
+                    // CalcularConsumoAsync con la tarifa vigente HOY, pisando en memoria (y, si
+                    // el usuario después tocaba "Guardar Lecturas", en BD también) el monto ya
+                    // calculado -- para cualquier período, incluidos los de un presupuesto ya
+                    // publicado/cerrado. Si cambian las tarifas en /configwater, un período
+                    // viejo terminaba mostrando (y pudiendo re-guardar) un monto distinto al
+                    // que realmente se cobró. Recalcular sigue disponible, pero sólo ante una
+                    // acción explícita del usuario sobre una lectura puntual
+                    // (onKeyPress/ApplyMinimun) o un cambio de Cargo Fijo (CambiarCargoFijo) --
+                    // nunca automático al sólo abrir el período.
                     MarcarTodasComoProcesadas();
-                    await RecalcularTodas();
                 }
                 else
                 {
@@ -805,14 +820,6 @@
         }
     }
 
-    private async Task RecalcularTodas()
-    {
-        foreach (var lectura in _ServiceReadingState.CurrentReadingDetail.Where(l => l.Procesed))
-        {
-            await RecalcularLectura(lectura, (double)ParameterService.CurrentBuilding.Configuration.MinWaterConsumtion);
-        }
-    }
-
     private void SeleccionarLectura(ServiceReadingDetail lectura)
     {
         _lecturaSeleccionada = lectura;
@@ -857,6 +864,18 @@
                 await ServiceReadingService.AddServiceReadingDetailAsync(_ServiceReadingState.CurrentReading.WaterReadingDetail!);
 
                 await transaction.CommitAsync();
+
+                // Antes no quedaba ningún registro de quién cargó o modificó las lecturas de
+                // un período -- a diferencia del resto de los guardados de la app (Conciliación,
+                // Presupuesto, etc.), que sí pasan por IWorkflowAuditService.
+                var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
+                await WorkflowAuditService.LogAsync(
+                    "WaterReading",
+                    _ServiceReadingState.CurrentReading.IdServiceReading,
+                    WorkflowAction.WaterReadingSaved,
+                    performedBy,
+                    ParameterService.CurrentBuilding.IdBuilding,
+                    $"Periodo {_periodoActual:yyyy-MM} -- {_ServiceReadingState.CurrentReading.WaterReadingDetail?.Count ?? 0} lectura(s)");
 
                 //await MostrarMensajeExito("Lecturas guardadas exitosamente");
                 await ShowToast("Info", $"Lecturas guardadas exitosamente.", "success");

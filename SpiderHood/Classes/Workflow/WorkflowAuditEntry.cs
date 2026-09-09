@@ -41,6 +41,11 @@ namespace SpiderHood.Models
         InitialBalanceSet,
         // Agregado para "Ignorar transacción" con motivo + tipo (Docs/Pendientes-
         // Negocio-Conciliacion.md #1) -- mismo motivo que arriba.
-        Ignored
+        Ignored,
+        // Agregado para Lecturas de Agua (BlockWaterReading.razor.GuardarLecturas) --
+        // antes no dejaba ningún registro de quién cargó o modificó las lecturas de un
+        // período, a diferencia del resto de los guardados de la app. Mismo motivo que
+        // arriba, se guarda como string.
+        WaterReadingSaved
     }
 }

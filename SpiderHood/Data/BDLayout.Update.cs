@@ -293,6 +293,24 @@ namespace SpiderHood.Data
             }, "UpdateBankAccount", cancellationToken);
         }
 
+        // Aparte de UpdateRecordAsync(BankAccount) a propósito -- UPD_BankAccount excluye
+        // InitialBalance en el UPDATE (es fijo desde la creación, ver
+        // Database/Scripts/2026-09-05_51_BankAccount_InitialBalance.sql). Este SP es la única
+        // excepción deliberada: "marcar un movimiento como Saldo Inicial" en la pantalla de
+        // conciliación (Docs/Pendientes-Negocio-Migracion.md #3).
+        public async Task SetBankAccountInitialBalanceAsync(Guid idBankAccount, decimal initialBalance, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_BankAccount_InitialBalance,
+                    cancellationToken,
+                    idBankAccount,
+                    initialBalance);
+                return true;
+            }, "SetBankAccountInitialBalance", cancellationToken);
+        }
+
         public async Task<Models.RealEstateUnit> UpdateRecordAsync(Models.RealEstateUnit unit, CancellationToken cancellationToken = default)
         {
             ValidateEntity(unit, nameof(unit));

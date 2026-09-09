@@ -114,6 +114,7 @@ namespace SpiderHood.Data
             public const string UPD_Period = "UPD_Period";
             public const string UPD_SetPeriodAsCurrent = "UPD_SetPeriodAsCurrent";
             public const string UPD_BankAccount = "UPD_BankAccount";
+            public const string UPD_BankAccount_InitialBalance = "UPD_BankAccount_InitialBalance";
             public const string UPD_BuildingConfiguration = "UPD_BuildingConfiguration";
             public const string UPD_BudgetHeader = "UPD_BudgetHeader";
             public const string UPD_ClosePastBudgets = "UPD_ClosePastBudgets";

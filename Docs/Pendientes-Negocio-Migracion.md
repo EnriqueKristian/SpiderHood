@@ -67,8 +67,7 @@ la app.
 
 ## 3. Marcar un movimiento bancario como "Saldo Inicial"
 
-**Estado: pendiente, sin empezar** (solo existe la columna en la plantilla,
-sin la función real).
+**Estado: implementado (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
 
 Al crear un edificio, las cuentas bancarias se asocian con su
 `InitialBalance` (una sola vez, no editable después --
@@ -78,10 +77,39 @@ movimiento como "este es el saldo inicial" y que eso alimente
 `InitialBalance` directamente, en vez de que el admin lo tipee a mano en la
 ficha de la cuenta.
 
-La plantilla `Plantilla_EstadoDeCuenta` (`GenerarPlantillaEstadoDeCuentaAsync`)
-ya tiene la columna "Es Saldo Inicial" pensada para esto, pero **el
-importador que la lea y la función en la UI de conciliación
-(`ReconciliationPages/`) todavía no existen.**
+**Corrección sobre el estado anterior de este punto:** decía que "el
+importador que la lea... todavía no existe" -- eso ya no era así al
+retomarlo: `IMigrationImportService.ImportarEstadoDeCuentaAsync`
+(`Services/IMigrationImportService.cs:1203-1401`) ya lee la columna "Es Saldo
+Inicial" de la plantilla de migración y actualiza `BankAccount.InitialBalance`
+con la fila marcada (con su propia validación: error si hay más de una fila
+marcada por cuenta). Lo único que faltaba de verdad era la función en la UI
+de conciliación del día a día -- eso es lo que se implementó ahora.
+
+**Qué se agregó:** en `ReconciliationWorkspace.razor` (usada por
+`/conciliacion`, `/ConciliacionPagos` y `/ConciliacionGastos`), cada
+movimiento no propuesto tiene un botón "Marcar como Saldo Inicial" (ícono de
+bandera) -- pide confirmación (mostrando el Saldo Inicial actual si ya había
+uno) y, al aceptar, llama a `IBankAccountService.SetInitialBalanceAsync`, que
+ejecuta el nuevo stored procedure `UPD_BankAccount_InitialBalance`
+(`Database/Scripts/2026-09-09_69_UPD_BankAccount_InitialBalance.sql`) --
+separado a propósito de `UPD_BankAccount` (que sigue sin tocar
+`InitialBalance`, ver `2026-09-05_51_BankAccount_InitialBalance.sql`), para
+no reabrir esa inmutabilidad desde el formulario normal de edición de cuenta.
+Queda registrado en `WorkflowAuditEntry` (nueva acción `InitialBalanceSet`).
+
+**Bug de paso, encontrado al implementar esto:** `saldoInicial` (la variable
+que alimenta el card "Saldo Inicial" y el cálculo de "Saldo Final Calculado"
+en esta misma pantalla) nunca se asignaba desde `BankAccount.InitialBalance`
+-- siempre mostraba S/ 0 sin importar el valor real configurado en la cuenta,
+para CUALQUIER cuenta, no sólo las recién creadas. Corregido en
+`CargarTransacciones()`: ahora se carga desde `cuentasBancarias` al cambiar
+de cuenta o período.
+
+**Sin verificar en un browser real** (mismo motivo que el resto de esta
+sesión: sin acceso a la base de datos en este entorno) -- antes de darlo por
+cerrado, probar que el botón efectivamente actualiza el Saldo Inicial
+mostrado y que persiste tras recargar la página.
 
 ---
 

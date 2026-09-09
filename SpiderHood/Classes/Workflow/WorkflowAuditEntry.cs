@@ -35,6 +35,9 @@ namespace SpiderHood.Models
         Corrected,
         // Agregado para el borrado de edificios de prueba (SysAdmin, Docs/Pendientes-
         // Negocio-Migracion.md #6.3) -- mismo motivo que arriba, se guarda como string.
-        Deleted
+        Deleted,
+        // Agregado para "Marcar como Saldo Inicial" en Conciliación (Docs/Pendientes-
+        // Negocio-Migracion.md #3) -- mismo motivo que arriba.
+        InitialBalanceSet
     }
 }

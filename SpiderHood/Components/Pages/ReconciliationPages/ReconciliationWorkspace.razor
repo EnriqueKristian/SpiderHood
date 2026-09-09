@@ -568,6 +568,16 @@
                                                                 @onclick="() => VerDetallesTransaccion(transaccion)">
                                                             <i class="bi bi-eye"></i>
                                                         </button>
+                                                        @if (!transaccion.PropuestaPendiente && (_canReconcileExpenses || _canReconcileInstallments))
+                                                        {
+                                                            <!-- Docs/Pendientes-Negocio-Migracion.md #3 -- marca este movimiento como el
+                                                                 saldo de apertura de la cuenta, alimentando BankAccount.InitialBalance. -->
+                                                            <button class="btn btn-outline-secondary"
+                                                                    title="Marcar como Saldo Inicial de la cuenta"
+                                                                    @onclick="() => MarcarComoSaldoInicial(transaccion)">
+                                                                <i class="bi bi-flag"></i>
+                                                            </button>
+                                                        }
                                                         @if (!transaccion.PropuestaPendiente && transaccion.ReconciliationStatus == ConcilationType.Conciliada && _puedeCorregir)
                                                         {
                                                             <button class="btn btn-outline-danger"
@@ -1355,6 +1365,12 @@
 
         try
         {
+            // Docs/Pendientes-Negocio-Migracion.md #3 -- antes esto nunca se asignaba, así
+            // que "Saldo Inicial" (y "Saldo Final Calculado", que se calcula a partir de
+            // éste en CalcularEstadisticas) siempre mostraban 0 sin importar el valor real
+            // configurado en la cuenta bancaria.
+            saldoInicial = cuentasBancarias.FirstOrDefault(c => c.IdBankAccount == cuentaSeleccionadaId)?.InitialBalance ?? 0;
+
             // Cargar transacciones del período seleccionado
             var (fechaInicio, fechaFin) = ObtenerFechasPeriodo();
             transacciones = await BankService.ObtenerTransaccionesAsync(cuentaSeleccionadaId, fechaInicio, fechaFin);
@@ -1626,6 +1642,47 @@
     // "Enviar a Conciliar" (mientras es solo una PROPUESTA), deshacer sigue siendo libre y
     // gratis vía QuitarPropuesta, porque ahí todavía no hay nada guardado en BD.
     //
+    // Docs/Pendientes-Negocio-Migracion.md #3 -- alimenta BankAccount.InitialBalance
+    // directamente desde un movimiento real, en vez de que el admin lo tipee a mano en la
+    // ficha de la cuenta (donde además queda deshabilitado después de creada, ver
+    // Database/Scripts/2026-09-05_51_BankAccount_InitialBalance.sql).
+    private async Task MarcarComoSaldoInicial(TransactionBankDetail transaccion)
+    {
+        if (!_canReconcileExpenses && !_canReconcileInstallments) return;
+
+        var cuenta = cuentasBancarias.FirstOrDefault(c => c.IdBankAccount == cuentaSeleccionadaId);
+        if (cuenta == null) return;
+
+        var nuevoSaldo = Math.Abs(transaccion.Amount);
+        var mensaje = $"¿Marcar '{transaccion.Description}' ({transaccion.StatementDate:dd/MM/yyyy}, {Moneda(nuevoSaldo)}) como el Saldo Inicial de la cuenta '{cuenta.AccountNumber}'?" +
+            (cuenta.InitialBalance != 0 ? $" Esto reemplaza el Saldo Inicial actual ({Moneda(cuenta.InitialBalance)})." : "");
+
+        if (!await ConfirmarAsync(mensaje))
+        {
+            return;
+        }
+
+        try
+        {
+            await BankService.SetInitialBalanceAsync(cuenta.IdBankAccount, nuevoSaldo);
+            cuenta.InitialBalance = nuevoSaldo;
+            saldoInicial = nuevoSaldo;
+            CalcularEstadisticas();
+
+            var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
+            await WorkflowAuditService.LogAsync("BankAccount", cuenta.IdBankAccount, WorkflowAction.InitialBalanceSet,
+                performedBy, ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty,
+                $"Saldo Inicial fijado en {Moneda(nuevoSaldo)} desde el movimiento '{transaccion.Description}' ({transaccion.StatementDate:dd/MM/yyyy}).");
+
+            mensajeExito = "Saldo Inicial actualizado.";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al actualizar el Saldo Inicial: {ex.Message}";
+        }
+    }
+
     private async Task CorregirConciliacion(TransactionBankDetail transaccion)
     {
         if (!_puedeCorregir) return;

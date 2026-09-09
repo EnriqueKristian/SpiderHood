@@ -10,6 +10,7 @@ namespace SpiderHood.Services
     {
         Task AddBankAccount(BankAccount newbank);
         Task UpdateBankAccount(BankAccount bankaccount);
+        Task SetInitialBalanceAsync(Guid idBankAccount, decimal initialBalance);
         Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding);
         Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync(Guid cuentaId, DateTime desde, DateTime hasta);
         Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto);
@@ -198,6 +199,23 @@ namespace SpiderHood.Services
                 throw;
             }
 
+        }
+
+        // Ver Docs/Pendientes-Negocio-Migracion.md #3 y BDLayout.SetBankAccountInitialBalanceAsync
+        // -- única vía deliberada para tocar InitialBalance después de creada la cuenta,
+        // desde la acción "Marcar como Saldo Inicial" en Conciliación.
+        public async Task SetInitialBalanceAsync(Guid idBankAccount, decimal initialBalance)
+        {
+            try
+            {
+                await ec.SetBankAccountInitialBalanceAsync(idBankAccount, initialBalance);
+                await ec.StampAuditAsync(AuditableEntity.BankAccount, idBankAccount, await GetPerformedByAsync(), isCreate: false);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al actualizar el Saldo Inicial de la cuenta bancaria: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding)

@@ -1,0 +1,7 @@
+/* Heat-map de deuda, de amarillo claro (heat-1) a rojo (heat-5) -- mismo criterio
+   visual que el Excel de referencia del usuario para el reporte de Morosidad. */
+.heat-1 { background-color: #fff9db; }
+.heat-2 { background-color: #ffe8a3; }
+.heat-3 { background-color: #ffc266; }
+.heat-4 { background-color: #ff9466; }
+.heat-5 { background-color: #ff6b6b; }

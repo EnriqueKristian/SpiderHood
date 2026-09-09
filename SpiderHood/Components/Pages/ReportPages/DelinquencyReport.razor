@@ -1,0 +1,438 @@
+@page "/reportes/morosidad"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+@using ClosedXML.Excel
+@inject IInstallmentService InstallmentService
+@inject ParameterService ParameterService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>SpiderHood - Morosidad</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-graph-down-arrow"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Morosidad</h1>
+                <p class="text-muted mb-0">Deuda pendiente por unidad (Ordinaria, Extraordinaria, Multa y Mora)</p>
+            </div>
+        </div>
+    </div>
+
+    @if (!_canView)
+    {
+        <div class="alert alert-warning">No tenés permiso para ver este reporte.</div>
+    }
+    else if (ParameterService.CurrentBuilding == null)
+    {
+        <div class="alert alert-warning">Selecciona un edificio para continuar.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Periodo desde</label>
+                        <input type="date" class="form-control" @bind="fechaDesde" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Periodo hasta</label>
+                        <input type="date" class="form-control" @bind="fechaHasta" />
+                    </div>
+                    <div class="col-md-6 d-flex gap-2">
+                        <button class="btn btn-primary" @onclick="CargarAsync" disabled="@cargando">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+                        </button>
+                        <button class="btn btn-outline-success" @onclick="ExportarExcel" disabled="@(cargando || !_filasPorUnidad.Any())">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (cargando)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+        }
+        else if (!_filasPorUnidad.Any())
+        {
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle me-2"></i>No hay deuda pendiente en el periodo seleccionado.
+            </div>
+        }
+        else
+        {
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0">Deuda por unidad</h6>
+                        </div>
+                        <div class="table-responsive" style="max-height: 500px;">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="sticky-top table-light">
+                                    <tr>
+                                        <th>DPTO</th>
+                                        <th>Propietario</th>
+                                        <th class="text-end">Ordinaria</th>
+                                        <th class="text-end">Extraordinaria</th>
+                                        <th class="text-end">Multa</th>
+                                        <th class="text-end">Mora</th>
+                                        <th class="text-end">Total</th>
+                                        <th class="text-end">Cuotas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var f in _filasPorUnidad)
+                                    {
+                                        <tr class="@ClaseCalor(f.Total)">
+                                            <td class="fw-semibold">@f.UnitName</td>
+                                            <td>@f.OwnerName</td>
+                                            <td class="text-end">@(f.Ordinaria > 0 ? Moneda(f.Ordinaria) : "-")</td>
+                                            <td class="text-end">@(f.Extraordinaria > 0 ? Moneda(f.Extraordinaria) : "-")</td>
+                                            <td class="text-end">@(f.Multa > 0 ? Moneda(f.Multa) : "-")</td>
+                                            <td class="text-end">@(f.Mora > 0 ? Moneda(f.Mora) : "-")</td>
+                                            <td class="text-end fw-bold">@Moneda(f.Total)</td>
+                                            <td class="text-end">@f.CantidadCuotas</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-secondary fw-bold">
+                                        <td colspan="6">TOTAL DEUDA</td>
+                                        <td class="text-end">@Moneda(TotalGeneral)</td>
+                                        <td class="text-end">@_filasPorUnidad.Sum(f => f.CantidadCuotas)</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0">Deuda total por unidad</h6>
+                        </div>
+                        <div class="card-body" style="height: 420px;">
+                            <canvas id="chartMorosidad"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">Deuda por concepto</h6>
+                </div>
+                <div class="table-responsive" style="max-height: 500px;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>DPTO</th>
+                                <th>Propietario</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-end">Cuotas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var grupo in _gruposConcepto)
+                            {
+                                <tr class="table-light">
+                                    <td colspan="4" class="fw-bold">@grupo.Concepto</td>
+                                </tr>
+                                @foreach (var f in grupo.Filas)
+                                {
+                                    <tr class="@ClaseCalor(f.Monto)">
+                                        <td>@f.UnitName</td>
+                                        <td>@f.OwnerName</td>
+                                        <td class="text-end">@Moneda(f.Monto)</td>
+                                        <td class="text-end">@f.Cuotas</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-secondary fw-bold">
+                                <td colspan="2">TOTAL DEUDA</td>
+                                <td class="text-end">@Moneda(TotalGeneral)</td>
+                                <td class="text-end">@_filasPorUnidad.Sum(f => f.CantidadCuotas)</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private UserSession currentUser = new();
+    private bool _canView;
+    private bool cargando = true;
+
+    private DateTime fechaDesde = new DateTime(DateTime.Today.Year, 1, 1);
+    private DateTime fechaHasta = DateTime.Today;
+
+    private List<Installment> _cuotasPendientes = new();
+    private List<FilaUnidad> _filasPorUnidad = new();
+    private List<GrupoConcepto> _gruposConcepto = new();
+
+    private decimal TotalGeneral => _filasPorUnidad.Sum(f => f.Total);
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        // Docs/Design-Piloto-Mobile-Android.md no aplica acá -- este permiso ("view_delinquency")
+        // ya estaba anotado en el diseño de permisos original pero sin pantalla construida.
+        // Si nadie lo tiene asignado todavía, hay que sumarlo a los roles correspondientes
+        // desde /roles -- no se tocó la BD de permisos acá (mismo motivo que
+        // Docs/Pendientes-Negocio-Migracion.md #6.3: sin acceso a la BD real para
+        // verificar el schema del catálogo de Permission/RolePermissions).
+        _canView = await PermissionService.HasPermissionAsync(currentUser, "view_delinquency");
+
+        if (_canView)
+        {
+            await CargarAsync();
+        }
+        else
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task CargarAsync()
+    {
+        if (ParameterService.CurrentBuilding == null)
+        {
+            cargando = false;
+            return;
+        }
+
+        cargando = true;
+        StateHasChanged();
+
+        try
+        {
+            // GetPendingInstallmentsAsync ya excluye lo pagado (Status <> Conciliada) --
+            // trae Ordinaria/Extraordinaria/Multa/Mora mezcladas, se separan acá por Type.
+            var todas = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+            _cuotasPendientes = todas
+                .Where(i => i.Debt > 0 && i.Period.Date >= fechaDesde.Date && i.Period.Date <= fechaHasta.Date)
+                .ToList();
+
+            ArmarFilasPorUnidad();
+            ArmarGruposConcepto();
+        }
+        finally
+        {
+            cargando = false;
+        }
+
+        StateHasChanged();
+        await RenderizarGraficoAsync();
+    }
+
+    private void ArmarFilasPorUnidad()
+    {
+        _filasPorUnidad = _cuotasPendientes
+            .GroupBy(i => new { i.IdGroupUnit, i.UnitName, i.OwnerName })
+            .Select(g => new FilaUnidad
+            {
+                UnitName = g.Key.UnitName,
+                OwnerName = g.Key.OwnerName,
+                Ordinaria = g.Where(i => i.Type == InstallmentType.Ordinaria).Sum(i => i.Debt),
+                Extraordinaria = g.Where(i => i.Type == InstallmentType.Extraordinaria).Sum(i => i.Debt),
+                Multa = g.Where(i => i.Type == InstallmentType.Multa).Sum(i => i.Debt),
+                Mora = g.Where(i => i.Type == InstallmentType.Mora).Sum(i => i.Debt),
+                CantidadCuotas = g.Count()
+            })
+            .OrderByDescending(f => f.Total)
+            .ToList();
+    }
+
+    // Ordinaria no trae Concept propio (su desglose sale de BudgetHeader.Details, ver
+    // Classes/Budget/Installment.cs) -- se etiqueta "Cuota". Multa/Mora sí tienen Concept,
+    // pero varía por cuota/período ("Mora (2 meses de atraso) - Cuota Jun-2026"); agruparlas
+    // por su texto literal fragmentaría el reporte en una fila por cuota en vez de un grupo
+    // por tipo, así que se agrupan bajo una etiqueta fija. Extraordinaria sí agrupa por su
+    // Concept real: es el nombre de campaña (ej. "CE. Cerco Eléctrico"), igual para todas
+    // las unidades de esa misma campaña -- ver IExtraChargeService.GenerarCuotaExtraordinariaAsync.
+    private static string EtiquetaConcepto(Installment i) => i.Type switch
+    {
+        InstallmentType.Ordinaria => "Cuota",
+        InstallmentType.Multa => "Multa",
+        InstallmentType.Mora => "Mora",
+        InstallmentType.Extraordinaria => string.IsNullOrWhiteSpace(i.Concept) ? "Extraordinaria" : i.Concept,
+        _ => "Otro"
+    };
+
+    private void ArmarGruposConcepto()
+    {
+        _gruposConcepto = _cuotasPendientes
+            .GroupBy(EtiquetaConcepto)
+            .Select(g => new GrupoConcepto
+            {
+                Concepto = g.Key,
+                Filas = g.GroupBy(i => new { i.IdGroupUnit, i.UnitName, i.OwnerName })
+                    .Select(u => new FilaConcepto
+                    {
+                        UnitName = u.Key.UnitName,
+                        OwnerName = u.Key.OwnerName,
+                        Monto = u.Sum(i => i.Debt),
+                        Cuotas = u.Count()
+                    })
+                    .OrderByDescending(f => f.Monto)
+                    .ToList()
+            })
+            .OrderByDescending(g => g.Filas.Sum(f => f.Monto))
+            .ToList();
+    }
+
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
+    // Heat-map relativo al máximo de la lista actual (mismo criterio visual que el Excel
+    // de referencia del usuario: más rojo = mayor deuda dentro de este corte, no un umbral
+    // fijo en soles). Clases .heat-1..5 definidas en DelinquencyReport.razor.css.
+    private string ClaseCalor(decimal monto)
+    {
+        if (monto <= 0 || !_filasPorUnidad.Any()) return "";
+        var max = _filasPorUnidad.Max(f => f.Total);
+        if (max <= 0) return "";
+
+        var ratio = (double)(monto / max);
+        return ratio switch
+        {
+            >= 0.75 => "heat-5",
+            >= 0.5 => "heat-4",
+            >= 0.25 => "heat-3",
+            >= 0.1 => "heat-2",
+            _ => "heat-1"
+        };
+    }
+
+    private async Task RenderizarGraficoAsync()
+    {
+        if (!_filasPorUnidad.Any()) return;
+
+        var labels = _filasPorUnidad.Select(f => f.UnitName).ToArray();
+        var data = _filasPorUnidad.Select(f => f.Total).ToArray();
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("spiderHoodReportCharts.horizontalBar", "chartMorosidad", labels, data, "Deuda Total");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuito cerrándose (navegación afuera de la página) -- nada que hacer.
+        }
+    }
+
+    private async Task ExportarExcel()
+    {
+        if (ParameterService.CurrentBuilding == null || !_filasPorUnidad.Any()) return;
+
+        using var workbook = new XLWorkbook();
+
+        var wsUnidad = workbook.Worksheets.Add("Por Unidad");
+        wsUnidad.Cell(1, 1).Value = "DPTO";
+        wsUnidad.Cell(1, 2).Value = "Propietario";
+        wsUnidad.Cell(1, 3).Value = "Ordinaria";
+        wsUnidad.Cell(1, 4).Value = "Extraordinaria";
+        wsUnidad.Cell(1, 5).Value = "Multa";
+        wsUnidad.Cell(1, 6).Value = "Mora";
+        wsUnidad.Cell(1, 7).Value = "Total";
+        wsUnidad.Cell(1, 8).Value = "Cuotas";
+        wsUnidad.Row(1).Style.Font.Bold = true;
+
+        var fila = 2;
+        foreach (var f in _filasPorUnidad)
+        {
+            wsUnidad.Cell(fila, 1).Value = f.UnitName;
+            wsUnidad.Cell(fila, 2).Value = f.OwnerName;
+            wsUnidad.Cell(fila, 3).Value = f.Ordinaria;
+            wsUnidad.Cell(fila, 4).Value = f.Extraordinaria;
+            wsUnidad.Cell(fila, 5).Value = f.Multa;
+            wsUnidad.Cell(fila, 6).Value = f.Mora;
+            wsUnidad.Cell(fila, 7).Value = f.Total;
+            wsUnidad.Cell(fila, 8).Value = f.CantidadCuotas;
+            fila++;
+        }
+        wsUnidad.Cell(fila, 1).Value = "TOTAL DEUDA";
+        wsUnidad.Cell(fila, 7).Value = TotalGeneral;
+        wsUnidad.Cell(fila, 8).Value = _filasPorUnidad.Sum(f => f.CantidadCuotas);
+        wsUnidad.Row(fila).Style.Font.Bold = true;
+        wsUnidad.Columns().AdjustToContents();
+
+        var wsConcepto = workbook.Worksheets.Add("Por Concepto");
+        wsConcepto.Cell(1, 1).Value = "DPTO";
+        wsConcepto.Cell(1, 2).Value = "Propietario";
+        wsConcepto.Cell(1, 3).Value = "Monto";
+        wsConcepto.Cell(1, 4).Value = "Cuotas";
+        wsConcepto.Row(1).Style.Font.Bold = true;
+
+        var filaConcepto = 2;
+        foreach (var grupo in _gruposConcepto)
+        {
+            wsConcepto.Cell(filaConcepto, 1).Value = grupo.Concepto;
+            wsConcepto.Range(filaConcepto, 1, filaConcepto, 4).Style.Font.Bold = true;
+            wsConcepto.Range(filaConcepto, 1, filaConcepto, 4).Style.Fill.BackgroundColor = XLColor.LightGray;
+            filaConcepto++;
+
+            foreach (var f in grupo.Filas)
+            {
+                wsConcepto.Cell(filaConcepto, 1).Value = f.UnitName;
+                wsConcepto.Cell(filaConcepto, 2).Value = f.OwnerName;
+                wsConcepto.Cell(filaConcepto, 3).Value = f.Monto;
+                wsConcepto.Cell(filaConcepto, 4).Value = f.Cuotas;
+                filaConcepto++;
+            }
+        }
+        wsConcepto.Cell(filaConcepto, 1).Value = "TOTAL DEUDA";
+        wsConcepto.Cell(filaConcepto, 3).Value = TotalGeneral;
+        wsConcepto.Row(filaConcepto).Style.Font.Bold = true;
+        wsConcepto.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+
+        var fileName = $"Morosidad_{ParameterService.CurrentBuilding.Name}_{DateTime.Now:yyyyMMdd}.xlsx";
+        await JSRuntime.InvokeVoidAsync("descargarArchivo", fileName, Convert.ToBase64String(ms.ToArray()));
+    }
+
+    private class FilaUnidad
+    {
+        public string UnitName = "";
+        public string OwnerName = "";
+        public decimal Ordinaria;
+        public decimal Extraordinaria;
+        public decimal Multa;
+        public decimal Mora;
+        public int CantidadCuotas;
+        public decimal Total => Ordinaria + Extraordinaria + Multa + Mora;
+    }
+
+    private class GrupoConcepto
+    {
+        public string Concepto = "";
+        public List<FilaConcepto> Filas = new();
+    }
+
+    private class FilaConcepto
+    {
+        public string UnitName = "";
+        public string OwnerName = "";
+        public decimal Monto;
+        public int Cuotas;
+    }
+}

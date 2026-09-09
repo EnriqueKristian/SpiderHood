@@ -993,7 +993,8 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="bi bi-eye me-2"></i>Cuotas asociadas al pago
+                        <i class="bi bi-eye me-2"></i>
+                        @(transaccionDetalleIngreso.PropuestaPendiente ? "Cuota(s) propuesta(s) para el pago" : "Cuotas asociadas al pago")
                     </h5>
                     <button type="button" class="btn-close" @onclick="CerrarModalVerDetalleIngreso"></button>
                 </div>
@@ -1012,7 +1013,31 @@
                     @{
                         var pagosDeEstaTransaccion = pagosCuotas.Where(p => p.IdTransaction == transaccionDetalleIngreso.IdStatementDetail).ToList();
                     }
-                    @if (!pagosDeEstaTransaccion.Any())
+                    @if (transaccionDetalleIngreso.PropuestaPendiente && transaccionDetalleIngreso.CuotasPropuestas.Any())
+                    {
+                        // Todavía no hay nada en pagosCuotas -- AplicarPagoAsync (lo que crea esos
+                        // registros) recién se llama al confirmar con "Enviar a Conciliar". Se
+                        // muestra la propuesta desde CuotasPropuestas (en memoria) en su lugar.
+                        <div class="alert alert-primary">
+                            <i class="bi bi-hourglass-top me-2"></i>
+                            Todavía no se guardó -- usa "Enviar a Conciliar" para confirmar.
+                        </div>
+                        <div class="list-group">
+                            @foreach (var cuota in transaccionDetalleIngreso.CuotasPropuestas)
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="fw-bold">@cuota.OwnerName (Unidad @cuota.UnitName)</span>
+                                        <span class="fw-bold text-primary">@Moneda(cuota.Amount)</span>
+                                    </div>
+                                    <small class="text-muted">
+                                        Cuota @cuota.Period.ToString("MMM-yy") &middot; Vence @cuota.DueDate.ToString("dd/MM/yyyy")
+                                    </small>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (!pagosDeEstaTransaccion.Any())
                     {
                         <div class="alert alert-warning">
                             <i class="bi bi-exclamation-triangle me-2"></i>
@@ -2080,22 +2105,35 @@
 
     private async Task VerDetallesTransaccion(TransactionBankDetail transaccion)
     {
-        if (transaccion.Tipo == "Ingreso" && transaccion.ReconciliationStatus != ConcilationType.NoConciliada)
+        // PropuestaPendiente (Fase B) también entra acá -- antes solo se activaba con
+        // ReconciliationStatus != NoConciliada, que ya no cambia hasta confirmar, así que el
+        // "ojo" de una propuesta (automática o manual) caía siempre en el toast genérico de
+        // abajo, sin decir con qué cuota se la estaba asociando.
+        if (transaccion.Tipo == "Ingreso" && (transaccion.ReconciliationStatus != ConcilationType.NoConciliada || transaccion.PropuestaPendiente))
         {
             transaccionDetalleIngreso = transaccion;
             mostrarModalVerDetalleIngreso = true;
             return;
         }
 
-        // Gasto (o Ingreso sin conciliar todavía): vista simple existente. showToast
-        // vuelca el mensaje via innerHTML (ver wwwroot/js/utilidades.js), asi que los
-        // saltos de línea se pasan como <br> en vez de "\n" para que se vean.
+        // Gasto (confirmado, propuesto, o sin conciliar todavía): vista simple existente.
+        // showToast vuelca el mensaje via innerHTML (ver wwwroot/js/utilidades.js), asi que
+        // los saltos de línea se pasan como <br> en vez de "\n" para que se vean.
+        var estado = transaccion.PropuestaPendiente
+            ? $"Propuesto ({(transaccion.PropuestaAutomatica ? "Auto" : "Manual")})"
+            : (transaccion.ReconciliationStatus == ConcilationType.Conciliada ? "Conciliado" : "Pendiente");
+
         var detalles = $"Fecha: {transaccion.StatementDate:dd/MM/yyyy}<br>" +
               $"Descripción: {transaccion.Description}<br>" +
               $"Monto: {Moneda(transaccion.Amount)}<br>" +
               $"Referencia: {transaccion.Reference}<br>" +
               $"Tipo: {transaccion.Tipo}<br>" +
-              $"Estado: {(transaccion.ReconciliationStatus == ConcilationType.Conciliada ? "Conciliado" : "Pendiente")}";
+              $"Estado: {estado}";
+
+        if (transaccion.Tipo == "Gasto" && transaccion.GastoConciliado != null)
+        {
+            detalles += $"<br>Gasto: {transaccion.GastoConciliado.Description} ({transaccion.GastoConciliado.Category})";
+        }
 
         await ShowToast("Detalle de transacción", detalles, "info");
     }

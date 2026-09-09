@@ -5,3 +5,9 @@
 .heat-3 { background-color: #ffc266; }
 .heat-4 { background-color: #ff9466; }
 .heat-5 { background-color: #ff6b6b; }
+
+/* Espacio entre la última columna (Cuotas) y el scroll vertical -- sin esto el
+   texto queda pegado contra la barra de scroll de .table-responsive. */
+.table-responsive {
+    padding-right: 0.75rem;
+}

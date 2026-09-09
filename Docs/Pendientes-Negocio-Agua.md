@@ -49,16 +49,32 @@ pantalla.
   `ResidentPages/MyWaterConsumption.razor`) ya usaban `CalculatedAmount`
   directamente sin recalcular -- no tenían este problema.
 
-**Cambio:** se sacó la llamada a `RecalcularTodas()` de `CargarPeriodo()`
-(se eliminó el método entero, quedó sin ningún otro punto de uso).
-`MarcarTodasComoProcesadas()` se mantiene (sólo habilita el botón Guardar,
-no toca montos). Recalcular sigue disponible, pero sólo ante una acción
-explícita del usuario.
+**Cambio (versión final):** `CargarPeriodo()` ahora sólo recalcula
+automáticamente si el período **todavía está en borrador** -- chequea
+`_ServiceReadingState.CurrentReading.Status != 2`. `Status == 2` es el mismo
+flag que `IBudgetService.SaveInstallment` le pone al `ServiceReading` al
+publicar el presupuesto que lo consume (queda así para siempre, incluso si
+ese presupuesto después pasa de Active a Closed -- `ClosePastBudgetsAsync`
+sólo toca `BudgetHeader`, no `ServiceReading`).
+
+- Período **ya publicado** (`Status == 2`): nunca se recalcula solo por
+  abrir la pantalla -- el monto que se cobró en su momento queda intacto.
+  Esto es lo que estaba roto antes (ver más arriba).
+- Período **todavía en borrador** (`Status != 2`, sin presupuesto publicado
+  que dependa de este monto): sí se recalcula al abrir -- si cambiaron las
+  tarifas en `/configwater` desde la última vez que se guardó, lo que se ve
+  en pantalla (y lo que se graba si el usuario toca "Guardar Lecturas")
+  refleja la tarifa actual. Pedido explícito del usuario: mantener esto para
+  no perder la posibilidad de que un cambio de tarifa a mitad de mes se vea
+  reflejado antes de publicar.
 
 **Pendiente de verificar con datos reales** (no hay acceso a BD en este
-entorno): confirmar que reabrir un período viejo en `/waterreadings` ahora
-muestra el mismo monto que quedó guardado la primera vez, incluso después de
-cambiar las tarifas en `/configwater`.
+entorno):
+- Reabrir un período de un presupuesto YA PUBLICADO en `/waterreadings`
+  debe mostrar el mismo monto que quedó guardado la primera vez, incluso
+  después de cambiar las tarifas en `/configwater`.
+- Reabrir un período TODAVÍA EN BORRADOR debe reflejar la tarifa actual si
+  cambió desde la última vez que se guardó.
 
 ---
 

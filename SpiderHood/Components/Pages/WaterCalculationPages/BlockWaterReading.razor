@@ -628,21 +628,27 @@
 
                 if (_ServiceReadingState.CurrentReadingDetail.Count > 0)
                 {
-                    // MarcarTodasComoProcesadas() sí corresponde acá (habilita "Guardar" y no
-                    // toca CalculatedAmount) -- lo que se sacó fue un RecalcularTodas() que
-                    // había acá antes. Este período YA tiene lecturas guardadas en BD, con su
-                    // CalculatedAmount ya calculado con la tarifa vigente EN ESE MOMENTO (ver
-                    // GuardarLecturas). Ese RecalcularTodas() volvía a llamar
-                    // CalcularConsumoAsync con la tarifa vigente HOY, pisando en memoria (y, si
-                    // el usuario después tocaba "Guardar Lecturas", en BD también) el monto ya
-                    // calculado -- para cualquier período, incluidos los de un presupuesto ya
-                    // publicado/cerrado. Si cambian las tarifas en /configwater, un período
-                    // viejo terminaba mostrando (y pudiendo re-guardar) un monto distinto al
-                    // que realmente se cobró. Recalcular sigue disponible, pero sólo ante una
-                    // acción explícita del usuario sobre una lectura puntual
-                    // (onKeyPress/ApplyMinimun) o un cambio de Cargo Fijo (CambiarCargoFijo) --
-                    // nunca automático al sólo abrir el período.
                     MarcarTodasComoProcesadas();
+
+                    // Status == 2 significa que este período YA fue consumido por un
+                    // presupuesto publicado (IBudgetService.SaveInstallment le pone Status = 2
+                    // al publicar; queda así para siempre, incluso si ese presupuesto después
+                    // pasa de Active a Closed -- ClosePastBudgetsAsync sólo toca BudgetHeader).
+                    // A partir de ahí el monto ya se cobró de verdad y NUNCA se recalcula solo
+                    // por abrir la pantalla (ver Docs/Pendientes-Negocio-Agua.md #1 -- antes
+                    // esto pasaba para cualquier período, publicado o no, y el monto
+                    // recalculado con la tarifa de HOY se podía re-guardar encima del real).
+                    //
+                    // Mientras el período siga en borrador (Status != 2, todavía no hay
+                    // presupuesto publicado que dependa de este monto), si cambiaron las
+                    // tarifas en /configwater desde que se guardó por última vez, sí
+                    // corresponde reflejar la tarifa actual acá -- nada se "pierde" porque
+                    // nada se cobró todavía, y así lo que se ve en pantalla coincide con lo
+                    // que se va a grabar si el usuario toca "Guardar Lecturas".
+                    if (_ServiceReadingState.CurrentReading.Status != 2)
+                    {
+                        await RecalcularTodas();
+                    }
                 }
                 else
                 {
@@ -817,6 +823,16 @@
         {
             // TODO: Mostrar error al recalcular
             Console.WriteLine($"Error al recalcular: {ex.Message}");
+        }
+    }
+
+    // Sólo se llama desde CargarPeriodo() para un período todavía en borrador (Status !=
+    // 2) -- ver el comentario ahí. Para uno ya publicado, este método no se ejecuta.
+    private async Task RecalcularTodas()
+    {
+        foreach (var lectura in _ServiceReadingState.CurrentReadingDetail.Where(l => l.Procesed))
+        {
+            await RecalcularLectura(lectura, (double)ParameterService.CurrentBuilding.Configuration.MinWaterConsumtion);
         }
     }
 

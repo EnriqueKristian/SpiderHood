@@ -249,30 +249,36 @@ con espacios de entrada.
 
 ### 6.5 "Listado de Cuotas" (`/cuotas`) no respeta el orden que le pide la página
 
-**Estado: pendiente, sin empezar.** Encontrado revisando cuotas migradas de
-Nova Alzamora, pero es un bug general de `Classes/PaginationClass.cs` -- pasa
-con cualquier edificio, no solo con datos migrados.
+**Estado: resuelto (2026-09-09), branch `claude/lista-pendientes-0gb03a`** --
+con la opción "puntual" de las dos que se habían anotado acá abajo.
 
-`InstallmentList.razor:383` arma la lista con
+`InstallmentList.razor:396` arma la lista con
 `.OrderByDescending(i => i.Period).ThenBy(i => i.UnitName)` antes de pasarla a
-`pagination.Initialize(...)`, pero ese orden nunca llega a aplicarse:
-`InstallmentPagination` (en `PaginationClass.cs`) se configura con
-`InitializeConfiguration(..., "Period")`, y mientras no haya una columna
-elegida a mano (`SortColumn` vacío), `ApplyFilterAndSort()` siempre reordena
-con `FilteredData.OrderBy(defaultSort)` -- ascendente, de un solo criterio --
-descartando por completo el orden (y el `ThenBy`) que le pasó el llamador.
-Confirmado con el usuario: la pantalla debería mostrar lo más reciente
-primero (descendente), no ascendente como sale hoy.
+`pagination.Initialize(...)`, pero ese orden no llegaba a aplicarse:
+`InstallmentPagination` (en `PaginationClass.cs`) se configuraba con
+`InitializeConfiguration(..., "Period")`, y mientras no hubiera una columna
+elegida a mano (`SortColumn` vacío -- este listado no tiene headers
+clickeables para ordenar, así que `SortColumn` nunca se llena),
+`ApplyFilterAndSort()` siempre reordenaba con `FilteredData.OrderBy(defaultSort)`
+-- ascendente, de un solo criterio -- descartando por completo el orden que
+le pasó el llamador. Confirmado con el usuario: la pantalla debería mostrar
+lo más reciente primero (descendente).
 
-Dos formas de arreglarlo, a decidir cuando se aborde:
-- Puntual: que `InstallmentPagination` arranque con orden descendente por
-  columna 'Period' (revisar si `PaginationClass` ya soporta un
-  `defaultSortAscending` o hay que agregarlo).
-- De fondo: que `ApplyFilterAndSort()` respete el orden ya aplicado por el
-  llamador cuando no hay `SortColumn` explícito, en vez de siempre re-ordenar
-  por `_defaultSortColumn` ascendente -- afecta a cualquier otra pantalla que
-  use `PaginationClass<T>` con esta misma suposición implícita, así que
-  conviene revisar los demás usos antes de tocarlo.
+**Fix:** `PaginationClass<T>` ahora acepta un `defaultSortAscending` (nuevo
+parámetro opcional en `InitializeConfiguration`/constructor, `true` por
+defecto -- no cambia el comportamiento de ninguna otra pantalla que use
+`PaginationClass<T>`) y `ApplyFilterAndSort()` lo usa para decidir
+`OrderBy`/`OrderByDescending` cuando ordena por la columna default. Sólo
+`InstallmentPagination` pasa `defaultSortAscending: false`. El `ThenBy(UnitName)`
+del llamador no se perdió: como `OrderBy`/`OrderByDescending` de LINQ son
+estables, reordenar por Period sobre una lista que ya venía sub-ordenada por
+UnitName conserva ese orden secundario dentro de cada período, sin necesidad
+de agregarle un segundo criterio de sort a `PaginationClass`.
+
+No se tocó la opción "de fondo" (que `ApplyFilterAndSort()` respete el orden
+del llamador cuando no hay `SortColumn`) -- hubiera afectado a las otras 5
+pantallas que usan `PaginationClass<T>`, para un caso que la opción puntual ya
+resuelve sin ese riesgo.
 
 ### 6.6 "Conciliación de Pagos" falla con rangos de fecha amplios
 

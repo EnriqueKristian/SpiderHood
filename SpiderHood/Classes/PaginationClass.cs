@@ -22,6 +22,7 @@ namespace SpiderHood.Utilities
         private Dictionary<string, string> _filterOptions = new();
         private Dictionary<string, Func<T, object>> _sortExpressions = new();
         private string _defaultSortColumn = string.Empty;
+        private bool _defaultSortAscending = true;
         private Func<T, bool> _customFilter = null;
 
         // Eventos
@@ -36,20 +37,23 @@ namespace SpiderHood.Utilities
         public PaginationClass(
             Dictionary<string, string> filterOptions,
             Dictionary<string, Func<T, object>> sortExpressions,
-            string defaultSortColumn = "")
+            string defaultSortColumn = "",
+            bool defaultSortAscending = true)
         {
-            InitializeConfiguration(filterOptions, sortExpressions, defaultSortColumn);
+            InitializeConfiguration(filterOptions, sortExpressions, defaultSortColumn, defaultSortAscending);
         }
 
         // Método para inicializar configuración
         public void InitializeConfiguration(
             Dictionary<string, string> filterOptions,
             Dictionary<string, Func<T, object>> sortExpressions,
-            string defaultSortColumn = "")
+            string defaultSortColumn = "",
+            bool defaultSortAscending = true)
         {
             _filterOptions = filterOptions ?? new Dictionary<string, string>();
             _sortExpressions = sortExpressions ?? new Dictionary<string, Func<T, object>>();
             _defaultSortColumn = defaultSortColumn;
+            _defaultSortAscending = defaultSortAscending;
 
             if (!string.IsNullOrEmpty(_defaultSortColumn) && !_sortExpressions.ContainsKey(_defaultSortColumn))
             {
@@ -105,7 +109,9 @@ namespace SpiderHood.Utilities
                      _sortExpressions.ContainsKey(_defaultSortColumn))
             {
                 var defaultSort = _sortExpressions[_defaultSortColumn];
-                FilteredData = FilteredData.OrderBy(defaultSort).ToList();
+                FilteredData = _defaultSortAscending
+                    ? FilteredData.OrderBy(defaultSort).ToList()
+                    : FilteredData.OrderByDescending(defaultSort).ToList();
             }
         }
 
@@ -489,7 +495,12 @@ namespace SpiderHood.Utilities
             { "IsPaid", x => x.IsPaid }
         };
 
-            InitializeConfiguration(filterOptions, sortExpressions, "Period");
+            // Descendente por defecto (más reciente primero) -- ver
+            // Docs/Pendientes-Negocio-Migracion.md #6.5: sin esto, ApplyFilterAndSort
+            // reordenaba siempre ascendente por Period mientras no hubiera SortColumn
+            // elegido a mano, ignorando el OrderByDescending que arma InstallmentList.razor
+            // antes de pasarle los datos a Initialize(...).
+            InitializeConfiguration(filterOptions, sortExpressions, "Period", defaultSortAscending: false);
         }
 
         protected override List<Installment> ApplySearch(List<Installment> data, string searchTerm)

@@ -77,7 +77,7 @@
         else if (!_filas.Any())
         {
             <div class="alert alert-info">
-                <i class="bi bi-info-circle me-2"></i>No hay presupuestos Ordinarios Activos en el periodo seleccionado.
+                <i class="bi bi-info-circle me-2"></i>No hay presupuestos Ordinarios publicados (Activo o Cerrado) en el periodo seleccionado.
             </div>
         }
         else
@@ -203,11 +203,19 @@
             // "Presupuesto" acá es sólo el ciclo Ordinario mensual (BudgetType vacío) --
             // Extraordinaria/Cargos (Multas y Mora) viven bajo sus propios BudgetHeader
             // ("Extraordinario"/"Cargos") y no son "el presupuesto" del periodo en el
-            // sentido de este reporte. Sólo Activo: un presupuesto en borrador/rechazado
-            // no tiene cuotas reales generadas todavía, no aporta nada a recaudar.
-            var presupuestos = await BudgetService.GetPresupuestosAsync(idBuilding, estado: BudgetStatus.Active);
+            // sentido de este reporte.
+            //
+            // Activo + Cerrado, no sólo Activo: IBudgetService.SaveInstallment (que genera
+            // las cuotas reales) sólo corre al pasar a Active -- pero sólo puede haber UN
+            // presupuesto Active por edificio a la vez (al publicar uno nuevo,
+            // ClosePastBudgetsAsync pasa todos los anteriores a Closed). Filtrar sólo por
+            // Active mostraba nada más el mes vigente, aunque los meses ya cerrados también
+            // tienen cuotas reales y recaudación real para reportar. Created/Check/Approved/
+            // Rejected sí quedan afuera -- esos todavía no generaron ninguna cuota.
+            var presupuestos = await BudgetService.GetPresupuestosAsync(idBuilding);
             var ordinarios = presupuestos
                 .Where(p => string.IsNullOrEmpty(p.BudgetType) &&
+                    (p.Status == BudgetStatus.Active || p.Status == BudgetStatus.Closed) &&
                     p.BudgetDate.Date >= fechaDesde.Date && p.BudgetDate.Date <= fechaHasta.Date)
                 .OrderBy(p => p.BudgetDate)
                 .ToList();

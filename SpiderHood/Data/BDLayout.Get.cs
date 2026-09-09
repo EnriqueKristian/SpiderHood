@@ -1065,6 +1065,17 @@ namespace SpiderHood.Data
             }, "GetWorkflowAuditLog", cancellationToken);
         }
 
+        // Docs/Pendientes-Negocio-Conciliacion.md #3 -- GET_LastReconciliationSession ya
+        // trae sólo la más reciente (TOP 1 ORDER BY Fecha DESC) por cuenta bancaria.
+        public async Task<Models.Conciliacion?> GetLastReconciliationSessionAsync(Guid idBankAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var resultado = await ExecuteQueryListAsync<Models.Conciliacion>(StoredProcedures.GET_LastReconciliationSession, idBankAccount);
+                return resultado.FirstOrDefault();
+            }, "GetLastReconciliationSession", cancellationToken);
+        }
+
         public async Task<List<Models.IncidentComment>> GetIncidentCommentsAsync(Guid idIncident, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

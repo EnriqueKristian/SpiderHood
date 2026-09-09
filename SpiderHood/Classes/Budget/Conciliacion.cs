@@ -4,8 +4,13 @@ namespace SpiderHood.Models
 {
     public class Conciliacion
     {
-        public int Id { get; set; }
+        // Docs/Pendientes-Negocio-Conciliacion.md #3 -- antes Id era int (nunca se
+        // guardaba de verdad, así que no importaba), ahora que se persiste de verdad
+        // se genera acá igual que WorkflowAuditEntry.Id, no como identity de la BD.
+        public Guid Id { get; set; } = Guid.NewGuid();
         public Guid CuentaBancariaId { get; set; }
+        // Para poder filtrar/scopear por edificio -- antes no existía este campo.
+        public Guid IdBuilding { get; set; }
         public DateTime FechaInicio { get; set; }
         public DateTime FechaFin { get; set; }
         public int TransaccionesProcesadas { get; set; }

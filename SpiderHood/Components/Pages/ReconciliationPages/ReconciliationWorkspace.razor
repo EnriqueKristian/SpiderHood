@@ -1448,8 +1448,10 @@
             // Cargar categorías de gastos
             //categoriasGastos = await ExpenseService.ObtenerCategoriasAsync();
 
-            // Cargar última conciliación
-            ultimaConciliacion = await BankService.ObtenerUltimaConciliacionAsync();
+            // "Última conciliación" ahora se carga en CargarTransacciones() -- ahí ya se
+            // conoce cuentaSeleccionadaId (acá todavía es Guid.Empty la mayor parte del
+            // tiempo, se asigna recién después de este método) y así también se refresca
+            // al cambiar de cuenta bancaria (CambiarCuenta), no sólo en la carga inicial.
 
             FilteredCategory = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
         }
@@ -1480,6 +1482,11 @@
             // éste en CalcularEstadisticas) siempre mostraban 0 sin importar el valor real
             // configurado en la cuenta bancaria.
             saldoInicial = cuentasBancarias.FirstOrDefault(c => c.IdBankAccount == cuentaSeleccionadaId)?.InitialBalance ?? 0;
+
+            // Docs/Pendientes-Negocio-Conciliacion.md #3 -- antes traía siempre el mismo
+            // registro inventado (ver el comentario de ObtenerUltimaConciliacionAsync);
+            // ahora es la sesión real más reciente de esta cuenta bancaria.
+            ultimaConciliacion = await BankService.ObtenerUltimaConciliacionAsync(cuentaSeleccionadaId);
 
             // Cargar transacciones del período seleccionado
             var (fechaInicio, fechaFin) = ObtenerFechasPeriodo();
@@ -2188,6 +2195,7 @@
             var conciliacion = new Conciliacion
             {
                 CuentaBancariaId = cuentaSeleccionadaId,
+                IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
                 FechaInicio = fechaDesde,
                 FechaFin = fechaHasta,
                 TransaccionesProcesadas = transacciones.Count,
@@ -2198,6 +2206,9 @@
                 Usuario = performedBy
             };
 
+            // Docs/Pendientes-Negocio-Conciliacion.md #3 -- antes esto no tocaba la BD
+            // (Task.Delay + Console.WriteLine), así que "Finalizar Conciliación" nunca
+            // dejaba registro real de la sesión completa.
             await BankService.GuardarConciliacionAsync(conciliacion);
             mensajeExito = "Conciliación finalizada exitosamente";
 

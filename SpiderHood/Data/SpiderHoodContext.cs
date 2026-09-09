@@ -79,6 +79,8 @@ namespace SpiderHood.Data
             });
             modelBuilder.Entity<Models.SystemLogEntry>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.SystemLogSettings>().HasNoKey(); // If SP doesn't return a primary key
+            // Docs/Pendientes-Negocio-Conciliacion.md #3
+            modelBuilder.Entity<Models.Conciliacion>().HasNoKey(); // If SP doesn't return a primary key
             // Status sigue siendo un enum de C# guardado como texto en la BD (ver
             // Database/Scripts/2026-09-02_05_Incidents.sql) -- sin HasConversion<string>()
             // EF Core asume que un enum es int por default y GET_Incidents* revienta con

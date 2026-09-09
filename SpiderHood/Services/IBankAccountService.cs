@@ -20,7 +20,7 @@ namespace SpiderHood.Services
         // verdad vía UPD_ExpenseDeReconcilied.
         Task DesconciliarGastoRealAsync(Guid idStatementDetail, Guid idExpense);
         Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion, string motivo, IgnoredReasonType tipo);
-        Task<Conciliacion?> ObtenerUltimaConciliacionAsync();
+        Task<Conciliacion?> ObtenerUltimaConciliacionAsync(Guid idBankAccount);
         Task GuardarConciliacionAsync(Conciliacion conciliacion);
         Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
         Task InstallmentConciliationAsync(TransactionBankDetail transaccion, Installment cuota);
@@ -292,29 +292,19 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<Conciliacion?> ObtenerUltimaConciliacionAsync()
+        // Docs/Pendientes-Negocio-Conciliacion.md #3 -- antes era un stub que devolvía
+        // siempre el mismo registro inventado (Id=1, "Admin Principal", etc.), sin tocar
+        // la BD -- la tarjeta "Última Conciliación" mostraba datos falsos sin importar lo
+        // que hubiera pasado realmente. Ahora trae la sesión real más reciente de ESTA
+        // cuenta bancaria (ver GuardarConciliacionAsync).
+        public async Task<Conciliacion?> ObtenerUltimaConciliacionAsync(Guid idBankAccount)
         {
-            await Task.Delay(200);
-
-            return new Conciliacion
-            {
-                Id = 1,
-                CuentaBancariaId = new Guid("0201291D-D015-4D6E-9C71-635F76E04728"),
-                FechaInicio = DateTime.Now.AddMonths(-1),
-                FechaFin = DateTime.Now,
-                TransaccionesProcesadas = 45,
-                TransaccionesConciliadas = 42,
-                Diferencia = 125.50m,
-                Completada = true,
-                Fecha = DateTime.Now.AddDays(-3),
-                Usuario = "Admin Principal"
-            };
+            return await ec.GetLastReconciliationSessionAsync(idBankAccount);
         }
 
         public async Task GuardarConciliacionAsync(Conciliacion conciliacion)
         {
-            await Task.Delay(300);
-            Console.WriteLine($"Conciliación guardada: {conciliacion.Id}");
+            await ec.AddNewRecordAsync(conciliacion);
         }
 
         public async Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato)

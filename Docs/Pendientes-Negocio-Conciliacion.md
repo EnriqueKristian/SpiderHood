@@ -92,19 +92,41 @@ aparte?), y cómo/si eso pasa por esta misma pantalla de conciliación.
 
 ## 3. (Encontrado en el camino) El resumen de "sesión de conciliación" no se guarda de verdad
 
-**Estado: identificado, no arreglado -- reportado al usuario, no se decidió
-si vale la pena.**
+**Estado: implementado (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
 
-Al implementar Fase B se encontró que `BankAccountService.GuardarConciliacionAsync`
+Al implementar Fase B se había encontrado que `BankAccountService.GuardarConciliacionAsync`
 y `ObtenerUltimaConciliacionAsync` (usados por "Finalizar Conciliación" y la
-tarjeta "Última Conciliación") son stubs (`Task.Delay(...)` + `Console.WriteLine`,
-sin tocar la BD) -- el registro de "sesión de conciliación completa" (fecha,
-cuántas transacciones, diferencia) nunca se guardó realmente, a diferencia del
-registro POR TRANSACCIÓN que sí es real (`IWorkflowAuditService`, tabla
-`WorkflowAuditEntry`, ya usado por Conciliar/Corregir desde la Fase B).
+tarjeta "Última Conciliación") eran stubs -- pero resultó peor que "no
+implementado": `ObtenerUltimaConciliacionAsync` devolvía **siempre el mismo
+registro inventado** (`Id=1`, fecha fija "hace 3 días", `Usuario="Admin
+Principal"`, 42/45 transacciones, `Diferencia S/125.50`), sin tocar la BD.
+La tarjeta "Última Conciliación" mostraba ese dato falso sin importar lo que
+hubiera pasado realmente -- confirmado con el usuario, se decidió
+implementarlo de verdad en vez de sólo apagar el dato falso.
 
-Como el requisito de "que quede registrado quién concilió" ya se cumple a
-nivel de cada transacción individual, este resumen de sesión quedó
-como algo "bonito de tener" (dashboard/reporte de sesiones de conciliación),
-no bloqueante -- se documenta acá en vez de implementarlo sin que el usuario
-lo haya pedido.
+**Cambios:**
+- Tabla nueva `dbo.ReconciliationSession` + SPs `INS_ReconciliationSession`/
+  `GET_LastReconciliationSession` (`Database/Scripts/2026-09-09_71_ReconciliationSession.sql`)
+  -- mismo patrón que `WorkflowAuditLog` (tabla 100% nueva, no toca nada
+  existente). No se reutilizó `WorkflowAuditLog` (que sí es real, por
+  transacción) porque no tiene forma de agrupar qué transacciones se
+  procesaron juntas en un mismo "Finalizar Conciliación" -- sólo tiene
+  `EntityId` (una transacción) y `PerformedOn`, sin un identificador de sesión.
+- `Classes/Budget/Conciliacion.cs`: `Id` pasó de `int` a `Guid` (se generaba
+  pero nunca se guardaba antes, ahora sí importa), y se agregó `IdBuilding`
+  (no existía).
+- `BankAccountService.ObtenerUltimaConciliacionAsync` ahora recibe
+  `idBankAccount` y trae la sesión real más reciente de esa cuenta
+  (`GET_LastReconciliationSession`, `TOP 1 ORDER BY Fecha DESC`) --
+  `GuardarConciliacionAsync` ahora inserta de verdad.
+- `ReconciliationWorkspace.razor`: la carga de "última conciliación" se
+  movió de `CargarDatosIniciales()` (donde `cuentaSeleccionadaId` todavía era
+  `Guid.Empty`) a `CargarTransacciones()`, así se refresca también al cambiar
+  de cuenta bancaria, no sólo en la carga inicial.
+
+**Pendiente de verificar con datos reales** (no hay acceso a BD en este
+entorno): confirmar que la tarjeta "Última Conciliación" queda vacía/sin
+mostrar nada la primera vez que se usa una cuenta bancaria nueva (antes de
+que exista ninguna sesión guardada), y que después de "Finalizar
+Conciliación" el próximo `ObtenerUltimaConciliacionAsync` trae esa misma
+sesión recién guardada.

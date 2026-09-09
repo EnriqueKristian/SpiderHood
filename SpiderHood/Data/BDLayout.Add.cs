@@ -811,6 +811,32 @@ namespace SpiderHood.Data
             }, "AddWorkflowAuditLog", cancellationToken);
         }
 
+        // Docs/Pendientes-Negocio-Conciliacion.md #3
+        public async Task<Models.Conciliacion> AddNewRecordAsync(Models.Conciliacion sesion, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(sesion, nameof(sesion));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ReconciliationSession,
+                    cancellationToken,
+                    sesion.Id,
+                    sesion.CuentaBancariaId,
+                    sesion.IdBuilding,
+                    sesion.FechaInicio,
+                    sesion.FechaFin,
+                    sesion.TransaccionesProcesadas,
+                    sesion.TransaccionesConciliadas,
+                    sesion.Diferencia,
+                    sesion.Completada,
+                    sesion.Fecha,
+                    sesion.Usuario,
+                    (object?)(string.IsNullOrWhiteSpace(sesion.Notas) ? null : sesion.Notas));
+                return sesion;
+            }, "AddReconciliationSession", cancellationToken);
+        }
+
         public async Task<Models.SystemLogEntry> AddNewRecordAsync(Models.SystemLogEntry entry, CancellationToken cancellationToken = default)
         {
             ValidateEntity(entry, nameof(entry));

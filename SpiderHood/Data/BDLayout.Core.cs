@@ -251,6 +251,10 @@ namespace SpiderHood.Data
             public const string INS_WorkflowAuditLog = "INS_WorkflowAuditLog";
             public const string GET_WorkflowAuditLog = "GET_WorkflowAuditLog";
 
+            // Reconciliation Session Procedures -- Docs/Pendientes-Negocio-Conciliacion.md #3
+            public const string INS_ReconciliationSession = "INS_ReconciliationSession";
+            public const string GET_LastReconciliationSession = "GET_LastReconciliationSession";
+
             // System Log Procedures
             public const string INS_SystemLog = "INS_SystemLog";
             public const string GET_SystemLogSettings = "GET_SystemLogSettings";

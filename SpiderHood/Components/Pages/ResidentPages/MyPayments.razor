@@ -1,0 +1,219 @@
+@page "/MyPayments"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+@using SpiderHood.Components.Pages.Components
+@inject Services.AuthService AuthService
+@inject Services.IInstallmentService InstallmentService
+@inject ParameterService ParameterService
+
+<PageTitle>Mis Pagos - SpiderHood</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="icon-badge">
+            <i class="bi bi-cash-coin"></i>
+        </div>
+        <h1 class="h3 fw-bold mb-0">Mis Pagos</h1>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_unitId == null)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Tu cuenta todavía no tiene una unidad vinculada en este edificio. Pedile al
+            administrador que te la asigne en <em>Configuración &gt; Asignación de Roles</em>.
+        </div>
+    }
+    else
+    {
+        <!-- Resumen -->
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-4">
+                <div class="card card-hover h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase small mb-1">Nro. de Pagos</h6>
+                                <h2 class="mb-0">@_misPagos.Count</h2>
+                            </div>
+                            <div style="color: #3b82f6;">
+                                <i class="bi bi-receipt-cutoff" style="font-size: 1.2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div class="card card-hover h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase small mb-1">Total Pagado</h6>
+                                <h2 class="mb-0">@Moneda(_misPagos.Sum(p => p.Amount))</h2>
+                            </div>
+                            <div style="color: #10b981;">
+                                <i class="bi bi-check-circle" style="font-size: 1.2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4">
+                <div class="card card-hover h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase small mb-1">Último Pago</h6>
+                                @{
+                                    var ultimo = _misPagos.OrderByDescending(p => p.PaymentDate).FirstOrDefault();
+                                }
+                                <h2 class="mb-0">@(ultimo == null ? "—" : ultimo.PaymentDate.ToString("dd/MM/yy"))</h2>
+                            </div>
+                            <div style="color: #f59e0b;">
+                                <i class="bi bi-calendar-event" style="font-size: 1.2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+            <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroPeriodoChanged">
+                <option value="">Todos los periodos</option>
+                @foreach (var periodo in PeriodosDisponibles())
+                {
+                    <option value="@periodo.ToString("yyyy-MM-dd")" selected="@(_filtroPeriodo == periodo)">
+                        @periodo.ToString("MMM-yy")
+                    </option>
+                }
+            </select>
+        </div>
+
+        @if (!_pagination.AllData.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Todavía no se registran pagos aplicados a tu unidad en este edificio.
+            </div>
+        }
+        else if (!_pagination.FilteredData.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-search me-2"></i>
+                No se encontraron pagos con los filtros aplicados.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha de Pago</th>
+                            <th>Período de la Cuota</th>
+                            <th class="text-end">Monto Aplicado</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Total de la Cuota</th>
+                            <th class="text-end">Pendiente de la Cuota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var pago in _pagination.CurrentPageData)
+                        {
+                            <tr>
+                                <td>@pago.PaymentDate.ToString("dd/MM/yyyy")</td>
+                                <td>@pago.Period.ToString("MMM-yy")</td>
+                                <td class="text-end fw-bold text-success">@Moneda(pago.Amount)</td>
+                                <td>
+                                    @if (pago.IsPartialPayment)
+                                    {
+                                        <span class="badge bg-warning text-dark">Pago parcial</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">Pago total</span>
+                                    }
+                                </td>
+                                <td class="text-end">@Moneda(pago.InstallmentAmount)</td>
+                                <td class="text-end">@Moneda(Math.Max(pago.InstallmentDebt, 0))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (_pagination.TotalPages > 1)
+            {
+                <PaginationControls _pagination="@_pagination" />
+            }
+        }
+    }
+</div>
+
+@code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
+    private bool _loading = true;
+    private Guid? _unitId;
+    private List<InstallmentPaid> _misPagos = new();
+    private PaginationClass<InstallmentPaid> _pagination = new();
+
+    private DateTime? _filtroPeriodo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _pagination.OnPaginationChanged += StateHasChanged;
+
+        try
+        {
+            _unitId = await AuthService.GetCurrentUnitIdAsync();
+            if (_unitId != null && ParameterService.CurrentBuilding != null)
+            {
+                // GetInstallmentsByBuildingAsync (no GetPendingInstallmentsAsync): necesitamos el
+                // IdGroupUnit de TODAS las cuotas de mi unidad, sin importar su estado, para saber
+                // a cuáles de mis cuotas corresponde cada InstallmentPaid -- las pendientes solas
+                // no alcanzan (una cuota ya totalmente pagada desaparece de esa lista).
+                var todasCuotas = await InstallmentService.GetInstallmentsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+                var misCuotaIds = todasCuotas.Where(i => i.IdGroupUnit == _unitId).Select(i => i.IdInstallment).ToHashSet();
+
+                var todosPagos = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
+                _misPagos = todosPagos.Where(p => misCuotaIds.Contains(p.IdInstallment))
+                    .OrderByDescending(p => p.PaymentDate)
+                    .ToList();
+
+                _pagination.Initialize(_misPagos);
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    public void Dispose() => _pagination.OnPaginationChanged -= StateHasChanged;
+
+    private IEnumerable<DateTime> PeriodosDisponibles() =>
+        _misPagos.Select(p => p.Period.Date).Distinct().OrderByDescending(p => p);
+
+    private void OnFiltroPeriodoChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        _filtroPeriodo = string.IsNullOrEmpty(value) ? null : DateTime.Parse(value);
+        AplicarFiltros();
+    }
+
+    private void AplicarFiltros()
+    {
+        _pagination.ApplyCustomFilter(item => _filtroPeriodo == null || item.Period.Date == _filtroPeriodo.Value.Date);
+    }
+}

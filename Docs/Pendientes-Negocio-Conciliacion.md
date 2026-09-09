@@ -328,3 +328,51 @@ entorno): "Crear Gasto" (o matchear uno existente) → "Finalizar
 Conciliación" → F5 (o cambiar de período y volver) → confirmar que la
 transacción queda en "Conciliados"/"Auto"/"Manual" según corresponda, no en
 "No Conciliadas".
+
+---
+
+## 8. "Finalizar Conciliación" en /ConciliacionGastos también conciliaba Pagos (y viceversa)
+
+**Estado: resuelto (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
+
+Reportado por el usuario: trabajó y confirmó Gastos desde /ConciliacionGastos
+("Conciliación de Gastos"), y al entrar después a /ConciliacionPagos
+("Conciliación de Pagos") se encontró con que los pagos con match exacto
+1:1 YA estaban conciliados, sin haber tocado nada en esa pantalla.
+"Deberían ser distinto si se hacen de pantallas distintas, Gastos concilia
+Gastos, Pagos concilia Pagos".
+
+**Causa:** `ReconciliationWorkspace.razor` es un único componente
+compartido por `/ConciliacionGastos` (`ModoFijo="Gasto"`),
+`/ConciliacionPagos` (`ModoFijo="Ingreso"`) y la vista combinada vieja
+(`ModoFijo=null`) -- mismos datos, mismo motor. Al cargar transacciones se
+auto-proponen matches exactos (1:1) tanto de Gasto como de Ingreso, sin
+mirar `ModoFijo` (es intencional: son coincidencias reales del período,
+independientemente de qué pantalla las mostró primero). El problema estaba
+en la confirmación: `EnviarAConciliar()` tomaba `transacciones.Where(t =>
+t.PropuestaPendiente)` **sin filtrar por `Tipo`/`ModoFijo`** -- así que
+tocar "Finalizar Conciliación" (o el botón "Enviar a Conciliar (N)") desde
+/ConciliacionGastos confirmaba de una TODAS las propuestas pendientes,
+incluidas las de Ingreso que el usuario nunca llegó a revisar en esa
+pantalla (y que, para colmo, contaban en el número mostrado en el botón).
+`FinalizarConciliacion()` tenía el mismo problema en dos chequeos
+adicionales (`transacciones.Any(t => t.PropuestaPendiente)`).
+
+**Cambio:** las tres lecturas pasaron a usar `TransaccionesDelModo` (la
+misma propiedad que ya acotaba `transaccionesConciliadas`/
+`transaccionesNoConciliadas` por `ModoFijo`, pero que `EnviarAConciliar`/
+`FinalizarConciliacion` no estaban usando):
+- El contador del botón "Enviar a Conciliar (N)".
+- `EnviarAConciliar()`: sólo confirma propuestas del tipo de la pantalla
+  actual.
+- `FinalizarConciliacion()`: sólo mira si hay propuestas pendientes -- antes
+  y después de confirmar -- del tipo de la pantalla actual, para no cortar
+  ni registrar la sesión en base a propuestas de la otra pantalla.
+En la vista combinada (`ModoFijo=null`, `/ReconcileExpenses`) el
+comportamiento no cambia -- ahí sigue confirmando todo junto, como siempre.
+
+**Pendiente de probar con datos reales** (no hay acceso a BD en este
+entorno): desde /ConciliacionGastos, con un pago 1:1 pendiente de propuesta
+automática de fondo, confirmar Gastos y verificar que el pago sigue
+apareciendo como propuesta pendiente (no conciliado) al entrar después a
+/ConciliacionPagos.

@@ -38,7 +38,7 @@
                 </div>
 
                 <div class="page-header-actions">
-                    @{ var totalPropuestas = transacciones.Count(t => t.PropuestaPendiente); }
+                    @{ var totalPropuestas = TransaccionesDelModo.Count(t => t.PropuestaPendiente); }
                     @if (totalPropuestas > 0)
                     {
                         <button class="btn btn-success" @onclick="EnviarAConciliar">
@@ -1699,9 +1699,15 @@
     // Devuelve true si efectivamente confirmó al menos una propuesta -- FinalizarConciliacion
     // lo usa para saber si de verdad hay algo que cerrar (el usuario pudo cancelar el
     // confirm de abajo, o no haber propuestas para empezar).
+    //
+    // Acotado por TransaccionesDelModo (ModoFijo) -- antes usaba `transacciones` a secas,
+    // así que "Finalizar Conciliación" en /ConciliacionGastos también confirmaba propuestas
+    // de Ingreso que estaban pendientes de revisar en /ConciliacionPagos (típicamente los
+    // matches automáticos 1:1, que se auto-proponen para ambos tipos apenas se cargan las
+    // transacciones, sin importar en qué pantalla fija estés parado).
     private async Task<bool> EnviarAConciliar()
     {
-        var propuestas = transacciones.Where(t => t.PropuestaPendiente).ToList();
+        var propuestas = TransaccionesDelModo.Where(t => t.PropuestaPendiente).ToList();
         if (!propuestas.Any()) return false;
 
         if (!await ConfirmarAsync(
@@ -2227,14 +2233,20 @@
 
         try
         {
-            if (transacciones.Any(t => t.PropuestaPendiente))
+            // Acotado a TransaccionesDelModo (ver comentario en EnviarAConciliar) -- si no,
+            // una propuesta pendiente del OTRO tipo (ej. un match automático de Ingreso
+            // visto desde /ConciliacionGastos) hacía entrar acá y, peor, el chequeo de abajo
+            // seguía dando "true" después de confirmar (porque esa propuesta ajena seguía
+            // pendiente), cortando la sesión sin registrarla aunque sí se hubiera conciliado
+            // todo lo de esta pantalla.
+            if (TransaccionesDelModo.Any(t => t.PropuestaPendiente))
             {
                 await EnviarAConciliar();
 
                 // El usuario pudo cancelar el confirm de EnviarAConciliar -- si todavía quedan
-                // propuestas pendientes, no se llegó a confirmar nada, así que no correspondé
-                // registrar la sesión como finalizada.
-                if (transacciones.Any(t => t.PropuestaPendiente)) return;
+                // propuestas pendientes DE ESTE MODO, no se llegó a confirmar nada, así que no
+                // corresponde registrar la sesión como finalizada.
+                if (TransaccionesDelModo.Any(t => t.PropuestaPendiente)) return;
             }
 
             var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;

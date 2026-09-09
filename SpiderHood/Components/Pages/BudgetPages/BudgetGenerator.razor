@@ -619,7 +619,7 @@
         {
             _textCabecera = _BudgetState.Budget.BudgetName;
             //Cargar Lectura de Agua
-            _BudgetState.WaterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(_BudgetState.Budget.BudgetDate);
+            _BudgetState.WaterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(_BudgetState.Budget.BudgetDate, ParameterService.CurrentBuilding.IdBuilding);
             bool isActiveOrClosed = _BudgetState.Status == BudgetStatus.Active || _BudgetState.Status == BudgetStatus.Closed;
 
             _BudgetState.Exonerations = isActiveOrClosed

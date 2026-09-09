@@ -292,7 +292,7 @@
         if (cuota == null || ParameterService.CurrentBuilding == null) return;
 
         var budget = await BudgetService.GetPresupuestoByIdAsync(cuota.IdBudgetHeader);
-        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(cuota.Period);
+        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(cuota.Period, ParameterService.CurrentBuilding!.IdBuilding);
         var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(cuota.IdBudgetHeader);
 
         await _detalleModal.ShowAsync(cuota, budget, waterReadings, exonerations);

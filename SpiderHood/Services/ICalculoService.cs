@@ -22,7 +22,7 @@ namespace SpiderHood.Services
         Task<ServiceReading> ImportarDesdeExcelAsync(MemoryStream fileStream, ServiceReading reading, List<ServiceReadingDetail> previous, List<Models.UnitView> unidades, bool esPrimeraCarga = false);
         Task<List<Models.ServiceReadingDetail>> ProcesarLecturasBloqueAsync(List<Models.ServiceReadingDetail> lecturas, decimal cargoFijo);
         Task<Models.ServiceReading> ObtenerLecturaPorPeriodoAsync(DateTime period);
-        Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(DateTime period);
+        Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(DateTime period, Guid idBuilding);
         Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(Guid IdBuilding);
         Task<List<Models.ServiceReading>> GetServiceReadingsAsync(Guid IdBuilding);
 
@@ -335,9 +335,9 @@ namespace SpiderHood.Services
         }
 
 
-        public Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(DateTime period)
+        public Task<List<Models.ServiceReadingDetail>> ObtenerLecturasPorPeriodoAsync(DateTime period, Guid idBuilding)
         {
-            return ec.GetServiceReadingDetailbyPeriodAsync(period);
+            return ec.GetServiceReadingDetailbyPeriodAsync(period, idBuilding);
         }
 
         public Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(Guid IdBuilding)
@@ -355,11 +355,14 @@ namespace SpiderHood.Services
             // No existe (ni está versionado en Database/Scripts) un SP que traiga el detalle
             // de lecturas por edificio+rango de una sola vez, a diferencia de
             // GetInstallmentsByBuildingAsync (ver CollectionReport.razor) -- escribir uno nuevo
-            // acá implicaría adivinar el nombre/columnas reales de la tabla detrás de
-            // ServiceReadingDetail, que no está documentada en el repo. Se arma con los dos SPs
-            // que sí existen: primero las cabeceras del edificio (para saber qué Period cae en
-            // el rango), después el detalle de cada Period -- acotado al número de periodos del
-            // rango elegido (normalmente ≤24), no al histórico completo del edificio.
+            // acá implicaría duplicar la lógica de GET_ServiceReadingDetailList (join a
+            // GroupUnit + ServiceReading) sin ganar nada. Se arma con los dos SPs que sí
+            // existen: primero las cabeceras del edificio (para saber qué Period cae en el
+            // rango), después el detalle de cada Period -- acotado al número de periodos
+            // del rango elegido (normalmente ≤24), no al histórico completo del edificio.
+            // GET_ServiceReadingDetailList ya filtra por IdBuilding
+            // (Database/Scripts/2026-09-09_74_GET_ServiceReadingDetailList_FiltraPorEdificio.sql),
+            // así que no hace falta ningún filtro adicional acá.
             var headers = await ec.GetServiceReadingListAsync(idBuilding);
             var periodos = headers
                 .Where(h => h.Period.Date >= desde.Date && h.Period.Date <= hasta.Date)
@@ -370,26 +373,10 @@ namespace SpiderHood.Services
             var detalles = new List<Models.ServiceReadingDetail>();
             foreach (var periodo in periodos)
             {
-                detalles.AddRange(await ec.GetServiceReadingDetailbyPeriodAsync(periodo));
+                detalles.AddRange(await ec.GetServiceReadingDetailbyPeriodAsync(periodo, idBuilding));
             }
 
-            // GetServiceReadingDetailbyPeriodAsync sólo filtra por Period, no por
-            // IdBuilding (no toma ese parámetro) -- si otro edificio tiene una lectura
-            // con el mismo Period exacto, sus filas se mezclan acá adentro. Antes esto
-            // se filtraba "a mano" en WaterConsumptionReport.razor pero NO en
-            // MyWaterConsumption.razor (que sólo filtraba por IdGroupUnit del residente,
-            // sin filtrar primero por edificio) -- un IdGroupUnit repetido entre dos
-            // edificios (ej. datos de prueba con GUIDs no únicos) hacía que el residente
-            // viera lecturas ajenas mezcladas con las propias, con distinto
-            // PreviousReading/CurrentReading para "el mismo" periodo. Se mueve el filtro
-            // acá adentro para que TODOS los que llamen a este método (reporte admin y
-            // el de residente) queden protegidos por igual, no sólo el que se acordó de
-            // filtrar.
-            var unidadesDelEdificio = (await ec.GetOwnersByBuildingAsync(idBuilding))
-                .Select(o => o.IdGroupUnit)
-                .ToHashSet();
-
-            return detalles.Where(d => unidadesDelEdificio.Contains(d.IdGroupUnit)).ToList();
+            return detalles;
         }
     }
 

@@ -624,7 +624,7 @@
                     _ServiceReadingState.CurrentReading = nuevoPeriodo;
                 }
 
-                _ServiceReadingState.CurrentReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(periodo);
+                _ServiceReadingState.CurrentReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(periodo, ParameterService.CurrentBuilding.IdBuilding);
 
                 if (_ServiceReadingState.CurrentReadingDetail.Count > 0)
                 {
@@ -653,7 +653,7 @@
                 else
                 {
                     var periodoAnterior = periodo.AddMonths(-1);
-                    _ServiceReadingState.PreviousReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(periodoAnterior);
+                    _ServiceReadingState.PreviousReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(periodoAnterior, ParameterService.CurrentBuilding.IdBuilding);
                 }
 
                 await OnSaveReady.InvokeAsync(_ServiceReadingState);

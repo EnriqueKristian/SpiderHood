@@ -6,7 +6,7 @@ namespace SpiderHood.Services
 {
     public interface IServiceReadingService
     {
-        Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period);
+        Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period, Guid idBuilding);
         Task AddServiceReadingAsync(Models.ServiceReading newservice);
 
         Task AddPeriodAsync(Models.Period newperiod);
@@ -33,9 +33,9 @@ namespace SpiderHood.Services
             return user?.Email ?? "system";
         }
 
-        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period)
+        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period, Guid idBuilding)
         {
-            return await ec.GetServiceReadingDetailbyPeriodAsync(period);
+            return await ec.GetServiceReadingDetailbyPeriodAsync(period, idBuilding);
         }
 
 

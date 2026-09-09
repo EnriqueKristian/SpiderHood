@@ -358,7 +358,7 @@
         _selectedInstallment = item;
 
         var budget = await BudgetService.GetPresupuestoByIdAsync(item.IdBudgetHeader);
-        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period);
+        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period, ParameterService.CurrentBuilding!.IdBuilding);
         var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(item.IdBudgetHeader);
 
         _budgetActual = budget;

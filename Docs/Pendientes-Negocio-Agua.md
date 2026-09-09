@@ -114,9 +114,26 @@ dedup + preferir el `PreviousReading` más alto) se deja como red de
 seguridad por ahora -- no hace nada si el SP ya no duplica, así que no hay
 apuro en sacarla hasta confirmar que el script corrió bien en producción.
 
-El problema del punto 1 (no filtra por `IdBuilding`) sigue abierto -- ese SP
-no tiene forma de saber a qué edificio filtrar sin un parámetro nuevo (ver
-"Pendiente" más abajo, sin cambios).
+**Actualización 2 (mismo día):** el punto 1 (no filtraba por `IdBuilding`)
+también se corrigió de raíz. `GET_ServiceReadingDetailList` ahora toma
+`@IdBuilding` además de `@Period`
+(`Database/Scripts/2026-09-09_74_GET_ServiceReadingDetailList_FiltraPorEdificio.sql`,
+join a `dbo.ServiceReading` por `IdServiceReading`, tabla ya confirmada con
+`IdBuilding` real). Cambia la firma del SP, así que se actualizaron a la vez
+todos los callers de `GetServiceReadingDetailbyPeriodAsync`/
+`ObtenerLecturasPorPeriodoAsync` para pasar `idBuilding`:
+`BlockWaterReading.razor` (las dos llamadas, período actual y anterior),
+`MyReceipts.razor`, `MyPayments.razor`, `InstallmentList.razor`,
+`BudgetGenerator.razor` y `GetServiceReadingDetailsByBuildingAsync` (que de
+paso se simplificó -- ya no necesita el filtro post-consulta por
+`IdGroupUnit`, ni la consulta extra a `GetOwnersByBuildingAsync` que sólo
+existía para eso).
+
+Con esto, los dos problemas de `GET_ServiceReadingDetailList` quedan
+corregidos de raíz en la BD (scripts `_73` y `_74`, hay que correr los
+dos). El dedup del lado del cliente
+(`BDLayout.GetServiceReadingDetailbyPeriodAsync`) se mantiene como red de
+seguridad.
 
 **Diagnóstico original (para referencia):**
 
@@ -160,20 +177,9 @@ entre los que el propio SP ya devolvió (el más alto fue el correcto en los
 dos periodos verificados). Al vivir en `BDLayout.Get.cs`, corrige la
 duplicación para TODA la app de una sola vez (no sólo los reportes nuevos).
 
-**Pendiente:**
-- Corregir el SP de raíz (`GET_ServiceReadingDetailList`) requiere ver su
-  definición real -- si el usuario puede compartirla, se puede diagnosticar
-  el JOIN exacto y arreglarlo ahí en vez de mitigarlo del lado del cliente.
-- El filtro por `IdBuilding` sigue faltando a nivel SP -- sólo está mitigado
-  para los dos reportes de Consumo de Agua (que pasan por
-  `GetServiceReadingDetailsByBuildingAsync`). `BlockWaterReading.razor` y el
-  resto de las pantallas que llaman a `GetServiceReadingDetailbyPeriodAsync`
-  directamente siguen expuestas a traer lecturas de otro edificio si
-  coincide el `Period` exacto -- de momento no se vio evidencia de que esto
-  pase en la práctica (necesitaría que dos edificios tengan `ServiceReading`
-  con el mismo `Period` Y unidades con `IdGroupUnit` iguales para que se
-  note en pantalla), pero la causa de fondo (el SP no filtra por edificio)
-  sigue sin corregirse.
+**Pendiente:** correr `2026-09-09_73_...sql` y `2026-09-09_74_...sql` en la
+BD real -- ambos ya están en el repo, sin verificar en un entorno con datos
+reales (sin acceso a BD acá).
 
 ---
 

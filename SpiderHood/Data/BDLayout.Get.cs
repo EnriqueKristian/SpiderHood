@@ -703,29 +703,29 @@ namespace SpiderHood.Data
             }
         }
 
-        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period, CancellationToken cancellationToken = default)
+        public async Task<List<ServiceReadingDetail>> GetServiceReadingDetailbyPeriodAsync(DateTime period, Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
+                // GET_ServiceReadingDetailList ahora toma @IdBuilding además de @Period
+                // (Database/Scripts/2026-09-09_74_GET_ServiceReadingDetailList_FiltraPorEdificio.sql)
+                // -- antes sólo filtraba por Period, así que dos edificios con un
+                // ServiceReading del mismo Period exacto se mezclaban (confirmado con
+                // datos reales: una unidad "101" de OTRO edificio aparecía junto a la
+                // "101" del edificio consultado).
                 var resultado = await ExecuteQueryListAsync<ServiceReadingDetail>(
                     StoredProcedures.GET_ServiceReadingDetailList,
-                    period);
+                    period,
+                    idBuilding);
 
-                // GET_ServiceReadingDetailList (no versionado en el repo, sin acceso a BD
-                // acá para ver su SQL) devuelve cada fila DUPLICADA -- mismo
-                // IdServiceReadingDetail dos veces, con TODAS las demás columnas
-                // idénticas (CurrentReading, Consumption, CalculatedAmount, IdServiceReading,
-                // ...) EXCEPTO PreviousReading, donde una copia trae el valor real y la
-                // otra 0. Confirmado con datos reales (consulta directa a BD) para varias
-                // unidades y dos periodos distintos -- todo indica un JOIN/subquery del
-                // lado del SP para resolver "el CurrentReading del periodo anterior" que
-                // hace fan-out (dos filas candidatas) en vez de matchear una sola, con la
-                // fila "perdedora" quedando en 0 (ISNULL o similar). Se deduplica por PK y,
-                // dentro de cada duplicado, se prefiere el PreviousReading más alto (nunca
-                // se inventa un valor nuevo, sólo se elige entre los que el propio SP ya
-                // devolvió) -- evita mostrar dos filas por lectura en toda la app (Lecturas
-                // de Agua, Mi Consumo de Agua, Ver Detalle, recibos, etc.), que comparten
-                // este mismo método.
+                // El fan-out que duplicaba cada fila (JOIN GroupUnit sin colapsar primero
+                // -- un Grupo de Unidades con más de una unidad física, ej. depto +
+                // cochera, tenía más de una fila en GroupUnit para el mismo IdGroupUnit)
+                // ya se corrigió de raíz en el SP
+                // (Database/Scripts/2026-09-09_73_Fix_GET_ServiceReadingDetailList_Duplicates.sql).
+                // Se deja este dedup como red de seguridad -- no hace nada si el SP ya no
+                // duplica, y si algo raro pasa de nuevo, prefiere el PreviousReading más
+                // alto entre los duplicados en vez de mostrar dos filas por lectura.
                 return resultado
                     .GroupBy(d => d.IdServiceReadingDetail)
                     .Select(g => g.Count() == 1 ? g.First() : g.OrderByDescending(d => d.PreviousReading).First())

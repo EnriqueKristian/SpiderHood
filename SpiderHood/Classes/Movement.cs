@@ -93,6 +93,17 @@ namespace SpiderHood.Models
         public ViewExpense? GastoConciliado { get; set; }
         [NotMapped]
         public Installment? CuotaConciliada { get; set; }
+        // Conciliación en dos pasos (Fase B): un match (automático o manual) queda
+        // "propuesto" acá -- en memoria, ReconciliationStatus SIN TOCAR -- hasta que el
+        // usuario confirma el lote completo con "Enviar a Conciliar". Antes de esto,
+        // cualquier match (incluso el automático por monto exacto) escribía en BD al
+        // toque, sin poder revisarlo ni deshacerlo gratis antes de confirmar.
+        [NotMapped]
+        public bool PropuestaPendiente { get; set; } = false;
+        [NotMapped]
+        public bool PropuestaAutomatica { get; set; } = false;
+        [NotMapped]
+        public List<Installment> CuotasPropuestas { get; set; } = new();
         [NotMapped]
         public string Validation { get; set; } = string.Empty;
         public string KeyDuplicate

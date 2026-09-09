@@ -14,6 +14,10 @@ namespace SpiderHood.Services
         Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync(Guid cuentaId, DateTime desde, DateTime hasta);
         Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto);
         Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion);
+        // "Corregir" (Fase B) para Gastos -- a diferencia de DesconciliarTransaccionAsync
+        // (nunca tocó la BD, ver comentario en su implementación), esta sí revierte de
+        // verdad vía UPD_ExpenseDeReconcilied.
+        Task DesconciliarGastoRealAsync(Guid idStatementDetail, Guid idExpense);
         Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion);
         Task<Conciliacion?> ObtenerUltimaConciliacionAsync();
         Task GuardarConciliacionAsync(Conciliacion conciliacion);
@@ -248,6 +252,11 @@ namespace SpiderHood.Services
         {
             await Task.Delay(200);
             Console.WriteLine($"Transacción {transaccion.IdStatementDetail} desconciliada");
+        }
+
+        public async Task DesconciliarGastoRealAsync(Guid idStatementDetail, Guid idExpense)
+        {
+            await ec.DesconciliarGastoAsync(idStatementDetail, idExpense);
         }
 
         public async Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion)

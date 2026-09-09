@@ -105,6 +105,7 @@ namespace SpiderHood.Data
             public const string UPD_ServiceReading = "UPD_ServiceReading";
             public const string UPD_Contact = "UPD_Contact";
             public const string UPD_ExpenseReconcilied = "UPD_ExpenseReconcilied";
+            public const string UPD_ExpenseDeReconcilied = "UPD_ExpenseDeReconcilied";
             public const string UPD_Expense = "UPD_Expense";
             public const string UPD_Parameter = "UPD_Parameter";
             public const string UPD_GroupOwner = "UPD_GroupOwner";

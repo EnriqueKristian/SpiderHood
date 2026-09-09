@@ -11,6 +11,7 @@
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
 @inject NavigationManager Navigation
+@inject SpiderHood.Services.IWorkflowAuditService WorkflowAuditService
 
 <PageTitle>SpiderHood - @TituloPagina</PageTitle>
 
@@ -36,6 +37,13 @@
                 </div>
 
                 <div class="page-header-actions">
+                    @{ var totalPropuestas = transacciones.Count(t => t.PropuestaPendiente); }
+                    @if (totalPropuestas > 0)
+                    {
+                        <button class="btn btn-success" @onclick="EnviarAConciliar">
+                            <i class="bi bi-cloud-upload me-1"></i> Enviar a Conciliar (@totalPropuestas)
+                        </button>
+                    }
                     <button class="btn btn-outline-primary" @onclick="ExportarConciliacion">
                         <i class="bi bi-file-earmark-arrow-up me-1"></i> Exportar
                     </button>
@@ -456,7 +464,16 @@
                                                     }
                                                 </td>
                                                 <td>
-                                                    @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                    @if (transaccion.PropuestaPendiente)
+                                                    {
+                                                        <span class="badge bg-primary" title="Todavía no se guardó en BD -- confirma con 'Enviar a Conciliar' o quítala con el botón de al lado">
+                                                            <i class="bi bi-hourglass-top me-1"></i> Propuesto
+                                                        </span>
+                                                        <span class="badge bg-light text-dark border ms-1">
+                                                            <i class="bi @(transaccion.PropuestaAutomatica ? "bi-robot" : "bi-person") me-1"></i>@(transaccion.PropuestaAutomatica ? "Auto" : "Manual")
+                                                        </span>
+                                                    }
+                                                    else if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
                                                     {
                                                         <span class="badge bg-success">
                                                             <i class="bi bi-check me-1"></i> Conciliado
@@ -475,7 +492,7 @@
                                                         </span>
                                                     }
                                                     @{ var esAuto = EsConciliacionAutomatica(transaccion); }
-                                                    @if (esAuto.HasValue)
+                                                    @if (!transaccion.PropuestaPendiente && esAuto.HasValue)
                                                     {
                                                         <span class="badge bg-light text-dark border ms-1" title="@(esAuto.Value ? "Se concilió automáticamente por coincidencia exacta de monto" : "Se concilió manualmente")">
                                                             <i class="bi @(esAuto.Value ? "bi-robot" : "bi-person") me-1"></i>@(esAuto.Value ? "Auto" : "Manual")
@@ -484,41 +501,55 @@
                                                 </td>
                                                 <td class="text-center">
                                                     <div class="btn-group btn-group-sm" role="group">
-                                                        @if (transaccion.Tipo == "Ingreso")
+                                                        @if (transaccion.PropuestaPendiente)
                                                         {
-                                                            @if (_canReconcileInstallments && (transaccion.ReconciliationStatus == ConcilationType.NoConciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial))
+                                                            @if ((transaccion.Tipo == "Ingreso" && _canReconcileInstallments) || (transaccion.Tipo != "Ingreso" && _canReconcileExpenses))
                                                             {
-                                                                <button class="btn btn-outline-primary"
-                                                                        title="Conciliar manualmente"
-                                                                        @onclick="() => MostrarModalConciliarCuota(transaccion)">
-                                                                    <i class="bi bi-link-45deg"></i>
+                                                                <button class="btn btn-outline-secondary"
+                                                                        title="Quitar propuesta (no toca la BD, todavía no se guardó nada)"
+                                                                        @onclick="() => QuitarPropuesta(transaccion)">
+                                                                    <i class="bi bi-x-lg"></i>
                                                                 </button>
                                                             }
                                                         }
-                                                        else if (_canReconcileExpenses && transaccion.ReconciliationStatus == ConcilationType.NoConciliada)
+                                                        else
                                                         {
-                                                            <button class="btn btn-outline-primary"
-                                                                    title="Conciliar manualmente"
-                                                                    @onclick="() => MostrarModalConciliar(transaccion)">
-                                                                <i class="bi bi-link-45deg"></i>
-                                                            </button>
-                                                            <button class="btn btn-outline-success"
-                                                                    title="Crear gasto desde transacción"
-                                                                    @onclick="() => CrearGastoDesdeTransaccion(transaccion)">
-                                                                <i class="bi bi-plus-circle"></i>
-                                                            </button>
+                                                            @if (transaccion.Tipo == "Ingreso")
+                                                            {
+                                                                @if (_canReconcileInstallments && (transaccion.ReconciliationStatus == ConcilationType.NoConciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial))
+                                                                {
+                                                                    <button class="btn btn-outline-primary"
+                                                                            title="Conciliar manualmente"
+                                                                            @onclick="() => MostrarModalConciliarCuota(transaccion)">
+                                                                        <i class="bi bi-link-45deg"></i>
+                                                                    </button>
+                                                                }
+                                                            }
+                                                            else if (_canReconcileExpenses && transaccion.ReconciliationStatus == ConcilationType.NoConciliada)
+                                                            {
+                                                                <button class="btn btn-outline-primary"
+                                                                        title="Conciliar manualmente"
+                                                                        @onclick="() => MostrarModalConciliar(transaccion)">
+                                                                    <i class="bi bi-link-45deg"></i>
+                                                                </button>
+                                                                <button class="btn btn-outline-success"
+                                                                        title="Crear gasto desde transacción"
+                                                                        @onclick="() => CrearGastoDesdeTransaccion(transaccion)">
+                                                                    <i class="bi bi-plus-circle"></i>
+                                                                </button>
+                                                            }
                                                         }
                                                         <button class="btn btn-outline-info"
                                                                 title="Ver detalles"
                                                                 @onclick="() => VerDetallesTransaccion(transaccion)">
                                                             <i class="bi bi-eye"></i>
                                                         </button>
-                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada && ((transaccion.Tipo == "Ingreso" && _canReconcileInstallments) || (transaccion.Tipo != "Ingreso" && _canReconcileExpenses)))
+                                                        @if (!transaccion.PropuestaPendiente && transaccion.ReconciliationStatus == ConcilationType.Conciliada && _puedeCorregir)
                                                         {
                                                             <button class="btn btn-outline-danger"
-                                                                    title="Desconciliar"
-                                                                    @onclick="() => DesconciliarTransaccion(transaccion)">
-                                                                <i class="bi bi-x-circle"></i>
+                                                                    title="Corregir (requiere motivo, queda en el log de auditoría)"
+                                                                    @onclick="() => CorregirConciliacion(transaccion)">
+                                                                <i class="bi bi-arrow-counterclockwise"></i>
                                                             </button>
                                                         }
                                                     </div>
@@ -1107,6 +1138,13 @@
     // Claves ya existentes en BD (ver mapeo de permisos), sin necesidad de script nuevo.
     private bool _canReconcileExpenses;
     private bool _canReconcileInstallments;
+    private UserSession _currentUser = new();
+    // Corregir una conciliación ya confirmada queda restringido al rol Administrador (a
+    // diferencia de _canReconcileExpenses/_canReconcileInstallments, que sí vienen del
+    // sistema de permisos por BD) -- así lo pidió el usuario explícitamente, y agregar un
+    // permiso nuevo requeriría un script de datos aparte para el rol Administrador sin
+    // aportar nada distinto a chequear el rol directo.
+    private bool _puedeCorregir => _currentUser.Role == "Administrador";
 
     private string conciliados = "conciliados";
     private string noConciliados = "noConciliados";
@@ -1130,9 +1168,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
-        _canReconcileExpenses = await PermissionService.HasPermissionAsync(currentUser, "reconcile_expenses");
-        _canReconcileInstallments = await PermissionService.HasPermissionAsync(currentUser, "reconcile_installments");
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canReconcileExpenses = await PermissionService.HasPermissionAsync(_currentUser, "reconcile_expenses");
+        _canReconcileInstallments = await PermissionService.HasPermissionAsync(_currentUser, "reconcile_installments");
 
         pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
 
@@ -1281,49 +1319,44 @@
         }
     }
 
+    // Fase B -- conciliación en dos pasos: ConciliarConGasto/AplicarPagoACuotas ya NO
+    // escriben en BD. Dejan la elección (automática o manual) como PROPUESTA en pantalla --
+    // ReconciliationStatus queda sin tocar -- hasta que el usuario revisa el lote completo y
+    // confirma con EnviarAConciliar, que es quien recién llama a los métodos reales de
+    // persistencia (los mismos de siempre, sin cambios) y deja el registro de auditoría.
     private async Task ConciliarConGasto(TransactionBankDetail transaccion, ViewExpense gasto, bool automatico = false)
     {
         if (!_canReconcileExpenses) return;
         try
         {
-            // Conciliar transacción con gasto
-            transaccion.ReconciliationStatus = ConcilationType.Conciliada;
             transaccion.GastoConciliado = gasto;
-            transaccion.ReconciliationDate = DateTime.Now;
+            transaccion.PropuestaPendiente = true;
+            transaccion.PropuestaAutomatica = automatico;
 
-            // Marcar gasto como conciliado
-            gasto.Reconciled = true;
-            gasto.ReconciledTransactionId = transaccion.IdStatementDetail;
-            gasto.AutoReconcile = automatico;
-
-            // Actualizar en base de datos
-            //await BankService.ConciliarTransaccionAsync(transaccion.IdStatementDetail, gasto.IdExpense);
-            //await ExpenseService.MarcarGastoComoConciliadoAsync(gasto.IdExpense, transaccion.IdStatementDetail);
-
-            // Remover de listas pendientes
+            // Remover de listas pendientes para que no se vuelva a proponer a otra transacción
             gastosPendientes.Remove(gasto);
 
-            // Recalcular estadísticas
             CalcularEstadisticas();
             ActualizarPaginacion();
 
             if (!automatico)
             {
-                mensajeExito = $"Transacción conciliada con gasto: {gasto.Description}";
+                mensajeExito = $"Propuesta: transacción con gasto '{gasto.Description}'. Usa 'Enviar a Conciliar' para confirmar.";
                 CerrarModalConciliar();
             }
 
             StateHasChanged();
+            await Task.CompletedTask;
         }
         catch (Exception ex)
         {
-            mensajeError = $"Error al conciliar: {ex.Message}";
+            mensajeError = $"Error al proponer conciliación: {ex.Message}";
         }
     }
 
-    // Único camino para conciliar un Ingreso contra una o varias cuotas: cubre pago menor,
-    // igual y mayor (incluso cubriendo varias cuotas) con la misma lógica de
-    // InstallmentService.AplicarPagoAsync, en vez de mantener una copia local divergente.
+    // Único camino para proponer un Ingreso contra una o varias cuotas: cubre pago menor,
+    // igual y mayor (incluso cubriendo varias cuotas) -- la aplicación real contra
+    // InstallmentService.AplicarPagoAsync ocurre recién en EnviarAConciliar.
     private async Task ConciliarConCuota(TransactionBankDetail transaccion, Installment cuota, bool automatico = false)
     {
         await AplicarPagoACuotas(transaccion, new List<Installment> { cuota }, automatico);
@@ -1332,41 +1365,113 @@
     private async Task<bool> AplicarPagoACuotas(TransactionBankDetail transaccion, List<Installment> cuotas, bool automatico = false)
     {
         if (!_canReconcileInstallments) return false;
-        try
+        if (transaccion == null) throw new ArgumentNullException(nameof(transaccion));
+        if (cuotas == null || !cuotas.Any())
         {
-            if (transaccion == null) throw new ArgumentNullException(nameof(transaccion));
-            if (cuotas == null || !cuotas.Any()) throw new ArgumentException("Debe seleccionar al menos una cuota");
-
-            await InstallmentService.AplicarPagoAsync(transaccion, cuotas, BankService, automatico);
-
-            await ActualizarEstadoPostConciliacion(automatico);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            await ManejarErrorConciliacion(ex);
+            mensajeError = "Debe seleccionar al menos una cuota";
             return false;
         }
-    }
 
-    private async Task ActualizarEstadoPostConciliacion(bool automatico)
-    {
-        // Recalcular estadísticas
+        transaccion.CuotasPropuestas = cuotas;
+        transaccion.PropuestaPendiente = true;
+        transaccion.PropuestaAutomatica = automatico;
+
         CalcularEstadisticas();
         ActualizarPaginacion();
 
-        // Actualizar listas pendientes
-        await ActualizarListasPendientes();
-
-        // Cerrar modal si no es automático
         if (!automatico)
         {
-            CerrarModalConciliar();
-            // Mostrar mensaje de éxito
-            MostrarMensajeExito("Transacción conciliada exitosamente");
+            mensajeExito = "Propuesta registrada. Usa 'Enviar a Conciliar' para confirmar.";
         }
 
-        // Forzar actualización de UI
+        StateHasChanged();
+        await Task.CompletedTask;
+        return true;
+    }
+
+    private void QuitarPropuesta(TransactionBankDetail transaccion)
+    {
+        if (transaccion.GastoConciliado != null)
+        {
+            gastosPendientes.Add(transaccion.GastoConciliado);
+            transaccion.GastoConciliado = null;
+        }
+
+        transaccion.CuotasPropuestas = new();
+        transaccion.PropuestaPendiente = false;
+        transaccion.PropuestaAutomatica = false;
+
+        CalcularEstadisticas();
+        ActualizarPaginacion();
+        StateHasChanged();
+    }
+
+    // Confirma TODAS las propuestas pendientes del lote actualmente cargado en un solo paso
+    // -- acá recién se llama a los métodos reales de persistencia (sin cambios respecto a
+    // los que ya existían antes de la Fase B) y se deja el registro de auditoría
+    // (IWorkflowAuditService, module "Reconciliation") por cada transacción confirmada.
+    private async Task EnviarAConciliar()
+    {
+        var propuestas = transacciones.Where(t => t.PropuestaPendiente).ToList();
+        if (!propuestas.Any()) return;
+
+        if (!await JSRuntime.InvokeAsync<bool>("confirm",
+            $"¿Confirmar la conciliación de {propuestas.Count} transacción(es)? Una vez confirmada, una transacción solo se puede corregir con motivo (rol Administrador), no deshacer libremente."))
+        {
+            return;
+        }
+
+        var confirmadas = 0;
+        var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
+        var idBuilding = ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty;
+
+        foreach (var transaccion in propuestas)
+        {
+            try
+            {
+                if (transaccion.Tipo == "Ingreso" && transaccion.CuotasPropuestas.Any())
+                {
+                    await InstallmentService.AplicarPagoAsync(transaccion, transaccion.CuotasPropuestas, BankService, transaccion.PropuestaAutomatica);
+
+                    var detalle = $"{transaccion.CuotasPropuestas.Count} cuota(s): Unidad " +
+                        string.Join(", ", transaccion.CuotasPropuestas.Select(c => c.UnitName).Distinct());
+                    await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Reconciled,
+                        performedBy, idBuilding, $"{(transaccion.PropuestaAutomatica ? "Automático" : "Manual")} -- {detalle}");
+                }
+                else if (transaccion.Tipo == "Gasto" && transaccion.GastoConciliado != null)
+                {
+                    await BankService.ConciliarTransaccionAsync(transaccion, transaccion.GastoConciliado);
+                    transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+                    transaccion.ReconciliationDate = DateTime.Now;
+
+                    await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Reconciled,
+                        performedBy, idBuilding, $"{(transaccion.PropuestaAutomatica ? "Automático" : "Manual")} -- Gasto: {transaccion.GastoConciliado.Description}");
+                }
+                else
+                {
+                    // Propuesta sin match real asociado (no debería pasar) -- se salta sin marcar
+                    // como confirmada, para no dejar auditoría de algo que no se aplicó.
+                    continue;
+                }
+
+                transaccion.PropuestaPendiente = false;
+                confirmadas++;
+            }
+            catch (Exception ex)
+            {
+                mensajeError = $"Error al confirmar '{transaccion.Description}': {ex.Message}";
+            }
+        }
+
+        await ActualizarListasPendientes();
+        CalcularEstadisticas();
+        ActualizarPaginacion();
+
+        if (confirmadas > 0)
+        {
+            mensajeExito = $"{confirmadas} transacción(es) conciliadas.";
+        }
+
         StateHasChanged();
     }
 
@@ -1380,109 +1485,113 @@
         pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
     }
 
-    private async Task ManejarErrorConciliacion(Exception ex)
+    // Reemplaza al viejo "Desconciliar" (deshacer libre, sin rastro) para transacciones YA
+    // CONFIRMADAS -- Fase B: restringido a rol Administrador, motivo obligatorio, y queda
+    // registrado en el log de auditoría (IWorkflowAuditService). Antes de confirmar con
+    // "Enviar a Conciliar" (mientras es solo una PROPUESTA), deshacer sigue siendo libre y
+    // gratis vía QuitarPropuesta, porque ahí todavía no hay nada guardado en BD.
+    //
+    private async Task CorregirConciliacion(TransactionBankDetail transaccion)
     {
-        // Log del error
-        //logger.LogError(ex, "Error al conciliar transacción con cuota");
+        if (!_puedeCorregir) return;
 
-        // Mostrar mensaje al usuario
-        mensajeError = $"Error al conciliar: {ex.Message}";
-
-        // Opcional: Revertir cambios si es necesario
-        await RevertirCambiosEnCasoDeError();
-
-        // Forzar actualización de UI
-        StateHasChanged();
-    }
-
-    private async Task RevertirCambiosEnCasoDeError()
-    {
-        try
-        {
-            // Implementar lógica de rollback si es necesario
-            // Esto depende de cómo maneje tu aplicación las transacciones
-        }
-        catch (Exception rollbackEx)
-        {
-            //logger.LogError(rollbackEx, "Error al revertir cambios después de falla en conciliación");
-        }
-    }
-
-    private void MostrarMensajeExito(string mensaje)
-    {
-        // Usar toast, snackbar o modal de éxito según tu UI framework
-        // Ejemplo con Blazor: mostrar componente de notificación
-    }
-
-    private async Task DesconciliarTransaccion(TransactionBankDetail transaccion)
-    {
         if (transaccion.Tipo == "Ingreso")
         {
-            await DesconciliarPagoIngreso(transaccion);
-            return;
+            await CorregirConciliacionIngreso(transaccion);
         }
-
-        if (!_canReconcileExpenses) return;
-        if (transaccion.GastoConciliado == null) return;
-
-        if (await JSRuntime.InvokeAsync<bool>("confirm",
-            $"¿Desconciliar transacción '{transaccion.Description}' con gasto '{transaccion.GastoConciliado.Description}'?"))
+        else
         {
-            try
-            {
-                // Desconciliar
-                transaccion.ReconciliationStatus = ConcilationType.NoConciliada;
-                transaccion.GastoConciliado.Reconciled = false;
-                transaccion.GastoConciliado.ReconciledTransactionId = null;
-
-                // Agregar gasto de vuelta a pendientes
-                gastosPendientes.Add(transaccion.GastoConciliado);
-                //transaccion.GastoConciliado = null;
-
-                // Actualizar en base de datos
-                //await BankService.DesconciliarTransaccionAsync(transaccion.IdStatementDetail);
-                //await ExpenseService.DesconciliarGastoAsync(transaccion.GastoConciliado?.IdExpense ?? Guid.Empty);
-
-                mensajeExito = "Transacción desconciliada";
-                StateHasChanged();
-            }
-            catch (Exception ex)
-            {
-                mensajeError = $"Error al desconciliar: {ex.Message}";
-            }
+            await CorregirConciliacionGasto(transaccion);
         }
     }
 
-    private async Task DesconciliarPagoIngreso(TransactionBankDetail transaccion)
+    private async Task CorregirConciliacionIngreso(TransactionBankDetail transaccion)
     {
         if (!_canReconcileInstallments) return;
+
         var pagosDeEstaTransaccion = pagosCuotas.Where(p => p.IdTransaction == transaccion.IdStatementDetail).ToList();
         if (!pagosDeEstaTransaccion.Any())
         {
-            mensajeError = "Este pago no tiene cuotas asociadas para desconciliar.";
+            mensajeError = "Este pago no tiene cuotas asociadas para corregir.";
             return;
         }
 
-        if (!await JSRuntime.InvokeAsync<bool>("confirm",
-            $"¿Desconciliar el pago '{transaccion.Description}' y liberar {pagosDeEstaTransaccion.Count} cuota(s) asociada(s)?"))
+        var motivo = await JSRuntime.InvokeAsync<string?>("prompt",
+            $"Vas a corregir la conciliación de '{transaccion.Description}' y liberar {pagosDeEstaTransaccion.Count} cuota(s) asociada(s).\n\nMotivo de la corrección (obligatorio):");
+        if (string.IsNullOrWhiteSpace(motivo))
         {
             return;
         }
 
         try
         {
+            var detalleAnterior = $"{pagosDeEstaTransaccion.Count} cuota(s): Unidad " +
+                string.Join(", ", pagosDeEstaTransaccion.Select(p => p.UnitName).Distinct());
+
             await InstallmentService.RevertirPagoAsync(transaccion, pagosDeEstaTransaccion, BankService);
+
+            var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
+            await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Corrected,
+                performedBy, ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty,
+                $"Se liberó la conciliación con {detalleAnterior}. Motivo: {motivo}");
 
             CalcularEstadisticas();
             ActualizarPaginacion();
             await ActualizarListasPendientes();
 
-            mensajeExito = "Pago desconciliado y cuota(s) liberada(s)";
+            mensajeExito = "Conciliación corregida y cuota(s) liberada(s)";
             StateHasChanged();
         }
         catch (Exception ex)
         {
-            mensajeError = $"Error al desconciliar: {ex.Message}";
+            mensajeError = $"Error al corregir: {ex.Message}";
+        }
+    }
+
+    private async Task CorregirConciliacionGasto(TransactionBankDetail transaccion)
+    {
+        if (!_canReconcileExpenses) return;
+        if (transaccion.GastoConciliado == null)
+        {
+            mensajeError = "Esta transacción no tiene un gasto conciliado asociado.";
+            return;
+        }
+
+        var motivo = await JSRuntime.InvokeAsync<string?>("prompt",
+            $"Vas a corregir la conciliación de '{transaccion.Description}' con el gasto '{transaccion.GastoConciliado.Description}'.\n\nMotivo de la corrección (obligatorio):");
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            return;
+        }
+
+        try
+        {
+            var gastoAnterior = transaccion.GastoConciliado;
+
+            await BankService.DesconciliarGastoRealAsync(transaccion.IdStatementDetail, gastoAnterior.IdExpense);
+
+            transaccion.ReconciliationStatus = ConcilationType.NoConciliada;
+            transaccion.ReconciliationDate = null;
+            gastoAnterior.Reconciled = false;
+            gastoAnterior.ReconciledTransactionId = null;
+            gastoAnterior.AutoReconcile = false;
+            gastosPendientes.Add(gastoAnterior);
+            transaccion.GastoConciliado = null;
+
+            var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
+            await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Corrected,
+                performedBy, ParameterService.CurrentBuilding?.IdBuilding ?? Guid.Empty,
+                $"Se liberó la conciliación con gasto '{gastoAnterior.Description}'. Motivo: {motivo}");
+
+            CalcularEstadisticas();
+            ActualizarPaginacion();
+
+            mensajeExito = "Conciliación corregida";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al corregir: {ex.Message}";
         }
     }
 
@@ -1532,11 +1641,11 @@
         var exito = await AplicarPagoACuotas(transaccionParaCuota, cuotasSeleccionadas, automatico: false);
         if (exito)
         {
-            mensajeExito = "Pago conciliado con la(s) cuota(s) seleccionada(s)";
+            mensajeExito = "Propuesta registrada con la(s) cuota(s) seleccionada(s). Usa 'Enviar a Conciliar' para confirmar.";
             CerrarModalConciliarCuota();
         }
-        // Si falló, el modal se queda abierto y mensajeError (seteado por ManejarErrorConciliacion)
-        // le explica al usuario por qué, en vez de mostrar éxito y cerrar de todos modos.
+        // Si falló, el modal se queda abierto y mensajeError le explica al usuario por qué,
+        // en vez de mostrar éxito y cerrar de todos modos.
 
         StateHasChanged();
     }

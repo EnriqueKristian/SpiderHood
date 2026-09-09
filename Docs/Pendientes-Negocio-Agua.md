@@ -94,8 +94,31 @@ lecturas guardadas como comentario.
 
 ## 3. `GET_ServiceReadingDetailList` devuelve cada fila duplicada, y sin filtrar por edificio
 
-**Estado: mitigado en el cliente (2026-09-09), branch `claude/lista-pendientes-0gb03a`
--- causa raíz sin corregir, vive en un SP no versionado en el repo.**
+**Estado: causa raíz corregida (2026-09-09), branch `claude/lista-pendientes-0gb03a`
+-- pendiente de que el usuario corra el script en su BD.**
+
+**Actualización:** el usuario compartió la definición real del SP. La causa
+del punto 2 (filas duplicadas) es exactamente la hipótesis planteada más
+abajo: `JOIN GroupUnit g ON wr.IdGroupUnit = g.IdGroupUnit` -- `GroupUnit`
+tiene una fila por cada unidad física que compone un Grupo de Unidades (mismo
+concepto de "Grupo de Unidades con más de una unidad física" ya documentado
+al corregir el % de Morosidad del dashboard), así que un grupo con más de una
+unidad física (depto + cochera, por ejemplo) multiplica (fan-out) cada fila
+de `VW_ServiceReadingDetail` por esa cantidad. Corregido de raíz en
+`Database/Scripts/2026-09-09_73_Fix_GET_ServiceReadingDetailList_Duplicates.sql`
+-- se une contra una subconsulta que colapsa `GroupUnit` a una fila por
+`IdGroupUnit` (`MIN(GroupNumber)`) en vez de contra la tabla directa. Misma
+firma, mismas columnas, mismo orden -- no rompe ningún caller existente.
+La mitigación del lado del cliente (`BDLayout.GetServiceReadingDetailbyPeriodAsync`,
+dedup + preferir el `PreviousReading` más alto) se deja como red de
+seguridad por ahora -- no hace nada si el SP ya no duplica, así que no hay
+apuro en sacarla hasta confirmar que el script corrió bien en producción.
+
+El problema del punto 1 (no filtra por `IdBuilding`) sigue abierto -- ese SP
+no tiene forma de saber a qué edificio filtrar sin un parámetro nuevo (ver
+"Pendiente" más abajo, sin cambios).
+
+**Diagnóstico original (para referencia):**
 
 Reportado por el usuario: "Mi Consumo de Agua" mostraba dos filas para el
 mismo periodo (ej. dos "Abril 2026") con `Lec. Ant.` distinto para la misma

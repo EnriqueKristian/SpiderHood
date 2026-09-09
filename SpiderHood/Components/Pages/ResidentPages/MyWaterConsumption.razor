@@ -1,0 +1,206 @@
+@page "/mi-consumo-agua"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+@inject ICalculoService CalculoService
+@inject SpiderHood.Services.AuthService AuthService
+@inject ParameterService ParameterService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Mi Consumo de Agua - SpiderHood</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-droplet-half"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Mi Consumo de Agua</h1>
+                <p class="text-muted mb-0">Historial de lecturas y consumo de tu unidad</p>
+            </div>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_unitId == null)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Tu cuenta todavía no tiene una unidad vinculada en este edificio. Pedile al
+            administrador que te la asigne en <em>Configuración &gt; Asignación de Roles</em>.
+        </div>
+    }
+    else if (!_lecturas.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>Todavía no hay lecturas de agua registradas para tu unidad.
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0">Historial</h6>
+                    </div>
+                    <div class="table-responsive" style="max-height: 420px;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="sticky-top table-light">
+                                <tr>
+                                    <th>Periodo</th>
+                                    <th class="text-end">Lec. Ant.</th>
+                                    <th class="text-end">Lec. Act.</th>
+                                    <th class="text-end">Consumo (m³)</th>
+                                    <th class="text-end">Monto de Agua</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var l in _lecturas)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@l.Period.ToString("MMMM yyyy")</td>
+                                        <td class="text-end">@l.PreviousReading.ToString("N2")</td>
+                                        <td class="text-end">@l.CurrentReading.ToString("N2")</td>
+                                        <td class="text-end">@l.Consumption.ToString("N2")</td>
+                                        <td class="text-end">@Moneda(l.CalculatedAmount)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0">Tarifas actuales</h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Rango</th>
+                                    <th class="text-end">Tarifa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var t in _tarifas)
+                                {
+                                    <tr>
+                                        <td>@t.DescripcionRango</td>
+                                        <td class="text-end">@Moneda(t.Total)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0">Mi consumo vs. promedio del edificio</h6>
+                    </div>
+                    <div class="card-body" style="height: 320px;">
+                        <canvas id="chartMiConsumo"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private Guid? _unitId;
+    private List<Models.ServiceReadingDetail> _lecturas = new();
+    private List<TarifaAgua> _tarifas = new();
+    private bool _debeRedibujarGrafico;
+
+    // Últimos 12 meses -- suficiente para ver la tendencia reciente sin cargar años de
+    // historial en una página pensada para consulta rápida del residente.
+    private readonly DateTime fechaDesde = DateTime.Today.AddMonths(-12);
+    private readonly DateTime fechaHasta = DateTime.Today;
+
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _unitId = await AuthService.GetCurrentUnitIdAsync();
+            if (_unitId != null && ParameterService.CurrentBuilding != null)
+            {
+                var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
+                var todasLasLecturas = await CalculoService.GetServiceReadingDetailsByBuildingAsync(idBuilding, fechaDesde, fechaHasta);
+
+                _lecturas = todasLasLecturas
+                    .Where(l => l.IdGroupUnit == _unitId)
+                    .OrderBy(l => l.Period)
+                    .ToList();
+
+                // Promedio del edificio por periodo -- mismas lecturas ya traídas arriba
+                // (todasLasLecturas), sin pedir nada nuevo a la BD. Da contexto de si el
+                // residente consume más o menos que el promedio, algo que el Excel original
+                // no mostraba.
+                _promedioPorPeriodo = todasLasLecturas
+                    .GroupBy(l => l.Period.Date)
+                    .ToDictionary(g => g.Key, g => g.Average(l => l.Consumption));
+
+                _tarifas = await CalculoService.ObtenerTarifasAsync();
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        _debeRedibujarGrafico = _lecturas.Any();
+    }
+
+    private Dictionary<DateTime, double> _promedioPorPeriodo = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_debeRedibujarGrafico)
+        {
+            _debeRedibujarGrafico = false;
+            await RenderizarGraficoAsync();
+        }
+    }
+
+    private async Task RenderizarGraficoAsync()
+    {
+        if (!_lecturas.Any()) return;
+
+        var labels = _lecturas.Select(l => l.Period.ToString("MMM-yy")).ToArray();
+        var datasets = new[]
+        {
+            new { label = "Mi consumo (m³)", data = _lecturas.Select(l => l.Consumption).ToArray(), color = "rgba(31, 78, 121, 0.85)", dashed = false },
+            new { label = "Promedio del edificio (m³)", data = _lecturas.Select(l => _promedioPorPeriodo.GetValueOrDefault(l.Period.Date)).ToArray(), color = "rgba(150, 150, 150, 0.85)", dashed = true }
+        };
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("spiderHoodReportCharts.lineChart", "chartMiConsumo", labels, datasets, (string?)null);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuito cerrándose (navegación afuera de la página) -- nada que hacer.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerender estático -- ver el comentario equivalente en
+            // DelinquencyReport.razor.RenderizarGraficoAsync. OnAfterRenderAsync(firstRender)
+            // reintenta ya con el circuito real conectado.
+        }
+    }
+}

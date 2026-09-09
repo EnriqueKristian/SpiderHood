@@ -1,0 +1,351 @@
+@page "/reportes/consumo-agua"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+@using ClosedXML.Excel
+@inject ICalculoService CalculoService
+@inject IBuildingService BuildingService
+@inject ParameterService ParameterService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>SpiderHood - Consumo de Agua</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-droplet-half"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Consumo de Agua</h1>
+                <p class="text-muted mb-0">Historial de consumo (m³) por unidad</p>
+            </div>
+        </div>
+    </div>
+
+    @if (!_inicializado)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-3 mb-0">Cargando...</p>
+        </div>
+    }
+    else if (!_canView)
+    {
+        <div class="alert alert-warning">No tenés permiso para ver este reporte.</div>
+    }
+    else if (ParameterService.CurrentBuilding == null)
+    {
+        <div class="alert alert-warning">Selecciona un edificio para continuar.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Periodo desde</label>
+                        <input type="date" class="form-control" @bind="fechaDesde" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Periodo hasta</label>
+                        <input type="date" class="form-control" @bind="fechaHasta" />
+                    </div>
+                    <div class="col-md-6 d-flex gap-2">
+                        <button class="btn btn-primary" @onclick="CargarAsync" disabled="@cargando">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+                        </button>
+                        <button class="btn btn-outline-success" @onclick="ExportarExcel" disabled="@(cargando || !_filas.Any())">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (cargando)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="text-muted mt-3 mb-0">Procesando...</p>
+            </div>
+        }
+        else if (!_filas.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>No hay lecturas registradas en el periodo seleccionado.
+            </div>
+        }
+        else
+        {
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0">Tendencia de consumo del edificio</h6>
+                        </div>
+                        <div class="card-body" style="height: 380px;">
+                            <canvas id="chartConsumoTendencia"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0">Top 10 consumidores del periodo</h6>
+                        </div>
+                        <div class="card-body" style="height: 380px;">
+                            <canvas id="chartConsumoTop"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">Consumo por unidad y periodo (m³)</h6>
+                </div>
+                <div class="table-responsive" style="max-height: 500px;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="sticky-top table-light">
+                            <tr>
+                                <th>DPTO</th>
+                                <th>Propietario</th>
+                                @foreach (var periodo in _periodos)
+                                {
+                                    <th class="text-end">@periodo.ToString("MMM-yy")</th>
+                                }
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var f in _filas)
+                            {
+                                <tr>
+                                    <td class="fw-semibold">@f.UnitName</td>
+                                    <td>@f.OwnerName</td>
+                                    @foreach (var periodo in _periodos)
+                                    {
+                                        var consumo = f.ConsumoPorPeriodo.GetValueOrDefault(periodo);
+                                        <td class="text-end">@(consumo > 0 ? consumo.ToString("N2") : "-")</td>
+                                    }
+                                    <td class="text-end fw-bold">@f.Total.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-secondary fw-bold">
+                                <td colspan="2">TOTAL EDIFICIO</td>
+                                @foreach (var periodo in _periodos)
+                                {
+                                    <td class="text-end">@_filas.Sum(f => f.ConsumoPorPeriodo.GetValueOrDefault(periodo)).ToString("N2")</td>
+                                }
+                                <td class="text-end">@_filas.Sum(f => f.Total).ToString("N2")</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private UserSession currentUser = new();
+    private bool _canView;
+    private bool _inicializado;
+    private bool cargando = true;
+
+    private DateTime fechaDesde = new DateTime(DateTime.Today.Year, 1, 1);
+    private DateTime fechaHasta = DateTime.Today;
+
+    private List<FilaConsumo> _filas = new();
+    private List<DateTime> _periodos = new();
+    private bool _debeRedibujarGrafico;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        // "view_consumption_report" ya estaba sembrado en IPermissionService.cs junto a
+        // view_delinquency/view_budget_execution, sin pantalla construida todavía -- mismo
+        // caveat de siempre: si nadie lo tiene asignado, hay que sumarlo desde /roles.
+        _canView = await PermissionService.HasPermissionAsync(currentUser, "view_consumption_report");
+
+        if (_canView)
+        {
+            await CargarAsync();
+        }
+        else
+        {
+            cargando = false;
+        }
+
+        _inicializado = true;
+    }
+
+    // Mismo patrón que Morosidad/Recaudación: el JS interop de los gráficos se dispara
+    // desde OnAfterRenderAsync (no al final de CargarAsync), gateado por
+    // _debeRedibujarGrafico -- así el <canvas> ya existe en el DOM cuando se llama.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_debeRedibujarGrafico)
+        {
+            _debeRedibujarGrafico = false;
+            await RenderizarGraficosAsync();
+        }
+    }
+
+    private async Task CargarAsync()
+    {
+        if (ParameterService.CurrentBuilding == null)
+        {
+            cargando = false;
+            return;
+        }
+
+        cargando = true;
+        StateHasChanged();
+
+        try
+        {
+            var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
+
+            var detalles = await CalculoService.GetServiceReadingDetailsByBuildingAsync(idBuilding, fechaDesde, fechaHasta);
+
+            // Nombres de unidad/propietario -- ServiceReadingDetail sólo trae GroupNumber
+            // (número de Dpto) e IdGroupUnit, no el nombre del propietario (a diferencia de
+            // Installment, que ya lo trae resuelto). Se arma acá con una sola consulta más,
+            // no una por unidad.
+            var propietarios = await BuildingService.GetOwnersByBuildingAsync(idBuilding);
+            var unidadesDelEdificio = propietarios.Select(p => p.IdGroupUnit).ToHashSet();
+            var nombrePorUnidad = propietarios
+                .Where(p => p.Role == 1 && p.TypeUnit == 1)
+                .GroupBy(p => p.IdGroupUnit)
+                .ToDictionary(g => g.Key, g => $"{g.First().FirstName} {g.First().LastName}".Trim());
+
+            // Descarta lecturas de unidades que no son de este edificio -- defensivo:
+            // GetServiceReadingDetailbyPeriodAsync (usado adentro de
+            // GetServiceReadingDetailsByBuildingAsync) sólo filtra por Period, no por
+            // IdBuilding, así que si dos edificios comparten el mismo periodo de lectura
+            // esto evita mezclar datos entre ellos.
+            var detallesDelEdificio = detalles.Where(d => unidadesDelEdificio.Contains(d.IdGroupUnit)).ToList();
+
+            _periodos = detallesDelEdificio.Select(d => d.Period.Date).Distinct().OrderBy(p => p).ToList();
+
+            _filas = detallesDelEdificio
+                .GroupBy(d => d.IdGroupUnit)
+                .Select(g => new FilaConsumo
+                {
+                    UnitName = g.First().GroupNumber.ToString(),
+                    OwnerName = nombrePorUnidad.GetValueOrDefault(g.Key, "-"),
+                    ConsumoPorPeriodo = g.GroupBy(d => d.Period.Date).ToDictionary(pg => pg.Key, pg => pg.Sum(d => d.Consumption))
+                })
+                .OrderByDescending(f => f.Total)
+                .ToList();
+        }
+        finally
+        {
+            cargando = false;
+        }
+
+        StateHasChanged();
+        _debeRedibujarGrafico = _filas.Any();
+    }
+
+    private async Task RenderizarGraficosAsync()
+    {
+        if (!_filas.Any()) return;
+
+        try
+        {
+            // Tendencia: consumo total del edificio por mes (una sola serie) -- mucho más
+            // legible que una línea por cada DPTO (con 30-40 unidades sería ilegible).
+            var labelsPeriodos = _periodos.Select(p => p.ToString("MMM-yy")).ToArray();
+            var totalPorPeriodo = _periodos.Select(p => _filas.Sum(f => f.ConsumoPorPeriodo.GetValueOrDefault(p))).ToArray();
+            var datasetsTendencia = new[]
+            {
+                new { label = "Consumo total (m³)", data = totalPorPeriodo, color = "rgba(31, 78, 121, 0.85)", dashed = false }
+            };
+            await JSRuntime.InvokeVoidAsync("spiderHoodReportCharts.lineChart", "chartConsumoTendencia", labelsPeriodos, datasetsTendencia, (string?)null);
+
+            // Top 10 consumidores del rango seleccionado (no sólo el último periodo, para
+            // no depender de que el último mes tenga datos completos).
+            var top10 = _filas.OrderByDescending(f => f.Total).Take(10).ToList();
+            var labelsTop = top10.Select(f => f.UnitName).ToArray();
+            var dataTop = top10.Select(f => f.Total).ToArray();
+            await JSRuntime.InvokeVoidAsync("spiderHoodReportCharts.horizontalBar", "chartConsumoTop", labelsTop, dataTop, "Consumo total (m³)");
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuito cerrándose (navegación afuera de la página) -- nada que hacer.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerender estático -- ver el comentario equivalente en
+            // DelinquencyReport.razor.RenderizarGraficoAsync. OnAfterRenderAsync(firstRender)
+            // reintenta ya con el circuito real conectado.
+        }
+    }
+
+    private async Task ExportarExcel()
+    {
+        if (ParameterService.CurrentBuilding == null || !_filas.Any()) return;
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Consumo de Agua");
+
+        ws.Cell(1, 1).Value = "DPTO";
+        ws.Cell(1, 2).Value = "Propietario";
+        var col = 3;
+        foreach (var periodo in _periodos)
+        {
+            ws.Cell(1, col).Value = periodo.ToString("MMM-yy");
+            col++;
+        }
+        ws.Cell(1, col).Value = "Total";
+        ws.Row(1).Style.Font.Bold = true;
+
+        var fila = 2;
+        foreach (var f in _filas)
+        {
+            ws.Cell(fila, 1).Value = f.UnitName;
+            ws.Cell(fila, 2).Value = f.OwnerName;
+            col = 3;
+            foreach (var periodo in _periodos)
+            {
+                ws.Cell(fila, col).Value = f.ConsumoPorPeriodo.GetValueOrDefault(periodo);
+                col++;
+            }
+            ws.Cell(fila, col).Value = f.Total;
+            fila++;
+        }
+
+        ws.Cell(fila, 1).Value = "TOTAL EDIFICIO";
+        col = 3;
+        foreach (var periodo in _periodos)
+        {
+            ws.Cell(fila, col).Value = _filas.Sum(f => f.ConsumoPorPeriodo.GetValueOrDefault(periodo));
+            col++;
+        }
+        ws.Cell(fila, col).Value = _filas.Sum(f => f.Total);
+        ws.Row(fila).Style.Font.Bold = true;
+        ws.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+
+        var fileName = $"ConsumoAgua_{ParameterService.CurrentBuilding.Name}_{DateTime.Now:yyyyMMdd}.xlsx";
+        await JSRuntime.InvokeVoidAsync("descargarArchivo", fileName, Convert.ToBase64String(ms.ToArray()));
+    }
+
+    private class FilaConsumo
+    {
+        public string UnitName = "";
+        public string OwnerName = "";
+        public Dictionary<DateTime, double> ConsumoPorPeriodo = new();
+        public double Total => ConsumoPorPeriodo.Values.Sum();
+    }
+}

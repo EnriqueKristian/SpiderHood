@@ -80,6 +80,46 @@ window.spiderHoodReportCharts = (function () {
             });
         },
 
+        // Líneas (1+ series) -- usado por Reporte de Consumo de Agua (tendencia del
+        // edificio por mes) y por Mi Consumo de Agua (mi unidad vs. promedio del edificio,
+        // esta última con `dashed: true` para distinguirla visualmente como referencia).
+        // Mismo shape de `datasets` que groupedBar ({label, data, color}) más `dashed` opcional.
+        lineChart: function (canvasId, labels, datasets, title) {
+            var canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            if (instances[canvasId]) {
+                instances[canvasId].destroy();
+            }
+
+            instances[canvasId] = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets.map(function (ds) {
+                        return {
+                            label: ds.label,
+                            data: ds.data,
+                            borderColor: ds.color,
+                            backgroundColor: ds.color,
+                            borderDash: ds.dashed ? [6, 4] : undefined,
+                            tension: 0.25,
+                            fill: false
+                        };
+                    })
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: datasets.length > 1, position: 'bottom' },
+                        title: { display: !!title, text: title || '' }
+                    },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        },
+
         destroy: function (canvasId) {
             if (instances[canvasId]) {
                 instances[canvasId].destroy();

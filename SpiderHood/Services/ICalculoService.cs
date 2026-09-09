@@ -26,6 +26,10 @@ namespace SpiderHood.Services
         Task<List<Models.ServiceReadingDetail>> GetFirstWaterReadingDetailList(Guid IdBuilding);
         Task<List<Models.ServiceReading>> GetServiceReadingsAsync(Guid IdBuilding);
 
+        // Todas las lecturas del edificio cuyo Period cae en [desde, hasta] -- para los
+        // reportes de Consumo de Agua (Components/Pages/ReportPages/WaterConsumptionReport.razor
+        // y Components/Pages/ResidentPages/MyWaterConsumption.razor).
+        Task<List<Models.ServiceReadingDetail>> GetServiceReadingDetailsByBuildingAsync(Guid idBuilding, DateTime desde, DateTime hasta);
     }
 
     // Implementación del servicio
@@ -344,6 +348,32 @@ namespace SpiderHood.Services
         public Task<List<Models.ServiceReading>> GetServiceReadingsAsync(Guid IdBuilding)
         {
             return ec.GetServiceReadingListAsync(IdBuilding);
+        }
+
+        public async Task<List<Models.ServiceReadingDetail>> GetServiceReadingDetailsByBuildingAsync(Guid idBuilding, DateTime desde, DateTime hasta)
+        {
+            // No existe (ni está versionado en Database/Scripts) un SP que traiga el detalle
+            // de lecturas por edificio+rango de una sola vez, a diferencia de
+            // GetInstallmentsByBuildingAsync (ver CollectionReport.razor) -- escribir uno nuevo
+            // acá implicaría adivinar el nombre/columnas reales de la tabla detrás de
+            // ServiceReadingDetail, que no está documentada en el repo. Se arma con los dos SPs
+            // que sí existen: primero las cabeceras del edificio (para saber qué Period cae en
+            // el rango), después el detalle de cada Period -- acotado al número de periodos del
+            // rango elegido (normalmente ≤24), no al histórico completo del edificio.
+            var headers = await ec.GetServiceReadingListAsync(idBuilding);
+            var periodos = headers
+                .Where(h => h.Period.Date >= desde.Date && h.Period.Date <= hasta.Date)
+                .Select(h => h.Period)
+                .Distinct()
+                .ToList();
+
+            var detalles = new List<Models.ServiceReadingDetail>();
+            foreach (var periodo in periodos)
+            {
+                detalles.AddRange(await ec.GetServiceReadingDetailbyPeriodAsync(periodo));
+            }
+
+            return detalles;
         }
     }
 

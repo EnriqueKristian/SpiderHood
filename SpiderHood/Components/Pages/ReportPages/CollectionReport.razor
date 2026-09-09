@@ -118,7 +118,11 @@
                                     }
                                 </tbody>
                                 <tfoot>
-                                    <tr class="table-secondary fw-bold">
+                                    <!-- También clickeable: ver los deudores de TODOS los periodos juntos. -->
+                                    <tr class="table-secondary fw-bold @(_mostrandoTotalDeudores ? "table-primary" : "")"
+                                        style="cursor:pointer"
+                                        title="Ver deudores de todos los periodos"
+                                        @onclick="SeleccionarTotal">
                                         <td colspan="2">TOTAL</td>
                                         <td class="text-end">@Moneda(_filas.Sum(f => f.Presupuesto))</td>
                                         <td class="text-end">@Moneda(_filas.Sum(f => f.Recaudado))</td>
@@ -142,12 +146,16 @@
                 </div>
             </div>
 
-            <!-- Deudores del periodo seleccionado -- pedido explícito del usuario: qué
-                 DPTO(s) explican el "Dif" de cada presupuesto, sin abrir un modal. -->
+            <!-- Deudores del periodo seleccionado (o de todos, con click en TOTAL) -- pedido
+                 explícito del usuario: qué DPTO(s) explican el "Dif", sin abrir un modal. -->
             <div class="card shadow-sm border-0 mt-4">
                 <div class="card-header bg-white">
                     <h6 class="mb-0">
-                        @if (_filaSeleccionada != null)
+                        @if (_mostrandoTotalDeudores)
+                        {
+                            <text>Deudores -- todos los periodos</text>
+                        }
+                        else if (_filaSeleccionada != null)
                         {
                             <text>Deudores -- @_filaSeleccionada.Nombre (@_filaSeleccionada.Periodo)</text>
                         }
@@ -157,17 +165,19 @@
                         }
                     </h6>
                 </div>
-                @if (_filaSeleccionada == null)
+                @{ var deudoresAMostrar = _mostrandoTotalDeudores ? DeudoresTotal : _filaSeleccionada?.Deudores; }
+                @if (deudoresAMostrar == null)
                 {
                     <div class="card-body text-muted">
-                        Hacé click en un periodo de la tabla de arriba para ver qué unidades componen su "Dif".
+                        Hacé click en un periodo de la tabla de arriba (o en la fila TOTAL, para verlos todos
+                        juntos) para ver qué unidades componen la diferencia.
                     </div>
                 }
-                else if (!_filaSeleccionada.Deudores.Any())
+                else if (!deudoresAMostrar.Any())
                 {
                     <div class="card-body">
                         <div class="alert alert-success mb-0">
-                            <i class="bi bi-check-circle me-2"></i>Sin deudores en este periodo -- se recaudó el 100%.
+                            <i class="bi bi-check-circle me-2"></i>Sin deudores -- se recaudó el 100%.
                         </div>
                     </div>
                 }
@@ -184,7 +194,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var d in _filaSeleccionada.Deudores)
+                                @foreach (var d in deudoresAMostrar)
                                 {
                                     <tr>
                                         <td class="fw-semibold">@d.UnitName</td>
@@ -197,8 +207,8 @@
                             <tfoot>
                                 <tr class="table-secondary fw-bold">
                                     <td colspan="2">TOTAL</td>
-                                    <td class="text-end">@Moneda(_filaSeleccionada.Deudores.Sum(d => d.Deuda))</td>
-                                    <td class="text-end">@_filaSeleccionada.Deudores.Sum(d => d.Cuotas)</td>
+                                    <td class="text-end">@Moneda(deudoresAMostrar.Sum(d => d.Deuda))</td>
+                                    <td class="text-end">@deudoresAMostrar.Sum(d => d.Cuotas)</td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -220,7 +230,24 @@
 
     private List<FilaRecaudacion> _filas = new();
     private FilaRecaudacion? _filaSeleccionada;
+    private bool _mostrandoTotalDeudores;
     private bool _debeRedibujarGrafico;
+
+    // Mismos deudores de cada fila (ya agrupados por unidad dentro de su periodo, ver
+    // CargarAsync), sumados entre periodos -- una unidad que debe en dos meses distintos
+    // aparece acá como una sola fila con la deuda combinada, no duplicada.
+    private List<DeudorFila> DeudoresTotal =>
+        _filas.SelectMany(f => f.Deudores)
+            .GroupBy(d => new { d.UnitName, d.OwnerName })
+            .Select(g => new DeudorFila
+            {
+                UnitName = g.Key.UnitName,
+                OwnerName = g.Key.OwnerName,
+                Deuda = g.Sum(d => d.Deuda),
+                Cuotas = g.Sum(d => d.Cuotas)
+            })
+            .OrderByDescending(d => d.Deuda)
+            .ToList();
 
     private string TituloGrafico => $"Recaudación al {DateTime.Today.ToString("dd-MMMM-yy", new CultureInfo("es-ES"))}";
 
@@ -392,7 +419,14 @@
 
     private void SeleccionarFila(FilaRecaudacion fila)
     {
+        _mostrandoTotalDeudores = false;
         _filaSeleccionada = fila == _filaSeleccionada ? null : fila;
+    }
+
+    private void SeleccionarTotal()
+    {
+        _filaSeleccionada = null;
+        _mostrandoTotalDeudores = !_mostrandoTotalDeudores;
     }
 
     private async Task ExportarExcel()

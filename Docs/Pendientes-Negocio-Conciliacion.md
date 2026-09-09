@@ -293,3 +293,38 @@ entorno): repetir el caso reportado (crear gasto desde una transacción,
 tocar "Cancelar" en vez de confirmar) y verificar que no aparece ningún
 gasto nuevo en BD; y que "Crear Gasto" → "Finalizar Conciliación" sigue
 dejando todo bien (un solo gasto, transacción conciliada) como antes.
+
+---
+
+## 7. "Finalizar Conciliación" (Gasto) grababa, pero la transacción volvía a "No Conciliadas" al recargar
+
+**Estado: resuelto (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
+
+Reportado por el usuario probando con datos reales: tras "Finalizar
+Conciliación" (rama Gasto), la pantalla decía que se había grabado, pero al
+recargar la transacción volvía a aparecer en "No Conciliadas" como si nada
+hubiera pasado.
+
+**Causa:** en `EnviarAConciliar()`, el orden de las líneas era:
+```
+await BankService.ConciliarTransaccionAsync(transaccion, transaccion.GastoConciliado);
+transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+```
+`ConciliarTransaccionAsync` (`IBankAccountService.cs`) no recibe el nuevo
+estado como parámetro -- simplemente hace `ec.UpdateRecordAsync(transaccion)`,
+un UPDATE que graba el ESTADO ACTUAL del objeto `transaccion` tal cual está
+en memoria en ese momento. Como el `UPDATE` se disparaba ANTES de la línea
+que cambia `ReconciliationStatus` a `Conciliada`, lo que quedaba grabado en
+BD era el `NoConciliada` viejo -- la UI en memoria sí mostraba "Conciliada"
+hasta que algo recargaba desde BD (F5, cambiar de pestaña/período), momento
+en el que volvía a "No Conciliadas" porque nunca se había grabado de verdad.
+
+**Cambio:** se invirtió el orden -- `transaccion.ReconciliationStatus`/
+`ReconciliationDate` se fijan ANTES de llamar a `ConciliarTransaccionAsync`,
+así el UPDATE graba el estado correcto.
+
+**Pendiente de probar con datos reales** (no hay acceso a BD en este
+entorno): "Crear Gasto" (o matchear uno existente) → "Finalizar
+Conciliación" → F5 (o cambiar de período y volver) → confirmar que la
+transacción queda en "Conciliados"/"Auto"/"Manual" según corresponda, no en
+"No Conciliadas".

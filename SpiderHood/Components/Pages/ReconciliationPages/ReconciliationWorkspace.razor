@@ -1739,9 +1739,14 @@
                         await ExpenseService.AddExpenseAsync(transaccion.GastoConciliado);
                     }
 
-                    await BankService.ConciliarTransaccionAsync(transaccion, transaccion.GastoConciliado);
+                    // ConciliarTransaccionAsync graba el ESTADO ACTUAL de `transaccion` (UPDATE
+                    // directo, sin recibir un status aparte) -- si se llama antes de fijar
+                    // ReconciliationStatus = Conciliada, lo que queda grabado en BD es el
+                    // NoConciliada viejo. Por eso "Finalizar Conciliación" parecía funcionar
+                    // (guardaba algo) pero al recargar la transacción volvía a "No Conciliadas".
                     transaccion.ReconciliationStatus = ConcilationType.Conciliada;
                     transaccion.ReconciliationDate = DateTime.Now;
+                    await BankService.ConciliarTransaccionAsync(transaccion, transaccion.GastoConciliado);
 
                     await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Reconciled,
                         performedBy, idBuilding, $"{(transaccion.PropuestaAutomatica ? "Automático" : "Manual")} -- Gasto: {transaccion.GastoConciliado.Description}");

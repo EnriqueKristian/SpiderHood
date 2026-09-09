@@ -43,6 +43,43 @@ window.spiderHoodReportCharts = (function () {
             });
         },
 
+        // Barras verticales agrupadas (2+ series por categoría) -- usado por el reporte
+        // de Recaudación (Presupuesto vs Recaudado por periodo). `datasets` es un array
+        // de {label, data, color} donde color es un color base (se arma fill/border acá).
+        groupedBar: function (canvasId, labels, datasets, title) {
+            var canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            if (instances[canvasId]) {
+                instances[canvasId].destroy();
+            }
+
+            instances[canvasId] = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets.map(function (ds) {
+                        return {
+                            label: ds.label,
+                            data: ds.data,
+                            backgroundColor: ds.color,
+                            borderColor: ds.color,
+                            borderWidth: 1
+                        };
+                    })
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, position: 'bottom' },
+                        title: { display: !!title, text: title || '' }
+                    },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        },
+
         destroy: function (canvasId) {
             if (instances[canvasId]) {
                 instances[canvasId].destroy();

@@ -1,0 +1,312 @@
+@page "/reportes/recaudacion"
+@rendermode InteractiveServer
+@using System.Globalization
+@using SpiderHood.Models
+@using SpiderHood.Services
+@using SpiderHood.Utilities
+@using ClosedXML.Excel
+@inject IBudgetService BudgetService
+@inject IInstallmentService InstallmentService
+@inject ParameterService ParameterService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>SpiderHood - Recaudación</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    <div class="page-header mb-4">
+        <div class="page-header-title">
+            <div class="icon-badge">
+                <i class="bi bi-cash-coin"></i>
+            </div>
+            <div>
+                <h1 class="h3 fw-bold mb-1">Recaudación</h1>
+                <p class="text-muted mb-0">Presupuesto vs. recaudado, por periodo</p>
+            </div>
+        </div>
+    </div>
+
+    @if (!_inicializado)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-3 mb-0">Cargando...</p>
+        </div>
+    }
+    else if (!_canView)
+    {
+        <div class="alert alert-warning">No tenés permiso para ver este reporte.</div>
+    }
+    else if (ParameterService.CurrentBuilding == null)
+    {
+        <div class="alert alert-warning">Selecciona un edificio para continuar.</div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Periodo desde</label>
+                        <input type="date" class="form-control" @bind="fechaDesde" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Periodo hasta</label>
+                        <input type="date" class="form-control" @bind="fechaHasta" />
+                    </div>
+                    <div class="col-md-6 d-flex gap-2">
+                        <button class="btn btn-primary" @onclick="CargarAsync" disabled="@cargando">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+                        </button>
+                        <button class="btn btn-outline-success" @onclick="ExportarExcel" disabled="@(cargando || !_filas.Any())">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Exportar a Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if (cargando)
+        {
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="text-muted mt-3 mb-0">Procesando...</p>
+            </div>
+        }
+        else if (!_filas.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>No hay presupuestos Ordinarios Activos en el periodo seleccionado.
+            </div>
+        }
+        else
+        {
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0">Presupuesto vs. Recaudado por periodo</h6>
+                        </div>
+                        <div class="table-responsive" style="max-height: 500px;">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="sticky-top table-light">
+                                    <tr>
+                                        <th>Periodo</th>
+                                        <th>Nombre</th>
+                                        <th class="text-end">Presupuesto</th>
+                                        <th class="text-end">Recaudado</th>
+                                        <th class="text-end">Dif</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var f in _filas)
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">@f.Periodo</td>
+                                            <td>@f.Nombre</td>
+                                            <td class="text-end">@Moneda(f.Presupuesto)</td>
+                                            <td class="text-end">@Moneda(f.Recaudado)</td>
+                                            <td class="text-end @(f.Diferencia > 0 ? "text-danger" : "text-success")">@Moneda(f.Diferencia)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr class="table-secondary fw-bold">
+                                        <td colspan="2">TOTAL</td>
+                                        <td class="text-end">@Moneda(_filas.Sum(f => f.Presupuesto))</td>
+                                        <td class="text-end">@Moneda(_filas.Sum(f => f.Recaudado))</td>
+                                        <td class="text-end">@Moneda(_filas.Sum(f => f.Diferencia))</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-white">
+                            <h6 class="mb-0">@TituloGrafico</h6>
+                        </div>
+                        <div class="card-body" style="height: 420px;">
+                            <canvas id="chartRecaudacion"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private UserSession currentUser = new();
+    private bool _canView;
+    private bool _inicializado;
+    private bool cargando = true;
+
+    private DateTime fechaDesde = new DateTime(DateTime.Today.Year, 1, 1);
+    private DateTime fechaHasta = DateTime.Today;
+
+    private List<FilaRecaudacion> _filas = new();
+
+    private string TituloGrafico => $"Recaudación al {DateTime.Today.ToString("dd-MMMM-yy", new CultureInfo("es-ES"))}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        // Mismo caveat que Docs/Pendientes-Negocio-Migracion.md #6.3 y el reporte de
+        // Morosidad: no se tocó la BD del catálogo de Permission/RolePermissions desde
+        // este entorno -- si nadie tiene "view_budget_execution" asignado todavía, hay
+        // que sumarlo a los roles correspondientes desde /roles.
+        _canView = await PermissionService.HasPermissionAsync(currentUser, "view_budget_execution");
+
+        if (_canView)
+        {
+            await CargarAsync();
+        }
+        else
+        {
+            cargando = false;
+        }
+
+        _inicializado = true;
+    }
+
+    // Mismo motivo que DelinquencyReport.razor: la primera carga corre dentro de
+    // OnInitializedAsync, que con @rendermode InteractiveServer también se ejecuta en el
+    // pase de prerender estático -- ahí un JS interop tira InvalidOperationException.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive && _filas.Any())
+        {
+            await RenderizarGraficoAsync();
+        }
+    }
+
+    private async Task CargarAsync()
+    {
+        if (ParameterService.CurrentBuilding == null)
+        {
+            cargando = false;
+            return;
+        }
+
+        cargando = true;
+        StateHasChanged();
+
+        try
+        {
+            var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
+
+            // "Presupuesto" acá es sólo el ciclo Ordinario mensual (BudgetType vacío) --
+            // Extraordinaria/Cargos (Multas y Mora) viven bajo sus propios BudgetHeader
+            // ("Extraordinario"/"Cargos") y no son "el presupuesto" del periodo en el
+            // sentido de este reporte. Sólo Activo: un presupuesto en borrador/rechazado
+            // no tiene cuotas reales generadas todavía, no aporta nada a recaudar.
+            var presupuestos = await BudgetService.GetPresupuestosAsync(idBuilding, estado: BudgetStatus.Active);
+            var ordinarios = presupuestos
+                .Where(p => string.IsNullOrEmpty(p.BudgetType) &&
+                    p.BudgetDate.Date >= fechaDesde.Date && p.BudgetDate.Date <= fechaHasta.Date)
+                .OrderBy(p => p.BudgetDate)
+                .ToList();
+
+            var filas = new List<FilaRecaudacion>();
+            foreach (var presupuesto in ordinarios)
+            {
+                // Recaudado = suma de lo efectivamente pagado (AmountPaid) de todas las
+                // cuotas que aplican a este presupuesto -- pedido explícito del usuario,
+                // no el monto de la cuota en sí (que sería igual al Presupuesto).
+                var cuotas = await InstallmentService.GetInstallmentsByBudgetAsync(presupuesto.IdBudgetHeader);
+                var recaudado = cuotas.Sum(c => c.AmountPaid);
+
+                filas.Add(new FilaRecaudacion
+                {
+                    Periodo = $"{presupuesto.Year:D4}-{presupuesto.Month:D2}",
+                    Nombre = presupuesto.BudgetName,
+                    Presupuesto = presupuesto.Amount,
+                    Recaudado = recaudado
+                });
+            }
+
+            _filas = filas;
+        }
+        finally
+        {
+            cargando = false;
+        }
+
+        StateHasChanged();
+        await RenderizarGraficoAsync();
+    }
+
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
+    private async Task RenderizarGraficoAsync()
+    {
+        if (!_filas.Any() || !RendererInfo.IsInteractive) return;
+
+        var labels = _filas.Select(f => f.Periodo).ToArray();
+        var datasets = new[]
+        {
+            new { label = "Presupuesto", data = _filas.Select(f => f.Presupuesto).ToArray(), color = "rgba(31, 78, 121, 0.85)" },
+            new { label = "Recaudado", data = _filas.Select(f => f.Recaudado).ToArray(), color = "rgba(237, 125, 49, 0.85)" }
+        };
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("spiderHoodReportCharts.groupedBar", "chartRecaudacion", labels, datasets, TituloGrafico);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuito cerrándose (navegación afuera de la página) -- nada que hacer.
+        }
+    }
+
+    private async Task ExportarExcel()
+    {
+        if (ParameterService.CurrentBuilding == null || !_filas.Any()) return;
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Recaudación");
+
+        ws.Cell(1, 1).Value = "Periodo";
+        ws.Cell(1, 2).Value = "Nombre";
+        ws.Cell(1, 3).Value = "Presupuesto";
+        ws.Cell(1, 4).Value = "Recaudado";
+        ws.Cell(1, 5).Value = "Dif";
+        ws.Row(1).Style.Font.Bold = true;
+
+        var fila = 2;
+        foreach (var f in _filas)
+        {
+            ws.Cell(fila, 1).Value = f.Periodo;
+            ws.Cell(fila, 2).Value = f.Nombre;
+            ws.Cell(fila, 3).Value = f.Presupuesto;
+            ws.Cell(fila, 4).Value = f.Recaudado;
+            ws.Cell(fila, 5).Value = f.Diferencia;
+            fila++;
+        }
+        ws.Cell(fila, 1).Value = "TOTAL";
+        ws.Cell(fila, 3).Value = _filas.Sum(f => f.Presupuesto);
+        ws.Cell(fila, 4).Value = _filas.Sum(f => f.Recaudado);
+        ws.Cell(fila, 5).Value = _filas.Sum(f => f.Diferencia);
+        ws.Row(fila).Style.Font.Bold = true;
+        ws.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+
+        var fileName = $"Recaudacion_{ParameterService.CurrentBuilding.Name}_{DateTime.Now:yyyyMMdd}.xlsx";
+        await JSRuntime.InvokeVoidAsync("descargarArchivo", fileName, Convert.ToBase64String(ms.ToArray()));
+    }
+
+    private class FilaRecaudacion
+    {
+        public string Periodo = "";
+        public string Nombre = "";
+        public decimal Presupuesto;
+        public decimal Recaudado;
+        public decimal Diferencia => Presupuesto - Recaudado;
+    }
+}

@@ -136,12 +136,22 @@
                 </select>
             </div>
 
-            <div class="search-box">
-                <i class="bi bi-search search-icon"></i>
-                <input type="text" class="form-control form-control-sm" style="min-width:260px;"
-                       placeholder="Buscar por nombre, período, estado..."
-                       value="@_searchTerm"
-                       @oninput="OnSearchInput" />
+            <div class="d-flex align-items-center gap-2">
+                <div class="search-box">
+                    <i class="bi bi-search search-icon"></i>
+                    <input type="text" class="form-control form-control-sm" style="min-width:260px;"
+                           placeholder="Buscar por nombre, período, estado..."
+                           value="@_searchTerm"
+                           @oninput="OnSearchInput" />
+                </div>
+                <label class="text-muted mb-0 ms-2">Mostrar:</label>
+                <select class="form-select form-select-sm" style="width: auto;"
+                        @onchange="(e) => _pagination.ChangePageSize(Convert.ToInt32(e.Value))">
+                    <option value="10" selected="@(_pagination.PageSize == 10)">10</option>
+                    <option value="25" selected="@(_pagination.PageSize == 25)">25</option>
+                    <option value="50" selected="@(_pagination.PageSize == 50)">50</option>
+                    <option value="100" selected="@(_pagination.PageSize == 100)">100</option>
+                </select>
             </div>
         </div>
 

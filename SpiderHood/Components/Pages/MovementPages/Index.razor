@@ -10,33 +10,31 @@
 
 <PageTitle>Estados de Cuenta</PageTitle>
 
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-lg-12 col-xl-10">
-            <div class="card shadow-lg border-0">
-                @* Cabecera + selector de cuenta + tabs + filtros (Detalle) pegados arriba al
-                   hacer scroll -- antes se perdían de vista en listas largas (81+ filas) y
-                   había que volver a subir para ver qué cuenta/pestaña estaba activa o para
-                   usar el buscador. top: 3.5rem porque el header global de la app
-                   (.top-row en MainLayout.razor.css) ya es sticky con esa altura mínima --
-                   este header de página se pega justo debajo, no lo tapa. *@
-                <div style="position: sticky; top: 3.5rem; z-index: 5; background: var(--sh-surface, #fff);">
-                    <div class="card-header bg-gradient-primary text-white py-4">
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-bank display-6 me-2"></i>
-                                <div>
-                                    <h1 class="h3 mb-1">Estados de Cuenta</h1>
-                                    <p class="mb-0 opacity-75">Historial de estados de cuenta cargados</p>
-                                </div>
-                            </div>
-                            <button class="btn btn-light" @onclick="IrACargar">
-                                <i class="bi bi-upload me-2"></i>Cargar Estado de Cuenta
-                            </button>
-                        </div>
-                    </div>
+<div class="container-fluid px-4 py-3">
+    @* Cabecera + selector de cuenta + tabs + filtros (Detalle) pegados arriba al
+       hacer scroll -- antes se perdían de vista en listas largas (81+ filas) y
+       había que volver a subir para ver qué cuenta/pestaña estaba activa o para
+       usar el buscador. top: 3.5rem porque el header global de la app
+       (.top-row en MainLayout.razor.css) ya es sticky con esa altura mínima --
+       este header de página se pega justo debajo, no lo tapa. *@
+    <div style="position: sticky; top: 3.5rem; z-index: 5; background: var(--sh-surface, #fff);">
+        <div class="page-header mb-4">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-bank"></i>
+                </div>
+                <div>
+                    <h1 class="h3 fw-bold mb-1">Estados de Cuenta</h1>
+                    <p class="text-muted mb-0">Historial de estados de cuenta cargados</p>
+                </div>
+            </div>
+            <div class="page-header-actions">
+                <button class="btn btn-primary" @onclick="IrACargar">
+                    <i class="bi bi-upload me-2"></i>Cargar Estado de Cuenta
+                </button>
+            </div>
+        </div>
 
-                    <div class="px-4 pt-4">
                         <!-- Filtro por cuenta -->
                         <div class="row g-3 mb-4">
                             <div class="col-md-4">
@@ -121,10 +119,10 @@
                                 </div>
                             </div>
                         }
-                    </div>
-                </div>
+    </div>
 
-                <div class="card-body p-4 pt-0">
+    <div class="card shadow-sm border-0">
+                <div class="card-body p-4">
                     @if (activeTab == "cargas")
                     {
                         @if (cargando)
@@ -445,8 +443,6 @@
                         }
                     }
                 </div>
-            </div>
-        </div>
     </div>
 </div>
 

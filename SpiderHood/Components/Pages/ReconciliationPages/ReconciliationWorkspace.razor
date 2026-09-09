@@ -349,8 +349,22 @@
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    @if( transaccion.Tipo == "Gasto") { 
-                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                    @if( transaccion.Tipo == "Gasto") {
+                                                        @if (transaccion.PropuestaPendiente && transaccion.GastoConciliado != null)
+                                                    {
+                                                        // Propuesta todavía sin confirmar -- antes esta rama solo se activaba
+                                                        // con ReconciliationStatus == Conciliada, que ya no cambia hasta
+                                                        // "Enviar a Conciliar", así que elegir un match de la lista de abajo
+                                                        // seguía mostrando el mismo dropdown como si no hubiera pasado nada.
+                                                        <div class="d-flex align-items-center">
+                                                            <i class="bi bi-link-45deg text-primary me-2"></i>
+                                                            <div>
+                                                                <div class="small">@transaccion.GastoConciliado.Category</div>
+                                                                <div class="text-muted small">@transaccion.GastoConciliado.Description</div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    else if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
                                                     {
                                                         <div class="d-flex align-items-center">
                                                             <i class="bi bi-link-45deg text-primary me-2"></i>
@@ -401,7 +415,22 @@
                                                     }
                                                     else
                                                     {
-                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial)
+                                                        @if (transaccion.PropuestaPendiente && transaccion.CuotasPropuestas.Any())
+                                                        {
+                                                            // Mismo problema que en Gasto de arriba: sin este chequeo, la
+                                                            // columna seguía mostrando el dropdown de "posibles matches" aunque
+                                                            // ya hubiera una propuesta elegida (automática o manual), porque
+                                                            // ReconciliationStatus no cambia hasta confirmar con "Enviar a
+                                                            // Conciliar".
+                                                            <div class="d-flex align-items-center">
+                                                                <i class="bi bi-link-45deg text-primary me-2"></i>
+                                                                <div>
+                                                                    <div class="small">Unidad @string.Join(", ", transaccion.CuotasPropuestas.Select(c => c.UnitName).Distinct())</div>
+                                                                    <div class="text-muted small">@transaccion.CuotasPropuestas.Count cuota@(transaccion.CuotasPropuestas.Count != 1 ? "s" : "")</div>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                        else if (transaccion.ReconciliationStatus == ConcilationType.Conciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial)
                                                         {
                                                             // Ingreso conciliado con cuota(s), NO con un Gasto -- GastoConciliado
                                                             // siempre es null acá (ese campo es para Gastos), así que esto se
@@ -1376,6 +1405,12 @@
         transaccion.PropuestaPendiente = true;
         transaccion.PropuestaAutomatica = automatico;
 
+        // Igual que gastosPendientes.Remove(gasto) en ConciliarConGasto -- sin esto, la misma
+        // cuota seguía apareciendo como "posible match" de OTRA transacción mientras esta
+        // propuesta seguía sin confirmar, permitiendo proponerla dos veces.
+        var idsPropuestos = new HashSet<Guid>(cuotas.Select(c => c.IdInstallment));
+        cuotaspendientes.RemoveAll(c => idsPropuestos.Contains(c.IdInstallment));
+
         CalcularEstadisticas();
         ActualizarPaginacion();
 
@@ -1397,6 +1432,7 @@
             transaccion.GastoConciliado = null;
         }
 
+        cuotaspendientes.AddRange(transaccion.CuotasPropuestas);
         transaccion.CuotasPropuestas = new();
         transaccion.PropuestaPendiente = false;
         transaccion.PropuestaAutomatica = false;

@@ -14,6 +14,12 @@ namespace SpiderHood.Services
         Task DeleteRoleAsync(Guid id);
         Task<List<PermissionGroup>> GetAllPermissionsAsync();
         Task AssignPermissionsToRoleAsync(Guid roleId, List<Guid> permissionIds, List<string> permissionkeys);
+
+        // Catálogo de Permisos (sólo SysAdmin, PermissionsAdmin.razor) -- antes esto sólo se
+        // podía hacer con un script SQL a mano.
+        Task<List<PermissionDefinition>> GetAllPermissionDefinitionsAsync();
+        Task<PermissionDefinition> CreatePermissionAsync(PermissionDefinition permiso);
+        Task UpdatePermissionAsync(PermissionDefinition permiso);
         Task<List<RoleAssignment>> GetUserRoleAssignmentsAsync();
         Task AssignRoleToUserAsync(Guid userId, Guid roleId);
         Task<List<string>> GetUserPermissionsAsync(Guid userId);
@@ -46,9 +52,21 @@ namespace SpiderHood.Services
             ec = new BDLayout(contextFactory);
         }
 
-        private async Task<List<PermissionDefinition>> GetAllPermissionDefinitionsAsync()
+        public async Task<List<PermissionDefinition>> GetAllPermissionDefinitionsAsync()
         {
             return await ec.GetAllPermissionsAsync();
+        }
+
+        public async Task<PermissionDefinition> CreatePermissionAsync(PermissionDefinition permiso)
+        {
+            permiso.PermissionId = Guid.NewGuid();
+            await ec.AddNewRecordAsync(permiso);
+            return permiso;
+        }
+
+        public async Task UpdatePermissionAsync(PermissionDefinition permiso)
+        {
+            await ec.UpdateRecordAsync(permiso);
         }
 
         public async Task<List<Role>> GetAllRolesAsync()

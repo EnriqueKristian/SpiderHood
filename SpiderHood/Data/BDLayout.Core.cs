@@ -151,6 +151,11 @@ namespace SpiderHood.Data
             public const string GET_AllRoles = "GET_AllRoles";
             public const string GET_ALLPermissions = "GET_ALLPermissions";
             public const string GET_PermissionsByRole = "GET_PermissionsByRole";
+            // Catálogo de Permisos -- antes sólo se podía crear/editar con un script SQL a
+            // mano (ver Database/Scripts/2026-09-09_76_Seed_ReportPermissions.sql). Sólo
+            // SysAdmin tiene esta pantalla (Components/Pages/SettingPages/PermissionsAdmin.razor).
+            public const string INS_Permission = "INS_Permission";
+            public const string UPD_Permission = "UPD_Permission";
             public const string GET_FullMenu = "GET_FullMenu";
             public const string GET_UserById = "GET_UserById";
             public const string GET_InvitationByCode = "GET_InvitationByCode";

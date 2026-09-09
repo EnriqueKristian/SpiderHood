@@ -168,6 +168,27 @@ namespace SpiderHood.Data
         }
 
         // Docs/Pendientes-Negocio-Conciliacion.md #5
+        // Pantalla de administración de Permisos (sólo SysAdmin) -- PermissionKey NO se
+        // actualiza acá a propósito: IPermissionService.HasPermissionAsync y decenas de
+        // pantallas comparan por ese string literal -- cambiarlo después de creado rompería
+        // en silencio cualquier chequeo de permiso ya escrito contra la clave vieja.
+        public async Task<Models.PermissionDefinition> UpdateRecordAsync(Models.PermissionDefinition permiso, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(permiso, nameof(permiso));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Permission,
+                    cancellationToken,
+                    permiso.PermissionId,
+                    permiso.Name,
+                    (object?)permiso.Description,
+                    permiso.Group);
+                return permiso;
+            }, "UpdatePermission", cancellationToken);
+        }
+
         public async Task<Models.ExpenseTemplate> UpdateRecordAsync(Models.ExpenseTemplate plantilla, CancellationToken cancellationToken = default)
         {
             ValidateEntity(plantilla, nameof(plantilla));

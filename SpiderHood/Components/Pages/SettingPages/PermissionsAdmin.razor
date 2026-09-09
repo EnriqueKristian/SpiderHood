@@ -1,0 +1,278 @@
+@page "/Settings/Permissions"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPermissionAdminService PermissionAdminService
+@inject SpiderHood.Services.AuthService AuthService
+
+<PageTitle>Administrar Permisos</PageTitle>
+
+@if (!_loading && !_isSysAdmin)
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            Sólo el Super Usuario (SysAdmin) puede administrar el catálogo de Permisos.
+        </div>
+    </div>
+}
+else if (_loading)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-key"></i>
+                </div>
+                <div>
+                    <h1 class="h3 fw-bold mb-1">Permisos</h1>
+                    <p class="text-muted mb-0">
+                        Catálogo de permisos del sistema -- crear uno acá NO lo asigna a ningún
+                        rol todavía, eso se hace aparte desde
+                        <a href="/Settings/Roles">Roles y Permisos</a>.
+                    </p>
+                </div>
+            </div>
+            <button class="btn btn-primary" @onclick="AbrirNuevo">
+                <i class="bi bi-plus-lg me-1"></i>Nuevo Permiso
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_mensajeError))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @_mensajeError
+                <button type="button" class="btn-close" @onclick="() => _mensajeError = null"></button>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(_mensajeExito))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @_mensajeExito
+                <button type="button" class="btn-close" @onclick="() => _mensajeExito = null"></button>
+            </div>
+        }
+
+        @if (_mostrarForm)
+        {
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0">@(_editando ? "Editar permiso" : "Nuevo permiso")</h6>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="_form" OnSubmit="GuardarAsync">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Clave (PermissionKey) *</label>
+                                <input class="form-control" @bind="_form.PermissionKey" disabled="@_editando"
+                                       placeholder="ej. view_income_expense_report" />
+                                @if (_editando)
+                                {
+                                    <small class="text-muted">
+                                        No se puede cambiar una vez creado -- el código la usa como
+                                        clave fija en los chequeos de permiso (HasPermissionAsync).
+                                    </small>
+                                }
+                                else
+                                {
+                                    <small class="text-muted">
+                                        Sin espacios ni tildes -- es el valor que después se usa en el
+                                        código (ej. <code>HasPermissionAsync(user, "mi_clave")</code>).
+                                    </small>
+                                }
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Nombre a mostrar *</label>
+                                <input class="form-control" @bind="_form.Name" placeholder="ej. Ver Ingresos y Egresos" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Grupo *</label>
+                                <select class="form-select" @bind="_form.Group">
+                                    <option value="">Seleccionar...</option>
+                                    @foreach (var g in GruposConocidos)
+                                    {
+                                        <option value="@g.Key">@g.Value</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Descripción</label>
+                                <textarea class="form-control" rows="2" @bind="_form.Description"></textarea>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn btn-primary" disabled="@_guardando">
+                                @if (_guardando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                <i class="bi bi-save me-1"></i>Guardar
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CerrarForm" disabled="@_guardando">
+                                Cancelar
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        }
+
+        <div class="card shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Clave</th>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Grupo</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in _permisos.OrderBy(p => p.Group).ThenBy(p => p.Name))
+                        {
+                            <tr>
+                                <td><code>@p.PermissionKey</code></td>
+                                <td>@p.Name</td>
+                                <td class="text-muted small">@p.Description</td>
+                                <td><span class="badge bg-secondary">@GroupLabel(p.Group)</span></td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" title="Editar" @onclick="() => AbrirEditar(p)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                        @if (!_permisos.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">No hay permisos cargados.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _isSysAdmin;
+    private bool _mostrarForm;
+    private bool _editando;
+    private bool _guardando;
+    private string? _mensajeError;
+    private string? _mensajeExito;
+    private List<PermissionDefinition> _permisos = new();
+    private PermissionDefinition _form = new();
+
+    // Mismos grupos que PermissionAdminService.GetModuleDisplayName -- para que un permiso
+    // nuevo aparezca agrupado correctamente (con nombre en español) en
+    // /Settings/Roles/Permissions, en vez de como un grupo suelto sin traducir.
+    private static readonly Dictionary<string, string> GruposConocidos = new()
+    {
+        ["dashboard"] = "Dashboard",
+        ["building"] = "Gestión de Edificios",
+        ["budget"] = "Presupuesto y Finanzas",
+        ["resident"] = "Portal del Residente",
+        ["board"] = "Junta Directiva",
+        ["incidents"] = "Incidentes y Comunicados",
+        ["reports"] = "Reportes",
+        ["settings"] = "Configuración"
+    };
+
+    private static string GroupLabel(string group) => GruposConocidos.GetValueOrDefault(group, group);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        _isSysAdmin = currentUser?.Roles.Contains("SysAdmin") ?? false;
+
+        if (_isSysAdmin)
+        {
+            await CargarAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task CargarAsync()
+    {
+        _permisos = await PermissionAdminService.GetAllPermissionDefinitionsAsync();
+    }
+
+    private void AbrirNuevo()
+    {
+        _form = new PermissionDefinition();
+        _editando = false;
+        _mostrarForm = true;
+        _mensajeError = null;
+    }
+
+    private void AbrirEditar(PermissionDefinition permiso)
+    {
+        _form = new PermissionDefinition
+        {
+            PermissionId = permiso.PermissionId,
+            PermissionKey = permiso.PermissionKey,
+            Name = permiso.Name,
+            Description = permiso.Description,
+            Group = permiso.Group
+        };
+        _editando = true;
+        _mostrarForm = true;
+        _mensajeError = null;
+    }
+
+    private void CerrarForm()
+    {
+        _mostrarForm = false;
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.PermissionKey) || string.IsNullOrWhiteSpace(_form.Name) || string.IsNullOrWhiteSpace(_form.Group))
+        {
+            _mensajeError = "Clave, Nombre y Grupo son obligatorios.";
+            return;
+        }
+
+        _guardando = true;
+        try
+        {
+            if (_editando)
+            {
+                await PermissionAdminService.UpdatePermissionAsync(_form);
+                _mensajeExito = "Permiso actualizado.";
+            }
+            else
+            {
+                await PermissionAdminService.CreatePermissionAsync(_form);
+                _mensajeExito = "Permiso creado -- ahora hay que asignarlo a los roles correspondientes desde Roles y Permisos.";
+            }
+
+            _mostrarForm = false;
+            await CargarAsync();
+        }
+        catch (Exception ex)
+        {
+            // INS_Permission rechaza una PermissionKey duplicada con RAISERROR -- ese mensaje
+            // llega acá como excepción, no hace falta duplicar la validación en memoria.
+            _mensajeError = $"Error al guardar: {ex.GetBaseException().Message}";
+        }
+        finally
+        {
+            _guardando = false;
+        }
+    }
+}

@@ -811,6 +811,26 @@ namespace SpiderHood.Data
             }, "AddWorkflowAuditLog", cancellationToken);
         }
 
+        // Pantalla de administración de Permisos (sólo SysAdmin) -- antes esto sólo se podía
+        // hacer con un INSERT manual (ver Database/Scripts/2026-09-09_76_Seed_ReportPermissions.sql).
+        public async Task<Models.PermissionDefinition> AddNewRecordAsync(Models.PermissionDefinition permiso, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(permiso, nameof(permiso));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Permission,
+                    cancellationToken,
+                    permiso.PermissionId,
+                    permiso.PermissionKey,
+                    permiso.Name,
+                    (object?)permiso.Description,
+                    permiso.Group);
+                return permiso;
+            }, "AddPermission", cancellationToken);
+        }
+
         // Docs/Pendientes-Negocio-Conciliacion.md #5
         public async Task<Models.ExpenseTemplate> AddNewRecordAsync(Models.ExpenseTemplate plantilla, CancellationToken cancellationToken = default)
         {

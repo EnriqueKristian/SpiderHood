@@ -173,12 +173,13 @@
         _inicializado = true;
     }
 
-    // Mismo motivo que DelinquencyReport.razor: la primera carga corre dentro de
-    // OnInitializedAsync, que con @rendermode InteractiveServer también se ejecuta en el
-    // pase de prerender estático -- ahí un JS interop tira InvalidOperationException.
+    // Red de seguridad además de la llamada al final de CargarAsync -- ver el comentario
+    // en RenderizarGraficoAsync (mismo fix que DelinquencyReport.razor: el guard con
+    // RendererInfo.IsInteractive que había acá bloqueaba el dibujo real del gráfico, no
+    // sólo el intento durante prerender).
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && RendererInfo.IsInteractive && _filas.Any())
+        if (firstRender && _filas.Any())
         {
             await RenderizarGraficoAsync();
         }
@@ -244,7 +245,7 @@
 
     private async Task RenderizarGraficoAsync()
     {
-        if (!_filas.Any() || !RendererInfo.IsInteractive) return;
+        if (!_filas.Any()) return;
 
         var labels = _filas.Select(f => f.Periodo).ToArray();
         var datasets = new[]
@@ -260,6 +261,12 @@
         catch (JSDisconnectedException)
         {
             // Circuito cerrándose (navegación afuera de la página) -- nada que hacer.
+        }
+        catch (InvalidOperationException)
+        {
+            // Prerender estático -- ver el comentario equivalente en
+            // DelinquencyReport.razor.RenderizarGraficoAsync. OnAfterRenderAsync(firstRender)
+            // reintenta ya con el circuito real conectado.
         }
     }
 

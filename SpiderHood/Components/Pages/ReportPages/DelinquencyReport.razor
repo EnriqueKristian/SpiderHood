@@ -237,15 +237,14 @@
         _inicializado = true;
     }
 
-    // El gráfico se redibuja acá (no sólo desde CargarAsync) porque la primera carga
-    // corre durante OnInitializedAsync, que en este @rendermode también se ejecuta en
-    // el pase de prerender estático -- ahí un JS interop tira InvalidOperationException
-    // (RendererInfo.IsInteractive todavía en false dentro de RenderizarGraficoAsync corta
-    // la llamada). Mismo patrón ya usado en BuildingPage.razor.cs/HeaderMainLayout.razor
-    // para JS interop que sólo es seguro una vez conectado el circuito real.
+    // Red de seguridad además de la llamada al final de CargarAsync: si la primera carga
+    // corrió durante el pase de prerender estático (RenderizarGraficoAsync atrapó el
+    // InvalidOperationException y no dibujó nada), esto reintenta ya con el circuito real
+    // conectado. Si CargarAsync ya lo dibujó bien, esto sólo lo redibuja de nuevo (destroy +
+    // create en el JS), inofensivo.
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && RendererInfo.IsInteractive && _filasPorUnidad.Any())
+        if (firstRender && _filasPorUnidad.Any())
         {
             await RenderizarGraficoAsync();
         }
@@ -369,14 +368,6 @@
     {
         if (!_filasPorUnidad.Any()) return;
 
-        // Si esto corre durante el pase de prerender estático (CargarAsync llamado desde
-        // OnInitializedAsync la primera vez), RendererInfo.IsInteractive todavía es false --
-        // un JSRuntime.InvokeVoidAsync ahí tira InvalidOperationException ("JavaScript
-        // interop calls cannot be issued during server-side prerendering"), no
-        // JSDisconnectedException. OnAfterRenderAsync(firstRender) vuelve a llamar a este
-        // método una vez conectado el circuito real, así que el gráfico igual se dibuja.
-        if (!RendererInfo.IsInteractive) return;
-
         var labels = _filasPorUnidad.Select(f => f.UnitName).ToArray();
         var data = _filasPorUnidad.Select(f => f.Total).ToArray();
 
@@ -387,6 +378,16 @@
         catch (JSDisconnectedException)
         {
             // Circuito cerrándose (navegación afuera de la página) -- nada que hacer.
+        }
+        catch (InvalidOperationException)
+        {
+            // Esto corre durante el pase de prerender estático (CargarAsync llamado desde
+            // OnInitializedAsync la primera vez) -- "JavaScript interop calls cannot be
+            // issued during server-side prerendering". OnAfterRenderAsync(firstRender)
+            // vuelve a llamar a este método una vez conectado el circuito real, así que el
+            // gráfico igual se termina dibujando. (Antes había un guard con
+            // RendererInfo.IsInteractive acá -- se sacó porque bloqueaba el dibujo real del
+            // gráfico también en el caso normal, no sólo durante el prerender.)
         }
     }
 

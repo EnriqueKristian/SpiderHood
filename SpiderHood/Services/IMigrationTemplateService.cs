@@ -236,22 +236,23 @@ namespace SpiderHood.Services
             var headers = new[]
             {
                 "Unidad", "Periodo (AAAA-MM)", "Lectura (m³)",
-                "Lectura Inicial (solo 1er periodo de la unidad)", "Fecha de Lectura"
+                "Lectura Inicial (solo 1er periodo de la unidad)", "Fecha de Lectura",
+                "Monto de Agua (opcional, si ya lo calculó el sistema anterior)"
             };
             EscribirEncabezado(ws, headers);
 
             EscribirFilaEjemplo(ws, 2, new object[]
             {
-                unidades.FirstOrDefault() ?? "EJEMPLO", DateTime.Today.AddMonths(-1).ToString("yyyy-MM"), 393.98, 378.263, DateTime.Today.AddMonths(-1)
+                unidades.FirstOrDefault() ?? "EJEMPLO", DateTime.Today.AddMonths(-1).ToString("yyyy-MM"), 393.98, 378.263, DateTime.Today.AddMonths(-1), 37.37
             });
             EscribirFilaEjemplo(ws, 3, new object[]
             {
-                unidades.FirstOrDefault() ?? "EJEMPLO", DateTime.Today.ToString("yyyy-MM"), 412.11, "", DateTime.Today
+                unidades.FirstOrDefault() ?? "EJEMPLO", DateTime.Today.ToString("yyyy-MM"), 412.11, "", DateTime.Today, ""
             });
 
             AplicarListaValidacion(ws, "A4:A2000", unidades, "Unidad");
 
-            AjustarColumnas(ws, 10, 18, 14, 34, 16);
+            AjustarColumnas(ws, 10, 18, 14, 34, 16, 20);
 
             AgregarInstrucciones(workbook, "Plantilla: Lecturas de Agua Históricas", new[]
             {
@@ -259,6 +260,7 @@ namespace SpiderHood.Services
                 "'Lectura' es la lectura acumulada del medidor a esa fecha, no el consumo del mes -- el consumo se calcula contra la lectura del periodo anterior de la misma unidad.",
                 "'Lectura Inicial' solo se llena en la fila del primer periodo histórico de cada unidad. Déjela vacía en las demás filas.",
                 "'Fecha de Lectura' es opcional; si se deja vacía, el sistema usa el último día del Periodo indicado.",
+                "'Monto de Agua' es opcional -- si el sistema anterior ya calculó cuánto se cobró de agua ese periodo, póngalo acá tal cual. El sistema NO lo recalcula con las tarifas de hoy (probablemente distintas a las de ese momento histórico) -- si se deja vacía, ese periodo queda \"No calculado\" en los reportes de consumo, no en S/ 0.00.",
                 MensajeUnidades(unidades, errorUnidades)
             });
 

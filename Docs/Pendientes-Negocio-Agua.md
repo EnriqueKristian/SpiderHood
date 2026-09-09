@@ -199,3 +199,43 @@ período existente (ver punto 1) sin que nadie haya reportado un error de PK
 duplicada, lo más probable es que el SP ya soporte upsert -- pero no se
 pudo confirmar leyendo el código. Si el usuario puede compartir la
 definición del SP, se puede verificar/documentar de forma definitiva.
+
+---
+
+## 5. La migración de histórico de agua no traía el monto real ya calculado (`CalculatedAmount` quedaba en 0)
+
+**Estado: resuelto (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
+
+Seguimiento del punto 3: ahí se explicó que `ImportarLecturasAguaAsync`
+guardaba `CalculatedAmount = 0` a propósito porque no tiene forma de saber
+qué tarifa aplicaba en el momento histórico. El usuario planteó la duda de
+fondo: ese monto real **sí existe** -- lo tenía calculado el sistema
+anterior (Excel, en su caso: columna `Monto` + columna `MontoAgua` sumadas
+dan la cuota del mes) -- y si la migración no lo captura, esa información
+se pierde para siempre, aunque después SpiderHood recalcule con sus propias
+tarifas (que van a dar un monto distinto al que realmente se cobró en su
+momento).
+
+Aclaración importante del usuario: **no** hay que replicar la fórmula del
+Excel de Nova Alzamora en el código -- cada edificio que se migre puede
+traer esa plantilla armada distinto. La idea es que **la plantilla de
+SpiderHood** tenga un lugar fijo para ese dato, y que cada migración lo
+llene desde su propio Excel de origen (como ya pasa con el resto de la
+plantilla de Lecturas de Agua Históricas).
+
+**Cambio:** se agregó una columna opcional "Monto de Agua" a la plantilla
+"Lecturas de Agua Históricas" (`IMigrationTemplateService.GenerarPlantillaLecturasAguaAsync`)
+-- se completa por fila igual que 'Lectura'/'Lectura Inicial', junto a la
+lectura del medidor de ese periodo, en vez de vivir en otra plantilla o
+mezclarse con una cuota Extraordinaria aparte. `ImportarLecturasAguaAsync`
+ahora la lee y, si viene completa, graba ese valor **tal cual** en
+`ServiceReadingDetail.CalculatedAmount` -- nunca lo recalcula. Si se deja
+vacía, el comportamiento es el mismo de antes (`CalculatedAmount = 0`,
+mostrado como "No calculado" en los reportes de consumo) y ahora además
+genera una advertencia en el resultado del import ("no trae 'Monto de
+Agua'... aunque tiene X m³ de consumo") para que no pase desapercibido.
+
+**Pendiente de probar con datos reales** (no hay acceso a BD en este
+entorno): cargar un archivo con la columna nueva completa y confirmar que
+"Mi Consumo de Agua"/el reporte de Consumo de Agua muestran el monto real
+en vez de "No calculado".

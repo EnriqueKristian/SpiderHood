@@ -425,10 +425,10 @@ namespace SpiderHood.Services
         // AssignUnits.razor usa el mismo llamado para listar "unidades libres" sin
         // reventar).
         //
-        // CalculatedAmount se guarda en 0 -- no se recalcula la tarifa de agua
-        // histórica (bandas de consumo, cargo fijo, IGV) para un import de lecturas
-        // puras; el monto ya facturado de cada periodo, si se conoce, se carga aparte
-        // como Extraordinaria "Reg. Agua" en la plantilla de Cuotas y Pagos.
+        // CalculatedAmount: si la plantilla trae 'Monto de Agua' para esa fila, se graba
+        // tal cual (no se recalcula la tarifa histórica -- bandas de consumo, cargo fijo,
+        // IGV -- que probablemente ya cambió desde entonces en /configwater). Si la
+        // columna queda vacía, se guarda en 0 -- Docs/Pendientes-Negocio-Agua.md #5.
         //
         // ServiceReading.IdPeriod SÍ es obligatorio (Guid no nullable, con FK real
         // "FK_Readings_Periods_Services" hacia dbo.Periods) -- confirmado en
@@ -486,7 +486,7 @@ namespace SpiderHood.Services
                     return resultado;
                 }
 
-                var filas = new List<(string Codigo, DateTime Periodo, decimal Lectura, decimal? LecturaInicial, DateTime FechaLectura)>();
+                var filas = new List<(string Codigo, DateTime Periodo, decimal Lectura, decimal? LecturaInicial, DateTime FechaLectura, decimal? MontoAgua)>();
                 foreach (var row in ws.RowsUsed().Skip(1))
                 {
                     var codigo = row.Cell(1).GetString().Trim();
@@ -520,13 +520,32 @@ namespace SpiderHood.Services
                     if (row.Cell(5).IsEmpty() || !DateTime.TryParse(row.Cell(5).GetString().Trim(), out fechaLectura))
                         fechaLectura = new DateTime(periodo.Year, periodo.Month, DateTime.DaysInMonth(periodo.Year, periodo.Month));
 
+                    // Opcional -- el monto real que el sistema anterior ya calculó para esa
+                    // lectura (Docs/Pendientes-Negocio-Agua.md #5). Si se completa, se graba
+                    // tal cual en CalculatedAmount, SIN recalcular con las tarifas actuales:
+                    // la tarifa vigente hoy en /configwater casi seguro no es la misma que
+                    // aplicaba en el momento histórico, así que recalcular daría un monto
+                    // distinto al que realmente se cobró (razón por la que hasta ahora se
+                    // guardaba en 0 en vez de adivinar).
+                    decimal? montoAgua = null;
+                    if (!row.Cell(6).IsEmpty())
+                    {
+                        if (decimal.TryParse(row.Cell(6).GetString().Trim(), out var ma))
+                            montoAgua = ma;
+                        else
+                        {
+                            resultado.Errores.Add($"Lecturas, fila {row.RowNumber()}: 'Monto de Agua' no es un número válido.");
+                            continue;
+                        }
+                    }
+
                     if (!idGroupUnitPorCodigo.TryGetValue(codigo, out var idGroupUnit) || idGroupUnit == Guid.Empty)
                     {
                         resultado.Errores.Add($"Lecturas, fila {row.RowNumber()}: la unidad '{codigo}' no existe o no tiene propietario/grupo asignado -- cárguela primero en 'Unidades y Propietarios'.");
                         continue;
                     }
 
-                    filas.Add((codigo, periodo, lectura, lecturaInicial, fechaLectura));
+                    filas.Add((codigo, periodo, lectura, lecturaInicial, fechaLectura, montoAgua));
                 }
 
                 if (resultado.Errores.Count > 0)
@@ -638,6 +657,13 @@ namespace SpiderHood.Services
                             resultado.Advertencias.Add($"Lecturas: '{f.Codigo}' en {periodo:yyyy-MM} tiene Lectura ({f.Lectura}) menor que la anterior ({anterior}) -- se guardó el consumo como 0.");
                         var consumo = Math.Max(0, f.Lectura - anterior);
 
+                        // Docs/Pendientes-Negocio-Agua.md #5 -- si la fila trae 'Monto de
+                        // Agua', se usa tal cual (es el monto real ya calculado en el sistema
+                        // anterior). Si no, y hubo consumo, avisa que quedó sin calcular --
+                        // antes esto pasaba en silencio para TODA la carga histórica.
+                        if (!yaImportado && f.MontoAgua == null && consumo > 0)
+                            resultado.Advertencias.Add($"Lecturas: '{f.Codigo}' en {periodo:yyyy-MM} no trae 'Monto de Agua' -- se guardó como no calculado (S/ 0.00), aunque tiene {consumo:N2} m³ de consumo.");
+
                         detalles.Add(new Models.ServiceReadingDetail
                         {
                             IdServiceReadingDetail = Guid.NewGuid(),
@@ -648,7 +674,7 @@ namespace SpiderHood.Services
                             CurrentReading = (double)f.Lectura,
                             Consumption = (double)consumo,
                             ReadingDate = f.FechaLectura,
-                            CalculatedAmount = 0,
+                            CalculatedAmount = f.MontoAgua ?? 0,
                             Minimum = false,
                             IdServiceReading = idServiceReading,
                             Period = periodo

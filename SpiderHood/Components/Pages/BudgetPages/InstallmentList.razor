@@ -19,75 +19,71 @@
     <div class="row justify-content-center">
         <div class="col-lg-12 col-xl-11">
             <div class="card shadow-lg border-0">
-                <div class="card-header bg-gradient-primary text-white py-4">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-receipt display-6 me-2"></i>
-                        <div>
-                            <h1 class="h3 mb-1">Listado de Cuotas</h1>
-                            <p class="mb-0 opacity-75">Cuotas de todos los periodos</p>
-                        </div>
-                    </div>
-                </div>
-
-                @if (cargando)
-                {
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Cargando...</span>
-                        </div>
-                    </div>
-                }
-                else
-                {
-                    <!-- Resumen Estadístico -->
-                    <div class="row g-0 summary-stats">
-                        <div class="col-md-3">
-                            <div class="stat-card border-end">
-                                <div class="stat-icon bg-info">
-                                    <i class="bi bi-building"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h6>Unidades</h6>
-                                    <p class="stat-value">@allInstallments.Select(i => i.IdGroupUnit).Distinct().Count()</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stat-card border-end">
-                                <div class="stat-icon bg-primary">
-                                    <i class="bi bi-cash-coin"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h6>Total Cuotas</h6>
-                                    <p class="stat-value">@Moneda(allInstallments.Sum(i => i.Amount))</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stat-card border-end">
-                                <div class="stat-icon bg-success">
-                                    <i class="bi bi-check-circle"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h6>Total Pagado</h6>
-                                    <p class="stat-value">@Moneda(allInstallments.Sum(i => i.AmountPaid))</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="stat-card">
-                                <div class="stat-icon bg-warning">
-                                    <i class="bi bi-exclamation-circle"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h6>Deuda Total</h6>
-                                    <p class="stat-value">@Moneda(allInstallments.Sum(i => i.Debt))</p>
-                                </div>
+                @* Cabecera + resumen estadístico + filtros pegados arriba al hacer scroll --
+                   top: 3.5rem porque el header global de la app (.top-row en MainLayout.razor.css)
+                   ya es sticky con esa altura mínima -- este header de página se pega justo
+                   debajo, no lo tapa. Mismo patrón usado en /movement/Index.razor. *@
+                <div style="position: sticky; top: 3.5rem; z-index: 5; background: var(--sh-surface, #fff);">
+                    <div class="card-header bg-gradient-primary text-white py-4">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-receipt display-6 me-2"></i>
+                            <div>
+                                <h1 class="h3 mb-1">Listado de Cuotas</h1>
+                                <p class="mb-0 opacity-75">Cuotas de todos los periodos</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="table-container">
+                    @if (!cargando)
+                    {
+                        <!-- Resumen Estadístico -->
+                        <div class="row g-0 summary-stats">
+                            <div class="col-md-3">
+                                <div class="stat-card border-end">
+                                    <div class="stat-icon bg-info">
+                                        <i class="bi bi-building"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h6>Unidades</h6>
+                                        <p class="stat-value">@allInstallments.Select(i => i.IdGroupUnit).Distinct().Count()</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-card border-end">
+                                    <div class="stat-icon bg-primary">
+                                        <i class="bi bi-cash-coin"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h6>Total Cuotas</h6>
+                                        <p class="stat-value">@Moneda(allInstallments.Sum(i => i.Amount))</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-card border-end">
+                                    <div class="stat-icon bg-success">
+                                        <i class="bi bi-check-circle"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h6>Total Pagado</h6>
+                                        <p class="stat-value">@Moneda(allInstallments.Sum(i => i.AmountPaid))</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-card">
+                                    <div class="stat-icon bg-warning">
+                                        <i class="bi bi-exclamation-circle"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <h6>Deuda Total</h6>
+                                        <p class="stat-value">@Moneda(allInstallments.Sum(i => i.Debt))</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Filtros -->
                         <div class="table-header d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 border-bottom">
                             <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -135,7 +131,20 @@
                                 </select>
                             </div>
                         </div>
+                    }
+                </div>
 
+                @if (cargando)
+                {
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="table-container">
                         @if (!pagination.AllData.Any())
                         {
                             <div class="text-center py-5 text-muted">

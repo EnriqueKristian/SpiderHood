@@ -660,12 +660,20 @@
             }
         }
 
+        // Antes esto cortaba acá con un mensaje genérico ("No se guardaron datos debido a
+        // errores.") sin decir CUÁL fila ni CUÁL error, y ni siquiera llegaba a mostrar la
+        // vista previa (pagination.Initialize más abajo) -- el usuario se quedaba sin forma
+        // de saber qué corregir en su Excel. `errores` ya trae el detalle fila por fila
+        // (armado en LeerExcel) -- ahora se muestra, y se sigue de largo: las filas
+        // inválidas quedan marcadas en rojo ("Error") en la tabla, sin bloquear el guardado
+        // de las que sí están bien (SaveData ya sólo guarda Validation == "Ok").
         if (errores.Any())
         {
-            mensaje = "No se guardaron datos debido a errores.";
-            isLoading = false;
-            await InvokeAsync(StateHasChanged);
-            return;
+            const int maxErroresMostrados = 5;
+            var detalle = string.Join(" | ", errores.Take(maxErroresMostrados));
+            var restantes = errores.Count - maxErroresMostrados;
+            var sufijo = restantes > 0 ? $" (+{restantes} más, ver filas marcadas abajo)" : "";
+            mensaje = $"Se encontraron {errores.Count} error(es) de datos: {detalle}{sufijo}. Revisa las filas marcadas en rojo en la vista previa.";
         }
 
         var currentUser = await AuthService.GetCurrentUserAsync();

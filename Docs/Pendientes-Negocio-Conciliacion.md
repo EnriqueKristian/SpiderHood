@@ -376,3 +376,40 @@ entorno): desde /ConciliacionGastos, con un pago 1:1 pendiente de propuesta
 automática de fondo, confirmar Gastos y verificar que el pago sigue
 apareciendo como propuesta pendiente (no conciliado) al entrar después a
 /ConciliacionPagos.
+
+---
+
+## 9. "Cargar Estado de Cuenta": error genérico sin decir cuál fila ni cuál dato falló
+
+**Estado: resuelto (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
+
+Reportado por el usuario: al cargar un Excel de estado de cuenta,
+`/movement/cargar` mostraba "No se guardaron datos debido a errores." sin
+indicar dónde ni cuál era el error -- y encima la "Vista previa de datos"
+quedaba vacía (0 de 0 registros), así que no había ninguna forma de ubicar
+la fila problemática en el Excel.
+
+**Causa:** `LeerExcel()` (`CargarEstadoCuentaConciliacion.razor`) ya arma
+una lista `errores` con el detalle exacto fila por fila (ej. "Fila 5: Fecha
+inválida", "Fila 12: Moneda inválida (solo PEN o USD)") mientras valida
+cada celda -- pero `HandleFileSelected`, apenas detectaba que esa lista no
+estaba vacía, pisaba todo con el mensaje genérico y hacía `return`
+INMEDIATAMENTE, antes de llegar a `pagination.Initialize(datos.ToList())`
+-- por eso la tabla de vista previa (que sí resalta en rojo cada fila con
+`Validation != "Ok"`) nunca llegaba a mostrarse.
+
+**Cambio:** se sacó el `return` -- ahora, si hay errores, el mensaje lista
+hasta 5 de ellos con el detalle real ("Fila N: ...") y avisa que el resto
+se puede ver marcado en rojo en la tabla, pero el flujo sigue de largo:
+la vista previa se llena igual con TODAS las filas (válidas e inválidas),
+así el usuario puede ubicar exactamente cuáles corregir en su Excel. Esto
+no cambia qué se guarda: `SaveData`/`SaveItemAsync` ya sólo insertaban las
+filas con `Validation == "Ok"` -- las inválidas (incluida cualquier fila con
+`StatementDate` sin parsear) seguían sin llegar nunca a la BD, antes y
+después de este cambio.
+
+**Pendiente de probar con datos reales** (no hay acceso a BD en este
+entorno): cargar un Excel con alguna fila con dato inválido (fecha futura,
+moneda que no sea PEN/USD, etc.) y confirmar que el mensaje ahora dice
+"Fila N: ..." y que la vista previa muestra esa fila marcada en rojo junto
+con el resto de filas válidas.

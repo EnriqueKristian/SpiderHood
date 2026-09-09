@@ -25,7 +25,18 @@
         </div>
     </div>
 
-    @if (!_canView)
+    @if (!_inicializado)
+    {
+        <!-- _canView todavía no se determinó (OnInitializedAsync en curso) -- sin este
+             chequeo primero, como _canView arranca en false por default, la primera
+             carga mostraba "No tenés permiso" durante todo ese tiempo en vez de un
+             indicador de carga. -->
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-3 mb-0">Cargando...</p>
+        </div>
+    }
+    else if (!_canView)
     {
         <div class="alert alert-warning">No tenés permiso para ver este reporte.</div>
     }
@@ -62,6 +73,7 @@
         {
             <div class="text-center py-5">
                 <div class="spinner-border text-primary" role="status"></div>
+                <p class="text-muted mt-3 mb-0">Procesando...</p>
             </div>
         }
         else if (!_filasPorUnidad.Any())
@@ -179,6 +191,7 @@
 @code {
     private UserSession currentUser = new();
     private bool _canView;
+    private bool _inicializado;
     private bool cargando = true;
 
     private DateTime fechaDesde = new DateTime(DateTime.Today.Year, 1, 1);
@@ -208,6 +221,22 @@
         else
         {
             cargando = false;
+        }
+
+        _inicializado = true;
+    }
+
+    // El gráfico se redibuja acá (no sólo desde CargarAsync) porque la primera carga
+    // corre durante OnInitializedAsync, que en este @rendermode también se ejecuta en
+    // el pase de prerender estático -- ahí un JS interop tira InvalidOperationException
+    // (RendererInfo.IsInteractive todavía en false dentro de RenderizarGraficoAsync corta
+    // la llamada). Mismo patrón ya usado en BuildingPage.razor.cs/HeaderMainLayout.razor
+    // para JS interop que sólo es seguro una vez conectado el circuito real.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && RendererInfo.IsInteractive && _filasPorUnidad.Any())
+        {
+            await RenderizarGraficoAsync();
         }
     }
 
@@ -324,6 +353,14 @@
     private async Task RenderizarGraficoAsync()
     {
         if (!_filasPorUnidad.Any()) return;
+
+        // Si esto corre durante el pase de prerender estático (CargarAsync llamado desde
+        // OnInitializedAsync la primera vez), RendererInfo.IsInteractive todavía es false --
+        // un JSRuntime.InvokeVoidAsync ahí tira InvalidOperationException ("JavaScript
+        // interop calls cannot be issued during server-side prerendering"), no
+        // JSDisconnectedException. OnAfterRenderAsync(firstRender) vuelve a llamar a este
+        // método una vez conectado el circuito real, así que el gráfico igual se dibuja.
+        if (!RendererInfo.IsInteractive) return;
 
         var labels = _filasPorUnidad.Select(f => f.UnitName).ToArray();
         var data = _filasPorUnidad.Select(f => f.Total).ToArray();

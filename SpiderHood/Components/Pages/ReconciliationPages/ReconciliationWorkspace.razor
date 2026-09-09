@@ -1209,11 +1209,17 @@
     private Task<bool> ConfirmarAsync(string mensaje, string type = "warning")
     {
         _confirmTcs = new TaskCompletionSource<bool>();
-        _confirmationModal?.Show(type);
+        // Message antes de Show(): Show() ya dispara su propio StateHasChanged() adentro del
+        // componente -- si Message se seteaba DESPUÉS (como estaba antes), ese primer render
+        // del modal podía salir con el mensaje de la INVOCACIÓN ANTERIOR (o el default "¿Está
+        // seguro de realizar esta acción?" la primera vez), y recién se corregía en el
+        // siguiente render que disparara cualquier otra cosa -- un modal que parece "vacío" o
+        // con el texto equivocado se lee fácil como que el botón no hizo nada.
         if (_confirmationModal != null)
         {
             _confirmationModal.Message = mensaje;
         }
+        _confirmationModal?.Show(type);
         return _confirmTcs.Task;
     }
 
@@ -1995,7 +2001,12 @@
         }
 
         CerrarModalCrearGasto();
-        mensajeExito = "Gasto creado y conciliado exitosamente";
+        // No pisar acá el mensaje que ya dejó ConciliarConGasto ("Propuesta: ... Usa
+        // 'Enviar a Conciliar' para confirmar.") -- decir "conciliado exitosamente" acá es
+        // falso: todavía es sólo una PROPUESTA (Fase B), recién queda realmente conciliada
+        // después de "Enviar a Conciliar"/"Finalizar Conciliación". Ese mensaje engañoso
+        // era parte de por qué "Finalizar Conciliación" después parecía "no hacer nada" --
+        // el usuario ya creía que la conciliación estaba terminada en este paso.
     }
 
     private async Task GenerarGastosSeleccionados()
@@ -2167,7 +2178,13 @@
     // (Conciliacion, con el usuario real en vez del "Administrador" fijo que tenía antes).
     private async Task FinalizarConciliacion()
     {
-        if (!_canReconcileExpenses && !_canReconcileInstallments) return;
+        // Antes esto cortaba en silencio -- un click sin ningún efecto visible, exactamente
+        // el síntoma de "el botón no hace nada" reportado por el usuario.
+        if (!_canReconcileExpenses && !_canReconcileInstallments)
+        {
+            mensajeError = "No tenés permiso para finalizar la conciliación.";
+            return;
+        }
 
         var sinPropuesta = transaccionesNoConciliadas.Where(t => !t.PropuestaPendiente).ToList();
         if (sinPropuesta.Any())

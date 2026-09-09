@@ -130,3 +130,60 @@ mostrar nada la primera vez que se usa una cuenta bancaria nueva (antes de
 que exista ninguna sesión guardada), y que después de "Finalizar
 Conciliación" el próximo `ObtenerUltimaConciliacionAsync` trae esa misma
 sesión recién guardada.
+
+---
+
+## 4. "Crear Gasto desde Transacción": Distribución no seguía a la Categoría, plantilla sin funcionalidad, y "Finalizar Conciliación" con feedback engañoso
+
+**Estado: resuelto (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
+
+El usuario probó el flujo real (cargar estado de cuenta → crear gasto desde
+una transacción de egreso → Finalizar Conciliación) y reportó tres cosas.
+Las tres eran reales:
+
+1. **"Tipo Distribución" no cambiaba al elegir Categoría.** `CreateExpenseFromTransactionModal.razor`
+   dejaba `Distribution = TypeDistribution.Fija` fijo desde la
+   inicialización del formulario, sin importar la categoría elegida --
+   pero cada `Category` ya tiene su propio `Distribution` configurado
+   (`Classes/Category.cs`), que es lo que debería definir el reparto real.
+   Mismo bug, copiado tal cual, en `ExpensePages/ModalExpense.razor` y
+   `MovementPages/ModalMovement.razor` (los otros dos modales de
+   crear/editar Gasto). Se agregó `@bind:after` al `<select>` de Categoría
+   en los tres para tomar el `Distribution` de la categoría elegida --
+   el usuario todavía puede cambiarlo a mano después, el select sigue
+   editable.
+2. **"Guardar como plantilla para transacciones similares" no tenía
+   ninguna funcionalidad.** Confirmado: el checkbox sólo escribía una
+   variable local (`guardarComoPlantilla`) que ningún otro código leía --
+   no existe en el proyecto ningún concepto de "plantilla de transacción"
+   (tabla, matching automático, nada). En vez de dejar un control que
+   miente sobre lo que hace, se sacó. Implementar la función real (guardar
+   un patrón descripción→categoría/distribución y usarlo para sugerir
+   automáticamente en transacciones futuras similares) sería una feature
+   nueva de verdad, no pedida todavía -- si se quiere, es un tema aparte.
+3. **"Finalizar Conciliación" parecía "no hacer nada".** Tres causas
+   reales encontradas, ninguna del botón en sí:
+   - `ReconciliationWorkspace.GastoCreadoExitosamente` pisaba el mensaje
+     correcto que ya dejaba `ConciliarConGasto` ("Propuesta: ... Usa
+     'Enviar a Conciliar' para confirmar.") con uno genérico y **falso**:
+     "Gasto creado y conciliado exitosamente" -- el gasto en ese punto
+     todavía es sólo una PROPUESTA (Fase B), no está conciliado. Eso hacía
+     creer al usuario que la conciliación ya había terminado en ese paso,
+     así que al tocar después "Finalizar Conciliación" no esperaba que
+     hiciera falta nada más.
+   - `ConfirmarAsync` (el modal de confirmación reutilizable) llamaba a
+     `_confirmationModal.Show(type)` **antes** de fijar
+     `_confirmationModal.Message = mensaje` -- `Show()` ya dispara su
+     propio render adentro del componente, así que ese primer render podía
+     salir con el mensaje de la invocación anterior (o el default "¿Está
+     seguro de realizar esta acción?"), leyéndose como un modal "vacío" o
+     con el texto pegado de otra acción. Se invirtió el orden.
+   - `FinalizarConciliacion()` cortaba en silencio si al usuario le
+     faltaba el permiso (`_canReconcileExpenses`/`_canReconcileInstallments`)
+     -- un click sin ningún efecto visible. Ahora deja `mensajeError`.
+
+**Pendiente de probar con datos reales** (no hay acceso a BD en este
+entorno): confirmar que, tras crear un gasto desde una transacción, el
+mensaje ahora sí dice "Propuesta... Usa 'Enviar a Conciliar'" (no
+"conciliado exitosamente"), y que "Finalizar Conciliación" muestra el modal
+de confirmación con el texto correcto desde el primer render.

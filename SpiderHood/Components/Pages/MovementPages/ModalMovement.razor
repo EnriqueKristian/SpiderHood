@@ -22,7 +22,7 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Categoría</label>
-                            <select class="form-select" @bind="ExpenseView.IdSubCategory">
+                            <select class="form-select" @bind="ExpenseView.IdSubCategory" @bind:after="ActualizarDistribucionDesdeCategoria">
                                 <option value="">Seleccionar categoría</option>
                                 @foreach (var item in FilteredCategory.Where(c => c.Nivel == 0))
                                 {
@@ -111,6 +111,18 @@
     {
         ShowModal = false;
         await ShowModalChanged.InvokeAsync(ShowModal);
+    }
+
+    // "Tipo de Distribución" quedaba fijo sin importar la categoría elegida -- cada
+    // categoría ya tiene su propio Distribution configurado (Classes/Category.cs), que es
+    // lo que debería definir cómo se reparte el gasto entre las unidades.
+    private void ActualizarDistribucionDesdeCategoria()
+    {
+        var categoria = FilteredCategory?.FirstOrDefault(c => c.IdCategory == ExpenseView.IdSubCategory);
+        if (categoria != null)
+        {
+            ExpenseView.IdDistribution = categoria.Distribution;
+        }
     }
 
     //private void SeleccionarColor(string color) => ViewCategory.Color = color;

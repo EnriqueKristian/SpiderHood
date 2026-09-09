@@ -60,7 +60,7 @@
             <div class="col-md-6">
                 <label class="form-label">Categoría *</label>
                 <select class="form-select @(errores.ContainsKey("Categoria") ? "is-invalid" : "")"
-                        @bind="nuevoGasto.IdCategory">
+                        @bind="nuevoGasto.IdCategory" @bind:after="ActualizarDistribucionDesdeCategoria">
                     <option value="">Seleccionar categoría...</option>
                     @foreach (var item in FilteredCategory.Where(c => c.Nivel == 0))
                     {
@@ -182,16 +182,6 @@
                 </div>
             </div>
 
-            <div class="col-12">
-                <div class="form-check">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           @bind="guardarComoPlantilla" />
-                    <label class="form-check-label">
-                        Guardar como plantilla para transacciones similares
-                    </label>
-                </div>
-            </div>
         </div>
 
         <!-- Botones de acción -->
@@ -232,7 +222,6 @@
 
     private ViewExpense nuevoGasto = new();
     private bool procesando = false;
-    private bool guardarComoPlantilla = false;
     private Dictionary<string, string> errores = new();
 
     protected override void OnParametersSet()
@@ -251,6 +240,19 @@
                 AutoReconcile = true,
                 Notes = $"Creado desde transacción bancaria. Referencia: {Transaccion.Reference}"
             };
+        }
+    }
+
+    // Antes "Tipo Distribución" quedaba fijo en Fija (el default del new ViewExpense de
+    // arriba) sin importar la categoría elegida -- cada categoría ya tiene su propio
+    // Distribution configurado (Classes/Category.cs), que es lo que de verdad debería
+    // definir cómo se reparte este gasto entre las unidades.
+    private void ActualizarDistribucionDesdeCategoria()
+    {
+        var categoria = FilteredCategory.FirstOrDefault(c => c.IdCategory == nuevoGasto.IdCategory);
+        if (categoria != null)
+        {
+            nuevoGasto.Distribution = categoria.Distribution;
         }
     }
 
@@ -280,12 +282,13 @@
 
         try
         {
-            // Aquí iría la lógica para guardar el gasto en la base de datos
-            // Por ahora, simulamos la creación
-
-            // Asignar ID y otros campos
-            nuevoGasto.IdExpense = Guid.NewGuid();//new Random().Next(1000, 9999);
-            nuevoGasto.ExpenseDate = DateTime.Now;
+            // El guardado real en BD lo hace el padre (ReconciliationWorkspace.GastoCreadoExitosamente)
+            // -- este componente solo arma el ViewExpense y lo notifica por OnGastoCreado.
+            nuevoGasto.IdExpense = Guid.NewGuid();
+            // Antes esto pisaba la 'Fecha del Gasto' que el usuario acababa de elegir en el
+            // formulario con la fecha/hora de HOY -- el campo ya viene bien seteado desde el
+            // <input type="date"> de arriba (@bind="nuevoGasto.ExpenseDate"), no hace falta
+            // (ni corresponde) tocarlo de nuevo acá.
 
             if (nuevoGasto.AutoReconcile && Transaccion != null)
             {

@@ -1593,7 +1593,7 @@
     // ReconciliationStatus queda sin tocar -- hasta que el usuario revisa el lote completo y
     // confirma con EnviarAConciliar, que es quien recién llama a los métodos reales de
     // persistencia (los mismos de siempre, sin cambios) y deja el registro de auditoría.
-    private async Task ConciliarConGasto(TransactionBankDetail transaccion, ViewExpense gasto, bool automatico = false)
+    private async Task ConciliarConGasto(TransactionBankDetail transaccion, ViewExpense gasto, bool automatico = false, bool esGastoNuevo = false)
     {
         if (!_canReconcileExpenses) return;
         try
@@ -1601,6 +1601,7 @@
             transaccion.GastoConciliado = gasto;
             transaccion.PropuestaPendiente = true;
             transaccion.PropuestaAutomatica = automatico;
+            transaccion.PropuestaGastoNuevo = esGastoNuevo;
 
             // Remover de listas pendientes para que no se vuelva a proponer a otra transacción
             gastosPendientes.Remove(gasto);
@@ -1668,7 +1669,15 @@
     {
         if (transaccion.GastoConciliado != null)
         {
-            gastosPendientes.Add(transaccion.GastoConciliado);
+            // Docs/Pendientes-Negocio-Conciliacion.md #6 -- si el gasto era uno NUEVO
+            // (armado en memoria, nunca insertado en BD porque la propuesta se quitó antes
+            // de confirmar), no corresponde ofrecerlo como "posible match" a otra
+            // transacción: ese objeto no existe en BD y nunca se le llamó AddExpenseAsync.
+            // Se descarta sin más -- si hace falta, el usuario lo vuelve a crear.
+            if (!transaccion.PropuestaGastoNuevo)
+            {
+                gastosPendientes.Add(transaccion.GastoConciliado);
+            }
             transaccion.GastoConciliado = null;
         }
 
@@ -1676,6 +1685,7 @@
         transaccion.CuotasPropuestas = new();
         transaccion.PropuestaPendiente = false;
         transaccion.PropuestaAutomatica = false;
+        transaccion.PropuestaGastoNuevo = false;
 
         CalcularEstadisticas();
         ActualizarPaginacion();
@@ -1719,6 +1729,16 @@
                 }
                 else if (transaccion.Tipo == "Gasto" && transaccion.GastoConciliado != null)
                 {
+                    // Docs/Pendientes-Negocio-Conciliacion.md #6 -- si el gasto se armó en
+                    // memoria (CreateExpenseFromTransactionModal / generación en lote) y
+                    // todavía no existe en BD, recién se inserta acá, al confirmar. Un
+                    // gasto que ya venía de un match con algo existente (dropdown/auto-
+                    // match) no pasa por acá de nuevo.
+                    if (transaccion.PropuestaGastoNuevo)
+                    {
+                        await ExpenseService.AddExpenseAsync(transaccion.GastoConciliado);
+                    }
+
                     await BankService.ConciliarTransaccionAsync(transaccion, transaccion.GastoConciliado);
                     transaccion.ReconciliationStatus = ConcilationType.Conciliada;
                     transaccion.ReconciliationDate = DateTime.Now;
@@ -1992,12 +2012,16 @@
     {
         if (!_canReconcileExpenses) return;
         nuevoGasto.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-        await ExpenseService.AddExpenseAsync(nuevoGasto);
 
-        // Conciliar automáticamente con la transacción
+        // Docs/Pendientes-Negocio-Conciliacion.md #6 -- antes se guardaba en BD acá mismo
+        // (AddExpenseAsync), ANTES de la confirmación de Fase B: si el usuario después
+        // cancelaba en vez de "Finalizar Conciliación", el gasto ya había quedado grabado
+        // sin forma de deshacerlo, y "Finalizar Conciliación" terminaba grabando una
+        // segunda vez (la transacción bancaria). Ahora sólo se arma en memoria como
+        // PROPUESTA -- EnviarAConciliar es quien recién lo inserta en BD al confirmar.
         if (transaccionParaGasto != null)
         {
-            await ConciliarConGasto(transaccionParaGasto, nuevoGasto);
+            await ConciliarConGasto(transaccionParaGasto, nuevoGasto, esGastoNuevo: true);
         }
 
         CerrarModalCrearGasto();
@@ -2024,9 +2048,12 @@
         // Por ahora, crear uno por uno
         foreach (var transaccion in transaccionesSeleccionadas)
         {
-            // Crear gasto básico desde transacción
+            // Crear gasto básico desde transacción -- Docs/Pendientes-Negocio-
+            // Conciliacion.md #6: se arma en memoria como PROPUESTA, sin grabar en BD
+            // todavía (mismo motivo que GastoCreadoExitosamente -- ver ese método).
             var nuevoGasto = new ViewExpense
             {
+                IdExpense = Guid.NewGuid(),
                 Description = transaccion.Description,
                 Amount = Math.Abs(transaccion.Amount),
                 ExpenseDate = transaccion.StatementDate,
@@ -2038,11 +2065,8 @@
                 //Reconciled = false
             };
 
-            // Guardar gasto
-            var gastoCreado = await ExpenseService.CrearGastoAsync(nuevoGasto);
-
-            // Conciliar
-            await ConciliarConGasto(transaccion, gastoCreado);
+            // Conciliar (propuesta -- EnviarAConciliar crea el gasto en BD al confirmar)
+            await ConciliarConGasto(transaccion, nuevoGasto, esGastoNuevo: true);
         }
 
         DeseleccionarTodo();

@@ -121,6 +121,13 @@ namespace SpiderHood.Models
         public bool PropuestaPendiente { get; set; } = false;
         [NotMapped]
         public bool PropuestaAutomatica { get; set; } = false;
+        // Distingue, dentro de una propuesta de Gasto, si GastoConciliado ya existe en BD
+        // (viene de un match con un gasto previamente guardado) o si todavía es un
+        // ViewExpense armado en memoria desde CreateExpenseFromTransactionModal que aún no
+        // se insertó -- EnviarAConciliar usa esto para saber si tiene que crear el gasto
+        // recién al confirmar (Docs/Pendientes-Negocio-Conciliacion.md #6).
+        [NotMapped]
+        public bool PropuestaGastoNuevo { get; set; } = false;
         [NotMapped]
         public List<Installment> CuotasPropuestas { get; set; } = new();
         [NotMapped]

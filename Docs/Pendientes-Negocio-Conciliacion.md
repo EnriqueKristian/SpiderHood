@@ -235,3 +235,61 @@ Diseño acordado con el usuario (3 decisiones):
 entorno): guardar una plantilla desde un gasto real, y confirmar que una
 transacción posterior con descripción parecida la aplica sola al abrir el
 modal.
+
+---
+
+## 6. "Crear Gasto desde Transacción" grababa en BD de una, sin poder deshacer con "Cancelar"
+
+**Estado: resuelto (2026-09-09), branch `claude/lista-pendientes-0gb03a`.**
+
+Reportado por el usuario probando con datos reales (TUPAY-TUPAY / Portero
+Seguro): "el botón guardar, guarda directamente en BD lo que se ha creado,
+si le doy en 'Finalizar Conciliación' vuelve a guardar, y si le doy
+cancelar, no hay forma de deshacer lo que acabamos de hacer".
+
+Confirmado: violaba el contrato de Fase B (propuesta en memoria → recién se
+graba de verdad en `EnviarAConciliar`/"Finalizar Conciliación"), que sí se
+respeta para Ingresos/Cuotas (`InstallmentService.AplicarPagoAsync` sólo se
+llama ahí adentro). Para Gastos NUEVOS creados desde el modal, en cambio:
+
+- `GastoCreadoExitosamente` llamaba `ExpenseService.AddExpenseAsync(nuevoGasto)`
+  -- un INSERT real -- apenas se tocaba "Crear Gasto" en el modal, antes de
+  cualquier confirmación.
+- `GenerarGastosSeleccionados` (generación en lote) tenía el mismo patrón
+  con `ExpenseService.CrearGastoAsync(nuevoGasto)`.
+- Como ambos ya dejaban el gasto guardado, "Finalizar Conciliación" hacía
+  una segunda escritura real (`BankService.ConciliarTransaccionAsync`,
+  sobre la transacción bancaria) -- de ahí el "vuelve a guardar". Y como
+  "Cancelar" en el modal nunca llamaba a ningún método de borrado, el gasto
+  ya insertado quedaba huérfano en BD para siempre si el usuario abandonaba
+  el flujo antes de confirmar.
+
+**Cambio:** el INSERT real de un gasto NUEVO se movió a
+`EnviarAConciliar()` (rama "Gasto"), igual que ya pasa con
+`AplicarPagoAsync` para Ingresos. Para lograrlo sin romper los otros 5
+lugares que llaman a `ConciliarConGasto` con un gasto YA EXISTENTE en BD
+(dropdown de posibles matches, match automático por monto exacto,
+"Conciliar seleccionadas"), se agregó un flag nuevo,
+`TransactionBankDetail.PropuestaGastoNuevo` (`[NotMapped]`, en memoria):
+
+- `ConciliarConGasto(transaccion, gasto, automatico, esGastoNuevo)` -- nuevo
+  parámetro opcional, default `false`. Sólo `GastoCreadoExitosamente` y
+  `GenerarGastosSeleccionados` lo pasan en `true`.
+- `EnviarAConciliar()`: en la rama "Gasto", si `PropuestaGastoNuevo` es
+  `true` llama a `ExpenseService.AddExpenseAsync(transaccion.GastoConciliado)`
+  ANTES de `ConciliarTransaccionAsync` -- recién ahí existe en BD. Si es
+  `false` (match con algo ya existente), no se toca -- se sigue comportando
+  como antes.
+- `QuitarPropuesta` (sacar una propuesta antes de confirmar): si el gasto
+  era nuevo, ya no se lo vuelve a ofrecer como "posible match" a otra
+  transacción vía `gastosPendientes` (ese objeto nunca se guardó en BD) --
+  se descarta. Si era uno existente, se comporta igual que antes.
+- Resultado: "Cancelar" en el modal, o cerrar la página sin llegar a
+  "Enviar a Conciliar"/"Finalizar Conciliación", ya no deja ningún gasto
+  huérfano en BD -- nada se graba hasta la confirmación real.
+
+**Pendiente de probar con datos reales** (no hay acceso a BD en este
+entorno): repetir el caso reportado (crear gasto desde una transacción,
+tocar "Cancelar" en vez de confirmar) y verificar que no aparece ningún
+gasto nuevo en BD; y que "Crear Gasto" → "Finalizar Conciliación" sigue
+dejando todo bien (un solo gasto, transacción conciliada) como antes.

@@ -654,4 +654,35 @@ namespace SpiderHood.Utilities
         }
 
     }
+
+    // Paginación/orden para /expense (Resumen de Gastos) -- mismo criterio que
+    // InstallmentPagination: más reciente primero por defecto.
+    public class ExpensePagination : PaginationClass<Expense>
+    {
+        public ExpensePagination() : base()
+        {
+            var sortExpressions = new Dictionary<string, Func<Expense, object>>
+            {
+                { "ExpenseDescription", x => x.ExpenseDescription },
+                { "Category", x => x.Category },
+                { "DueDate", x => x.DueDate },
+                { "TotalAmount", x => x.TotalAmount },
+                { "Distribution", x => x.Distribution },
+                { "Provider", x => x.Provider }
+            };
+
+            InitializeConfiguration(new Dictionary<string, string>(), sortExpressions, "DueDate", defaultSortAscending: false);
+        }
+
+        protected override List<Expense> ApplySearch(List<Expense> data, string searchTerm)
+        {
+            var term = searchTerm.ToLower();
+
+            return data.Where(x =>
+                (x.ExpenseDescription?.ToLower().Contains(term) ?? false) ||
+                (x.Category?.ToLower().Contains(term) ?? false) ||
+                (x.Provider?.ToLower().Contains(term) ?? false)
+            ).ToList();
+        }
+    }
 }

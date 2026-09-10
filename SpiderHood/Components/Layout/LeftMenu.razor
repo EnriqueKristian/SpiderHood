@@ -161,7 +161,16 @@
         // — ver GetDefaultBuilding en AuthService). Sin esta condición, el menú aparecía
         // apenas terminaba el login, mostrando de entrada el primer rol devuelto por la
         // BD, antes de que el usuario eligiera edificio/rol en /select-building.
-        ShowMenu = _currentUser != null && _currentUser.CurrentBuildingId != Guid.Empty;
+        //
+        // Chequeo extra por las dudas (defensa en profundidad, no el único lugar que
+        // arregla esto -- ver el guard equivalente en HeaderMainLayout.LoadCurrentBuildingAsync):
+        // aunque CurrentBuildingId ya esté resuelto en la sesión, si la ruta actual
+        // sigue siendo /select-building no mostramos el menú -- esa pantalla es
+        // justamente donde el usuario todavía no confirmó una elección explícita.
+        var enSelectBuilding = string.Equals(
+            Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/'),
+            "select-building", StringComparison.OrdinalIgnoreCase);
+        ShowMenu = _currentUser != null && _currentUser.CurrentBuildingId != Guid.Empty && !enSelectBuilding;
 
         if (_currentUser != null)
         {

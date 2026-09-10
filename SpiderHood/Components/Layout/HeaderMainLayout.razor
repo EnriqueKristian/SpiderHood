@@ -352,6 +352,25 @@
 
     private async Task LoadCurrentBuildingAsync()
     {
+        // Nunca auto-resolver (ni con localStorage, ni con ningún otro paso de acá
+        // abajo) mientras el usuario está parado en /select-building. Esa pantalla
+        // existe justamente para pedir una elección EXPLÍCITA cuando hay ambigüedad
+        // -- pero como este método corre en un componente del layout (persiste
+        // durante la navegación interna, se dispara en firstRender y en cada
+        // AuthenticationStateChanged) totalmente independiente del contenido de
+        // /select-building, sin este guard terminaba resolviendo un edificio/rol
+        // "por detrás" (vía SetCurrentBuilding, más abajo) mientras esa pantalla
+        // seguía en pantalla -- eso dejaba el menú lateral (LeftMenu.ShowMenu,
+        // que sólo mira CurrentBuildingId != Guid.Empty) visible y navegable con
+        // un edificio/rol que el usuario nunca llegó a confirmar ahí. El chequeo
+        // de ruta se repite en cada llamada (no se cachea) porque
+        // LoadCurrentBuildingAsync puede volver a correr con la URL ya cambiada.
+        var currentPath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Split('?', '#')[0].Trim('/');
+        if (string.Equals(currentPath, "select-building", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         // 0. Preferencia guardada por el propio usuario (localStorage) — sólo si ya
         // estamos en la conexión interactiva real. GetDefaultBuildingAsync usa
         // IJSRuntime para leer localStorage, y eso lanza InvalidOperationException

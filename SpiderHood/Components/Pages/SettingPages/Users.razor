@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
+@using SpiderHood.Components.Pages.Components
 @inject Services.AuthService AuthService
 @inject IPermissionAdminService PermissionAdminService
 @inject IPermissionService PermissionService
@@ -189,16 +190,29 @@ else
                                                 </div>
                                             </td>
                                             <td>
-                                                @if (usuario.Roles.Any())
+                                                @if (!usuario.RolesConEdificio.Any())
+                                                {
+                                                    <span class="badge bg-secondary">Sin rol</span>
+                                                }
+                                                else if (usuario.MultiplesEdificios)
+                                                {
+                                                    @* El mismo usuario tiene roles en más de un edificio dentro de lo que
+                                                       ve quien mira esta pantalla -- sin el nombre del edificio, dos roles
+                                                       distintos (o el mismo rol repetido) se verían idénticos y no se
+                                                       podría saber cuál aplica dónde. *@
+                                                    @foreach (var item in usuario.RolesConEdificio)
+                                                    {
+                                                        <span class="badge @GetRolBadgeClass(item.Role) me-1 mb-1">
+                                                            @item.Role <small>(@item.BuildingName)</small>
+                                                        </span>
+                                                    }
+                                                }
+                                                else
                                                 {
                                                     @foreach (var rol in usuario.Roles)
                                                     {
                                                         <span class="badge @GetRolBadgeClass(rol) me-1 mb-1">@rol</span>
                                                     }
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-secondary">Sin rol</span>
                                                 }
                                             </td>
                                             <td>
@@ -215,8 +229,9 @@ else
                                                         <i class="bi bi-pencil-square"></i>
                                                     </button>
                                                     <button class="btn btn-outline-warning"
+                                                            disabled="@(!_isSysAdmin && !usuario.FilasEstado.Any())"
                                                             @onclick="() => CambiarEstadoUsuario(usuario)"
-                                                            title="Cambiar estado">
+                                                            title="@(!_isSysAdmin && !usuario.FilasEstado.Any() ? "Sin acceso aprobado todavía en tus edificios" : "Cambiar estado")">
                                                         <i class="bi @(usuario.Estado == "Activo" ? "bi-person-dash" : "bi-person-check")"></i>
                                                     </button>
                                                 </div>
@@ -264,6 +279,8 @@ else
         </div>
     </div>
 }
+
+<ConfirmationModal @ref="_confirmationModal" OnClose="OnEstadoConfirmado" />
 }
 
 @code {
@@ -273,7 +290,23 @@ else
         public string Nombre { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Telefono { get; set; } = string.Empty;
+
+        // Nombres de rol distintos (aprobados, dentro del alcance de quien mira la
+        // pantalla) -- para los filtros/contadores y el caso simple (un solo edificio).
         public List<string> Roles { get; set; } = new();
+
+        // Igual que Roles, pero con el edificio de cada uno -- necesario para mostrarlo
+        // bien cuando el usuario tiene roles en más de un edificio (ver MultiplesEdificios).
+        public List<(string Role, string BuildingName)> RolesConEdificio { get; set; } = new();
+
+        // Filas "reales" (alguna vez aprobadas: Approved o Inactive -- no Pending ni
+        // Rejected) dentro del alcance de quien mira la pantalla. Es lo que
+        // "Cambiar Estado" togglea para un Administrador (por edificio), y lo que se usa
+        // para armar la advertencia de SysAdmin cuando el usuario está en varios edificios.
+        public List<UserBuildingRoleAssignment> FilasEstado { get; set; } = new();
+
+        public bool MultiplesEdificios => RolesConEdificio.Select(r => r.BuildingName).Distinct().Count() > 1;
+
         public string Estado { get; set; } = "Activo";
         public DateTime FechaIngreso { get; set; }
     }
@@ -303,6 +336,10 @@ else
     // privilegios). Sólo SysAdmin gestiona SysAdmin.
     private bool _isSysAdmin;
     private UserSession _currentUser = new();
+
+    private ConfirmationModal? _confirmationModal;
+    private UsuarioRow? _usuarioEstadoPendiente;
+    private bool _nuevoEstadoActivoPendiente;
 
     protected override async Task OnInitializedAsync()
     {
@@ -337,15 +374,26 @@ else
                 .ToHashSet();
 
             var asociaciones = await PermissionAdminService.GetUserBuildingRoleAssignmentsAsync();
+            bool EnAlcance(Models.UserBuildingRoleAssignment a) => _isSysAdmin || misEdificios.Contains(a.IdBuilding);
 
             // Roles reales por usuario, acotados a los edificios que administra el
             // usuario actual (o todos, si es SysAdmin) -- mismo criterio de alcance que
             // /Settings/UserRoles. Sólo cuentan los ya aprobados (una solicitud
             // pendiente no es un rol real todavía).
-            var rolesPorUsuario = asociaciones
-                .Where(a => a.IsApproved && (_isSysAdmin || misEdificios.Contains(a.IdBuilding)))
+            var aprobadasPorUsuario = asociaciones
+                .Where(a => a.IsApproved && EnAlcance(a))
                 .GroupBy(a => a.IdUser)
-                .ToDictionary(g => g.Key, g => g.Select(a => a.Role).Distinct().ToList());
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Filas "reales" -- alguna vez aprobadas (Approved o Inactive; Pending/Rejected
+            // quedan afuera) -- son las que "Cambiar Estado" puede togglear por edificio
+            // para un Administrador, reutilizando el mismo mecanismo que ya usa
+            // /Settings/UserRoles (UPD_UserBuildingApproval con Status=Inactive/Approved)
+            // en vez de tocar el flag global Users.IsActive.
+            var estadoPorUsuario = asociaciones
+                .Where(a => (a.Status == "Approved" || a.Status == "Inactive") && EnAlcance(a))
+                .GroupBy(a => a.IdUser)
+                .ToDictionary(g => g.Key, g => g.ToList());
 
             // Alcance por edificio: un Administrador sólo debe ver (y poder gestionar)
             // usuarios que tienen alguna asociación real (UserBuildingAssociation) en un
@@ -374,7 +422,10 @@ else
                     ? $"{profile.FirstName} {profile.LastName}".Trim()
                     : assignment.UserName;
 
-                var rolesUsuario = rolesPorUsuario.TryGetValue(assignment.IdUser, out var r) ? new List<string>(r) : new();
+                var aprobadas = aprobadasPorUsuario.TryGetValue(assignment.IdUser, out var ap) ? ap : new();
+                var rolesUsuario = aprobadas.Select(a => a.Role).Distinct().ToList();
+                var rolesConEdificio = aprobadas.Select(a => (a.Role, a.BuildingName)).Distinct().ToList();
+                var filasEstado = estadoPorUsuario.TryGetValue(assignment.IdUser, out var fe) ? fe : new();
 
                 // Única excepción a "todo sale de UserBuildingAssociation": SysAdmin es
                 // global por diseño (ver AuthService.GrantSysAdminAccessToAllBuildingsAsync)
@@ -385,6 +436,14 @@ else
                     rolesUsuario.Add("SysAdmin");
                 }
 
+                // Estado: SysAdmin sigue viendo/tocando el flag global de la cuenta
+                // (Users.IsActive) -- para un Administrador, en cambio, refleja si tiene
+                // al menos una fila Approved dentro de SUS edificios, ya que "Cambiar
+                // Estado" ya no toca nada global para él.
+                var estado = _isSysAdmin
+                    ? ((profile?.IsActive ?? true) ? "Activo" : "Inactivo")
+                    : (filasEstado.Any(f => f.Status == "Approved") ? "Activo" : "Inactivo");
+
                 rows.Add(new UsuarioRow
                 {
                     IdUser = assignment.IdUser,
@@ -392,7 +451,9 @@ else
                     Email = assignment.UserEmail,
                     Telefono = profile?.PhoneNumber ?? string.Empty,
                     Roles = rolesUsuario,
-                    Estado = (profile?.IsActive ?? true) ? "Activo" : "Inactivo",
+                    RolesConEdificio = rolesConEdificio,
+                    FilasEstado = filasEstado,
+                    Estado = estado,
                     FechaIngreso = profile?.CreatedAt ?? DateTime.MinValue
                 });
             }
@@ -553,27 +614,83 @@ else
         formModel = null;
     }
 
-    private async Task CambiarEstadoUsuario(UsuarioRow usuario)
+    // SysAdmin sigue togglando el flag global de la cuenta (afecta TODOS los
+    // edificios donde el usuario tenga acceso, si tiene más de uno -- se advierte en
+    // el modal). Un Administrador, en cambio, sólo togglea las filas de
+    // UserBuildingAssociation dentro de SUS edificios (FilasEstado): el usuario pierde
+    // acceso ahí, pero conserva su cuenta y cualquier otro edificio ajeno a este
+    // Administrador. Antes esto siempre pegaba sobre el flag global sin importar quién
+    // lo apretara -- un Administrador podía desactivar a alguien en TODOS sus
+    // edificios (incluso los que no administra) con un solo click.
+    private void CambiarEstadoUsuario(UsuarioRow usuario)
     {
         if (!_canManageUsers) return;
-        var nuevoEstadoActivo = usuario.Estado != "Activo";
-        var accion = nuevoEstadoActivo ? "activar" : "desactivar";
+        if (!_isSysAdmin && !usuario.FilasEstado.Any()) return;
+        if (_confirmationModal == null) return;
 
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"¿Está seguro de {accion} a {usuario.Nombre}?"))
-            return;
+        _usuarioEstadoPendiente = usuario;
+        _nuevoEstadoActivoPendiente = usuario.Estado != "Activo";
+        var accion = _nuevoEstadoActivoPendiente ? "activar" : "desactivar";
+        var edificiosAfectados = usuario.FilasEstado.Select(f => f.BuildingName).Distinct().ToList();
 
-        var partes = usuario.Nombre.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-        var result = await AuthService.UpdateUserAdminAsync(
-            usuario.IdUser,
-            partes.ElementAtOrDefault(0) ?? string.Empty,
-            partes.ElementAtOrDefault(1) ?? string.Empty,
-            usuario.Telefono,
-            nuevoEstadoActivo);
+        _confirmationModal.Title = _nuevoEstadoActivoPendiente ? "Activar Usuario" : "Desactivar Usuario";
+        _confirmationModal.ConfirmText = _nuevoEstadoActivoPendiente ? "Activar" : "Desactivar";
 
-        if (!result.Success)
+        if (_isSysAdmin)
         {
-            await ShowToast("Error", result.Message, "danger");
-            return;
+            _confirmationModal.Message = $"¿Estás seguro de {accion} la cuenta de {usuario.Nombre}?";
+            _confirmationModal.Details = edificiosAfectados.Count > 1
+                ? $"Esta acción es GLOBAL: {usuario.Nombre} tiene acceso en {edificiosAfectados.Count} edificios ({string.Join(", ", edificiosAfectados)}) y quedará {(_nuevoEstadoActivoPendiente ? "activo" : "inactivo")} en todos ellos."
+                : string.Empty;
+        }
+        else
+        {
+            _confirmationModal.Message = $"¿Estás seguro de {accion} a {usuario.Nombre} en {string.Join(", ", edificiosAfectados)}?";
+            _confirmationModal.Details = "Esto sólo afecta su acceso al/los edificio(s) que administrás -- no toca su cuenta ni otros edificios donde también tenga acceso.";
+        }
+
+        _confirmationModal.Show(_nuevoEstadoActivoPendiente ? "warning" : "danger");
+    }
+
+    private async Task OnEstadoConfirmado(bool confirmado)
+    {
+        var usuario = _usuarioEstadoPendiente;
+        var nuevoEstadoActivo = _nuevoEstadoActivoPendiente;
+        _usuarioEstadoPendiente = null;
+        if (!confirmado || usuario == null) return;
+
+        if (_isSysAdmin)
+        {
+            var partes = usuario.Nombre.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+            var result = await AuthService.UpdateUserAdminAsync(
+                usuario.IdUser,
+                partes.ElementAtOrDefault(0) ?? string.Empty,
+                partes.ElementAtOrDefault(1) ?? string.Empty,
+                usuario.Telefono,
+                nuevoEstadoActivo);
+
+            if (!result.Success)
+            {
+                await ShowToast("Error", result.Message, "danger");
+                return;
+            }
+        }
+        else
+        {
+            try
+            {
+                foreach (var fila in usuario.FilasEstado)
+                {
+                    await PermissionAdminService.SetUserBuildingApprovalAsync(
+                        usuario.IdUser, fila.IdBuilding, fila.IdRole,
+                        nuevoEstadoActivo, nuevoEstadoActivo ? "Approved" : "Inactive", _currentUser.IdUser);
+                }
+            }
+            catch (Exception ex)
+            {
+                await ShowToast("Error", $"Error al cambiar el estado: {ex.Message}", "danger");
+                return;
+            }
         }
 
         await CargarUsuarios();

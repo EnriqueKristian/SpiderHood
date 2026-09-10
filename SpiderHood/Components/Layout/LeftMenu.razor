@@ -3,6 +3,7 @@
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Authorization
 @inject Services.IPermissionService PermissionService
+@inject Services.IPermissionAdminService PermissionAdminService
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
 
@@ -38,9 +39,9 @@
                                 {
                                     <NavLink class="nav-link ps-3" href="@child.Url" Match="NavLinkMatch.All">
                                         <i class="@child.Icon me-2"></i>@child.Title
-                                        @if (ShouldShowBadge(child.ItemKey))
+                                        @if (ShouldShowBadge(child))
                                         {
-                                            <span class="badge bg-danger ms-2">@GetBadgeCount(child.ItemKey)</span>
+                                            <span class="badge bg-danger ms-2">@GetBadgeCount(child)</span>
                                         }
                                     </NavLink>
                                 }
@@ -216,6 +217,7 @@
         }
 
         _filteredMenu = await PermissionService.GetMenuForUserAsync(_currentUser);
+        await LoadPendingAccessCountAsync();
     }
 
     private async Task SwitchRole(string role)
@@ -291,24 +293,44 @@
         return !string.IsNullOrWhiteSpace(_currentUser.Email) ? _currentUser.Email[0].ToString().ToUpper() : "U";
     }
 
-    private bool ShouldShowBadge(string menuId)
-    {
-        // Lógica para mostrar badges en ciertos menús
-        return menuId switch
-        {
-            "allincidents" => true,
-            _ => false
-        };
-    }
+    // Antes esto era un stub fijo (sólo "allincidents", con el número "3" a mano, sin
+    // conectar a ningún dato real) -- reemplazado por el conteo real de solicitudes de
+    // acceso pendientes (mismo criterio que _pendingRequests en UserRoles.razor:
+    // !IsApproved && Status no es Rejected/Inactive), para que un Administrador se
+    // entere de que tiene gente esperando aprobación sin tener que entrar a
+    // /Settings/UserRoles "por las dudas". Se matchea por Url en vez de ItemKey porque
+    // el ítem "Asignar Roles" quedó con ItemKey vacío en el script de reorganización del
+    // menú (ver 2026-09-10_86_Fix_ItemKey_Vacio_Reorganizar_Menu.sql).
+    private bool ShouldShowBadge(Models.MenuItem item) =>
+        UrlMatches(item.Url, "Settings/UserRoles") && _pendingAccessCount > 0;
 
-    private string GetBadgeCount(string menuId)
+    private string GetBadgeCount(Models.MenuItem item) => _pendingAccessCount.ToString();
+
+    private static bool UrlMatches(string? url, string target) =>
+        string.Equals(url?.Trim('/'), target, StringComparison.OrdinalIgnoreCase);
+
+    private int _pendingAccessCount;
+
+    private async Task LoadPendingAccessCountAsync()
     {
-        // Lógica para obtener contadores
-        return menuId switch
-        {
-            "allincidents" => "3",
-            _ => ""
-        };
+        _pendingAccessCount = 0;
+        if (_currentUser == null) return;
+
+        // Sólo consulta si el usuario puede hacer algo con esas solicitudes -- evita una
+        // consulta de más para Residente/Junta, que ni siquiera ven este ítem de menú.
+        var puedeAsignarRoles = await PermissionService.HasPermissionAsync(_currentUser, "assign_roles");
+        if (!puedeAsignarRoles) return;
+
+        var esSysAdmin = _currentUser.Role == "SysAdmin";
+        var misEdificios = _currentUser.Buildings
+            .Where(b => b.IsApproved && b.Building != null)
+            .Select(b => b.Building!.IdBuilding)
+            .ToHashSet();
+
+        var asociaciones = await PermissionAdminService.GetUserBuildingRoleAssignmentsAsync();
+        _pendingAccessCount = asociaciones.Count(a =>
+            !a.IsApproved && a.Status != "Rejected" && a.Status != "Inactive"
+            && (esSysAdmin || misEdificios.Contains(a.IdBuilding)));
     }
 }
 <script>

@@ -20,6 +20,13 @@
                     <DataAnnotationsValidator />
                     <ValidationSummary />
                     <div class="modal-body">
+                        @if (ExpenseView.Reconciled)
+                        {
+                            <div class="alert alert-info py-2 mb-3">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Este gasto ya está conciliado con una transacción bancaria -- el monto y la fecha no se pueden modificar acá (harían que dejen de coincidir con lo que realmente se movió en el banco).
+                            </div>
+                        }
                         <div class="mb-3">
                             <label class="form-label">Categoría</label>
                             <select class="form-select" @bind="ExpenseView.IdCategory" @bind:after="ActualizarDistribucionDesdeCategoria">
@@ -49,23 +56,24 @@
                                        class="form-control"
                                        step="0.01"
                                        min="0"
+                                       disabled="@ExpenseView.Reconciled"
                                        @bind="ExpenseView.Amount" />
                             </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Fecha</label>
-                            <input type="date" class="form-control" @bind="ExpenseView.ExpenseDate" />
+                            <input type="date" class="form-control" disabled="@ExpenseView.Reconciled" @bind="ExpenseView.ExpenseDate" />
                         </div>
                         <div class="mb-2">
                             <label class="form-label d-block">Tipo de Distribución</label>
-
-                            <div class="form-check mb-1">
-
-                                <select class="form-select" aria-label="Default select example" @bind="DistribucionSeleccionada">
-                                    <option value=@Models.TypeDistribution.Fija>Fijo</option>
-                                    <option value=@Models.TypeDistribution.Proporcional>Proporcional</option>
-                                </select>
-
+                            <!-- Ya no es un select manual -- hereda siempre de la categoría elegida
+                                 arriba (Category.Distribution, ver ActualizarDistribucionDesdeCategoria).
+                                 Pedido explícito del usuario: no tiene sentido que alguien elija acá
+                                 algo distinto a lo que ya define la categoría. -->
+                            <div>
+                                <span class="badge @(DistribucionSeleccionada == Models.TypeDistribution.Fija ? "bg-secondary" : "bg-primary")">
+                                    @(DistribucionSeleccionada == Models.TypeDistribution.Fija ? "Fijo" : "Proporcional")
+                                </span>
                                 <div class="form-text">
                                     @if (DistribucionSeleccionada == Models.TypeDistribution.Fija)
                                     {

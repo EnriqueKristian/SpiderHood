@@ -1,4 +1,4 @@
-﻿﻿@using System.ComponentModel.DataAnnotations
+﻿@using System.ComponentModel.DataAnnotations
 @using SpiderHood.Models
 
 @inherits LayoutComponentBase
@@ -22,7 +22,7 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Categoría</label>
-                            <select class="form-select" @bind="ExpenseView.IdSubCategory" @bind:after="ActualizarDistribucionDesdeCategoria">
+                            <select class="form-select" @bind="ExpenseView.IdCategory" @bind:after="ActualizarDistribucionDesdeCategoria">
                                 <option value="">Seleccionar categoría</option>
                                 @foreach (var item in FilteredCategory.Where(c => c.Nivel == 0))
                                 {
@@ -39,7 +39,7 @@
                             <label class="form-label">Descripción</label>
                             <input class="form-control"
                                    placeholder="Ej: Consumo Enero 2025"
-                                   @bind="ExpenseView.ExpenseDescription" />
+                                   @bind="ExpenseView.Description" />
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Monto</label>
@@ -49,25 +49,25 @@
                                        class="form-control"
                                        step="0.01"
                                        min="0"
-                                       @bind="ExpenseView.TotalAmount" />
+                                       @bind="ExpenseView.Amount" />
                             </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Fecha</label>
-                            <input type="date" class="form-control" @bind="ExpenseView.DueDate" />
+                            <input type="date" class="form-control" @bind="ExpenseView.ExpenseDate" />
                         </div>
                         <div class="mb-2">
                             <label class="form-label d-block">Tipo de Distribución</label>
 
                             <div class="form-check mb-1">
 
-                                <select class="form-select" aria-label="Default select example" @bind="ExpenseView.IdDistribution">
-                                    <option selected value=@Models.TypeDistribution.Fija>Fijo</option>
+                                <select class="form-select" aria-label="Default select example" @bind="DistribucionSeleccionada">
+                                    <option value=@Models.TypeDistribution.Fija>Fijo</option>
                                     <option value=@Models.TypeDistribution.Proporcional>Proporcional</option>
                                 </select>
 
                                 <div class="form-text">
-                                    @if (ExpenseView.IdDistribution == Models.TypeDistribution.Fija)
+                                    @if (DistribucionSeleccionada == Models.TypeDistribution.Fija)
                                     {
                                         <label>Se divide en partes iguales entre todos</label>
                                     }
@@ -96,10 +96,21 @@
 @code {
     [Parameter] public bool ShowModal { get; set; }
     [Parameter] public Models.OpenType OpenMode { get; set; }
-    [Parameter] public Models.Expense ExpenseView { get; set; }
+    [Parameter] public Models.ViewExpense ExpenseView { get; set; }
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
-    [Parameter] public EventCallback<Models.Expense> OnSaveItem { get; set; }
+    [Parameter] public EventCallback<Models.ViewExpense> OnSaveItem { get; set; }
     [Parameter] public List<Models.Category> FilteredCategory { get; set; }
+
+    // ExpenseView.Distribution es nullable (la columna real dbo.Expense.Distribution
+    // admite NULL) -- Blazor no soporta bindear un <select> directo contra un enum
+    // nullable de forma confiable, así que se pasa por esta propiedad intermedia:
+    // muestra Fija cuando todavía no hay nada elegido (gasto nuevo, o uno viejo sin
+    // distribución guardada), pero el set siempre deja un valor concreto.
+    private Models.TypeDistribution DistribucionSeleccionada
+    {
+        get => ExpenseView.Distribution ?? Models.TypeDistribution.Fija;
+        set => ExpenseView.Distribution = value;
+    }
 
     private async Task Guardar()
     {
@@ -119,13 +130,11 @@
     // se reparte el gasto entre las unidades.
     private void ActualizarDistribucionDesdeCategoria()
     {
-        var categoria = FilteredCategory?.FirstOrDefault(c => c.IdCategory == ExpenseView.IdSubCategory);
+        var categoria = FilteredCategory?.FirstOrDefault(c => c.IdCategory == ExpenseView.IdCategory);
         if (categoria != null)
         {
-            ExpenseView.IdDistribution = categoria.Distribution;
+            ExpenseView.Distribution = categoria.Distribution;
         }
     }
-
-    //private void SeleccionarColor(string color) => ViewCategory.Color = color;
 
 }

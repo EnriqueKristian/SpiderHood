@@ -771,11 +771,14 @@ namespace SpiderHood.Data
             }, "GetMixtoParameterCandidates", cancellationToken);
         }
 
-        public async Task<List<Expense>> GetExpensesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        // Devuelve List<ViewExpense>, no List<Expense> -- GET_ExpensesByBuilding
+        // devuelve columnas que coinciden con ViewExpense.cs (confirmado con
+        // INFORMATION_SCHEMA.COLUMNS de dbo.Expense), no con Classes/Expense.cs.
+        public async Task<List<ViewExpense>> GetExpensesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Expense>(
+                return await ExecuteQueryListAsync<ViewExpense>(
                     StoredProcedures.GET_ExpensesByBuilding,
                     idBuilding);
             }, "GetExpensesByBuilding", cancellationToken);

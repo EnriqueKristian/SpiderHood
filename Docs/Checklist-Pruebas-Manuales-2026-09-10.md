@@ -1,15 +1,45 @@
 # Checklist de pruebas manuales — sesión 2026-09-09/10
 
-Todo lo de acá ya tiene el código y el SQL aplicados (ver `Docs/Pendientes-Negocio-*.md`
-y los scripts `55` a `77` en `Database/Scripts/`, ya confirmados corridos). Lo que
-falta es **probarlo en la app real** con datos reales -- esta sesión no tuvo acceso
-a BD ni pudo levantar el proyecto (sin SDK de .NET), así que nada de esto se probó
-todavía en un browser.
+Todo lo de acá ya tiene el código aplicado (ver `Docs/Pendientes-Negocio-*.md`). Los
+scripts `55` a `77` en `Database/Scripts/` ya están confirmados corridos (el usuario
+verificó con `2026-09-10_78_Verificar_Pendientes_Aplicados.sql`). Lo que falta es
+**probarlo en la app real** con datos reales -- esta sesión no tuvo acceso a BD ni
+pudo levantar el proyecto (sin SDK de .NET), así que nada de esto se probó todavía
+en un browser.
 
 Marcá con `[x]` a medida que vayas confirmando. Si algo falla, anotá qué pasó al
 lado del ítem para retomarlo.
 
 ---
+
+## ⚠️ SQL pendiente de correr
+
+- [ ] `Database/Scripts/2026-09-10_81_DEL_Expense.sql` -- nuevo SP `DEL_Expense`
+      (borrado real de Gastos, ver sección "Gastos" más abajo). Sin esto, el botón
+      "Eliminar" de `/expense` va a fallar con un error de SP inexistente.
+
+---
+
+## Selección de Edificio / Login con rol ambiguo (`/select-building`)
+
+Reportado por el usuario probando con un usuario real: al loguearse con un
+edificio/rol ambiguo (ej. se le agregó el rol "Junta" a un usuario que ya tenía
+"Administrador" en el mismo edificio), la pantalla `/select-building` aparecía
+pero el menú lateral y el header ya estaban cargados y navegables, como si el
+edificio/rol ya estuviera confirmado -- clickear cualquier ítem del menú
+navegaba usando un contexto que el usuario nunca llegó a elegir ahí.
+
+- [ ] Repetir el escenario exacto: un usuario con "Administrador" ya elegido
+      antes (localStorage) en un edificio, al que se le agrega el rol "Junta"
+      sobre ESE MISMO edificio -- al loguearse, `/select-building` debe
+      aparecer con el menú lateral OCULTO (no debe haber nada para clickear
+      hasta elegir)
+- [ ] Elegir un edificio/rol en esa pantalla y confirmar que el menú aparece
+      recién ahí, con el rol correcto
+- [ ] Un usuario con un solo edificio/rol (caso normal, no ambiguo) sigue
+      entrando derecho al Dashboard sin pasar por `/select-building`
+- [ ] Cambiar de rol desde el dropdown del header (`OnRoleSelected`) sigue
+      funcionando igual que antes (no se tocó esa lógica)
 
 ## Permisos (`/Settings/Permissions`)
 
@@ -86,6 +116,35 @@ lado del ítem para retomarlo.
       vista previa muestra esa fila en rojo junto con el resto de filas válidas
 - [ ] Botón "Marcar como Saldo Inicial" en un movimiento: actualiza el Saldo
       Inicial mostrado y persiste tras recargar la página
+
+## Gastos (`/expense`)
+
+Reportado por el usuario: la pantalla no tenía filtros, paginación ni selector
+de registros por página, a diferencia del resto de los listados (ej.
+`/cuotas`). Se reescribió completa; de paso se implementó el borrado real
+(el botón "Eliminar" no tenía ninguna función antes de este cambio).
+
+**Antes de probar: correr `2026-09-10_81_DEL_Expense.sql`** (ver arriba).
+
+- [ ] Las 3 tarjetas de resumen (Total/Fijos/Proporcionales) muestran los
+      totales de TODO el edificio, sin cambiar al aplicar filtros
+- [ ] Filtro por Mes funciona (incluye "Todos los meses")
+- [ ] Filtro por Categoría funciona (incluye "Todas las categorías")
+- [ ] El buscador encuentra por descripción, categoría y proveedor
+- [ ] El selector "Mostrar: 10/25/50/100" cambia la cantidad de filas por
+      página
+- [ ] Los controles de paginación (primera/anterior/números/siguiente/última)
+      navegan correctamente cuando hay más de una página
+- [ ] Crear un gasto nuevo sigue funcionando igual que antes (modal sin cambios)
+- [ ] Editar un gasto existente sigue funcionando igual que antes
+- [ ] **Eliminar un gasto NO conciliado**: pide confirmación (modal rojo,
+      "Eliminar Gasto", con la descripción y el monto correctos ya desde el
+      primer render), y al confirmar desaparece de la lista y persiste tras F5
+- [ ] **Eliminar un gasto YA conciliado** con una transacción bancaria: debe
+      mostrar el mensaje de error ("No se puede eliminar un gasto ya
+      conciliado...") sin siquiera intentar el borrado, y el gasto sigue
+      apareciendo en la lista
+- [ ] Cancelar el modal de confirmación no borra nada
 
 ## Migración de Datos (si se corre un rango de una década)
 

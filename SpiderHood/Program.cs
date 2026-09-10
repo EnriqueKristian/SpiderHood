@@ -132,7 +132,25 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddAuthorizationCore();
+
+// "Seguro por defecto": ninguna página de Components/Pages tenía [Authorize] (se
+// confirmó revisando el proyecto entero) -- AuthorizeRouteView sólo redirige a
+// /login cuando la página TIENE un requisito de autorización explícito, así que en
+// la práctica CUALQUIER ruta (/buildings, /Owners, /Settings/UserRoles, etc.) era
+// alcanzable sin sesión con solo escribir la URL directamente (confirmado por el
+// usuario navegando como "Invitado"). Las únicas protecciones que existían eran
+// checks sueltos dentro de cada página (ej. _canManageUsers), que muchas páginas
+// simplemente no tenían. Este FallbackPolicy exige sesión para TODO por defecto;
+// las páginas realmente públicas (login, registro, invitación, confirmación de
+// email, error/not-found, resultado de pago) se marcan explícitamente con
+// [AllowAnonymous]. El webhook de MercadoPago y los archivos estáticos
+// (CSS/JS/imágenes) se eximen aparte más abajo, donde se registran sus endpoints.
+builder.Services.AddAuthorizationCore(options =>
+{
+    options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // 2. Identity
 //
@@ -281,7 +299,7 @@ app.MapPost("/api/mercadopago/webhook", async (HttpRequest request, ISubscriptio
     }
 
     return Results.Ok();
-});
+}).AllowAnonymous(); // MercadoPago llama sin cookie -- ver el comentario de arriba.
 
 // Landing pública (wwwroot/index.html) en "/" -- pero SÓLO para quien no tiene
 // sesión iniciada. Home.razor (@page "/") sigue siendo el Dashboard para
@@ -299,7 +317,12 @@ app.MapWhen(
         await ctx.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath, "index.html"));
     }));
 
-app.MapStaticAssets();
+// AllowAnonymous explícito: sin esto, el FallbackPolicy de arriba (RequireAuthenticatedUser)
+// también alcanzaría a CSS/JS/imágenes -- incluido _framework/blazor.web.js, sin el
+// cual la página de /login ni siquiera podría conectar el circuito interactivo para
+// dejar loguearse a nadie. Los estáticos no tienen datos sensibles: no hay razón
+// para protegerlos.
+app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

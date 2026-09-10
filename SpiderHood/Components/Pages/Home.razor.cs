@@ -33,6 +33,12 @@ namespace SpiderHood.Components.Pages
         [Inject]
         private IBankAccountService BankAccountService { get; set; } = default!;
 
+        [Inject]
+        private IPermissionAdminService PermissionAdminService { get; set; } = default!;
+
+        [Inject]
+        private IPermissionService PermissionService { get; set; } = default!;
+
         // Flag para controlar si ya se cargaron los datos
         private bool _isDataLoaded = false;
 
@@ -128,8 +134,10 @@ namespace SpiderHood.Components.Pages
 
         // Campanita del header: cosas que de verdad requieren atención ahora --
         // incidencias sin cerrar + cuotas ya vencidas (no toda cuota pendiente, sólo
-        // las que ya pasaron su DueDate). No hay todavía una tabla de "Notification"
-        // en la app -- esto es un conteo real, no una lista de notificaciones.
+        // las que ya pasaron su DueDate) + solicitudes de acceso pendientes de ESTE
+        // edificio (sólo si el usuario puede hacer algo con ellas -- ver
+        // LoadDashboardStatsAsync). No hay todavía una tabla de "Notification" en la
+        // app -- esto es un conteo real, no una lista de notificaciones.
         private int _alertasUrgentes;
 
         private string _userName = "";
@@ -358,7 +366,8 @@ namespace SpiderHood.Components.Pages
             _totalGruposUnidad = owners.Select(o => o.IdGroupUnit).Distinct().Count();
             _morosidadPct = _totalGruposUnidad > 0 ? _unidadesMorosas * 100.0 / _totalGruposUnidad : 0;
 
-            _alertasUrgentes = _incidenciasPendientes + pending.Count(i => i.DueDate.Date < now.Date);
+            var solicitudesPendientes = await GetSolicitudesPendientesCountAsync();
+            _alertasUrgentes = _incidenciasPendientes + pending.Count(i => i.DueDate.Date < now.Date) + solicitudesPendientes;
 
             // Próximos vencimientos: las cuotas pendientes más próximas a vencer.
             upcomingDues = pending
@@ -551,5 +560,23 @@ namespace SpiderHood.Components.Pages
         // concepto en la app) -- lleva directo a Incidencias, que es de donde sale la
         // mayor parte de _alertasUrgentes.
         private void GoToAlertas() => Navigation.NavigateTo("/incidents");
+
+        // Mismo criterio que _pendingRequests en UserRoles.razor, acotado a ESTE
+        // edificio (el Dashboard ya es por-edificio) -- 0 si el usuario no tiene
+        // permiso para hacer nada con esas solicitudes (Residente/Junta no deberían
+        // ver un número que no pueden resolver).
+        private async Task<int> GetSolicitudesPendientesCountAsync()
+        {
+            var currentUser = await AuthService.GetCurrentUserAsync();
+            if (currentUser == null) return 0;
+
+            var puedeAsignarRoles = await PermissionService.HasPermissionAsync(currentUser, "assign_roles");
+            if (!puedeAsignarRoles) return 0;
+
+            var asociaciones = await PermissionAdminService.GetUserBuildingRoleAssignmentsAsync();
+            return asociaciones.Count(a =>
+                a.IdBuilding == IdBuilding
+                && !a.IsApproved && a.Status != "Rejected" && a.Status != "Inactive");
+        }
     }
 }

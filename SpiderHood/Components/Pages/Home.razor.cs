@@ -109,7 +109,7 @@ namespace SpiderHood.Components.Pages
 
         // Gráfico "Ingresos y Egresos" -- antes era 100% placeholder estático (sin datos,
         // sin librería de gráficos). Fuente: movimientos bancarios reales (mismos que
-        // /reportes/ingresos-egresos), traídos una sola vez por carga del Dashboard y
+        // /reports/IncomeExpenses), traídos una sola vez por carga del Dashboard y
         // re-agrupados en memoria al cambiar de rango (sin volver a golpear la BD).
         private List<Models.AccountStatementDetailView> _movimientosBancarios = new();
         private string _rangoGraficoIngresos = "anio"; // "mes" | "3meses" | "anio"

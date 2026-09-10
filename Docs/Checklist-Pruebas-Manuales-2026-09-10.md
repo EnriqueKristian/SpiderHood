@@ -22,19 +22,25 @@ lado del ítem para retomarlo.
 
 ## Selección de Edificio / Login con rol ambiguo (`/select-building`)
 
+**Estado: verificado (2026-09-10) por el usuario, funciona correctamente.**
+
 Reportado por el usuario probando con un usuario real: al loguearse con un
 edificio/rol ambiguo (ej. se le agregó el rol "Junta" a un usuario que ya tenía
 "Administrador" en el mismo edificio), la pantalla `/select-building` aparecía
 pero el menú lateral y el header ya estaban cargados y navegables, como si el
 edificio/rol ya estuviera confirmado -- clickear cualquier ítem del menú
-navegaba usando un contexto que el usuario nunca llegó a elegir ahí.
+navegaba usando un contexto que el usuario nunca llegó a elegir ahí. Tomó dos
+vueltas: el primer fix (`9eb9b3d`) dejaba el menú oculto en `/select-building`
+pero introdujo una regresión (el menú quedaba oculto para siempre después de
+confirmar); el segundo fix (`fb6f1df` + `ac51954`, suscripción a
+`NavigationManager.LocationChanged`) corrigió eso.
 
-- [ ] Repetir el escenario exacto: un usuario con "Administrador" ya elegido
+- [x] Repetir el escenario exacto: un usuario con "Administrador" ya elegido
       antes (localStorage) en un edificio, al que se le agrega el rol "Junta"
       sobre ESE MISMO edificio -- al loguearse, `/select-building` debe
       aparecer con el menú lateral OCULTO (no debe haber nada para clickear
       hasta elegir)
-- [ ] Elegir un edificio/rol en esa pantalla y confirmar que el menú aparece
+- [x] Elegir un edificio/rol en esa pantalla y confirmar que el menú aparece
       recién ahí, con el rol correcto
 - [ ] Un usuario con un solo edificio/rol (caso normal, no ambiguo) sigue
       entrando derecho al Dashboard sin pasar por `/select-building`

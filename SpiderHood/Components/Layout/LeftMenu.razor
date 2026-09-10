@@ -123,7 +123,7 @@
         Navigation.LocationChanged += OnLocationChanged;
     }
 
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.LocationChangedEventArgs e)
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         _ = InvokeAsync(async () =>
         {

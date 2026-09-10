@@ -160,6 +160,7 @@ namespace SpiderHood.Data
             public const string GET_FullMenu = "GET_FullMenu";
             public const string GET_UserById = "GET_UserById";
             public const string GET_InvitationByCode = "GET_InvitationByCode";
+            public const string INS_Invitation = "INS_Invitation";
             public const string GET_AllBuildings = "GET_AllBuildings";
             public const string GET_BuildingById = "GET_BuildingById";
             public const string GET_Building = "GET_Building";

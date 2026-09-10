@@ -58,6 +58,11 @@ namespace SpiderHood.Models
 
         [Required(ErrorMessage = "Selecciona un edificio")]
         public Guid BuildingId { get; set; }
+
+        // DPTO/unidad que el residente reclama -- opcional a nivel de modelo (una unidad
+        // recién creada puede no tener nada cargado todavía), pero la pantalla lo exige si
+        // el edificio elegido sí tiene unidades para elegir. Ver AuthService.CreatePendingAssociationAsync.
+        public Guid? IdGroupUnit { get; set; }
     }
 
     // Registro "Piloto" (landing pública -> /register-admin): a diferencia de

@@ -163,6 +163,38 @@ SQL corrido: `2026-09-10_81_DEL_Expense.sql` (borrado) +
       muestra el error sin intentar el borrado (no se probó ese caso puntual
       todavía, sólo el flujo general)
 
+## Administración del Menú (`/Settings/MenuItems`)
+
+**Estado: verificado (2026-09-10) por el usuario -- "el menu quedo bien".**
+
+Reorganización del menú lateral: se creó el grupo nuevo "Conciliación"
+(`bi-bank`), se movieron ahí Estado de Cuenta / Conciliar Gastos / Conciliar
+Pagos / Gastos (la vista combinada de Conciliación queda creada pero
+`IsVisible=0`, no se activa todavía), se renumeraron los hijos de
+Presupuesto, se movió Migración de Datos bajo Configuración, se corrigieron
+`DisplayOrder` duplicados y 7 íconos placeholder. Scripts `_85`/`_86`
+(`_86` corrigió 8 filas que fallaron en `_85` por `ItemKey NULL` cuando la
+columna real es `NOT NULL`).
+
+Aparte, se corrigió que la cabecera de la tabla de roles/permisos no
+quedaba fija al hacer scroll (causa real: `.table-responsive` de Bootstrap
+ya era su propio contenedor de scroll por el `overflow-x:auto`, pero sin
+altura máxima nunca scrolleaba él mismo, así que el `sticky` se anclaba a
+ese contenedor "fantasma" en vez de a la página). Fix: `max-height` +
+`overflow-y:auto` en `.table-responsive` y `top:0` en el `th` (commit
+`f184726`). Efecto secundario bueno: los botones "Guardar Todos los
+Permisos"/"Resetear"/"Guardar Orden" quedan siempre visibles, fuera del
+área con scroll.
+
+- [x] El árbol del menú lateral se ve reorganizado correctamente (grupo
+      "Conciliación" con sus 4 ítems, Migración de Datos bajo Configuración,
+      íconos correctos)
+- [x] La cabecera de la tabla en `/Settings/MenuItems` queda fija al
+      scrollear y los botones de acción no requieren bajar toda la página
+- [ ] Confirmar que la vista combinada "Conciliación" (creada con
+      `IsVisible=0`) sigue oculta -- se activará más adelante cuando el
+      equipo se acostumbre al flujo separado de Gastos/Pagos
+
 ## Migración de Datos (si se corre un rango de una década)
 
 - [ ] Si "Conciliación de Pagos" con un rango de fecha amplio (ej. 2015-2026)

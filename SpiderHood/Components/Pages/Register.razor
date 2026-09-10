@@ -85,19 +85,51 @@
 
                     <div class="form-group mb-3">
                         <label class="form-label"><i class="bi bi-building me-2"></i>Edificio</label>
-                        <InputSelect class="form-select" @bind-Value="_model.BuildingId">
+                        <select class="form-select" value="@(_model.BuildingId == Guid.Empty ? "" : _model.BuildingId.ToString())" @onchange="OnBuildingChangedAsync">
                             <option value="">-- Seleccionar edificio --</option>
                             @foreach (var building in _buildings)
                             {
                                 <option value="@building.IdBuilding">@building.Name</option>
                             }
-                        </InputSelect>
+                        </select>
                         <ValidationMessage For="@(() => _model.BuildingId)" />
                         <small class="text-muted">
                             Vas a quedar registrado como <strong>Residente</strong> de este edificio, pendiente
                             de aprobación por su administrador.
                         </small>
                     </div>
+
+                    @if (_model.BuildingId != Guid.Empty)
+                    {
+                        <div class="form-group mb-3">
+                            <label class="form-label"><i class="bi bi-door-closed me-2"></i>DPTO / Unidad</label>
+                            @if (_loadingUnits)
+                            {
+                                <div class="text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>Cargando unidades...</div>
+                            }
+                            else if (!_units.Any())
+                            {
+                                <div class="text-muted small">
+                                    Este edificio todavía no tiene unidades cargadas -- el administrador te
+                                    la va a asignar al aprobar tu solicitud.
+                                </div>
+                            }
+                            else
+                            {
+                                <InputSelect class="form-select" @bind-Value="_model.IdGroupUnit">
+                                    <option value="">-- Seleccionar tu unidad --</option>
+                                    @foreach (var unit in _units)
+                                    {
+                                        <option value="@unit.IdGroupUnit">Grupo @unit.GroupNumber — @unit.FirstName @unit.LastName</option>
+                                    }
+                                </InputSelect>
+                                @if (_showUnitRequiredError)
+                                {
+                                    <div class="text-danger small mt-1">Selecciona tu unidad para continuar.</div>
+                                }
+                            }
+                        </div>
+                    }
 
                     <div class="row">
                         <div class="col-md-6 form-group mb-3">
@@ -137,6 +169,9 @@
 @code {
     private RegisterModel _model = new();
     private List<Building> _buildings = new();
+    private List<OwnerUnitView> _units = new();
+    private bool _loadingUnits;
+    private bool _showUnitRequiredError;
     private string _errorMessage = string.Empty;
     private bool _success;
     private bool _saving;
@@ -145,6 +180,29 @@
     protected override async Task OnInitializedAsync()
     {
         await ReloadBuildingsAsync();
+    }
+
+    private async Task OnBuildingChangedAsync(ChangeEventArgs e)
+    {
+        _model.BuildingId = Guid.TryParse(e.Value?.ToString(), out var parsed) ? parsed : Guid.Empty;
+        _model.IdGroupUnit = null;
+        _showUnitRequiredError = false;
+        _units = new();
+
+        if (_model.BuildingId == Guid.Empty) return;
+
+        _loadingUnits = true;
+        try
+        {
+            _units = (await BuildingService.GetOwnersByBuildingAsync(_model.BuildingId))
+                .DistinctBy(u => u.IdGroupUnit)
+                .OrderBy(u => u.GroupNumber)
+                .ToList();
+        }
+        finally
+        {
+            _loadingUnits = false;
+        }
     }
 
     private async Task ReloadBuildingsAsync()
@@ -168,6 +226,14 @@
     private async Task HandleRegister()
     {
         _errorMessage = string.Empty;
+
+        if (_units.Any() && !_model.IdGroupUnit.HasValue)
+        {
+            _showUnitRequiredError = true;
+            return;
+        }
+        _showUnitRequiredError = false;
+
         _saving = true;
         try
         {

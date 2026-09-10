@@ -29,6 +29,9 @@ else
             <h1 class="h3 fw-bold mb-0">Gestión de Usuarios</h1>
         </div>
         <div class="page-header-actions">
+            <a href="/Settings/UserRoles" class="btn btn-outline-secondary">
+                <i class="bi bi-diagram-3 me-1"></i> Asignar Roles
+            </a>
             <button class="btn btn-primary" @onclick="MostrarModalNuevoUsuario">
                 <i class="bi bi-person-plus me-1"></i> Nuevo Usuario
             </button>
@@ -66,7 +69,7 @@ else
                         </div>
                         <div>
                             <div class="stat-label">Administradores</div>
-                            <div class="stat-value">@usuarios.Count(u => u.Rol == "Administrador")</div>
+                            <div class="stat-value">@usuarios.Count(u => u.Roles.Contains("Administrador"))</div>
                         </div>
                     </div>
                 </div>
@@ -186,9 +189,17 @@ else
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="badge @GetRolBadgeClass(usuario.Rol)">
-                                                    @usuario.Rol
-                                                </span>
+                                                @if (usuario.Roles.Any())
+                                                {
+                                                    @foreach (var rol in usuario.Roles)
+                                                    {
+                                                        <span class="badge @GetRolBadgeClass(rol) me-1 mb-1">@rol</span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Sin rol</span>
+                                                }
                                             </td>
                                             <td>
                                                 <span class="badge @(usuario.Estado == "Activo" ? "bg-success" : "bg-secondary")">
@@ -246,7 +257,6 @@ else
                 </div>
                 <div class="modal-body">
                     <UsuarioForm Model="formModel!"
-                                 AvailableRoles="_availableRoles"
                                  OnSave="GuardarUsuario"
                                  OnCancel="CerrarModalUsuario" />
                 </div>
@@ -263,8 +273,7 @@ else
         public string Nombre { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Telefono { get; set; } = string.Empty;
-        public string Rol { get; set; } = string.Empty;
-        public Guid? IdRole { get; set; }
+        public List<string> Roles { get; set; } = new();
         public string Estado { get; set; } = "Activo";
         public DateTime FechaIngreso { get; set; }
     }
@@ -311,9 +320,32 @@ else
         {
             _loading = true;
 
+            // assignments (UserRole) sigue siendo la única fuente para el DIRECTORIO
+            // completo de usuarios (nombre/email/perfil) y para detectar SysAdmin (ver
+            // más abajo) -- pero YA NO para el rol mostrado, que ahora sale de
+            // UserBuildingAssociation (asociaciones). Antes las dos pantallas leían
+            // tablas distintas y desconectadas: un usuario con "Junta" recién asignado
+            // en /Settings/UserRoles (UserBuildingAssociation, la tabla real) seguía
+            // apareciendo acá como "Sin rol", porque esta pantalla leía UserRole (una
+            // tabla aparte, sin ningún efecto real en la sesión del usuario).
             var assignments = await PermissionAdminService.GetUserRoleAssignmentsAsync();
-            _availableRoles = assignments.FirstOrDefault()?.AvailableRoles
-                ?? await PermissionAdminService.GetAllRolesAsync();
+            _availableRoles = await PermissionAdminService.GetAllRolesAsync();
+
+            var misEdificios = _currentUser.Buildings
+                .Where(b => b.IsApproved && b.Building != null)
+                .Select(b => b.Building!.IdBuilding)
+                .ToHashSet();
+
+            var asociaciones = await PermissionAdminService.GetUserBuildingRoleAssignmentsAsync();
+
+            // Roles reales por usuario, acotados a los edificios que administra el
+            // usuario actual (o todos, si es SysAdmin) -- mismo criterio de alcance que
+            // /Settings/UserRoles. Sólo cuentan los ya aprobados (una solicitud
+            // pendiente no es un rol real todavía).
+            var rolesPorUsuario = asociaciones
+                .Where(a => a.IsApproved && (_isSysAdmin || misEdificios.Contains(a.IdBuilding)))
+                .GroupBy(a => a.IdUser)
+                .ToDictionary(g => g.Key, g => g.Select(a => a.Role).Distinct().ToList());
 
             // Alcance por edificio: un Administrador sólo debe ver (y poder gestionar)
             // usuarios que tienen alguna asociación real (UserBuildingAssociation) en un
@@ -324,12 +356,6 @@ else
             HashSet<Guid>? usuariosVisibles = null;
             if (!_isSysAdmin)
             {
-                var misEdificios = _currentUser.Buildings
-                    .Where(b => b.IsApproved && b.Building != null)
-                    .Select(b => b.Building!.IdBuilding)
-                    .ToHashSet();
-
-                var asociaciones = await PermissionAdminService.GetUserBuildingRoleAssignmentsAsync();
                 usuariosVisibles = asociaciones
                     .Where(a => misEdificios.Contains(a.IdBuilding))
                     .Select(a => a.IdUser)
@@ -348,14 +374,24 @@ else
                     ? $"{profile.FirstName} {profile.LastName}".Trim()
                     : assignment.UserName;
 
+                var rolesUsuario = rolesPorUsuario.TryGetValue(assignment.IdUser, out var r) ? new List<string>(r) : new();
+
+                // Única excepción a "todo sale de UserBuildingAssociation": SysAdmin es
+                // global por diseño (ver AuthService.GrantSysAdminAccessToAllBuildingsAsync)
+                // y no tiene ninguna fila de edificio -- sin esto, Admin System volvería
+                // a mostrar "Sin rol".
+                if (assignment.CurrentRole == "SysAdmin" && !rolesUsuario.Contains("SysAdmin"))
+                {
+                    rolesUsuario.Add("SysAdmin");
+                }
+
                 rows.Add(new UsuarioRow
                 {
                     IdUser = assignment.IdUser,
                     Nombre = string.IsNullOrWhiteSpace(nombre) ? assignment.UserEmail : nombre,
                     Email = assignment.UserEmail,
                     Telefono = profile?.PhoneNumber ?? string.Empty,
-                    Rol = string.IsNullOrEmpty(assignment.CurrentRole) ? "Sin rol" : assignment.CurrentRole,
-                    IdRole = _availableRoles.FirstOrDefault(r => r.RoleName == assignment.CurrentRole)?.IdRole,
+                    Roles = rolesUsuario,
                     Estado = (profile?.IsActive ?? true) ? "Activo" : "Inactivo",
                     FechaIngreso = profile?.CreatedAt ?? DateTime.MinValue
                 });
@@ -364,7 +400,7 @@ else
             if (!_isSysAdmin)
             {
                 _availableRoles = _availableRoles.Where(r => r.RoleName != "SysAdmin").ToList();
-                rows = rows.Where(r => r.Rol != "SysAdmin").ToList();
+                rows = rows.Where(r => !r.Roles.Contains("SysAdmin")).ToList();
             }
 
             usuarios = rows.OrderBy(u => u.Nombre).ToList();
@@ -395,19 +431,19 @@ else
     private void AplicarFiltros()
     {
         usuariosFiltrados = usuarios
-            .Where(u => rolSeleccionado == "Todos" || u.Rol == rolSeleccionado)
+            .Where(u => rolSeleccionado == "Todos" || u.Roles.Contains(rolSeleccionado))
             .Where(u => filtroEstado == null || u.Estado == filtroEstado)
             .ToList();
     }
 
     private int ObtenerCantidadPorRol(string rol)
     {
-        return rol == "Todos" ? usuarios.Count : usuarios.Count(u => u.Rol == rol);
+        return rol == "Todos" ? usuarios.Count : usuarios.Count(u => u.Roles.Contains(rol));
     }
 
     private string GetAvatarClass(UsuarioRow usuario)
     {
-        return usuario.Rol switch
+        return usuario.Roles.FirstOrDefault() switch
         {
             "Administrador" => "avatar-admin",
             "Junta" => "avatar-junta",
@@ -457,7 +493,6 @@ else
             LastName = usuario.Nombre.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1) ?? string.Empty,
             Email = usuario.Email,
             PhoneNumber = usuario.Telefono,
-            IdRole = usuario.IdRole,
             IsActive = usuario.Estado == "Activo"
         };
         mostrarModalUsuario = true;
@@ -477,11 +512,6 @@ else
                     return;
                 }
 
-                if (model.IdRole.HasValue)
-                {
-                    await PermissionAdminService.AssignRoleToUserAsync(model.IdUser, model.IdRole.Value);
-                }
-
                 if (!string.IsNullOrWhiteSpace(model.Password))
                 {
                     var passwordResult = await AuthService.AdminResetPasswordAsync(model.IdUser, model.Password);
@@ -499,11 +529,6 @@ else
                 {
                     await ShowToast("Error", result.Message, "danger");
                     return;
-                }
-
-                if (model.IdRole.HasValue)
-                {
-                    await PermissionAdminService.AssignRoleToUserAsync(result.User.IdUser, model.IdRole.Value);
                 }
 
                 if (!model.IsActive)

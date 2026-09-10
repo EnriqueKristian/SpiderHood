@@ -1,150 +1,226 @@
-﻿@page "/expense"
+@page "/expense"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject NavigationManager Navigation // Inyecta el servicio de navegación
+@using SpiderHood.Utilities
+@inject NavigationManager Navigation
 @inject ParameterService ParameterService
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
 
-<section>
-    <div class="row">
-        @* ====== TITULO ====== *@
-        <div class="col-md-6 order-md-2 mb-1"><h2>Resumen de Gastos</h2><h6>Enero 2025</h6></div>
-    </div>
-</section>
-<section>
-    <div class="container my-4">
-        @* ====== CARDS RESUMEN SUPERIOR ====== *@
-        <div class="row g-3 mb-2">
-            <ExpenseCard Title="Total Gastos" TotalCount="@TotalCount" TotalExpenses="@TotalExpenses" Class="h5 mb-1" ClassBorder="card shadow-sm h-100"></ExpenseCard>
-            <ExpenseCard Title="Gastos Fijos" TotalCount="@FixedCount" TotalExpenses="@FixedExpenses" Class="h6 mb-1" ClassBorder="card shadow-sm h-100"></ExpenseCard>
-            <ExpenseCard Title="Gastos Proporcionales" TotalCount="@ProportionalCount" TotalExpenses="@ProportionalExpenses" Class="h6 mb-1" ClassBorder="card shadow-sm h-100"></ExpenseCard>
-        </div>
-        @* ====== FILTROS ====== *@
-        <div class="card mb-2 shadow-sm">
-            <div class="card-body">
-                <div class="row g-3 align-items-end">
-                    <table>
-                        <tr>
-                            <td><label class="form-label"><strong>Mes</strong></label></td>
-                            <td width="30%"><input type="month" class="form-control" @onchange="FilterByDate" /></td>
-                            <td></td>
-                            <td align="center"><label class="form-label"><strong>Categoría</strong></label></td>
-                            <td width="30%">
-                                <select class="form-select" @bind="SelectedCategory">
-                                    <option value="all">Todas</option>
-                                    @foreach (var item in FilteredCategory.Where(c => c.Nivel == 0))
-                                    {
-                                        <option value="@item.IdCategory">@item.ShortDescript</option>
-                                    }
-                                </select>
-                            </td>
-                            <td width="20%" align="right">
-                                @if (_canCreateExpense)
-                                {
-                                    <button class="w-80 btn btn-primary btn-lg" type="button" @onclick="() => AbrirModal(_newExpense, OpenType.Create)">Agregar Gasto</button>
-                                }
-                            </td>
-                        </tr>
-                    </table>
+<PageTitle>Resumen de Gastos</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @* Mismo patrón sticky que /cuotas (InstallmentList.razor) y /movement --
+       top: 3.5rem por el header global sticky de MainLayout.razor.css. *@
+    <div style="position: sticky; top: 3.5rem; z-index: 5; background: var(--sh-surface, #fff);">
+        <div class="page-header mb-4 d-flex justify-content-between align-items-center">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-cash-coin"></i>
+                </div>
+                <div>
+                    <h1 class="h3 fw-bold mb-1">Resumen de Gastos</h1>
+                    <p class="text-muted mb-0">Gastos registrados del edificio</p>
                 </div>
             </div>
+            @if (_canCreateExpense)
+            {
+                <button class="btn btn-primary" type="button" @onclick="() => AbrirModal(new Models.Expense(), OpenType.Create)">
+                    <i class="bi bi-plus-lg me-1"></i>Agregar Gasto
+                </button>
+            }
         </div>
 
-        @* ====== RESUMEN POR CATEGORÍA ====== *@
-        <!--
-    <div class="row g-3 mb-4">
-        @foreach (var x in FilteredExpenses.Select(e => e.Category).Distinct())
+        @if (!cargando)
         {
-                // Totales por categoría (según ejemplo)
-                decimal TotalCat = FilteredExpenses.Where(e => e.Category == x.ToString()).Sum(e => e.TotalAmount);
-                int CountCat = FilteredExpenses.Count(e => e.Category == x.ToString());
+            <!-- Resumen -->
+            <div class="row g-3 mb-3">
+                <ExpenseCard Title="Total Gastos" TotalCount="@TotalCount" TotalExpenses="@TotalExpenses" Class="h5 mb-1" ClassBorder="card shadow-sm h-100"></ExpenseCard>
+                <ExpenseCard Title="Gastos Fijos" TotalCount="@FixedCount" TotalExpenses="@FixedExpenses" Class="h6 mb-1" ClassBorder="card shadow-sm h-100"></ExpenseCard>
+                <ExpenseCard Title="Gastos Proporcionales" TotalCount="@ProportionalCount" TotalExpenses="@ProportionalExpenses" Class="h6 mb-1" ClassBorder="card shadow-sm h-100"></ExpenseCard>
+            </div>
 
-                <ExpenseCard Title="@x" TotalCount="@CountCat" TotalExpenses="@TotalCat" Class="mb-1" ClassBorder="card border-start border-primary border-3 h-100"></ExpenseCard>
+            <!-- Filtros -->
+            <div class="table-header d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 border-bottom bg-white shadow-sm">
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroMesChanged">
+                        <option value="" selected="@(filtroMes == null)">Todos los meses</option>
+                        @foreach (var mes in MesesDisponibles())
+                        {
+                            <option value="@mes.ToString("yyyy-MM")" selected="@(filtroMes == mes.ToString("yyyy-MM"))">
+                                @mes.ToString("MMM-yy")
+                            </option>
+                        }
+                    </select>
+
+                    <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroCategoriaChanged">
+                        <option value="all" selected="@(filtroCategoria == "all")">Todas las categorías</option>
+                        @foreach (var item in FilteredCategory.Where(c => c.Nivel == 0))
+                        {
+                            <option value="@item.IdCategory" selected="@(filtroCategoria == item.IdCategory.ToString())">@item.ShortDescript</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <div class="search-box">
+                        <input type="text"
+                               class="form-control form-control-sm"
+                               placeholder="Buscar descripción, categoría, proveedor..."
+                               value="@searchTerm"
+                               @oninput="OnSearchInput" />
+                    </div>
+                    <label class="text-muted mb-0">Mostrar:</label>
+                    <select class="form-select form-select-sm" style="width: auto;"
+                            @onchange="(e) => pagination.ChangePageSize(Convert.ToInt32(e.Value))">
+                        <option value="10" selected="@(pagination.PageSize == 10)">10</option>
+                        <option value="25" selected="@(pagination.PageSize == 25)">25</option>
+                        <option value="50" selected="@(pagination.PageSize == 50)">50</option>
+                        <option value="100" selected="@(pagination.PageSize == 100)">100</option>
+                    </select>
+                </div>
+            </div>
         }
     </div>
-     -->
-        @* ====== TABLA DE GASTOS ====== *@
-        <div class="card shadow-sm">
-            <div class="card-header bg-white">
-                <strong>Detalle de gastos</strong>
-            </div>
-            <div class="card-body p-0">
-                <div class="grid" id="myGridView" style="width:100%">
-                    <table class="table table-hover custom-grid" border="1">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Categoría</th>
-                                <th>Descripción</th>
-                                <th>Fecha</th>
-                                <th>Distribución</th>
-                                <th class="text-end">Monto</th>
-                                <th class="text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @if (!FilteredExpenses.Any())
-                            {
-                                <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">
-                                        No hay gastos registrados para los filtros seleccionados.
-                                    </td>
-                                </tr>
-                            }
-                            else
-                            {
-                                FilteredExpensesByCat = FilteredExpenses.Where(c => (SelectedCategory == "all" || c.IdCategory.ToString() == SelectedCategory) && (SelectedMonth == "2025-01" || c.FilterbyMonth == SelectedMonth)).ToList();
 
-                                @foreach (var x in FilteredExpenses.Select(e => e.Category).Distinct())
-                                {
-                                    decimal TotalCat = FilteredExpenses.Where(e => e.Category == x.ToString()).Sum(e => e.TotalAmount);
-                                    //int CountCat = FilteredExpenses.Count(e => e.Category == x.ToString());
-                                    <tr>
-                                        <td colspan="4" class="bg-light">
-                                            <strong>@x</strong>
-                                        </td>
-                                        <td class="text-end bg-light">
-                                            <strong style="color:darkblue;"><em>@Moneda(TotalCat)</em></strong>
-                                        </td>
-                                        <td class="bg-light"></td>
-                                    </tr>
-                                    @foreach (var item in FilteredExpensesByCat.Where(c => c.Category == x.ToString()))
-                                    {
-                                        <tr>
-                                            <td align="center"> * </td>
-                                            <td>@item.ExpenseDescription</td>
-                                            <td class="text-center">@item.DueDate.ToString("dd-MMM yy")</td>
-                                            <td class="text-center">@item.Distribution</td>
-                                            <td class="text-end">@Moneda(item.TotalAmount)</td>
-                                            <td class="text-center">
-                                                @if (_canEditExpense)
-                                                {
-                                                    <button class="btn btn-sm btn-outline-secondary me-1"
-                                                            title="Editar"
-                                                            @onclick="@(() => AbrirModal(item, OpenType.Update))">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </button>
-                                                }
-                                                <button class="btn btn-sm btn-outline-danger"
-                                                        title="Eliminar"
-                                                        @onclick="@(() => DeleteItem(item))">
-                                                    <i class="bi bi-trash3"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    }
-                                }
-                            }
-                        </tbody>
-                    </table>
-                </div>
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
             </div>
         </div>
-    </div>
-</section>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="table-container">
+                @if (!pagination.AllData.Any())
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                        No hay gastos registrados.
+                    </div>
+                }
+                else if (!pagination.FilteredData.Any())
+                {
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-search display-4 d-block mb-3"></i>
+                        No se encontraron gastos con los filtros seleccionados.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">Categoría</th>
+                                    <th>Descripción</th>
+                                    <th class="text-end">Fecha</th>
+                                    <th>Distribución</th>
+                                    <th class="text-end">Monto</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in pagination.CurrentPageData)
+                                {
+                                    <tr>
+                                        <td class="ps-3">@item.Category</td>
+                                        <td>@item.ExpenseDescription</td>
+                                        <td class="text-end">@item.DueDate.ToString("dd-MMM-yy")</td>
+                                        <td>@item.Distribution</td>
+                                        <td class="text-end">@Moneda(item.TotalAmount)</td>
+                                        <td class="text-center">
+                                            @if (_canEditExpense)
+                                            {
+                                                <button class="btn btn-sm btn-outline-secondary me-1"
+                                                        title="Editar"
+                                                        @onclick="@(() => AbrirModal(item, OpenType.Update))">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </button>
+                                            }
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    title="Eliminar"
+                                                    @onclick="@(() => DeleteItem(item))">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="4" class="text-end fw-bold">Total de la página:</td>
+                                    <td class="text-end fw-bold">@Moneda(pagination.CurrentPageData.Sum(i => i.TotalAmount))</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
 
-<!--    MODAL PARA NUEVO / MODIFICACION DE CATEGORIAS   -->
+                    <!-- Paginación -->
+                    @if (pagination.TotalPages > 1)
+                    {
+                        <div class="d-flex flex-wrap justify-content-between align-items-center p-3 border-top">
+                            <div class="text-muted">
+                                Mostrando @pagination.StartRecord - @pagination.EndRecord de @pagination.TotalRecords gastos
+                            </div>
+
+                            <nav aria-label="Paginación de resultados">
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                        <a class="page-link" @onclick="pagination.GoToFirstPage" title="Primera página">
+                                            <i class="bi bi-chevron-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item @(pagination.CurrentPage == 1 ? "disabled" : "")">
+                                        <a class="page-link" @onclick="pagination.GoToPreviousPage" title="Página anterior">
+                                            <i class="bi bi-chevron-left"></i>
+                                        </a>
+                                    </li>
+
+                                    @foreach (var pageNum in pagination.GetPageNumbers())
+                                    {
+                                        if (pageNum == -1)
+                                        {
+                                            <li class="page-item disabled">
+                                                <span class="page-link">...</span>
+                                            </li>
+                                        }
+                                        else
+                                        {
+                                            <li class="page-item @(pageNum == pagination.CurrentPage ? "active" : "")">
+                                                <a class="page-link" @onclick="() => pagination.GoToPage(pageNum)">
+                                                    @pageNum
+                                                </a>
+                                            </li>
+                                        }
+                                    }
+
+                                    <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                        <a class="page-link" @onclick="pagination.GoToNextPage" title="Página siguiente">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item @(pagination.CurrentPage == pagination.TotalPages ? "disabled" : "")">
+                                        <a class="page-link" @onclick="pagination.GoToLastPage" title="Última página">
+                                            <i class="bi bi-chevron-double-right"></i>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!--    MODAL PARA NUEVO / MODIFICACION DE GASTOS   -->
 <SpiderHood.Components.Pages.ExpensePages.ModalExpense ShowModal="@MostrarModal"
                                                        ShowModalChanged="@((valor) => MostrarModal = valor)"
                                                        OpenMode="@OpenMode"
@@ -159,42 +235,44 @@
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
 
     private Models.Expense _newExpense = new Models.Expense();
-    private List<Models.Expense> FilteredExpenses = new();
-    private List<Models.Expense> FilteredExpensesByCat = new();
+    private List<Models.Expense> allExpenses = new();
+    private ExpensePagination pagination = new();
     private List<Models.Category> FilteredCategory = new();
 
+    private bool cargando = true;
     private bool MostrarModal = false;
     private Models.OpenType OpenMode = OpenType.ReadOnly;
 
-    private string SelectedMonth = "2025-01";
-    private string SelectedCategory = "all";
+    private string searchTerm = string.Empty;
+    private string filtroCategoria = "all";
+    private string? filtroMes = null;
 
     private bool _canCreateExpense;
     private bool _canEditExpense;
 
-    // Totales generales
-    private decimal TotalExpenses => FilteredExpenses.Sum(e => e.TotalAmount);
-    private int TotalCount => FilteredExpenses.Count();
+    // Totales generales -- sobre TODO el dataset del edificio, no sobre lo filtrado/
+    // paginado (mismo criterio que las tarjetas de resumen en /cuotas).
+    private decimal TotalExpenses => allExpenses.Sum(e => e.TotalAmount);
+    private int TotalCount => allExpenses.Count;
 
-    private decimal FixedExpenses => FilteredExpenses
+    private decimal FixedExpenses => allExpenses
         .Where(e => e.IdDistribution == Models.TypeDistribution.Fija)
         .Sum(e => e.TotalAmount);
 
-    private int FixedCount => FilteredExpenses
+    private int FixedCount => allExpenses
         .Count(e => e.IdDistribution == Models.TypeDistribution.Fija);
 
-    //private int FixedCount => FilteredExpenses.Count(e => e.Distribution.Contains("Fija", StringComparison.OrdinalIgnoreCase));
-
-    private decimal ProportionalExpenses => FilteredExpenses
+    private decimal ProportionalExpenses => allExpenses
         .Where(e => e.IdDistribution == Models.TypeDistribution.Proporcional)
         .Sum(e => e.TotalAmount);
 
-    private int ProportionalCount => FilteredExpenses
+    private int ProportionalCount => allExpenses
         .Count(e => e.IdDistribution == Models.TypeDistribution.Proporcional);
-
 
     protected override async Task OnInitializedAsync()
     {
+        pagination.OnPaginationChanged += StateHasChanged;
+
         var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
         _canCreateExpense = await PermissionService.HasPermissionAsync(currentUser, "create_expense");
         _canEditExpense = await PermissionService.HasPermissionAsync(currentUser, "edit_expense");
@@ -204,11 +282,52 @@
 
     private async Task LoadData()
     {
-        if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
+        if (ParameterService.CurrentBuilding == null || ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
+        {
+            pagination.Initialize(new List<Models.Expense>());
+            cargando = false;
             return;
-        // Aquí cargarías los parámetros desde tu API o servicio
-        FilteredExpenses = await ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+        }
+
+        cargando = true;
+        StateHasChanged();
+
+        allExpenses = await ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
         FilteredCategory = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+        pagination.Initialize(allExpenses.OrderByDescending(e => e.DueDate).ToList());
+        AplicarFiltros();
+
+        cargando = false;
+    }
+
+    private IEnumerable<DateTime> MesesDisponibles() =>
+        allExpenses.Select(e => new DateTime(e.Year, e.Month, 1)).Distinct().OrderByDescending(m => m);
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        pagination.Search(searchTerm);
+    }
+
+    private void OnFiltroMesChanged(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        filtroMes = string.IsNullOrEmpty(value) ? null : value;
+        AplicarFiltros();
+    }
+
+    private void OnFiltroCategoriaChanged(ChangeEventArgs e)
+    {
+        filtroCategoria = e.Value?.ToString() ?? "all";
+        AplicarFiltros();
+    }
+
+    private void AplicarFiltros()
+    {
+        pagination.ApplyCustomFilter(item =>
+            (filtroMes == null || item.FilterbyMonth == filtroMes)
+            && (filtroCategoria == "all" || item.IdCategory.ToString() == filtroCategoria));
     }
 
     private void AbrirModal(Models.Expense item, OpenType mode)
@@ -255,16 +374,12 @@
         }
 
         await LoadData();
-        return;
     }
 
     private async Task AddItem(SpiderHood.Models.Expense item)
     {
-        //Usuarios.Add(nuevo);
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-
         await ExpenseService.AddExpenseAsync(item);
-        //await ParameterService.Context.SaveChangesAsync();
     }
 
     private async Task UpdateItem(SpiderHood.Models.Expense item)
@@ -272,19 +387,11 @@
         await ExpenseService.UpdateExpenseAsync(item);
     }
 
-    private bool ItemExists(Guid id)
-    {
-        return false;
-        //return ParameterService.Context.Expense.Any(e => e.IdExpense == id);
-    }
-
     private void DeleteItem(Models.Expense item)
     {
-        //AllExpenses.Remove(item);
-    }
-
-    private void FilterByDate(ChangeEventArgs args)
-    {
-        SelectedMonth = args.Value?.ToString() ?? string.Empty;
+        // NOTA: pre-existente -- IExpenseService no tiene ningún método de borrado (ni
+        // SP asociado). Este botón ya no hacía nada antes de este cambio; se deja igual
+        // (fuera de alcance del pedido de filtros/paginación) hasta que se decida
+        // implementar el borrado de verdad.
     }
 }

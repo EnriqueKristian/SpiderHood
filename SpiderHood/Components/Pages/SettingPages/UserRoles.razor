@@ -22,98 +22,89 @@
 else
 {
     <div class="container-fluid">
-        @if (!_loading && _pendingRequests.Any())
+        <div class="page-header">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-diagram-3"></i>
+                </div>
+                <h1 class="h3 fw-bold mb-0">Asignación de Roles a Usuarios</h1>
+            </div>
+        </div>
+
+        @if (_loading)
         {
-            <div class="card shadow mb-4">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">
-                        <i class="bi bi-hourglass-split me-2"></i>
-                        Solicitudes Pendientes de Aprobación (@_pendingRequests.Count)
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Usuario</th>
-                                    <th>Email</th>
-                                    <th>Edificio</th>
-                                    <th>Rol</th>
-                                    <th>Solicitado</th>
-                                    <th style="width: 200px;">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var req in _pendingRequests)
-                                {
-                                    <tr>
-                                        <td>@req.UserName</td>
-                                        <td>@req.UserEmail</td>
-                                        <td>@req.BuildingName</td>
-                                        <td><span class="badge @GetRoleBadgeClass(req.Role)">@req.Role</span></td>
-                                        <td>@(req.RequestedAt?.ToString("dd/MM/yyyy") ?? "-")</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-success me-1" @onclick="() => ApproveRequest(req)">
-                                                <i class="bi bi-check-lg"></i> Aprobar
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RejectRequest(req)">
-                                                <i class="bi bi-x-lg"></i> Rechazar
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary"></div>
             </div>
         }
-
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0">
-                    <i class="bi bi-people-fill me-2"></i>
-                    Asignación de Roles a Usuarios
-                </h4>
+        else
+        {
+            <!-- Tarjetas de Resumen -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="card-body d-flex align-items-center gap-3">
+                            <div class="icon-badge icon-badge-sm">
+                                <i class="bi bi-people"></i>
+                            </div>
+                            <div>
+                                <div class="stat-label">Usuarios con Rol</div>
+                                <div class="stat-value">@_allAssignments.Select(a => a.IdUser).Distinct().Count()</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="card-body d-flex align-items-center gap-3">
+                            <div class="icon-badge icon-badge-sm icon-badge-secondary">
+                                <i class="bi bi-building"></i>
+                            </div>
+                            <div>
+                                <div class="stat-label">Edificios</div>
+                                <div class="stat-value">@_buildings.Count</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="card-body d-flex align-items-center gap-3">
+                            <div class="icon-badge icon-badge-sm icon-badge-success">
+                                <i class="bi bi-person-badge"></i>
+                            </div>
+                            <div>
+                                <div class="stat-label">Roles Asignados</div>
+                                <div class="stat-value">@_allAssignments.Count(a => a.IsApproved)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="card-body d-flex align-items-center gap-3">
+                            <div class="icon-badge icon-badge-sm icon-badge-warning">
+                                <i class="bi bi-hourglass-split"></i>
+                            </div>
+                            <div>
+                                <div class="stat-label">Solicitudes Pendientes</div>
+                                <div class="stat-value">@_pendingRequests.Count</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="card-body">
-                @if (_loading)
-                {
-                    <div class="text-center p-5">
-                        <div class="spinner-border text-primary"></div>
+            @if (_pendingRequests.Any())
+            {
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="bi bi-hourglass-split me-2"></i>
+                            Solicitudes Pendientes de Aprobación (@_pendingRequests.Count)
+                        </h5>
                     </div>
-                }
-                else
-                {
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Edificio</label>
-                            <select class="form-select" @bind="_selectedBuildingId">
-                                <option value="">Todos los edificios</option>
-                                @foreach (var building in _buildings)
-                                {
-                                    <option value="@building.IdBuilding">@building.BuildingName</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-md-8">
-                            <label class="form-label">Buscar usuario</label>
-                            <input type="text" class="form-control" placeholder="Nombre o email..."
-                                   @bind="_searchTerm" @bind:event="oninput" />
-                        </div>
-                    </div>
-
-                    @if (!FilteredRows.Any())
-                    {
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            No hay usuarios que coincidan con el filtro seleccionado.
-                        </div>
-                    }
-                    else
-                    {
+                    <div class="card-body">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle">
                                 <thead class="table-light">
@@ -121,84 +112,177 @@ else
                                         <th>Usuario</th>
                                         <th>Email</th>
                                         <th>Edificio</th>
-                                        <th>Roles</th>
-                                        <th style="width: 220px;">Unidad (Residente)</th>
-                                        <th style="width: 220px;">Agregar rol</th>
+                                        <th>Rol</th>
+                                        <th>Solicitado</th>
+                                        <th style="width: 200px;">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var row in FilteredRows)
+                                    @foreach (var req in _pendingRequests)
                                     {
                                         <tr>
+                                            <td>@req.UserName</td>
+                                            <td>@req.UserEmail</td>
+                                            <td>@req.BuildingName</td>
+                                            <td><span class="badge @GetRoleBadgeClass(req.Role)">@req.Role</span></td>
+                                            <td>@(req.RequestedAt?.ToString("dd/MM/yyyy") ?? "-")</td>
                                             <td>
-                                                <i class="bi bi-person-circle me-2"></i>
-                                                @row.UserName
-                                            </td>
-                                            <td>@row.UserEmail</td>
-                                            <td>@row.BuildingName</td>
-                                            <td>
-                                                @foreach (var role in row.Roles)
-                                                {
-                                                    <span class="badge @GetRoleBadgeClass(role) me-1 mb-1">
-                                                        @role
-                                                        <i class="bi bi-x-circle ms-1" role="button"
-                                                           title="Quitar rol"
-                                                           @onclick="() => RevokeRole(row, role)"></i>
-                                                    </span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @{
-                                                    var residente = ResidenteAssignmentFor(row);
-                                                }
-                                                @if (residente != null)
-                                                {
-                                                    <select class="form-select form-select-sm"
-                                                            @onchange="(e) => AssignUnit(residente, e.Value?.ToString())">
-                                                        <option value="">Sin asignar</option>
-                                                        @foreach (var unit in UnitsFor(row.IdBuilding))
-                                                        {
-                                                            <option value="@unit.IdGroupUnit"
-                                                                    selected="@(residente.IdGroupUnit == unit.IdGroupUnit)">
-                                                                Grupo @unit.GroupNumber — @unit.FirstName @unit.LastName
-                                                            </option>
-                                                        }
-                                                    </select>
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted small">—</span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @{
-                                                    var assignable = AssignableRolesFor(row);
-                                                }
-                                                @if (assignable.Any())
-                                                {
-                                                    <select class="form-select form-select-sm"
-                                                            @onchange="(e) => AssignRole(row, e.Value?.ToString())">
-                                                        <option value="">Agregar rol...</option>
-                                                        @foreach (var role in assignable)
-                                                        {
-                                                            <option value="@role.RoleName">@role.RoleName</option>
-                                                        }
-                                                    </select>
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted small">Todos los roles asignados</span>
-                                                }
+                                                <button class="btn btn-sm btn-success me-1" @onclick="() => ApproveRequest(req)">
+                                                    <i class="bi bi-check-lg"></i> Aprobar
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => RejectRequest(req)">
+                                                    <i class="bi bi-x-lg"></i> Rechazar
+                                                </button>
                                             </td>
                                         </tr>
                                     }
                                 </tbody>
                             </table>
                         </div>
-                    }
-                }
+                    </div>
+                </div>
+            }
+
+            <div class="row">
+                <!-- Filtros -->
+                <div class="col-lg-3 mb-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-funnel me-2"></i>Filtros</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-3">
+                                    <i class="bi bi-building me-2"></i>Edificio
+                                </h6>
+                                <div class="list-group list-group-flush">
+                                    <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(_selectedBuildingId == null ? "active" : "")"
+                                            @onclick="() => FiltrarPorEdificio(null)">
+                                        Todos
+                                        <span class="badge bg-primary rounded-pill">@ContarUsuariosPorEdificio(null)</span>
+                                    </button>
+                                    @foreach (var building in _buildings)
+                                    {
+                                        <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center @(_selectedBuildingId == building.IdBuilding ? "active" : "")"
+                                                @onclick="() => FiltrarPorEdificio(building.IdBuilding)">
+                                            @building.BuildingName
+                                            <span class="badge bg-primary rounded-pill">@ContarUsuariosPorEdificio(building.IdBuilding)</span>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+
+                            <div>
+                                <h6 class="text-muted mb-3">
+                                    <i class="bi bi-search me-2"></i>Buscar usuario
+                                </h6>
+                                <input type="text" class="form-control" placeholder="Nombre o email..."
+                                       @bind="_searchTerm" @bind:event="oninput" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de Asignaciones -->
+                <div class="col-lg-9">
+                    <div class="card">
+                        <div class="card-body">
+                            @if (!FilteredRows.Any())
+                            {
+                                <div class="text-center py-5">
+                                    <i class="bi bi-people bi-3x text-muted mb-3"></i>
+                                    <p class="text-muted">No hay usuarios que coincidan con el filtro seleccionado</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Usuario</th>
+                                                <th>Email</th>
+                                                <th>Edificio</th>
+                                                <th>Roles</th>
+                                                <th style="width: 220px;">Unidad (Residente)</th>
+                                                <th style="width: 220px;">Agregar rol</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var row in FilteredRows)
+                                            {
+                                                <tr>
+                                                    <td>
+                                                        <i class="bi bi-person-circle me-2"></i>
+                                                        @row.UserName
+                                                    </td>
+                                                    <td>@row.UserEmail</td>
+                                                    <td>@row.BuildingName</td>
+                                                    <td>
+                                                        @foreach (var role in row.Roles)
+                                                        {
+                                                            <span class="badge @GetRoleBadgeClass(role) me-1 mb-1">
+                                                                @role
+                                                                <i class="bi bi-x-circle ms-1" role="button"
+                                                                   title="Quitar rol"
+                                                                   @onclick="() => RevokeRole(row, role)"></i>
+                                                            </span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @{
+                                                            var residente = ResidenteAssignmentFor(row);
+                                                        }
+                                                        @if (residente != null)
+                                                        {
+                                                            <select class="form-select form-select-sm"
+                                                                    @onchange="(e) => AssignUnit(residente, e.Value?.ToString())">
+                                                                <option value="">Sin asignar</option>
+                                                                @foreach (var unit in UnitsFor(row.IdBuilding))
+                                                                {
+                                                                    <option value="@unit.IdGroupUnit"
+                                                                            selected="@(residente.IdGroupUnit == unit.IdGroupUnit)">
+                                                                        Grupo @unit.GroupNumber — @unit.FirstName @unit.LastName
+                                                                    </option>
+                                                                }
+                                                            </select>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted small">—</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @{
+                                                            var assignable = AssignableRolesFor(row);
+                                                        }
+                                                        @if (assignable.Any())
+                                                        {
+                                                            <select class="form-select form-select-sm"
+                                                                    @onchange="(e) => AssignRole(row, e.Value?.ToString())">
+                                                                <option value="">Agregar rol...</option>
+                                                                @foreach (var role in assignable)
+                                                                {
+                                                                    <option value="@role.RoleName">@role.RoleName</option>
+                                                                }
+                                                            </select>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted small">Todos los roles asignados</span>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
+        }
     </div>
 }
 
@@ -270,6 +354,18 @@ else
             .Where(r => r.RoleName != "SysAdmin" && !row.Roles.Contains(r.RoleName))
             .OrderBy(r => r.RoleName)
             .ToList();
+
+    private void FiltrarPorEdificio(Guid? buildingId)
+    {
+        _selectedBuildingId = buildingId;
+    }
+
+    private int ContarUsuariosPorEdificio(Guid? buildingId) =>
+        _allAssignments
+            .Where(a => !buildingId.HasValue || a.IdBuilding == buildingId)
+            .Select(a => a.IdUser)
+            .Distinct()
+            .Count();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

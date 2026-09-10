@@ -92,6 +92,21 @@ namespace SpiderHood.Data
             }, "DeleteCategory", cancellationToken);
         }
 
+        // Igual que DeleteRecordAsync(Category): un DELETE simple por Id -- si el gasto
+        // tiene alguna referencia real desde otra tabla (ver duda de schema documentada
+        // en IExpenseService.DeleteExpenseAsync), falla acá con error 547 en vez de dejar
+        // datos huérfanos, y ExpenseService la traduce a un mensaje legible.
+        public async Task<bool> DeleteRecordAsync(Expense expense, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(expense, nameof(expense));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Expense, cancellationToken, expense.IdExpense);
+                return true;
+            }, "DeleteExpense", cancellationToken);
+        }
+
         // Ver Docs/Pendientes-Negocio-Migracion.md #6.3 -- DEL_Building (script
         // Database/Scripts/2026-09-09_68_DEL_Building_Procedure.sql) sólo borra
         // UserBuildingAssociation + BuildingConfiguration + Building, en ese orden,

@@ -3,10 +3,12 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @using SpiderHood.Utilities
+@using SpiderHood.Components.Pages.Components
 @inject NavigationManager Navigation
 @inject ParameterService ParameterService
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Resumen de Gastos</PageTitle>
 
@@ -228,6 +230,9 @@
                                                        FilteredCategory="@FilteredCategory"
                                                        OnSaveItem="@((item) => SaveItem(item))" />
 
+<!--    CONFIRMACIÓN PARA ELIMINAR GASTO   -->
+<ConfirmationModal @ref="_confirmationModal" OnClose="OnDeleteConfirmed" />
+
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
@@ -387,11 +392,75 @@
         await ExpenseService.UpdateExpenseAsync(item);
     }
 
+    private ConfirmationModal? _confirmationModal;
+    private Models.Expense? _expenseToDelete;
+
     private void DeleteItem(Models.Expense item)
     {
-        // NOTA: pre-existente -- IExpenseService no tiene ningún método de borrado (ni
-        // SP asociado). Este botón ya no hacía nada antes de este cambio; se deja igual
-        // (fuera de alcance del pedido de filtros/paginación) hasta que se decida
-        // implementar el borrado de verdad.
+        // Un gasto ya conciliado con una transacción bancaria no se puede borrar sin
+        // dejar esa transacción apuntando a un IdExpense inexistente -- se corta acá,
+        // antes de siquiera intentar el DELETE (que además puede fallar por FK si hay
+        // otra referencia que este chequeo no cubra, ver DeleteExpenseAsync).
+        if (item.IsReconciled)
+        {
+            _ = ShowToast("Error", "No se puede eliminar un gasto ya conciliado con una transacción bancaria.", "danger");
+            return;
+        }
+
+        _expenseToDelete = item;
+
+        // Message/Title/ConfirmText ANTES de Show(): Show() ya dispara su propio
+        // render adentro del componente, así que fijarlos después podía dejar el
+        // primer render con el texto de una invocación anterior (o el default) --
+        // mismo bug ya corregido en ReconciliationWorkspace.ConfirmarAsync, ver
+        // Docs/Pendientes-Negocio-Conciliacion.md #4. OJO: el helper compartido
+        // ConfirmationUtil.ExecuteWithConfirmation (Classes/Utilities.cs) todavía
+        // tiene este mismo bug sin corregir para las otras pantallas que lo usan --
+        // acá no se usa ese helper a propósito, se controla el modal directo.
+        if (_confirmationModal != null)
+        {
+            _confirmationModal.Title = "Eliminar Gasto";
+            _confirmationModal.Message = $"¿Seguro que querés eliminar el gasto \"{item.ExpenseDescription}\" por {Moneda(item.TotalAmount)}? Esta acción no se puede deshacer.";
+            _confirmationModal.ConfirmText = "Eliminar";
+            _confirmationModal.Show("danger");
+        }
+    }
+
+    private async Task OnDeleteConfirmed(bool confirmed)
+    {
+        if (!confirmed || _expenseToDelete == null)
+        {
+            _expenseToDelete = null;
+            return;
+        }
+
+        var item = _expenseToDelete;
+        _expenseToDelete = null;
+
+        var result = await ExpenseService.DeleteExpenseAsync(item);
+
+        if (!result.IsSuccess)
+        {
+            await ShowToast("Error", result.ErrorMessage ?? "No se pudo eliminar el gasto", "danger");
+            return;
+        }
+
+        await ShowToast("Listo", "Gasto eliminado.", "success");
+        await LoadData();
+    }
+
+    // Mismo patrón que BuildingPages/UnitGroups.razor -- showToast (wwwroot/js/utilidades.js)
+    // es la "ventana de mensajes" del sistema, en vez de un alert() nativo del navegador.
+    private async Task ShowToast(string title, string message, string type)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("showToast", title, message, type);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error mostrando toast: {ex.Message}");
+            Console.WriteLine($"{type.ToUpper()}: {title} - {message}");
+        }
     }
 }

@@ -74,20 +74,34 @@ SELECT '65_Backfill_SequenceNumber_Historico',
        'Si da 0, puede ser que nunca hubo filas en 0 (no concluyente) o que falta correr el backfill';
 
 -- 66/67: UPD_ExpenseReconcilied / UPD_ExpenseDeReconcilied ya no pisan Expense.Status con ReconciliationStatus
--- OJO: "ReconciliationStatus" TERMINA en "...Status", así que un LIKE ingenuo
--- tipo '%Status%=%ReconciliationStatus%' matchea incluso la línea correcta
--- "SET ReconciliationStatus = @ReconciliationStatus" (bug de esta misma query
--- en una versión anterior). Se usa [^a-zA-Z] antes de "Status" para exigir que
--- sea la palabra suelta "Status" (columna de Expense), no el sufijo de
--- "ReconciliationStatus".
+-- OJO (2 vueltas de esta misma query mal):
+--   1. "ReconciliationStatus" TERMINA en "...Status", así que un LIKE ingenuo
+--      tipo '%Status%=%ReconciliationStatus%' matchea la línea correcta
+--      "SET ReconciliationStatus = @ReconciliationStatus".
+--   2. Ambos scripts tienen un comentario de cabecera que literalmente dice
+--      "pisaba Expense.Status ... con @ReconciliationStatus" -- explicando el
+--      bug ya arreglado -- así que buscar esas dos palabras en TODO el texto
+--      (comentario incluido) matchea siempre, sin importar si el cuerpo real
+--      ya está corregido.
+-- Por eso se recorta a sólo el cuerpo ejecutable (desde el primer 'BEGIN' en
+-- adelante, que en estos dos procedures no tiene ningún comentario) antes de
+-- buscar la palabra suelta "Status".
 INSERT INTO #Check
 SELECT '66_Fix_UPD_ExpenseReconcilied_Status',
-       CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseReconcilied')) LIKE '%[^a-zA-Z]Status[^a-zA-Z]%=%@ReconciliationStatus%'
+       CASE WHEN SUBSTRING(
+                    OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseReconcilied')),
+                    CHARINDEX('BEGIN', OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseReconcilied'))),
+                    4000)
+                 LIKE '%[^a-zA-Z]Status[^a-zA-Z]%'
             THEN 0 ELSE 1 END,
        'Si da 0, el SP todavía pisa Expense.Status con @ReconciliationStatus';
 INSERT INTO #Check
 SELECT '67_Fix_UPD_ExpenseDeReconcilied_Status',
-       CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseDeReconcilied')) LIKE '%[^a-zA-Z]Status[^a-zA-Z]%=%@ReconciliationStatus%'
+       CASE WHEN SUBSTRING(
+                    OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseDeReconcilied')),
+                    CHARINDEX('BEGIN', OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseDeReconcilied'))),
+                    4000)
+                 LIKE '%[^a-zA-Z]Status[^a-zA-Z]%'
             THEN 0 ELSE 1 END,
        'Si da 0, el SP todavía pisa Expense.Status con @ReconciliationStatus';
 

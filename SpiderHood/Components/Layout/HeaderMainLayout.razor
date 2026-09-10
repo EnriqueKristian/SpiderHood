@@ -250,6 +250,30 @@
         // en /login, con el usuario todavía anónimo. Sin esto, el header se quedaba
         // mostrando "Invitado" para siempre después de loguearse en el mismo circuito.
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChangedAsync;
+
+        // Ver el guard de /select-building en LoadCurrentBuildingAsync: SelectBuilding.razor
+        // llama SetCurrentBuilding (dispara AuthenticationStateChanged, arriba) y RECIÉN
+        // DESPUÉS NavigationManager.NavigateTo("/dashboard") -- sin forceLoad, dos pasos
+        // separados del mismo método. Si el handler de AuthenticationStateChanged corre
+        // (encolado vía InvokeAsync) ANTES de que el NavigateTo termine de actualizar la
+        // ruta, LoadCurrentBuildingAsync lee todavía "/select-building" y no resuelve nada
+        // -- y como nada más lo vuelve a llamar, CurrentBuildingId se quedaba vacío para
+        // siempre incluso ya parado en el Dashboard (con el menú lateral oculto). Esta
+        // segunda suscripción cubre exactamente ese caso: en cuanto el router termina de
+        // procesar el cambio de URL (a esa altura ya es "/dashboard"), se re-evalúa con la
+        // ruta correcta.
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.LocationChangedEventArgs e)
+    {
+        if (_switchingBuilding) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            await LoadCurrentBuildingAsync();
+            StateHasChanged();
+        });
     }
 
     private void OnAuthenticationStateChangedAsync(Task<AuthenticationState> task)
@@ -266,6 +290,7 @@
     public void Dispose()
     {
         AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChangedAsync;
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

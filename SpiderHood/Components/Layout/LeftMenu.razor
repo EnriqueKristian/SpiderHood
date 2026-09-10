@@ -108,6 +108,29 @@
         // (que sí recrea el circuito). Al escuchar el evento de la sesión, el menú se recarga en
         // cuanto login/SetCurrentBuilding/SwitchRole notifican el cambio de sesión.
         AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChangedAsync;
+
+        // Ver el guard de /select-building en LoadUserDataAsync: SelectBuilding.razor
+        // llama SetCurrentBuilding (dispara AuthenticationStateChanged, arriba) y RECIÉN
+        // DESPUÉS NavigationManager.NavigateTo("/dashboard") -- sin forceLoad, así que es
+        // dos pasos separados del mismo método, no un solo evento. Si el handler de
+        // AuthenticationStateChanged corre (encolado vía InvokeAsync) ANTES de que el
+        // NavigateTo termine de actualizar la ruta, LoadUserDataAsync lee todavía
+        // "/select-building" y calcula ShowMenu=false -- y como nada más vuelve a
+        // llamarlo, el menú quedaba oculto para siempre incluso ya parado en el
+        // Dashboard. Esta segunda suscripción cubre exactamente ese caso: en cuanto el
+        // router termina de procesar el cambio de URL (a esa altura ya es "/dashboard"),
+        // se vuelve a evaluar con la ruta correcta.
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.LocationChangedEventArgs e)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await LoadUserDataAsync();
+            await LoadMenuAsync();
+            StateHasChanged();
+        });
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -143,6 +166,7 @@
     public void Dispose()
     {
         AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChangedAsync;
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 
     private async Task LoadUserDataAsync()

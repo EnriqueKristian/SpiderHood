@@ -185,6 +185,21 @@ mensaje ahora sí dice "Propuesta... Usa 'Enviar a Conciliar'" (no
 "conciliado exitosamente"), y que "Finalizar Conciliación" muestra el modal
 de confirmación con el texto correcto desde el primer render.
 
+**Encontrado de paso (2026-09-10, sesión de borrado de Gastos), sin corregir
+todavía:** el mismo bug de orden (`Show(type)` antes de fijar `Message`) sigue
+vivo en el helper COMPARTIDO `ConfirmationUtil.ExecuteWithConfirmation`
+(`Classes/Utilities.cs:39-41`) -- acá arriba sólo se había corregido la copia
+local de `ReconciliationWorkspace.ConfirmarAsync`, no este helper genérico.
+Lo usan al menos `ModalOwnerUnit.razor`, `BudgetGenerator.razor`,
+`ServiceReadingModal.razor` y `ManualInstallmentConciliation.razor` -- en
+cualquiera de esas pantallas, la primera vez que se dispara una confirmación
+puede mostrarse con el mensaje default ("¿Está seguro de realizar esta
+acción?") o el de una invocación anterior, en vez del mensaje real, hasta que
+un segundo render lo corrija. Fix sería el mismo: invertir el orden (fijar
+`Message`/`IsCancelOnly` antes de `Show()`) dentro de `ExecuteWithConfirmation`
+-- no se tocó en esta sesión porque no era lo pedido y afecta a 4+ pantallas
+a la vez.
+
 ---
 
 ## 5. "Guardar como plantilla para transacciones similares" -- implementación real

@@ -131,6 +131,7 @@ namespace SpiderHood.Data
             public const string DEL_MenuItemPermission = "DEL_MenuItemPermission";
             public const string DEL_MenuItem = "DEL_MenuItem";
             public const string DEL_Category = "DEL_Category";
+            public const string DEL_Expense = "DEL_Expense";
             public const string DEL_Building = "DEL_Building";
             public const string DEL_BudgetHeader = "DEL_BudgetHeader";
             public const string DEL_BudgetDetail = "DEL_BudgetDetail";

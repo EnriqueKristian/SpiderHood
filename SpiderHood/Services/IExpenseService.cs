@@ -1,4 +1,5 @@
 ﻿using DocumentFormat.OpenXml.InkML;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
@@ -16,6 +17,7 @@ namespace SpiderHood.Services
         Task AddExpenseAsync(Expense expense);
         Task UpdateExpenseAsync(Expense expense);
         Task<List<Expense>> GetExpensesByBuildingAsync(Guid IdBuilding);
+        Task<OperationResult> DeleteExpenseAsync(Expense expense);
     }
 
     public class ExpenseService : IExpenseService
@@ -146,6 +148,49 @@ namespace SpiderHood.Services
         public async Task<List<Expense>> GetExpensesByBuildingAsync(Guid IdBuilding)
         {
             return await ec.GetExpensesByBuildingAsync(IdBuilding);
+        }
+
+        // Mismo patrón que CategoryService.DeleteCategoryAsync: DEL_Expense es un DELETE
+        // simple (ver Database/Scripts/2026-09-10_81_DEL_Expense.sql) -- si el gasto
+        // tiene alguna referencia real desde otra tabla, esto falla con SQL 547 en vez
+        // de dejar datos huérfanos, y se traduce a un mensaje legible en vez de la
+        // RepositoryException genérica.
+        public async Task<OperationResult> DeleteExpenseAsync(Expense expense)
+        {
+            try
+            {
+                await ec.DeleteRecordAsync(expense);
+                return OperationResult.Success();
+            }
+            catch (Exception ex)
+            {
+                if (IsForeignKeyViolation(ex))
+                {
+                    return OperationResult.Failure(
+                        "No se puede eliminar: el gasto está en uso (conciliado con una transacción bancaria u otra referencia).");
+                }
+
+                Console.WriteLine($"Error al eliminar el gasto: {ex.Message}");
+                return OperationResult.Failure($"No se pudo eliminar el gasto: {DescribeError(ex)}");
+            }
+        }
+
+        // BDLayout envuelve la excepción real (la de SQL Server) en una
+        // RepositoryException genérica -- mismo patrón que CategoryService.DescribeError.
+        private static string DescribeError(Exception ex)
+        {
+            var innermost = ex;
+            while (innermost.InnerException != null)
+                innermost = innermost.InnerException;
+            return innermost.Message;
+        }
+
+        private static bool IsForeignKeyViolation(Exception ex)
+        {
+            var innermost = ex;
+            while (innermost.InnerException != null)
+                innermost = innermost.InnerException;
+            return innermost is SqlException sqlEx && sqlEx.Number == 547;
         }
 
         public async Task<ViewExpense> CrearGastoAsync(ViewExpense gasto)

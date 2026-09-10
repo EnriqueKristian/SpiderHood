@@ -610,6 +610,12 @@ namespace SpiderHood.Data
             }, "UpdateContact", cancellationToken);
         }
 
+        // OJO: roto -- ver el comentario en ExpenseService.UpdateExpenseAsync(Expense).
+        // Classes/Expense.cs no coincide con las columnas reales de dbo.Expense, así
+        // que estos parámetros (varios ya ni siquiera existen en UPD_Expense después
+        // del fix en Database/Scripts/2026-09-10_83_...sql) están desalineados. No se
+        // borra por las dudas, pero no lo usa nadie confirmado -- ver
+        // UpdateRecordAsync(ViewExpense) más abajo, que sí coincide con el SP real.
         public async Task<Expense> UpdateRecordAsync(Expense expense, CancellationToken cancellationToken = default)
         {
             ValidateEntity(expense, nameof(expense));
@@ -625,6 +631,31 @@ namespace SpiderHood.Data
                     expense.IdDistribution!,
                     expense.IsIncludedInQuota,
                     expense.IdSubCategory!);
+                return expense;
+            }, "UpdateExpense", cancellationToken);
+        }
+
+        // ViewExpense SÍ coincide con las columnas reales de dbo.Expense (confirmado
+        // con INFORMATION_SCHEMA.COLUMNS) -- mismo criterio que
+        // AddNewRecordAsync(ViewExpense) más arriba. Parámetros alineados con
+        // UPD_Expense después del fix en
+        // Database/Scripts/2026-09-10_83_Fix_UPD_Expense_And_Category.sql.
+        public async Task<ViewExpense> UpdateRecordAsync(ViewExpense expense, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(expense, nameof(expense));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Expense,
+                    cancellationToken,
+                    expense.IdExpense!,
+                    expense.Description!,
+                    expense.Amount!,
+                    (int)expense.Distribution!,
+                    expense.IncludeInQuota,
+                    expense.IdCategory!,
+                    expense.ExpenseDate!);
                 return expense;
             }, "UpdateExpense", cancellationToken);
         }

@@ -28,7 +28,7 @@
             </div>
             @if (_canCreateExpense)
             {
-                <button class="btn btn-primary" type="button" @onclick="() => AbrirModal(new Models.Expense(), OpenType.Create)">
+                <button class="btn btn-primary" type="button" @onclick="() => AbrirModal(new Models.ViewExpense(), OpenType.Create)">
                     <i class="bi bi-plus-lg me-1"></i>Agregar Gasto
                 </button>
             }
@@ -131,10 +131,10 @@
                                 {
                                     <tr>
                                         <td class="ps-3">@item.Category</td>
-                                        <td>@item.ExpenseDescription</td>
-                                        <td class="text-end">@item.DueDate.ToString("dd-MMM-yy")</td>
-                                        <td>@item.Distribution</td>
-                                        <td class="text-end">@Moneda(item.TotalAmount)</td>
+                                        <td>@item.Description</td>
+                                        <td class="text-end">@item.ExpenseDate.ToString("dd-MMM-yy")</td>
+                                        <td>@(item.Distribution?.ToString() ?? "-")</td>
+                                        <td class="text-end">@Moneda(item.Amount)</td>
                                         <td class="text-center">
                                             @if (_canEditExpense)
                                             {
@@ -156,7 +156,7 @@
                             <tfoot class="table-light">
                                 <tr>
                                     <td colspan="4" class="text-end fw-bold">Total de la página:</td>
-                                    <td class="text-end fw-bold">@Moneda(pagination.CurrentPageData.Sum(i => i.TotalAmount))</td>
+                                    <td class="text-end fw-bold">@Moneda(pagination.CurrentPageData.Sum(i => i.Amount))</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -239,8 +239,11 @@
     [Inject] private IExpenseService ExpenseService { get; set; } = default!;
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
 
-    private Models.Expense _newExpense = new Models.Expense();
-    private List<Models.Expense> allExpenses = new();
+    // ViewExpense, no Expense -- ver el hallazgo grande de esta sesión: Classes/Expense.cs
+    // no coincide con ninguna columna real de dbo.Expense (confirmado con
+    // INFORMATION_SCHEMA.COLUMNS); ViewExpense sí. Ver IExpenseService.GetExpensesByBuildingAsync.
+    private Models.ViewExpense _newExpense = new Models.ViewExpense();
+    private List<Models.ViewExpense> allExpenses = new();
     private ExpensePagination pagination = new();
     private List<Models.Category> FilteredCategory = new();
 
@@ -257,22 +260,22 @@
 
     // Totales generales -- sobre TODO el dataset del edificio, no sobre lo filtrado/
     // paginado (mismo criterio que las tarjetas de resumen en /cuotas).
-    private decimal TotalExpenses => allExpenses.Sum(e => e.TotalAmount);
+    private decimal TotalExpenses => allExpenses.Sum(e => e.Amount);
     private int TotalCount => allExpenses.Count;
 
     private decimal FixedExpenses => allExpenses
-        .Where(e => e.IdDistribution == Models.TypeDistribution.Fija)
-        .Sum(e => e.TotalAmount);
+        .Where(e => e.Distribution == Models.TypeDistribution.Fija)
+        .Sum(e => e.Amount);
 
     private int FixedCount => allExpenses
-        .Count(e => e.IdDistribution == Models.TypeDistribution.Fija);
+        .Count(e => e.Distribution == Models.TypeDistribution.Fija);
 
     private decimal ProportionalExpenses => allExpenses
-        .Where(e => e.IdDistribution == Models.TypeDistribution.Proporcional)
-        .Sum(e => e.TotalAmount);
+        .Where(e => e.Distribution == Models.TypeDistribution.Proporcional)
+        .Sum(e => e.Amount);
 
     private int ProportionalCount => allExpenses
-        .Count(e => e.IdDistribution == Models.TypeDistribution.Proporcional);
+        .Count(e => e.Distribution == Models.TypeDistribution.Proporcional);
 
     protected override async Task OnInitializedAsync()
     {
@@ -289,7 +292,7 @@
     {
         if (ParameterService.CurrentBuilding == null || ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
         {
-            pagination.Initialize(new List<Models.Expense>());
+            pagination.Initialize(new List<Models.ViewExpense>());
             cargando = false;
             return;
         }
@@ -300,14 +303,14 @@
         allExpenses = await ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
         FilteredCategory = await CategoryService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
 
-        pagination.Initialize(allExpenses.OrderByDescending(e => e.DueDate).ToList());
+        pagination.Initialize(allExpenses.OrderByDescending(e => e.ExpenseDate).ToList());
         AplicarFiltros();
 
         cargando = false;
     }
 
     private IEnumerable<DateTime> MesesDisponibles() =>
-        allExpenses.Select(e => new DateTime(e.Year, e.Month, 1)).Distinct().OrderByDescending(m => m);
+        allExpenses.Select(e => new DateTime(e.ExpenseDate.Year, e.ExpenseDate.Month, 1)).Distinct().OrderByDescending(m => m);
 
     private void OnSearchInput(ChangeEventArgs e)
     {
@@ -331,11 +334,11 @@
     private void AplicarFiltros()
     {
         pagination.ApplyCustomFilter(item =>
-            (filtroMes == null || item.FilterbyMonth == filtroMes)
+            (filtroMes == null || item.ExpenseDate.ToString("yyyy-MM") == filtroMes)
             && (filtroCategoria == "all" || item.IdCategory.ToString() == filtroCategoria));
     }
 
-    private void AbrirModal(Models.Expense item, OpenType mode)
+    private void AbrirModal(Models.ViewExpense item, OpenType mode)
     {
         if (mode == Models.OpenType.Create && !_canCreateExpense) return;
         if (mode == Models.OpenType.Update && !_canEditExpense) return;
@@ -346,9 +349,16 @@
         switch (mode)
         {
             case Models.OpenType.Create:
-                _newExpense = new Models.Expense();
+                // INS_Expense exige varios campos que este formulario no expone --
+                // se completan acá con defaults razonables para un gasto cargado a
+                // mano (no conciliado, no viene de una transacción bancaria).
+                _newExpense = new Models.ViewExpense();
+                _newExpense.IdExpense = Guid.NewGuid();
                 _newExpense.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
-                _newExpense.DueDate = DateTime.Now;
+                _newExpense.ExpenseDate = DateTime.Now;
+                _newExpense.Status = Models.StatusExpense.Approved;
+                _newExpense.PaymentMethod = Models.PaymentMethod.Other;
+                _newExpense.Distribution = Models.TypeDistribution.Fija;
                 break;
 
             case Models.OpenType.Update:
@@ -360,7 +370,7 @@
         }
     }
 
-    private async Task SaveItem(SpiderHood.Models.Expense item)
+    private async Task SaveItem(Models.ViewExpense item)
     {
         switch (OpenMode)
         {
@@ -381,27 +391,27 @@
         await LoadData();
     }
 
-    private async Task AddItem(SpiderHood.Models.Expense item)
+    private async Task AddItem(Models.ViewExpense item)
     {
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
         await ExpenseService.AddExpenseAsync(item);
     }
 
-    private async Task UpdateItem(SpiderHood.Models.Expense item)
+    private async Task UpdateItem(Models.ViewExpense item)
     {
         await ExpenseService.UpdateExpenseAsync(item);
     }
 
     private ConfirmationModal? _confirmationModal;
-    private Models.Expense? _expenseToDelete;
+    private Models.ViewExpense? _expenseToDelete;
 
-    private void DeleteItem(Models.Expense item)
+    private void DeleteItem(Models.ViewExpense item)
     {
         // Un gasto ya conciliado con una transacción bancaria no se puede borrar sin
         // dejar esa transacción apuntando a un IdExpense inexistente -- se corta acá,
         // antes de siquiera intentar el DELETE (que además puede fallar por FK si hay
         // otra referencia que este chequeo no cubra, ver DeleteExpenseAsync).
-        if (item.IsReconciled)
+        if (item.Reconciled)
         {
             _ = ShowToast("Error", "No se puede eliminar un gasto ya conciliado con una transacción bancaria.", "danger");
             return;
@@ -420,7 +430,7 @@
         if (_confirmationModal != null)
         {
             _confirmationModal.Title = "Eliminar Gasto";
-            _confirmationModal.Message = $"¿Seguro que querés eliminar el gasto \"{item.ExpenseDescription}\" por {Moneda(item.TotalAmount)}? Esta acción no se puede deshacer.";
+            _confirmationModal.Message = $"¿Seguro que querés eliminar el gasto \"{item.Description}\" por {Moneda(item.Amount)}? Esta acción no se puede deshacer.";
             _confirmationModal.ConfirmText = "Eliminar";
             _confirmationModal.Show("danger");
         }

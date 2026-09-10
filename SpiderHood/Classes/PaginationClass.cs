@@ -657,31 +657,35 @@ namespace SpiderHood.Utilities
 
     // Paginación/orden para /expense (Resumen de Gastos) -- mismo criterio que
     // InstallmentPagination: más reciente primero por defecto.
-    public class ExpensePagination : PaginationClass<Expense>
+    // ViewExpense, no Expense -- ver el hallazgo de la sesión del 2026-09-10:
+    // Classes/Expense.cs no coincide con ninguna columna real de dbo.Expense,
+    // ViewExpense sí (confirmado con INFORMATION_SCHEMA.COLUMNS). Ver
+    // IExpenseService.GetExpensesByBuildingAsync.
+    public class ExpensePagination : PaginationClass<ViewExpense>
     {
         public ExpensePagination() : base()
         {
-            var sortExpressions = new Dictionary<string, Func<Expense, object>>
+            var sortExpressions = new Dictionary<string, Func<ViewExpense, object>>
             {
-                { "ExpenseDescription", x => x.ExpenseDescription },
+                { "Description", x => x.Description },
                 { "Category", x => x.Category },
-                { "DueDate", x => x.DueDate },
-                { "TotalAmount", x => x.TotalAmount },
-                { "Distribution", x => x.Distribution },
-                { "Provider", x => x.Provider }
+                { "ExpenseDate", x => x.ExpenseDate },
+                { "Amount", x => x.Amount },
+                { "Distribution", x => (object?)x.Distribution ?? string.Empty },
+                { "Supplier", x => x.Supplier }
             };
 
-            InitializeConfiguration(new Dictionary<string, string>(), sortExpressions, "DueDate", defaultSortAscending: false);
+            InitializeConfiguration(new Dictionary<string, string>(), sortExpressions, "ExpenseDate", defaultSortAscending: false);
         }
 
-        protected override List<Expense> ApplySearch(List<Expense> data, string searchTerm)
+        protected override List<ViewExpense> ApplySearch(List<ViewExpense> data, string searchTerm)
         {
             var term = searchTerm.ToLower();
 
             return data.Where(x =>
-                (x.ExpenseDescription?.ToLower().Contains(term) ?? false) ||
+                (x.Description?.ToLower().Contains(term) ?? false) ||
                 (x.Category?.ToLower().Contains(term) ?? false) ||
-                (x.Provider?.ToLower().Contains(term) ?? false)
+                (x.Supplier?.ToLower().Contains(term) ?? false)
             ).ToList();
         }
     }

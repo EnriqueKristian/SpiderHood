@@ -522,7 +522,17 @@
                         .Select(c => c.ShortDescript).ToList();
 
         expandedCategories = new HashSet<string>(categories);
-        expenses = await ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+        // /expenseNew no está enlazado desde ningún menú ni código (verificado --
+        // ruta inalcanzable salvo tipeándola a mano), y esta pantalla entera está
+        // construida sobre Classes/Expense.cs, que no coincide con ninguna columna
+        // real de dbo.Expense (ver el hallazgo de la sesión 2026-09-10 en
+        // IExpenseService.GetExpensesByBuildingAsync -- la clase correcta es
+        // ViewExpense). GetExpensesByBuildingAsync ahora devuelve List<ViewExpense>
+        // para que /expense (la pantalla real) funcione. Migrar esta página entera a
+        // ViewExpense es un trabajo aparte, no pedido -- se deja sin datos por ahora
+        // en vez de arrastrar el mismo bug de columnas inexistentes que tenía /expense.
+        expenses = new();
 
         FilterExpenses();
     }

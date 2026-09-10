@@ -16,8 +16,11 @@ namespace SpiderHood.Services
         Task AddExpenseAsync(ViewExpense expense);
         Task AddExpenseAsync(Expense expense);
         Task UpdateExpenseAsync(Expense expense);
-        Task<List<Expense>> GetExpensesByBuildingAsync(Guid IdBuilding);
-        Task<OperationResult> DeleteExpenseAsync(Expense expense);
+        Task UpdateExpenseAsync(ViewExpense expense);
+        // OJO: devuelve ViewExpense, no Expense -- ver el comentario grande en
+        // GetExpensesByBuildingAsync (implementación) para el porqué.
+        Task<List<ViewExpense>> GetExpensesByBuildingAsync(Guid IdBuilding);
+        Task<OperationResult> DeleteExpenseAsync(ViewExpense expense);
     }
 
     public class ExpenseService : IExpenseService
@@ -131,12 +134,31 @@ namespace SpiderHood.Services
             await ec.StampAuditAsync(AuditableEntity.Expense, expense.IdExpense, await GetPerformedByAsync(), isCreate: true);
         }
 
+        // OJO: roto desde siempre, no tocado a propósito -- AddNewRecordAsync(Expense)
+        // (BDLayout.Add.cs) le pasa a INS_Expense sólo 7 parámetros posicionales
+        // (ExpenseDescription/TotalAmount/IsIncludedInQuota/DueDate/IdDistribution/
+        // IdBuilding/IdSubCategory) contra un SP real de 13 parámetros obligatorios
+        // (@IdExpense/@Description/@Amount/@IncludeInQuota/@ExpenseDate/@Distribution/
+        // @Supplier/@IdBuilding/@IdStatementDetail/@IdCategory/@Notes/@Status/
+        // @PaymentMethod) -- fallaría en cuanto se llamara. Classes/Expense.cs no
+        // coincide con ninguna columna real de dbo.Expense (confirmado con
+        // INFORMATION_SCHEMA.COLUMNS); la clase correcta es ViewExpense, ver
+        // AddExpenseAsync(ViewExpense) arriba y UpdateExpenseAsync(ViewExpense) abajo,
+        // que sí se usan desde ExpensePage.razor. No se borra este método por las
+        // dudas de que algo más lo referencie por reflection/tests, pero no lo llama
+        // nadie confirmado.
         public async Task AddExpenseAsync(Expense expense)
         {
             await ec.AddNewRecordAsync(expense);
             await ec.StampAuditAsync(AuditableEntity.Expense, expense.IdExpense, await GetPerformedByAsync(), isCreate: true);
         }
 
+        // OJO: mismo problema que AddExpenseAsync(Expense) -- UPD_Expense (antes del
+        // fix en Database/Scripts/2026-09-10_83_Fix_UPD_Expense_And_Category.sql)
+        // referenciaba columnas inexistentes (TotalAmount/IsInstallment/TypeDistribution).
+        // Ya corregido en el SP, pero Classes/Expense.cs sigue sin coincidir con el
+        // resto del schema real -- no se usa desde ExpensePage.razor, que ahora llama
+        // a UpdateExpenseAsync(ViewExpense).
         public async Task UpdateExpenseAsync(Expense expense)
         {
             // Antes llamaba AddNewRecordAsync (INS_Expense) en vez de UpdateRecordAsync
@@ -145,7 +167,22 @@ namespace SpiderHood.Services
             await ec.UpdateRecordAsync(expense);
             await ec.StampAuditAsync(AuditableEntity.Expense, expense.IdExpense, await GetPerformedByAsync(), isCreate: false);
         }
-        public async Task<List<Expense>> GetExpensesByBuildingAsync(Guid IdBuilding)
+
+        public async Task UpdateExpenseAsync(ViewExpense expense)
+        {
+            await ec.UpdateRecordAsync(expense);
+            await ec.StampAuditAsync(AuditableEntity.Expense, expense.IdExpense, await GetPerformedByAsync(), isCreate: false);
+        }
+
+        // OJO: devuelve List<ViewExpense>, no List<Expense> -- GET_ExpensesByBuilding
+        // (el SP real) devuelve columnas que coinciden con ViewExpense.cs
+        // (Description/Amount/Supplier/PaymentMethod/Status/Notes/AutoReconcile/
+        // ExpenseDate/IncludeInQuota/Distribution como int), confirmado con
+        // INFORMATION_SCHEMA.COLUMNS de dbo.Expense -- Classes/Expense.cs (que
+        // esperaba ExpenseDescription/TotalAmount/SubCategory/DueDate/Provider/etc.)
+        // nunca coincidió con ninguna columna real de la tabla. Antes de este cambio,
+        // /expense tiraba "Invalid column name" apenas cargaba con datos reales.
+        public async Task<List<ViewExpense>> GetExpensesByBuildingAsync(Guid IdBuilding)
         {
             return await ec.GetExpensesByBuildingAsync(IdBuilding);
         }
@@ -155,7 +192,7 @@ namespace SpiderHood.Services
         // tiene alguna referencia real desde otra tabla, esto falla con SQL 547 en vez
         // de dejar datos huérfanos, y se traduce a un mensaje legible en vez de la
         // RepositoryException genérica.
-        public async Task<OperationResult> DeleteExpenseAsync(Expense expense)
+        public async Task<OperationResult> DeleteExpenseAsync(ViewExpense expense)
         {
             try
             {

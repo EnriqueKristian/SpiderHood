@@ -93,10 +93,12 @@ namespace SpiderHood.Data
         }
 
         // Igual que DeleteRecordAsync(Category): un DELETE simple por Id -- si el gasto
-        // tiene alguna referencia real desde otra tabla (ver duda de schema documentada
-        // en IExpenseService.DeleteExpenseAsync), falla acá con error 547 en vez de dejar
-        // datos huérfanos, y ExpenseService la traduce a un mensaje legible.
-        public async Task<bool> DeleteRecordAsync(Expense expense, CancellationToken cancellationToken = default)
+        // tiene alguna referencia real desde otra tabla, falla acá con error 547 en vez
+        // de dejar datos huérfanos, y ExpenseService la traduce a un mensaje legible.
+        // Recibe ViewExpense (no Expense) -- ver el hallazgo grande documentado en
+        // IExpenseService.GetExpensesByBuildingAsync: ViewExpense es la clase que
+        // realmente coincide con dbo.Expense.
+        public async Task<bool> DeleteRecordAsync(ViewExpense expense, CancellationToken cancellationToken = default)
         {
             ValidateEntity(expense, nameof(expense));
 

@@ -74,14 +74,20 @@ SELECT '65_Backfill_SequenceNumber_Historico',
        'Si da 0, puede ser que nunca hubo filas en 0 (no concluyente) o que falta correr el backfill';
 
 -- 66/67: UPD_ExpenseReconcilied / UPD_ExpenseDeReconcilied ya no pisan Expense.Status con ReconciliationStatus
+-- OJO: "ReconciliationStatus" TERMINA en "...Status", así que un LIKE ingenuo
+-- tipo '%Status%=%ReconciliationStatus%' matchea incluso la línea correcta
+-- "SET ReconciliationStatus = @ReconciliationStatus" (bug de esta misma query
+-- en una versión anterior). Se usa [^a-zA-Z] antes de "Status" para exigir que
+-- sea la palabra suelta "Status" (columna de Expense), no el sufijo de
+-- "ReconciliationStatus".
 INSERT INTO #Check
 SELECT '66_Fix_UPD_ExpenseReconcilied_Status',
-       CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseReconcilied')) LIKE '%SET%Status%=%ReconciliationStatus%'
+       CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseReconcilied')) LIKE '%[^a-zA-Z]Status[^a-zA-Z]%=%@ReconciliationStatus%'
             THEN 0 ELSE 1 END,
        'Si da 0, el SP todavía pisa Expense.Status con @ReconciliationStatus';
 INSERT INTO #Check
 SELECT '67_Fix_UPD_ExpenseDeReconcilied_Status',
-       CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseDeReconcilied')) LIKE '%SET%Status%=%ReconciliationStatus%'
+       CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseDeReconcilied')) LIKE '%[^a-zA-Z]Status[^a-zA-Z]%=%@ReconciliationStatus%'
             THEN 0 ELSE 1 END,
        'Si da 0, el SP todavía pisa Expense.Status con @ReconciliationStatus';
 

@@ -118,11 +118,12 @@
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="ps-3">Grupo</th>
-                                    <th>Categoría</th>
+                                    <th class="ps-3">Categ.</th>
+                                    <th>Sub Categ.</th>
                                     <th>Descripción</th>
                                     <th class="text-end">Fecha</th>
                                     <th>Distribución</th>
+                                    <th class="text-center">Estado</th>
                                     <th class="text-end">Monto</th>
                                     <th class="text-center">Acciones</th>
                                 </tr>
@@ -136,6 +137,11 @@
                                         <td>@item.Description</td>
                                         <td class="text-end">@item.ExpenseDate.ToString("dd-MMM-yy")</td>
                                         <td>@(item.Distribution?.ToString() ?? "-")</td>
+                                        <td class="text-center">
+                                            <span class="badge @(item.Reconciled ? "bg-success" : "bg-secondary")">
+                                                @(item.Reconciled ? "Conciliado" : "No Conciliado")
+                                            </span>
+                                        </td>
                                         <td class="text-end">@Moneda(item.Amount)</td>
                                         <td class="text-center">
                                             @if (_canEditExpense)
@@ -157,7 +163,7 @@
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
-                                    <td colspan="5" class="text-end fw-bold">Total de la página:</td>
+                                    <td colspan="6" class="text-end fw-bold">Total de la página:</td>
                                     <td class="text-end fw-bold">@Moneda(pagination.CurrentPageData.Sum(i => i.Amount))</td>
                                     <td></td>
                                 </tr>

@@ -21,16 +21,32 @@
 /* Cabecera fija: la tabla es larga (varios niveles del árbol de menú) y con
    el scroll normal de la página el nombre de cada columna (Administrador/
    SysAdmin/Residente/Junta/...) desaparecía apenas bajabas un par de filas,
-   sin forma de recordar qué checkbox correspondía a qué rol. top: 3.5rem
-   porque el header global de la app (.top-row en MainLayout.razor.css) ya es
-   sticky con esa altura mínima -- esta cabecera se pega justo debajo, no la
-   tapa (mismo patrón ya usado en /cuotas, /movement y /expense). z-index
-   bajo a propósito: sólo necesita estar por encima de las filas de esta
-   misma tabla al scrollear, muy por debajo del header global (z-index: 100). */
+   sin forma de recordar qué checkbox correspondía a qué rol.
+
+   IMPORTANTE: el contenedor ".table-responsive" de Bootstrap define
+   "overflow-x: auto", y por spec CSS eso obliga a "overflow-y" a valer
+   "auto" también (no puede quedar "visible" si el otro eje no lo es) --
+   es decir, ese div YA es un contenedor de scroll propio, aunque nunca se
+   note porque sin una altura máxima jamás llega a necesitar scrollear él
+   mismo (crece con el contenido y es la página la que scrollea). Pero
+   "position: sticky" siempre se ancla al contenedor de scroll más cercano,
+   así que el th quedaba "sticky" respecto a ese div sin scroll real, no
+   respecto a la página -- por eso nunca se fijaba visualmente. Por eso
+   aquí abajo se le da a ".table-responsive" una altura máxima explícita
+   con overflow-y:auto: así pasa a ser, de forma real y acotada, el propio
+   contenedor con scroll, y el th sticky con top:0 se fija correctamente
+   contra su borde superior. Como beneficio extra, el .card-footer (botones
+   Guardar/Resetear) queda FUERA de esta área acotada, así que siempre son
+   visibles sin tener que scrollear toda la página. */
+.table-responsive {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
 .menu-tree-table th,
 .menu-list-table th {
     position: sticky;
-    top: 3.5rem;
+    top: 0;
     z-index: 2;
 }
 

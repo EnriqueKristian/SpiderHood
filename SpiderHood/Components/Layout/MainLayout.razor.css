@@ -57,12 +57,21 @@ main {
         height: 100vh;
         position: sticky;
         top: 0;
+        z-index: 100;
     }
 
+    /* z-index alto a propósito: varias pantallas (InstallmentList, Movement/Index,
+       ExpensePage) tienen su propio bloque "position: sticky" para pegar sus
+       filtros justo debajo de este header (con z-index: 5, ver el comentario
+       "mismo patrón sticky" en esas pantallas) -- con el z-index: 1 de antes,
+       ese contenido de página quedaba POR ENCIMA del header global al hacer
+       scroll (5 > 1), tapando el breadcrumb y el selector de edificio/rol.
+       El header global (chrome persistente de la app) siempre debe ganar la
+       pila de apilamiento sobre cualquier contenido de página. */
     .top-row {
         position: sticky;
         top: 0;
-        z-index: 1;
+        z-index: 100;
     }
 
         .top-row.auth ::deep a:first-child {

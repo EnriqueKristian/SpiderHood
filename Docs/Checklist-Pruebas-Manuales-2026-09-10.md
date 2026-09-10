@@ -14,9 +14,13 @@ lado del ítem para retomarlo.
 
 ## ⚠️ SQL pendiente de correr
 
-- [ ] `Database/Scripts/2026-09-10_81_DEL_Expense.sql` -- nuevo SP `DEL_Expense`
-      (borrado real de Gastos, ver sección "Gastos" más abajo). Sin esto, el botón
-      "Eliminar" de `/expense` va a fallar con un error de SP inexistente.
+- [x] `Database/Scripts/2026-09-10_81_DEL_Expense.sql` -- SP `DEL_Expense`.
+      Confirmado corrido (el usuario probó eliminar un gasto y funcionó).
+- [x] `Database/Scripts/2026-09-10_84_Fix_GET_ExpensesByBuilding_Reconciled_Bool.sql`
+      -- versión final de `GET_ExpensesByBuilding` + `UPD_Expense` (reemplaza
+      a los scripts `_82` y `_83`, que quedaron como pasos intermedios en el
+      historial -- no hace falta correrlos, alcanza con el `_84`). Confirmado
+      corrido.
 
 ---
 
@@ -125,32 +129,39 @@ confirmar); el segundo fix (`fb6f1df` + `ac51954`, suscripción a
 
 ## Gastos (`/expense`)
 
+**Estado: verificado (2026-09-10) por el usuario -- "funciona bien".**
+
 Reportado por el usuario: la pantalla no tenía filtros, paginación ni selector
-de registros por página, a diferencia del resto de los listados (ej.
-`/cuotas`). Se reescribió completa; de paso se implementó el borrado real
-(el botón "Eliminar" no tenía ninguna función antes de este cambio).
+de registros por página. Al reescribirla salió un hallazgo grande: `Classes/Expense.cs`
+(usado por esta pantalla desde siempre) no coincidía con NINGUNA columna real
+de `dbo.Expense` -- la clase correcta es `ViewExpense.cs` (la de Conciliación).
+Se migró toda la pantalla (listar/crear/editar/eliminar) a `ViewExpense`, con
+varias vueltas de fixes en el SP `GET_ExpensesByBuilding` (columna inexistente,
+`Reconciled` devuelto como string en vez de bit) y en `UPD_Expense` (columnas
+inexistentes). Ver commits `65a773a`, `757f8c5`, `ac678c5` para el detalle.
 
-**Antes de probar: correr `2026-09-10_81_DEL_Expense.sql`** (ver arriba).
+SQL corrido: `2026-09-10_81_DEL_Expense.sql` (borrado) +
+`2026-09-10_84_Fix_GET_ExpensesByBuilding_Reconciled_Bool.sql` (reemplaza a
+`_82`/`_83`, alcanza con el `_84`).
 
-- [ ] Las 3 tarjetas de resumen (Total/Fijos/Proporcionales) muestran los
-      totales de TODO el edificio, sin cambiar al aplicar filtros
-- [ ] Filtro por Mes funciona (incluye "Todos los meses")
-- [ ] Filtro por Categoría funciona (incluye "Todas las categorías")
-- [ ] El buscador encuentra por descripción, categoría y proveedor
-- [ ] El selector "Mostrar: 10/25/50/100" cambia la cantidad de filas por
-      página
-- [ ] Los controles de paginación (primera/anterior/números/siguiente/última)
-      navegan correctamente cuando hay más de una página
-- [ ] Crear un gasto nuevo sigue funcionando igual que antes (modal sin cambios)
-- [ ] Editar un gasto existente sigue funcionando igual que antes
-- [ ] **Eliminar un gasto NO conciliado**: pide confirmación (modal rojo,
-      "Eliminar Gasto", con la descripción y el monto correctos ya desde el
-      primer render), y al confirmar desaparece de la lista y persiste tras F5
-- [ ] **Eliminar un gasto YA conciliado** con una transacción bancaria: debe
-      mostrar el mensaje de error ("No se puede eliminar un gasto ya
-      conciliado...") sin siquiera intentar el borrado, y el gasto sigue
-      apareciendo en la lista
-- [ ] Cancelar el modal de confirmación no borra nada
+- [x] Las 3 tarjetas de resumen (Total/Fijos/Proporcionales) muestran los
+      totales de TODO el edificio, con ícono + color (pedido de diseño aparte)
+- [x] Filtro por Mes funciona (incluye "Todos los meses")
+- [x] Filtro por Categoría (raíz) trae también sus subcategorías -- fix
+      aparte, comparaba contra la raíz pero el gasto siempre guarda la hoja
+- [x] Columnas "Categ." (raíz) / "Sub Categ." (real) / "Estado" (Conciliado/
+      No Conciliado) -- pedido de diseño aparte, ya en la tabla
+- [x] El selector "Mostrar: 10/25/50/100" y la paginación andan bien
+- [x] Crear un gasto nuevo funciona (con los defaults que completa el código
+      para los campos que INS_Expense exige pero el formulario no expone)
+- [x] Editar un gasto funciona
+- [x] Eliminar un gasto funciona (confirmación + toast)
+- [ ] Pendiente de confirmar puntualmente: **editar un gasto YA conciliado**
+      bloquea Monto/Fecha (sólo Categoría/Descripción editables) y muestra el
+      aviso -- agregado en un cambio posterior al "funciona bien" general
+- [ ] Pendiente de confirmar puntualmente: **eliminar un gasto YA conciliado**
+      muestra el error sin intentar el borrado (no se probó ese caso puntual
+      todavía, sólo el flujo general)
 
 ## Migración de Datos (si se corre un rango de una década)
 

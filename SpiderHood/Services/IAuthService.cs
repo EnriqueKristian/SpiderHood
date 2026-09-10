@@ -1138,6 +1138,36 @@ namespace SpiderHood.Services
             return await Ec.GetInvitationByCodeAsync(code);
         }
 
+        // Invitar a alguien por email a un edificio (Residente/Junta), con su unidad ya
+        // elegida de una vez -- ver Database/Scripts/2026-09-10_90_INS_Invitation.sql.
+        // apartmentNumber es el GroupNumber real de la unidad elegida en la UI (o 0 si el
+        // edificio no tiene unidades cargadas todavía); se guarda como INT porque así es
+        // la columna real de dbo.Invitation (no hay FK a IdGroupUnit) -- se resuelve de
+        // vuelta al vincular la unidad real en AcceptInvitationAsync, al aceptar.
+        public async Task<InvitationModel> CreateInvitationAsync(
+            Guid idBuilding, string buildingName, string email, string role,
+            int apartmentNumber, string invitedByName, string? adminMessage = null)
+        {
+            var invitation = new InvitationModel
+            {
+                IdInvitation = Guid.NewGuid(),
+                Code = Guid.NewGuid().ToString("N"),
+                Email = email.Trim().ToLowerInvariant(),
+                IdBuilding = idBuilding,
+                BuildingName = buildingName,
+                InvitedBy = invitedByName,
+                Role = role,
+                ApartmentNumber = apartmentNumber,
+                RequiresApproval = false, // ya lo decidió el administrador al invitar
+                AdminMessage = adminMessage ?? string.Empty,
+                ExpirationDate = DateTime.Now.AddDays(7),
+                Status = "Pending"
+            };
+
+            await Ec.InsertInvitationAsync(invitation);
+            return invitation;
+        }
+
         public async Task<AuthResult> RegisterWithInvitationAsync(
     RegisterWithInvitationModel model,
     InvitationModel invitation)
@@ -1241,8 +1271,30 @@ namespace SpiderHood.Services
             _association.IsApproved = true;
             _association.RequestedAt = DateTime.Now;
 
-            return await Ec.AcceptInvitationAsync(_association);
+            var created = await Ec.AcceptInvitationAsync(_association);
 
+            // invitation.ApartmentNumber viajaba en la invitación desde siempre pero nunca
+            // se usaba acá -- se guardaba en dbo.Invitation y se perdía al aceptar. Se
+            // resuelve contra el GroupNumber real de las unidades del edificio (mismo
+            // número que ya se muestra como "Grupo N" en /Settings/UserRoles) para dejar
+            // IdGroupUnit bien asignado desde el alta, sin que el administrador tenga que
+            // hacerlo a mano después.
+            if (created && invitation.ApartmentNumber > 0)
+            {
+                var roles = await Ec.GetAllRolesAsync();
+                var idRole = roles.FirstOrDefault(r => r.RoleName == _association.Role)?.IdRole;
+                if (idRole.HasValue)
+                {
+                    var units = await Ec.GetOwnersByBuildingAsync(invitation.IdBuilding);
+                    var unit = units.FirstOrDefault(u => u.GroupNumber == invitation.ApartmentNumber);
+                    if (unit != null)
+                    {
+                        await Ec.AssignUnitToUserBuildingAsync(User.IdUser, invitation.IdBuilding, idRole.Value, unit.IdGroupUnit);
+                    }
+                }
+            }
+
+            return created;
         }
 
         // InvitationModel.Role es texto libre (no hay FK a Role al crear la invitación,

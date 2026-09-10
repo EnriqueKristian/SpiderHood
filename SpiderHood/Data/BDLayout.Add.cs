@@ -11,6 +11,29 @@ namespace SpiderHood.Data
     {
         #region Add Operations
 
+        public async Task InsertInvitationAsync(InvitationModel invitation, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Invitation,
+                    cancellationToken,
+                    invitation.IdInvitation,
+                    invitation.Code,
+                    invitation.Email,
+                    invitation.IdBuilding,
+                    invitation.BuildingName,
+                    invitation.InvitedBy,
+                    invitation.Role,
+                    invitation.ApartmentNumber,
+                    invitation.RequiresApproval,
+                    (object?)invitation.AdminMessage ?? DBNull.Value,
+                    invitation.ExpirationDate,
+                    (object?)invitation.Location ?? DBNull.Value);
+                return true;
+            }, "InsertInvitation", cancellationToken);
+        }
+
         public async Task<MenuPermissions> AddNewRecordAsync(MenuPermissions item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

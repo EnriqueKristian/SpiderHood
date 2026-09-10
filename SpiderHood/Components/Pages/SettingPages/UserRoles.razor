@@ -7,6 +7,7 @@
 @inject Services.AuthService AuthService
 @inject Services.IBuildingService BuildingService
 @inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
 
 <PageTitle>Asignar Roles a Usuarios</PageTitle>
 
@@ -92,6 +93,70 @@ else
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-envelope-plus me-2"></i>Invitar por Email</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Edificio</label>
+                            <select class="form-select" @bind="_inviteBuildingId" @bind:after="OnInviteBuildingChangedAsync">
+                                <option value="">-- Seleccionar --</option>
+                                @foreach (var building in _buildings)
+                                {
+                                    <option value="@building.IdBuilding">@building.BuildingName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" @bind="_inviteEmail" placeholder="persona@email.com" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Rol</label>
+                            <select class="form-select" @bind="_inviteRole">
+                                @foreach (var role in _allRoles.Where(r => r.RoleName != "SysAdmin"))
+                                {
+                                    <option value="@role.RoleName" selected="@(role.RoleName == _inviteRole)">@role.RoleName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Unidad (opcional)</label>
+                            <select class="form-select" @bind="_inviteGroupNumber" disabled="@(_inviteBuildingId == Guid.Empty)">
+                                <option value="0">-- Sin asignar --</option>
+                                @foreach (var unit in UnitsFor(_inviteBuildingId))
+                                {
+                                    <option value="@unit.GroupNumber">Grupo @unit.GroupNumber — @unit.FirstName @unit.LastName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" disabled="@(_inviting || _inviteBuildingId == Guid.Empty || string.IsNullOrWhiteSpace(_inviteEmail))"
+                                    @onclick="SendInvitationAsync">
+                                @if (_inviting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                Invitar
+                            </button>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_inviteLink))
+                    {
+                        <div class="alert alert-success mt-3 mb-0">
+                            <i class="bi bi-check-circle me-2"></i>Invitación creada. Compartí este link con la persona invitada:
+                            <br /><code>@_inviteLink</code>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(_inviteError))
+                    {
+                        <div class="alert alert-danger mt-3 mb-0">@_inviteError</div>
+                    }
                 </div>
             </div>
 
@@ -323,6 +388,15 @@ else
     // ver/tocar en esta pantalla cuando no es SysAdmin.
     private HashSet<Guid> _misEdificios = new();
 
+    // Estado del formulario "Invitar por Email" -- ver SendInvitationAsync.
+    private Guid _inviteBuildingId = Guid.Empty;
+    private string _inviteEmail = string.Empty;
+    private string _inviteRole = "Residente";
+    private int _inviteGroupNumber = 0;
+    private bool _inviting;
+    private string? _inviteLink;
+    private string? _inviteError;
+
     private class UserBuildingRow
     {
         public Guid IdUser { get; set; }
@@ -538,6 +612,45 @@ else
         catch (Exception ex)
         {
             await ShowToast("Error", $"Error al {accion} el rol: {ex.Message}", "danger");
+        }
+    }
+
+    private Task OnInviteBuildingChangedAsync()
+    {
+        _inviteGroupNumber = 0;
+        return Task.CompletedTask;
+    }
+
+    // Genera el link de invitación (código único, válido 7 días) para que el
+    // administrador se lo pase a la persona por fuera de la app (WhatsApp, email
+    // manual, etc.) -- no hay envío de correo automático todavía, sólo se arma
+    // el link, igual que "Invitar Colaborador" en /Settings (Cuenta).
+    private async Task SendInvitationAsync()
+    {
+        _inviteError = null;
+        _inviteLink = null;
+        if (_inviteBuildingId == Guid.Empty || string.IsNullOrWhiteSpace(_inviteEmail)) return;
+
+        _inviting = true;
+        try
+        {
+            var buildingName = _buildings.FirstOrDefault(b => b.IdBuilding == _inviteBuildingId).BuildingName ?? string.Empty;
+            var invitedByName = !string.IsNullOrWhiteSpace(_currentUser?.FullName) ? _currentUser!.FullName : (_currentUser?.Email ?? "Administrador");
+
+            var invitation = await AuthService.CreateInvitationAsync(
+                _inviteBuildingId, buildingName, _inviteEmail, _inviteRole, _inviteGroupNumber, invitedByName);
+
+            _inviteLink = $"{NavigationManager.BaseUri.TrimEnd('/')}/invitation/{invitation.Code}";
+            _inviteEmail = string.Empty;
+            _inviteGroupNumber = 0;
+        }
+        catch (Exception ex)
+        {
+            _inviteError = $"Error al crear la invitación: {ex.Message}";
+        }
+        finally
+        {
+            _inviting = false;
         }
     }
 

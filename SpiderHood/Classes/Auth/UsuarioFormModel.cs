@@ -19,8 +19,6 @@ namespace SpiderHood.Models
 
         public string PhoneNumber { get; set; } = string.Empty;
 
-        public Guid? IdRole { get; set; }
-
         public bool IsActive { get; set; } = true;
 
         // Solo se usa al crear un usuario nuevo; en edición queda vacío.

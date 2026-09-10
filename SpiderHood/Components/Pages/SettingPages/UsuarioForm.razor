@@ -32,16 +32,18 @@
             <InputText id="telefono" class="form-control" @bind-Value="Model.PhoneNumber" />
         </div>
 
-        <div class="col-md-6">
-            <label for="rol" class="form-label">Rol</label>
-            <select class="form-select" id="rol" @bind="RolSeleccionado">
-                <option value="">Sin rol asignado</option>
-                @foreach (var rol in AvailableRoles)
-                {
-                    <option value="@rol.IdRole">@rol.RoleName</option>
-                }
-            </select>
-        </div>
+        @if (Model.IsEdit)
+        {
+            <div class="col-md-6">
+                <label class="form-label">Rol</label>
+                <div>
+                    <a href="/Settings/UserRoles" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-diagram-3 me-1"></i>Gestionar en Asignar Roles
+                    </a>
+                </div>
+                <small class="text-muted">El rol se asigna por edificio desde esa pantalla.</small>
+            </div>
+        }
 
         <div class="col-md-6">
             <label for="estado" class="form-label">Estado</label>
@@ -93,9 +95,6 @@
     public UsuarioFormModel Model { get; set; } = new();
 
     [Parameter]
-    public List<Role> AvailableRoles { get; set; } = new();
-
-    [Parameter]
     public EventCallback<UsuarioFormModel> OnSave { get; set; }
 
     [Parameter]
@@ -103,12 +102,6 @@
 
     private bool mostrarPassword = false;
     private string? _passwordError;
-
-    private string RolSeleccionado
-    {
-        get => Model.IdRole?.ToString() ?? string.Empty;
-        set => Model.IdRole = string.IsNullOrEmpty(value) ? null : Guid.Parse(value);
-    }
 
     private string EstadoSeleccionado
     {

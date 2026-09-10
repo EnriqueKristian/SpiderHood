@@ -9,13 +9,13 @@ SELECT DB_NAME() AS BaseActual, @@SERVERNAME AS ServidorActual;
 -- "Status = @ReconciliationStatus" dentro del UPDATE Expense), el fix SÍ está
 -- aplicado y el problema es 100% del script de verificación (que ya se
 -- corrigió) o de que apuntaba a otra base.
-SELECT 'UPD_ExpenseReconcilied' AS Proc, OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseReconcilied')) AS Definicion
+SELECT 'UPD_ExpenseReconcilied' AS ProcName, OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseReconcilied')) AS Definicion
 UNION ALL
 SELECT 'UPD_ExpenseDeReconcilied', OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseDeReconcilied'));
 
 -- Chequeo booleano corregido (mismo que ya actualicé en el script 78)
 SELECT
-    'UPD_ExpenseReconcilied' AS Proc,
+    'UPD_ExpenseReconcilied' AS ProcName,
     CASE WHEN OBJECT_DEFINITION(OBJECT_ID('dbo.UPD_ExpenseReconcilied')) LIKE '%[^a-zA-Z]Status[^a-zA-Z]%=%@ReconciliationStatus%'
          THEN 'FALTA CORRER' ELSE 'YA APLICADO' END AS Estado
 UNION ALL

@@ -293,12 +293,13 @@ else
     // asignarle el rol SysAdmin a cualquiera desde el combo "Rol" (escalación de
     // privilegios). Sólo SysAdmin gestiona SysAdmin.
     private bool _isSysAdmin;
+    private UserSession _currentUser = new();
 
     protected override async Task OnInitializedAsync()
     {
-        var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
-        _canManageUsers = await PermissionService.HasPermissionAsync(currentUser, "manage_users");
-        _isSysAdmin = currentUser.Role == "SysAdmin";
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _canManageUsers = await PermissionService.HasPermissionAsync(_currentUser, "manage_users");
+        _isSysAdmin = _currentUser.Role == "SysAdmin";
 
         await CargarUsuarios();
         AplicarFiltros();
@@ -314,9 +315,33 @@ else
             _availableRoles = assignments.FirstOrDefault()?.AvailableRoles
                 ?? await PermissionAdminService.GetAllRolesAsync();
 
+            // Alcance por edificio: un Administrador sólo debe ver (y poder gestionar)
+            // usuarios que tienen alguna asociación real (UserBuildingAssociation) en un
+            // edificio que él administra -- antes esta pantalla traía TODOS los usuarios
+            // del sistema sin ningún filtro, así que cualquier Administrador podía ver
+            // y desactivar globalmente a usuarios de edificios ajenos. SysAdmin sigue
+            // viendo todo.
+            HashSet<Guid>? usuariosVisibles = null;
+            if (!_isSysAdmin)
+            {
+                var misEdificios = _currentUser.Buildings
+                    .Where(b => b.IsApproved && b.Building != null)
+                    .Select(b => b.Building!.IdBuilding)
+                    .ToHashSet();
+
+                var asociaciones = await PermissionAdminService.GetUserBuildingRoleAssignmentsAsync();
+                usuariosVisibles = asociaciones
+                    .Where(a => misEdificios.Contains(a.IdBuilding))
+                    .Select(a => a.IdUser)
+                    .ToHashSet();
+            }
+
             var rows = new List<UsuarioRow>();
             foreach (var assignment in assignments)
             {
+                if (usuariosVisibles != null && !usuariosVisibles.Contains(assignment.IdUser))
+                    continue;
+
                 var profile = await AuthService.GetUserProfileAsync(assignment.IdUser);
 
                 var nombre = profile != null && (!string.IsNullOrWhiteSpace(profile.FirstName) || !string.IsNullOrWhiteSpace(profile.LastName))

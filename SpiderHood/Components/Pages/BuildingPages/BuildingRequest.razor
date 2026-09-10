@@ -52,15 +52,47 @@
 
                                 <div class="mb-3">
                                     <label class="form-label">Edificio</label>
-                                    <InputSelect class="form-control" @bind-Value="request.BuildingId">
+                                    <select class="form-control" value="@(request.BuildingId == Guid.Empty ? "" : request.BuildingId.ToString())" @onchange="OnBuildingChangedAsync">
                                         <option value="">-- Seleccionar edificio --</option>
                                         @foreach (var building in availableBuildings)
                                         {
                                             <option value="@building.IdBuilding">@building.Name</option>
                                         }
-                                    </InputSelect>
+                                    </select>
                                     <ValidationMessage For="@(() => request.BuildingId)" />
                                 </div>
+
+                                @if (request.BuildingId != Guid.Empty)
+                                {
+                                    <div class="mb-3">
+                                        <label class="form-label">DPTO / Unidad</label>
+                                        @if (_loadingUnits)
+                                        {
+                                            <div class="text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>Cargando unidades...</div>
+                                        }
+                                        else if (!_units.Any())
+                                        {
+                                            <div class="text-muted small">
+                                                Este edificio todavía no tiene unidades cargadas -- el administrador te
+                                                la va a asignar al aprobar tu solicitud.
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <InputSelect class="form-control" @bind-Value="request.IdGroupUnit">
+                                                <option value="">-- Seleccionar tu unidad --</option>
+                                                @foreach (var unit in _units)
+                                                {
+                                                    <option value="@unit.IdGroupUnit">Grupo @unit.GroupNumber — @unit.FirstName @unit.LastName</option>
+                                                }
+                                            </InputSelect>
+                                            @if (_showUnitRequiredError)
+                                            {
+                                                <div class="text-danger small mt-1">Selecciona tu unidad para continuar.</div>
+                                            }
+                                        }
+                                    </div>
+                                }
 
                                 <div class="mb-3">
                                     <label class="form-label">Rol solicitado</label>
@@ -110,6 +142,9 @@
 @code {
     private BuildingRequestModel request = new();
     private List<Models.Building> availableBuildings = new();
+    private List<Models.OwnerUnitView> _units = new();
+    private bool _loadingUnits;
+    private bool _showUnitRequiredError;
     private bool isLoading;
     private bool _loading = true;
     private string successMessage = string.Empty;
@@ -148,19 +183,51 @@
             .ToList();
     }
 
+    private async Task OnBuildingChangedAsync(ChangeEventArgs e)
+    {
+        request.BuildingId = Guid.TryParse(e.Value?.ToString(), out var parsed) ? parsed : Guid.Empty;
+        request.IdGroupUnit = null;
+        _showUnitRequiredError = false;
+        _units = new();
+
+        if (request.BuildingId == Guid.Empty) return;
+
+        _loadingUnits = true;
+        try
+        {
+            _units = (await BuildingService.GetOwnersByBuildingAsync(request.BuildingId))
+                .DistinctBy(u => u.IdGroupUnit)
+                .OrderBy(u => u.GroupNumber)
+                .ToList();
+        }
+        finally
+        {
+            _loadingUnits = false;
+        }
+    }
+
     private async Task SubmitRequest()
     {
         errorMessage = string.Empty;
         successMessage = string.Empty;
+
+        if (_units.Any() && !request.IdGroupUnit.HasValue)
+        {
+            _showUnitRequiredError = true;
+            return;
+        }
+        _showUnitRequiredError = false;
+
         try
         {
             isLoading = true;
-            var result = await AuthService.RequestBuildingAccess(request.BuildingId, "Residente");
+            var result = await AuthService.RequestBuildingAccess(request.BuildingId, "Residente", request.IdGroupUnit);
 
             if (result)
             {
                 successMessage = "Solicitud enviada correctamente. Espera la aprobación del administrador.";
                 request = new();
+                _units = new();
                 await LoadAvailableBuildings();
             }
             else
@@ -178,5 +245,6 @@
     {
         [Required(ErrorMessage = "Selecciona un edificio")]
         public Guid BuildingId { get; set; }
+        public Guid? IdGroupUnit { get; set; }
     }
 }

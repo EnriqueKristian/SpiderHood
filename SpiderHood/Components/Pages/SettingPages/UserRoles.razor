@@ -49,7 +49,7 @@ else
                             </div>
                             <div>
                                 <div class="stat-label">Usuarios con Rol</div>
-                                <div class="stat-value">@_allAssignments.Select(a => a.IdUser).Distinct().Count()</div>
+                                <div class="stat-value">@_assignmentsInScope.Select(a => a.IdUser).Distinct().Count()</div>
                             </div>
                         </div>
                     </div>
@@ -75,7 +75,7 @@ else
                             </div>
                             <div>
                                 <div class="stat-label">Roles Asignados</div>
-                                <div class="stat-value">@_allAssignments.Count(a => a.IsApproved)</div>
+                                <div class="stat-value">@_assignmentsInScope.Count(a => a.IsApproved)</div>
                             </div>
                         </div>
                     </div>
@@ -221,8 +221,20 @@ else
                                                     <td>
                                                         @foreach (var role in row.Roles)
                                                         {
-                                                            <span class="badge @GetRoleBadgeClass(role) me-1 mb-1">
+                                                            var asignacion = AssignmentFor(row, role);
+                                                            var inactivo = asignacion != null && !asignacion.IsApproved && asignacion.Status == "Inactive";
+                                                            <span class="badge @(inactivo ? "bg-secondary" : GetRoleBadgeClass(role)) me-1 mb-1">
                                                                 @role
+                                                                @if (inactivo)
+                                                                {
+                                                                    <span class="ms-1 fst-italic">(Inactivo)</span>
+                                                                }
+                                                                @if (asignacion != null)
+                                                                {
+                                                                    <i class="bi @(inactivo ? "bi-arrow-counterclockwise" : "bi-pause-circle") ms-1" role="button"
+                                                                       title="@(inactivo ? "Reactivar" : "Desactivar")"
+                                                                       @onclick="() => ToggleActive(asignacion)"></i>
+                                                                }
                                                                 <i class="bi bi-x-circle ms-1" role="button"
                                                                    title="Quitar rol"
                                                                    @onclick="() => RevokeRole(row, role)"></i>
@@ -300,12 +312,16 @@ else
     // se cargan una vez por edificio involucrado, no por fila.
     private Dictionary<Guid, List<Models.OwnerUnitView>> _unitsByBuilding = new();
 
-    // SysAdmin es el único rol que puede otorgar/quitar roles (ver
-    // Database/Migrations/2026-08-30_Permiso_AssignRoles.sql) — a propósito distinto de
-    // manage_roles (que Administrador también tiene, para crear roles y editar sus
-    // permisos), justamente para que un Administrador no pueda auto-asignarse SysAdmin
-    // ni dárselo a otro usuario desde acá.
+    // El permiso assign_roles ya no es exclusivo de SysAdmin -- un Administrador puede
+    // tenerlo también (asignado desde /Settings/Roles/Permissions), pero sólo alcanza a
+    // los edificios que administra (ver _misEdificios/_isSysAdmin más abajo). SysAdmin
+    // asignándose a sí mismo el rol SysAdmin sigue bloqueado aparte (ver AssignRole).
     private bool _canAssignRoles;
+    private bool _isSysAdmin;
+
+    // Edificios donde el usuario actual tiene algún rol aprobado -- delimita qué puede
+    // ver/tocar en esta pantalla cuando no es SysAdmin.
+    private HashSet<Guid> _misEdificios = new();
 
     private class UserBuildingRow
     {
@@ -317,20 +333,29 @@ else
         public List<string> Roles { get; set; } = new();
     }
 
+    // Sólo edificios donde el usuario actual tiene un rol aprobado -- para SysAdmin no se
+    // filtra (ve/gestiona todos). Antes esta pantalla sólo era accesible para SysAdmin
+    // (único rol con el permiso assign_roles); ahora que un Administrador también puede
+    // entrar, no debe ver ni poder tocar roles de edificios que no administra.
+    private IEnumerable<UserBuildingRoleAssignment> _assignmentsInScope =>
+        _isSysAdmin ? _allAssignments : _allAssignments.Where(a => _misEdificios.Contains(a.IdBuilding));
+
     // Solicitudes de acceso (registro público o "solicitar acceso a otro edificio") que
     // todavía no fueron aprobadas ni rechazadas -- ver GET_AllUserBuildingRoles / IsApproved.
+    // "Inactive" también queda afuera: es un rol que YA estuvo aprobado y se desactivó a
+    // propósito (ver ToggleActive), no una solicitud nueva esperando revisión.
     private List<UserBuildingRoleAssignment> _pendingRequests =>
-        _allAssignments.Where(a => !a.IsApproved && a.Status != "Rejected").ToList();
+        _assignmentsInScope.Where(a => !a.IsApproved && a.Status != "Rejected" && a.Status != "Inactive").ToList();
 
     private List<(Guid IdBuilding, string BuildingName)> _buildings =>
-        _allAssignments
+        _assignmentsInScope
             .Select(a => (a.IdBuilding, a.BuildingName))
             .Distinct()
             .OrderBy(b => b.BuildingName)
             .ToList();
 
     private IEnumerable<UserBuildingRow> FilteredRows =>
-        _allAssignments
+        _assignmentsInScope
             .Where(a => !_selectedBuildingId.HasValue || _selectedBuildingId == Guid.Empty || a.IdBuilding == _selectedBuildingId)
             .Where(a => string.IsNullOrWhiteSpace(_searchTerm)
                 || a.UserName.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase)
@@ -361,7 +386,7 @@ else
     }
 
     private int ContarUsuariosPorEdificio(Guid? buildingId) =>
-        _allAssignments
+        _assignmentsInScope
             .Where(a => !buildingId.HasValue || a.IdBuilding == buildingId)
             .Select(a => a.IdUser)
             .Distinct()
@@ -374,6 +399,11 @@ else
             _initialized = true;
             _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
             _canAssignRoles = await PermissionService.HasPermissionAsync(_currentUser, "assign_roles");
+            _isSysAdmin = _currentUser.Role == "SysAdmin";
+            _misEdificios = _currentUser.Buildings
+                .Where(b => b.IsApproved && b.Building != null)
+                .Select(b => b.Building!.IdBuilding)
+                .ToHashSet();
             await LoadDataAsync();
             StateHasChanged();
         }
@@ -472,6 +502,42 @@ else
         catch (Exception ex)
         {
             await ShowToast("Error", $"Error al rechazar la solicitud: {ex.Message}", "danger");
+        }
+    }
+
+    // Fila real detrás de un badge de rol en la tabla principal -- para saber si está
+    // activo/inactivo y poder togglearlo. Row.Roles ya no alcanza (es sólo el nombre).
+    private UserBuildingRoleAssignment? AssignmentFor(UserBuildingRow row, string role) =>
+        _allAssignments.FirstOrDefault(a =>
+            a.IdUser == row.IdUser && a.IdBuilding == row.IdBuilding && a.Role == role);
+
+    // Desactivar/reactivar un rol puntual (usuario+edificio+rol) sin borrarlo -- a
+    // diferencia de RevokeRole (que elimina la fila), esto reutiliza el mismo mecanismo
+    // de aprobación (UPD_UserBuildingApproval) con Status="Inactive"/"Approved", así que
+    // no hace falta ninguna columna ni SP nuevo. Es lo que le permite a un Administrador
+    // "desactivar a un usuario" sin afectar su cuenta global ni sus otros edificios --
+    // a diferencia del toggle Activo/Inactivo de /users, que es global y sólo lo debería
+    // usar SysAdmin.
+    private async Task ToggleActive(UserBuildingRoleAssignment assignment)
+    {
+        if (!_canAssignRoles) return;
+
+        var activar = !assignment.IsApproved && assignment.Status == "Inactive";
+        var accion = activar ? "reactivar" : "desactivar";
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"¿{(activar ? "Reactivar" : "Desactivar")} el rol \"{assignment.Role}\" de {assignment.UserName} en {assignment.BuildingName}?");
+        if (!confirmed) return;
+
+        try
+        {
+            await PermissionAdminService.SetUserBuildingApprovalAsync(
+                assignment.IdUser, assignment.IdBuilding, assignment.IdRole,
+                activar, activar ? "Approved" : "Inactive", _currentUser!.IdUser);
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            await ShowToast("Error", $"Error al {accion} el rol: {ex.Message}", "danger");
         }
     }
 

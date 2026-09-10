@@ -27,8 +27,10 @@ namespace SpiderHood.Services
 
         // El rol solicitado NO viaja desde afuera: siempre se otorga como "Residente" --
         // ver el comentario en la implementación. El parámetro se mantiene para no romper
-        // las pantallas existentes, pero se ignora.
-        Task<bool> RequestBuildingAccess(Guid buildingId, string role);
+        // las pantallas existentes, pero se ignora. idGroupUnit es opcional -- si el
+        // residente indicó su DPTO en el formulario, queda asignado en la misma solicitud
+        // pendiente (así el administrador ve qué unidad reclama antes de aprobar).
+        Task<bool> RequestBuildingAccess(Guid buildingId, string role, Guid? idGroupUnit = null);
         Task<AuthResult> RegisterSelfServiceAsync(RegisterModel model);
 
         // Registro "Piloto" (landing pública, sin edificio existente al que unirse):
@@ -763,7 +765,7 @@ namespace SpiderHood.Services
         // los otorga un admin desde /Settings/UserRoles, para que nadie se autoasigne un
         // rol de poder llenando un formulario. @role se ignora a propósito -- se mantiene
         // en la firma para no romper las pantallas que ya lo llaman.
-        public async Task<bool> RequestBuildingAccess(Guid buildingId, string role)
+        public async Task<bool> RequestBuildingAccess(Guid buildingId, string role, Guid? idGroupUnit = null)
         {
             var user = await GetCurrentUserAsync();
             if (user == null || buildingId == Guid.Empty)
@@ -773,7 +775,7 @@ namespace SpiderHood.Services
             if (existing.Any(a => a.IdBuilding == buildingId && a.Role == "Residente"))
                 return false; // ya tiene una solicitud (o membresía) de Residente en ese edificio
 
-            return await CreatePendingAssociationAsync(user.IdUser, buildingId, "Residente");
+            return await CreatePendingAssociationAsync(user.IdUser, buildingId, "Residente", idGroupUnit);
         }
 
         // Alta pública de cuenta (sin invitación): el visitante elige un edificio y queda
@@ -805,7 +807,7 @@ namespace SpiderHood.Services
                 user.PasswordHash = _passwordHasher.HashPassword(user, model.Password);
 
                 await AddNewUserAsync(user);
-                await CreatePendingAssociationAsync(user.IdUser, model.BuildingId, "Residente");
+                await CreatePendingAssociationAsync(user.IdUser, model.BuildingId, "Residente", model.IdGroupUnit);
 
                 return new AuthResult
                 {
@@ -975,7 +977,7 @@ namespace SpiderHood.Services
             await Ec.AddUserRoleAsync(idUser, administrador.IdRole);
         }
 
-        private async Task<bool> CreatePendingAssociationAsync(Guid idUser, Guid idBuilding, string role)
+        private async Task<bool> CreatePendingAssociationAsync(Guid idUser, Guid idBuilding, string role, Guid? idGroupUnit = null)
         {
             var association = new UserBuildingAssociation
             {
@@ -985,7 +987,23 @@ namespace SpiderHood.Services
                 IsApproved = false,
                 RequestedAt = DateTime.Now
             };
-            return await Ec.AcceptInvitationAsync(association);
+            var created = await Ec.AcceptInvitationAsync(association);
+
+            // La unidad que el residente indica al pedir acceso queda guardada de una vez en
+            // la misma solicitud pendiente (UPD_UserBuildingUnit, ya usado por el admin desde
+            // /Settings/UserRoles) -- así el administrador ve qué DPTO reclama antes de
+            // aprobar, en vez de tener que preguntarlo por fuera de la app.
+            if (created && idGroupUnit.HasValue)
+            {
+                var roles = await Ec.GetAllRolesAsync();
+                var idRole = roles.FirstOrDefault(r => r.RoleName == role)?.IdRole;
+                if (idRole.HasValue)
+                {
+                    await Ec.AssignUnitToUserBuildingAsync(idUser, idBuilding, idRole.Value, idGroupUnit);
+                }
+            }
+
+            return created;
         }
 
         // NOTA: se eliminó DebugPrintUsers() — no se llamaba desde ningún lado y

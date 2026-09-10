@@ -79,14 +79,14 @@ EXEC UPD_MenuItem
 
 -- Conciliar Pagos -- de paso, ícono propio (tenía el placeholder bi-house)
 EXEC UPD_MenuItem
-    '8B4B6754-7E63-4AA0-B97D-E331AD915353', @IdConciliacion, NULL,
+    '8B4B6754-7E63-4AA0-B97D-E331AD915353', @IdConciliacion, '',
     'Conciliar Pagos', 'bi-arrow-down-circle', 'ConciliacionPagos', NULL,
     4, 1, 'Conciliacion de Pagos', 'info', @Now;
 
 -- Gastos -- de paso, ícono propio (mismo bi-cash-coin que ya usa la tarjeta
 -- "Total Gastos" en /expense, para que sea reconocible)
 EXEC UPD_MenuItem
-    '37D1F503-2285-4685-AFAB-A0FC299F2941', @IdConciliacion, NULL,
+    '37D1F503-2285-4685-AFAB-A0FC299F2941', @IdConciliacion, '',
     'Gastos', 'bi-cash-coin', 'expense', NULL,
     5, 1, 'Gastos', 'danger', @Now;
 
@@ -105,7 +105,7 @@ EXEC UPD_MenuItem
 -- Cuotas Extraordinarias: 8 -> 3, de paso ícono propio
 EXEC UPD_MenuItem
     '6DBF1BAA-0465-41FE-84AB-09102679C8C4', '0A1CC2F2-6287-46F3-BE37-218A0E7F6206',
-    NULL, 'Cuotas Extraordinarias', 'bi-plus-circle', 'cuotaextraordinaria',
+    '', 'Cuotas Extraordinarias', 'bi-plus-circle', 'cuotaextraordinaria',
     NULL, 3, 1, 'Cuotas Extraordinarias', 'danger', @Now;
 
 -- Multas y Moras: 9 -> 4
@@ -176,7 +176,7 @@ EXEC UPD_MenuItem
 -- Mis Pagos: ícono propio (orden se queda en 2)
 EXEC UPD_MenuItem
     '50968697-DC4F-4FE8-8FD0-10183998C028', 'C30303F7-DF5D-4526-976E-85C0881A1C79',
-    NULL, 'Mis Pagos', 'bi-credit-card', 'MyPayments', NULL,
+    '', 'Mis Pagos', 'bi-credit-card', 'MyPayments', NULL,
     2, 1, 'Mis pagos', 'info', @Now;
 
 -- Ver presupuesto: 2 -> 3
@@ -211,13 +211,13 @@ EXEC UPD_MenuItem
 
 -- System Logs: ícono propio (orden se queda en 9)
 EXEC UPD_MenuItem
-    '8571E886-59A7-4364-85E2-447D7CCC4BFC', @IdSettings, NULL, 'System Logs',
+    '8571E886-59A7-4364-85E2-447D7CCC4BFC', @IdSettings, '', 'System Logs',
     'bi-journal-text', 'Settings/SystemLogs', NULL, 9, 1, 'Ver logs', 'danger',
     @Now;
 
 -- Asignar Roles: 9 -> 10
 EXEC UPD_MenuItem
-    '1E825A3E-EDFD-4025-988E-F8A1CF26F969', @IdSettings, NULL, 'Asignar Roles',
+    '1E825A3E-EDFD-4025-988E-F8A1CF26F969', @IdSettings, '', 'Asignar Roles',
     'bi-person-gear', 'Settings/UserRoles', NULL, 10, 1, NULL, 'info',
     @Now;
 
@@ -228,12 +228,12 @@ EXEC UPD_MenuItem
 
 -- WorkFlows: 12 (queda en 12), ícono propio
 EXEC UPD_MenuItem
-    'A8A39C43-CD0B-4D2B-AE27-D8E134C21EF4', @IdSettings, NULL, 'WorkFlows',
+    'A8A39C43-CD0B-4D2B-AE27-D8E134C21EF4', @IdSettings, '', 'WorkFlows',
     'bi-diagram-3', 'workflow', NULL, 12, 1, 'Worflows', 'info', @Now;
 
 -- Edición de Permisos: 13 (queda en 13), ícono propio
 EXEC UPD_MenuItem
-    '9A2975AE-81D5-4A6C-AAF2-80DBE822C313', @IdSettings, NULL, 'Edicion de Permisos',
+    '9A2975AE-81D5-4A6C-AAF2-80DBE822C313', @IdSettings, '', 'Edicion de Permisos',
     'bi-key-fill', 'Settings/Permissions', NULL, 13, 1, NULL, 'danger',
     @Now;
 

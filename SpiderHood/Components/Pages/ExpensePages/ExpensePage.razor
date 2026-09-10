@@ -118,7 +118,8 @@
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th class="ps-3">Categoría</th>
+                                    <th class="ps-3">Grupo</th>
+                                    <th>Categoría</th>
                                     <th>Descripción</th>
                                     <th class="text-end">Fecha</th>
                                     <th>Distribución</th>
@@ -130,7 +131,8 @@
                                 @foreach (var item in pagination.CurrentPageData)
                                 {
                                     <tr>
-                                        <td class="ps-3">@item.Category</td>
+                                        <td class="ps-3 text-muted">@GetGrupo(item.IdCategory)</td>
+                                        <td>@item.Category</td>
                                         <td>@item.Description</td>
                                         <td class="text-end">@item.ExpenseDate.ToString("dd-MMM-yy")</td>
                                         <td>@(item.Distribution?.ToString() ?? "-")</td>
@@ -155,7 +157,7 @@
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
-                                    <td colspan="4" class="text-end fw-bold">Total de la página:</td>
+                                    <td colspan="5" class="text-end fw-bold">Total de la página:</td>
                                     <td class="text-end fw-bold">@Moneda(pagination.CurrentPageData.Sum(i => i.Amount))</td>
                                     <td></td>
                                 </tr>
@@ -331,11 +333,37 @@
         AplicarFiltros();
     }
 
+    // Cada gasto siempre guarda la SUBcategoría (hoja) -- el modal de crear/editar
+    // sólo deja elegir una hoja, nunca la categoría raíz (ver ModalExpense.razor,
+    // el <optgroup> no es seleccionable). El filtro de arriba lista las raíces
+    // (Nivel == 0) para no repetir 10 opciones sueltas -- comparar IdCategory
+    // directo contra esa raíz nunca matcheaba nada, porque ningún gasto tiene
+    // realmente la raíz como su categoría. Se resuelve a través de FilteredCategory
+    // (ya cargada para el dropdown/modal) subiendo un nivel por ParentId.
+    private bool CoincideConCategoriaFiltro(Guid idCategoriaGasto)
+    {
+        if (idCategoriaGasto.ToString() == filtroCategoria) return true;
+
+        var categoria = FilteredCategory.FirstOrDefault(c => c.IdCategory == idCategoriaGasto);
+        return categoria != null && categoria.ParentId.ToString() == filtroCategoria;
+    }
+
+    // "Grupo" = la categoría raíz (Nivel == 0) de la que cuelga la subcategoría real
+    // del gasto -- Category.ParentName ya trae ese nombre resuelto (no hace falta
+    // buscar la fila padre a mano).
+    private string GetGrupo(Guid idCategoria)
+    {
+        var categoria = FilteredCategory.FirstOrDefault(c => c.IdCategory == idCategoria);
+        if (categoria == null) return "-";
+        if (categoria.Nivel == 0) return categoria.ShortDescript;
+        return string.IsNullOrEmpty(categoria.ParentName) ? categoria.ShortDescript : categoria.ParentName;
+    }
+
     private void AplicarFiltros()
     {
         pagination.ApplyCustomFilter(item =>
             (filtroMes == null || item.ExpenseDate.ToString("yyyy-MM") == filtroMes)
-            && (filtroCategoria == "all" || item.IdCategory.ToString() == filtroCategoria));
+            && (filtroCategoria == "all" || CoincideConCategoriaFiltro(item.IdCategory)));
     }
 
     private void AbrirModal(Models.ViewExpense item, OpenType mode)

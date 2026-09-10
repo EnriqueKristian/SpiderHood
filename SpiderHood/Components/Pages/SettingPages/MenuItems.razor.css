@@ -18,6 +18,26 @@
         font-weight: 600;
     }
 
+/* Cabecera fija: la tabla es larga (varios niveles del árbol de menú) y con
+   el scroll normal de la página el nombre de cada columna (Administrador/
+   SysAdmin/Residente/Junta/...) desaparecía apenas bajabas un par de filas,
+   sin forma de recordar qué checkbox correspondía a qué rol. top: 3.5rem
+   porque el header global de la app (.top-row en MainLayout.razor.css) ya es
+   sticky con esa altura mínima -- esta cabecera se pega justo debajo, no la
+   tapa (mismo patrón ya usado en /cuotas, /movement y /expense). z-index
+   bajo a propósito: sólo necesita estar por encima de las filas de esta
+   misma tabla al scrollear, muy por debajo del header global (z-index: 100). */
+.menu-tree-table th,
+.menu-list-table th {
+    position: sticky;
+    top: 3.5rem;
+    z-index: 2;
+}
+
+.menu-list-table th {
+    background-color: var(--sh-surface-muted);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .menu-tree-table {

@@ -887,28 +887,61 @@ el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
   fotos, cerrar/liquidar garantía); sección "Reservas Pendientes de
   Aprobación" nueva en `Approvals.razor` para la Junta, sumando al mismo
   badge de `LeftMenu.ContarAprobacionesPendientesAsync`.
-- **Dos simplificaciones deliberadas de esta primera versión (no son un
-  olvido):**
-  1. El chequeo de solapamiento de horarios lo hace la propia tabla
-     `Reserva` (`GET_ReservasConflicto`), no `CalendarItem` -- que no tiene
-     ningún concepto de "recurso" (`Location` es texto libre). La
-     integración visual con el calendario general de Mantenimiento queda
-     pendiente.
-  2. `IngresoComunidad` es un registro propio y simple para Alquiler/
-     Limpieza/Garantía retenida -- **no** está conectado todavía al Reporte
-     de Ingresos y Egresos (100% conciliación bancaria importada hoy). El
-     propio diseño (ver más abajo, "Cobro") dejó esto abierto -- "se
-     resuelve al diseñar la pantalla de conciliación específica de
-     Reservas, no antes" -- así que no se resuelve acá.
-- `dotnet build` en 0 errores, mismo baseline de 139 warnings (+6
-  `BL0005` esperados por el mismo patrón ya usado en `Approvals.razor`/
+- **Una simplificación deliberada que sigue en pie (no es un olvido):**
+  `IngresoComunidad` es un registro propio y simple para Alquiler/Limpieza/
+  Garantía retenida -- **no** está conectado todavía al Reporte de Ingresos
+  y Egresos (100% conciliación bancaria importada hoy). El propio diseño
+  (ver más abajo, "Cobro") dejó esto abierto -- "se resuelve al diseñar la
+  pantalla de conciliación específica de Reservas, no antes" -- así que no
+  se resuelve acá.
+- `dotnet build` en 0 errores, mismo baseline de 139 warnings (+9 `BL0005`
+  esperados por el mismo patrón ya usado en `Approvals.razor`/
   `ExpensePage.razor` de setear `Title`/`Message`/`ConfirmText` en
   `ConfirmationModal` desde el code-behind).
-- **Falta:** correr el script SQL contra la base real, asignar
-  `approve_reservations`/`manage_reservations` vía `/Settings/Roles`, y
-  probar el flujo completo (solicitar -> aprobar -> check-in -> check-out
-  -> cerrar) con datos reales -- no se pudo probar la UI en vivo en este
-  entorno (sin conexión a una BD real disponible).
+- **Ronda de fixes tras probar en vivo (2026-09-11):**
+  - `ExecuteStoredProcedureAsync` (usado por TODO `AddNewRecordAsync`/
+    `UpdateXAsync` de la app, no sólo Reservas) pasaba un `DBNull.Value`
+    "pelado" a `ExecuteSqlRawAsync`, y EF no le puede inferir un store type
+    a `DBNull` -- crasheaba el circuito al guardar cualquier campo opcional
+    vacío (visto en vivo guardando la primera Área Común). Ahora envuelve
+    cada parámetro en un `SqlParameter` real, mismo patrón que ya usaban
+    `ExecuteQuerySingleAsync`/`ExecuteQueryListAsync`.
+  - `GET_ReservasConflicto` y `GET_ReservasProximasByAreaComun` hacían
+    `SELECT * FROM Reserva` sin el `LEFT JOIN` a `AreaComun`/`Users` que sí
+    tienen los otros 4 SPs de Reserva -- `Models.Reserva` es keyless y EF
+    exige `NombreAreaComun`/`CreatedByName` en TODOS los SPs que la
+    devuelven. Corregido agregando el mismo JOIN a los dos.
+  - **Integración visual con el Calendario -- ya NO es una simplificación
+    pendiente, se implementó:** cada `Reserva` crea un `CalendarItem`
+    (Type=Event) al solicitarse, para que otro propietario vea visualmente
+    que el área ya está comprometida en ese horario incluso antes de que la
+    Junta apruebe (más allá del chequeo de conflicto de `SolicitarAsync`).
+    Se actualiza al Aprobar y se borra si se Rechaza/Cancela/marca
+    NoPresentado (libera el horario). Se inserta por `BDLayout` directo, sin
+    pasar por `ICalendarService.CreateAsync`, a propósito: ese método manda
+    un correo a TODOS los residentes del edificio por cada `CalendarItem`
+    nuevo -- bien para un evento real, pero saldría un correo masivo por
+    cada Solicitud de reserva, incluso antes de aprobarse. Agregada la
+    columna `Reserva.IdCalendarItem` para el vínculo.
+  - Aprobar/Rechazar una reserva ahora también está disponible **inline en
+    `/reservas-admin`** (no sólo en `/aprobaciones`) -- feedback del usuario
+    de que, con el permiso de Junta ya asignado, no encontraba dónde
+    aprobar desde la pantalla de gestión.
+  - `/reservas-admin` ahora también permite al Administrador **cargar una
+    reserva en nombre de una unidad** (ej. alguien llamó a pedir el salón
+    para un evento externo) -- mismo `SolicitarAsync`, elige la unidad
+    responsable de una lista en vez de resolverla del usuario actual (que
+    no tiene DPTO si es Administrador/Junta puro).
+  - Todos los modales nuevos de este módulo (y el de Comunicados) ahora
+    usan `UseStaticBackdrop="true" CloseOnEscape="false"` -- feedback del
+    usuario: un clic afuera del modal perdía todo lo cargado en el
+    formulario. Mismo patrón ya usado en varios modales de `BuildingPages`.
+- **Falta:** volver a correr el script SQL contra la base real (agregó la
+  columna `IdCalendarItem` y corrigió los 2 SPs), y probar el flujo
+  completo (solicitar -> aprobar -> check-in -> check-out -> cerrar) de
+  punta a punta -- no se pudo probar la UI en vivo en este entorno (sin
+  conexión a una BD real disponible), todo lo de acá se corrigió a partir
+  de los stack traces que compartió el usuario.
 
 *Configuración del Área Común (por edificio, en `BuildingConfig` -- ver
 item #24, encajaría como una pestaña nueva "Áreas Comunes"):*

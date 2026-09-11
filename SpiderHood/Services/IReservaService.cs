@@ -61,6 +61,7 @@ namespace SpiderHood.Services
     {
         private readonly IFileStorageService _fileStorageService;
         private readonly IExtraChargeService _extraChargeService;
+        private readonly ICalendarService _calendarService;
         private readonly ILogger<ReservaService> _logger;
         private BDLayout ec { get; set; }
 
@@ -68,10 +69,12 @@ namespace SpiderHood.Services
             IDbContextFactory<SpiderHoodContext> contextFactory,
             IFileStorageService fileStorageService,
             IExtraChargeService extraChargeService,
+            ICalendarService calendarService,
             ILogger<ReservaService> logger)
         {
             _fileStorageService = fileStorageService;
             _extraChargeService = extraChargeService;
+            _calendarService = calendarService;
             _logger = logger;
             ec = new BDLayout(contextFactory);
         }
@@ -158,6 +161,36 @@ namespace SpiderHood.Services
             reserva.MontoLimpieza = areaComun.Limpieza;
             reserva.CreatedOn = DateTime.Now;
 
+            // Feedback del usuario tras probar en vivo (2026-09-11): sin un CalendarItem,
+            // una Reserva Pendiente/Aprobada no se veía en el Calendario general, así que
+            // otro propietario no tenía forma visual de saber que el área ya estaba
+            // comprometida en ese horario (más allá del chequeo de conflicto de arriba).
+            // Se inserta directo por BDLayout, sin pasar por ICalendarService.CreateAsync
+            // a propósito: ese método manda un correo a TODOS los residentes del edificio
+            // ("Nuevo evento programado...") cada vez que se crea un CalendarItem -- bien
+            // para un evento real cargado por el Administrador, pero acá saldría un correo
+            // masivo por cada Solicitud de reserva, incluso antes de que la Junta la
+            // apruebe. Este CalendarItem es sólo un marcador visual de "horario ocupado",
+            // no un anuncio -- si en el futuro se quiere avisar de una reserva Aprobada,
+            // debería salir del módulo de Comunicados, no de acá.
+            var nombreUnidad = await ResolverNombreUnidadAsync(areaComun.IdBuilding, reserva.IdGroupUnit);
+            var calendarItem = new CalendarItem
+            {
+                IdCalendarItem = Guid.NewGuid(),
+                IdBuilding = areaComun.IdBuilding,
+                Title = $"Reserva: {areaComun.Nombre} ({nombreUnidad})",
+                Description = "Pendiente de aprobación de la Junta.",
+                Type = CalendarItemType.Event,
+                StartDate = reserva.FechaInicio,
+                EndDate = reserva.FechaFin,
+                Location = areaComun.Nombre,
+                Status = CalendarItemStatus.Scheduled,
+                CreatedBy = reserva.CreatedBy.ToString(),
+                CreatedOn = DateTime.Now
+            };
+            await ec.AddNewRecordAsync(calendarItem);
+            reserva.IdCalendarItem = calendarItem.IdCalendarItem;
+
             await ec.AddNewRecordAsync(reserva);
 
             resultado.Exito = true;
@@ -167,10 +200,32 @@ namespace SpiderHood.Services
         }
 
         public async Task AprobarAsync(Guid idReserva, Guid aprobadoPor)
-            => await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Aprobada, aprobadoPor: aprobadoPor);
+        {
+            await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Aprobada, aprobadoPor: aprobadoPor);
+
+            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            if (reserva.IdCalendarItem.HasValue)
+            {
+                var calendarItem = await _calendarService.GetByIdAsync(reserva.IdCalendarItem.Value);
+                calendarItem.Description = "Aprobada por la Junta.";
+                calendarItem.ModifiedBy = aprobadoPor.ToString();
+                calendarItem.ModifiedOn = DateTime.Now;
+                await _calendarService.UpdateAsync(calendarItem);
+            }
+        }
 
         public async Task RechazarAsync(Guid idReserva, Guid aprobadoPor, string motivo)
-            => await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Rechazada, motivoRechazo: motivo, aprobadoPor: aprobadoPor);
+        {
+            await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Rechazada, motivoRechazo: motivo, aprobadoPor: aprobadoPor);
+
+            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            if (reserva.IdCalendarItem.HasValue)
+            {
+                // Rechazada libera el horario -- se borra el CalendarItem para que el área
+                // vuelva a verse disponible para otro propietario.
+                await _calendarService.DeleteAsync(reserva.IdCalendarItem.Value, deleteSeries: false, aprobadoPor.ToString());
+            }
+        }
 
         public async Task CancelarAsync(Guid idReserva, AreaComun areaComun)
         {
@@ -183,6 +238,12 @@ namespace SpiderHood.Services
 
             var montoRetenido = aplicaPenalidad ? reserva.MontoGarantia : 0;
             await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Cancelada, montoRetenido: montoRetenido);
+
+            if (reserva.IdCalendarItem.HasValue)
+            {
+                // Cancelada libera el horario -- mismo motivo que Rechazada arriba.
+                await _calendarService.DeleteAsync(reserva.IdCalendarItem.Value, deleteSeries: false, reserva.CreatedBy.ToString());
+            }
         }
 
         public async Task MarcarNoPresentadoAsync(Guid idReserva, AreaComun areaComun)
@@ -191,6 +252,22 @@ namespace SpiderHood.Services
             var montoRetenido = areaComun.PenalidadNoPresentadoHabilitada ? reserva.MontoGarantia : 0;
 
             await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.NoPresentado, montoRetenido: montoRetenido);
+
+            if (reserva.IdCalendarItem.HasValue)
+            {
+                // El horario ya pasó (no hubo check-in), pero igual se borra para no dejar
+                // basura visual de una reserva que nunca se concretó.
+                await _calendarService.DeleteAsync(reserva.IdCalendarItem.Value, deleteSeries: false, reserva.CreatedBy.ToString());
+            }
+        }
+
+        // Mismo filtro Role==1 && TypeUnit==1 que ya usa IExtraChargeService.GetUnidadesAsync
+        // -- sólo para armar un título legible del CalendarItem, no crítico si no matchea.
+        private async Task<string> ResolverNombreUnidadAsync(Guid idBuilding, Guid idGroupUnit)
+        {
+            var unidades = await ec.GetOwnersByBuildingAsync(idBuilding);
+            var unidad = unidades.FirstOrDefault(u => u.IdGroupUnit == idGroupUnit);
+            return unidad != null ? $"DPTO {unidad.UnitNumber}" : "unidad";
         }
 
         public async Task HacerCheckInAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)

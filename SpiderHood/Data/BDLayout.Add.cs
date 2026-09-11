@@ -1108,6 +1108,7 @@ namespace SpiderHood.Data
                     reserva.MontoGarantia,
                     reserva.MontoAlquiler,
                     reserva.MontoLimpieza,
+                    (object?)reserva.IdCalendarItem ?? DBNull.Value,
                     reserva.CreatedBy);
                 return reserva;
             }, "AddReserva", cancellationToken);

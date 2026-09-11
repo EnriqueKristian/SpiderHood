@@ -3,6 +3,7 @@
 using BlazorBootstrap;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using SpiderHood.Components.Pages.Components;
 using SpiderHood.Models;
 using SpiderHood.Utilities;
 
@@ -12,8 +13,10 @@ namespace SpiderHood.Components.Pages.ReservationPages
     {
         private bool _loading = true;
         private bool _canGestionar;
+        private bool _canAprobar;
         private UserSession currentUser = new();
         private List<UnitView> _unidades = new();
+        private List<AreaComun> _areasComunes = new();
 
         private ReservaPagination _pagination = new();
         private string _searchTerm = string.Empty;
@@ -33,6 +36,14 @@ namespace SpiderHood.Components.Pages.ReservationPages
         private List<StagedFoto> _fotosStaged = new();
         private decimal _montoDanio;
 
+        private ConfirmationModal? _confirmationModal;
+        private RejectionModal? _rejectionModal;
+
+        private Modal _nuevaReservaModal = null!;
+        private AreaComun? _areaSeleccionada;
+        private List<Reserva> _proximasReservas = new();
+        private Reserva _nuevaReserva = new();
+
         private record StagedFoto(string FileName, string ContentType, byte[] Content);
 
         private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
@@ -41,8 +52,9 @@ namespace SpiderHood.Components.Pages.ReservationPages
         {
             currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
             _canGestionar = await PermissionService.HasPermissionAsync(currentUser, "manage_reservations");
+            _canAprobar = await PermissionService.HasPermissionAsync(currentUser, "approve_reservations");
 
-            if (_canGestionar && currentUser.CurrentBuildingId != Guid.Empty)
+            if ((_canGestionar || _canAprobar) && currentUser.CurrentBuildingId != Guid.Empty)
             {
                 if (ParameterService.CurrentBuilding == null || ParameterService.CurrentBuilding.IdBuilding != currentUser.CurrentBuildingId)
                 {
@@ -50,6 +62,9 @@ namespace SpiderHood.Components.Pages.ReservationPages
                 }
 
                 _unidades = await BuildingService.GetGroupUnitsByTypeAsync(currentUser.CurrentBuildingId, 1);
+                _areasComunes = (await AreaComunService.GetAreaComunesAsync(currentUser.CurrentBuildingId))
+                    .Where(a => a.Activo)
+                    .ToList();
                 await CargarReservasAsync();
             }
 
@@ -195,6 +210,100 @@ namespace SpiderHood.Components.Pages.ReservationPages
                 if (resultado.Exito)
                 {
                     await _cerrarModal.HideAsync();
+                    await CargarReservasAsync();
+                }
+            }
+            finally
+            {
+                _procesando = false;
+                StateHasChanged();
+            }
+        }
+
+        private void PedirAprobar(Reserva reserva)
+        {
+            if (!_canAprobar || _confirmationModal == null) return;
+            _reservaSeleccionada = reserva;
+            _confirmationModal.Title = "Aprobar Reserva";
+            _confirmationModal.Message = $"¿Aprobar la reserva de {reserva.NombreAreaComun} del {reserva.FechaInicio:dd/MM/yyyy HH:mm}?";
+            _confirmationModal.ConfirmText = "Aprobar";
+            _confirmationModal.Show("info");
+        }
+
+        private async Task OnAprobarConfirmado(bool confirmado)
+        {
+            var reserva = _reservaSeleccionada;
+            _reservaSeleccionada = null;
+            if (!confirmado || reserva == null || !_canAprobar) return;
+
+            await ReservaService.AprobarAsync(reserva.IdReserva, currentUser.IdUser);
+            await CargarReservasAsync();
+        }
+
+        private void PedirRechazar(Reserva reserva)
+        {
+            if (!_canAprobar || _rejectionModal == null) return;
+            _reservaSeleccionada = reserva;
+            _rejectionModal.Show();
+        }
+
+        private async Task OnRechazarConfirmado(string? motivo)
+        {
+            var reserva = _reservaSeleccionada;
+            _reservaSeleccionada = null;
+            if (motivo == null || reserva == null || !_canAprobar) return; // cancelado
+
+            await ReservaService.RechazarAsync(reserva.IdReserva, currentUser.IdUser, motivo);
+            await CargarReservasAsync();
+        }
+
+        private async Task AbrirNuevaReserva()
+        {
+            _resultado = null;
+            _areaSeleccionada = _areasComunes.FirstOrDefault();
+            _nuevaReserva = new Reserva
+            {
+                IdBuilding = currentUser.CurrentBuildingId,
+                CreatedBy = currentUser.IdUser,
+                FechaInicio = DateTime.Today.AddDays(1).AddHours(18),
+                FechaFin = DateTime.Today.AddDays(1).AddHours(22)
+            };
+
+            if (_areaSeleccionada != null)
+            {
+                _proximasReservas = await ReservaService.GetProximasAsync(_areaSeleccionada.IdAreaComun);
+            }
+
+            await _nuevaReservaModal.ShowAsync();
+        }
+
+        private async Task OnAreaChanged(ChangeEventArgs e)
+        {
+            if (Guid.TryParse(e.Value?.ToString(), out var idAreaComun))
+            {
+                _areaSeleccionada = _areasComunes.FirstOrDefault(a => a.IdAreaComun == idAreaComun);
+                _proximasReservas = _areaSeleccionada != null
+                    ? await ReservaService.GetProximasAsync(_areaSeleccionada.IdAreaComun)
+                    : new List<Reserva>();
+            }
+        }
+
+        private async Task ConfirmarNuevaReserva()
+        {
+            if (_areaSeleccionada == null || _nuevaReserva.IdGroupUnit == Guid.Empty) return;
+
+            _procesando = true;
+            StateHasChanged();
+
+            try
+            {
+                var resultado = await ReservaService.SolicitarAsync(_nuevaReserva, _areaSeleccionada);
+                _resultadoOk = resultado.Exito;
+                _resultado = resultado.Mensaje;
+
+                if (resultado.Exito)
+                {
+                    await _nuevaReservaModal.HideAsync();
                     await CargarReservasAsync();
                 }
             }

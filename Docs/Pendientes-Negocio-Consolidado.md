@@ -29,9 +29,11 @@ secas, es la secuencia en la que conviene tocarlos.
    edificio piloto tiene cuotas migradas, hoy se ven "Parcial" sin serlo.
 2. **#1** Unidades sin propietario no facturan a la inmobiliaria -- si el
    edificio piloto tiene unidades sin vender.
-3. **#17** Comunicados vía WhatsApp -- ya decidido como prioridad; arrancar
-   ya con la verificación de negocio en Meta (no es instantánea) mientras se
-   define proveedor (Cloud API vs. Twilio) y plantillas.
+3. **#17** Comunicados vía WhatsApp -- diseño cerrado (2026-09-11): 3
+   alcances (Público/Reservado/Privado) + 4 categorías de plantilla,
+   módulo chico a propósito. Arrancar ya con la verificación de negocio en
+   Meta y las 4 plantillas (no es instantáneo) mientras se construye la
+   pantalla en modo Simulado.
 4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
    (solo lectura: presupuesto, incidencias, calendario).
 5. **#18** Storage de archivos -- **18b (Recibos PDF) y 18a (fotos/video en
@@ -287,9 +289,11 @@ que ya existía), esto es funcionalidad que **no está construida en absoluto**
 -- verificado buscando en todo el repo, no por sospecha.
 
 ### 17. Comunicados / Anuncios
-**Estado: en progreso (2026-09-11) -- servicio de envío por WhatsApp
-construido (`IWhatsAppService`/`WhatsAppService`, vía Twilio); la pantalla de
-Comunicados en sí (tabla, quién publica, a quién le llega) todavía no.**
+**Estado: servicio de envío por WhatsApp construido
+(`IWhatsAppService`/`WhatsAppService`, vía Twilio); diseño de negocio del
+módulo (alcance, plantillas, estructura) cerrado con el usuario el
+2026-09-11 -- ver detalle abajo. La pantalla en sí (tabla, formulario de
+publicar) todavía no está construida.**
 
 **Qué se hizo:** `Services/IWhatsAppService.cs` (patrón calcado de
 `IEmailService`/`IPaymentService`) -- `SendMessageAsync` (texto libre, sirve
@@ -373,13 +377,57 @@ imitar -- SMTP puro, sin plantillas ni proveedor externo):**
    plantilla + variables, y registra éxito/fallo por destinatario (para
    saber a quién no le llegó).
 
-**Falta además, del lado de negocio/diseño (sin resolver todavía):** quién
-publica (¿sólo Administrador/Junta?), a quién le llega (¿todo el edificio,
-por torre/unidad, por rol?), si el comunicado también queda visible dentro
-de la app (mejor para historial/auditoría, aunque WhatsApp sea el aviso
-inmediato) o vive sólo en WhatsApp, y qué pasa con el residente que no dio
-opt-in o no tiene teléfono cargado (¿cae a email como respaldo? -- ya existe
-`IEmailService` para eso).
+**Diseño de negocio -- cerrado con el usuario el 2026-09-11. Módulo
+chico a propósito: "empecemos con lo básico, y si tiene funcionalidad lo
+vamos desarrollando" (piloto real decide qué tanto crece).**
+
+*Alcance (v1) -- 3 tipos, sin mensajería vecino-a-vecino (se descartó
+explícitamente: "conllevaría a un chat y no es el objetivo") ni "Público
+Global" de SysAdmin a todos los edificios (es una feature de plataforma,
+distinta en naturaleza a un comunicado de condominio -- se deja fuera de
+este módulo, no está descartada, solo no es v1):*
+- **Público:** Administrador o Junta -> todos los residentes del edificio.
+- **Reservado:** Administrador o Junta -> un rol específico dentro del
+  edificio (ej. solo Junta).
+- **Privado:** Administrador o Junta -> una unidad o grupo de unidades
+  puntual (NO vecino a vecino).
+
+*Estructura del Comunicado:*
+- Título + Cuerpo (lo que se ve en la app).
+- **Categoría** -- define qué plantilla de WhatsApp usa (ver plantillas
+  abajo).
+- Alcance (uno de los 3 de arriba) + destinatario exacto (rol, o unidad/
+  grupo de unidades, según corresponda).
+- Quién publicó y cuándo (auditoría).
+- Checkbox **"Enviar también por correo"** al momento de publicar --
+  WhatsApp se manda automático si el edificio lo tiene configurado (si no,
+  corre en modo Simulado, igual que hoy); el correo es una decisión
+  explícita de quien publica, no automático.
+- **Siempre queda visible en la app** según el alcance -- WhatsApp/correo
+  son el aviso, la app es el registro/historial (resuelve lo que antes
+  era una pregunta abierta: no vive solo en WhatsApp).
+- Por destinatario se guarda si le llegó por WhatsApp (Enviado/Simulado/
+  Falló) y por correo (si se marcó el check) -- para saber a quién no le
+  llegó.
+
+*Categorías/Plantillas -- arrancamos en cero, plantillas propias
+(4 categorías iniciales, ampliable según lo que el piloto pida):*
+1. **Mantenimiento Programado** -- ej. "Se realizará mantenimiento de
+   {{área/equipo}} el {{fecha}} de {{hora inicio}} a {{hora fin}}.
+   {{recomendación}}" (caso de referencia: aviso de mantenimiento de
+   ascensor).
+2. **Corte de Servicio** (agua/luz/gas) -- misma estructura que
+   Mantenimiento, distinto rubro.
+3. **Convocatoria de Reunión/Asamblea** -- conecta directo con el módulo
+   de Gobernanza (item #21): cuando ese módulo exista, una Convocatoria
+   podría disparar un Comunicado de esta categoría automáticamente.
+4. **Aviso General** -- la más libre, para lo que no encaja en las otras
+   3.
+
+*Sigue bloqueando el envío REAL por WhatsApp (no el resto del módulo, que
+se puede construir y probar en modo Simulado sin esperar esto):* que Meta
+apruebe estas 4 plantillas -- corre en paralelo a la construcción de la
+pantalla, no la frena.
 
 ### 18. Storage de archivos -- fotos/video en Incidencias Y PDFs de Recibos
 **Estado: pregunta técnica -- respuesta recomendada abajo. Ampliado
@@ -1266,7 +1314,7 @@ que confirme si mejoró y en qué medida.
 | 14 | Confirmar upsert de `ServiceReadingDetail` | Baja | Investigación |
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
-| 17 | Comunicados vía WhatsApp (canal prioritario, decidido) | Alta* | Producto + integración externa |
+| 17 | Comunicados vía WhatsApp -- **diseño cerrado**, falta construir la pantalla | Alta* | Producto + integración externa |
 | 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados** | Alta* | **Resuelto** (2026-09-11), falta probar con BD real |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |

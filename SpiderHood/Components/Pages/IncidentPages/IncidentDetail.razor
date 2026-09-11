@@ -89,9 +89,13 @@
                                 }
                                 else if (EsImagen(adjunto.ContentType))
                                 {
-                                    <a href="@dataUri" target="_blank" rel="noopener">
-                                        <img src="@dataUri" class="img-thumbnail mb-1" style="width:140px;height:140px;object-fit:cover;" alt="@adjunto.FileName" />
-                                    </a>
+                                    <!-- Abre un lightbox EN LA MISMA página (no navega a la
+                                         data: URI en una pestaña nueva) -- Chrome/Edge tienen
+                                         un límite de tamaño para NAVEGAR a una URL data:, aunque
+                                         mostrarla en un <img> inline funciona sin problema; hacer
+                                         click en la miniatura navegando directo dejaba la pestaña
+                                         nueva en blanco para cualquier foto de celular real. -->
+                                    <img src="@dataUri" class="img-thumbnail mb-1" style="width:140px;height:140px;object-fit:cover;cursor:pointer;" alt="@adjunto.FileName" @onclick="() => AbrirLightbox(adjunto)" />
                                 }
                                 else if (EsVideo(adjunto.ContentType))
                                 {
@@ -230,6 +234,23 @@
     </div>
 }
 
+@if (_lightboxAdjunto is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.85);" @onclick="CerrarLightbox">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-transparent border-0" @onclick:stopPropagation="true">
+                <div class="modal-header border-0">
+                    <span class="text-white">@_lightboxAdjunto.FileName</span>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarLightbox"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="@DataUri(_lightboxAdjunto)" class="img-fluid rounded" style="max-height: 80vh;" alt="@_lightboxAdjunto.FileName" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -261,6 +282,20 @@
     private bool _subiendoAdjunto;
     private string? _errorAdjunto;
     private int _maxAdjuntoMb => (Configuration.GetValue<int?>("IncidentAttachments:MaxSizeBytes") ?? 15 * 1024 * 1024) / 1024 / 1024;
+    private IncidentAttachment? _lightboxAdjunto;
+
+    // Bug real encontrado por el usuario probando adjuntos: navegar de un
+    // incidente a OTRO (ej. Volver a la lista, entrar a uno distinto) reusaba
+    // este mismo componente -- misma ruta "/incidents/{Id}" -- y como
+    // OnInitializedAsync sólo corre UNA VEZ por instancia, la pantalla se
+    // quedaba mostrando título/comentarios/fotos del incidente anterior
+    // aunque el Id de la URL ya fuera otro (el archivo en disco del incidente
+    // nuevo era el correcto -- lo que no se refrescaba era la pantalla).
+    // OnParametersSetAsync sí corre en cada cambio de parámetro -- se
+    // compara contra el último Id cargado para no recargar de más en el
+    // primer render (OnParametersSetAsync también corre una vez justo
+    // después de OnInitializedAsync).
+    private Guid _loadedId = Guid.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -269,6 +304,16 @@
         _isStaff = _currentUser.Roles.Contains("Administrador") || _isSysAdmin;
 
         await CargarAsync();
+        _loadedId = Id;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id != _loadedId)
+        {
+            await CargarAsync();
+            _loadedId = Id;
+        }
     }
 
     private async Task CargarAsync()
@@ -304,6 +349,9 @@
 
     private static bool EsImagen(string contentType) => contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
     private static bool EsVideo(string contentType) => contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+
+    private void AbrirLightbox(IncidentAttachment adjunto) => _lightboxAdjunto = adjunto;
+    private void CerrarLightbox() => _lightboxAdjunto = null;
 
     private async Task SubirAdjunto(InputFileChangeEventArgs e)
     {

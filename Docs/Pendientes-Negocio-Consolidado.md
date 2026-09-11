@@ -497,14 +497,29 @@ archivo en disco), pero notó que TODOS los recibos de TODOS los edificios
 caían en una sola carpeta plana (`receipts/<IdInstallment>.pdf`) --
 inmanejable a mediano plazo. Primera vuelta: una carpeta por edificio con
 Periodo+Unidad en el nombre del archivo. El usuario pidió ir más allá --
-carpeta por Unidad, y adentro por Año/Mes (o Periodo) -- y aclaró que no le
-preocupa el riesgo de renumeración que había motivado la primera versión
-("dudo que un DPTO cambie de nombre, de hecho lo podemos bloquear").
-**Estructura final:**
+carpeta por Unidad, y adentro por Año/Mes -- y compartió cómo ya organizan
+los recibos hoy A MANO en Google Drive: `Edificio > DPTO > Año > Mes`
+(meses con nombre en español, ej. "ABRIL"). Aclaró también que no le
+preocupa el riesgo de renumeración de unidad que había motivado la primera
+versión ("dudo que un DPTO cambie de nombre, de hecho lo podemos
+bloquear"). **Estructura final, calcada de ese orden con un ajuste:**
 
 ```
-receipts/{IdBuilding}/{UnitName}/{Periodo:yyyy-MM}/{IdInstallment}.pdf
+receipts/{IdBuilding}/{UnitName}/{Año}/{MM-NombreMes}/{IdInstallment}.pdf
 ```
+
+Ej.: `receipts/<guid-edificio>/902/2026/04-Abril/<guid-installment>.pdf`
+
+**El ajuste sobre el ejemplo de Drive:** ahí los meses quedan ordenados
+ALFABÉTICAMENTE (ABRIL, AGOSTO, ENERO, FEBRERO...) porque el nombre del mes
+solo no ordena cronológicamente -- efecto secundario de usar el nombre tal
+cual como carpeta. Acá se antepone el número de mes ("04-Abril", no sólo
+"Abril"), así la carpeta ordena Ene→Dic en cualquier explorador de
+archivos y sigue siendo legible. El nombre del mes se arma siempre con
+`CultureInfo("es-PE")` explícito (no `CurrentCulture`, que depende del
+locale del servidor y no está garantizado) -- probado que da "Enero",
+"Abril", ..., y de paso "Setiembre" (no "Septiembre"), la forma que usa el
+`es-PE` de .NET.
 
 `SaveAsync` (`IFileStorageService`) pasó de recibir un `category` como
 string con `/` a recibir `string[] categorySegments` -- cada elemento se
@@ -512,10 +527,20 @@ sanitiza como una unidad completa, así un nombre de unidad que en la
 práctica trajera una "/" (ej. "Cochera 12/A") nunca crea un nivel de
 carpeta de más por accidente (se probó explícitamente este caso). El
 nombre del archivo queda simple (sólo el `IdInstallment`), ya que
-Edificio/Unidad/Periodo quedan expresados en la carpeta. **No rompe los
+Edificio/Unidad/Año/Mes quedan expresados en la carpeta. **No rompe los
 recibos ya guardados con esquemas anteriores** (siguen en su ruta vieja,
 registrada tal cual en su fila de `ReceiptFile` -- son inmutables, nunca se
 mueven ni se regeneran).
+
+**Pendiente, sin resolver todavía (a criterio del usuario si vale la
+pena):** el nivel de Edificio sigue siendo el `IdBuilding` (Guid), no el
+nombre ("NOVA ALZAMORA" como en Drive) -- se dejó así a propósito porque el
+nombre de un edificio SÍ se puede repetir entre dos edificios distintos (o
+cambiar), y los edificios usan Guid como identidad real en toda la app;
+usar el nombre ahí arriesgaría mezclar archivos de dos edificios con el
+mismo nombre sanitizado. Si en la práctica nunca va a haber dos edificios
+con nombres parecidos y se prefiere ver el nombre real al entrar a la
+carpeta, se puede agregar sin mucho esfuerzo.
 
 **Verificado en este entorno:** se instaló el SDK de .NET 10 (ver
 Docs/Pendientes-Negocio-Consolidado.md #17) y `dotnet build` compila sin

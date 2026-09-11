@@ -428,3 +428,34 @@ entorno): cargar un Excel con alguna fila con dato inválido (fecha futura,
 moneda que no sea PEN/USD, etc.) y confirmar que el mensaje ahora dice
 "Fila N: ..." y que la vista previa muestra esa fila marcada en rojo junto
 con el resto de filas válidas.
+
+---
+
+## 10. Soporte real de multimoneda (hoy es una sola moneda por edificio, sin tipo de cambio)
+
+**Estado: pendiente, sin empezar -- solo la mención del caso.**
+
+Encontrado de paso en el punto 9: `LeerExcel()` sólo acepta `PEN` o `USD` al
+validar la columna Moneda del Excel de estado de cuenta, hardcodeado.
+Revisando el resto del sistema, ese hardcodeo es sólo un síntoma de algo más
+grande -- hoy no hay multimoneda de verdad en ningún lado:
+
+- `BuildingConfiguration.Currency` (`Classes/Building.cs`) es **una sola
+  moneda por edificio** (default `"PEN"`), elegida en "Configuración
+  Rápida" (`BuildingPage.razor.cs`) de una lista fija de 3 opciones (`PEN`,
+  `USD`, `EUR`) -- es solo una etiqueta para mostrar el símbolo, no cambia
+  ninguna lógica de cálculo.
+- `Movement.Currency` sí existe como campo por transacción, pero nada en el
+  sistema define qué pasa si conviven transacciones en más de una moneda
+  dentro del mismo edificio: cuotas, gastos, reportes (Ingresos y Egresos,
+  Dashboard) y la propia conciliación bancaria suman montos asumiendo que
+  todo está en la misma moneda, sin tipo de cambio ni conversión.
+- No existe ningún catálogo/tabla de tipo de cambio (histórico ni del día),
+  ni un lugar donde definirlo.
+
+**Lo que falta (todo por diseñar, nada implementado):** si un edificio puede
+operar en más de una moneda a la vez o sigue siendo una sola moneda fija por
+edificio (caso más simple); si hace falta tipo de cambio y de dónde sale
+(manual, tabla, servicio externo); y cómo se muestran/suman montos mixtos en
+reportes y en esta misma pantalla de conciliación cuando el estado de cuenta
+trae filas en más de una moneda.

@@ -408,6 +408,20 @@ ningún lado (`appsettings*.json` tampoco tiene nada de Azure Blob/S3), y
   sólo el nombre), y si video entra al piloto o sólo fotos (video pesa
   bastante más y complica más el storage/streaming).
 
+**Estructura de carpetas acordada (2026-09-11, todavía sin implementar --
+no hay pantalla de carga de adjuntos construida sobre la que conectarla
+todavía):** una carpeta por INCIDENTE, adentro de la carpeta del edificio
+-- `incidents/{IdBuilding}/{IdIncident}/{nombre-de-archivo}` -- ya que un
+mismo incidente puede tener varias fotos/videos y conviene que viajen
+juntos. A diferencia de Recibos, acá no hace falta año/mes como nivel
+aparte: la cantidad de incidentes por edificio es mucho menor que la de
+cuotas mensuales por unidad, así que una carpeta por incidente ya alcanza
+para que sea manejable a simple vista. Usa el mismo
+`IFileStorageService.SaveAsync(string[] categorySegments, ...)` que ya
+quedó armado para Recibos (ver 18b) -- no hace falta tocar el servicio de
+storage en sí, sólo construir la tabla `IncidentAttachment` + la UI de
+carga cuando se ataque este punto.
+
 #### 18b. PDFs de Recibos (agregado 2026-09-11, pedido del usuario)
 
 **Verificado en el código: los recibos tampoco se guardan en ningún lado
@@ -481,29 +495,36 @@ abajo) -- fix del bug de integridad incluido, no sólo la optimización.
 reales confirmó que el flujo completo funciona (filas en `ReceiptFile` +
 archivo en disco), pero notó que TODOS los recibos de TODOS los edificios
 caían en una sola carpeta plana (`receipts/<IdInstallment>.pdf`) --
-inmanejable a mediano plazo. Se cambió a `SaveAsync` para que `category`
-acepte niveles (`receipts/{idBuilding}`, sanitizando cada nivel por
-separado) y a **una carpeta por edificio**:
-`receipts/{IdBuilding}/{Periodo:yyyyMM}_{UnitName}_{IdInstallment}.pdf`.
-Deliberadamente **sin** subcarpeta por unidad/departamento -- si una unidad
-se renumera con el tiempo, sus recibos viejos no quedan "perdidos" en una
-carpeta con el nombre viejo; en cambio, Periodo+Unidad van en el NOMBRE del
-archivo (mismo criterio que ya usaba el ZIP de `GenerateAllReceiptsZip`
-para sus entradas), así la carpeta del edificio ya se puede ordenar/filtrar
-a simple vista sin más anidamiento. El `IdInstallment` se mantiene al final
-del nombre para garantizar unicidad aunque dos cuotas compartan
-Unidad+Periodo (ej. una Ordinaria y una Multa del mismo mes). **No rompe
-los recibos ya guardados antes de este cambio** (siguen en la ruta plana
-vieja, registrada tal cual en su fila de `ReceiptFile` -- son inmutables,
-nunca se mueven ni se regeneran).
+inmanejable a mediano plazo. Primera vuelta: una carpeta por edificio con
+Periodo+Unidad en el nombre del archivo. El usuario pidió ir más allá --
+carpeta por Unidad, y adentro por Año/Mes (o Periodo) -- y aclaró que no le
+preocupa el riesgo de renumeración que había motivado la primera versión
+("dudo que un DPTO cambie de nombre, de hecho lo podemos bloquear").
+**Estructura final:**
+
+```
+receipts/{IdBuilding}/{UnitName}/{Periodo:yyyy-MM}/{IdInstallment}.pdf
+```
+
+`SaveAsync` (`IFileStorageService`) pasó de recibir un `category` como
+string con `/` a recibir `string[] categorySegments` -- cada elemento se
+sanitiza como una unidad completa, así un nombre de unidad que en la
+práctica trajera una "/" (ej. "Cochera 12/A") nunca crea un nivel de
+carpeta de más por accidente (se probó explícitamente este caso). El
+nombre del archivo queda simple (sólo el `IdInstallment`), ya que
+Edificio/Unidad/Periodo quedan expresados en la carpeta. **No rompe los
+recibos ya guardados con esquemas anteriores** (siguen en su ruta vieja,
+registrada tal cual en su fila de `ReceiptFile` -- son inmutables, nunca se
+mueven ni se regeneran).
 
 **Verificado en este entorno:** se instaló el SDK de .NET 10 (ver
 Docs/Pendientes-Negocio-Consolidado.md #17) y `dotnet build` compila sin
 errores (0 errores, mismos 139 warnings preexistentes, ninguno nuevo). Se
-probó además `LocalFileStorageService` con un programa aparte (fuera del
+probó además `LocalFileStorageService` con programas aparte (fuera del
 repo): guardar/leer funciona, un archivo inexistente devuelve `null` sin
-tirar excepción, y dos variantes de path traversal (`../../../etc/passwd` y
-`receipts/../../../../etc/passwd`) quedaron bloqueadas correctamente.
+tirar excepción, dos variantes de path traversal quedaron bloqueadas, dos
+edificios distintos quedan en carpetas separadas, y una unidad con "/" en
+el nombre queda sanitizada a un solo nivel de carpeta (no se parte en dos).
 
 **Sin verificar (no hay acceso a BD real en este entorno):** correr
 `2026-09-11_95_ReceiptFile.sql`, y probar el flujo completo con datos

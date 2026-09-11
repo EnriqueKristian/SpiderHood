@@ -365,11 +365,13 @@ FodyWeavers.xsd
 # Claude Code local session/config files -- no son parte del proyecto
 .claude/
 
-# Configuración local con secretos reales (Twilio AccountSid/AuthToken, SMTP
-# password, etc.) -- appsettings.json en el repo sólo tiene placeholders/
-# valores vacíos a propósito (ver Email:SmtpPassword, Twilio:AccountSid).
-# Las credenciales reales van en este archivo (por entorno) o en User Secrets
-# de .NET, nunca en un archivo trackeado por git.
-**/appsettings.Development.json
-**/appsettings.Local.json
-**/appsettings.*.local.json
+# Cualquier appsettings.<Entorno>.json (Development, Production, Staging,
+# etc.) -- son overrides con secretos reales (Twilio AccountSid/AuthToken,
+# SMTP password, connection strings). appsettings.json (el base, sin
+# sufijo) SÍ se trackea a propósito y sólo tiene placeholders/valores
+# vacíos (ver Email:SmtpPassword, Twilio:AccountSid). El patrón de abajo no
+# matchea ese archivo base porque exige DOS puntos (appsettings.X.json),
+# así que appsettings.json sigue trackeado sin tener que excluirlo aparte.
+# Las credenciales reales van en el archivo por entorno (ignorado) o en
+# User Secrets de .NET, nunca en un archivo trackeado por git.
+**/appsettings.*.json

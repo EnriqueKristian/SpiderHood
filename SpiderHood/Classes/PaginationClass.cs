@@ -655,6 +655,33 @@ namespace SpiderHood.Utilities
 
     }
 
+    // Paginación/búsqueda para /buildings (listado de Edificios).
+    public class BuildingPagination : PaginationClass<Models.Building>
+    {
+        public BuildingPagination() : base()
+        {
+            var sortExpressions = new Dictionary<string, Func<Models.Building, object>>
+            {
+                { "Number", x => x.Number },
+                { "Name", x => x.Name },
+                { "Location", x => x.Location }
+            };
+
+            InitializeConfiguration(new Dictionary<string, string>(), sortExpressions, "Number");
+        }
+
+        protected override List<Models.Building> ApplySearch(List<Models.Building> data, string searchTerm)
+        {
+            var term = searchTerm.ToLower();
+
+            return data
+                .Where(b => (b.Name?.ToLower().Contains(term) ?? false)
+                         || (b.Location?.ToLower().Contains(term) ?? false)
+                         || b.Number.ToString().Contains(term))
+                .ToList();
+        }
+    }
+
     // Paginación/orden para /expense (Resumen de Gastos) -- mismo criterio que
     // InstallmentPagination: más reciente primero por defecto.
     // ViewExpense, no Expense -- ver el hallazgo de la sesión del 2026-09-10:

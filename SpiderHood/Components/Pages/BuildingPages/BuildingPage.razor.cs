@@ -619,6 +619,15 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
                 await BuildingService.UpdateConfigurationAsync(SelectedBuilding.Configuration);
 
+                // ExpenseApprovalThreshold NO viaja en UpdateConfigurationAsync (esa llama a
+                // UPD_BuildingConfiguration, que pasa sus 16 parámetros posicionalmente --
+                // agregar uno ahí exige tocar esa lista Y el SP en el mismo orden exacto sin
+                // que el compilador avise si se desalinean). Se guarda aparte con su propio
+                // UPD chico, pero desde el mismo botón "Guardar" para que sea un solo flujo.
+                await BuildingService.UpdateExpenseApprovalThresholdAsync(
+                    SelectedBuilding.Configuration.IdBuildingConfiguration,
+                    SelectedBuilding.Configuration.ExpenseApprovalThreshold);
+
                 // ParameterService.CurrentBuilding se carga una sola vez al iniciar sesión
                 // (HeaderMainLayout) y no se refresca solo — sin este sync, un cambio como
                 // el pie del recibo o el CCI quedaba guardado en BD pero el resto de la app

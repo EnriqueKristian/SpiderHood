@@ -5,6 +5,7 @@
 @inject Services.IPermissionService PermissionService
 @inject Services.IPermissionAdminService PermissionAdminService
 @inject Services.IBudgetService BudgetService
+@inject Services.IExpenseService ExpenseService
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
 
@@ -331,14 +332,25 @@
                 && (esSysAdmin || misEdificios.Contains(a.IdBuilding)));
         }
 
-        // Presupuestos en revisión (BudgetStatus.Check) del edificio actual, para quien
-        // puede aprobarlos -- ver Components/Pages/ApprovalsPages/Approvals.razor.
-        if (_currentUser.CurrentBuildingId != Guid.Empty
-            && await PermissionService.HasPermissionAsync(_currentUser, "approve_budget"))
+        // Presupuestos en revisión + gastos pendientes del edificio actual, para quien
+        // puede aprobar cada uno -- ver Components/Pages/ApprovalsPages/Approvals.razor.
+        // Los dos suman al mismo badge (una sola bandeja "Aprobaciones").
+        var aprobacionesCount = 0;
+        if (_currentUser.CurrentBuildingId != Guid.Empty)
         {
-            var pendientes = await BudgetService.GetPresupuestosAsync(_currentUser.CurrentBuildingId, estado: Models.BudgetStatus.Check);
-            _pendingCountsByUrl["aprobaciones"] = pendientes.Count;
+            if (await PermissionService.HasPermissionAsync(_currentUser, "approve_budget"))
+            {
+                var presupuestos = await BudgetService.GetPresupuestosAsync(_currentUser.CurrentBuildingId, estado: Models.BudgetStatus.Check);
+                aprobacionesCount += presupuestos.Count;
+            }
+
+            if (await PermissionService.HasPermissionAsync(_currentUser, "approve_expenses"))
+            {
+                var gastos = await ExpenseService.GetExpensesByBuildingAsync(_currentUser.CurrentBuildingId);
+                aprobacionesCount += gastos.Count(e => e.Status == Models.StatusExpense.Pending);
+            }
         }
+        _pendingCountsByUrl["aprobaciones"] = aprobacionesCount;
     }
 }
 <script>

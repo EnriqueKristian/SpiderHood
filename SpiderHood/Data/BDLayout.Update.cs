@@ -313,6 +313,28 @@ namespace SpiderHood.Data
             }, "UpdateBuildingConfiguration", cancellationToken);
         }
 
+        // Aparte de UpdateRecordAsync(BuildingConfiguration) a propósito: ese método pasa
+        // sus 16 parámetros POSICIONALMENTE a UPD_BuildingConfiguration -- agregar uno más
+        // ahí exige tocar esa lista Y el SP en el mismo orden exacto, sin ningún error de
+        // compilación si se desalinean. Un UPD chico y propio para este único campo nuevo
+        // no corre ese riesgo y no necesita saber nada de los otros 16.
+        public async Task UpdateExpenseApprovalThresholdAsync(Guid idBuildingConfiguration, decimal? threshold, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                object thresholdParam = threshold.HasValue
+                    ? threshold.Value
+                    : new SqlParameter("@ExpenseApprovalThreshold", SqlDbType.Decimal) { Value = DBNull.Value, Precision = 18, Scale = 2 };
+
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_BuildingConfiguration_ExpenseThreshold,
+                    cancellationToken,
+                    idBuildingConfiguration,
+                    thresholdParam);
+                return true;
+            }, "UpdateExpenseApprovalThreshold", cancellationToken);
+        }
+
         public async Task<Models.BankAccount> UpdateRecordAsync(Models.BankAccount bankaccount, CancellationToken cancellationToken = default)
         {
             ValidateEntity(bankaccount, nameof(bankaccount));

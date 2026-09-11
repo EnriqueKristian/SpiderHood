@@ -26,6 +26,7 @@ namespace SpiderHood.Services
         Task<BuildingConfiguration> GetConfigurationAsync(Guid IdBuilding);
         BuildingConfiguration CreateDefaultConfigurationAsync(Guid IdBuilding);
         Task UpdateConfigurationAsync(Models.BuildingConfiguration configuration);
+        Task UpdateExpenseApprovalThresholdAsync(Guid idBuildingConfiguration, decimal? threshold);
 
         Task<List<Models.OwnerUnitView>> GetOwnersByBuildingAsync(Guid IdBuilding);
 
@@ -478,6 +479,13 @@ namespace SpiderHood.Services
             {
                 Console.WriteLine($"Error al crear el contacto: {ex.Message}");
             }
+        }
+
+        // Aparte de UpdateConfigurationAsync a propósito -- ver el comentario en
+        // BDLayout.Update.cs.UpdateExpenseApprovalThresholdAsync.
+        public async Task UpdateExpenseApprovalThresholdAsync(Guid idBuildingConfiguration, decimal? threshold)
+        {
+            await ec.UpdateExpenseApprovalThresholdAsync(idBuildingConfiguration, threshold);
         }
 
         public async Task AddContactAsync(Models.Contact newcontact)

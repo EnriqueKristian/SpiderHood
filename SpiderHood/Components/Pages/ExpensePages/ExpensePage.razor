@@ -141,6 +141,18 @@
                                             <span class="badge @(item.Reconciled ? "bg-success" : "bg-secondary")">
                                                 @(item.Reconciled ? "Conciliado" : "No Conciliado")
                                             </span>
+                                            @if (item.Status == Models.StatusExpense.Pending)
+                                            {
+                                                <span class="badge bg-warning text-dark d-block mt-1">
+                                                    <i class="bi bi-hourglass-split me-1"></i>Pendiente de Aprobación
+                                                </span>
+                                            }
+                                            else if (item.Status == Models.StatusExpense.Rejected)
+                                            {
+                                                <span class="badge bg-danger d-block mt-1">
+                                                    <i class="bi bi-x-circle me-1"></i>Rechazado
+                                                </span>
+                                            }
                                         </td>
                                         <td class="text-end">@Moneda(item.Amount)</td>
                                         <td class="text-center">
@@ -267,23 +279,30 @@
     private bool _canEditExpense;
 
     // Totales generales -- sobre TODO el dataset del edificio, no sobre lo filtrado/
-    // paginado (mismo criterio que las tarjetas de resumen en /cuotas).
-    private decimal TotalExpenses => allExpenses.Sum(e => e.Amount);
-    private int TotalCount => allExpenses.Count;
+    // paginado (mismo criterio que las tarjetas de resumen en /cuotas). Sólo cuenta
+    // gasto real/confirmado (Approved/Paid) -- un gasto "Pending" (por encima del
+    // monto de aprobación de la Junta, ver ResolverEstadoAlGuardar) todavía no es
+    // gasto real y un "Rejected" nunca lo va a ser; incluirlos acá inflaba el total
+    // con dinero que todavía no salió (o nunca salió) del edificio.
+    private static bool EsGastoConfirmado(Models.ViewExpense e) =>
+        e.Status == Models.StatusExpense.Approved || e.Status == Models.StatusExpense.Paid;
+
+    private decimal TotalExpenses => allExpenses.Where(EsGastoConfirmado).Sum(e => e.Amount);
+    private int TotalCount => allExpenses.Count(EsGastoConfirmado);
 
     private decimal FixedExpenses => allExpenses
-        .Where(e => e.Distribution == Models.TypeDistribution.Fija)
+        .Where(e => EsGastoConfirmado(e) && e.Distribution == Models.TypeDistribution.Fija)
         .Sum(e => e.Amount);
 
     private int FixedCount => allExpenses
-        .Count(e => e.Distribution == Models.TypeDistribution.Fija);
+        .Count(e => EsGastoConfirmado(e) && e.Distribution == Models.TypeDistribution.Fija);
 
     private decimal ProportionalExpenses => allExpenses
-        .Where(e => e.Distribution == Models.TypeDistribution.Proporcional)
+        .Where(e => EsGastoConfirmado(e) && e.Distribution == Models.TypeDistribution.Proporcional)
         .Sum(e => e.Amount);
 
     private int ProportionalCount => allExpenses
-        .Count(e => e.Distribution == Models.TypeDistribution.Proporcional);
+        .Count(e => EsGastoConfirmado(e) && e.Distribution == Models.TypeDistribution.Proporcional);
 
     protected override async Task OnInitializedAsync()
     {
@@ -428,12 +447,34 @@
     private async Task AddItem(Models.ViewExpense item)
     {
         item.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
+        item.Status = ResolverEstadoAlGuardar(item);
         await ExpenseService.AddExpenseAsync(item);
     }
 
     private async Task UpdateItem(Models.ViewExpense item)
     {
+        item.Status = ResolverEstadoAlGuardar(item);
         await ExpenseService.UpdateExpenseAsync(item);
+    }
+
+    // El monto de aprobación (BuildingConfiguration.ExpenseApprovalThreshold) sólo
+    // aplica a gastos manuales -- uno ya vinculado a una transacción real (Reconciled,
+    // creado desde la conciliación del Estado de Cuenta) refleja un pago que ya
+    // ocurrió, así que nunca queda pendiente sea cual sea el monto (pedido explícito
+    // del negocio). Se recalcula en cada guardado (alta o edición), así que:
+    // - Un gasto Rejected que el Administrador corrige y vuelve a guardar reingresa
+    //   al circuito normal (mismo criterio que Budget: Rejected se trata como
+    //   editable, no como un estado final sin salida).
+    // - Si sube el monto de un gasto ya Approved por encima del umbral, vuelve a
+    //   pedir aprobación.
+    private Models.StatusExpense ResolverEstadoAlGuardar(Models.ViewExpense item)
+    {
+        if (item.Reconciled) return Models.StatusExpense.Approved;
+
+        var umbral = ParameterService.CurrentBuilding?.Configuration.ExpenseApprovalThreshold;
+        if (umbral.HasValue && item.Amount > umbral.Value) return Models.StatusExpense.Pending;
+
+        return Models.StatusExpense.Approved;
     }
 
     private ConfirmationModal? _confirmationModal;

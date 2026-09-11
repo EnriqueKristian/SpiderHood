@@ -545,6 +545,20 @@
                                                             </small>
                                                         </div>
                                                     </div>
+                                                    <div class="col-md-6">
+                                                        <div class="form-group">
+                                                            <label class="form-label">Monto de Aprobación de Gastos (Junta)</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <span class="input-group-text">@(SelectedBuilding.Configuration.Currency.ToCurrencySymbol())</span>
+                                                                <InputNumber @bind-Value="SelectedBuilding.Configuration.ExpenseApprovalThreshold"
+                                                                             class="form-control"
+                                                                             step="0.01" />
+                                                            </div>
+                                                            <small class="text-muted">
+                                                                Un gasto manual por encima de este monto queda pendiente de aprobación de la Junta. Vacío = nunca requiere aprobación.
+                                                            </small>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 <div class="action-buttons">
@@ -598,6 +612,14 @@
                                                     <label class="form-label small text-muted">Texto del pie del recibo</label>
                                                     <div class="fw-semibold">
                                                         @(string.IsNullOrWhiteSpace(SelectedBuilding.Configuration.ReceiptFooterText) ? "(sin configurar)" : SelectedBuilding.Configuration.ReceiptFooterText)
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label small text-muted">Monto de Aprobación de Gastos (Junta)</label>
+                                                    <div class="fw-semibold">
+                                                        @(SelectedBuilding.Configuration.ExpenseApprovalThreshold.HasValue
+                                                            ? $"{SelectedBuilding.Configuration.Currency.ToCurrencySymbol()} {SelectedBuilding.Configuration.ExpenseApprovalThreshold.Value:N2}"
+                                                            : "Nunca requiere aprobación")
                                                     </div>
                                                 </div>
                                             </div>

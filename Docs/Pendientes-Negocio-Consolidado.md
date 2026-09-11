@@ -166,6 +166,143 @@ ya apuntaba a otra ruta, actualizarlo desde Configuración > Items de Menú.
 
 ---
 
+## Módulos / funcionalidad que todavía no existe (agregado 2026-09-11)
+
+A diferencia de los puntos 1-16 (bugs/gaps encontrados trabajando en algo
+que ya existía), esto es funcionalidad que **no está construida en absoluto**
+-- verificado buscando en todo el repo, no por sospecha.
+
+### 17. Comunicados / Anuncios
+**Estado: no existe -- ni tabla, ni servicio, ni página.**
+
+Hay un permiso `view_announcements` y un ítem de menú "Comunicados"
+(`MyAnnouncements`, agregado en `Database/Scripts/2026-09-10_85_Reorganizar_Menu.sql`)
+pero **no hay ningún componente `.razor`, servicio ni tabla detrás** -- mismo
+patrón que se encontró con "Ingresos y Egresos" antes de implementarlo
+(item de menú apuntando a nada). Falta diseñar: quién publica (¿sólo
+Administrador/Junta?), a quién le llega (¿todo el edificio, por torre/unidad,
+por rol?), si necesita confirmación de lectura, y si empuja notificación
+(push/email) o es sólo un tablón que el residente consulta.
+
+### 18. Incidencias: subir fotos/video -- ¿en la BD o en carpetas del servidor?
+**Estado: pregunta técnica -- respuesta recomendada abajo.** Ya estaba
+anotada como pregunta abierta #3 en `Docs/Design-Piloto-Mobile-Android.md`
+(sección 9) al evaluar el piloto mobile -- hoy `Incident` (`Classes/Incidents/Incident.cs`)
+no tiene ninguna columna para adjuntar nada, no existe integración de storage
+de archivos en ningún lado (`appsettings*.json` tampoco tiene nada de Azure
+Blob/S3), y `InputFile`/`IBrowserFile` sólo se usa hoy para subir Excel.
+
+**Recomendación: archivos en disco/storage, NO en la base de datos.**
+- Guardar el archivo (foto/video) en una carpeta del servidor (o Azure Blob
+  Storage/S3 si ya hay o se va a tener más de un servidor/escala horizontal)
+  y en `Incident`/una tabla nueva `IncidentAttachment` guardar sólo la
+  **ruta o URL** + metadatos (nombre original, tipo, tamaño, quién subió).
+- Por qué no en la BD (`varbinary(max)`): infla el tamaño y los backups de
+  la base de datos (un video de 30-60 seg puede pesar varios MB, fotos de
+  celular actuales 3-8 MB cada una -- esto crece rápido con uso real),
+  degrada el rendimiento de cualquier `SELECT *`/backup/restore sobre esas
+  tablas, y no se puede servir directo por URL/CDN -- cada vista tendría que
+  pasar por la app para bajar el blob. Guardar solo la ruta es el patrón
+  estándar (y consistente con lo que ya se decidió para Excel: se procesan
+  en memoria, no se guarda el archivo original en BD).
+- Para el piloto (según `Design-Piloto-Mobile-Android.md`, Fase 2): alcanza
+  con una carpeta local del servidor (simple, sin costo de servicio externo)
+  si el volumen esperado es bajo; migrar a Blob Storage (Azure, dado que el
+  resto del stack es .NET) cuando el piloto escale o si el hosting cambia a
+  algo sin disco persistente entre despliegues (contenedores efímeros, por
+  ejemplo) -- ahí un disco local se pierde en cada deploy.
+- Falta igual: límite de tamaño/tipo de archivo (validar extensión real, no
+  sólo el nombre), y si video entra al piloto o sólo fotos (video pesa
+  bastante más y complica más el storage/streaming).
+
+### 19. Alta de usuarios con Google / Facebook / Apple -- qué se necesita
+**Estado: no existe -- hoy sólo hay autenticación por cookie/usuario y
+contraseña propios (`Program.cs:55`, `AddAuthentication(CookieAuthenticationDefaults...)`,
+sin ningún paquete ni configuración de proveedor externo).**
+
+Lo que hace falta, en orden:
+1. **Decisión de producto:** ¿reemplaza o se suma al login actual
+   (usuario/contraseña)? ¿para qué rol (Residente probablemente sí,
+   Administrador/SysAdmin probablemente mejor que sigan con
+   usuario/contraseña por control)?
+2. **Registro de cada proveedor** (esto lo hace el negocio, no el código):
+   - Google: proyecto en Google Cloud Console, pantalla de consentimiento
+     OAuth, Client ID/Secret.
+   - Facebook: app en Meta for Developers, revisión de la app si se piden
+     permisos más allá del básico (email/perfil).
+   - Apple: cuenta de Apple Developer Program (pago, ~US$99/año), Service ID
+     + Sign in with Apple configurado -- **importante:** si la app llega a
+     publicarse en la App Store de iOS y ya ofrece Google/Facebook como
+     login social, Apple **exige** (App Store Review Guideline 4.8) que
+     también se ofrezca "Sign in with Apple" -- no es opcional en ese caso.
+3. **Lado del código (ASP.NET Core):** agregar los paquetes de autenticación
+   externa (`Microsoft.AspNetCore.Authentication.Google`/`...Facebook`, y
+   para Apple no hay paquete oficial de Microsoft -- se usa un paquete de
+   terceros u OpenID Connect genérico apuntando al endpoint de Apple) como
+   esquemas adicionales junto al cookie actual (no hace falta sacar el
+   existente).
+4. **Modelo de datos:** `User` necesita poder asociarse a uno o más
+   proveedores externos (tabla tipo `UserExternalLogin` con
+   proveedor+id externo), y definir qué pasa si el email del proveedor
+   externo ya existe como usuario local (¿se vincula automático, o pide
+   confirmación?).
+5. **Flujo de "primera vez"**: un usuario que entra por Google/Facebook/Apple
+   por primera vez sin cuenta previa en SpiderHood -- ¿se crea solo (self
+   -service) o necesita que un Administrador lo asocie antes a una unidad/
+   edificio? Esto cruza con `Docs/Design-SelfService-Registro-Piloto.md`
+   (no leído en detalle en esta sesión, pero es el documento donde
+   probablemente ya se pensó parte de este flujo de auto-registro).
+
+### 20. Reportes de Incidencias
+**Estado: no existe -- sólo hay listado operativo, no reporte analítico.**
+
+Existen `IncidentList.razor`/`IncidentDetail.razor` (gestión día a día,
+`/incidents`), pero ningún reporte agregado -- a diferencia de
+Recaudación/Morosidad/Consumo de Agua/Ingresos y Egresos
+(`Components/Pages/ReportPages/`), no hay una vista de, por ejemplo,
+incidentes por tipo/prioridad/estado, tiempo promedio de resolución, o
+incidentes abiertos por unidad/edificio en un rango de fechas. Mismo patrón
+que ya se usó para los otros 4 reportes (selector de rango + tarjetas de
+resumen + tabla + export a Excel) se podría reutilizar acá.
+
+### 21. Módulo de Reuniones, Citas y Votaciones
+**Estado: no existe -- cero código relacionado en todo el repo** (sólo
+existe `CalendarItem`/`CalendarPage.razor`, que es un calendario genérico de
+eventos, sin ningún concepto de convocatoria, quorum, agenda, acta o
+votación).
+
+Esto es el módulo más grande de los 6 -- probablemente 3 funcionalidades
+separadas que conviene NO tratar como una sola:
+- **Reuniones/Asambleas:** convocatoria (fecha, agenda, quorum requerido),
+  registro de asistencia, acta.
+- **Citas:** agendar una cita puntual (¿con el Administrador? ¿para usar un
+  área común, si eso no vive ya en otro lado?) -- falta confirmar qué "cita"
+  significa en este contexto, se presta a confusión con reserva de áreas
+  comunes.
+- **Votaciones:** puede ser standalone (una encuesta simple) o atada a una
+  Asamblea (votar un punto de la agenda) -- tiene implicancias de peso legal
+  si reemplaza una votación presencial (evidencia de quién votó qué, no
+  necesariamente anónima en una junta de propietarios).
+
+Falta por completo: decidir alcance real (¿las 3 juntas o empezar por una?),
+y diseño de datos/pantallas -- no hay nada de qué partir en el código
+existente.
+
+### 22. Piloto para Móvil
+**Estado: ya diagnosticado en detalle en `Docs/Design-Piloto-Mobile-Android.md`
+-- no hace falta repetirlo acá, sólo lo que cambió con el pedido de hoy.**
+
+Ese documento ya cubre arquitectura (Opción A PWA/TWA ahora → Opción B MAUI
+Blazor Hybrid después), qué pantallas de Residente reusar, y deja abierta la
+pregunta de storage de fotos (ver punto 18 de acá arriba, ya resuelta con la
+recomendación de este documento). Lo que ese documento **no** cubre todavía,
+a raíz de lo pedido ahora (ver sección "Plan de lanzamiento" más abajo): el
+rol **Junta** no estaba en su alcance (sólo evaluó Residente) -- falta sumar
+qué pantallas/acciones de Junta entran al piloto mobile y con qué nivel de
+madurez (sólo lectura vs. acciones como aprobar gastos).
+
+---
+
 ## Resumen rápido
 
 | # | Tema | Prioridad | Tipo |
@@ -186,3 +323,69 @@ ya apuntaba a otra ruta, actualizarlo desde Configuración > Items de Menú.
 | 14 | Confirmar upsert de `ServiceReadingDetail` | Baja | Investigación |
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
+| 17 | Comunicados / Anuncios (no existe) | Alta* | Diseño + código |
+| 18 | Fotos/video en Incidencias: disco/storage, no BD | Alta* | Decisión + código |
+| 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
+| 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
+| 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |
+| 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
+
+`*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
+no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.
+
+---
+
+## Plan de lanzamiento del piloto (pedido 2026-09-11)
+
+Objetivo del usuario: lanzar el piloto en **Web completo para Administrador
+tal como está**, y en **Mobile empezar con Residente y Junta** (o ver qué se
+puede lanzar de eso).
+
+### Web -- Administrador: se puede lanzar como está
+
+El panel de Administrador ya cubre el ciclo completo (edificios, unidades,
+presupuestos, cuotas, conciliación bancaria, gastos, reportes, permisos,
+incidencias, lecturas de agua). Ningún punto de los 1-16 de arriba es un
+bloqueante técnico para encender el piloto -- son riesgos/deuda a atender en
+paralelo, no un "no funciona". Antes de lanzar, priorizar sólo lo que puede
+afectar la confianza del Administrador piloto desde el día 1 (los ✅ ya
+listados como Alta 1-5): sobre todo **#3 tolerancia de redondeo** (si el
+edificio piloto tiene cuotas migradas, van a verse "Parcial" sin serlo de
+verdad) y **#1 unidades sin propietario** (si el edificio piloto tiene
+unidades sin vender, hoy no se les factura a la inmobiliaria). El resto
+(multimoneda, Ignoradas en reportes, FKs de borrado) es menor si el piloto
+es un solo edificio, una sola moneda, y nadie va a borrar el edificio.
+
+### Mobile -- Residente y Junta: lo que ya se puede lanzar hoy
+
+Retomando el alcance de Fase 1 de `Design-Piloto-Mobile-Android.md`
+(Opción A, PWA/TWA -- cero reescritura, reusa las páginas web tal cual):
+
+**Residente (ya evaluado en ese documento):**
+- Login, ver mis cuotas/recibos, ver presupuesto del edificio, calendario.
+- Reportar incidente **sin foto todavía** (foto es Fase 2, depende de la
+  decisión de storage del punto 18 -- ya resuelta arriba, falta construirla).
+
+**Junta (nuevo, no evaluado en el documento original) -- mismo criterio
+de "solo lectura primero" que se usó para Residente:**
+- Ver presupuesto del edificio -- ya existe (`ViewBudget.razor`), mismo
+  camino que Residente.
+- Ver incidencias (Junta tiene visibilidad total, sin botones de acción --
+  `IncidentList.razor:193-195`) -- lista para reusar tal cual.
+- Calendario -- ya existe, mismo componente que Residente.
+- **Aprobar gastos** (`ExpensePage.razor`, el flujo real de aprobación de
+  Junta para gastos sobre el umbral configurado) -- existe en web, pero es
+  una pantalla de escritorio (tabla/grid) no evaluada para mobile todavía.
+  Recomendación: dejarlo **fuera de la Fase 1** del piloto mobile (como se
+  dejó "pagar cuota" fuera para Residente) y sumarlo en una fase siguiente
+  una vez confirmado que el layout responde bien en celular -- aprobar un
+  gasto es una acción con plata de por medio, no conviene apurarla sin
+  probar la UX en pantalla chica primero.
+
+**Conclusión:** el piloto mobile Residente + Junta de solo lectura (cuotas,
+presupuesto, calendario, incidencias) se puede armar con las páginas que YA
+EXISTEN, empaquetadas como PWA/TWA (Fase 1 del plan existente) -- no
+requiere ninguno de los 6 módulos nuevos de arriba para arrancar. Reportar
+incidentes con foto y "aprobar gastos" desde el celular quedan para la fase
+siguiente del mismo plan.
+

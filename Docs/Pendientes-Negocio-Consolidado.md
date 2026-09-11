@@ -34,12 +34,11 @@ secas, es la secuencia en la que conviene tocarlos.
    define proveedor (Cloud API vs. Twilio) y plantillas.
 4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
    (solo lectura: presupuesto, incidencias, calendario).
-5. **#18b** Storage de archivos + PDFs de Recibos -- **implementado
-   2026-09-11** (disco, no BD; corrige el bug de integridad -- ver punto
-   18). Falta correr `Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
-   probar con datos reales. El mismo storage se conecta después a **#18a**
-   (fotos/video en Incidencias, más caro, depende de la Fase 2 del piloto
-   móvil) -- ver la evaluación de impacto/costo/beneficio en el punto 18.
+5. **#18** Storage de archivos -- **18b (Recibos PDF) y 18a (fotos/video en
+   Incidencias) ambos implementados (2026-09-11)**. Falta correr los dos
+   scripts (`Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
+   `_96_IncidentAttachment.sql`) y probar los dos flujos con datos reales
+   -- ver el detalle de cada uno en el punto 18.
 
 **Grupo 2 -- importante, no bloquea el lanzamiento:**
 6. **#2** Reportes financieros suman transacciones Ignoradas.
@@ -408,19 +407,69 @@ ningún lado (`appsettings*.json` tampoco tiene nada de Azure Blob/S3), y
   sólo el nombre), y si video entra al piloto o sólo fotos (video pesa
   bastante más y complica más el storage/streaming).
 
-**Estructura de carpetas acordada (2026-09-11, todavía sin implementar --
-no hay pantalla de carga de adjuntos construida sobre la que conectarla
-todavía):** una carpeta por INCIDENTE, adentro de la carpeta del edificio
--- `incidents/{IdBuilding}/{IdIncident}/{nombre-de-archivo}` -- ya que un
-mismo incidente puede tener varias fotos/videos y conviene que viajen
-juntos. A diferencia de Recibos, acá no hace falta año/mes como nivel
-aparte: la cantidad de incidentes por edificio es mucho menor que la de
-cuotas mensuales por unidad, así que una carpeta por incidente ya alcanza
-para que sea manejable a simple vista. Usa el mismo
-`IFileStorageService.SaveAsync(string[] categorySegments, ...)` que ya
-quedó armado para Recibos (ver 18b) -- no hace falta tocar el servicio de
-storage en sí, sólo construir la tabla `IncidentAttachment` + la UI de
-carga cuando se ataque este punto.
+**Estructura de carpetas:** una carpeta por INCIDENTE, adentro de la
+carpeta del edificio -- `incidents/{IdBuilding}/{IdIncident}/{IdAttachment}.{ext}`
+-- ya que un mismo incidente puede tener varias fotos/videos y conviene que
+viajen juntos. A diferencia de Recibos, acá no hace falta año/mes como
+nivel aparte: la cantidad de incidentes por edificio es mucho menor que la
+de cuotas mensuales por unidad, así que una carpeta por incidente ya
+alcanza para que sea manejable a simple vista.
+
+**Estado: implementado (2026-09-11).** Reusa el mismo `IFileStorageService`
+armado para Recibos (18b) -- no hizo falta tocar el servicio de storage en
+sí.
+
+- `Database/Scripts/2026-09-11_96_IncidentAttachment.sql` -- tabla nueva
+  `dbo.IncidentAttachment` (100% nueva, no toca nada existente) +
+  `INS_IncidentAttachment`/`GET_IncidentAttachmentsByIncident`. Sin
+  `UPD`/`DEL` -- mismo criterio de inmutabilidad que `ReceiptFile` (18b):
+  un adjunto no se edita, si hace falta sacarlo es un punto aparte
+  (borrado/reemplazo de adjuntos no estaba pedido).
+- `IIncidentService.UploadAttachmentAsync` -- valida **whitelist de
+  extensiones** (`.jpg .jpeg .png .webp .heic .mp4 .mov` -- cualquier otra
+  se rechaza, no es una blacklist) y **tamaño máximo configurable**
+  (`IncidentAttachments:MaxSizeBytes` en `appsettings.json`, default 15 MB
+  -- cubre una foto de celular actual con margen, o un video corto). Guarda
+  el archivo con `{IdAttachment}.{ext}` como nombre en disco (nunca el
+  nombre original tal cual, evita colisiones entre dos fotos con el mismo
+  nombre de cámara subidas por personas distintas) y recién después
+  registra la fila en BD.
+- UI en `IncidentDetail.razor`: sección "Fotos / Videos" con miniaturas
+  (imagen/video inline, ícono genérico + link de descarga para otros
+  tipos), quién subió cada una y cuándo, más un `InputFile` para agregar
+  nuevas -- disponible para cualquiera que pueda ver el incidente (mismo
+  criterio de permisos que ya tenían los comentarios, sin gate adicional).
+
+**Decisión de diseño consciente, no un descuido:** las miniaturas se
+arman como `data:` URI (bytes en base64 incrustados en el HTML) en vez de
+servirse desde un endpoint HTTP propio -- evita construir y asegurar un
+endpoint autenticado aparte (fuera del circuito de Blazor Server, sin el
+`UserSession` ya armado) sólo para esto. Funciona bien para el piloto con
+pocos adjuntos livianos (tope de 15 MB), pero cada vista de un incidente
+con adjuntos manda esos bytes por el circuito de SignalR -- si el uso real
+mete muchos adjuntos pesados por incidente, o hace falta servirlos fuera
+de un circuito Blazor (ej. la app móvil de la Fase B de
+`Design-Piloto-Mobile-Android.md`), ahí sí conviene un endpoint HTTP
+autenticado de verdad -- ese endpoint de todas formas hace falta para la
+Fase B (la API que reemplaza el acceso directo a los `Services`), así que
+no es trabajo perdido, sólo adelantado.
+
+**Verificado en este entorno:** `dotnet build` compila sin errores (0
+errores, mismos 139 warnings preexistentes, ninguno nuevo). La validación
+de extensión/tamaño se probó aislada (fuera del repo, sin necesitar BD):
+extensión permitida (jpg, mp4, insensible a mayúsculas) aceptada;
+extensión no permitida (.exe) y archivo sin extensión rechazados con el
+mensaje real; archivo vacío rechazado; archivo que excede el máximo
+rechazado con el tamaño real en el mensaje; archivo justo en el límite
+aceptado.
+
+**Sin verificar (no hay acceso a BD real en este entorno):** correr
+`2026-09-11_96_IncidentAttachment.sql`, y probar el flujo completo con
+datos reales -- subir una foto real desde el detalle de un incidente,
+confirmar que aparece la miniatura, que queda un archivo en
+`incidents/{IdBuilding}/{IdIncident}/` y una fila en `IncidentAttachment`,
+y que un archivo no permitido (ej. un `.pdf` o `.docx`) muestra el mensaje
+de error sin romper la pantalla.
 
 #### 18b. PDFs de Recibos (agregado 2026-09-11, pedido del usuario)
 
@@ -692,7 +741,7 @@ madurez (sólo lectura vs. acciones como aprobar gastos).
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
 | 17 | Comunicados vía WhatsApp (canal prioritario, decidido) | Alta* | Producto + integración externa |
-| 18 | Storage de archivos: 18b Recibos PDF **implementado**, 18a Incidencias pendiente | Alta* | Código (18b) / Decisión + código (18a) |
+| 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados** | Alta* | **Resuelto** (2026-09-11), falta probar con BD real |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
 | 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |

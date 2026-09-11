@@ -6,6 +6,8 @@
 @inject IWorkflowAuditService WorkflowAuditService
 @inject SpiderHood.Services.AuthService AuthService
 @inject NavigationManager Navigation
+@inject IConfiguration Configuration
+@using Microsoft.AspNetCore.Components.Forms
 
 <PageTitle>Incidente</PageTitle>
 
@@ -59,6 +61,67 @@
                             </button>
                         }
                     </div>
+                }
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">Fotos / Videos</h6>
+            </div>
+            <div class="card-body">
+                @if (_attachments.Count == 0)
+                {
+                    <p class="text-muted mb-3">Todavía no hay archivos adjuntos.</p>
+                }
+                else
+                {
+                    <div class="d-flex flex-wrap gap-3 mb-3">
+                        @foreach (var adjunto in _attachments)
+                        {
+                            <div class="text-center" style="width: 140px;">
+                                @{ var dataUri = DataUri(adjunto); }
+                                @if (dataUri is null)
+                                {
+                                    <div class="border rounded d-flex align-items-center justify-content-center mb-1 bg-light" style="width:140px;height:140px;">
+                                        <i class="bi bi-exclamation-triangle text-muted"></i>
+                                    </div>
+                                }
+                                else if (EsImagen(adjunto.ContentType))
+                                {
+                                    <a href="@dataUri" target="_blank" rel="noopener">
+                                        <img src="@dataUri" class="img-thumbnail mb-1" style="width:140px;height:140px;object-fit:cover;" alt="@adjunto.FileName" />
+                                    </a>
+                                }
+                                else if (EsVideo(adjunto.ContentType))
+                                {
+                                    <video src="@dataUri" class="img-thumbnail mb-1" style="width:140px;height:140px;object-fit:cover;" controls></video>
+                                }
+                                else
+                                {
+                                    <a href="@dataUri" download="@adjunto.FileName" class="d-block border rounded d-flex align-items-center justify-content-center mb-1 bg-light text-decoration-none" style="width:140px;height:140px;">
+                                        <i class="bi bi-file-earmark-arrow-down fs-1 text-muted"></i>
+                                    </a>
+                                }
+                                <div class="small text-truncate" title="@adjunto.FileName">@adjunto.FileName</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">
+                                    @adjunto.UploadedByName<br />
+                                    @adjunto.UploadedOn.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <InputFile OnChange="SubirAdjunto" accept="image/*,video/mp4,video/quicktime" class="form-control" disabled="@_subiendoAdjunto" />
+                <div class="form-text">Fotos (JPG, PNG, WEBP, HEIC) o video corto (MP4, MOV) -- máximo @(_maxAdjuntoMb) MB por archivo.</div>
+                @if (_subiendoAdjunto)
+                {
+                    <div class="mt-2 text-muted"><span class="spinner-border spinner-border-sm me-1"></span>Subiendo...</div>
+                }
+                @if (!string.IsNullOrWhiteSpace(_errorAdjunto))
+                {
+                    <div class="alert alert-danger mt-2 mb-0 py-2 px-3">@_errorAdjunto</div>
                 }
             </div>
         </div>
@@ -186,6 +249,19 @@
     private string _motivoAccion = string.Empty;
     private IncidentStatus _accionPendiente;
 
+    // Docs/Pendientes-Negocio-Consolidado.md #18a
+    private List<IncidentAttachment> _attachments = new();
+    // Bytes ya en base64 (data: URI) por adjunto -- se resuelven una vez al
+    // cargar la página (CargarAsync), no en cada render. Simple para el piloto
+    // (evita construir un endpoint HTTP autenticado aparte, ver comentario en
+    // IIncidentService), a costa de mandar los bytes por el circuito de Blazor
+    // Server -- aceptable mientras los adjuntos sean pocos y livianos (límite
+    // configurado más abajo).
+    private Dictionary<Guid, string> _attachmentDataUris = new();
+    private bool _subiendoAdjunto;
+    private string? _errorAdjunto;
+    private int _maxAdjuntoMb => (Configuration.GetValue<int?>("IncidentAttachments:MaxSizeBytes") ?? 15 * 1024 * 1024) / 1024 / 1024;
+
     protected override async Task OnInitializedAsync()
     {
         _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
@@ -201,6 +277,7 @@
         _incident = await IncidentService.GetByIdAsync(Id);
         _comments = await IncidentService.GetCommentsAsync(Id);
         _history = await WorkflowAuditService.GetHistoryAsync("Incident", Id);
+        await CargarAdjuntosAsync();
 
         // Un residente no ve las notas internas del staff.
         if (!_isStaff)
@@ -208,6 +285,67 @@
 
         CalcularAcciones();
         _loading = false;
+    }
+
+    private async Task CargarAdjuntosAsync()
+    {
+        _attachments = await IncidentService.GetAttachmentsAsync(Id);
+        _attachmentDataUris.Clear();
+        foreach (var adjunto in _attachments)
+        {
+            var bytes = await IncidentService.GetAttachmentContentAsync(adjunto);
+            if (bytes is not null)
+                _attachmentDataUris[adjunto.IdAttachment] = $"data:{adjunto.ContentType};base64,{Convert.ToBase64String(bytes)}";
+        }
+    }
+
+    private string? DataUri(IncidentAttachment adjunto)
+        => _attachmentDataUris.TryGetValue(adjunto.IdAttachment, out var uri) ? uri : null;
+
+    private static bool EsImagen(string contentType) => contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+    private static bool EsVideo(string contentType) => contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+
+    private async Task SubirAdjunto(InputFileChangeEventArgs e)
+    {
+        _errorAdjunto = null;
+        var file = e.File;
+        if (file is null)
+            return;
+
+        _subiendoAdjunto = true;
+        StateHasChanged();
+
+        try
+        {
+            // Techo duro de transporte (50 MB) -- el límite real de negocio,
+            // configurable, se valida adentro de IncidentService.UploadAttachmentAsync
+            // (default 15 MB, ver _maxAdjuntoMb arriba). Sin esto, OpenReadStream
+            // usa un default de sólo 512 KB y cualquier foto real fallaría antes
+            // de llegar a la validación de negocio.
+            using var stream = file.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            await IncidentService.UploadAttachmentAsync(
+                Id, _incident.IdBuilding, file.Name, file.ContentType, memoryStream.ToArray(), _currentUser.IdUser);
+
+            await CargarAdjuntosAsync();
+        }
+        catch (ArgumentException ex)
+        {
+            // Validación de negocio (tipo/tamaño) -- mensaje pensado para
+            // mostrarse tal cual al usuario.
+            _errorAdjunto = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _errorAdjunto = $"Error al subir el archivo: {ex.Message}";
+        }
+        finally
+        {
+            _subiendoAdjunto = false;
+            StateHasChanged();
+        }
     }
 
     // El ciclo de vida operativo (revisar/asignar/resolver) lo lleva

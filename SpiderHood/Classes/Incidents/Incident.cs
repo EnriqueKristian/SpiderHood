@@ -63,4 +63,27 @@ namespace SpiderHood.Models
         public DateTime CreatedOn { get; set; } = DateTime.UtcNow;
         public string AuthorName { get; set; } = string.Empty;
     }
+
+    // Docs/Pendientes-Negocio-Consolidado.md #18a -- foto/video adjuntado a un
+    // incidente. El archivo en sí vive en storage (IFileStorageService,
+    // carpeta incidents/{IdBuilding}/{IdIncident}/), acá sólo la ruta +
+    // metadatos (mismo patrón que ReceiptFile para #18b).
+    public class IncidentAttachment
+    {
+        public Guid IdAttachment { get; set; } = Guid.NewGuid();
+        public Guid IdIncident { get; set; }
+        public Guid IdBuilding { get; set; }
+        // Nombre original del archivo tal como lo subió el usuario (sólo para
+        // mostrar/descargar con un nombre legible) -- el nombre real en disco
+        // es {IdAttachment}.{ext}, nunca este valor sin sanitizar.
+        public string FileName { get; set; } = string.Empty;
+        public string ContentType { get; set; } = string.Empty;
+        public int FileSizeBytes { get; set; }
+        public string FilePath { get; set; } = string.Empty;
+        public Guid UploadedBy { get; set; }
+        public DateTime UploadedOn { get; set; } = DateTime.UtcNow;
+
+        // Poblado por GET_IncidentAttachmentsByIncident (JOIN), vacío al escribir.
+        public string? UploadedByName { get; set; }
+    }
 }

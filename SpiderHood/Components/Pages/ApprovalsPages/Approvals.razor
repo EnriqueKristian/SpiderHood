@@ -1,0 +1,145 @@
+@page "/aprobaciones"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@inject Services.AuthService AuthService
+@inject Services.IPermissionService PermissionService
+@inject Services.IBudgetService BudgetService
+@inject Services.ParameterService ParameterService
+@inject NavigationManager Navigation
+
+<PageTitle>Aprobaciones</PageTitle>
+
+@if (!_loading && !_canApprove)
+{
+    <div class="container-fluid">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tenés permiso para aprobar presupuestos ni gastos.
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid">
+        <div class="page-header">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-check2-square"></i>
+                </div>
+                <h1 class="h3 fw-bold mb-0">Aprobaciones</h1>
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary"></div>
+            </div>
+        }
+        else
+        {
+            <!-- Presupuestos pendientes -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-cash-stack me-2"></i>
+                        Presupuestos Pendientes de Aprobación
+                        @if (_presupuestosPendientes.Any())
+                        {
+                            <span class="badge bg-warning text-dark ms-2">@_presupuestosPendientes.Count</span>
+                        }
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (!_presupuestosPendientes.Any())
+                    {
+                        <p class="text-muted mb-0">No hay presupuestos esperando tu aprobación.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Presupuesto</th>
+                                        <th>Período</th>
+                                        <th>Monto</th>
+                                        <th>Enviado por</th>
+                                        <th>Fecha</th>
+                                        <th style="width: 140px;">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var presupuesto in _presupuestosPendientes)
+                                    {
+                                        <tr>
+                                            <td>@presupuesto.BudgetName</td>
+                                            <td>@presupuesto.Mes @presupuesto.Year</td>
+                                            <td>@Moneda(presupuesto.Amount)</td>
+                                            <td>@presupuesto.CreatedBy</td>
+                                            <td>@presupuesto.CreatedOn.ToString("dd/MM/yyyy")</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-primary" @onclick="() => Revisar(presupuesto)">
+                                                    <i class="bi bi-eye me-1"></i>Revisar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Gastos pendientes -- Fase 2: falta el umbral configurable por edificio y
+                 el gate en la creación del gasto (ver Docs/Pendientes-Negocio-*.md). -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Gastos Pendientes de Aprobación</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Todavía no hay un monto de aprobación configurado para gastos en este edificio -- próximamente.
+                    </p>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
+    private bool _loading = true;
+    private bool _canApprove;
+    private List<BudgetHeader> _presupuestosPendientes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        _canApprove = currentUser != null && await PermissionService.HasPermissionAsync(currentUser, "approve_budget");
+
+        if (_canApprove && currentUser != null && currentUser.CurrentBuildingId != Guid.Empty)
+        {
+            if (ParameterService.CurrentBuilding == null || ParameterService.CurrentBuilding.IdBuilding != currentUser.CurrentBuildingId)
+            {
+                await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId);
+            }
+
+            _presupuestosPendientes = await BudgetService.GetPresupuestosAsync(currentUser.CurrentBuildingId, estado: BudgetStatus.Check);
+        }
+
+        _loading = false;
+    }
+
+    // Mismo mecanismo que ya usa BudgetList.razor para abrir un presupuesto existente
+    // en /budgetgenerator (que lee IBudgetService._SelectedBudget, no un parámetro de
+    // ruta) -- ahí es donde ya viven los botones reales de Aprobar/Rechazar.
+    private void Revisar(BudgetHeader presupuesto)
+    {
+        BudgetService._SelectedBudget = presupuesto;
+        Navigation.NavigateTo("/budgetgenerator");
+    }
+}

@@ -973,6 +973,13 @@ de cada edificio, así que el sistema no debe asumir un número fijo.
   documentos adjuntos; notificación con acuse de recibo (email + WhatsApp,
   cuando el módulo de Comunicaciones esté listo). Modalidad presencial,
   virtual o híbrida. Quórum configurable por edificio.
+- **Agenda -- aclarado 2026-09-11:** la Reunión tiene una agenda con N
+  puntos; no todos generan votación. Cada punto puede ser **Informativo**
+  (queda anotado en el Acta, sin votar -- ej. "se informa el avance de la
+  obra") o **Sujeto a Votación** (genera su propia Votación, con su propio
+  tipo nominal/secreta y su propia mayoría requerida). Una reunión de 5
+  puntos puede terminar en 0, 1, 3 o 5 votaciones -- no es "una votación
+  por reunión" ni "todos los puntos votan", depende punto por punto.
 - **Votación:** ponderada por alícuota (no por persona). En vivo durante
   la Reunión, o asíncrona con fecha límite si el Reglamento Interno lo
   permite (voto adelantado). Nominal (queda registrado quién votó qué --
@@ -980,6 +987,17 @@ de cada edificio, así que el sistema no debe asumir un número fijo.
   directiva), configurable por punto de agenda. El sistema valida
   automáticamente si el resultado alcanza la mayoría requerida para ese
   tipo de acuerdo (simple, calificada, o el 75% legal).
+- **Revotación -- decisión cerrada 2026-09-11: flexible, no rígida.**
+  Cuando una votación no alcanza la mayoría requerida, si permitir un
+  nuevo intento sobre el mismo punto depende del caso (a veces sí tiene
+  sentido, a veces el punto queda Rechazado y ahí termina) -- se resuelve
+  con un simple check `PermiteRevotacion` por punto de agenda (o al
+  configurar la votación), no con una regla fija en el sistema. Si está
+  prendido y la primera votación no alcanza mayoría, se habilita un nuevo
+  intento (Ronda 2, 3...) sobre el mismo punto, dentro de la misma
+  Reunión; si está apagado (o se agotan los intentos que el Administrador
+  decida dar), el punto queda Rechazado. El Acta debería reflejar todos
+  los intentos hechos, no solo el último, para que quede claro qué pasó.
 - **Actas:** se genera un borrador automático a partir de lo ya capturado
   en Reunión + Votación (fecha, modalidad, asistentes con su % de
   participación, quórum verificado, agenda, resultado de cada punto) --
@@ -989,8 +1007,11 @@ de cada edificio, así que el sistema no debe asumir un número fijo.
 - **Flujo completo:** Convocatoria → Reunión (registra asistencia, suma
   alícuotas presentes) → ¿Quórum alcanzado? → si NO: se agenda Segunda
   Convocatoria con quórum reducido (según Reglamento Interno) como una
-  nueva Reunión → si SÍ: Votación por punto de agenda (voto ponderado) →
-  el resultado de cada punto se vuelca automáticamente en el Acta.
+  nueva Reunión → si SÍ: por cada punto de agenda que lo requiera,
+  Votación (voto ponderado) → si no alcanza mayoría y `PermiteRevotacion`
+  está prendido, nueva Ronda sobre el mismo punto; si no, queda Rechazado
+  → el resultado final de cada punto (y sus rondas, si hubo más de una) se
+  vuelca automáticamente en el Acta.
 - **Encuestas (versión sin peso legal):** no requiere quórum, no genera un
   acuerdo formal ni un Acta -- solo consulta de opinión. Uso típico:
   sondear interés antes de convocar una asamblea formal, medir

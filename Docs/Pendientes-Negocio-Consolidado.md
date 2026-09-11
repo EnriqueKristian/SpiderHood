@@ -16,6 +16,57 @@ decisión tomada -- avisame si el orden real de negocio es otro.
 
 ---
 
+## Orden de ataque (lista única, actualizada 2026-09-11)
+
+Los números remiten al detalle de cada punto más abajo en este mismo
+documento. Un solo orden, pensado para el objetivo actual (lanzar el piloto
+Web Administrador + Mobile Residente/Junta, con WhatsApp ya decidido como
+prioridad del módulo de Comunicados) -- no es sólo "Alta/Media/Baja" a
+secas, es la secuencia en la que conviene tocarlos.
+
+**Grupo 1 -- lo que toca antes/durante el lanzamiento del piloto:**
+1. **#3** Tolerancia de redondeo en conciliación (< S/ 0.05) -- si el
+   edificio piloto tiene cuotas migradas, hoy se ven "Parcial" sin serlo.
+2. **#1** Unidades sin propietario no facturan a la inmobiliaria -- si el
+   edificio piloto tiene unidades sin vender.
+3. **#17** Comunicados vía WhatsApp -- ya decidido como prioridad; arrancar
+   ya con la verificación de negocio en Meta (no es instantánea) mientras se
+   define proveedor (Cloud API vs. Twilio) y plantillas.
+4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
+   (solo lectura: presupuesto, incidencias, calendario).
+5. **#18** Storage de fotos en Incidencias (disco/Blob, no BD) -- habilita
+   "reportar incidente con foto", el caso de uso #1 de por qué alguien abre
+   el celular.
+
+**Grupo 2 -- importante, no bloquea el lanzamiento:**
+6. **#2** Reportes financieros suman transacciones Ignoradas.
+7. **#6** Bug compartido en modales de confirmación (`ConfirmationUtil`) --
+   fix chico, pero toca 4+ pantallas.
+8. **#11** Falta el ítem de menú "Permisos" -- 5 minutos de configuración.
+9. **#20** Reportes de Incidencias -- mismo patrón que los otros 4 reportes.
+10. **#4** Borrado de edificio: FKs sin confirmar -- sólo urge si se va a
+    usar el botón sobre algo más que un edificio de prueba vacío.
+11. **#9** `GET_UnitsByType` no tolera unidades sin grupo.
+12. **#5** Soporte real de multimoneda -- no urge si el piloto es una sola
+    moneda.
+13. **#7** Garantía de reserva de área común.
+14. **#8** Historial de propietarios por periodo.
+15. **#10** Estado de Cuenta migrado no crea Gastos categorizados.
+16. **#19** Login social Google/Facebook/Apple -- no crítico si el alta de
+    usuarios en el piloto sigue siendo manual/por Administrador.
+
+**Grupo 3 -- baja urgencia, manual, o investigación sin bloqueo real:**
+17. **#16** Verificar URL del menú "Ingresos y Egresos".
+18. **#13** Causa raíz del timeout en Conciliación de Pagos.
+19. **#14** Confirmar upsert de `ServiceReadingDetail`.
+20. **#15** Borrar un permiso (fuera de alcance).
+21. **#12** Caso sin match en el Excel de Nova Alzamora (manual).
+22. **#21** Módulo de Reuniones/Citas/Votaciones -- el más grande de todos,
+    sin nada de qué partir en el código; conviene arrancarlo recién con
+    tiempo/alcance dedicado, no intercalado con el resto.
+
+---
+
 ## Prioridad Alta -- afectan dinero/datos reales hoy, en producción
 
 ### 1. Unidades sin propietario no le facturan a nadie

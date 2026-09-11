@@ -126,16 +126,26 @@ moneda (cuotas, gastos, reportes, conciliación). Falta todo el diseño.
 ## Prioridad Media -- funcionalidad de negocio real, pero no sangra dinero hoy
 
 ### 6. Bug compartido en modales de confirmación (`ConfirmationUtil.ExecuteWithConfirmation`)
-*(Conciliación #4, encontrado de paso -- sin corregir)*
+*(Conciliación #4 -- **resuelto (2026-09-11)**, reportado de nuevo por el
+usuario probando `BudgetGenerator` sin lectura de agua completa)*
 
 El mismo bug de orden (`Show(type)` antes de fijar `Message`) que ya se
-corrigió en `ReconciliationWorkspace.ConfirmarAsync` sigue vivo en el
-helper compartido `Classes/Utilities.cs:39-41`, usado por
-`ModalOwnerUnit.razor`, `BudgetGenerator.razor`, `ServiceReadingModal.razor`
-y `ManualInstallmentConciliation.razor` -- la primera confirmación en esas
-pantallas puede mostrar el mensaje default o el de una acción anterior en
-vez del real. Fix es el mismo, un solo cambio de orden, pero toca 4+
-pantallas a la vez.
+había corregido en `ReconciliationWorkspace.ConfirmarAsync` seguía vivo en
+el helper compartido `Classes/Utilities.cs` (línea 39-41 en su momento),
+usado por `ModalOwnerUnit.razor`, `BudgetGenerator.razor`,
+`ServiceReadingModal.razor` y `ManualInstallmentConciliation.razor`. El
+usuario lo encontró en producción: al publicar un presupuesto sin lectura
+de agua, el modal de confirmación no mostraba con claridad la advertencia
+real y dejaba avanzar sin que quedara claro qué se estaba confirmando --
+exactamente el síntoma que este punto anticipaba. **Corregido** invirtiendo
+el orden (`Message`/`IsCancelOnly` antes de `Show()`) en el único lugar
+compartido -- arregla los 4 usos a la vez.
+
+**Sin verificar en un browser real** (sin acceso a BD en este entorno):
+confirmar que al publicar un presupuesto con la lectura de agua incompleta,
+el modal muestra de entrada el mensaje real ("Se encontraron los
+siguientes problemas: ... Lectura de agua: ...") con los botones
+Cancelar/Continuar, no un mensaje genérico o vacío.
 
 ### 7. Garantía de reserva de área común (cobro y devolución)
 *(Conciliación #2 — pendiente, sin empezar, sin diseño todavía)*
@@ -565,7 +575,7 @@ madurez (sólo lectura vs. acciones como aprobar gastos).
 | 3 | Tolerancia de redondeo en conciliación | Alta | Decisión + código |
 | 4 | Borrado de edificio: FKs sin confirmar | Alta | Verificación de BD |
 | 5 | Soporte real de multimoneda | Alta | Diseño + código |
-| 6 | Bug `ConfirmationUtil` (4+ pantallas) | Media | Código (fix chico, alcance ancho) |
+| 6 | Bug `ConfirmationUtil` (4+ pantallas) | Media | **Resuelto** (2026-09-11) |
 | 7 | Garantía de reserva de área común | Media | Diseño + código |
 | 8 | Historial de propietarios por periodo | Media | Diseño + código |
 | 9 | `GET_UnitsByType` sin manejar unidades sin grupo | Media | Código |

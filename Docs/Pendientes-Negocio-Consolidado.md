@@ -455,6 +455,33 @@ sí.
   criterio (adjuntar como parte del formulario de reporte, no como paso
   aparte después).
 
+**Dos bugs reales encontrados por el usuario probándolo (2026-09-11),
+ambos corregidos:**
+
+1. **"Se ve otra imagen en el preview" -- bug de fondo, no de storage.**
+   El archivo en disco era el correcto (confirmado por el propio usuario
+   mirando la carpeta) -- lo que fallaba era la pantalla. `IncidentDetail.razor`
+   sólo cargaba datos en `OnInitializedAsync`, que en Blazor corre **una
+   sola vez por instancia del componente**. Si el usuario entraba al
+   detalle de un incidente, volvía a la lista (`Navigation.NavigateTo`, sin
+   `forceLoad`), y entraba a OTRO incidente, Blazor reutilizaba la misma
+   instancia (misma ruta `/incidents/{Id}`) y nunca recargaba -- la pantalla
+   se quedaba mostrando título/comentarios/fotos del incidente ANTERIOR
+   aunque la URL ya tuviera el Id correcto. Corregido agregando
+   `OnParametersSetAsync` que recarga cuando `Id` cambia respecto del
+   último cargado. **Este mismo patrón (sólo `OnInitializedAsync`, sin
+   `OnParametersSetAsync`) puede repetirse en cualquier otra pantalla con
+   parámetro de ruta** -- no se auditó el resto del proyecto todavía, queda
+   como sospecha a revisar si aparece un síntoma parecido en otra pantalla
+   (ver candidato nuevo en la tabla resumen).
+2. **"Al hacerle clic no abre".** La miniatura navegaba la pestaña entera a
+   la URL `data:image/...;base64,...` -- Chrome/Edge tienen un límite de
+   tamaño para NAVEGAR a una URL `data:` así (aunque mostrarla en un
+   `<img>` inline funciona sin problema), así que cualquier foto de celular
+   real dejaba la pestaña nueva en blanco. Corregido con un lightbox DENTRO
+   de la misma página (modal con la imagen a tamaño completo) en vez de
+   navegar -- evita el límite del navegador por completo.
+
 **Decisión de diseño consciente, no un descuido:** las miniaturas se
 arman como `data:` URI (bytes en base64 incrustados en el HTML) en vez de
 servirse desde un endpoint HTTP propio -- evita construir y asegurar un
@@ -732,6 +759,24 @@ rol **Junta** no estaba en su alcance (sólo evaluó Residente) -- falta sumar
 qué pantallas/acciones de Junta entran al piloto mobile y con qué nivel de
 madurez (sólo lectura vs. acciones como aprobar gastos).
 
+### 23. Auditar otras pantallas por el mismo bug de "no recarga al cambiar de Id en la URL"
+*(Nuevo 2026-09-11 -- sospecha sin confirmar, sólo se corrigió el caso
+puntual encontrado en Incidencias)*
+
+`IncidentDetail.razor` sólo cargaba datos en `OnInitializedAsync` (corre
+una sola vez por instancia de componente en Blazor) -- navegar de un
+incidente a otro sin recargar la página entera (`NavigateTo` interno, sin
+`forceLoad`) dejaba la pantalla mostrando datos del incidente ANTERIOR
+mientras la URL ya apuntaba a otro Id (ver punto 18a, bug encontrado por el
+usuario). Ya corregido ahí con `OnParametersSetAsync`, pero **no se revisó
+si el mismo patrón existe en otras pantallas con parámetro de ruta**
+(cualquier `@page "/algo/{Id:guid}"` que sólo cargue en
+`OnInitializedAsync` es sospechoso -- candidatos obvios: cualquier
+"detalle de X" navegable desde una lista del mismo tipo, ej. si existiera
+un patrón similar en Presupuestos, Gastos, Edificios). Falta: grep de
+`OnInitializedAsync` en páginas con `{Id...}` en la ruta, y confirmar cuáles
+tienen (o no) el mismo problema.
+
 ---
 
 ## Resumen rápido
@@ -761,6 +806,7 @@ madurez (sólo lectura vs. acciones como aprobar gastos).
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
 | 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |
 | 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
+| 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

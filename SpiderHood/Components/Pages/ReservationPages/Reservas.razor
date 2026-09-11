@@ -1,0 +1,233 @@
+@page "/reservas"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Components.Pages.Components
+@inject Services.AuthService AuthService
+@inject Services.IAreaComunService AreaComunService
+@inject Services.IReservaService ReservaService
+@inject Services.IBuildingService BuildingService
+@inject Services.ParameterService ParameterService
+
+<PageTitle>Reservas</PageTitle>
+
+@if (_loading)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_idGroupUnit == null)
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Tu cuenta no tiene una unidad asignada en este edificio -- no se puede solicitar una reserva.
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="page-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-calendar-check"></i>
+                </div>
+                <div>
+                    <h1 class="h3 fw-bold mb-1">Reservas de Áreas Comunes</h1>
+                    <p class="text-muted mb-0">Solicitá el uso de un área común del edificio -- la aprueba la Junta.</p>
+                </div>
+            </div>
+            @if (_areasComunes.Any())
+            {
+                <button class="btn btn-primary" @onclick="AbrirNuevaSolicitud">
+                    <i class="bi bi-plus-lg me-1"></i>Nueva Solicitud
+                </button>
+            }
+        </div>
+
+        @if (_resultado is not null)
+        {
+            <div class="alert @(_resultadoOk ? "alert-success" : "alert-danger") alert-dismissible fade show">
+                @_resultado
+                <button type="button" class="btn-close" @onclick="() => _resultado = null"></button>
+            </div>
+        }
+
+        @if (!_areasComunes.Any())
+        {
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-1"></i>
+                Este edificio todavía no tiene áreas comunes configuradas para reservar.
+            </div>
+        }
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <h6 class="mb-0">Mis Reservas</h6>
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <div style="min-width: 220px;">
+                            <input type="text" class="form-control form-control-sm"
+                                   placeholder="Buscar por área..."
+                                   value="@_searchTerm"
+                                   @oninput="OnSearch" />
+                        </div>
+                    </div>
+                </div>
+                @if (_pagination.TotalRecords > 0)
+                {
+                    <p class="text-muted small mb-0 mt-1">
+                        Mostrando @_pagination.StartRecord - @_pagination.EndRecord de @_pagination.TotalRecords reserva(s)
+                    </p>
+                }
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Área Común</th>
+                            <th>Fecha/Hora</th>
+                            <th>Estado</th>
+                            <th class="text-end">Garantía</th>
+                            <th class="text-end">Alquiler</th>
+                            <th style="width: 100px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var reserva in _pagination.CurrentPageData)
+                        {
+                            <tr>
+                                <td>@reserva.NombreAreaComun</td>
+                                <td>@reserva.FechaInicio.ToString("dd/MM/yyyy HH:mm") - @reserva.FechaFin.ToString("HH:mm")</td>
+                                <td>@EtiquetaEstado(reserva)</td>
+                                <td class="text-end">@Moneda(reserva.MontoGarantia)</td>
+                                <td class="text-end">@Moneda(reserva.MontoAlquiler)</td>
+                                <td>
+                                    @if (reserva.Estado is ReservaEstado.PendienteDeAprobacion or ReservaEstado.Aprobada)
+                                    {
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => PedirCancelar(reserva)">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (!_pagination.CurrentPageData.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    @(string.IsNullOrWhiteSpace(_searchTerm) ? "Todavía no hiciste ninguna reserva." : "Ninguna reserva coincide con la búsqueda.")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (_pagination.TotalPages > 1)
+            {
+                <div class="card-footer bg-transparent border-top py-3">
+                    <PaginationControls _pagination="@_pagination" />
+                </div>
+            }
+        </div>
+    </div>
+
+    <ConfirmationModal @ref="_confirmationModal" OnClose="OnConfirmationResult" />
+
+    <!-- Modal: Nueva Solicitud -->
+    <Modal @ref="_nuevaModal" Title="Nueva Solicitud de Reserva" Size="ModalSize.Large">
+        <BodyTemplate>
+            <EditForm Model="_form" OnValidSubmit="ConfirmarSolicitar">
+                <div class="mb-3">
+                    <label class="form-label">Área Común *</label>
+                    <select class="form-select" value="@_areaSeleccionada?.IdAreaComun"
+                            @onchange="OnAreaChanged">
+                        @foreach (var area in _areasComunes)
+                        {
+                            <option value="@area.IdAreaComun">@area.Nombre</option>
+                        }
+                    </select>
+                </div>
+
+                @if (_areaSeleccionada != null)
+                {
+                    <div class="alert alert-light border small mb-3">
+                        @if (_areaSeleccionada.AforoMaximo.HasValue)
+                        {
+                            <div>Aforo máximo: @_areaSeleccionada.AforoMaximo</div>
+                        }
+                        @if (_areaSeleccionada.DuracionMinMinutos.HasValue || _areaSeleccionada.DuracionMaxMinutos.HasValue)
+                        {
+                            <div>Duración permitida: @(_areaSeleccionada.DuracionMinMinutos ?? 0) - @(_areaSeleccionada.DuracionMaxMinutos?.ToString() ?? "sin límite") minutos</div>
+                        }
+                        <div>Anticipación mínima: @_areaSeleccionada.AnticipacionMinHoras hora(s)</div>
+                        <div>Garantía: @Moneda(_areaSeleccionada.GarantiaInternos) (propietario) / @Moneda(_areaSeleccionada.GarantiaExternos) (externo)</div>
+                        <div>Alquiler: @Moneda(_areaSeleccionada.AlquilerInternos) (propietario) / @Moneda(_areaSeleccionada.AlquilerExternos) (externo)</div>
+                        @if (_areaSeleccionada.Limpieza > 0)
+                        {
+                            <div>Limpieza: @Moneda(_areaSeleccionada.Limpieza)</div>
+                        }
+                    </div>
+
+                    @if (_proximasReservas.Any())
+                    {
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">Próximas reservas de esta área (referencia)</label>
+                            <ul class="list-group list-group-flush small">
+                                @foreach (var proxima in _proximasReservas)
+                                {
+                                    <li class="list-group-item px-0 py-1">@proxima.FechaInicio.ToString("dd/MM HH:mm") - @proxima.FechaFin.ToString("dd/MM HH:mm")</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                }
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha/Hora de Inicio *</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_form.FechaInicio" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha/Hora de Fin *</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_form.FechaFin" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <InputCheckbox @bind-Value="_form.EsExterno" class="form-check-input" id="esExterno" />
+                    <label class="form-check-label" for="esExterno">Es para un evento con organizador externo (no propietario)</label>
+                </div>
+
+                @if (_form.EsExterno)
+                {
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Nombre del Organizador</label>
+                            <InputText @bind-Value="_form.OrganizadorNombre" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Documento</label>
+                            <InputText @bind-Value="_form.OrganizadorDocumento" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Teléfono</label>
+                            <InputText @bind-Value="_form.OrganizadorTelefono" class="form-control" />
+                        </div>
+                    </div>
+                }
+            </EditForm>
+        </BodyTemplate>
+        <FooterTemplate>
+            <button class="btn btn-primary" @onclick="ConfirmarSolicitar" disabled="@(_solicitando || _areaSeleccionada == null)">
+                @if (_solicitando)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="bi bi-send me-1"></i>Solicitar
+            </button>
+            <button class="btn btn-secondary" @onclick="() => _nuevaModal.HideAsync()">Cancelar</button>
+        </FooterTemplate>
+    </Modal>
+}

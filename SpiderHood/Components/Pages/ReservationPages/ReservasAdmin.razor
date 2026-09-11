@@ -1,0 +1,249 @@
+@page "/reservas-admin"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Components.Pages.Components
+@inject Services.AuthService AuthService
+@inject Services.IPermissionService PermissionService
+@inject Services.IAreaComunService AreaComunService
+@inject Services.IReservaService ReservaService
+@inject Services.IBuildingService BuildingService
+@inject Services.ParameterService ParameterService
+
+<PageTitle>Gestión de Reservas</PageTitle>
+
+@if (_loading)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (!_canGestionar)
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            No tenés permiso para gestionar Reservas en este edificio.
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="page-header mb-4">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-clipboard-check"></i>
+                </div>
+                <div>
+                    <h1 class="h3 fw-bold mb-1">Gestión de Reservas</h1>
+                    <p class="text-muted mb-0">Check-in, check-out y liquidación de garantía de las reservas de áreas comunes.</p>
+                </div>
+            </div>
+        </div>
+
+        @if (_resultado is not null)
+        {
+            <div class="alert @(_resultadoOk ? "alert-success" : "alert-danger") alert-dismissible fade show">
+                @_resultado
+                <button type="button" class="btn-close" @onclick="() => _resultado = null"></button>
+            </div>
+        }
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <h6 class="mb-0">Todas las Reservas</h6>
+                    <div style="min-width: 220px;">
+                        <input type="text" class="form-control form-control-sm"
+                               placeholder="Buscar por área o propietario..."
+                               value="@_searchTerm"
+                               @oninput="OnSearch" />
+                    </div>
+                </div>
+                @if (_pagination.TotalRecords > 0)
+                {
+                    <p class="text-muted small mb-0 mt-1">
+                        Mostrando @_pagination.StartRecord - @_pagination.EndRecord de @_pagination.TotalRecords reserva(s)
+                    </p>
+                }
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Área Común</th>
+                            <th>Unidad</th>
+                            <th>Fecha/Hora</th>
+                            <th>Estado</th>
+                            <th style="width: 160px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var reserva in _pagination.CurrentPageData)
+                        {
+                            <tr>
+                                <td>@reserva.NombreAreaComun</td>
+                                <td>@GetGroupUnitName(reserva.IdGroupUnit)</td>
+                                <td>@reserva.FechaInicio.ToString("dd/MM/yyyy HH:mm") - @reserva.FechaFin.ToString("HH:mm")</td>
+                                <td>@EtiquetaEstado(reserva)</td>
+                                <td>
+                                    @if (reserva.Estado == ReservaEstado.Aprobada)
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirCheckIn(reserva)">
+                                            <i class="bi bi-box-arrow-in-right me-1"></i>Check-in
+                                        </button>
+                                    }
+                                    else if (reserva.Estado == ReservaEstado.Entregada)
+                                    {
+                                        <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirCheckOut(reserva)">
+                                            <i class="bi bi-box-arrow-left me-1"></i>Check-out
+                                        </button>
+                                    }
+                                    else if (reserva.Estado == ReservaEstado.Finalizada || reserva.Estado is ReservaEstado.Cancelada or ReservaEstado.NoPresentado)
+                                    {
+                                        <button class="btn btn-sm btn-outline-success" @onclick="() => AbrirCerrar(reserva)">
+                                            <i class="bi bi-shield-check me-1"></i>Cerrar
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        @if (!_pagination.CurrentPageData.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    @(string.IsNullOrWhiteSpace(_searchTerm) ? "No hay reservas todavía." : "Ninguna reserva coincide con la búsqueda.")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (_pagination.TotalPages > 1)
+            {
+                <div class="card-footer bg-transparent border-top py-3">
+                    <PaginationControls _pagination="@_pagination" />
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Modal: Check-in / Check-out -->
+    <Modal @ref="_checklistModal" Title="@(_etapaChecklist == ChecklistEtapa.Entrega ? "Check-in" : "Check-out")" Size="ModalSize.Large">
+        <BodyTemplate>
+            @if (_reservaSeleccionada != null)
+            {
+                <p class="text-muted small">
+                    @_reservaSeleccionada.NombreAreaComun -- @_reservaSeleccionada.FechaInicio.ToString("dd/MM/yyyy HH:mm")
+                </p>
+
+                <div class="row g-2 align-items-end mb-2">
+                    <div class="col-md-5">
+                        <label class="form-label small">Ítem</label>
+                        <input class="form-control form-control-sm" @bind="_nuevoItemDescripcion" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Estado</label>
+                        <select class="form-select form-select-sm" @bind="_nuevoItemEstado">
+                            <option value="@ChecklistEstado.Ok">OK</option>
+                            <option value="@ChecklistEstado.Danado">Dañado</option>
+                            <option value="@ChecklistEstado.Falta">Falta</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">Observación</label>
+                        <input class="form-control form-control-sm" @bind="_nuevoItemObservacion" @bind:event="oninput" />
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-sm btn-outline-primary w-100" @onclick="AgregarItemChecklist">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                    </div>
+                </div>
+
+                @if (_checklistItems.Any())
+                {
+                    <ul class="list-group list-group-flush mb-3">
+                        @foreach (var item in _checklistItems)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
+                                <span>
+                                    <strong>@item.Descripcion</strong> -- @EtiquetaChecklistEstado(item.Estado)
+                                    @if (!string.IsNullOrWhiteSpace(item.Observacion))
+                                    {
+                                        <span class="text-muted small"> (@item.Observacion)</span>
+                                    }
+                                </span>
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => _checklistItems.Remove(item)">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                }
+
+                <div class="mb-2">
+                    <label class="form-label small">Fotos</label>
+                    <InputFile OnChange="SeleccionarFotos" multiple accept="image/*" class="form-control form-control-sm" />
+                </div>
+                @if (_fotosStaged.Any())
+                {
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var foto in _fotosStaged)
+                        {
+                            <span class="badge bg-secondary">@foto.FileName</span>
+                        }
+                    </div>
+                }
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <button class="btn btn-primary" @onclick="ConfirmarChecklist" disabled="@_procesando">
+                @if (_procesando)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Confirmar @(_etapaChecklist == ChecklistEtapa.Entrega ? "Check-in" : "Check-out")
+            </button>
+            <button class="btn btn-secondary" @onclick="() => _checklistModal.HideAsync()">Cancelar</button>
+        </FooterTemplate>
+    </Modal>
+
+    <!-- Modal: Cerrar reserva / liquidar garantía -->
+    <Modal @ref="_cerrarModal" Title="Cerrar Reserva" Size="ModalSize.Regular">
+        <BodyTemplate>
+            @if (_reservaSeleccionada != null)
+            {
+                <p class="text-muted small">
+                    @_reservaSeleccionada.NombreAreaComun -- @_reservaSeleccionada.FechaInicio.ToString("dd/MM/yyyy HH:mm")
+                </p>
+                <p>Garantía: @Moneda(_reservaSeleccionada.MontoGarantia)</p>
+
+                @if (_reservaSeleccionada.Estado == ReservaEstado.Finalizada)
+                {
+                    <div class="mb-3">
+                        <label class="form-label">Monto de daño encontrado en el check-out (si hubo)</label>
+                        <input type="number" step="0.01" class="form-control" @bind="_montoDanio" />
+                        <div class="form-text">Si el daño supera la garantía, se genera automáticamente una cuota extraordinaria por la diferencia a la unidad responsable.</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-warning small mb-0">
+                        Esta reserva quedó @(_reservaSeleccionada.Estado == ReservaEstado.Cancelada ? "Cancelada" : "como No Presentada") -- se liquida la garantía según la penalidad ya aplicada, sin cobrar Alquiler/Limpieza.
+                    </div>
+                }
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <button class="btn btn-primary" @onclick="ConfirmarCerrar" disabled="@_procesando">
+                @if (_procesando)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Cerrar Reserva
+            </button>
+            <button class="btn btn-secondary" @onclick="() => _cerrarModal.HideAsync()">Cancelar</button>
+        </FooterTemplate>
+    </Modal>
+}

@@ -789,6 +789,54 @@ namespace SpiderHood.Data
             }, "UpdateSystemLogSettings", cancellationToken);
         }
 
+        public async Task UpdateAreaComunAsync(Models.AreaComun areaComun, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(areaComun, nameof(areaComun));
+
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_AreaComun,
+                    cancellationToken,
+                    areaComun.IdAreaComun,
+                    areaComun.Nombre,
+                    (object?)areaComun.Descripcion ?? DBNull.Value,
+                    (object?)areaComun.AforoMaximo ?? DBNull.Value,
+                    (object?)areaComun.DuracionMinMinutos ?? DBNull.Value,
+                    (object?)areaComun.DuracionMaxMinutos ?? DBNull.Value,
+                    areaComun.BufferMinutos,
+                    areaComun.AnticipacionMinHoras,
+                    (object?)areaComun.AnticipacionMaxDias ?? DBNull.Value,
+                    (object?)areaComun.TopeReservasActivasPorUnidad ?? DBNull.Value,
+                    areaComun.GarantiaInternos,
+                    areaComun.GarantiaExternos,
+                    areaComun.AlquilerInternos,
+                    areaComun.AlquilerExternos,
+                    areaComun.Limpieza,
+                    areaComun.PenalidadCancelacionHabilitada,
+                    (object?)areaComun.DiasMinimosSinPenalidad ?? DBNull.Value,
+                    areaComun.PenalidadNoPresentadoHabilitada,
+                    areaComun.Activo);
+                return true;
+            }, "UpdateAreaComun", cancellationToken);
+        }
+
+        public async Task UpdateReservaEstadoAsync(Guid idReserva, Models.ReservaEstado estado, string? motivoRechazo = null, Guid? aprobadoPor = null, decimal? montoRetenido = null, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ReservaEstado,
+                    cancellationToken,
+                    idReserva,
+                    (int)estado,
+                    (object?)motivoRechazo ?? DBNull.Value,
+                    (object?)aprobadoPor ?? DBNull.Value,
+                    (object?)montoRetenido ?? DBNull.Value);
+                return true;
+            }, "UpdateReservaEstado", cancellationToken);
+        }
+
         public async Task UpdateCalendarItemAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

@@ -97,6 +97,11 @@
                                 <i class="bi bi-shield-exclamation me-2"></i>Excepciones de Pago
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button type="button" class="nav-link @(ActiveTab == "areacomun" ? "active" : "")" @onclick='() => ActiveTab = "areacomun"'>
+                                <i class="bi bi-calendar-check me-2"></i>Áreas Comunes
+                            </button>
+                        </li>
                     </ul>
 
                     <div class="tab-content pt-3">
@@ -1028,6 +1033,99 @@
                                 </div>
                             </div>
                         }
+
+                        @if (ActiveTab == "areacomun")
+                        {
+                            <!-- Sección Áreas Comunes -- Docs/Pendientes-Negocio-Consolidado.md #21.
+                                 Persistencia propia (tabla AreaComun), no se guarda con SaveSection/
+                                 la Configuration del edificio. -->
+                            <div class="card card-hover config-card">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="section-title mb-0">
+                                            <i class="bi bi-calendar-check me-2"></i>Áreas Comunes
+                                        </h6>
+                                        @if (_canEditBuilding)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-primary" @onclick="ShowAddAreaComunModal">
+                                                <i class="bi bi-plus"></i> Agregar Área Común
+                                            </button>
+                                        }
+                                    </div>
+
+                                    @if (_loadingAreasComunes)
+                                    {
+                                        <div class="text-center p-3">
+                                            <div class="spinner-border spinner-border-sm text-primary"></div>
+                                        </div>
+                                    }
+                                    else if (!_areasComunes.Any())
+                                    {
+                                        <div class="alert alert-info py-2 mb-0">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            No hay áreas comunes configuradas todavía.
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="table-responsive">
+                                            <table class="table table-hover align-middle">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Nombre</th>
+                                                        <th>Aforo</th>
+                                                        <th>Garantía (Int./Ext.)</th>
+                                                        <th>Alquiler (Int./Ext.)</th>
+                                                        <th>Limpieza</th>
+                                                        <th>Estado</th>
+                                                        @if (_canEditBuilding)
+                                                        {
+                                                            <th style="width: 80px;">Acciones</th>
+                                                        }
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var area in _areasComunes)
+                                                    {
+                                                        <tr>
+                                                            <td>
+                                                                <div class="fw-semibold">@area.Nombre</div>
+                                                                @if (!string.IsNullOrWhiteSpace(area.Descripcion))
+                                                                {
+                                                                    <div class="text-muted small">@area.Descripcion</div>
+                                                                }
+                                                            </td>
+                                                            <td>@(area.AforoMaximo?.ToString() ?? "--")</td>
+                                                            <td>@Moneda(area.GarantiaInternos) / @Moneda(area.GarantiaExternos)</td>
+                                                            <td>@Moneda(area.AlquilerInternos) / @Moneda(area.AlquilerExternos)</td>
+                                                            <td>@Moneda(area.Limpieza)</td>
+                                                            <td>
+                                                                @if (area.Activo)
+                                                                {
+                                                                    <span class="badge bg-success">Activo</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="badge bg-secondary">Inactivo</span>
+                                                                }
+                                                            </td>
+                                                            @if (_canEditBuilding)
+                                                            {
+                                                                <td>
+                                                                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ShowEditAreaComunModal(area)">
+                                                                        <i class="bi bi-pencil"></i>
+                                                                    </button>
+                                                                </td>
+                                                            }
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
                 </EditForm>
             </div>
@@ -1234,6 +1332,146 @@
             <i class="bi bi-check me-1"></i>Crear
         </button>
         <button class="btn btn-secondary" @onclick="() => CloseExonerationModal()">
+            <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+    </FooterTemplate>
+</Modal>
+
+<!-- Modal para crear/editar Áreas Comunes -->
+<Modal @ref="_areaComunModal" Title="@(_editingAreaComun.IdAreaComun == Guid.Empty ? "Nueva Área Común" : "Editar Área Común")" Size="ModalSize.Large">
+    <BodyTemplate>
+        <EditForm Model="_editingAreaComun" OnValidSubmit="SaveAreaComun">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <div class="form-group">
+                        <label class="form-label">Nombre *</label>
+                        <InputText @bind-Value="_editingAreaComun.Nombre" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Aforo Máximo</label>
+                        <InputNumber @bind-Value="_editingAreaComun.AforoMaximo" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <label class="form-label">Descripción</label>
+                        <InputTextArea @bind-Value="_editingAreaComun.Descripcion" class="form-control" Rows="2" />
+                    </div>
+                </div>
+
+                <div class="col-12"><hr class="my-1" /><h6 class="text-muted small text-uppercase">Reglas de disponibilidad</h6></div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Duración mín. (min)</label>
+                        <InputNumber @bind-Value="_editingAreaComun.DuracionMinMinutos" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Duración máx. (min)</label>
+                        <InputNumber @bind-Value="_editingAreaComun.DuracionMaxMinutos" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Buffer entre reservas (min)</label>
+                        <InputNumber @bind-Value="_editingAreaComun.BufferMinutos" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Tope reservas activas/unidad</label>
+                        <InputNumber @bind-Value="_editingAreaComun.TopeReservasActivasPorUnidad" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Anticipación mínima (horas)</label>
+                        <InputNumber @bind-Value="_editingAreaComun.AnticipacionMinHoras" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Anticipación máxima (días)</label>
+                        <InputNumber @bind-Value="_editingAreaComun.AnticipacionMaxDias" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="col-12"><hr class="my-1" /><h6 class="text-muted small text-uppercase">Costos (@SelectedBuilding?.Configuration.Currency)</h6></div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Garantía Internos</label>
+                        <InputNumber @bind-Value="_editingAreaComun.GarantiaInternos" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Garantía Externos</label>
+                        <InputNumber @bind-Value="_editingAreaComun.GarantiaExternos" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Alquiler Internos</label>
+                        <InputNumber @bind-Value="_editingAreaComun.AlquilerInternos" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label class="form-label">Alquiler Externos</label>
+                        <InputNumber @bind-Value="_editingAreaComun.AlquilerExternos" class="form-control" />
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="form-label">Limpieza</label>
+                        <InputNumber @bind-Value="_editingAreaComun.Limpieza" class="form-control" />
+                    </div>
+                </div>
+
+                <div class="col-12"><hr class="my-1" /><h6 class="text-muted small text-uppercase">Penalidades</h6></div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <InputCheckbox @bind-Value="_editingAreaComun.PenalidadCancelacionHabilitada" class="form-check-input" />
+                        <label class="form-check-label">Penalidad por cancelación tardía</label>
+                    </div>
+                    @if (_editingAreaComun.PenalidadCancelacionHabilitada)
+                    {
+                        <div class="form-group mt-1">
+                            <label class="form-label small">Días mínimos sin penalidad</label>
+                            <InputNumber @bind-Value="_editingAreaComun.DiasMinimosSinPenalidad" class="form-control form-control-sm" />
+                        </div>
+                    }
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <InputCheckbox @bind-Value="_editingAreaComun.PenalidadNoPresentadoHabilitada" class="form-check-input" />
+                        <label class="form-check-label">Penalidad por no presentarse</label>
+                    </div>
+                </div>
+
+                @if (_editingAreaComun.IdAreaComun != Guid.Empty)
+                {
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="_editingAreaComun.Activo" class="form-check-input" />
+                            <label class="form-check-label">Activo</label>
+                        </div>
+                    </div>
+                }
+            </div>
+        </EditForm>
+    </BodyTemplate>
+    <FooterTemplate>
+        <button class="btn btn-primary" @onclick="SaveAreaComun">
+            <i class="bi bi-check me-1"></i>Guardar
+        </button>
+        <button class="btn btn-secondary" @onclick="() => _areaComunModal.HideAsync()">
             <i class="bi bi-x me-1"></i>Cancelar
         </button>
     </FooterTemplate>

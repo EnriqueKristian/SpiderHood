@@ -17,6 +17,8 @@ namespace SpiderHood.Components.Pages.BuildingPages
         public Services.IBuildingService BuildingService { get; set; } = default!;
         [Inject]
         public Services.IBankAccountService BankAccountService { get; set; } = default!;
+        [Inject]
+        public Services.IAreaComunService AreaComunService { get; set; } = default!;
 
         private List<Building> Buildings = new();
         private Building SelectedBuilding = null;
@@ -51,6 +53,13 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private Modal _quickConfigModal = null!;
         private Modal _bankAccount = null!;
         private Modal _exoneration = null!;
+        private Modal _areaComunModal = null!;
+
+        private List<AreaComun> _areasComunes = new();
+        private bool _loadingAreasComunes = true;
+        private AreaComun _editingAreaComun = new();
+
+        private string Moneda(decimal valor) => valor.FormatoMoneda(SelectedBuilding?.Configuration.Currency);
 
         private List<string> _paymentMethods = new();
         private List<Currency> _currencies = new()
@@ -117,6 +126,47 @@ namespace SpiderHood.Components.Pages.BuildingPages
             SelectedBuilding = building;
             _editingSection = "";
             ActiveTab = "currency";
+
+            _loadingAreasComunes = true;
+            _areasComunes = await AreaComunService.GetAreaComunesAsync(idBuilding);
+            _loadingAreasComunes = false;
+        }
+
+        private void ShowAddAreaComunModal()
+        {
+            if (!_canEditBuilding) return;
+            _editingAreaComun = new AreaComun { IdBuilding = SelectedBuilding!.IdBuilding, Activo = true };
+            _areaComunModal.ShowAsync();
+        }
+
+        private void ShowEditAreaComunModal(AreaComun area)
+        {
+            if (!_canEditBuilding) return;
+            _editingAreaComun = area.Clone();
+            _areaComunModal.ShowAsync();
+        }
+
+        private async Task SaveAreaComun()
+        {
+            if (!_canEditBuilding || SelectedBuilding == null) return;
+
+            if (string.IsNullOrWhiteSpace(_editingAreaComun.Nombre))
+                return;
+
+            if (_editingAreaComun.IdAreaComun == Guid.Empty)
+            {
+                _editingAreaComun.CreatedBy = currentUser.IdUser;
+                var creada = await AreaComunService.CrearAsync(_editingAreaComun);
+                _areasComunes.Add(creada);
+            }
+            else
+            {
+                await AreaComunService.ActualizarAsync(_editingAreaComun);
+                var index = _areasComunes.FindIndex(a => a.IdAreaComun == _editingAreaComun.IdAreaComun);
+                if (index >= 0) _areasComunes[index] = _editingAreaComun;
+            }
+
+            await _areaComunModal.HideAsync();
         }
 
         private async Task CloseBankModal()

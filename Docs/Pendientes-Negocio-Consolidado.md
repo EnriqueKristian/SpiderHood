@@ -76,12 +76,20 @@ secas, es la secuencia en la que conviene tocarlos.
 20. **#15** Borrar un permiso (fuera de alcance).
 21. **#12** Caso sin match en el Excel de Nova Alzamora (manual).
 22. **#21** Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas,
-    Encuestas) -- rediseñado 2026-09-11, con **Reservas 100% cerrado**
-    (config, aprobación, check-in/out, estados, tratamiento financiero de
-    garantía) y Gobernanza con la arquitectura definida (ver detalle
-    abajo); sin nada de qué partir en el código todavía. Conviene
-    arrancarlo con tiempo/alcance dedicado, no intercalado con el resto.
-    Reservas es el siguiente módulo tras Comunicaciones.
+    Encuestas) -- rediseñado 2026-09-11. **Reservas -- IMPLEMENTADO
+    (2026-09-11)**: Áreas Comunes (nueva pestaña en BuildingConfig), estado
+    completo (Pendiente -> Aprobada/Rechazada -> Cancelada/NoPresentado ->
+    Entregada -> Finalizada -> Cerrada), aprobación por la Junta integrada
+    al badge de Aprobaciones, check-in/check-out con checklist + fotos por
+    el Administrador, liquidación de garantía (devuelta/retenida/cuota
+    extraordinaria vía `IExtraChargeService` si el daño la supera) y
+    páginas `/reservas` (residente) + `/reservas-admin` (administrador) --
+    `dotnet build` en 0 errores, mismo baseline de warnings. Falta correr
+    el script SQL contra la BD real, asignar `approve_reservations` /
+    `manage_reservations` vía `/Settings/Roles`, y probar el flujo
+    completo con datos reales. **Gobernanza (Reuniones/Votación/Actas/
+    Encuestas) sigue sin construir** -- es el siguiente módulo de la cola,
+    con la arquitectura ya definida (ver detalle abajo).
 
 ---
 
@@ -840,10 +848,10 @@ compartido por el usuario. **"Citas" descartado a pedido explícito del
 usuario**: "el tema de cita como está planteado aquí, no suma" -- no forma
 parte del alcance de este item.)*
 
-**Estado: no existe -- cero código relacionado en todo el repo** (sólo
-existe `CalendarItem`/`CalendarPage.razor`, un calendario genérico de
-eventos, sin ningún concepto de convocatoria, quorum, agenda, acta o
-votación).
+**Estado: Reservas IMPLEMENTADO (2026-09-11); Gobernanza (Reuniones/
+Votación/Actas/Encuestas) sigue sin construir** -- `CalendarItem`/
+`CalendarPage.razor` sigue siendo el único calendario genérico de eventos,
+sin ningún concepto de convocatoria, quorum, agenda, acta o votación.
 
 **Son dos mecanismos distintos, no tres módulos sueltos ni uno solo:**
 uno de **agenda** (Reservas -- quién usa qué recurso físico, cuándo) y uno
@@ -853,8 +861,54 @@ versión ligera sin peso legal). Diseñarlos así desde el inicio evita
 terminar con un formulario de votación que no se conecta con el acta.
 
 **Reservas -- agenda de un recurso físico compartido. Diseño cerrado con
-el usuario el 2026-09-11, detallado abajo.** Es el siguiente módulo en la
-cola de desarrollo, justo después de Comunicaciones.
+el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
+- `Database/Scripts/2026-09-11_98_Reserva.sql`: tablas `AreaComun`,
+  `Reserva`, `ReservaChecklistItem`, `ReservaAttachment`,
+  `IngresoComunidad`; SPs de INS/UPD/GET para cada una (incluye
+  `GET_ReservasConflicto` para el chequeo de solapamiento y
+  `GET_ReservasProximasByAreaComun`); permisos `approve_reservations`
+  (Junta) y `manage_reservations` (Administrador); ítems de menú standalone
+  `/reservas` y `/reservas-admin`.
+- `Services/IAreaComunService.cs` (CRUD) e `Services/IReservaService.cs`
+  (el grueso de la lógica: `SolicitarAsync` valida ventanas de
+  anticipación/duración/tope y chequea conflicto antes de guardar;
+  `AprobarAsync`/`RechazarAsync`; `CancelarAsync`/`MarcarNoPresentadoAsync`
+  aplican la penalidad configurada; `HacerCheckInAsync`/
+  `HacerCheckOutAsync` guardan checklist + fotos vía `IFileStorageService`;
+  `CerrarAsync` liquida la garantía -- Alquiler/Limpieza como Ingreso real
+  si la reserva se completó, la garantía retenida como Ingreso separado
+  ["Reposición de Daños - Reserva" / penalidad], y genera una cuota
+  extraordinaria vía `IExtraChargeService.GenerarCuotaExtraordinariaAsync`
+  si el daño supera la garantía).
+- UI: pestaña nueva "Áreas Comunes" en `BuildingConfig.razor` (CRUD,
+  persistencia propia, no toca `BuildingConfiguration`); página de
+  residente `/reservas` (solicitar + "Mis Reservas" paginado); página de
+  administrador `/reservas-admin` (check-in/check-out con checklist +
+  fotos, cerrar/liquidar garantía); sección "Reservas Pendientes de
+  Aprobación" nueva en `Approvals.razor` para la Junta, sumando al mismo
+  badge de `LeftMenu.ContarAprobacionesPendientesAsync`.
+- **Dos simplificaciones deliberadas de esta primera versión (no son un
+  olvido):**
+  1. El chequeo de solapamiento de horarios lo hace la propia tabla
+     `Reserva` (`GET_ReservasConflicto`), no `CalendarItem` -- que no tiene
+     ningún concepto de "recurso" (`Location` es texto libre). La
+     integración visual con el calendario general de Mantenimiento queda
+     pendiente.
+  2. `IngresoComunidad` es un registro propio y simple para Alquiler/
+     Limpieza/Garantía retenida -- **no** está conectado todavía al Reporte
+     de Ingresos y Egresos (100% conciliación bancaria importada hoy). El
+     propio diseño (ver más abajo, "Cobro") dejó esto abierto -- "se
+     resuelve al diseñar la pantalla de conciliación específica de
+     Reservas, no antes" -- así que no se resuelve acá.
+- `dotnet build` en 0 errores, mismo baseline de 139 warnings (+6
+  `BL0005` esperados por el mismo patrón ya usado en `Approvals.razor`/
+  `ExpensePage.razor` de setear `Title`/`Message`/`ConfirmText` en
+  `ConfirmationModal` desde el code-behind).
+- **Falta:** correr el script SQL contra la base real, asignar
+  `approve_reservations`/`manage_reservations` vía `/Settings/Roles`, y
+  probar el flujo completo (solicitar -> aprobar -> check-in -> check-out
+  -> cerrar) con datos reales -- no se pudo probar la UI en vivo en este
+  entorno (sin conexión a una BD real disponible).
 
 *Configuración del Área Común (por edificio, en `BuildingConfig` -- ver
 item #24, encajaría como una pestaña nueva "Áreas Comunes"):*
@@ -1390,7 +1444,7 @@ que confirme si mejoró y en qué medida.
 | 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados** | Alta* | **Resuelto** (2026-09-11), falta probar con BD real |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
-| 21 | Módulo de Reservas y Gobernanza (Reuniones/Votación/Actas/Encuestas) -- arquitectura definida, "Citas" descartado | Baja-Media* | Diseño + código (grande) |
+| 21 | Módulo de Reservas -- **IMPLEMENTADO**, falta probar en vivo; Gobernanza (Reuniones/Votación/Actas/Encuestas) sigue en diseño, "Citas" descartado | Baja-Media* | Reservas implementado; Gobernanza diseño + código (grande) |
 | 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
 | 24 | Configuración de Edificio: página propia con Tabs -- estructura **HECHA**, falta **rediseño visual** (usuario esperaba más que mover cards a pestañas) | Media | Diseño UI |

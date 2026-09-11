@@ -226,6 +226,8 @@ builder.Services.AddScoped<ISystemLogAdminService, SystemLogAdminService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
 builder.Services.AddScoped<IComunicadoService, ComunicadoService>();
+builder.Services.AddScoped<IAreaComunService, AreaComunService>();
+builder.Services.AddScoped<IReservaService, ReservaService>();
 builder.Services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<IReceiptStorageService, ReceiptStorageService>();
 builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();

@@ -950,6 +950,48 @@ descritos en el punto #17 (cuenta de Twilio, Sandbox, `AccountSid`/
 `AuthToken` en `Twilio:*`) -- una vez cargados, probar desde la misma
 pantalla nueva.
 
+### 26. Perf: menú izquierdo demoraba hasta un minuto en la primera carga
+*(Nuevo 2026-09-11, reportado por el usuario -- **IMPLEMENTADO**, falta
+confirmar en vivo cuánto mejoró)*
+
+**3 problemas reales encontrados en la cadena de carga inicial de cada
+circuito (login, F5, reconexión) -- todos corregidos:**
+
+1. `PermissionService.GetUserPermissionsAsync` tenía un campo con nombre
+   de caché (`_userPermissionsCache`) que **sólo se escribía, nunca se
+   leía antes de pisarlo** -- cada `HasPermissionAsync` volvía a consultar
+   los permisos del rol contra la BD. Sólo
+   `LeftMenu.LoadBadgeCountsAsync` ya dispara eso 3 veces en la primera
+   carga (+ 1 más desde `GetMenuForUserAsync`) -- 4 consultas idénticas en
+   cascada por nada. Ahora se cachea por rol (mismo patrón que ya usaba
+   `_menuCacheByRole` para el menú).
+2. `LeftMenu.LoadMenuAsync` esperaba a que terminaran los badges de
+   "pendientes" (solicitudes de acceso + aprobaciones, 2-4 consultas
+   encadenadas) ANTES de poder pintar el menú -- toda la barra lateral
+   quedaba en blanco hasta que esas consultas terminaban, aunque no
+   tuvieran nada que ver con la mayoría de los links. Ahora el menú se
+   pinta apenas están los ítems; los badges llegan un instante después con
+   su propio `StateHasChanged` (y las 2 bandejas de badges corren en
+   paralelo entre sí).
+3. `UserSessionLoader.LoadAsync` (reconstruye la sesión completa a partir
+   de la cookie -- lo PRIMERO que espera cualquier circuito nuevo, antes
+   de que CUALQUIER cosa pueda mostrarse, no sólo el menú) encadenaba 4
+   consultas independientes (`GetUserBuildingAssociationAsync`,
+   `GetAllBuildingByOwnerAsync`, `GetAllBuildingsConfigAsync`,
+   `GetRoleByUserIdAsync`) una atrás de la otra. Ahora corren en paralelo
+   con `Task.WhenAll` -- seguro porque `BDLayout` ya está diseñado
+   justamente para esto (cada llamada abre su propio `DbContext` de corta
+   vida vía `IDbContextFactory`, confirmado en el comentario del propio
+   constructor de `BDLayout.Core.cs`).
+
+**Lo que esto NO explica:** si la demora persiste incluso después de este
+fix, lo más probable es el costo de arranque normal de .NET en modo
+Development (JIT de un montón de componentes Blazor la primera vez que se
+piden, más LocalDB arrancando si no estaba corriendo) -- eso no se arregla
+con cambios de código, sólo se nota la primera vez que se corre la app
+después de compilar/reiniciar, no en cada F5 normal. Pedirle al usuario
+que confirme si mejoró y en qué medida.
+
 ---
 
 ## Resumen rápido
@@ -982,6 +1024,7 @@ pantalla nueva.
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
 | 24 | Configuración de Edificio: página propia con Tabs -- **HECHO**, falta probar en vivo | Media | Refactor UI (implementado) |
 | 25 | Email: falta Contraseña de Aplicación de Gmail + 2 flujos comentados | Alta | Configuración + decisión |
+| 26 | Perf: menú izquierdo demoraba hasta 1 min en la primera carga -- **HECHO**, falta confirmar en vivo | Alta | Código (bug de caché + paralelizar consultas) |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

@@ -29,7 +29,21 @@ namespace SpiderHood.Services
         // pegado para el resto del circuito — cambiar de rol actualizaba el chip/header
         // pero el listado de opciones del menú nunca se refrescaba.
         private readonly Dictionary<Guid, List<MenuItem>> _menuCacheByRole = new();
-        private List<string>? _userPermissionsCache;
+
+        // Bug encontrado 2026-09-11: este campo existía con nombre de "cache" pero
+        // GetUserPermissionsAsync sólo lo ESCRIBÍA, nunca lo leía antes de pisarlo -- cada
+        // HasPermissionAsync/HasAnyPermissionAsync/GetButtonPermissionsAsync volvía a pegarle
+        // a la base de datos por los permisos del rol, aunque no hubieran cambiado en todo el
+        // circuito. LeftMenu.LoadBadgeCountsAsync por sí solo llama HasPermissionAsync 3 veces
+        // en la primera carga (más una cuarta desde GetMenuForUserAsync) -- 4 consultas
+        // idénticas en cascada, una de las causas de la demora del menú izquierdo en el
+        // primer render. Cacheado por rol (no un solo slot) por el mismo motivo que
+        // _menuCacheByRole: un cambio de rol dentro del mismo circuito no debe heredar los
+        // permisos del rol anterior. Sólo cachea acá (el uso "interno" vía GetUserPermissionsAsync)
+        // -- GetPermissionsForRoleAsync sigue sin cachear porque también lo llaman pantallas de
+        // administración (RolePermissions.razor, IPermissionAdminService) que necesitan leer el
+        // valor recién guardado después de editar permisos de un rol.
+        private readonly Dictionary<string, List<string>> _permissionsCacheByRole = new();
         private BDLayout ec { get; set; }
 
         public PermissionService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, IConfiguration configuration)
@@ -73,9 +87,14 @@ namespace SpiderHood.Services
             // cada pantalla una por una. Ver UserSession.IsViewingAs / AuthService.StartViewAsAsync.
             if (user.IsViewingAs) return new List<string>();
 
-            // Obtener permisos según el rol del usuario
-            _userPermissionsCache = await GetPermissionsForRoleAsync(user.Role);
-            return _userPermissionsCache;
+            // Obtener permisos según el rol del usuario (cacheado por rol para todo el
+            // circuito -- ver el comentario de _permissionsCacheByRole).
+            if (_permissionsCacheByRole.TryGetValue(user.Role, out var cachedPermissions))
+                return cachedPermissions;
+
+            var permissions = await GetPermissionsForRoleAsync(user.Role);
+            _permissionsCacheByRole[user.Role] = permissions;
+            return permissions;
         }
 
         public async Task<bool> CanAccessRouteAsync(UserSession user, string route)
@@ -139,6 +158,7 @@ namespace SpiderHood.Services
         public async Task RefreshMenu()
         {
             _menuCacheByRole.Clear();
+            _permissionsCacheByRole.Clear();
         }
         private async Task<List<MenuItem>> GetMenuDefinitionsAsync(UserSession user)
         {

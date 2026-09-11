@@ -56,6 +56,10 @@ secas, es la secuencia en la que conviene tocarlos.
 15. **#10** Estado de Cuenta migrado no crea Gastos categorizados.
 16. **#19** Login social Google/Facebook/Apple -- no crítico si el alta de
     usuarios en el piloto sigue siendo manual/por Administrador.
+17. **#24** Configuración de Edificio: página propia con Tabs -- antes de
+    mover las 8 secciones actuales, revisar con el usuario qué le falta a
+    la configuración (lo mencionó de paso), para no reordenar los tabs dos
+    veces.
 
 **Grupo 3 -- baja urgencia, manual, o investigación sin bloqueo real:**
 17. **#16** Verificar URL del menú "Ingresos y Egresos".
@@ -777,6 +781,55 @@ un patrón similar en Presupuestos, Gastos, Edificios). Falta: grep de
 `OnInitializedAsync` en páginas con `{Id...}` en la ruta, y confirmar cuáles
 tienen (o no) el mismo problema.
 
+### 24. Configuración de Edificio: pasar a página propia con Tabs
+*(Nuevo 2026-09-11, pedido del usuario -- sin empezar, sólo el diseño de
+alto nivel)*
+
+**Verificado en el código -- confirma el problema que señaló el usuario.**
+`/buildings` (`BuildingPage.razor`, **1518 líneas** de markup + 909 de
+code-behind) hoy mezcla dos superficies de configuración distintas en la
+misma pantalla:
+- Columna izquierda: lista de edificios -- cada fila ya tiene un ícono de
+  engranaje ("Configuración Rápida", `ShowQuickConfig`) que abre un
+  **modal** chico y separado.
+- Columna derecha: al seleccionar un edificio de la lista, se despliega un
+  **panel único y larguísimo** con 8 secciones apiladas una debajo de la
+  otra, todas en el mismo scroll: Moneda y Bancos, Pagos, Multas y Mora,
+  Contactos, Inmobiliaria, Mantenimiento, Categoría Default, Excepciones de
+  Pago.
+
+El usuario señaló que la configuración de un edificio se está volviendo
+cada vez más compleja -- y es verificable: varios puntos de este mismo
+backlog fueron agregando campos a `BuildingConfiguration` sobre esta misma
+pantalla (`ExpenseApprovalThreshold`, `ReceiptFooterText`,
+`DebtWarningDays`/`DebtCriticalDays`, entre otros ya existentes) sin que la
+pantalla en sí se haya reorganizado -- y sospecha que, todo mezclado así,
+puede haber algo faltando o difícil de encontrar.
+
+**Propuesta del usuario:** que cada edificio tenga su PROPIA página de
+configuración (no un panel al costado de la lista), organizada en **Tabs**
+(una pestaña por sección -- las 8 actuales, más lugar para las que falten).
+Se llega ahí desde `/buildings` con un ícono de configuración por fila --
+en el mismo lugar donde hoy está el gear icon de "Configuración Rápida".
+
+**Lo que falta diseñar/decidir antes de tocar código:**
+- Si el modal actual de "Configuración Rápida" desaparece (absorbido por
+  la página nueva) o se mantiene aparte para los 2-3 campos que se editan
+  más seguido (uso rápido sin entrar a la página completa).
+- Ruta de la página nueva (ej. `/buildings/{id}/config`) y el listado
+  definitivo de tabs -- arrancar de las 8 secciones actuales como base, y
+  de ahí el usuario mencionó "creo que faltan cosas": conviene revisar
+  junto con él qué configuración falta ANTES de mover las secciones
+  existentes, para no tener que reordenar los tabs dos veces.
+- Migrar las 8 secciones (hoy todas en un solo archivo) a una página con
+  tabs, cuidando no romper la lógica de guardado actual
+  (`BuildingPage.razor.cs`).
+
+**Alcance:** es un refactor de UI + reorganización, no builds nuevos de
+lógica de negocio -- pero por las 1518 líneas involucradas, conviene
+tratarlo como su propio bloque de trabajo, no intercalado línea por línea
+con otros puntos del backlog.
+
 ---
 
 ## Resumen rápido
@@ -807,6 +860,7 @@ tienen (o no) el mismo problema.
 | 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |
 | 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
+| 24 | Configuración de Edificio: página propia con Tabs (hoy 1 panel de 1518 líneas) | Media | Diseño + refactor UI |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

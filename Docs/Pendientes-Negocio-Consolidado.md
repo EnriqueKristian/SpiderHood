@@ -532,15 +532,14 @@ recibos ya guardados con esquemas anteriores** (siguen en su ruta vieja,
 registrada tal cual en su fila de `ReceiptFile` -- son inmutables, nunca se
 mueven ni se regeneran).
 
-**Pendiente, sin resolver todavía (a criterio del usuario si vale la
-pena):** el nivel de Edificio sigue siendo el `IdBuilding` (Guid), no el
-nombre ("NOVA ALZAMORA" como en Drive) -- se dejó así a propósito porque el
-nombre de un edificio SÍ se puede repetir entre dos edificios distintos (o
-cambiar), y los edificios usan Guid como identidad real en toda la app;
-usar el nombre ahí arriesgaría mezclar archivos de dos edificios con el
-mismo nombre sanitizado. Si en la práctica nunca va a haber dos edificios
-con nombres parecidos y se prefiere ver el nombre real al entrar a la
-carpeta, se puede agregar sin mucho esfuerzo.
+**Decidido (2026-09-11):** el nivel de Edificio queda como `IdBuilding`
+(Guid), no el nombre. El usuario confirmó: para la aplicación es
+irrelevante que el Administrador no pueda "reconocer" la carpeta a simple
+vista en el explorador de archivos del servidor -- nadie navega ese disco
+a mano en el uso normal, todo pasa por la app -- y prefiere no meterle
+esfuerzo a un esquema más elaborado (ej. un slug legible + sufijo
+aleatorio) sólo para ganar legibilidad ahí. Cierra el punto -- no queda
+pendiente.
 
 **Verificado en este entorno:** se instaló el SDK de .NET 10 (ver
 Docs/Pendientes-Negocio-Consolidado.md #17) y `dotnet build` compila sin

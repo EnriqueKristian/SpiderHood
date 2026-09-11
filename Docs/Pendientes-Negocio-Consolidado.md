@@ -141,11 +141,50 @@ exactamente el síntoma que este punto anticipaba. **Corregido** invirtiendo
 el orden (`Message`/`IsCancelOnly` antes de `Show()`) en el único lugar
 compartido -- arregla los 4 usos a la vez.
 
+**Actualización (2026-09-11):** al preguntarle al usuario si prefería
+mantener "advertencia con confirmación" (lo que este fix ya dejaba
+funcionando bien) o pasar a bloqueo total, eligió **bloqueo total** -- ver
+punto 6b más abajo. Con eso, el fix de este punto (orden `Show()`/`Message`)
+sigue siendo válido y necesario para los OTROS 3 usos compartidos
+(`ModalOwnerUnit.razor`, `ServiceReadingModal.razor`,
+`ManualInstallmentConciliation.razor`, que siguen usando confirmación con
+advertencia blanda), pero en `BudgetGenerator` específicamente la lectura
+de agua ya ni siquiera llega a mostrar ese modal -- corta antes, ver 6b.
+
 **Sin verificar en un browser real** (sin acceso a BD en este entorno):
-confirmar que al publicar un presupuesto con la lectura de agua incompleta,
-el modal muestra de entrada el mensaje real ("Se encontraron los
-siguientes problemas: ... Lectura de agua: ...") con los botones
-Cancelar/Continuar, no un mensaje genérico o vacío.
+confirmar que en las pantallas que SÍ siguen usando el modal de
+confirmación compartido (`ModalOwnerUnit`, `ServiceReadingModal`,
+`ManualInstallmentConciliation`), la primera confirmación de la sesión
+muestra el mensaje real de entrada, no uno genérico o vacío.
+
+### 6b. Lectura de agua incompleta: de advertencia a bloqueo total
+*(Nuevo 2026-09-11, decisión del usuario -- **implementado**)*
+
+Al reportar el bug de arriba, el usuario aclaró la regla de negocio real:
+"se supone que es bloqueante, sin lectura no avanza el presupuesto" -- pero
+el código (desde una sesión anterior) lo trataba como advertencia blanda
+que el Administrador podía aceptar y continuar. Confirmado explícitamente
+con el usuario: quiere **bloqueo total**, no advertencia.
+
+**Cambio en `ValidarPresupuestoParaAprobacion`
+(`BudgetGenerator.razor`):** si el presupuesto tiene una sección de
+Categoría "Agua" y la lectura está incompleta (sin cargar, con unidades
+faltantes, o con consumos inválidos), ahora corta de una con un toast de
+error ("Lectura de agua incompleta: ...") y `blocked = true` -- mismo
+patrón que las otras validaciones duras (sin secciones, sin items, monto
+total en cero). Ya no pasa por el modal de "¿Desea continuar de todos
+modos?" -- no hay forma de publicar o enviar a aprobación un presupuesto
+con Agua sin lectura completa, para ningún edificio.
+
+**Verificado en este entorno:** `dotnet build` compila sin errores (0
+errores, sin warnings nuevos).
+
+**Sin verificar en un browser real** (sin acceso a BD en este entorno):
+crear/editar un presupuesto con sección de Agua, dejar la lectura sin
+cargar (o con alguna unidad faltante), y confirmar que "Enviar a
+Aprobación"/"Publicar" muestra el toast de error y NO deja avanzar bajo
+ninguna circunstancia (a diferencia de antes, que ofrecía "Continuar de
+todos modos").
 
 ### 7. Garantía de reserva de área común (cobro y devolución)
 *(Conciliación #2 — pendiente, sin empezar, sin diseño todavía)*
@@ -576,6 +615,7 @@ madurez (sólo lectura vs. acciones como aprobar gastos).
 | 4 | Borrado de edificio: FKs sin confirmar | Alta | Verificación de BD |
 | 5 | Soporte real de multimoneda | Alta | Diseño + código |
 | 6 | Bug `ConfirmationUtil` (4+ pantallas) | Media | **Resuelto** (2026-09-11) |
+| 6b | Lectura de agua incompleta bloquea publicar (antes era advertencia) | Alta | **Resuelto** (2026-09-11) |
 | 7 | Garantía de reserva de área común | Media | Diseño + código |
 | 8 | Historial de propietarios por periodo | Media | Diseño + código |
 | 9 | `GET_UnitsByType` sin manejar unidades sin grupo | Media | Código |

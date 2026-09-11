@@ -72,10 +72,12 @@ secas, es la secuencia en la que conviene tocarlos.
 20. **#15** Borrar un permiso (fuera de alcance).
 21. **#12** Caso sin match en el Excel de Nova Alzamora (manual).
 22. **#21** Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas,
-    Encuestas) -- rediseñado 2026-09-11 con arquitectura ya definida (ver
-    detalle abajo), sin nada de qué partir en el código; conviene
-    arrancarlo recién con tiempo/alcance dedicado, no intercalado con el
-    resto. Reservas es el siguiente módulo tras Comunicaciones.
+    Encuestas) -- rediseñado 2026-09-11, con **Reservas 100% cerrado**
+    (config, aprobación, check-in/out, estados, tratamiento financiero de
+    garantía) y Gobernanza con la arquitectura definida (ver detalle
+    abajo); sin nada de qué partir en el código todavía. Conviene
+    arrancarlo con tiempo/alcance dedicado, no intercalado con el resto.
+    Reservas es el siguiente módulo tras Comunicaciones.
 
 ---
 
@@ -764,9 +766,15 @@ item #24, encajaría como una pestaña nueva "Áreas Comunes"):*
   ventana de anticipación mín/máx para reservar, tope de reservas activas
   por unidad.
 - Costos en la moneda del edificio (`BuildingConfiguration.Currency`,
-  mismo patrón que el resto de la config): Garantía, Alquiler (0 por
-  default para propietarios, configurable si el admin decide cobrarles;
-  distinto para externos), Limpieza.
+  mismo patrón que el resto de la config). **Garantía y Alquiler, cada uno
+  como par `{Internos, Externos}`** -- decisión cerrada 2026-09-11: la
+  garantía de un externo es normalmente mucho mayor que la de un
+  propietario (ej. Garantía: S/200 internos / S/1,000 externos), así que
+  no alcanza con un solo monto + "distinto para externos" como se planteó
+  al inicio. Alquiler sigue el mismo patrón (0 en Internos por default si
+  el admin no quiere cobrarle a propietarios, configurable). Limpieza
+  queda como un solo monto (no varía por interno/externo, salvo que en la
+  práctica se pida lo mismo -- se agrega el par si hace falta).
 - **Penalidad por cancelación/no-show -- decisión cerrada:** dos toggles
   independientes, cada uno con su propio campo de días, apagados por
   default (se prenden solo si el edificio los necesita):
@@ -836,18 +844,61 @@ Installment/Expense/Budget en este código):*
 7. **Cerrada** -- garantía liquidada (devuelta entera / retenida por
    penalidad / retenida por daños según el checklist final).
 
-*Impacto financiero -- falta decidir:* si se cobra Alquiler/Limpieza,
-¿genera un Ingreso categorizado reutilizando el sistema de
-Categorías/Movimientos que ya existe (para que Dashboard y reportes
-financieros no queden ciegos a esta plata), o queda registrado aparte
-dentro del módulo de Reservas? Sin definir todavía.
+*Impacto financiero -- decisión cerrada 2026-09-11, con un matiz contable
+importante que el usuario señaló y que es correcto:*
+
+- **Alquiler y Limpieza son Ingreso real** -- se cobran porque el edificio
+  prestó un servicio. Generan un Ingreso categorizado reutilizando el
+  sistema de Categorías/Movimientos ya existente, van derecho a
+  Dashboard/reportes financieros, y se concilian contra el registro de la
+  reserva con el mismo patrón de plantillas/auto-match que ya usa la
+  conciliación de gastos (para no quedar huérfanos en el estado de cuenta
+  ni contarse doble).
+- **Garantía NO es Ingreso -- es custodia/pasivo.** Es plata que puede
+  volver íntegra al propietario; contarla como Ingreso al recibirla y
+  como Gasto al devolverla infla ambos lados del reporte de Ingresos y
+  Egresos con movimiento de plata que nunca fue del edificio. Al recibirla
+  se registra como custodia (se concilia igual contra el estado de cuenta,
+  para no quedar huérfana, pero clasificada aparte de un Ingreso normal).
+  - Si se devuelve completa: sin impacto en Ingresos ni Egresos -- entró y
+    salió, neto cero.
+  - Si se retiene (por la penalidad de cancelación/no-show, o por daños
+    según el checklist de cierre): el monto retenido recién ahí se
+    convierte en Ingreso, pero en una **categoría propia y distinguible**
+    ("Reposición de Daños - Reserva", no genérica) -- el usuario aclaró
+    correctamente que conceptualmente no es ganancia del edificio, es
+    cobertura del costo de reponer lo dañado, así que separarla de
+    ingresos reales (Alquiler) deja los reportes financieros honestos
+    sobre cuánto genera el edificio de verdad. El monto efectivamente
+    devuelto (si hay devolución parcial) se concilia como egreso bancario
+    marcado explícitamente "Devolución de Garantía", nunca como un
+    Gasto/categoría normal.
+- **Si el daño supera la garantía -- ya existe el mecanismo, no hay que
+  construir nada nuevo:** `Services/IExtraChargeService.cs` ->
+  `GenerarCuotaExtraordinariaAsync(idBuilding, descripcion,
+  fechaVencimiento, montosPorUnidad, usuario)`. Verificado leyendo la
+  implementación completa: SIEMPRE crea un `BudgetHeader` (tipo
+  "Extraordinario"), sin importar si `montosPorUnidad` trae 1 unidad, un
+  grupo, o todas -- el método recorre todas las unidades activas del
+  edificio y sólo genera una `Installment` para las que vengan en el
+  diccionario con monto > 0, saltando el resto. Sirve tal cual para "el
+  daño de esta reserva superó la garantía del DPTO responsable" (pasando
+  solo su `IdGroupUnit`) -- el mismo mecanismo que ya sirve para el caso
+  general de "se malogró el botón del ascensor de un piso, cobrarle solo a
+  ese grupo de DPTOs" (fuera del alcance de Reservas, pero confirma que el
+  servicio no está atado a "aplica a todo el edificio").
 
 *Cobro -- sin pasarela de pago digital todavía (ver brecha de cobro de
 cuotas en el análisis de mercado):* Garantía/Alquiler/Limpieza se
 registran y concilian manualmente por ahora, igual que el resto de la
 cobranza actual -- no bloquea empezar a construir el módulo, pero sí
 significa que "cobrar la garantía" y "devolverla" son, por ahora, marcar
-un estado, no una transacción automática.
+un estado, no una transacción automática. **Abierto, sin bloquear el
+diseño:** confirmar si Garantía + Alquiler + Limpieza llegan como una
+sola transferencia del propietario o por separado -- define si la
+conciliación matchea un solo monto combinado por reserva o hasta 3 líneas
+distintas en el estado de cuenta. Se resuelve al diseñar la pantalla de
+conciliación específica de Reservas, no antes.
 
 **Gobernanza -- Reuniones, Votación y Actas como un solo flujo:**
 El dato que gobierna todo esto: el **Decreto Legislativo 1568** (nuevo
@@ -861,17 +912,14 @@ permanente, no un parche pandémico. El quórum/mayorías para acuerdos
 ordinarios (más allá del 75% legal) quedan delegados al Reglamento Interno
 de cada edificio, así que el sistema no debe asumir un número fijo.
 
-- **Alícuota -- verificado en el código, no dar por hecho:** hoy NO existe
-  un campo explícito de "% de participación" en `GroupUnit`/`UnitView`
-  (`Classes/Unit.cs`) ni en ningún otro lado. Sí existe `Area` por unidad y
-  `TotalArea` por edificio (ya usado en `BuildingPage.razor` para el stat
-  card "Área Total") -- la alícuota podría derivarse como `Area /
-  TotalArea`, que es la convención más común en Perú, pero legalmente el
-  Reglamento Interno de un edificio puede declarar alícuotas que no sean
-  exactamente proporcionales al área (ej. ponderando cocheras/depósitos
-  distinto) -- **falta confirmar con el usuario si alcanza con derivarla
-  del área, o si hace falta un campo explícito editable por edificio**
-  antes de diseñar la tabla de datos.
+- **Alícuota -- decisión cerrada 2026-09-11: se deriva, no es un campo
+  nuevo.** Se calcula como el área del **Grupo Unidad** (el DPTO más sus
+  unidades asociadas -- cochera, depósito -- bajo el mismo grupo) sobre el
+  área total del edificio. El dato ya existe: `OwnerUnitView.TotalArea`
+  (`Classes/Unit.cs`) ya vive a nivel de grupo (DPTO + asociados, no la
+  unidad suelta), y `Building.TotalArea` ya existe también -- la fórmula
+  es `OwnerUnitView.TotalArea / Building.TotalArea` sin necesidad de
+  ningún campo ni tabla nueva.
 - **Reuniones:** Ordinaria (periódica) o Extraordinaria (tema puntual --
   gasto grande, elección de junta). Convocatoria con fecha, agenda y
   documentos adjuntos; notificación con acuse de recibo (email + WhatsApp,
@@ -915,10 +963,10 @@ sobre precios y diferenciación más abajo en este documento).
 
 **Falta por completo:** decidir alcance real de la primera versión (¿las
 4 piezas de gobernanza juntas, o Reuniones+Votación+Actas primero y
-Encuestas después, dado que es la de menor esfuerzo?), confirmar el tema
-de la alícuota (derivada vs. campo explícito) antes de diseñar la tabla de
-datos, y el diseño de pantallas -- no hay nada de qué partir en el código
-existente. Fuente legal: [Decreto Legislativo 1568 -- texto oficial en El
+Encuestas después, dado que es la de menor esfuerzo?) y el diseño de
+pantallas -- no hay nada de qué partir en el código existente (la
+alícuota ya quedó resuelta arriba, se deriva sin campo nuevo). Fuente
+legal: [Decreto Legislativo 1568 -- texto oficial en El
 Peruano](https://busquedas.elperuano.pe/dispositivo/NL/2181939-6). El
 reglamento definitivo puede ajustar los quórum/mayorías exactos para
 acuerdos ordinarios, pero la arquitectura de fondo (voto por alícuota,

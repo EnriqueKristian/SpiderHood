@@ -1009,6 +1009,170 @@ namespace SpiderHood.Data
             }, "AddIncidentAttachment", cancellationToken);
         }
 
+        public async Task<Models.Comunicado> AddNewRecordAsync(Models.Comunicado comunicado, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(comunicado, nameof(comunicado));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Comunicado,
+                    cancellationToken,
+                    comunicado.IdComunicado,
+                    comunicado.IdBuilding,
+                    comunicado.Titulo,
+                    comunicado.Cuerpo,
+                    comunicado.IdCategoria,
+                    (int)comunicado.Alcance,
+                    (object?)comunicado.RolReservado ?? DBNull.Value,
+                    comunicado.EnviarPorCorreo,
+                    comunicado.CreatedBy);
+                return comunicado;
+            }, "AddComunicado", cancellationToken);
+        }
+
+        public async Task<Models.ComunicadoDestinatario> AddNewRecordAsync(Models.ComunicadoDestinatario destinatario, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(destinatario, nameof(destinatario));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ComunicadoDestinatario,
+                    cancellationToken,
+                    destinatario.IdComunicadoDestinatario,
+                    destinatario.IdComunicado,
+                    (object?)destinatario.IdGroupUnit ?? DBNull.Value,
+                    destinatario.NombreDestinatario,
+                    (object?)destinatario.Telefono ?? DBNull.Value,
+                    (object?)destinatario.Email ?? DBNull.Value,
+                    (int)destinatario.EstadoWhatsApp,
+                    (int)destinatario.EstadoCorreo);
+                return destinatario;
+            }, "AddComunicadoDestinatario", cancellationToken);
+        }
+
+        public async Task<Models.AreaComun> AddNewRecordAsync(Models.AreaComun areaComun, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(areaComun, nameof(areaComun));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_AreaComun,
+                    cancellationToken,
+                    areaComun.IdAreaComun,
+                    areaComun.IdBuilding,
+                    areaComun.Nombre,
+                    (object?)areaComun.Descripcion ?? DBNull.Value,
+                    (object?)areaComun.AforoMaximo ?? DBNull.Value,
+                    (object?)areaComun.DuracionMinMinutos ?? DBNull.Value,
+                    (object?)areaComun.DuracionMaxMinutos ?? DBNull.Value,
+                    areaComun.BufferMinutos,
+                    areaComun.AnticipacionMinHoras,
+                    (object?)areaComun.AnticipacionMaxDias ?? DBNull.Value,
+                    (object?)areaComun.TopeReservasActivasPorUnidad ?? DBNull.Value,
+                    areaComun.GarantiaInternos,
+                    areaComun.GarantiaExternos,
+                    areaComun.AlquilerInternos,
+                    areaComun.AlquilerExternos,
+                    areaComun.Limpieza,
+                    areaComun.PenalidadCancelacionHabilitada,
+                    (object?)areaComun.DiasMinimosSinPenalidad ?? DBNull.Value,
+                    areaComun.PenalidadNoPresentadoHabilitada,
+                    areaComun.CreatedBy);
+                return areaComun;
+            }, "AddAreaComun", cancellationToken);
+        }
+
+        public async Task<Models.Reserva> AddNewRecordAsync(Models.Reserva reserva, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(reserva, nameof(reserva));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Reserva,
+                    cancellationToken,
+                    reserva.IdReserva,
+                    reserva.IdBuilding,
+                    reserva.IdAreaComun,
+                    reserva.IdGroupUnit,
+                    reserva.FechaInicio,
+                    reserva.FechaFin,
+                    reserva.EsExterno,
+                    (object?)reserva.OrganizadorNombre ?? DBNull.Value,
+                    (object?)reserva.OrganizadorDocumento ?? DBNull.Value,
+                    (object?)reserva.OrganizadorTelefono ?? DBNull.Value,
+                    (int)reserva.Estado,
+                    reserva.MontoGarantia,
+                    reserva.MontoAlquiler,
+                    reserva.MontoLimpieza,
+                    reserva.CreatedBy);
+                return reserva;
+            }, "AddReserva", cancellationToken);
+        }
+
+        public async Task<Models.ReservaChecklistItem> AddNewRecordAsync(Models.ReservaChecklistItem item, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(item, nameof(item));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ReservaChecklistItem,
+                    cancellationToken,
+                    item.IdChecklistItem,
+                    item.IdReserva,
+                    (int)item.Etapa,
+                    item.Descripcion,
+                    (int)item.Estado,
+                    (object?)item.Observacion ?? DBNull.Value,
+                    item.CreatedBy);
+                return item;
+            }, "AddReservaChecklistItem", cancellationToken);
+        }
+
+        public async Task<Models.ReservaAttachment> AddNewRecordAsync(Models.ReservaAttachment attachment, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(attachment, nameof(attachment));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ReservaAttachment,
+                    cancellationToken,
+                    attachment.IdAttachment,
+                    attachment.IdReserva,
+                    (int)attachment.Etapa,
+                    attachment.FileName,
+                    attachment.ContentType,
+                    attachment.FileSizeBytes,
+                    attachment.FilePath,
+                    attachment.UploadedBy);
+                return attachment;
+            }, "AddReservaAttachment", cancellationToken);
+        }
+
+        public async Task<Models.IngresoComunidad> AddNewRecordAsync(Models.IngresoComunidad ingreso, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(ingreso, nameof(ingreso));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_IngresoComunidad,
+                    cancellationToken,
+                    ingreso.IdIngreso,
+                    ingreso.IdBuilding,
+                    ingreso.Concepto,
+                    ingreso.Monto,
+                    (object?)ingreso.IdReserva ?? DBNull.Value,
+                    ingreso.CreatedBy);
+                return ingreso;
+            }, "AddIngresoComunidad", cancellationToken);
+        }
+
         public async Task<Models.CalendarItem> AddNewRecordAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

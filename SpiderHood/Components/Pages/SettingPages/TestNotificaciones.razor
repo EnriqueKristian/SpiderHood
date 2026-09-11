@@ -99,7 +99,18 @@ else
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Mensaje</label>
-                            <textarea class="form-control" rows="3" @bind="_whatsAppMessage"></textarea>
+                            <textarea class="form-control" rows="3" @bind="_whatsAppMessage" disabled="@(!string.IsNullOrWhiteSpace(_whatsAppContentSid))"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Content SID (opcional)</label>
+                            <input class="form-control" @bind="_whatsAppContentSid" placeholder="HXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+                            <div class="form-text">
+                                Si se completa, manda la <strong>plantilla</strong> (<code>SendTemplateMessageAsync</code>)
+                                en vez del mensaje libre de arriba -- necesario si Twilio devuelve
+                                "ContentSid Required" (pasa fuera de la ventana de 24hs, o si tu cuenta
+                                ya no permite texto libre en el Sandbox). Buscá el SID en
+                                Twilio Console → Content Template Builder.
+                            </div>
                         </div>
                         <button class="btn btn-success" @onclick="EnviarWhatsAppPrueba" disabled="@(_enviandoWhatsApp || string.IsNullOrWhiteSpace(_whatsAppTo))">
                             @if (_enviandoWhatsApp)
@@ -142,6 +153,7 @@ else
 
     private string _whatsAppTo = string.Empty;
     private string _whatsAppMessage = "Prueba de WhatsApp desde SpiderHood.";
+    private string _whatsAppContentSid = string.Empty;
     private bool _enviandoWhatsApp;
     private string? _whatsAppResultado;
     private bool _whatsAppResultadoOk;
@@ -187,10 +199,13 @@ else
 
         try
         {
-            var ok = await WhatsAppService.SendMessageAsync(_whatsAppTo, _whatsAppMessage);
+            var usaPlantilla = !string.IsNullOrWhiteSpace(_whatsAppContentSid);
+            var ok = usaPlantilla
+                ? await WhatsAppService.SendTemplateMessageAsync(_whatsAppTo, _whatsAppContentSid)
+                : await WhatsAppService.SendMessageAsync(_whatsAppTo, _whatsAppMessage);
             _whatsAppResultadoOk = ok;
             _whatsAppResultado = ok
-                ? "El servicio devolvió OK -- revisá la consola del servidor para confirmar si fue un envío real o SIMULADO."
+                ? $"El servicio devolvió OK ({(usaPlantilla ? "plantilla" : "mensaje libre")}) -- revisá la consola del servidor para confirmar si fue un envío real o SIMULADO."
                 : "El servicio devolvió false -- revisá que el número se pueda normalizar (ver consola del servidor para el detalle).";
         }
         catch (Exception ex)

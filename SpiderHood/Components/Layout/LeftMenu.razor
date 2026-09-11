@@ -6,6 +6,7 @@
 @inject Services.IPermissionAdminService PermissionAdminService
 @inject Services.IBudgetService BudgetService
 @inject Services.IExpenseService ExpenseService
+@inject Services.IReservaService ReservaService
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
 
@@ -394,6 +395,12 @@
         {
             var gastos = await ExpenseService.GetExpensesByBuildingAsync(usuario.CurrentBuildingId);
             count += gastos.Count(e => e.Status == Models.StatusExpense.Pending);
+        }
+
+        if (await PermissionService.HasPermissionAsync(usuario, "approve_reservations"))
+        {
+            var reservas = await ReservaService.GetReservasPendientesAsync(usuario.CurrentBuildingId);
+            count += reservas.Count;
         }
 
         return count;

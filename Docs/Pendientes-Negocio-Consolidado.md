@@ -29,9 +29,13 @@ secas, es la secuencia en la que conviene tocarlos.
    edificio piloto tiene cuotas migradas, hoy se ven "Parcial" sin serlo.
 2. **#1** Unidades sin propietario no facturan a la inmobiliaria -- si el
    edificio piloto tiene unidades sin vender.
-3. **#17** Comunicados vía WhatsApp -- ya decidido como prioridad; arrancar
-   ya con la verificación de negocio en Meta (no es instantánea) mientras se
-   define proveedor (Cloud API vs. Twilio) y plantillas.
+3. **#17** Comunicados vía WhatsApp -- **IMPLEMENTADO** (2026-09-11):
+   3 alcances (Público/Reservado/Privado) + 4 categorías, pantalla admin y
+   de residente construidas y compilando. Falta probar contra BD real,
+   asignar el permiso `create_announcements` vía `/Settings/Roles`, y
+   arrancar la verificación de negocio en Meta + aprobación de las 4
+   plantillas (no es instantáneo -- mientras tanto todo sale como texto
+   libre, que puede fallar fuera de la ventana de 24hs).
 4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
    (solo lectura: presupuesto, incidencias, calendario).
 5. **#18** Storage de archivos -- **18b (Recibos PDF) y 18a (fotos/video en
@@ -71,9 +75,21 @@ secas, es la secuencia en la que conviene tocarlos.
 19. **#14** Confirmar upsert de `ServiceReadingDetail`.
 20. **#15** Borrar un permiso (fuera de alcance).
 21. **#12** Caso sin match en el Excel de Nova Alzamora (manual).
-22. **#21** Módulo de Reuniones/Citas/Votaciones -- el más grande de todos,
-    sin nada de qué partir en el código; conviene arrancarlo recién con
-    tiempo/alcance dedicado, no intercalado con el resto.
+22. **#21** Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas,
+    Encuestas) -- rediseñado 2026-09-11. **Reservas -- IMPLEMENTADO
+    (2026-09-11)**: Áreas Comunes (nueva pestaña en BuildingConfig), estado
+    completo (Pendiente -> Aprobada/Rechazada -> Cancelada/NoPresentado ->
+    Entregada -> Finalizada -> Cerrada), aprobación por la Junta integrada
+    al badge de Aprobaciones, check-in/check-out con checklist + fotos por
+    el Administrador, liquidación de garantía (devuelta/retenida/cuota
+    extraordinaria vía `IExtraChargeService` si el daño la supera) y
+    páginas `/reservas` (residente) + `/reservas-admin` (administrador) --
+    `dotnet build` en 0 errores, mismo baseline de warnings. Falta correr
+    el script SQL contra la BD real, asignar `approve_reservations` /
+    `manage_reservations` vía `/Settings/Roles`, y probar el flujo
+    completo con datos reales. **Gobernanza (Reuniones/Votación/Actas/
+    Encuestas) sigue sin construir** -- es el siguiente módulo de la cola,
+    con la arquitectura ya definida (ver detalle abajo).
 
 ---
 
@@ -283,9 +299,60 @@ que ya existía), esto es funcionalidad que **no está construida en absoluto**
 -- verificado buscando en todo el repo, no por sospecha.
 
 ### 17. Comunicados / Anuncios
-**Estado: en progreso (2026-09-11) -- servicio de envío por WhatsApp
-construido (`IWhatsAppService`/`WhatsAppService`, vía Twilio); la pantalla de
-Comunicados en sí (tabla, quién publica, a quién le llega) todavía no.**
+**Estado: IMPLEMENTADO (2026-09-11) -- `dotnet build` en 0 errores, mismo
+baseline de warnings (139). Falta probar contra una BD real (correr
+`Database/Scripts/2026-09-11_97_Comunicado.sql`) y asignar el permiso
+`create_announcements` a Administrador/Junta desde `/Settings/Roles`.**
+
+**Qué se construyó:**
+- `Database/Scripts/2026-09-11_97_Comunicado.sql` -- tablas `Comunicado`
+  (cabecera) + `ComunicadoDestinatario` (detalle, a quién le llegó y con
+  qué resultado por canal), SPs `INS_Comunicado`/`GET_ComunicadosByBuilding`/
+  `INS_ComunicadoDestinatario`/`GET_ComunicadoDestinatariosByComunicado`/
+  `GET_ComunicadosParaUsuario`, permisos `view_announcements`/
+  `create_announcements` (idempotentes), grupo de Parameter "Categoría de
+  Comunicado" con las 4 categorías (Mantenimiento Programado, Corte de
+  Servicio, Convocatoria de Reunión, Aviso General -- NO idempotente ese
+  bloque, no re-correr), y el ítem de menú admin "Comunicados" (`/comunicados`).
+- `Classes/Communication/Comunicado.cs` -- `Comunicado`, `ComunicadoDestinatario`,
+  enums `AlcanceComunicado`/`EstadoEnvioWhatsApp`/`EstadoEnvioCorreo`,
+  `PublicarComunicadoResultado`.
+- `Services/IComunicadoService.cs` -- `PublicarComunicadoAsync` resuelve
+  destinatarios según Alcance (Público/Privado contra `OwnerUnitView`
+  filtrado `Role==1 && TypeUnit==1`, mismo criterio que
+  `IExtraChargeService.GetUnidadesAsync`; Reservado contra
+  `UserBuildingAssociation` por rol de portal, con lookup de teléfono por
+  usuario -- aceptable porque la audiencia de un Reservado suele ser
+  chica), crea cabecera+destinatarios, manda por WhatsApp siempre (texto
+  libre vía `SendMessageAsync` -- **todavía no usa plantillas de Meta
+  porque no existe ninguna aprobada**, cuando exista cambiar a
+  `SendTemplateMessageAsync`) y por correo sólo si se marcó el check,
+  "best effort" (un fallo de un canal no tumba el otro).
+- `IWhatsAppService` ganó una propiedad nueva `IsSimulate` -- sin esto, el
+  Comunicado no podía distinguir "Enviado" de "Simulado" en su registro de
+  entrega (el `SendMessageAsync` existente devuelve `true` en ambos casos).
+- `Components/Pages/CommunicationPages/Comunicados.razor` (admin: listado
+  paginado+buscable con `ComunicadoPagination`, modal "Nuevo Comunicado"
+  con selector de Categoría/Alcance/Rol/Unidades según corresponda, y
+  `ConfirmationModal`/`ConfirmationUtil` antes de publicar -- nunca un
+  `alert()`/`confirm()` de JS) y
+  `Components/Pages/ResidentPages/MyAnnouncements.razor` (residente: lista
+  de comunicados visibles según su rol/unidad -- esta ruta y su permiso
+  `view_announcements` ya estaban seedeados sin nada detrás, ahora sí
+  apuntan a una pantalla real).
+- Gateo de acceso: `PermissionService.HasPermissionAsync(user,
+  "create_announcements")` en la pantalla admin -- falta que alguien
+  asigne ese permiso a Administrador/Junta desde `/Settings/Roles` (no se
+  hace por script, mismo criterio que el resto de permisos de este repo).
+
+**Pendiente:** probar contra una BD real (crear un Comunicado de cada
+Alcance, confirmar que `GET_ComunicadosParaUsuario` filtra bien por rol/
+unidad, confirmar que el envío real de WhatsApp -- no sólo Simulado --
+funciona una vez que existan credenciales de Twilio activas). Las
+plantillas de Meta siguen sin existir -- mientras tanto todo comunicado
+sale como texto libre de WhatsApp, lo cual puede fallar fuera de la
+ventana de 24hs de conversación (ver el error "ContentSid Required" que
+ya se vio esta sesión).
 
 **Qué se hizo:** `Services/IWhatsAppService.cs` (patrón calcado de
 `IEmailService`/`IPaymentService`) -- `SendMessageAsync` (texto libre, sirve
@@ -369,13 +436,57 @@ imitar -- SMTP puro, sin plantillas ni proveedor externo):**
    plantilla + variables, y registra éxito/fallo por destinatario (para
    saber a quién no le llegó).
 
-**Falta además, del lado de negocio/diseño (sin resolver todavía):** quién
-publica (¿sólo Administrador/Junta?), a quién le llega (¿todo el edificio,
-por torre/unidad, por rol?), si el comunicado también queda visible dentro
-de la app (mejor para historial/auditoría, aunque WhatsApp sea el aviso
-inmediato) o vive sólo en WhatsApp, y qué pasa con el residente que no dio
-opt-in o no tiene teléfono cargado (¿cae a email como respaldo? -- ya existe
-`IEmailService` para eso).
+**Diseño de negocio -- cerrado con el usuario el 2026-09-11. Módulo
+chico a propósito: "empecemos con lo básico, y si tiene funcionalidad lo
+vamos desarrollando" (piloto real decide qué tanto crece).**
+
+*Alcance (v1) -- 3 tipos, sin mensajería vecino-a-vecino (se descartó
+explícitamente: "conllevaría a un chat y no es el objetivo") ni "Público
+Global" de SysAdmin a todos los edificios (es una feature de plataforma,
+distinta en naturaleza a un comunicado de condominio -- se deja fuera de
+este módulo, no está descartada, solo no es v1):*
+- **Público:** Administrador o Junta -> todos los residentes del edificio.
+- **Reservado:** Administrador o Junta -> un rol específico dentro del
+  edificio (ej. solo Junta).
+- **Privado:** Administrador o Junta -> una unidad o grupo de unidades
+  puntual (NO vecino a vecino).
+
+*Estructura del Comunicado:*
+- Título + Cuerpo (lo que se ve en la app).
+- **Categoría** -- define qué plantilla de WhatsApp usa (ver plantillas
+  abajo).
+- Alcance (uno de los 3 de arriba) + destinatario exacto (rol, o unidad/
+  grupo de unidades, según corresponda).
+- Quién publicó y cuándo (auditoría).
+- Checkbox **"Enviar también por correo"** al momento de publicar --
+  WhatsApp se manda automático si el edificio lo tiene configurado (si no,
+  corre en modo Simulado, igual que hoy); el correo es una decisión
+  explícita de quien publica, no automático.
+- **Siempre queda visible en la app** según el alcance -- WhatsApp/correo
+  son el aviso, la app es el registro/historial (resuelve lo que antes
+  era una pregunta abierta: no vive solo en WhatsApp).
+- Por destinatario se guarda si le llegó por WhatsApp (Enviado/Simulado/
+  Falló) y por correo (si se marcó el check) -- para saber a quién no le
+  llegó.
+
+*Categorías/Plantillas -- arrancamos en cero, plantillas propias
+(4 categorías iniciales, ampliable según lo que el piloto pida):*
+1. **Mantenimiento Programado** -- ej. "Se realizará mantenimiento de
+   {{área/equipo}} el {{fecha}} de {{hora inicio}} a {{hora fin}}.
+   {{recomendación}}" (caso de referencia: aviso de mantenimiento de
+   ascensor).
+2. **Corte de Servicio** (agua/luz/gas) -- misma estructura que
+   Mantenimiento, distinto rubro.
+3. **Convocatoria de Reunión/Asamblea** -- conecta directo con el módulo
+   de Gobernanza (item #21): cuando ese módulo exista, una Convocatoria
+   podría disparar un Comunicado de esta categoría automáticamente.
+4. **Aviso General** -- la más libre, para lo que no encaja en las otras
+   3.
+
+*Sigue bloqueando el envío REAL por WhatsApp (no el resto del módulo, que
+se puede construir y probar en modo Simulado sin esperar esto):* que Meta
+apruebe estas 4 plantillas -- corre en paralelo a la construcción de la
+pantalla, no la frena.
 
 ### 18. Storage de archivos -- fotos/video en Incidencias Y PDFs de Recibos
 **Estado: pregunta técnica -- respuesta recomendada abajo. Ampliado
@@ -731,28 +842,311 @@ incidentes abiertos por unidad/edificio en un rango de fechas. Mismo patrón
 que ya se usó para los otros 4 reportes (selector de rango + tarjetas de
 resumen + tabla + export a Excel) se podría reutilizar acá.
 
-### 21. Módulo de Reuniones, Citas y Votaciones
-**Estado: no existe -- cero código relacionado en todo el repo** (sólo
-existe `CalendarItem`/`CalendarPage.razor`, que es un calendario genérico de
-eventos, sin ningún concepto de convocatoria, quorum, agenda, acta o
-votación).
+### 21. Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas, Encuestas)
+*(Rediseñado 2026-09-11 a partir del análisis de mercado -- sección 13 --
+compartido por el usuario. **"Citas" descartado a pedido explícito del
+usuario**: "el tema de cita como está planteado aquí, no suma" -- no forma
+parte del alcance de este item.)*
 
-Esto es el módulo más grande de los 6 -- probablemente 3 funcionalidades
-separadas que conviene NO tratar como una sola:
-- **Reuniones/Asambleas:** convocatoria (fecha, agenda, quorum requerido),
-  registro de asistencia, acta.
-- **Citas:** agendar una cita puntual (¿con el Administrador? ¿para usar un
-  área común, si eso no vive ya en otro lado?) -- falta confirmar qué "cita"
-  significa en este contexto, se presta a confusión con reserva de áreas
-  comunes.
-- **Votaciones:** puede ser standalone (una encuesta simple) o atada a una
-  Asamblea (votar un punto de la agenda) -- tiene implicancias de peso legal
-  si reemplaza una votación presencial (evidencia de quién votó qué, no
-  necesariamente anónima en una junta de propietarios).
+**Estado: Reservas IMPLEMENTADO (2026-09-11); Gobernanza (Reuniones/
+Votación/Actas/Encuestas) sigue sin construir** -- `CalendarItem`/
+`CalendarPage.razor` sigue siendo el único calendario genérico de eventos,
+sin ningún concepto de convocatoria, quorum, agenda, acta o votación.
 
-Falta por completo: decidir alcance real (¿las 3 juntas o empezar por una?),
-y diseño de datos/pantallas -- no hay nada de qué partir en el código
-existente.
+**Son dos mecanismos distintos, no tres módulos sueltos ni uno solo:**
+uno de **agenda** (Reservas -- quién usa qué recurso físico, cuándo) y uno
+de **gobernanza** (Reuniones + Votación + Actas, que no son 3 pantallas
+separadas sino 3 momentos de un mismo flujo legal, con Encuestas como su
+versión ligera sin peso legal). Diseñarlos así desde el inicio evita
+terminar con un formulario de votación que no se conecta con el acta.
+
+**Reservas -- agenda de un recurso físico compartido. Diseño cerrado con
+el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
+- `Database/Scripts/2026-09-11_98_Reserva.sql`: tablas `AreaComun`,
+  `Reserva`, `ReservaChecklistItem`, `ReservaAttachment`,
+  `IngresoComunidad`; SPs de INS/UPD/GET para cada una (incluye
+  `GET_ReservasConflicto` para el chequeo de solapamiento y
+  `GET_ReservasProximasByAreaComun`); permisos `approve_reservations`
+  (Junta) y `manage_reservations` (Administrador); ítems de menú standalone
+  `/reservas` y `/reservas-admin`.
+- `Services/IAreaComunService.cs` (CRUD) e `Services/IReservaService.cs`
+  (el grueso de la lógica: `SolicitarAsync` valida ventanas de
+  anticipación/duración/tope y chequea conflicto antes de guardar;
+  `AprobarAsync`/`RechazarAsync`; `CancelarAsync`/`MarcarNoPresentadoAsync`
+  aplican la penalidad configurada; `HacerCheckInAsync`/
+  `HacerCheckOutAsync` guardan checklist + fotos vía `IFileStorageService`;
+  `CerrarAsync` liquida la garantía -- Alquiler/Limpieza como Ingreso real
+  si la reserva se completó, la garantía retenida como Ingreso separado
+  ["Reposición de Daños - Reserva" / penalidad], y genera una cuota
+  extraordinaria vía `IExtraChargeService.GenerarCuotaExtraordinariaAsync`
+  si el daño supera la garantía).
+- UI: pestaña nueva "Áreas Comunes" en `BuildingConfig.razor` (CRUD,
+  persistencia propia, no toca `BuildingConfiguration`); página de
+  residente `/reservas` (solicitar + "Mis Reservas" paginado); página de
+  administrador `/reservas-admin` (check-in/check-out con checklist +
+  fotos, cerrar/liquidar garantía); sección "Reservas Pendientes de
+  Aprobación" nueva en `Approvals.razor` para la Junta, sumando al mismo
+  badge de `LeftMenu.ContarAprobacionesPendientesAsync`.
+- **Dos simplificaciones deliberadas de esta primera versión (no son un
+  olvido):**
+  1. El chequeo de solapamiento de horarios lo hace la propia tabla
+     `Reserva` (`GET_ReservasConflicto`), no `CalendarItem` -- que no tiene
+     ningún concepto de "recurso" (`Location` es texto libre). La
+     integración visual con el calendario general de Mantenimiento queda
+     pendiente.
+  2. `IngresoComunidad` es un registro propio y simple para Alquiler/
+     Limpieza/Garantía retenida -- **no** está conectado todavía al Reporte
+     de Ingresos y Egresos (100% conciliación bancaria importada hoy). El
+     propio diseño (ver más abajo, "Cobro") dejó esto abierto -- "se
+     resuelve al diseñar la pantalla de conciliación específica de
+     Reservas, no antes" -- así que no se resuelve acá.
+- `dotnet build` en 0 errores, mismo baseline de 139 warnings (+6
+  `BL0005` esperados por el mismo patrón ya usado en `Approvals.razor`/
+  `ExpensePage.razor` de setear `Title`/`Message`/`ConfirmText` en
+  `ConfirmationModal` desde el code-behind).
+- **Falta:** correr el script SQL contra la base real, asignar
+  `approve_reservations`/`manage_reservations` vía `/Settings/Roles`, y
+  probar el flujo completo (solicitar -> aprobar -> check-in -> check-out
+  -> cerrar) con datos reales -- no se pudo probar la UI en vivo en este
+  entorno (sin conexión a una BD real disponible).
+
+*Configuración del Área Común (por edificio, en `BuildingConfig` -- ver
+item #24, encajaría como una pestaña nueva "Áreas Comunes"):*
+- Catálogo por edificio: salón de eventos, piscina, parrilla, gimnasio,
+  cancha -- nombre, descripción, aforo máximo.
+- Reglas de disponibilidad: duración mín/máx por reserva, buffer entre
+  reservas consecutivas (tiempo para que limpieza prepare el área),
+  ventana de anticipación mín/máx para reservar, tope de reservas activas
+  por unidad.
+- Costos en la moneda del edificio (`BuildingConfiguration.Currency`,
+  mismo patrón que el resto de la config). **Garantía y Alquiler, cada uno
+  como par `{Internos, Externos}`** -- decisión cerrada 2026-09-11: la
+  garantía de un externo es normalmente mucho mayor que la de un
+  propietario (ej. Garantía: S/200 internos / S/1,000 externos), así que
+  no alcanza con un solo monto + "distinto para externos" como se planteó
+  al inicio. Alquiler sigue el mismo patrón (0 en Internos por default si
+  el admin no quiere cobrarle a propietarios, configurable). Limpieza
+  queda como un solo monto (no varía por interno/externo, salvo que en la
+  práctica se pida lo mismo -- se agrega el par si hace falta).
+- **Penalidad por cancelación/no-show -- decisión cerrada:** dos toggles
+  independientes, cada uno con su propio campo de días, apagados por
+  default (se prenden solo si el edificio los necesita):
+  - `PenalidadCancelacionHabilitada` (bool) + `DiasMinimosSinPenalidad`
+    (int) -- cancelar con MENOS anticipación que ese número de días
+    retiene la garantía completa; cancelar con más, la devuelve entera.
+  - `PenalidadNoPresentadoHabilitada` (bool) -- si la unidad no se
+    presenta el día de la reserva (no hay check-in), retiene la garantía
+    completa. Sin campo de días propio (es binario: se presentó o no).
+  - Ambas retienen el 100% de la garantía cuando aplican, sin un
+    porcentaje configurable aparte -- más simple de construir e implica
+    menos decisiones en el momento de cobrar. Si en la práctica el
+    edificio quiere una penalidad parcial, se revisa después de ver el
+    piloto en uso real, no antes.
+
+*Reserva:*
+- El propietario ve el calendario de disponibilidad del área (comparte
+  motor de calendario con Mantenimiento -- ver `CalendarItem` -- así que
+  un bloqueo por mantenimiento aparece automáticamente como no disponible
+  al reservar, sin duplicar lógica). Elige una franja libre; el sistema
+  bloquea el traslape automáticamente.
+- Siempre tiene un propietario responsable (`IdOwner`, obligatorio) que
+  respalda financiera y legalmente la reserva, más un campo opcional de
+  "Organizador/Contacto externo" (nombre, DNI, teléfono) para cuando el
+  edificio alquila el área a un tercero no propietario -- así el checklist
+  de daños y el descuento de garantía siempre tienen a quién cobrarle,
+  sin modelar un "usuario externo" completo en el sistema de auth.
+
+*Aprobación -- decisión cerrada:* la aprueba o rechaza la **Junta**, no el
+Administrador -- el criterio no es el monto (eso ya lo define la
+configuración del área), sino que la fecha/horario no incumpla las normas
+del edificio (ej. evento de madrugada, superposición con otra actividad no
+reflejada en el calendario). El **Administrador hace seguimiento** del
+pedido hasta que la Junta lo apruebe o rechace -- mismo patrón de rol que
+ya existe en `approve_budget`/`approve_expenses` (`Components/Pages/
+ApprovalsPages/Approvals.razor`), así que una reserva pendiente debería
+sumar al mismo badge de "Aprobaciones" del menú izquierdo
+(`LeftMenu.ContarAprobacionesPendientesAsync`, tocado esta misma sesión)
+en vez de crear una bandeja aparte. Falta un permiso nuevo
+`approve_reservations` para la Junta, consistente con el resto de
+permisos de aprobación ya existentes.
+
+*Check-in / Check-out -- decisión cerrada:* lo hace el **Administrador**
+(no un rol de conserje separado, no autogestión del propietario) --
+alcanza con el permiso que ya tiene, o un `manage_reservations` dedicado
+si conviene separarlo de la config general del edificio. Checklist de
+bienes del área (ej. "Salón de Eventos: 10 sillas, 2 mesas, sonido,
+proyector") con estado por ítem (OK/Dañado/Falta) tanto al entregar como
+al devolver, **con fotos** -- mismo patrón ya construido esta sesión para
+Incidencias (`IFileStorageService`, `IncidentAttachment`, whitelist de
+extensiones, carpeta por entidad): sin foto, un descuento de garantía
+queda en "tu palabra contra la mía" con el propietario.
+
+*Estados de la reserva (mismo patrón de `Status` que ya usan
+Installment/Expense/Budget en este código):*
+1. **Pendiente de Aprobación** -- recién creada, esperando decisión de la
+   Junta.
+2. **Aprobada** / **Rechazada** -- decisión de la Junta.
+3. **Cancelada** -- por el propietario o el administrador antes del
+   evento; guarda si se aplicó penalidad según `DiasMinimosSinPenalidad`.
+4. **No Presentado** -- pasó la fecha/hora sin check-in; aplica penalidad
+   si `PenalidadNoPresentadoHabilitada` está prendida.
+5. **Entregada** -- check-in hecho (checklist inicial completo), área
+   físicamente entregada.
+6. **Finalizada** -- check-out hecho (checklist final completo), evento
+   terminado.
+7. **Cerrada** -- garantía liquidada (devuelta entera / retenida por
+   penalidad / retenida por daños según el checklist final).
+
+*Impacto financiero -- decisión cerrada 2026-09-11, con un matiz contable
+importante que el usuario señaló y que es correcto:*
+
+- **Alquiler y Limpieza son Ingreso real** -- se cobran porque el edificio
+  prestó un servicio. Generan un Ingreso categorizado reutilizando el
+  sistema de Categorías/Movimientos ya existente, van derecho a
+  Dashboard/reportes financieros, y se concilian contra el registro de la
+  reserva con el mismo patrón de plantillas/auto-match que ya usa la
+  conciliación de gastos (para no quedar huérfanos en el estado de cuenta
+  ni contarse doble).
+- **Garantía NO es Ingreso -- es custodia/pasivo.** Es plata que puede
+  volver íntegra al propietario; contarla como Ingreso al recibirla y
+  como Gasto al devolverla infla ambos lados del reporte de Ingresos y
+  Egresos con movimiento de plata que nunca fue del edificio. Al recibirla
+  se registra como custodia (se concilia igual contra el estado de cuenta,
+  para no quedar huérfana, pero clasificada aparte de un Ingreso normal).
+  - Si se devuelve completa: sin impacto en Ingresos ni Egresos -- entró y
+    salió, neto cero.
+  - Si se retiene (por la penalidad de cancelación/no-show, o por daños
+    según el checklist de cierre): el monto retenido recién ahí se
+    convierte en Ingreso, pero en una **categoría propia y distinguible**
+    ("Reposición de Daños - Reserva", no genérica) -- el usuario aclaró
+    correctamente que conceptualmente no es ganancia del edificio, es
+    cobertura del costo de reponer lo dañado, así que separarla de
+    ingresos reales (Alquiler) deja los reportes financieros honestos
+    sobre cuánto genera el edificio de verdad. El monto efectivamente
+    devuelto (si hay devolución parcial) se concilia como egreso bancario
+    marcado explícitamente "Devolución de Garantía", nunca como un
+    Gasto/categoría normal.
+- **Si el daño supera la garantía -- ya existe el mecanismo, no hay que
+  construir nada nuevo:** `Services/IExtraChargeService.cs` ->
+  `GenerarCuotaExtraordinariaAsync(idBuilding, descripcion,
+  fechaVencimiento, montosPorUnidad, usuario)`. Verificado leyendo la
+  implementación completa: SIEMPRE crea un `BudgetHeader` (tipo
+  "Extraordinario"), sin importar si `montosPorUnidad` trae 1 unidad, un
+  grupo, o todas -- el método recorre todas las unidades activas del
+  edificio y sólo genera una `Installment` para las que vengan en el
+  diccionario con monto > 0, saltando el resto. Sirve tal cual para "el
+  daño de esta reserva superó la garantía del DPTO responsable" (pasando
+  solo su `IdGroupUnit`) -- el mismo mecanismo que ya sirve para el caso
+  general de "se malogró el botón del ascensor de un piso, cobrarle solo a
+  ese grupo de DPTOs" (fuera del alcance de Reservas, pero confirma que el
+  servicio no está atado a "aplica a todo el edificio").
+
+*Cobro -- sin pasarela de pago digital todavía (ver brecha de cobro de
+cuotas en el análisis de mercado):* Garantía/Alquiler/Limpieza se
+registran y concilian manualmente por ahora, igual que el resto de la
+cobranza actual -- no bloquea empezar a construir el módulo, pero sí
+significa que "cobrar la garantía" y "devolverla" son, por ahora, marcar
+un estado, no una transacción automática. **Abierto, sin bloquear el
+diseño:** confirmar si Garantía + Alquiler + Limpieza llegan como una
+sola transferencia del propietario o por separado -- define si la
+conciliación matchea un solo monto combinado por reserva o hasta 3 líneas
+distintas en el estado de cuenta. Se resuelve al diseñar la pantalla de
+conciliación específica de Reservas, no antes.
+
+**Gobernanza -- Reuniones, Votación y Actas como un solo flujo:**
+El dato que gobierna todo esto: el **Decreto Legislativo 1568** (nuevo
+régimen de propiedad horizontal en Perú, aún sin reglamento publicado en
+su versión final -- ver fuente oficial abajo) establece que el voto se
+computa por **porcentaje de participación (alícuota) de cada unidad, no
+por cabeza** (Art. 14.1, fija además 75% de participación para desafectar
+bienes comunes). El Art. 25 reconoce sesiones presenciales, virtuales o
+híbridas como igualmente válidas -- la reunión virtual ya es régimen
+permanente, no un parche pandémico. El quórum/mayorías para acuerdos
+ordinarios (más allá del 75% legal) quedan delegados al Reglamento Interno
+de cada edificio, así que el sistema no debe asumir un número fijo.
+
+- **Alícuota -- decisión cerrada 2026-09-11: se deriva, no es un campo
+  nuevo.** Se calcula como el área del **Grupo Unidad** (el DPTO más sus
+  unidades asociadas -- cochera, depósito -- bajo el mismo grupo) sobre el
+  área total del edificio. El dato ya existe: `OwnerUnitView.TotalArea`
+  (`Classes/Unit.cs`) ya vive a nivel de grupo (DPTO + asociados, no la
+  unidad suelta), y `Building.TotalArea` ya existe también -- la fórmula
+  es `OwnerUnitView.TotalArea / Building.TotalArea` sin necesidad de
+  ningún campo ni tabla nueva.
+- **Reuniones:** Ordinaria (periódica) o Extraordinaria (tema puntual --
+  gasto grande, elección de junta). Convocatoria con fecha, agenda y
+  documentos adjuntos; notificación con acuse de recibo (email + WhatsApp,
+  cuando el módulo de Comunicaciones esté listo). Modalidad presencial,
+  virtual o híbrida. Quórum configurable por edificio.
+- **Agenda -- aclarado 2026-09-11:** la Reunión tiene una agenda con N
+  puntos; no todos generan votación. Cada punto puede ser **Informativo**
+  (queda anotado en el Acta, sin votar -- ej. "se informa el avance de la
+  obra") o **Sujeto a Votación** (genera su propia Votación, con su propio
+  tipo nominal/secreta y su propia mayoría requerida). Una reunión de 5
+  puntos puede terminar en 0, 1, 3 o 5 votaciones -- no es "una votación
+  por reunión" ni "todos los puntos votan", depende punto por punto.
+- **Votación:** ponderada por alícuota (no por persona). En vivo durante
+  la Reunión, o asíncrona con fecha límite si el Reglamento Interno lo
+  permite (voto adelantado). Nominal (queda registrado quién votó qué --
+  típico para acuerdos de gasto) o secreta (típico en elección de junta
+  directiva), configurable por punto de agenda. El sistema valida
+  automáticamente si el resultado alcanza la mayoría requerida para ese
+  tipo de acuerdo (simple, calificada, o el 75% legal).
+- **Revotación -- decisión cerrada 2026-09-11: flexible, no rígida.**
+  Cuando una votación no alcanza la mayoría requerida, si permitir un
+  nuevo intento sobre el mismo punto depende del caso (a veces sí tiene
+  sentido, a veces el punto queda Rechazado y ahí termina) -- se resuelve
+  con un simple check `PermiteRevotacion` por punto de agenda (o al
+  configurar la votación), no con una regla fija en el sistema. Si está
+  prendido y la primera votación no alcanza mayoría, se habilita un nuevo
+  intento (Ronda 2, 3...) sobre el mismo punto, dentro de la misma
+  Reunión; si está apagado (o se agotan los intentos que el Administrador
+  decida dar), el punto queda Rechazado. El Acta debería reflejar todos
+  los intentos hechos, no solo el último, para que quede claro qué pasó.
+- **Actas:** se genera un borrador automático a partir de lo ya capturado
+  en Reunión + Votación (fecha, modalidad, asistentes con su % de
+  participación, quórum verificado, agenda, resultado de cada punto) --
+  reduce el riesgo de un acta redactada de memoria días después. Firmas de
+  presidente y secretario según Reglamento Interno; una vez firmada, queda
+  inmutable y buscable en el historial del edificio.
+- **Flujo completo:** Convocatoria → Reunión (registra asistencia, suma
+  alícuotas presentes) → ¿Quórum alcanzado? → si NO: se agenda Segunda
+  Convocatoria con quórum reducido (según Reglamento Interno) como una
+  nueva Reunión → si SÍ: por cada punto de agenda que lo requiera,
+  Votación (voto ponderado) → si no alcanza mayoría y `PermiteRevotacion`
+  está prendido, nueva Ronda sobre el mismo punto; si no, queda Rechazado
+  → el resultado final de cada punto (y sus rondas, si hubo más de una) se
+  vuelca automáticamente en el Acta.
+- **Encuestas (versión sin peso legal):** no requiere quórum, no genera un
+  acuerdo formal ni un Acta -- solo consulta de opinión. Uso típico:
+  sondear interés antes de convocar una asamblea formal, medir
+  satisfacción, priorizar mejoras menores. Mecánica mínima: pregunta(s),
+  plazo de respuesta, resultado agregado, opción de anonimato -- la
+  funcionalidad de menor esfuerzo de las cuatro piezas de gobernanza.
+
+**Por qué esto también es un diferenciador de negocio, no solo una
+feature:** ningún competidor peruano identificado se posiciona hoy como
+"listo para el D.L. 1568" -- el reglamento aún no se publica, así que
+nadie tiene ventaja consolidada todavía. Un Acta bien estructurada
+(fecha, asistentes con alícuota, quórum verificado, resultado por punto)
+es exactamente el tipo de expediente que respalda un acuerdo si algún día
+se cuestiona judicialmente, y conecta con el reporte de morosidad que ya
+existe (`DelinquencyReport.razor`) como base para el Registro de
+Deudores/título ejecutivo que la misma ley habilita (ver también el punto
+sobre precios y diferenciación más abajo en este documento).
+
+**Falta por completo:** decidir alcance real de la primera versión (¿las
+4 piezas de gobernanza juntas, o Reuniones+Votación+Actas primero y
+Encuestas después, dado que es la de menor esfuerzo?) y el diseño de
+pantallas -- no hay nada de qué partir en el código existente (la
+alícuota ya quedó resuelta arriba, se deriva sin campo nuevo). Fuente
+legal: [Decreto Legislativo 1568 -- texto oficial en El
+Peruano](https://busquedas.elperuano.pe/dispositivo/NL/2181939-6). El
+reglamento definitivo puede ajustar los quórum/mayorías exactos para
+acuerdos ordinarios, pero la arquitectura de fondo (voto por alícuota,
+quórum configurable por edificio, reunión-votación-acta como un solo
+flujo) ya está confirmada en el texto vigente del decreto y no debería
+cambiar.
 
 ### 22. Piloto para Móvil
 **Estado: ya diagnosticado en detalle en `Docs/Design-Piloto-Mobile-Android.md`
@@ -833,6 +1227,37 @@ falta.
   de configuración le faltan (la razón original por la que pidió Tabs) --
   ahora que hay una página por tab es más fácil agregarlos sin reabrir este
   refactor.
+
+**Feedback del usuario tras probar en vivo (2026-09-11): esperaba un
+rediseño, no sólo mover las cards a pestañas.** Confirmado -- el refactor
+movió las 8 secciones TAL CUAL (mismas cards con el lápiz flotante, mismo
+`form-compact`, mismo layout de una sola columna angosta dentro de cada
+tab) sólo para reducir riesgo y no romper la lógica de guardado en el
+mismo cambio. El resultado visual (ver capturas del usuario: tab "Moneda y
+Cuentas" e "Inmobiliaria") es funcional pero se nota que cada pestaña
+sigue pensada para competir por espacio con una lista al lado, no para
+ocupar una página completa -- mucho aire vacío a los costados, formularios
+angostos y verticales cuando ahora hay ancho de sobra para 2-3 columnas,
+sin components de tabla (ej. Cuentas Bancarias) para una lista de más de
+2-3 items.
+
+**Pendiente (rediseño, separado del refactor estructural que ya está
+hecho):**
+- Usar el ancho completo de la página: formularios en grid de 2-3 columnas
+  en vez de una sola columna angosta, especialmente en Contactos/
+  Inmobiliaria/Mantenimiento (campos cortos: Nombre, Teléfono, Email,
+  Dirección) y Defaults/Multas (ya tiene varios `col-md-6`, pero dentro de
+  un contenedor que sigue angosto).
+- Cuentas Bancarias: hoy es una lista de filas con inputs en modo edición;
+  con ancho de sobra podría ser una tabla o cards en grid en vez de filas
+  apiladas.
+- Revisar si el patrón "lápiz flotante -> modo edición inline" (heredado
+  del panel viejo) sigue siendo el mejor ahora que cada sección tiene su
+  propia pestaña dedicada, o si conviene un patrón más simple (ej. la
+  pestaña entera en modo lectura con un solo botón "Editar" arriba a la
+  derecha, en vez de un lápiz por card).
+- Definir esto CON el usuario antes de tocar CSS/markup de nuevo -- es
+  trabajo de diseño, no un bug a resolver solo.
 
 **Verificado en el código -- confirma el problema que señaló el usuario.**
 `/buildings` (`BuildingPage.razor`, **1518 líneas** de markup + 909 de
@@ -1015,14 +1440,14 @@ que confirme si mejoró y en qué medida.
 | 14 | Confirmar upsert de `ServiceReadingDetail` | Baja | Investigación |
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
-| 17 | Comunicados vía WhatsApp (canal prioritario, decidido) | Alta* | Producto + integración externa |
+| 17 | Comunicados vía WhatsApp -- **IMPLEMENTADO**, falta probar en vivo + plantillas de Meta | Alta* | Implementado, falta validar |
 | 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados** | Alta* | **Resuelto** (2026-09-11), falta probar con BD real |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
-| 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |
+| 21 | Módulo de Reservas -- **IMPLEMENTADO**, falta probar en vivo; Gobernanza (Reuniones/Votación/Actas/Encuestas) sigue en diseño, "Citas" descartado | Baja-Media* | Reservas implementado; Gobernanza diseño + código (grande) |
 | 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
-| 24 | Configuración de Edificio: página propia con Tabs -- **HECHO**, falta probar en vivo | Media | Refactor UI (implementado) |
+| 24 | Configuración de Edificio: página propia con Tabs -- estructura **HECHA**, falta **rediseño visual** (usuario esperaba más que mover cards a pestañas) | Media | Diseño UI |
 | 25 | Email: falta Contraseña de Aplicación de Gmail + 2 flujos comentados | Alta | Configuración + decisión |
 | 26 | Perf: menú izquierdo demoraba hasta 1 min en la primera carga -- **HECHO**, falta confirmar en vivo | Alta | Código (bug de caché + paralelizar consultas) |
 

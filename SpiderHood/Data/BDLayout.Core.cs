@@ -292,6 +292,32 @@ namespace SpiderHood.Data
             public const string INS_IncidentAttachment = "INS_IncidentAttachment";
             public const string GET_IncidentAttachmentsByIncident = "GET_IncidentAttachmentsByIncident";
 
+            // Comunicado Procedures -- Docs/Pendientes-Negocio-Consolidado.md #17
+            public const string INS_Comunicado = "INS_Comunicado";
+            public const string GET_ComunicadosByBuilding = "GET_ComunicadosByBuilding";
+            public const string INS_ComunicadoDestinatario = "INS_ComunicadoDestinatario";
+            public const string GET_ComunicadoDestinatariosByComunicado = "GET_ComunicadoDestinatariosByComunicado";
+            public const string GET_ComunicadosParaUsuario = "GET_ComunicadosParaUsuario";
+
+            // Reserva / Área Común Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21
+            public const string INS_AreaComun = "INS_AreaComun";
+            public const string UPD_AreaComun = "UPD_AreaComun";
+            public const string GET_AreaComunesByBuilding = "GET_AreaComunesByBuilding";
+            public const string INS_Reserva = "INS_Reserva";
+            public const string UPD_ReservaEstado = "UPD_ReservaEstado";
+            public const string GET_ReservasByBuilding = "GET_ReservasByBuilding";
+            public const string GET_ReservaById = "GET_ReservaById";
+            public const string GET_ReservasPendientesByBuilding = "GET_ReservasPendientesByBuilding";
+            public const string GET_ReservasByGroupUnit = "GET_ReservasByGroupUnit";
+            public const string GET_ReservasConflicto = "GET_ReservasConflicto";
+            public const string GET_ReservasProximasByAreaComun = "GET_ReservasProximasByAreaComun";
+            public const string INS_ReservaChecklistItem = "INS_ReservaChecklistItem";
+            public const string GET_ReservaChecklistItemsByReserva = "GET_ReservaChecklistItemsByReserva";
+            public const string INS_ReservaAttachment = "INS_ReservaAttachment";
+            public const string GET_ReservaAttachmentsByReserva = "GET_ReservaAttachmentsByReserva";
+            public const string INS_IngresoComunidad = "INS_IngresoComunidad";
+            public const string GET_IngresosComunidadByBuilding = "GET_IngresosComunidadByBuilding";
+
             // Calendar Procedures
             public const string INS_CalendarItem = "INS_CalendarItem";
             public const string UPD_CalendarItem = "UPD_CalendarItem";

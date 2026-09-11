@@ -394,15 +394,32 @@ namespace SpiderHood.Data
             CancellationToken cancellationToken = default,
             params object[] parameters)
         {
-            var paramString = string.Join(",", parameters.Select((_, i) => $"{{{i}}}"));
-            var sql = $"{storedProcedureName} {paramString}";
+            // Los parámetros van envueltos en SqlParameter (mismo patrón ya usado en
+            // ExecuteQuerySingleAsync/ExecuteQueryListAsync más abajo) -- pasar un
+            // DBNull.Value "pelado" dentro del object[] directo a ExecuteSqlRawAsync
+            // hace que EF intente inferirle un store type mapping y tire
+            // "no store type mapping for properties of type 'DBNull'" (visto en vivo
+            // con AreaComun -- Docs/Pendientes-Negocio-Consolidado.md #21). Un
+            // SqlParameter ya trae su propio tipo ADO.NET, así que EF no necesita
+            // inferir nada.
+            var paramNames = new List<string>();
+            var sqlParams = new List<object>();
+
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                var paramName = $"@p{i}";
+                paramNames.Add(paramName);
+                sqlParams.Add(new SqlParameter(paramName, parameters[i] ?? DBNull.Value));
+            }
+
+            var sql = $"{storedProcedureName} {string.Join(", ", paramNames)}";
 
             //_logger.LogDebug("Executing stored procedure: {Sql}", sql);
 
             var dbContext = await RentContextAsync(cancellationToken);
             try
             {
-                return await dbContext.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
+                return await dbContext.Database.ExecuteSqlRawAsync(sql, sqlParams.ToArray(), cancellationToken);
             }
             finally
             {

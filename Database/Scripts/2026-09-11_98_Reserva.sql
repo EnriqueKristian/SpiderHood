@@ -308,16 +308,27 @@ GO
 -- Reservas que ocupan el Área Común en una ventana de fechas, para chequear
 -- solapamiento antes de confirmar una nueva -- excluye estados que ya no
 -- bloquean el horario (Rechazada/Cancelada/NoPresentado).
+-- Igual que las demás GET_Reservas*: trae NombreAreaComun/CreatedByName vía
+-- LEFT JOIN -- Models.Reserva es una entidad keyless mapeada 1:1 a estas dos
+-- columnas "extra" en TODOS los SPs que la devuelven, así que EF exige que
+-- estén siempre presentes (si un SP hace sólo "SELECT * FROM Reserva" sin
+-- ellas, FromSqlRaw revienta con "required column ... was not present",
+-- visto en vivo al abrir "Nueva Solicitud" -- Docs/Pendientes-Negocio-
+-- Consolidado.md #21).
 CREATE OR ALTER PROCEDURE dbo.GET_ReservasConflicto
     @IdAreaComun UNIQUEIDENTIFIER, @FechaInicio DATETIME2, @FechaFin DATETIME2
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT * FROM dbo.Reserva
-    WHERE IdAreaComun = @IdAreaComun
-      AND Estado NOT IN (3, 4, 5) -- Rechazada, Cancelada, NoPresentado
-      AND FechaInicio < @FechaFin
-      AND FechaFin > @FechaInicio;
+    SELECT r.*, a.Nombre AS NombreAreaComun,
+           creador.FirstName + ' ' + creador.LastName AS CreatedByName
+    FROM dbo.Reserva r
+    LEFT JOIN dbo.AreaComun a ON a.IdAreaComun = r.IdAreaComun
+    LEFT JOIN dbo.Users creador ON creador.IdUser = r.CreatedBy
+    WHERE r.IdAreaComun = @IdAreaComun
+      AND r.Estado NOT IN (3, 4, 5) -- Rechazada, Cancelada, NoPresentado
+      AND r.FechaInicio < @FechaFin
+      AND r.FechaFin > @FechaInicio;
 END
 GO
 
@@ -326,7 +337,11 @@ CREATE OR ALTER PROCEDURE dbo.GET_ReservasProximasByAreaComun
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT * FROM dbo.Reserva r
+    SELECT r.*, a.Nombre AS NombreAreaComun,
+           creador.FirstName + ' ' + creador.LastName AS CreatedByName
+    FROM dbo.Reserva r
+    LEFT JOIN dbo.AreaComun a ON a.IdAreaComun = r.IdAreaComun
+    LEFT JOIN dbo.Users creador ON creador.IdUser = r.CreatedBy
     WHERE r.IdAreaComun = @IdAreaComun
       AND r.Estado IN (1, 2, 6) -- PendienteDeAprobacion, Aprobada, Entregada
       AND r.FechaFin >= SYSUTCDATETIME()

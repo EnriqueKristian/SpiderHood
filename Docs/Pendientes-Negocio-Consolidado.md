@@ -61,10 +61,9 @@ secas, es la secuencia en la que conviene tocarlos.
 15. **#10** Estado de Cuenta migrado no crea Gastos categorizados.
 16. **#19** Login social Google/Facebook/Apple -- no crítico si el alta de
     usuarios en el piloto sigue siendo manual/por Administrador.
-17. **#24** Configuración de Edificio: página propia con Tabs -- antes de
-    mover las 8 secciones actuales, revisar con el usuario qué le falta a
-    la configuración (lo mencionó de paso), para no reordenar los tabs dos
-    veces.
+17. **#24** Configuración de Edificio: página propia con Tabs -- **HECHO**
+    (2026-09-11), falta probar en vivo y conversar con el usuario qué
+    campos le faltan agregar (ahora es más fácil, hay una página por tab).
 
 **Grupo 3 -- baja urgencia, manual, o investigación sin bloqueo real:**
 17. **#16** Verificar URL del menú "Ingresos y Egresos".
@@ -787,8 +786,53 @@ un patrón similar en Presupuestos, Gastos, Edificios). Falta: grep de
 tienen (o no) el mismo problema.
 
 ### 24. Configuración de Edificio: pasar a página propia con Tabs
-*(Nuevo 2026-09-11, pedido del usuario -- sin empezar, sólo el diseño de
-alto nivel)*
+*(Nuevo 2026-09-11, pedido del usuario -- **IMPLEMENTADO** el mismo día,
+`dotnet build` en 0 errores, falta probar en vivo)*
+
+**Estado: hecho.** El usuario aclaró que "faltan cosas" se refiere a
+agregados chicos futuros, no un prerequisito para el refactor -- así que se
+arrancó de las 8 secciones existentes tal cual, sin esperar a decidir qué
+falta.
+
+- Página nueva `BuildingConfig.razor`/`.razor.cs`/`.razor.css` en
+  `Components/Pages/BuildingPages/`, ruta `/buildings/{IdBuilding:guid}/config`.
+  Las 8 secciones (Moneda y Cuentas, Pagos, Defaults/Multas y Mora,
+  Administración, Inmobiliaria, Mantenimiento, Categorías Default,
+  Excepciones de Pago) se movieron TAL CUAL -- misma lógica de
+  edición/guardado por sección (`StartEditSection`/`SaveSection`/
+  `CancelEdit`) -- envueltas en pestañas Bootstrap (`nav-tabs` + `@if` por
+  tab, mismo patrón ya usado en `ReconciliationWorkspace.razor`, no el
+  componente `Tabs` de BlazorBootstrap).
+  - Fix de lifecycle aplicado de entrada (mismo bug que ya se había
+    encontrado y corregido esta sesión en `IncidentDetail`): como la ruta
+    tiene un parámetro (`{IdBuilding:guid}`), navegar de un edificio a otro
+    reutiliza la misma instancia del componente -- se usa
+    `OnParametersSetAsync` + un `_loadedId` trackeado, NO
+    `OnInitializedAsync`, para que sí recargue al cambiar de edificio.
+  - El modal de "Configuración Rápida" (copiar config de otro edificio) y
+    los modales de Cuenta Bancaria y Exoneración se movieron con las
+    secciones (se abren desde adentro de la página de config, ya no desde
+    el listado).
+- `BuildingPage.razor`/`.razor.cs` (el listado, `/buildings`) se
+  simplificó: de 1518+909 líneas quedó en 360+~250. Ya no carga
+  `BuildingConfiguration` completa (BankAccounts, Exonerations, categorías,
+  unidades) sólo para mostrar la lista -- eso ahora lo carga
+  `BuildingConfig` al entrar. El ícono de engranaje por fila (antes
+  "Configuración Rápida" -> modal) y el click en toda la fila ahora
+  navegan a `/buildings/{id}/config`.
+- CSS: `BuildingPage.razor.css` es scoped al archivo viejo, así que no
+  aplicaba solo por mover el markup -- se creó `BuildingConfig.razor.css`
+  con una copia de las clases que usan las 8 secciones
+  (`card-hover`, `config-card`, `edit-mode`, `section-title`,
+  `edit-button`, `form-compact`, `payment-methods`, `currency-selector`,
+  `action-buttons`).
+- **Pendiente:** probar en vivo (crear/editar cada sección desde la página
+  nueva, confirmar que Configuración Rápida y los 2 modales siguen
+  funcionando igual, confirmar que el ícono de engranaje navega bien).
+  También quedó pendiente la conversación con el usuario sobre qué campos
+  de configuración le faltan (la razón original por la que pidió Tabs) --
+  ahora que hay una página por tab es más fácil agregarlos sin reabrir este
+  refactor.
 
 **Verificado en el código -- confirma el problema que señaló el usuario.**
 `/buildings` (`BuildingPage.razor`, **1518 líneas** de markup + 909 de
@@ -936,7 +980,7 @@ pantalla nueva.
 | 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |
 | 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
-| 24 | Configuración de Edificio: página propia con Tabs (hoy 1 panel de 1518 líneas) | Media | Diseño + refactor UI |
+| 24 | Configuración de Edificio: página propia con Tabs -- **HECHO**, falta probar en vivo | Media | Refactor UI (implementado) |
 | 25 | Email: falta Contraseña de Aplicación de Gmail + 2 flujos comentados | Alta | Configuración + decisión |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),

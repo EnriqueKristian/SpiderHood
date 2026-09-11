@@ -439,6 +439,21 @@ sí.
   tipos), quién subió cada una y cuándo, más un `InputFile` para agregar
   nuevas -- disponible para cualquiera que pueda ver el incidente (mismo
   criterio de permisos que ya tenían los comentarios, sin gate adicional).
+- **Corrección de UX (2026-09-11), reportada por el usuario probándolo:**
+  la primera versión sólo dejaba adjuntar desde el detalle del incidente ya
+  creado -- no había forma de subir una foto al REPORTARLO. Se agregó el
+  mismo `InputFile` (con selección múltiple) al modal "Nuevo Incidente"
+  (`IncidentList.razor`): los archivos elegidos se leen y quedan en memoria
+  (`StagedAttachment`), y recién se suben después de que
+  `IncidentService.ReportAsync` confirma que el incidente ya existe en BD
+  -- así, si el usuario cierra el modal antes de completar "Reportar", no
+  queda ningún archivo huérfano en storage. Si algún adjunto falla la
+  validación real al subirlo, el incidente igual queda creado (ya se
+  confirmó) y se redirige al detalle para reintentar desde ahí. **Aplica
+  directo al diseño del piloto móvil** -- ver
+  `Docs/Design-Piloto-Mobile-Android.md`, Fase 2, actualizada con el mismo
+  criterio (adjuntar como parte del formulario de reporte, no como paso
+  aparte después).
 
 **Decisión de diseño consciente, no un descuido:** las miniaturas se
 arman como `data:` URI (bytes en base64 incrustados en el HTML) en vez de

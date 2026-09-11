@@ -312,13 +312,36 @@ ver sección 2) y el resto de las preguntas abiertas de la sección 9.
 - Publicar en Play Store como piloto cerrado (o incluso sin Play Store,
   instalación directa del APK del TWA, para launch más rápido).
 
-**Fase 2 -- Reportar incidentes con foto:**
-- Agregar columna `PhotoUrl`/tabla `IncidentAttachment` a `Incident`.
-- Storage de archivos (decisión: Azure Blob si ya hay cuenta Azure -- no se
-  encontró ninguna referencia en el repo, S3, o simple disco local para el
-  piloto).
-- `InputFile` en `IncidentDetail.razor` (o donde se cree el incidente) +
-  endpoint/servicio de subida.
+**Fase 2 -- Reportar incidentes con foto: YA IMPLEMENTADO del lado web
+(2026-09-11), ver Docs/Pendientes-Negocio-Consolidado.md #18a.**
+- ✅ Tabla `IncidentAttachment` (`Database/Scripts/2026-09-11_96_IncidentAttachment.sql`).
+- ✅ Storage de archivos: disco local para el piloto
+  (`IFileStorageService`/`LocalFileStorageService`, `Services/IFileStorageService.cs`)
+  -- el mismo servicio ya sirve también a los Recibos PDF (#18b). Migrar a
+  Blob queda igual de pendiente que antes, sólo que ahora hay una
+  abstracción real detrás en vez de nada.
+- ✅ `InputFile` -- y acá un detalle de UX importante, encontrado probando la
+  Fase 1 en la web: **la carga de fotos tiene que estar en el mismo
+  formulario de "Reportar Incidente", no como un paso aparte después de
+  creado.** La primera versión sólo dejaba adjuntar desde el detalle del
+  incidente YA CREADO -- el usuario probándolo notó que no tenía sentido
+  (¿dónde subo la foto si la pantalla de crear no la pide?) y se corrigió:
+  ahora el modal "Nuevo Incidente" (`IncidentList.razor`) ya deja elegir
+  fotos/video ANTES de tocar "Reportar" -- se leen y quedan en memoria
+  (`StagedAttachment`), y se suben recién después de que el incidente se
+  crea de verdad en BD (así un archivo no queda huérfano si el usuario
+  cierra el modal a mitad de camino). **Esto aplica directo al diseño de la
+  pantalla mobile de esta Fase 2**: el flujo natural en el celular es sacar
+  la foto y reportar en un solo paso (cámara → adjuntar → enviar), no
+  "reportar, después ir a buscar dónde subir la foto" -- replicar el mismo
+  criterio (adjuntar como parte del formulario de reporte, subir recién al
+  confirmar) en vez de partirlo en dos pantallas.
+- Sigue pendiente (no se tocó, y es donde el mobile agrega algo nuevo real):
+  cámara nativa (sacar la foto directo, no sólo elegir de la galería) y el
+  endpoint/API real para cuando se migre a Opción B (hoy el web sirve las
+  miniaturas embebidas en el HTML del propio circuito Blazor Server, que no
+  aplica una vez que haya una app nativa hablando con una API -- ver el
+  comentario de diseño en `Docs/Pendientes-Negocio-Consolidado.md` #18a).
 
 **Fase 3 -- Notificaciones push básicas (Web Push, dentro de las
 limitaciones de la Opción A):**

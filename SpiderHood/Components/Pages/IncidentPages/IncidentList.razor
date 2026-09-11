@@ -6,6 +6,8 @@
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.ParameterService ParameterService
 @inject NavigationManager Navigation
+@inject IConfiguration Configuration
+@using Microsoft.AspNetCore.Components.Forms
 
 <PageTitle>Incidentes</PageTitle>
 
@@ -151,6 +153,32 @@
                                 </InputSelect>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Fotos / Video (opcional)</label>
+                            <InputFile OnChange="SeleccionarAdjuntosNuevos" multiple accept="image/*,video/mp4,video/quicktime" class="form-control" />
+                            <div class="form-text">Fotos (JPG, PNG, WEBP, HEIC) o video corto (MP4, MOV) -- máximo @_maxAdjuntoMb MB por archivo.</div>
+                            @if (!string.IsNullOrWhiteSpace(_errorAdjuntoNuevo))
+                            {
+                                <div class="alert alert-danger mt-2 mb-0 py-2 px-3">@_errorAdjuntoNuevo</div>
+                            }
+                            @if (_adjuntosNuevos.Count > 0)
+                            {
+                                <ul class="list-group mt-2">
+                                    @foreach (var adjunto in _adjuntosNuevos)
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center py-1">
+                                            <span class="text-truncate">
+                                                @adjunto.FileName
+                                                <span class="text-muted small">(@(adjunto.Content.Length / 1024) KB)</span>
+                                            </span>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => QuitarAdjuntoNuevo(adjunto)">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">Cancelar</button>
@@ -172,6 +200,17 @@
     private string _filtroEstado = string.Empty;
     private List<Incident> _incidents = new();
     private Incident _nuevo = new();
+
+    // Docs/Pendientes-Negocio-Consolidado.md #18a -- adjuntos elegidos ANTES de
+    // que el incidente exista de verdad en BD. Se guardan en memoria (no se
+    // suben todavía) y recién se mandan a IncidentService.UploadAttachmentAsync
+    // después de que ReportAsync confirma la creación (ver Guardar()) -- así,
+    // si el usuario cierra el modal sin completar "Reportar", no queda ningún
+    // archivo huérfano en storage.
+    private record StagedAttachment(string FileName, string ContentType, byte[] Content);
+    private List<StagedAttachment> _adjuntosNuevos = new();
+    private string? _errorAdjuntoNuevo;
+    private int _maxAdjuntoMb => (Configuration.GetValue<int?>("IncidentAttachments:MaxSizeBytes") ?? 15 * 1024 * 1024) / 1024 / 1024;
 
     // Tipo/Prioridad de Incidente ya no son enums fijos -- salen de la tabla
     // Parametros (grupos "Tipo Incidente"/"Prioridad Incidente", ver
@@ -274,16 +313,80 @@
             Priority = _prioridadesIncidente.FirstOrDefault(p => p.ShortDescription == "Media")?.Value
                 ?? _prioridadesIncidente.FirstOrDefault()?.Value ?? 0
         };
+        _adjuntosNuevos.Clear();
+        _errorAdjuntoNuevo = null;
         _showModal = true;
     }
 
-    private void CerrarModal() => _showModal = false;
+    private void CerrarModal()
+    {
+        _showModal = false;
+        _adjuntosNuevos.Clear();
+        _errorAdjuntoNuevo = null;
+    }
+
+    // Sólo LEE los archivos elegidos y los guarda en memoria -- no sube nada
+    // todavía (ver StagedAttachment arriba). Valida tipo/tamaño acá también
+    // para dar feedback inmediato, pero la validación real (fuente de verdad)
+    // es la de IncidentService.UploadAttachmentAsync al confirmar "Reportar".
+    private async Task SeleccionarAdjuntosNuevos(InputFileChangeEventArgs e)
+    {
+        _errorAdjuntoNuevo = null;
+        foreach (var file in e.GetMultipleFiles(maximumFileCount: 10))
+        {
+            try
+            {
+                // Techo duro de transporte -- el límite real y configurable se
+                // aplica recién en IncidentService.UploadAttachmentAsync.
+                using var stream = file.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+                _adjuntosNuevos.Add(new StagedAttachment(file.Name, file.ContentType, memoryStream.ToArray()));
+            }
+            catch (Exception ex)
+            {
+                _errorAdjuntoNuevo = $"No se pudo leer \"{file.Name}\": {ex.Message}";
+            }
+        }
+    }
+
+    private void QuitarAdjuntoNuevo(StagedAttachment adjunto) => _adjuntosNuevos.Remove(adjunto);
 
     private async Task Guardar()
     {
         _nuevo.CreatedBy = _currentUser.Email;
-        await IncidentService.ReportAsync(_nuevo);
+        var incidenteCreado = await IncidentService.ReportAsync(_nuevo);
+
+        // Los adjuntos se suben recién ACÁ, después de que el incidente ya
+        // existe de verdad en BD (ver comentario de StagedAttachment arriba).
+        // Un adjunto que falle la validación real no aborta la creación del
+        // incidente, que ya quedó confirmada -- se manda al detalle para que
+        // el usuario vea el error puntual y pueda reintentar desde ahí (mismo
+        // uploader que ya tiene IncidentDetail.razor).
+        var huboErrorAdjunto = false;
+        foreach (var adjunto in _adjuntosNuevos)
+        {
+            try
+            {
+                await IncidentService.UploadAttachmentAsync(
+                    incidenteCreado.IdIncident, incidenteCreado.IdBuilding,
+                    adjunto.FileName, adjunto.ContentType, adjunto.Content, _currentUser.IdUser);
+            }
+            catch (Exception)
+            {
+                huboErrorAdjunto = true;
+            }
+        }
+
         _showModal = false;
+        _adjuntosNuevos.Clear();
+
+        if (huboErrorAdjunto)
+        {
+            Navigation.NavigateTo($"/incidents/{incidenteCreado.IdIncident}");
+            return;
+        }
+
         await CargarAsync();
     }
 

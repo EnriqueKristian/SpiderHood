@@ -34,6 +34,7 @@
     <PackageReference Include="QuestPDF" Version="2025.12.3" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.6" />
     <PackageReference Include="NuGet.Protocol" Version="6.12.5" />
+    <PackageReference Include="Twilio" Version="8.0.1" />
   </ItemGroup>
 
   <ItemGroup>

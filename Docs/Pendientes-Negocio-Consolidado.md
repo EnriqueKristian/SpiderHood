@@ -224,9 +224,30 @@ que ya existía), esto es funcionalidad que **no está construida en absoluto**
 -- verificado buscando en todo el repo, no por sospecha.
 
 ### 17. Comunicados / Anuncios
-**Estado: no existe -- ni tabla, ni servicio, ni página. Decisión tomada
-(2026-09-11): el canal prioritario es WhatsApp, no un tablón dentro de la
-app.**
+**Estado: en progreso (2026-09-11) -- servicio de envío por WhatsApp
+construido (`IWhatsAppService`/`WhatsAppService`, vía Twilio); la pantalla de
+Comunicados en sí (tabla, quién publica, a quién le llega) todavía no.**
+
+**Qué se hizo:** `Services/IWhatsAppService.cs` (patrón calcado de
+`IEmailService`/`IPaymentService`) -- `SendMessageAsync` (texto libre, sirve
+para probar contra el sandbox de Twilio) y `SendTemplateMessageAsync`
+(Content Template de Twilio, para cuando exista una plantilla real aprobada
+por Meta -- hoy no hay ninguna). Incluye `NormalizeToE164` porque
+`PhoneNumber` en `Classes/User.cs` es texto libre. Mismo modo `Simulate` que
+`IPaymentService`/MercadoPago: sin `Twilio:AccountSid`/`AuthToken`
+configurados (`appsettings.json`, vacíos a propósito) no llama a Twilio de
+verdad, sólo loguea -- así se puede seguir construyendo/probando el resto
+sin esperar la cuenta de Twilio ni la verificación de negocio en Meta.
+Paquete `Twilio` 8.0.1 agregado al `.csproj`, registrado en `Program.cs`.
+
+**Sin verificar** -- este entorno no tiene el SDK de .NET instalado (no hay
+`dotnet`), así que no se pudo compilar ni restaurar el paquete nuevo.
+Primer paso al retomarlo: `dotnet build` para confirmar que compila, y
+correr `SendMessageAsync` en modo simulado (sin credenciales) para ver el
+log antes de conectar una cuenta de Twilio real.
+
+**Decisión tomada (2026-09-11): el canal prioritario es WhatsApp, no un
+tablón dentro de la app.**
 
 Hay un permiso `view_announcements` y un ítem de menú "Comunicados"
 (`MyAnnouncements`, agregado en `Database/Scripts/2026-09-10_85_Reorganizar_Menu.sql`)

@@ -224,6 +224,7 @@ builder.Services.AddSingleton<ILoggerProvider, DatabaseLoggerProvider>();
 builder.Services.AddHostedService<SystemLogPurgeService>();
 builder.Services.AddScoped<ISystemLogAdminService, SystemLogAdminService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
 builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IPermissionAdminService, PermissionAdminService>();

@@ -6,7 +6,7 @@ using SpiderHood.Models;
 
 namespace SpiderHood.Components.Pages.BuildingPages
 {
-    public partial class BuildingPage
+    public partial class BuildingPage : IDisposable
     {
         [Inject]
         public Services.IBuildingService BuildingService { get; set; } = default!;
@@ -16,6 +16,11 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private Building _editingBuilding = new();
 
         private bool _isEditingBuilding = false;
+
+        // Paginación/búsqueda del listado -- mismo patrón que PeriodPage (Utilities.PaginationClass<T>).
+        private Utilities.BuildingPagination _pagination = new();
+        private string searchTerm = string.Empty;
+        private int pageSize = 25;
 
         private Modal _buildingModal = null!;
         private Modal _deleteBuildingModal = null!;
@@ -28,11 +33,22 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         protected override async Task OnInitializedAsync()
         {
+            // Suscribirse una sola vez -- OnInitializedAsync corre una sola vez por
+            // instancia de componente (a diferencia de CargarDatosPagina, que se llama de
+            // nuevo después de crear/editar/eliminar un edificio); suscribirse ahí
+            // acumularía handlers duplicados en OnPaginationChanged.
+            _pagination.OnPaginationChanged += StateHasChanged;
+
             currentUser = await AuthService.GetCurrentUserAsync();
             if (currentUser == null) return;
 
             _canEditBuilding = await PermissionService.HasPermissionAsync(currentUser, "edit_building");
             _canCreateBuilding = await PermissionService.HasPermissionAsync(currentUser, "create_building");
+        }
+
+        public void Dispose()
+        {
+            _pagination.OnPaginationChanged -= StateHasChanged;
         }
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -70,6 +86,8 @@ namespace SpiderHood.Components.Pages.BuildingPages
             // alcanza con no crashear acá.
             if (!Buildings.Any())
             {
+                _pagination.Initialize(Buildings);
+
                 // Quien se acaba de registrar desde /register-admin (Administrador
                 // global, sin ningún edificio todavía -- ver
                 // AuthService.RegisterNewAdministratorAsync) cae acá directo después del
@@ -83,12 +101,25 @@ namespace SpiderHood.Components.Pages.BuildingPages
             }
 
             SelectedBuilding = Buildings.First();
+            _pagination.Initialize(Buildings);
 
             // Necesarios acá sólo para el badge de Tipo de la lista y para el <select>
             // "Tipo" del modal de crear/editar edificio -- la configuración completa
             // (BankAccounts, Exonerations, categorías, unidades, etc.) ya no se carga en
             // esta página, se carga en BuildingConfig al entrar a /buildings/{Id}/config.
             await ParameterService.LoadParametersAsync(SelectedBuilding.IdBuilding);
+        }
+
+        private void OnSearch(ChangeEventArgs e)
+        {
+            searchTerm = e.Value?.ToString() ?? string.Empty;
+            _pagination.Search(searchTerm);
+        }
+
+        private void ChangePageSize(int newSize)
+        {
+            pageSize = newSize;
+            _pagination.ChangePageSize(pageSize);
         }
 
         private void GoToConfig(Building building)
@@ -139,6 +170,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 }
 
                 Buildings.RemoveAll(b => b.IdBuilding == building.IdBuilding);
+                _pagination.Initialize(Buildings);
 
                 if (SelectedBuilding?.IdBuilding == building.IdBuilding)
                 {
@@ -249,6 +281,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
                     {
                         Buildings[index] = _editingBuilding.Clone();
                     }
+                    _pagination.Initialize(Buildings);
 
                     // Sin esto la sesión en memoria seguía con el Name/IsTemplate viejo
                     // (header, /select-building, etc.) hasta un F5 -- ver
@@ -270,6 +303,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
                     }
 
                     Buildings.Add(_editingBuilding.Clone());
+                    _pagination.Initialize(Buildings);
 
                     // Refresca Buildings/Roles de la sesión en memoria y notifica -- sin
                     // esto el edificio nuevo sólo se veía en esta lista local (que además

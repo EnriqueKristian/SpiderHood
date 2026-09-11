@@ -288,6 +288,10 @@ namespace SpiderHood.Data
             public const string INS_IncidentComment = "INS_IncidentComment";
             public const string GET_IncidentCommentsByIncident = "GET_IncidentCommentsByIncident";
 
+            // Incident Attachment Procedures -- Docs/Pendientes-Negocio-Consolidado.md #18a
+            public const string INS_IncidentAttachment = "INS_IncidentAttachment";
+            public const string GET_IncidentAttachmentsByIncident = "GET_IncidentAttachmentsByIncident";
+
             // Calendar Procedures
             public const string INS_CalendarItem = "INS_CalendarItem";
             public const string UPD_CalendarItem = "UPD_CalendarItem";

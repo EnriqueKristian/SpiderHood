@@ -988,6 +988,27 @@ namespace SpiderHood.Data
             }, "AddIncidentComment", cancellationToken);
         }
 
+        public async Task<Models.IncidentAttachment> AddNewRecordAsync(Models.IncidentAttachment attachment, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(attachment, nameof(attachment));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_IncidentAttachment,
+                    cancellationToken,
+                    attachment.IdAttachment,
+                    attachment.IdIncident,
+                    attachment.IdBuilding,
+                    attachment.FileName,
+                    attachment.ContentType,
+                    attachment.FileSizeBytes,
+                    attachment.FilePath,
+                    attachment.UploadedBy);
+                return attachment;
+            }, "AddIncidentAttachment", cancellationToken);
+        }
+
         public async Task<Models.CalendarItem> AddNewRecordAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

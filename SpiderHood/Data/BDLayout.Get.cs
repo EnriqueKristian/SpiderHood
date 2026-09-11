@@ -1127,6 +1127,14 @@ namespace SpiderHood.Data
             }, "GetIncidentComments", cancellationToken);
         }
 
+        public async Task<List<Models.IncidentAttachment>> GetIncidentAttachmentsAsync(Guid idIncident, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.IncidentAttachment>(StoredProcedures.GET_IncidentAttachmentsByIncident, idIncident);
+            }, "GetIncidentAttachments", cancellationToken);
+        }
+
         public async Task<List<Models.CalendarItem>> GetCalendarItemsByBuildingAsync(Guid idBuilding, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

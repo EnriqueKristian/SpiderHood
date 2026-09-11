@@ -1495,6 +1495,19 @@
             waterReadingValid = true;
         }
 
+        // Decisión de negocio (2026-09-11, reportado por el usuario probando
+        // BudgetGenerator): la lectura de agua incompleta pasa de ser una
+        // advertencia "blanda" (quedaba en `warnings`, el Administrador podía
+        // igual publicar vía el modal de confirmación) a BLOQUEAR directamente,
+        // igual que las otras validaciones de arriba -- sin lectura de agua
+        // completa no se puede enviar a aprobación ni publicar un presupuesto
+        // que tiene sección de Agua.
+        if (!waterReadingValid)
+        {
+            await ShowToast("Error", $"Lectura de agua incompleta: {waterReadingMessage}", "danger");
+            return (true, new());
+        }
+
         // 5. Validar montos totales
         var totalBudgetAmount = _BudgetState.Budget.Details
             .Where(x => !x.IsHeader)
@@ -1517,11 +1530,6 @@
         if (sectionsWithZeroAmount.Any())
         {
             warnings.Add($"Secciones con monto cero: {string.Join(", ", sectionsWithZeroAmount)}");
-        }
-
-        if (!waterReadingValid)
-        {
-            warnings.Add($"Lectura de agua: {waterReadingMessage}");
         }
 
         return (false, warnings);

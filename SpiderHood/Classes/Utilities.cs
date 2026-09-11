@@ -36,9 +36,20 @@ namespace SpiderHood.Models
                 ? $"¿Está seguro de {actionName.ToLower()}? Esta acción no se puede deshacer."
                 : $"¿Desea {actionName.ToLower()}?";
 
-            _confirmationModal?.Show(type);
+            // Orden importa: Show() dispara su propio StateHasChanged() adentro del
+            // componente -- si corre ANTES de fijar Message/IsCancelOnly, ese primer
+            // render puede salir con el default ("¿Está seguro de realizar esta
+            // acción?") o el texto de una invocación anterior del mismo modal
+            // compartido, en vez del mensaje real (acá, el detalle de qué le falta al
+            // presupuesto -- ej. la lectura de agua). Mismo bug ya corregido en
+            // ReconciliationWorkspace.ConfirmarAsync (Docs/Pendientes-Negocio-
+            // Conciliacion.md #4); esta es la copia compartida que usan
+            // BudgetGenerator.razor, ServiceReadingModal.razor, ModalOwnerUnit.razor y
+            // ManualInstallmentConciliation.razor -- se corrige acá una sola vez para
+            // los 4 a la vez.
             _confirmationModal?.Message = string.IsNullOrEmpty(message) ? defaultMessage : message;
             _confirmationModal?.IsCancelOnly = isCancelOnly;
+            _confirmationModal?.Show(type);
         }
 
         public async Task OnConfirmationResult(bool confirmed)

@@ -34,12 +34,11 @@ secas, es la secuencia en la que conviene tocarlos.
    define proveedor (Cloud API vs. Twilio) y plantillas.
 4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
    (solo lectura: presupuesto, incidencias, calendario).
-5. **#18b** Storage de archivos + PDFs de Recibos -- **implementado
-   2026-09-11** (disco, no BD; corrige el bug de integridad -- ver punto
-   18). Falta correr `Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
-   probar con datos reales. El mismo storage se conecta después a **#18a**
-   (fotos/video en Incidencias, más caro, depende de la Fase 2 del piloto
-   móvil) -- ver la evaluación de impacto/costo/beneficio en el punto 18.
+5. **#18** Storage de archivos -- **18b (Recibos PDF) y 18a (fotos/video en
+   Incidencias) ambos implementados (2026-09-11)**. Falta correr los dos
+   scripts (`Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
+   `_96_IncidentAttachment.sql`) y probar los dos flujos con datos reales
+   -- ver el detalle de cada uno en el punto 18.
 
 **Grupo 2 -- importante, no bloquea el lanzamiento:**
 6. **#2** Reportes financieros suman transacciones Ignoradas.
@@ -126,16 +125,65 @@ moneda (cuotas, gastos, reportes, conciliación). Falta todo el diseño.
 ## Prioridad Media -- funcionalidad de negocio real, pero no sangra dinero hoy
 
 ### 6. Bug compartido en modales de confirmación (`ConfirmationUtil.ExecuteWithConfirmation`)
-*(Conciliación #4, encontrado de paso -- sin corregir)*
+*(Conciliación #4 -- **resuelto (2026-09-11)**, reportado de nuevo por el
+usuario probando `BudgetGenerator` sin lectura de agua completa)*
 
 El mismo bug de orden (`Show(type)` antes de fijar `Message`) que ya se
-corrigió en `ReconciliationWorkspace.ConfirmarAsync` sigue vivo en el
-helper compartido `Classes/Utilities.cs:39-41`, usado por
-`ModalOwnerUnit.razor`, `BudgetGenerator.razor`, `ServiceReadingModal.razor`
-y `ManualInstallmentConciliation.razor` -- la primera confirmación en esas
-pantallas puede mostrar el mensaje default o el de una acción anterior en
-vez del real. Fix es el mismo, un solo cambio de orden, pero toca 4+
-pantallas a la vez.
+había corregido en `ReconciliationWorkspace.ConfirmarAsync` seguía vivo en
+el helper compartido `Classes/Utilities.cs` (línea 39-41 en su momento),
+usado por `ModalOwnerUnit.razor`, `BudgetGenerator.razor`,
+`ServiceReadingModal.razor` y `ManualInstallmentConciliation.razor`. El
+usuario lo encontró en producción: al publicar un presupuesto sin lectura
+de agua, el modal de confirmación no mostraba con claridad la advertencia
+real y dejaba avanzar sin que quedara claro qué se estaba confirmando --
+exactamente el síntoma que este punto anticipaba. **Corregido** invirtiendo
+el orden (`Message`/`IsCancelOnly` antes de `Show()`) en el único lugar
+compartido -- arregla los 4 usos a la vez.
+
+**Actualización (2026-09-11):** al preguntarle al usuario si prefería
+mantener "advertencia con confirmación" (lo que este fix ya dejaba
+funcionando bien) o pasar a bloqueo total, eligió **bloqueo total** -- ver
+punto 6b más abajo. Con eso, el fix de este punto (orden `Show()`/`Message`)
+sigue siendo válido y necesario para los OTROS 3 usos compartidos
+(`ModalOwnerUnit.razor`, `ServiceReadingModal.razor`,
+`ManualInstallmentConciliation.razor`, que siguen usando confirmación con
+advertencia blanda), pero en `BudgetGenerator` específicamente la lectura
+de agua ya ni siquiera llega a mostrar ese modal -- corta antes, ver 6b.
+
+**Sin verificar en un browser real** (sin acceso a BD en este entorno):
+confirmar que en las pantallas que SÍ siguen usando el modal de
+confirmación compartido (`ModalOwnerUnit`, `ServiceReadingModal`,
+`ManualInstallmentConciliation`), la primera confirmación de la sesión
+muestra el mensaje real de entrada, no uno genérico o vacío.
+
+### 6b. Lectura de agua incompleta: de advertencia a bloqueo total
+*(Nuevo 2026-09-11, decisión del usuario -- **implementado**)*
+
+Al reportar el bug de arriba, el usuario aclaró la regla de negocio real:
+"se supone que es bloqueante, sin lectura no avanza el presupuesto" -- pero
+el código (desde una sesión anterior) lo trataba como advertencia blanda
+que el Administrador podía aceptar y continuar. Confirmado explícitamente
+con el usuario: quiere **bloqueo total**, no advertencia.
+
+**Cambio en `ValidarPresupuestoParaAprobacion`
+(`BudgetGenerator.razor`):** si el presupuesto tiene una sección de
+Categoría "Agua" y la lectura está incompleta (sin cargar, con unidades
+faltantes, o con consumos inválidos), ahora corta de una con un toast de
+error ("Lectura de agua incompleta: ...") y `blocked = true` -- mismo
+patrón que las otras validaciones duras (sin secciones, sin items, monto
+total en cero). Ya no pasa por el modal de "¿Desea continuar de todos
+modos?" -- no hay forma de publicar o enviar a aprobación un presupuesto
+con Agua sin lectura completa, para ningún edificio.
+
+**Verificado en este entorno:** `dotnet build` compila sin errores (0
+errores, sin warnings nuevos).
+
+**Sin verificar en un browser real** (sin acceso a BD en este entorno):
+crear/editar un presupuesto con sección de Agua, dejar la lectura sin
+cargar (o con alguna unidad faltante), y confirmar que "Enviar a
+Aprobación"/"Publicar" muestra el toast de error y NO deja avanzar bajo
+ninguna circunstancia (a diferencia de antes, que ofrecía "Continuar de
+todos modos").
 
 ### 7. Garantía de reserva de área común (cobro y devolución)
 *(Conciliación #2 — pendiente, sin empezar, sin diseño todavía)*
@@ -359,6 +407,70 @@ ningún lado (`appsettings*.json` tampoco tiene nada de Azure Blob/S3), y
   sólo el nombre), y si video entra al piloto o sólo fotos (video pesa
   bastante más y complica más el storage/streaming).
 
+**Estructura de carpetas:** una carpeta por INCIDENTE, adentro de la
+carpeta del edificio -- `incidents/{IdBuilding}/{IdIncident}/{IdAttachment}.{ext}`
+-- ya que un mismo incidente puede tener varias fotos/videos y conviene que
+viajen juntos. A diferencia de Recibos, acá no hace falta año/mes como
+nivel aparte: la cantidad de incidentes por edificio es mucho menor que la
+de cuotas mensuales por unidad, así que una carpeta por incidente ya
+alcanza para que sea manejable a simple vista.
+
+**Estado: implementado (2026-09-11).** Reusa el mismo `IFileStorageService`
+armado para Recibos (18b) -- no hizo falta tocar el servicio de storage en
+sí.
+
+- `Database/Scripts/2026-09-11_96_IncidentAttachment.sql` -- tabla nueva
+  `dbo.IncidentAttachment` (100% nueva, no toca nada existente) +
+  `INS_IncidentAttachment`/`GET_IncidentAttachmentsByIncident`. Sin
+  `UPD`/`DEL` -- mismo criterio de inmutabilidad que `ReceiptFile` (18b):
+  un adjunto no se edita, si hace falta sacarlo es un punto aparte
+  (borrado/reemplazo de adjuntos no estaba pedido).
+- `IIncidentService.UploadAttachmentAsync` -- valida **whitelist de
+  extensiones** (`.jpg .jpeg .png .webp .heic .mp4 .mov` -- cualquier otra
+  se rechaza, no es una blacklist) y **tamaño máximo configurable**
+  (`IncidentAttachments:MaxSizeBytes` en `appsettings.json`, default 15 MB
+  -- cubre una foto de celular actual con margen, o un video corto). Guarda
+  el archivo con `{IdAttachment}.{ext}` como nombre en disco (nunca el
+  nombre original tal cual, evita colisiones entre dos fotos con el mismo
+  nombre de cámara subidas por personas distintas) y recién después
+  registra la fila en BD.
+- UI en `IncidentDetail.razor`: sección "Fotos / Videos" con miniaturas
+  (imagen/video inline, ícono genérico + link de descarga para otros
+  tipos), quién subió cada una y cuándo, más un `InputFile` para agregar
+  nuevas -- disponible para cualquiera que pueda ver el incidente (mismo
+  criterio de permisos que ya tenían los comentarios, sin gate adicional).
+
+**Decisión de diseño consciente, no un descuido:** las miniaturas se
+arman como `data:` URI (bytes en base64 incrustados en el HTML) en vez de
+servirse desde un endpoint HTTP propio -- evita construir y asegurar un
+endpoint autenticado aparte (fuera del circuito de Blazor Server, sin el
+`UserSession` ya armado) sólo para esto. Funciona bien para el piloto con
+pocos adjuntos livianos (tope de 15 MB), pero cada vista de un incidente
+con adjuntos manda esos bytes por el circuito de SignalR -- si el uso real
+mete muchos adjuntos pesados por incidente, o hace falta servirlos fuera
+de un circuito Blazor (ej. la app móvil de la Fase B de
+`Design-Piloto-Mobile-Android.md`), ahí sí conviene un endpoint HTTP
+autenticado de verdad -- ese endpoint de todas formas hace falta para la
+Fase B (la API que reemplaza el acceso directo a los `Services`), así que
+no es trabajo perdido, sólo adelantado.
+
+**Verificado en este entorno:** `dotnet build` compila sin errores (0
+errores, mismos 139 warnings preexistentes, ninguno nuevo). La validación
+de extensión/tamaño se probó aislada (fuera del repo, sin necesitar BD):
+extensión permitida (jpg, mp4, insensible a mayúsculas) aceptada;
+extensión no permitida (.exe) y archivo sin extensión rechazados con el
+mensaje real; archivo vacío rechazado; archivo que excede el máximo
+rechazado con el tamaño real en el mensaje; archivo justo en el límite
+aceptado.
+
+**Sin verificar (no hay acceso a BD real en este entorno):** correr
+`2026-09-11_96_IncidentAttachment.sql`, y probar el flujo completo con
+datos reales -- subir una foto real desde el detalle de un incidente,
+confirmar que aparece la miniatura, que queda un archivo en
+`incidents/{IdBuilding}/{IdIncident}/` y una fila en `IncidentAttachment`,
+y que un archivo no permitido (ej. un `.pdf` o `.docx`) muestra el mensaje
+de error sin romper la pantalla.
+
 #### 18b. PDFs de Recibos (agregado 2026-09-11, pedido del usuario)
 
 **Verificado en el código: los recibos tampoco se guardan en ningún lado
@@ -428,13 +540,64 @@ abajo) -- fix del bug de integridad incluido, no sólo la optimización.
   del periodo quedan guardados de una vez, no sólo el primero que alguien
   pida).
 
+**Actualización (2026-09-11, pedido del usuario probándolo):** con datos
+reales confirmó que el flujo completo funciona (filas en `ReceiptFile` +
+archivo en disco), pero notó que TODOS los recibos de TODOS los edificios
+caían en una sola carpeta plana (`receipts/<IdInstallment>.pdf`) --
+inmanejable a mediano plazo. Primera vuelta: una carpeta por edificio con
+Periodo+Unidad en el nombre del archivo. El usuario pidió ir más allá --
+carpeta por Unidad, y adentro por Año/Mes -- y compartió cómo ya organizan
+los recibos hoy A MANO en Google Drive: `Edificio > DPTO > Año > Mes`
+(meses con nombre en español, ej. "ABRIL"). Aclaró también que no le
+preocupa el riesgo de renumeración de unidad que había motivado la primera
+versión ("dudo que un DPTO cambie de nombre, de hecho lo podemos
+bloquear"). **Estructura final, calcada de ese orden con un ajuste:**
+
+```
+receipts/{IdBuilding}/{UnitName}/{Año}/{MM-NombreMes}/{IdInstallment}.pdf
+```
+
+Ej.: `receipts/<guid-edificio>/902/2026/04-Abril/<guid-installment>.pdf`
+
+**El ajuste sobre el ejemplo de Drive:** ahí los meses quedan ordenados
+ALFABÉTICAMENTE (ABRIL, AGOSTO, ENERO, FEBRERO...) porque el nombre del mes
+solo no ordena cronológicamente -- efecto secundario de usar el nombre tal
+cual como carpeta. Acá se antepone el número de mes ("04-Abril", no sólo
+"Abril"), así la carpeta ordena Ene→Dic en cualquier explorador de
+archivos y sigue siendo legible. El nombre del mes se arma siempre con
+`CultureInfo("es-PE")` explícito (no `CurrentCulture`, que depende del
+locale del servidor y no está garantizado) -- probado que da "Enero",
+"Abril", ..., y de paso "Setiembre" (no "Septiembre"), la forma que usa el
+`es-PE` de .NET.
+
+`SaveAsync` (`IFileStorageService`) pasó de recibir un `category` como
+string con `/` a recibir `string[] categorySegments` -- cada elemento se
+sanitiza como una unidad completa, así un nombre de unidad que en la
+práctica trajera una "/" (ej. "Cochera 12/A") nunca crea un nivel de
+carpeta de más por accidente (se probó explícitamente este caso). El
+nombre del archivo queda simple (sólo el `IdInstallment`), ya que
+Edificio/Unidad/Año/Mes quedan expresados en la carpeta. **No rompe los
+recibos ya guardados con esquemas anteriores** (siguen en su ruta vieja,
+registrada tal cual en su fila de `ReceiptFile` -- son inmutables, nunca se
+mueven ni se regeneran).
+
+**Decidido (2026-09-11):** el nivel de Edificio queda como `IdBuilding`
+(Guid), no el nombre. El usuario confirmó: para la aplicación es
+irrelevante que el Administrador no pueda "reconocer" la carpeta a simple
+vista en el explorador de archivos del servidor -- nadie navega ese disco
+a mano en el uso normal, todo pasa por la app -- y prefiere no meterle
+esfuerzo a un esquema más elaborado (ej. un slug legible + sufijo
+aleatorio) sólo para ganar legibilidad ahí. Cierra el punto -- no queda
+pendiente.
+
 **Verificado en este entorno:** se instaló el SDK de .NET 10 (ver
 Docs/Pendientes-Negocio-Consolidado.md #17) y `dotnet build` compila sin
 errores (0 errores, mismos 139 warnings preexistentes, ninguno nuevo). Se
-probó además `LocalFileStorageService` con un programa aparte (fuera del
+probó además `LocalFileStorageService` con programas aparte (fuera del
 repo): guardar/leer funciona, un archivo inexistente devuelve `null` sin
-tirar excepción, y dos variantes de path traversal (`../../../etc/passwd` y
-`receipts/../../../../etc/passwd`) quedaron bloqueadas correctamente.
+tirar excepción, dos variantes de path traversal quedaron bloqueadas, dos
+edificios distintos quedan en carpetas separadas, y una unidad con "/" en
+el nombre queda sanitizada a un solo nivel de carpeta (no se parte en dos).
 
 **Sin verificar (no hay acceso a BD real en este entorno):** correr
 `2026-09-11_95_ReceiptFile.sql`, y probar el flujo completo con datos
@@ -565,7 +728,8 @@ madurez (sólo lectura vs. acciones como aprobar gastos).
 | 3 | Tolerancia de redondeo en conciliación | Alta | Decisión + código |
 | 4 | Borrado de edificio: FKs sin confirmar | Alta | Verificación de BD |
 | 5 | Soporte real de multimoneda | Alta | Diseño + código |
-| 6 | Bug `ConfirmationUtil` (4+ pantallas) | Media | Código (fix chico, alcance ancho) |
+| 6 | Bug `ConfirmationUtil` (4+ pantallas) | Media | **Resuelto** (2026-09-11) |
+| 6b | Lectura de agua incompleta bloquea publicar (antes era advertencia) | Alta | **Resuelto** (2026-09-11) |
 | 7 | Garantía de reserva de área común | Media | Diseño + código |
 | 8 | Historial de propietarios por periodo | Media | Diseño + código |
 | 9 | `GET_UnitsByType` sin manejar unidades sin grupo | Media | Código |
@@ -577,7 +741,7 @@ madurez (sólo lectura vs. acciones como aprobar gastos).
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
 | 17 | Comunicados vía WhatsApp (canal prioritario, decidido) | Alta* | Producto + integración externa |
-| 18 | Storage de archivos: 18b Recibos PDF **implementado**, 18a Incidencias pendiente | Alta* | Código (18b) / Decisión + código (18a) |
+| 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados** | Alta* | **Resuelto** (2026-09-11), falta probar con BD real |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
 | 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |

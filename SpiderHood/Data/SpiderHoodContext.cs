@@ -99,6 +99,8 @@ namespace SpiderHood.Data
                 entity.Property(i => i.Status).HasConversion<string>();
             });
             modelBuilder.Entity<Models.IncidentComment>().HasNoKey(); // If SP doesn't return a primary key
+            // Docs/Pendientes-Negocio-Consolidado.md #18a
+            modelBuilder.Entity<Models.IncidentAttachment>().HasNoKey(); // If SP doesn't return a primary key
 
             // Type/Category/Status/Recurrence son enums de C# pero se guardan como texto
             // en la BD -- mismo motivo que Incident arriba.

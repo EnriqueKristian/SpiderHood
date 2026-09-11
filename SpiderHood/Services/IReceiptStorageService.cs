@@ -55,7 +55,32 @@ namespace SpiderHood.Services
             }
 
             var pdfBytes = exportService.GenerateReceipt(installment);
-            var relativePath = await _fileStorage.SaveAsync("receipts", $"{installment.IdInstallment}.pdf", pdfBytes);
+
+            // Edificio -> Unidad -> Año -> Mes (pedido del usuario 2026-09-11,
+            // calcado del orden que ya usan a mano en Google Drive: Edificio >
+            // DPTO > Año > Mes). Mes lleva el número adelante ("04-Abril", no
+            // sólo "Abril") -- el ejemplo de Drive ordena los meses
+            // ALFABÉTICAMENTE (ABRIL, AGOSTO, ENERO...) porque el nombre del mes
+            // solo no ordena cronológicamente; con el número adelante, la carpeta
+            // sí queda en orden Ene-Dic. Nombre del mes siempre en español
+            // (CultureInfo explícito "es-PE", no CurrentCulture -- el locale del
+            // servidor no está garantizado en Program.cs, no vale la pena
+            // arriesgar que salga "April" en vez de "Abril" en un server con
+            // locale en inglés).
+            var nombreMes = installment.Period.ToString("MMMM", System.Globalization.CultureInfo.GetCultureInfo("es-PE"));
+            nombreMes = char.ToUpper(nombreMes[0]) + nombreMes[1..];
+            var carpetaMes = $"{installment.Period:MM}-{nombreMes}";
+
+            // Cada nivel es un elemento del array (no un string armado a mano con
+            // "/"), así un nombre de unidad con "/" (ej. "Cochera 12/A") no puede
+            // crear un nivel de más por accidente -- SaveAsync sanitiza cada
+            // elemento como una unidad. El nombre del archivo queda simple (sólo
+            // el Guid) porque Edificio/Unidad/Año/Mes ya quedan expresados en la
+            // carpeta.
+            var relativePath = await _fileStorage.SaveAsync(
+                new[] { "receipts", idBuilding.ToString(), installment.UnitName, installment.Period.Year.ToString(), carpetaMes },
+                $"{installment.IdInstallment}.pdf",
+                pdfBytes);
 
             try
             {

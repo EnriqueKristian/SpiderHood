@@ -12,11 +12,17 @@ namespace SpiderHood.Services
     // persistente entre despliegues (ver el documento de arriba).
     public interface IFileStorageService
     {
-        // category agrupa en subcarpetas (ej. "receipts", "incidents"). fileName
-        // se sanitiza acá adentro -- el caller no necesita (ni debería) armar una
-        // ruta él mismo. Devuelve la ruta RELATIVA (para persistir en BD), nunca
-        // la ruta absoluta en disco.
-        Task<string> SaveAsync(string category, string fileName, byte[] content);
+        // categorySegments arma subcarpetas anidadas, un nivel por elemento del
+        // array (ej. ["receipts", idBuilding, unitName, "2026-06"]) -- para no
+        // amontonar TODOS los archivos de TODOS los edificios en una sola
+        // carpeta plana. Cada segmento (de categorySegments y de fileName) se
+        // sanitiza acá adentro POR SEPARADO, así que ningún segmento individual
+        // puede inyectar un "/" y crear un nivel de más -- el caller nunca arma
+        // el "/" a mano (por eso es un array y no un string con separadores:
+        // un valor real como un nombre de unidad "Cochera 12/A" no debe poder
+        // partirse en dos carpetas por accidente). Devuelve la ruta RELATIVA
+        // (para persistir en BD), nunca la ruta absoluta en disco.
+        Task<string> SaveAsync(string[] categorySegments, string fileName, byte[] content);
 
         // Null si el archivo no existe (ej. se perdió entre despliegues, o la
         // ruta ya no es válida) -- el caller decide qué hacer, nunca tira excepción
@@ -44,18 +50,25 @@ namespace SpiderHood.Services
             Directory.CreateDirectory(_basePath);
         }
 
-        public async Task<string> SaveAsync(string category, string fileName, byte[] content)
+        public async Task<string> SaveAsync(string[] categorySegments, string fileName, byte[] content)
         {
-            var safeCategory = SanitizeSegment(category);
+            if (categorySegments is null || categorySegments.Length == 0)
+                throw new ArgumentException("categorySegments no puede estar vacío.", nameof(categorySegments));
+
+            // Cada elemento del array se sanitiza como una unidad -- si alguno
+            // trae un "/" (ej. un nombre de unidad real "Cochera 12/A"), se
+            // convierte en "_" dentro de ESE nivel, nunca se interpreta como un
+            // separador de carpeta nuevo.
+            var safeCategoryParts = categorySegments.Select(SanitizeSegment).ToArray();
             var safeFileName = SanitizeSegment(fileName);
 
-            var directory = Path.Combine(_basePath, safeCategory);
+            var directory = Path.Combine(_basePath, Path.Combine(safeCategoryParts));
             Directory.CreateDirectory(directory);
 
             var fullPath = Path.Combine(directory, safeFileName);
             await File.WriteAllBytesAsync(fullPath, content);
 
-            var relativePath = $"{safeCategory}/{safeFileName}";
+            var relativePath = string.Join('/', safeCategoryParts.Append(safeFileName));
             _logger.LogInformation("Archivo guardado en storage: {RelativePath} ({Size} bytes)", relativePath, content.Length);
             return relativePath;
         }

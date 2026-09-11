@@ -751,19 +751,103 @@ separadas sino 3 momentos de un mismo flujo legal, con Encuestas como su
 versión ligera sin peso legal). Diseñarlos así desde el inicio evita
 terminar con un formulario de votación que no se conecta con el acta.
 
-**Reservas -- agenda de un recurso físico compartido:**
+**Reservas -- agenda de un recurso físico compartido. Diseño cerrado con
+el usuario el 2026-09-11, detallado abajo.** Es el siguiente módulo en la
+cola de desarrollo, justo después de Comunicaciones.
+
+*Configuración del Área Común (por edificio, en `BuildingConfig` -- ver
+item #24, encajaría como una pestaña nueva "Áreas Comunes"):*
 - Catálogo por edificio: salón de eventos, piscina, parrilla, gimnasio,
-  cancha -- cada uno con su propio horario disponible, aforo, duración
-  mín/máx y antelación permitida.
-- El propietario ve el calendario de disponibilidad, elige una franja
-  libre; el sistema bloquea el traslape automáticamente.
-- Configurable por edificio: confirmación automática vs. requiere
-  aprobación del administrador; costo o garantía por el uso (reutilizaría
-  la pasarela de pago del punto #17-18 de este backlog, cuando exista);
-  penalidad por cancelación tardía o no-show; tope de reservas activas por
-  unidad para evitar acaparamiento.
-- Es el siguiente módulo en la cola de desarrollo, justo después de
-  Comunicaciones (confirmado por el usuario, 2026-09-11).
+  cancha -- nombre, descripción, aforo máximo.
+- Reglas de disponibilidad: duración mín/máx por reserva, buffer entre
+  reservas consecutivas (tiempo para que limpieza prepare el área),
+  ventana de anticipación mín/máx para reservar, tope de reservas activas
+  por unidad.
+- Costos en la moneda del edificio (`BuildingConfiguration.Currency`,
+  mismo patrón que el resto de la config): Garantía, Alquiler (0 por
+  default para propietarios, configurable si el admin decide cobrarles;
+  distinto para externos), Limpieza.
+- **Penalidad por cancelación/no-show -- decisión cerrada:** dos toggles
+  independientes, cada uno con su propio campo de días, apagados por
+  default (se prenden solo si el edificio los necesita):
+  - `PenalidadCancelacionHabilitada` (bool) + `DiasMinimosSinPenalidad`
+    (int) -- cancelar con MENOS anticipación que ese número de días
+    retiene la garantía completa; cancelar con más, la devuelve entera.
+  - `PenalidadNoPresentadoHabilitada` (bool) -- si la unidad no se
+    presenta el día de la reserva (no hay check-in), retiene la garantía
+    completa. Sin campo de días propio (es binario: se presentó o no).
+  - Ambas retienen el 100% de la garantía cuando aplican, sin un
+    porcentaje configurable aparte -- más simple de construir e implica
+    menos decisiones en el momento de cobrar. Si en la práctica el
+    edificio quiere una penalidad parcial, se revisa después de ver el
+    piloto en uso real, no antes.
+
+*Reserva:*
+- El propietario ve el calendario de disponibilidad del área (comparte
+  motor de calendario con Mantenimiento -- ver `CalendarItem` -- así que
+  un bloqueo por mantenimiento aparece automáticamente como no disponible
+  al reservar, sin duplicar lógica). Elige una franja libre; el sistema
+  bloquea el traslape automáticamente.
+- Siempre tiene un propietario responsable (`IdOwner`, obligatorio) que
+  respalda financiera y legalmente la reserva, más un campo opcional de
+  "Organizador/Contacto externo" (nombre, DNI, teléfono) para cuando el
+  edificio alquila el área a un tercero no propietario -- así el checklist
+  de daños y el descuento de garantía siempre tienen a quién cobrarle,
+  sin modelar un "usuario externo" completo en el sistema de auth.
+
+*Aprobación -- decisión cerrada:* la aprueba o rechaza la **Junta**, no el
+Administrador -- el criterio no es el monto (eso ya lo define la
+configuración del área), sino que la fecha/horario no incumpla las normas
+del edificio (ej. evento de madrugada, superposición con otra actividad no
+reflejada en el calendario). El **Administrador hace seguimiento** del
+pedido hasta que la Junta lo apruebe o rechace -- mismo patrón de rol que
+ya existe en `approve_budget`/`approve_expenses` (`Components/Pages/
+ApprovalsPages/Approvals.razor`), así que una reserva pendiente debería
+sumar al mismo badge de "Aprobaciones" del menú izquierdo
+(`LeftMenu.ContarAprobacionesPendientesAsync`, tocado esta misma sesión)
+en vez de crear una bandeja aparte. Falta un permiso nuevo
+`approve_reservations` para la Junta, consistente con el resto de
+permisos de aprobación ya existentes.
+
+*Check-in / Check-out -- decisión cerrada:* lo hace el **Administrador**
+(no un rol de conserje separado, no autogestión del propietario) --
+alcanza con el permiso que ya tiene, o un `manage_reservations` dedicado
+si conviene separarlo de la config general del edificio. Checklist de
+bienes del área (ej. "Salón de Eventos: 10 sillas, 2 mesas, sonido,
+proyector") con estado por ítem (OK/Dañado/Falta) tanto al entregar como
+al devolver, **con fotos** -- mismo patrón ya construido esta sesión para
+Incidencias (`IFileStorageService`, `IncidentAttachment`, whitelist de
+extensiones, carpeta por entidad): sin foto, un descuento de garantía
+queda en "tu palabra contra la mía" con el propietario.
+
+*Estados de la reserva (mismo patrón de `Status` que ya usan
+Installment/Expense/Budget en este código):*
+1. **Pendiente de Aprobación** -- recién creada, esperando decisión de la
+   Junta.
+2. **Aprobada** / **Rechazada** -- decisión de la Junta.
+3. **Cancelada** -- por el propietario o el administrador antes del
+   evento; guarda si se aplicó penalidad según `DiasMinimosSinPenalidad`.
+4. **No Presentado** -- pasó la fecha/hora sin check-in; aplica penalidad
+   si `PenalidadNoPresentadoHabilitada` está prendida.
+5. **Entregada** -- check-in hecho (checklist inicial completo), área
+   físicamente entregada.
+6. **Finalizada** -- check-out hecho (checklist final completo), evento
+   terminado.
+7. **Cerrada** -- garantía liquidada (devuelta entera / retenida por
+   penalidad / retenida por daños según el checklist final).
+
+*Impacto financiero -- falta decidir:* si se cobra Alquiler/Limpieza,
+¿genera un Ingreso categorizado reutilizando el sistema de
+Categorías/Movimientos que ya existe (para que Dashboard y reportes
+financieros no queden ciegos a esta plata), o queda registrado aparte
+dentro del módulo de Reservas? Sin definir todavía.
+
+*Cobro -- sin pasarela de pago digital todavía (ver brecha de cobro de
+cuotas en el análisis de mercado):* Garantía/Alquiler/Limpieza se
+registran y concilian manualmente por ahora, igual que el resto de la
+cobranza actual -- no bloquea empezar a construir el módulo, pero sí
+significa que "cobrar la garantía" y "devolverla" son, por ahora, marcar
+un estado, no una transacción automática.
 
 **Gobernanza -- Reuniones, Votación y Actas como un solo flujo:**
 El dato que gobierna todo esto: el **Decreto Legislativo 1568** (nuevo

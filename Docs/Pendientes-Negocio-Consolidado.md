@@ -71,9 +71,11 @@ secas, es la secuencia en la que conviene tocarlos.
 19. **#14** Confirmar upsert de `ServiceReadingDetail`.
 20. **#15** Borrar un permiso (fuera de alcance).
 21. **#12** Caso sin match en el Excel de Nova Alzamora (manual).
-22. **#21** Módulo de Reuniones/Citas/Votaciones -- el más grande de todos,
-    sin nada de qué partir en el código; conviene arrancarlo recién con
-    tiempo/alcance dedicado, no intercalado con el resto.
+22. **#21** Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas,
+    Encuestas) -- rediseñado 2026-09-11 con arquitectura ya definida (ver
+    detalle abajo), sin nada de qué partir en el código; conviene
+    arrancarlo recién con tiempo/alcance dedicado, no intercalado con el
+    resto. Reservas es el siguiente módulo tras Comunicaciones.
 
 ---
 
@@ -731,28 +733,114 @@ incidentes abiertos por unidad/edificio en un rango de fechas. Mismo patrón
 que ya se usó para los otros 4 reportes (selector de rango + tarjetas de
 resumen + tabla + export a Excel) se podría reutilizar acá.
 
-### 21. Módulo de Reuniones, Citas y Votaciones
+### 21. Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas, Encuestas)
+*(Rediseñado 2026-09-11 a partir del análisis de mercado -- sección 13 --
+compartido por el usuario. **"Citas" descartado a pedido explícito del
+usuario**: "el tema de cita como está planteado aquí, no suma" -- no forma
+parte del alcance de este item.)*
+
 **Estado: no existe -- cero código relacionado en todo el repo** (sólo
-existe `CalendarItem`/`CalendarPage.razor`, que es un calendario genérico de
+existe `CalendarItem`/`CalendarPage.razor`, un calendario genérico de
 eventos, sin ningún concepto de convocatoria, quorum, agenda, acta o
 votación).
 
-Esto es el módulo más grande de los 6 -- probablemente 3 funcionalidades
-separadas que conviene NO tratar como una sola:
-- **Reuniones/Asambleas:** convocatoria (fecha, agenda, quorum requerido),
-  registro de asistencia, acta.
-- **Citas:** agendar una cita puntual (¿con el Administrador? ¿para usar un
-  área común, si eso no vive ya en otro lado?) -- falta confirmar qué "cita"
-  significa en este contexto, se presta a confusión con reserva de áreas
-  comunes.
-- **Votaciones:** puede ser standalone (una encuesta simple) o atada a una
-  Asamblea (votar un punto de la agenda) -- tiene implicancias de peso legal
-  si reemplaza una votación presencial (evidencia de quién votó qué, no
-  necesariamente anónima en una junta de propietarios).
+**Son dos mecanismos distintos, no tres módulos sueltos ni uno solo:**
+uno de **agenda** (Reservas -- quién usa qué recurso físico, cuándo) y uno
+de **gobernanza** (Reuniones + Votación + Actas, que no son 3 pantallas
+separadas sino 3 momentos de un mismo flujo legal, con Encuestas como su
+versión ligera sin peso legal). Diseñarlos así desde el inicio evita
+terminar con un formulario de votación que no se conecta con el acta.
 
-Falta por completo: decidir alcance real (¿las 3 juntas o empezar por una?),
-y diseño de datos/pantallas -- no hay nada de qué partir en el código
-existente.
+**Reservas -- agenda de un recurso físico compartido:**
+- Catálogo por edificio: salón de eventos, piscina, parrilla, gimnasio,
+  cancha -- cada uno con su propio horario disponible, aforo, duración
+  mín/máx y antelación permitida.
+- El propietario ve el calendario de disponibilidad, elige una franja
+  libre; el sistema bloquea el traslape automáticamente.
+- Configurable por edificio: confirmación automática vs. requiere
+  aprobación del administrador; costo o garantía por el uso (reutilizaría
+  la pasarela de pago del punto #17-18 de este backlog, cuando exista);
+  penalidad por cancelación tardía o no-show; tope de reservas activas por
+  unidad para evitar acaparamiento.
+- Es el siguiente módulo en la cola de desarrollo, justo después de
+  Comunicaciones (confirmado por el usuario, 2026-09-11).
+
+**Gobernanza -- Reuniones, Votación y Actas como un solo flujo:**
+El dato que gobierna todo esto: el **Decreto Legislativo 1568** (nuevo
+régimen de propiedad horizontal en Perú, aún sin reglamento publicado en
+su versión final -- ver fuente oficial abajo) establece que el voto se
+computa por **porcentaje de participación (alícuota) de cada unidad, no
+por cabeza** (Art. 14.1, fija además 75% de participación para desafectar
+bienes comunes). El Art. 25 reconoce sesiones presenciales, virtuales o
+híbridas como igualmente válidas -- la reunión virtual ya es régimen
+permanente, no un parche pandémico. El quórum/mayorías para acuerdos
+ordinarios (más allá del 75% legal) quedan delegados al Reglamento Interno
+de cada edificio, así que el sistema no debe asumir un número fijo.
+
+- **Alícuota -- verificado en el código, no dar por hecho:** hoy NO existe
+  un campo explícito de "% de participación" en `GroupUnit`/`UnitView`
+  (`Classes/Unit.cs`) ni en ningún otro lado. Sí existe `Area` por unidad y
+  `TotalArea` por edificio (ya usado en `BuildingPage.razor` para el stat
+  card "Área Total") -- la alícuota podría derivarse como `Area /
+  TotalArea`, que es la convención más común en Perú, pero legalmente el
+  Reglamento Interno de un edificio puede declarar alícuotas que no sean
+  exactamente proporcionales al área (ej. ponderando cocheras/depósitos
+  distinto) -- **falta confirmar con el usuario si alcanza con derivarla
+  del área, o si hace falta un campo explícito editable por edificio**
+  antes de diseñar la tabla de datos.
+- **Reuniones:** Ordinaria (periódica) o Extraordinaria (tema puntual --
+  gasto grande, elección de junta). Convocatoria con fecha, agenda y
+  documentos adjuntos; notificación con acuse de recibo (email + WhatsApp,
+  cuando el módulo de Comunicaciones esté listo). Modalidad presencial,
+  virtual o híbrida. Quórum configurable por edificio.
+- **Votación:** ponderada por alícuota (no por persona). En vivo durante
+  la Reunión, o asíncrona con fecha límite si el Reglamento Interno lo
+  permite (voto adelantado). Nominal (queda registrado quién votó qué --
+  típico para acuerdos de gasto) o secreta (típico en elección de junta
+  directiva), configurable por punto de agenda. El sistema valida
+  automáticamente si el resultado alcanza la mayoría requerida para ese
+  tipo de acuerdo (simple, calificada, o el 75% legal).
+- **Actas:** se genera un borrador automático a partir de lo ya capturado
+  en Reunión + Votación (fecha, modalidad, asistentes con su % de
+  participación, quórum verificado, agenda, resultado de cada punto) --
+  reduce el riesgo de un acta redactada de memoria días después. Firmas de
+  presidente y secretario según Reglamento Interno; una vez firmada, queda
+  inmutable y buscable en el historial del edificio.
+- **Flujo completo:** Convocatoria → Reunión (registra asistencia, suma
+  alícuotas presentes) → ¿Quórum alcanzado? → si NO: se agenda Segunda
+  Convocatoria con quórum reducido (según Reglamento Interno) como una
+  nueva Reunión → si SÍ: Votación por punto de agenda (voto ponderado) →
+  el resultado de cada punto se vuelca automáticamente en el Acta.
+- **Encuestas (versión sin peso legal):** no requiere quórum, no genera un
+  acuerdo formal ni un Acta -- solo consulta de opinión. Uso típico:
+  sondear interés antes de convocar una asamblea formal, medir
+  satisfacción, priorizar mejoras menores. Mecánica mínima: pregunta(s),
+  plazo de respuesta, resultado agregado, opción de anonimato -- la
+  funcionalidad de menor esfuerzo de las cuatro piezas de gobernanza.
+
+**Por qué esto también es un diferenciador de negocio, no solo una
+feature:** ningún competidor peruano identificado se posiciona hoy como
+"listo para el D.L. 1568" -- el reglamento aún no se publica, así que
+nadie tiene ventaja consolidada todavía. Un Acta bien estructurada
+(fecha, asistentes con alícuota, quórum verificado, resultado por punto)
+es exactamente el tipo de expediente que respalda un acuerdo si algún día
+se cuestiona judicialmente, y conecta con el reporte de morosidad que ya
+existe (`DelinquencyReport.razor`) como base para el Registro de
+Deudores/título ejecutivo que la misma ley habilita (ver también el punto
+sobre precios y diferenciación más abajo en este documento).
+
+**Falta por completo:** decidir alcance real de la primera versión (¿las
+4 piezas de gobernanza juntas, o Reuniones+Votación+Actas primero y
+Encuestas después, dado que es la de menor esfuerzo?), confirmar el tema
+de la alícuota (derivada vs. campo explícito) antes de diseñar la tabla de
+datos, y el diseño de pantallas -- no hay nada de qué partir en el código
+existente. Fuente legal: [Decreto Legislativo 1568 -- texto oficial en El
+Peruano](https://busquedas.elperuano.pe/dispositivo/NL/2181939-6). El
+reglamento definitivo puede ajustar los quórum/mayorías exactos para
+acuerdos ordinarios, pero la arquitectura de fondo (voto por alícuota,
+quórum configurable por edificio, reunión-votación-acta como un solo
+flujo) ya está confirmada en el texto vigente del decreto y no debería
+cambiar.
 
 ### 22. Piloto para Móvil
 **Estado: ya diagnosticado en detalle en `Docs/Design-Piloto-Mobile-Android.md`
@@ -1050,7 +1138,7 @@ que confirme si mejoró y en qué medida.
 | 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados** | Alta* | **Resuelto** (2026-09-11), falta probar con BD real |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
-| 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |
+| 21 | Módulo de Reservas y Gobernanza (Reuniones/Votación/Actas/Encuestas) -- arquitectura definida, "Citas" descartado | Baja-Media* | Diseño + código (grande) |
 | 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
 | 24 | Configuración de Edificio: página propia con Tabs -- estructura **HECHA**, falta **rediseño visual** (usuario esperaba más que mover cards a pestañas) | Media | Diseño UI |

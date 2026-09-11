@@ -364,3 +364,12 @@ FodyWeavers.xsd
 
 # Claude Code local session/config files -- no son parte del proyecto
 .claude/
+
+# Configuración local con secretos reales (Twilio AccountSid/AuthToken, SMTP
+# password, etc.) -- appsettings.json en el repo sólo tiene placeholders/
+# valores vacíos a propósito (ver Email:SmtpPassword, Twilio:AccountSid).
+# Las credenciales reales van en este archivo (por entorno) o en User Secrets
+# de .NET, nunca en un archivo trackeado por git.
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.*.local.json

@@ -12,6 +12,8 @@
 @inject IJSRuntime JSRuntime
 @inject IBuildingService BuildingService
 @inject IExtraChargeService ExtraChargeService
+@inject AuthService AuthService
+@inject IReceiptStorageService ReceiptStorageService
 
 <PageTitle>Listado de Cuotas</PageTitle>
 
@@ -593,7 +595,12 @@
                 categorias,
                 cargosAdicionales);
 
-            var pdfBytes = exportService.GenerateReceipt(item);
+            // Docs/Pendientes-Negocio-Consolidado.md #18b -- si ya se generó antes,
+            // sirve el mismo PDF guardado (no lo recalcula con la configuración
+            // vigente hoy del edificio).
+            var currentUser = await AuthService.GetCurrentUserAsync();
+            var pdfBytes = await ReceiptStorageService.GetOrGenerateReceiptAsync(
+                exportService, item, ParameterService.CurrentBuilding.IdBuilding, currentUser?.Email ?? "Sistema");
 
             await JSRuntime.InvokeVoidAsync("downloadFile",
                 Convert.ToBase64String(pdfBytes),

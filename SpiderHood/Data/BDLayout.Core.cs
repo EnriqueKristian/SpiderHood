@@ -268,6 +268,10 @@ namespace SpiderHood.Data
             public const string UPD_ExpenseTemplate = "UPD_ExpenseTemplate";
             public const string GET_ExpenseTemplatesByBuilding = "GET_ExpenseTemplatesByBuilding";
 
+            // Receipt File Procedures -- Docs/Pendientes-Negocio-Consolidado.md #18b
+            public const string INS_ReceiptFile = "INS_ReceiptFile";
+            public const string GET_ReceiptFileByInstallment = "GET_ReceiptFileByInstallment";
+
             // System Log Procedures
             public const string INS_SystemLog = "INS_SystemLog";
             public const string GET_SystemLogSettings = "GET_SystemLogSettings";

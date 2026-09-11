@@ -16,6 +16,7 @@
 @inject SpiderHood.Services.IBuildingService BuildingService
 @inject SpiderHood.Services.IPermissionService PermissionService
 @inject SpiderHood.Services.IWorkflowAuditService WorkflowAuditService
+@inject SpiderHood.Services.IReceiptStorageService ReceiptStorageService
 
 <div class="expense-calculation">
     <!-- Header -->
@@ -1637,7 +1638,12 @@
                         filteredCategories,
                         cargosAdicionales);
 
-                    var zipBytes = exportService.GenerateAllReceiptsZip();
+                    // Docs/Pendientes-Negocio-Consolidado.md #18b -- publicar el
+                    // presupuesto es el momento natural para que cada recibo quede
+                    // guardado de una vez (en vez de regenerarse cada vez que alguien
+                    // lo vuelva a pedir más adelante).
+                    var zipBytes = await ReceiptStorageService.GetOrGenerateAllReceiptsZipAsync(
+                        exportService, _BudgetState.Installments, ParameterService.CurrentBuilding!.IdBuilding, currentUser.Email);
                     await JSRuntime.InvokeVoidAsync("downloadFile",
                         Convert.ToBase64String(zipBytes),
                         $"Recibos_{_BudgetState.Budget.BudgetDate:yyyyMM}.zip",

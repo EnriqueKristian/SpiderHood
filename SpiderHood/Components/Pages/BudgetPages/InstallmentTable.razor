@@ -8,6 +8,8 @@
 @inject Services.ICategoryService CategoryService
 @inject Services.IBuildingService BuildingService
 @inject Services.IExtraChargeService ExtraChargeService
+@inject Services.AuthService AuthService
+@inject Services.IReceiptStorageService ReceiptStorageService
 
 <div class="row">
     <div class="col-12">
@@ -523,8 +525,12 @@
     {
         try
         {
-            // Crear PDF resumen
-            var pdfBytes = _exportService!.GenerateReceipt(item);
+            // Docs/Pendientes-Negocio-Consolidado.md #18b -- si ya se generó antes,
+            // sirve el mismo PDF guardado (no lo recalcula con la configuración
+            // vigente hoy del edificio).
+            var currentUser = await AuthService.GetCurrentUserAsync();
+            var pdfBytes = await ReceiptStorageService.GetOrGenerateReceiptAsync(
+                _exportService!, item, ParameterService.CurrentBuilding!.IdBuilding, currentUser?.Email ?? "Sistema");
 
             await JSRuntime.InvokeVoidAsync("downloadFile",
                 Convert.ToBase64String(pdfBytes),

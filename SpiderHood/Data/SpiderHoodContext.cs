@@ -85,6 +85,8 @@ namespace SpiderHood.Data
             // no necesita HasConversion, igual que Category.Distribution más arriba: el
             // enum ya es int por default y la columna es INT.
             modelBuilder.Entity<Models.ExpenseTemplate>().HasNoKey(); // If SP doesn't return a primary key
+            // Docs/Pendientes-Negocio-Consolidado.md #18b
+            modelBuilder.Entity<Models.ReceiptFile>().HasNoKey(); // If SP doesn't return a primary key
             // Status sigue siendo un enum de C# guardado como texto en la BD (ver
             // Database/Scripts/2026-09-02_05_Incidents.sql) -- sin HasConversion<string>()
             // EF Core asume que un enum es int por default y GET_Incidents* revienta con

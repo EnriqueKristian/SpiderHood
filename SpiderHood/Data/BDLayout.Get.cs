@@ -1108,6 +1108,17 @@ namespace SpiderHood.Data
             }, "GetExpenseTemplatesByBuilding", cancellationToken);
         }
 
+        // Docs/Pendientes-Negocio-Consolidado.md #18b -- null si esta cuota todavía
+        // no tiene un recibo generado/guardado.
+        public async Task<Models.ReceiptFile?> GetReceiptFileByInstallmentAsync(Guid idInstallment, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var resultado = await ExecuteQueryListAsync<Models.ReceiptFile>(StoredProcedures.GET_ReceiptFileByInstallment, idInstallment);
+                return resultado.FirstOrDefault();
+            }, "GetReceiptFileByInstallment", cancellationToken);
+        }
+
         public async Task<List<Models.IncidentComment>> GetIncidentCommentsAsync(Guid idIncident, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

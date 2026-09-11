@@ -34,13 +34,12 @@ secas, es la secuencia en la que conviene tocarlos.
    define proveedor (Cloud API vs. Twilio) y plantillas.
 4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
    (solo lectura: presupuesto, incidencias, calendario).
-5. **#18b** Storage de archivos, primero conectado a **PDFs de Recibos**
-   (disco/Blob, no BD) -- barato (el PDF ya se genera, sólo falta guardarlo),
-   y corrige un bug real de integridad (recibos viejos cambian de contenido
-   si el edificio cambia de banco/administrador). El mismo storage se
-   conecta después a **#18a** (fotos/video en Incidencias, más caro, depende
-   de la Fase 2 del piloto móvil) -- ver la evaluación de impacto/costo/
-   beneficio en el punto 18.
+5. **#18b** Storage de archivos + PDFs de Recibos -- **implementado
+   2026-09-11** (disco, no BD; corrige el bug de integridad -- ver punto
+   18). Falta correr `Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
+   probar con datos reales. El mismo storage se conecta después a **#18a**
+   (fotos/video en Incidencias, más caro, depende de la Fase 2 del piloto
+   móvil) -- ver la evaluación de impacto/costo/beneficio en el punto 18.
 
 **Grupo 2 -- importante, no bloquea el lanzamiento:**
 6. **#2** Reportes financieros suman transacciones Ignoradas.
@@ -393,6 +392,60 @@ el volumen es más previsible (un PDF por cuota por periodo, no fotos de
 tamaño variable) pero el ritmo de generación es mucho más alto (TODOS los
 residentes de TODOS los edificios, todos los meses).
 
+**Estado: implementado (2026-09-11).** Se construyó el storage compartido y
+se conectó primero acá (siguiendo la recomendación de la evaluación de más
+abajo) -- fix del bug de integridad incluido, no sólo la optimización.
+
+- `Services/IFileStorageService.cs` (`IFileStorageService`/
+  `LocalFileStorageService`, `AddSingleton`) -- storage genérico a disco,
+  fuera de `wwwroot` a propósito (`Storage:LocalBasePath` en
+  `appsettings.json`, vacío = usa `App_Data/storage` bajo la carpeta de
+  publicación). `SaveAsync`/`ReadAsync` por categoría + nombre de archivo,
+  con sanitización de ambos segmentos y verificación de que la ruta
+  resuelta sigue adentro del directorio base (sin esto, un `relativePath`
+  armado con `../..` podría leer cualquier archivo del servidor). Pensado
+  para servir también a 18a (Incidencias) cuando se conecte.
+- `Database/Scripts/2026-09-11_95_ReceiptFile.sql` -- tabla nueva
+  `dbo.ReceiptFile` (100% nueva, no toca nada existente) con
+  `IX_ReceiptFile_Installment` **UNIQUE** (un recibo por cuota, para
+  siempre) + `INS_ReceiptFile`/`GET_ReceiptFileByInstallment`. A propósito
+  no hay `UPD_ReceiptFile`: un recibo ya generado nunca se vuelve a generar
+  con datos distintos, sólo se sirve el archivo guardado.
+- `Services/IReceiptStorageService.cs` -- capa de persistencia sobre
+  `InstallmentExportService` (que sigue siendo sólo el renderizador PDF, sin
+  cambios): `GetOrGenerateReceiptAsync` busca un `ReceiptFile` existente
+  para la cuota, sirve ese archivo si está; si no existe (o el archivo se
+  perdió de storage), genera, guarda, y registra. Maneja el caso de dos
+  generaciones concurrentes de la misma cuota (`IX_ReceiptFile_Installment`
+  rechaza el segundo INSERT -- se sirve la del que ganó la carrera en vez de
+  fallar o dejar un archivo huérfano). `GetOrGenerateAllReceiptsZipAsync`
+  hace lo mismo por cada cuota de un lote, para el ZIP.
+- Conectado en los 4 lugares que generaban recibos:
+  `MyReceipts.razor` (Residente), `InstallmentTable.razor`/
+  `InstallmentList.razor` (Administrador), y `BudgetGenerator.razor`
+  (`PublicarPresupuesto` -- reemplaza `GenerateAllReceiptsZip()`, así que
+  publicar el presupuesto pasa a ser el momento en que TODOS los recibos
+  del periodo quedan guardados de una vez, no sólo el primero que alguien
+  pida).
+
+**Verificado en este entorno:** se instaló el SDK de .NET 10 (ver
+Docs/Pendientes-Negocio-Consolidado.md #17) y `dotnet build` compila sin
+errores (0 errores, mismos 139 warnings preexistentes, ninguno nuevo). Se
+probó además `LocalFileStorageService` con un programa aparte (fuera del
+repo): guardar/leer funciona, un archivo inexistente devuelve `null` sin
+tirar excepción, y dos variantes de path traversal (`../../../etc/passwd` y
+`receipts/../../../../etc/passwd`) quedaron bloqueadas correctamente.
+
+**Sin verificar (no hay acceso a BD real en este entorno):** correr
+`2026-09-11_95_ReceiptFile.sql`, y probar el flujo completo con datos
+reales -- generar un recibo, confirmar que queda un archivo en
+`App_Data/storage/receipts/` y una fila en `ReceiptFile`, volver a pedir el
+mismo recibo y confirmar que sirve el archivo guardado (no vuelve a
+generar), y -- el caso que motivó todo esto -- cambiar la cuenta
+bancaria/pie de recibo del edificio y confirmar que un recibo YA GENERADO
+antes del cambio se sigue viendo igual que antes (no adopta los datos
+nuevos).
+
 #### Evaluación -- impacto / costo / beneficio, para priorizar cuál atacar primero
 
 | | 18a. Fotos/video en Incidencias | 18b. PDFs de Recibos |
@@ -524,7 +577,7 @@ madurez (sólo lectura vs. acciones como aprobar gastos).
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
 | 17 | Comunicados vía WhatsApp (canal prioritario, decidido) | Alta* | Producto + integración externa |
-| 18 | Storage de archivos: 18b Recibos PDF primero, 18a Incidencias después | Alta* | Decisión + código |
+| 18 | Storage de archivos: 18b Recibos PDF **implementado**, 18a Incidencias pendiente | Alta* | Código (18b) / Decisión + código (18a) |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
 | 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |

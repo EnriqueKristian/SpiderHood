@@ -875,6 +875,30 @@ namespace SpiderHood.Data
             }, "AddExpenseTemplate", cancellationToken);
         }
 
+        // Docs/Pendientes-Negocio-Consolidado.md #18b -- inserta el registro de un
+        // recibo PDF ya generado y guardado en storage. IX_ReceiptFile_Installment
+        // (UNIQUE) rechaza un segundo INSERT para la misma cuota -- el caller
+        // (IReceiptStorageService) decide qué hacer si eso pasa (doble click / dos
+        // pestañas generando el mismo recibo a la vez).
+        public async Task<Models.ReceiptFile> AddNewRecordAsync(Models.ReceiptFile receiptFile, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(receiptFile, nameof(receiptFile));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ReceiptFile,
+                    cancellationToken,
+                    receiptFile.IdReceiptFile,
+                    receiptFile.IdInstallment,
+                    receiptFile.IdBuilding,
+                    receiptFile.FilePath,
+                    receiptFile.FileSizeBytes,
+                    receiptFile.GeneratedBy);
+                return receiptFile;
+            }, "AddReceiptFile", cancellationToken);
+        }
+
         // Docs/Pendientes-Negocio-Conciliacion.md #3
         public async Task<Models.Conciliacion> AddNewRecordAsync(Models.Conciliacion sesion, CancellationToken cancellationToken = default)
         {

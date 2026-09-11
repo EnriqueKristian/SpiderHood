@@ -173,16 +173,71 @@ que ya existía), esto es funcionalidad que **no está construida en absoluto**
 -- verificado buscando en todo el repo, no por sospecha.
 
 ### 17. Comunicados / Anuncios
-**Estado: no existe -- ni tabla, ni servicio, ni página.**
+**Estado: no existe -- ni tabla, ni servicio, ni página. Decisión tomada
+(2026-09-11): el canal prioritario es WhatsApp, no un tablón dentro de la
+app.**
 
 Hay un permiso `view_announcements` y un ítem de menú "Comunicados"
 (`MyAnnouncements`, agregado en `Database/Scripts/2026-09-10_85_Reorganizar_Menu.sql`)
 pero **no hay ningún componente `.razor`, servicio ni tabla detrás** -- mismo
 patrón que se encontró con "Ingresos y Egresos" antes de implementarlo
-(item de menú apuntando a nada). Falta diseñar: quién publica (¿sólo
-Administrador/Junta?), a quién le llega (¿todo el edificio, por torre/unidad,
-por rol?), si necesita confirmación de lectura, y si empuja notificación
-(push/email) o es sólo un tablón que el residente consulta.
+(item de menú apuntando a nada).
+
+**Por qué WhatsApp primero, antes que un tablón dentro de la app:** un
+comunicado que sólo vive en un tablón dentro de SpiderHood depende de que el
+residente entre a la app para verlo -- justo el problema que este módulo
+busca resolver (que la gente se entere). WhatsApp es el canal que la
+mayoría de residentes ya revisa a diario, sin fricción de login.
+`Classes/User.cs` ya tiene `PhoneNumber` en `User`/`Owner`/`Contact` -- el
+dato de contacto ya existe, falta el canal de envío.
+
+**Qué se necesita para integrarlo (verificado: hoy no hay ninguna
+integración de mensajería en el repo, sólo `IEmailService` como patrón a
+imitar -- SMTP puro, sin plantillas ni proveedor externo):**
+
+1. **Decisión de proveedor** -- WhatsApp no se integra directo con Meta
+   sin pasar por un Business Solution Provider (BSP) o una API intermedia:
+   - **WhatsApp Cloud API (Meta, directo)**: gratis por mensaje dentro de
+     ciertos límites, pero requiere Meta Business Manager verificado,
+     configurar el número, webhooks propios -- más control, más trabajo de
+     integración.
+   - **Twilio / similar (BSP)**: más rápido de integrar (SDK/HTTP simple,
+     ya tienen SDK .NET), pero con costo por mensaje/conversación adicional
+     al de Meta -- recomendado para un piloto por velocidad de arranque.
+2. **Verificación de negocio en Meta** -- el número de WhatsApp Business
+   necesita el nombre del negocio (SpiderHood o la administradora del
+   edificio, a decidir) verificado ante Meta -- este paso no es instantáneo,
+   conviene arrancarlo ya si se prioriza este canal.
+3. **Plantillas de mensaje pre-aprobadas** -- WhatsApp Business API **no
+   permite mandar texto libre** para mensajes iniciados por el negocio (un
+   comunicado es exactamente eso): hay que dar de alta plantillas
+   (`message templates`) en Meta, con variables (ej. "Se cortará el agua el
+   {{fecha}} de {{hora}} a {{hora}}"), y esperan aprobación de Meta antes de
+   poder usarse. Sólo dentro de una ventana de 24h después de que el
+   residente escribe primero se puede mandar texto libre -- no aplica para
+   comunicados masivos que el edificio inicia.
+4. **Opt-in explícito** -- Meta exige que el usuario haya dado consentimiento
+   para recibir mensajes de ese negocio (no alcanza con tener el teléfono
+   cargado en el sistema) -- hay que sumar un check/aceptación en el alta o
+   configuración del residente, y guardar cuándo lo aceptó.
+5. **Formato del número** -- `PhoneNumber` hoy es texto libre; WhatsApp
+   requiere formato E.164 (código de país + número, sin espacios/guiones) --
+   falta validar/normalizar los números ya cargados antes de poder usarlos.
+6. **Costo por conversación** -- Meta cobra por conversación de 24h iniciada
+   (varía por país), no por mensaje individual dentro de esa ventana --
+   relevante para estimar costo de un comunicado a todo un edificio.
+7. **Servicio nuevo** (`IWhatsAppService` o similar, mismo patrón que
+   `IEmailService`): encapsula la llamada al proveedor elegido, resuelve
+   plantilla + variables, y registra éxito/fallo por destinatario (para
+   saber a quién no le llegó).
+
+**Falta además, del lado de negocio/diseño (sin resolver todavía):** quién
+publica (¿sólo Administrador/Junta?), a quién le llega (¿todo el edificio,
+por torre/unidad, por rol?), si el comunicado también queda visible dentro
+de la app (mejor para historial/auditoría, aunque WhatsApp sea el aviso
+inmediato) o vive sólo en WhatsApp, y qué pasa con el residente que no dio
+opt-in o no tiene teléfono cargado (¿cae a email como respaldo? -- ya existe
+`IEmailService` para eso).
 
 ### 18. Incidencias: subir fotos/video -- ¿en la BD o en carpetas del servidor?
 **Estado: pregunta técnica -- respuesta recomendada abajo.** Ya estaba
@@ -323,7 +378,7 @@ madurez (sólo lectura vs. acciones como aprobar gastos).
 | 14 | Confirmar upsert de `ServiceReadingDetail` | Baja | Investigación |
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
-| 17 | Comunicados / Anuncios (no existe) | Alta* | Diseño + código |
+| 17 | Comunicados vía WhatsApp (canal prioritario, decidido) | Alta* | Producto + integración externa |
 | 18 | Fotos/video en Incidencias: disco/storage, no BD | Alta* | Decisión + código |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |

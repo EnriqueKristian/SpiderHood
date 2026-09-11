@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace SpiderHood.Models
 {
     // Docs/Pendientes-Negocio-Consolidado.md #21 -- diseño cerrado 2026-09-11.
@@ -51,11 +53,11 @@ namespace SpiderHood.Models
         // Garantía/Alquiler como par {Internos, Externos} -- decisión cerrada
         // 2026-09-11: la garantía de un externo suele ser mucho mayor que la
         // de un propietario. Limpieza queda como un solo monto.
-        public decimal GarantiaInternos { get; set; }
-        public decimal GarantiaExternos { get; set; }
-        public decimal AlquilerInternos { get; set; }
-        public decimal AlquilerExternos { get; set; }
-        public decimal Limpieza { get; set; }
+        [Precision(18, 2)] public decimal GarantiaInternos { get; set; }
+        [Precision(18, 2)] public decimal GarantiaExternos { get; set; }
+        [Precision(18, 2)] public decimal AlquilerInternos { get; set; }
+        [Precision(18, 2)] public decimal AlquilerExternos { get; set; }
+        [Precision(18, 2)] public decimal Limpieza { get; set; }
 
         // Penalidad -- dos toggles independientes, apagados por default.
         // Ambos retienen la garantía completa cuando aplican (sin % parcial
@@ -115,10 +117,10 @@ namespace SpiderHood.Models
         public string? OrganizadorTelefono { get; set; }
 
         public ReservaEstado Estado { get; set; }
-        public decimal MontoGarantia { get; set; }
-        public decimal MontoAlquiler { get; set; }
-        public decimal MontoLimpieza { get; set; }
-        public decimal? MontoRetenido { get; set; }
+        [Precision(18, 2)] public decimal MontoGarantia { get; set; }
+        [Precision(18, 2)] public decimal MontoAlquiler { get; set; }
+        [Precision(18, 2)] public decimal MontoLimpieza { get; set; }
+        [Precision(18, 2)] public decimal? MontoRetenido { get; set; }
         public string? MotivoRechazo { get; set; }
         public Guid? AprobadoPor { get; set; }
         public DateTime? FechaAprobacion { get; set; }
@@ -164,7 +166,7 @@ namespace SpiderHood.Models
         public Guid IdIngreso { get; set; }
         public Guid IdBuilding { get; set; }
         public string Concepto { get; set; } = string.Empty;
-        public decimal Monto { get; set; }
+        [Precision(18, 2)] public decimal Monto { get; set; }
         public Guid? IdReserva { get; set; }
         public Guid CreatedBy { get; set; }
         public DateTime CreatedOn { get; set; }

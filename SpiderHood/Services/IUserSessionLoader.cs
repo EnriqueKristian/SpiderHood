@@ -35,9 +35,28 @@ namespace SpiderHood.Services
                 if (!user.IsActive)
                     return null;
 
-                var userBuildings = await _ec.GetUserBuildingAssociationAsync(user.IdUser);
-                var builds = await _ec.GetAllBuildingByOwnerAsync(user.IdUser);
-                var configurations = await _ec.GetAllBuildingsConfigAsync(user.IdUser);
+                // Estas 4 consultas sólo dependen de user.IdUser, no entre sí -- antes
+                // corrían una atrás de la otra. LoadAsync es lo primero que espera CUALQUIER
+                // circuito nuevo (login, F5, reconexión) antes de poder mostrar nada --
+                // LeftMenu, HeaderMainLayout, el contenido principal, todos esperan a esto
+                // vía AuthService.GetCurrentUserAsync. BDLayout está diseñado justamente para
+                // esto: cada llamada abre su propio SpiderHoodContext de corta vida (ver el
+                // comentario del constructor en BDLayout.Core.cs), así que dos llamadas
+                // concurrentes con la misma instancia de _ec no se pisan.
+                var userBuildingsTask = _ec.GetUserBuildingAssociationAsync(user.IdUser);
+                var buildsTask = _ec.GetAllBuildingByOwnerAsync(user.IdUser);
+                var configurationsTask = _ec.GetAllBuildingsConfigAsync(user.IdUser);
+                // Ver AuthService.LoginAsync para el detalle de por qué se chequea también
+                // esto -- SysAdmin se puede reconocer sin ninguna fila en
+                // UserBuildingAssociation, vía el rol global en UserRole.
+                var rolGlobalTask = _ec.GetRoleByUserIdAsync(user.IdUser);
+
+                await Task.WhenAll(userBuildingsTask, buildsTask, configurationsTask, rolGlobalTask);
+
+                var userBuildings = userBuildingsTask.Result;
+                var builds = buildsTask.Result;
+                var configurations = configurationsTask.Result;
+                var rolGlobal = rolGlobalTask.Result;
 
                 foreach (var item in builds)
                 {
@@ -55,10 +74,6 @@ namespace SpiderHood.Services
                         IdGroupUnit = ub.IdGroupUnit
                     }).ToList();
 
-                // Ver AuthService.LoginAsync para el detalle de por qué se chequea también
-                // esto -- SysAdmin se puede reconocer sin ninguna fila en
-                // UserBuildingAssociation, vía el rol global en UserRole.
-                var rolGlobal = await _ec.GetRoleByUserIdAsync(user.IdUser);
                 var esSysAdminGlobal = rolGlobal?.RoleName == "SysAdmin";
 
                 await GrantSysAdminAccessToAllBuildingsAsync(buildings, esSysAdminGlobal);

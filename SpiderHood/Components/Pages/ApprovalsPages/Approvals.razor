@@ -1,15 +1,19 @@
 @page "/aprobaciones"
 @rendermode InteractiveServer
 @using SpiderHood.Models
+@using SpiderHood.Components.Pages.Components
 @inject Services.AuthService AuthService
 @inject Services.IPermissionService PermissionService
 @inject Services.IBudgetService BudgetService
+@inject Services.IExpenseService ExpenseService
+@inject Services.IWorkflowAuditService WorkflowAuditService
 @inject Services.ParameterService ParameterService
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Aprobaciones</PageTitle>
 
-@if (!_loading && !_canApprove)
+@if (!_loading && !_canApproveBudgets && !_canApproveExpenses)
 {
     <div class="container-fluid">
         <div class="alert alert-danger">
@@ -38,97 +42,172 @@ else
         }
         else
         {
-            <!-- Presupuestos pendientes -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="bi bi-cash-stack me-2"></i>
-                        Presupuestos Pendientes de Aprobación
-                        @if (_presupuestosPendientes.Any())
+            @if (_canApproveBudgets)
+            {
+                <!-- Presupuestos pendientes -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-cash-stack me-2"></i>
+                            Presupuestos Pendientes de Aprobación
+                            @if (_presupuestosPendientes.Any())
+                            {
+                                <span class="badge bg-warning text-dark ms-2">@_presupuestosPendientes.Count</span>
+                            }
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!_presupuestosPendientes.Any())
                         {
-                            <span class="badge bg-warning text-dark ms-2">@_presupuestosPendientes.Count</span>
+                            <p class="text-muted mb-0">No hay presupuestos esperando tu aprobación.</p>
                         }
-                    </h5>
-                </div>
-                <div class="card-body">
-                    @if (!_presupuestosPendientes.Any())
-                    {
-                        <p class="text-muted mb-0">No hay presupuestos esperando tu aprobación.</p>
-                    }
-                    else
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Presupuesto</th>
-                                        <th>Período</th>
-                                        <th>Monto</th>
-                                        <th>Enviado por</th>
-                                        <th>Fecha</th>
-                                        <th style="width: 140px;">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var presupuesto in _presupuestosPendientes)
-                                    {
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead class="table-light">
                                         <tr>
-                                            <td>@presupuesto.BudgetName</td>
-                                            <td>@presupuesto.Mes @presupuesto.Year</td>
-                                            <td>@Moneda(presupuesto.Amount)</td>
-                                            <td>@presupuesto.CreatedBy</td>
-                                            <td>@presupuesto.CreatedOn.ToString("dd/MM/yyyy")</td>
-                                            <td>
-                                                <button class="btn btn-sm btn-primary" @onclick="() => Revisar(presupuesto)">
-                                                    <i class="bi bi-eye me-1"></i>Revisar
-                                                </button>
-                                            </td>
+                                            <th>Presupuesto</th>
+                                            <th>Período</th>
+                                            <th>Monto</th>
+                                            <th>Enviado por</th>
+                                            <th>Fecha</th>
+                                            <th style="width: 140px;">Acciones</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var presupuesto in _presupuestosPendientes)
+                                        {
+                                            <tr>
+                                                <td>@presupuesto.BudgetName</td>
+                                                <td>@presupuesto.Mes @presupuesto.Year</td>
+                                                <td>@Moneda(presupuesto.Amount)</td>
+                                                <td>@presupuesto.CreatedBy</td>
+                                                <td>@presupuesto.CreatedOn.ToString("dd/MM/yyyy")</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-primary" @onclick="() => Revisar(presupuesto)">
+                                                        <i class="bi bi-eye me-1"></i>Revisar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
                 </div>
-            </div>
+            }
 
-            <!-- Gastos pendientes -- Fase 2: falta el umbral configurable por edificio y
-                 el gate en la creación del gasto (ver Docs/Pendientes-Negocio-*.md). -->
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Gastos Pendientes de Aprobación</h5>
+            @if (_canApproveExpenses)
+            {
+                <!-- Gastos pendientes -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-receipt me-2"></i>
+                            Gastos Pendientes de Aprobación
+                            @if (_gastosPendientes.Any())
+                            {
+                                <span class="badge bg-warning text-dark ms-2">@_gastosPendientes.Count</span>
+                            }
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!_gastosPendientes.Any())
+                        {
+                            <p class="text-muted mb-0">No hay gastos esperando tu aprobación.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Descripción</th>
+                                            <th>Categoría</th>
+                                            <th>Fecha</th>
+                                            <th>Monto</th>
+                                            <th style="width: 220px;">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var gasto in _gastosPendientes)
+                                        {
+                                            <tr>
+                                                <td>@gasto.Description</td>
+                                                <td>@gasto.Category</td>
+                                                <td>@gasto.ExpenseDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@Moneda(gasto.Amount)</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-success me-1" @onclick="() => PedirAprobarGasto(gasto)">
+                                                        <i class="bi bi-check-lg me-1"></i>Aprobar
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => PedirRechazarGasto(gasto)">
+                                                        <i class="bi bi-x-lg me-1"></i>Rechazar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
                 </div>
-                <div class="card-body">
-                    <p class="text-muted mb-0">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Todavía no hay un monto de aprobación configurado para gastos en este edificio -- próximamente.
-                    </p>
-                </div>
-            </div>
+            }
         }
     </div>
+
+    <ConfirmationModal @ref="_confirmationModal" OnClose="OnAprobarGastoConfirmado" />
+    <RejectionModal @ref="_rejectionModal"
+                    Title="Rechazar Gasto"
+                    Message="El gasto queda registrado como rechazado -- el Administrador puede corregirlo y volver a guardarlo."
+                    OnClose="OnRechazarGastoConfirmado" />
 }
 
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     private bool _loading = true;
-    private bool _canApprove;
+    private bool _canApproveBudgets;
+    private bool _canApproveExpenses;
     private List<BudgetHeader> _presupuestosPendientes = new();
+    private List<ViewExpense> _gastosPendientes = new();
+
+    private Guid _idBuilding;
+    private string _performedBy = string.Empty;
+
+    private ConfirmationModal? _confirmationModal;
+    private RejectionModal? _rejectionModal;
+    private ViewExpense? _gastoSeleccionado;
 
     protected override async Task OnInitializedAsync()
     {
         var currentUser = await AuthService.GetCurrentUserAsync();
-        _canApprove = currentUser != null && await PermissionService.HasPermissionAsync(currentUser, "approve_budget");
+        _canApproveBudgets = currentUser != null && await PermissionService.HasPermissionAsync(currentUser, "approve_budget");
+        _canApproveExpenses = currentUser != null && await PermissionService.HasPermissionAsync(currentUser, "approve_expenses");
 
-        if (_canApprove && currentUser != null && currentUser.CurrentBuildingId != Guid.Empty)
+        if (currentUser != null && currentUser.CurrentBuildingId != Guid.Empty && (_canApproveBudgets || _canApproveExpenses))
         {
-            if (ParameterService.CurrentBuilding == null || ParameterService.CurrentBuilding.IdBuilding != currentUser.CurrentBuildingId)
+            _idBuilding = currentUser.CurrentBuildingId;
+            _performedBy = currentUser.Email;
+
+            if (ParameterService.CurrentBuilding == null || ParameterService.CurrentBuilding.IdBuilding != _idBuilding)
             {
-                await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId);
+                await ParameterService.LoadParametersAsync(_idBuilding);
             }
 
-            _presupuestosPendientes = await BudgetService.GetPresupuestosAsync(currentUser.CurrentBuildingId, estado: BudgetStatus.Check);
+            if (_canApproveBudgets)
+            {
+                _presupuestosPendientes = await BudgetService.GetPresupuestosAsync(_idBuilding, estado: BudgetStatus.Check);
+            }
+
+            if (_canApproveExpenses)
+            {
+                var todos = await ExpenseService.GetExpensesByBuildingAsync(_idBuilding);
+                _gastosPendientes = todos.Where(e => e.Status == StatusExpense.Pending).ToList();
+            }
         }
 
         _loading = false;
@@ -141,5 +220,50 @@ else
     {
         BudgetService._SelectedBudget = presupuesto;
         Navigation.NavigateTo("/budgetgenerator");
+    }
+
+    private void PedirAprobarGasto(ViewExpense gasto)
+    {
+        if (!_canApproveExpenses || _confirmationModal == null) return;
+        _gastoSeleccionado = gasto;
+        _confirmationModal.Title = "Aprobar Gasto";
+        _confirmationModal.Message = $"¿Aprobar el gasto \"{gasto.Description}\" por {Moneda(gasto.Amount)}?";
+        _confirmationModal.ConfirmText = "Aprobar";
+        _confirmationModal.Show("info");
+    }
+
+    private async Task OnAprobarGastoConfirmado(bool confirmado)
+    {
+        var gasto = _gastoSeleccionado;
+        _gastoSeleccionado = null;
+        if (!confirmado || gasto == null || !_canApproveExpenses) return;
+
+        gasto.Status = StatusExpense.Approved;
+        await ExpenseService.UpdateExpenseAsync(gasto);
+        await WorkflowAuditService.LogAsync("Expense", gasto.IdExpense, WorkflowAction.Approved, _performedBy, _idBuilding);
+
+        _gastosPendientes.Remove(gasto);
+        StateHasChanged();
+    }
+
+    private void PedirRechazarGasto(ViewExpense gasto)
+    {
+        if (!_canApproveExpenses || _rejectionModal == null) return;
+        _gastoSeleccionado = gasto;
+        _rejectionModal.Show();
+    }
+
+    private async Task OnRechazarGastoConfirmado(string? motivo)
+    {
+        var gasto = _gastoSeleccionado;
+        _gastoSeleccionado = null;
+        if (motivo == null || gasto == null || !_canApproveExpenses) return; // cancelado
+
+        gasto.Status = StatusExpense.Rejected;
+        await ExpenseService.UpdateExpenseAsync(gasto);
+        await WorkflowAuditService.LogAsync("Expense", gasto.IdExpense, WorkflowAction.Rejected, _performedBy, _idBuilding, motivo);
+
+        _gastosPendientes.Remove(gasto);
+        StateHasChanged();
     }
 }

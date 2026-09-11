@@ -91,6 +91,18 @@ namespace SpiderHood.Models
         // el: ..."). Columna agregada por
         public string ReceiptFooterText { get; set; } = "";
 
+        // Monto a partir del cual un gasto MANUAL (creado desde /expense) requiere
+        // aprobación de la Junta antes de quedar activo -- null = nunca requiere
+        // aprobación. Los gastos generados desde la conciliación del Estado de Cuenta
+        // (ViewExpense.Reconciled = true) están SIEMPRE exentos, sea cual sea el monto,
+        // porque reflejan un pago ya efectuado (ver ExpensePage.razor,
+        // ResolverEstadoAlGuardar). Se guarda con su propio UPD chico
+        // (UPD_BuildingConfiguration_ExpenseThreshold) en vez de sumarse a la lista
+        // posicional de UPD_BuildingConfiguration -- ver
+        // Database/Scripts/2026-09-11_92_Expense_Approval_Threshold.sql para el porqué.
+        [Precision(18, 2)]
+        public decimal? ExpenseApprovalThreshold { get; set; }
+
         [NotMapped]
         public Contact AdminContact { get; set; } = new();
         [NotMapped]
@@ -125,6 +137,8 @@ namespace SpiderHood.Models
                 InvoiceDay = this.InvoiceDay,
                 DebtWarningDays = this.DebtWarningDays,
                 DebtCriticalDays = this.DebtCriticalDays,
+                ReceiptFooterText = this.ReceiptFooterText,
+                ExpenseApprovalThreshold = this.ExpenseApprovalThreshold,
                 AdminContact = this.AdminContact.Clone(),
                 RealEstateCompany = this.RealEstateCompany.Clone(),
                 MaintenanceCompany = this.MaintenanceCompany.Clone(),

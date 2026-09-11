@@ -12,10 +12,12 @@ namespace SpiderHood.Services
     // persistente entre despliegues (ver el documento de arriba).
     public interface IFileStorageService
     {
-        // category agrupa en subcarpetas (ej. "receipts", "incidents"). fileName
-        // se sanitiza acá adentro -- el caller no necesita (ni debería) armar una
-        // ruta él mismo. Devuelve la ruta RELATIVA (para persistir en BD), nunca
-        // la ruta absoluta en disco.
+        // category agrupa en subcarpetas -- acepta más de un nivel separado por
+        // '/' (ej. "receipts/{idBuilding}") para no amontonar TODOS los archivos
+        // de TODOS los edificios en una sola carpeta plana. Cada segmento (de
+        // category y fileName) se sanitiza acá adentro -- el caller arma el
+        // "/" para separar niveles, nunca ".." ni una ruta ya resuelta. Devuelve
+        // la ruta RELATIVA (para persistir en BD), nunca la ruta absoluta en disco.
         Task<string> SaveAsync(string category, string fileName, byte[] content);
 
         // Null si el archivo no existe (ej. se perdió entre despliegues, o la
@@ -46,16 +48,25 @@ namespace SpiderHood.Services
 
         public async Task<string> SaveAsync(string category, string fileName, byte[] content)
         {
-            var safeCategory = SanitizeSegment(category);
+            // Cada nivel de category se sanitiza POR SEPARADO (no la cadena entera
+            // de una), así "receipts/{idBuilding}" arma dos carpetas anidadas en
+            // vez de una sola carpeta llamada literalmente "receipts_{idBuilding}".
+            var safeCategoryParts = category
+                .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                .Select(SanitizeSegment)
+                .ToArray();
+            if (safeCategoryParts.Length == 0)
+                throw new ArgumentException("category no puede estar vacío.", nameof(category));
+
             var safeFileName = SanitizeSegment(fileName);
 
-            var directory = Path.Combine(_basePath, safeCategory);
+            var directory = Path.Combine(_basePath, Path.Combine(safeCategoryParts));
             Directory.CreateDirectory(directory);
 
             var fullPath = Path.Combine(directory, safeFileName);
             await File.WriteAllBytesAsync(fullPath, content);
 
-            var relativePath = $"{safeCategory}/{safeFileName}";
+            var relativePath = string.Join('/', safeCategoryParts.Append(safeFileName));
             _logger.LogInformation("Archivo guardado en storage: {RelativePath} ({Size} bytes)", relativePath, content.Length);
             return relativePath;
         }

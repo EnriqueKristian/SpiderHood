@@ -55,7 +55,19 @@ namespace SpiderHood.Services
             }
 
             var pdfBytes = exportService.GenerateReceipt(installment);
-            var relativePath = await _fileStorage.SaveAsync("receipts", $"{installment.IdInstallment}.pdf", pdfBytes);
+
+            // Una carpeta por edificio (no todos los archivos de todos los
+            // edificios juntos en una sola carpeta plana -- pedido del usuario,
+            // 2026-09-11) + Periodo/Unidad en el NOMBRE del archivo (no una
+            // subcarpeta por unidad): si una unidad se renumera con el tiempo,
+            // los recibos viejos no quedan "perdidos" en una carpeta con el
+            // nombre viejo -- el Guid al final sigue garantizando que el nombre
+            // sea único aunque dos cuotas compartan Unidad+Periodo (ej. una
+            // Ordinaria y una Multa del mismo mes).
+            var relativePath = await _fileStorage.SaveAsync(
+                $"receipts/{idBuilding}",
+                $"{installment.Period:yyyyMM}_{installment.UnitName}_{installment.IdInstallment}.pdf",
+                pdfBytes);
 
             try
             {

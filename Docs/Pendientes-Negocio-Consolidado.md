@@ -477,6 +477,26 @@ abajo) -- fix del bug de integridad incluido, no sólo la optimización.
   del periodo quedan guardados de una vez, no sólo el primero que alguien
   pida).
 
+**Actualización (2026-09-11, pedido del usuario probándolo):** con datos
+reales confirmó que el flujo completo funciona (filas en `ReceiptFile` +
+archivo en disco), pero notó que TODOS los recibos de TODOS los edificios
+caían en una sola carpeta plana (`receipts/<IdInstallment>.pdf`) --
+inmanejable a mediano plazo. Se cambió a `SaveAsync` para que `category`
+acepte niveles (`receipts/{idBuilding}`, sanitizando cada nivel por
+separado) y a **una carpeta por edificio**:
+`receipts/{IdBuilding}/{Periodo:yyyyMM}_{UnitName}_{IdInstallment}.pdf`.
+Deliberadamente **sin** subcarpeta por unidad/departamento -- si una unidad
+se renumera con el tiempo, sus recibos viejos no quedan "perdidos" en una
+carpeta con el nombre viejo; en cambio, Periodo+Unidad van en el NOMBRE del
+archivo (mismo criterio que ya usaba el ZIP de `GenerateAllReceiptsZip`
+para sus entradas), así la carpeta del edificio ya se puede ordenar/filtrar
+a simple vista sin más anidamiento. El `IdInstallment` se mantiene al final
+del nombre para garantizar unicidad aunque dos cuotas compartan
+Unidad+Periodo (ej. una Ordinaria y una Multa del mismo mes). **No rompe
+los recibos ya guardados antes de este cambio** (siguen en la ruta plana
+vieja, registrada tal cual en su fila de `ReceiptFile` -- son inmutables,
+nunca se mueven ni se regeneran).
+
 **Verificado en este entorno:** se instaló el SDK de .NET 10 (ver
 Docs/Pendientes-Negocio-Consolidado.md #17) y `dotnet build` compila sin
 errores (0 errores, mismos 139 warnings preexistentes, ninguno nuevo). Se

@@ -2,6 +2,7 @@
 @page "/Settings/UserRoles"
 @rendermode InteractiveServer
 @using SpiderHood.Models
+@using SpiderHood.Components.Pages.Components
 @inject Services.IPermissionAdminService PermissionAdminService
 @inject Services.IPermissionService PermissionService
 @inject Services.AuthService AuthService
@@ -361,6 +362,8 @@ else
             </div>
         }
     </div>
+
+    <ConfirmationModal @ref="_confirmationModal" OnClose="OnConfirmacion" />
 }
 
 @code {
@@ -383,6 +386,33 @@ else
     // asignándose a sí mismo el rol SysAdmin sigue bloqueado aparte (ver AssignRole).
     private bool _canAssignRoles;
     private bool _isSysAdmin;
+
+    // Modal de confirmación propio (en vez del confirm() nativo del navegador, que no
+    // sigue el estilo de la app) -- una sola instancia compartida por las 3 acciones
+    // que antes usaban confirm() (Quitar Rol, Rechazar Solicitud, Desactivar/Reactivar),
+    // cada una arma su propio mensaje y guarda qué hacer al confirmar en _accionPendiente.
+    private ConfirmationModal? _confirmationModal;
+    private Func<Task>? _accionPendiente;
+
+    private void PedirConfirmacion(string titulo, string mensaje, string confirmText, string type, Func<Task> accion)
+    {
+        if (_confirmationModal == null) return;
+        _accionPendiente = accion;
+        _confirmationModal.Title = titulo;
+        _confirmationModal.Message = mensaje;
+        _confirmationModal.ConfirmText = confirmText;
+        _confirmationModal.Show(type);
+    }
+
+    private async Task OnConfirmacion(bool confirmado)
+    {
+        var accion = _accionPendiente;
+        _accionPendiente = null;
+        if (confirmado && accion != null)
+        {
+            await accion();
+        }
+    }
 
     // Edificios donde el usuario actual tiene algún rol aprobado -- delimita qué puede
     // ver/tocar en esta pantalla cuando no es SysAdmin.
@@ -524,23 +554,26 @@ else
         }
     }
 
-    private async Task RevokeRole(UserBuildingRow row, string role)
+    private void RevokeRole(UserBuildingRow row, string role)
     {
         if (!_canAssignRoles) return;
 
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            $"¿Quitarle el rol \"{role}\" a {row.UserName} en {row.BuildingName}?");
-        if (!confirmed) return;
-
-        try
-        {
-            await PermissionAdminService.RevokeUserBuildingRoleAsync(row.IdUser, row.IdBuilding, role);
-            await LoadDataAsync();
-        }
-        catch (Exception ex)
-        {
-            await ShowToast("Error", $"Error al quitar el rol: {ex.Message}", "danger");
-        }
+        PedirConfirmacion(
+            "Quitar Rol",
+            $"¿Quitarle el rol \"{role}\" a {row.UserName} en {row.BuildingName}?",
+            "Quitar", "danger",
+            async () =>
+            {
+                try
+                {
+                    await PermissionAdminService.RevokeUserBuildingRoleAsync(row.IdUser, row.IdBuilding, role);
+                    await LoadDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    await ShowToast("Error", $"Error al quitar el rol: {ex.Message}", "danger");
+                }
+            });
     }
 
     private async Task ApproveRequest(UserBuildingRoleAssignment request)
@@ -559,24 +592,27 @@ else
         }
     }
 
-    private async Task RejectRequest(UserBuildingRoleAssignment request)
+    private void RejectRequest(UserBuildingRoleAssignment request)
     {
         if (!_canAssignRoles) return;
 
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            $"¿Rechazar la solicitud de {request.UserName} para {request.BuildingName} ({request.Role})?");
-        if (!confirmed) return;
-
-        try
-        {
-            await PermissionAdminService.SetUserBuildingApprovalAsync(
-                request.IdUser, request.IdBuilding, request.IdRole, false, "Rejected", _currentUser!.IdUser);
-            await LoadDataAsync();
-        }
-        catch (Exception ex)
-        {
-            await ShowToast("Error", $"Error al rechazar la solicitud: {ex.Message}", "danger");
-        }
+        PedirConfirmacion(
+            "Rechazar Solicitud",
+            $"¿Rechazar la solicitud de {request.UserName} para {request.BuildingName} ({request.Role})?",
+            "Rechazar", "danger",
+            async () =>
+            {
+                try
+                {
+                    await PermissionAdminService.SetUserBuildingApprovalAsync(
+                        request.IdUser, request.IdBuilding, request.IdRole, false, "Rejected", _currentUser!.IdUser);
+                    await LoadDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    await ShowToast("Error", $"Error al rechazar la solicitud: {ex.Message}", "danger");
+                }
+            });
     }
 
     // Fila real detrás de un badge de rol en la tabla principal -- para saber si está
@@ -592,27 +628,31 @@ else
     // "desactivar a un usuario" sin afectar su cuenta global ni sus otros edificios --
     // a diferencia del toggle Activo/Inactivo de /users, que es global y sólo lo debería
     // usar SysAdmin.
-    private async Task ToggleActive(UserBuildingRoleAssignment assignment)
+    private void ToggleActive(UserBuildingRoleAssignment assignment)
     {
         if (!_canAssignRoles) return;
 
         var activar = !assignment.IsApproved && assignment.Status == "Inactive";
         var accion = activar ? "reactivar" : "desactivar";
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            $"¿{(activar ? "Reactivar" : "Desactivar")} el rol \"{assignment.Role}\" de {assignment.UserName} en {assignment.BuildingName}?");
-        if (!confirmed) return;
 
-        try
-        {
-            await PermissionAdminService.SetUserBuildingApprovalAsync(
-                assignment.IdUser, assignment.IdBuilding, assignment.IdRole,
-                activar, activar ? "Approved" : "Inactive", _currentUser!.IdUser);
-            await LoadDataAsync();
-        }
-        catch (Exception ex)
-        {
-            await ShowToast("Error", $"Error al {accion} el rol: {ex.Message}", "danger");
-        }
+        PedirConfirmacion(
+            activar ? "Reactivar Rol" : "Desactivar Rol",
+            $"¿{(activar ? "Reactivar" : "Desactivar")} el rol \"{assignment.Role}\" de {assignment.UserName} en {assignment.BuildingName}?",
+            activar ? "Reactivar" : "Desactivar", activar ? "warning" : "danger",
+            async () =>
+            {
+                try
+                {
+                    await PermissionAdminService.SetUserBuildingApprovalAsync(
+                        assignment.IdUser, assignment.IdBuilding, assignment.IdRole,
+                        activar, activar ? "Approved" : "Inactive", _currentUser!.IdUser);
+                    await LoadDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    await ShowToast("Error", $"Error al {accion} el rol: {ex.Message}", "danger");
+                }
+            });
     }
 
     private Task OnInviteBuildingChangedAsync()

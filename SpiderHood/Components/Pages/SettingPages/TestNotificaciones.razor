@@ -1,0 +1,206 @@
+@page "/Settings/TestNotificaciones"
+@rendermode InteractiveServer
+@using SpiderHood.Services
+@inject IEmailService EmailService
+@inject IWhatsAppService WhatsAppService
+@inject SpiderHood.Services.AuthService AuthService
+
+<PageTitle>Probar Notificaciones</PageTitle>
+
+@if (!_loading && !_isSysAdmin)
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="alert alert-danger">
+            <i class="bi bi-shield-lock me-1"></i>
+            Sólo el Super Usuario (SysAdmin) puede acceder a esta herramienta de diagnóstico.
+        </div>
+    </div>
+}
+else if (_loading)
+{
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid px-4 py-3">
+        <div class="page-header mb-4">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-broadcast"></i>
+                </div>
+                <div>
+                    <h1 class="h3 fw-bold mb-1">Probar Notificaciones</h1>
+                    <p class="text-muted mb-0">
+                        Herramienta de diagnóstico -- manda un correo o un WhatsApp real (o
+                        simulado, según la configuración) para confirmar que las credenciales
+                        de <code>appsettings.json</code>/user-secrets están bien. No queda
+                        registrado en ningún lado de la app -- sólo en los logs de la consola
+                        del servidor.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-envelope me-2"></i>Email</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Para</label>
+                            <input class="form-control" @bind="_emailTo" placeholder="destinatario@ejemplo.com" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Asunto</label>
+                            <input class="form-control" @bind="_emailSubject" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mensaje</label>
+                            <textarea class="form-control" rows="3" @bind="_emailBody"></textarea>
+                        </div>
+                        <button class="btn btn-primary" @onclick="EnviarEmailPrueba" disabled="@(_enviandoEmail || string.IsNullOrWhiteSpace(_emailTo))">
+                            @if (_enviandoEmail)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Enviar email de prueba
+                        </button>
+                        @if (_emailResultado is not null)
+                        {
+                            <div class="alert @(_emailResultadoOk ? "alert-success" : "alert-danger") mt-3 mb-0 py-2 px-3">
+                                @_emailResultado
+                            </div>
+                        }
+                        <div class="form-text mt-3">
+                            No hay modo "Simulate" para email -- si el SMTP no está bien
+                            configurado (ej. <code>Email:SmtpPassword</code> vacío o incorrecto),
+                            esto va a fallar de verdad y mostrar el error real de Gmail acá abajo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-whatsapp me-2"></i>WhatsApp</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Número (con o sin código de país)</label>
+                            <input class="form-control" @bind="_whatsAppTo" placeholder="999888777" />
+                            <div class="form-text">Se normaliza a E.164 -- ver <code>IWhatsAppService.NormalizeToE164</code>.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Mensaje</label>
+                            <textarea class="form-control" rows="3" @bind="_whatsAppMessage"></textarea>
+                        </div>
+                        <button class="btn btn-success" @onclick="EnviarWhatsAppPrueba" disabled="@(_enviandoWhatsApp || string.IsNullOrWhiteSpace(_whatsAppTo))">
+                            @if (_enviandoWhatsApp)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Enviar WhatsApp de prueba
+                        </button>
+                        @if (_whatsAppResultado is not null)
+                        {
+                            <div class="alert @(_whatsAppResultadoOk ? "alert-success" : "alert-danger") mt-3 mb-0 py-2 px-3">
+                                @_whatsAppResultado
+                            </div>
+                        }
+                        <div class="form-text mt-3">
+                            Sin <code>Twilio:AccountSid</code>/<code>AuthToken</code> configurados,
+                            corre en modo <strong>Simulado</strong> -- esto va a devolver "OK" igual,
+                            pero no manda nada de verdad (revisá la consola del servidor: dice
+                            "WhatsApp SIMULADO..." en vez de "WhatsApp enviado..."). Si ya cargaste
+                            credenciales de Twilio, recordá que el número de destino tiene que haberse
+                            unido antes al Sandbox (mandándole el código "join ..." por WhatsApp).
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _isSysAdmin;
+
+    private string _emailTo = string.Empty;
+    private string _emailSubject = "Prueba de SpiderHood";
+    private string _emailBody = "Este es un correo de prueba desde /Settings/TestNotificaciones.";
+    private bool _enviandoEmail;
+    private string? _emailResultado;
+    private bool _emailResultadoOk;
+
+    private string _whatsAppTo = string.Empty;
+    private string _whatsAppMessage = "Prueba de WhatsApp desde SpiderHood.";
+    private bool _enviandoWhatsApp;
+    private string? _whatsAppResultado;
+    private bool _whatsAppResultadoOk;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        _isSysAdmin = currentUser?.Roles.Contains("SysAdmin") ?? false;
+        _loading = false;
+    }
+
+    private async Task EnviarEmailPrueba()
+    {
+        _enviandoEmail = true;
+        _emailResultado = null;
+        StateHasChanged();
+
+        try
+        {
+            await EmailService.SendEmailAsync(_emailTo, _emailSubject, _emailBody);
+            _emailResultadoOk = true;
+            _emailResultado = $"Enviado sin errores a {_emailTo}. Revisá la bandeja de entrada (y spam).";
+        }
+        catch (Exception ex)
+        {
+            _emailResultadoOk = false;
+            // El mensaje real de SmtpException (ej. autenticación rechazada por Gmail) queda
+            // en ex.Message -- se muestra tal cual para diagnosticar sin tener que ir a mirar
+            // los logs del servidor.
+            _emailResultado = $"Falló: {ex.Message}";
+        }
+        finally
+        {
+            _enviandoEmail = false;
+        }
+    }
+
+    private async Task EnviarWhatsAppPrueba()
+    {
+        _enviandoWhatsApp = true;
+        _whatsAppResultado = null;
+        StateHasChanged();
+
+        try
+        {
+            var ok = await WhatsAppService.SendMessageAsync(_whatsAppTo, _whatsAppMessage);
+            _whatsAppResultadoOk = ok;
+            _whatsAppResultado = ok
+                ? "El servicio devolvió OK -- revisá la consola del servidor para confirmar si fue un envío real o SIMULADO."
+                : "El servicio devolvió false -- revisá que el número se pueda normalizar (ver consola del servidor para el detalle).";
+        }
+        catch (Exception ex)
+        {
+            _whatsAppResultadoOk = false;
+            _whatsAppResultado = $"Falló: {ex.Message}";
+        }
+        finally
+        {
+            _enviandoWhatsApp = false;
+        }
+    }
+}

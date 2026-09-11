@@ -165,6 +165,15 @@ namespace SpiderHood.Services
                 digits = digits[2..];
                 hadPlus = true;
             }
+            // Prefijo de discado nacional/troncal ("0" + código de área, ej.
+            // fijos de Lima "01-XXXXXXX") -- se descarta antes de anteponer el
+            // código de país, igual que se hace para marcar internacional.
+            // Probado con datos reales de ejemplo (smoke test manual): sin
+            // esto, "01 999 8877" quedaba mal normalizado.
+            else if (!hadPlus && digits.StartsWith('0'))
+            {
+                digits = digits[1..];
+            }
 
             if (!hadPlus)
             {

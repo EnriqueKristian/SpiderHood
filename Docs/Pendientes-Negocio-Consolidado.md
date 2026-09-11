@@ -240,11 +240,18 @@ verdad, sólo loguea -- así se puede seguir construyendo/probando el resto
 sin esperar la cuenta de Twilio ni la verificación de negocio en Meta.
 Paquete `Twilio` 8.0.1 agregado al `.csproj`, registrado en `Program.cs`.
 
-**Sin verificar** -- este entorno no tiene el SDK de .NET instalado (no hay
-`dotnet`), así que no se pudo compilar ni restaurar el paquete nuevo.
-Primer paso al retomarlo: `dotnet build` para confirmar que compila, y
-correr `SendMessageAsync` en modo simulado (sin credenciales) para ver el
-log antes de conectar una cuenta de Twilio real.
+**Verificado (2026-09-11):** se instaló el SDK de .NET 10 en este entorno
+(no venía instalado) y `dotnet build` compila sin errores (0 errores, mismos
+139 warnings preexistentes, ninguno nuevo). Se probó además con un programa
+de prueba aparte (fuera del repo) instanciando `WhatsAppService` sin
+credenciales de Twilio: `SendMessageAsync` corre en modo simulado como se
+esperaba (loguea y devuelve `true`, sin llamar a Twilio) y rechaza
+correctamente un número inválido (`false` + warning). La prueba encontró un
+caso real de `NormalizeToE164` mal manejado -- números con prefijo troncal
+"0" (fijos de Lima, ej. "01-4567890") quedaban con un "0" de más después del
+código de país -- ya corregido (se descarta el prefijo troncal antes de
+anteponer el código de país). Sigue sin probarse contra una cuenta de
+Twilio real (no existe todavía).
 
 **Decisión tomada (2026-09-11): el canal prioritario es WhatsApp, no un
 tablón dentro de la app.**

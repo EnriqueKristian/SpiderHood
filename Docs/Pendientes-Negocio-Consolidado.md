@@ -834,6 +834,37 @@ falta.
   ahora que hay una página por tab es más fácil agregarlos sin reabrir este
   refactor.
 
+**Feedback del usuario tras probar en vivo (2026-09-11): esperaba un
+rediseño, no sólo mover las cards a pestañas.** Confirmado -- el refactor
+movió las 8 secciones TAL CUAL (mismas cards con el lápiz flotante, mismo
+`form-compact`, mismo layout de una sola columna angosta dentro de cada
+tab) sólo para reducir riesgo y no romper la lógica de guardado en el
+mismo cambio. El resultado visual (ver capturas del usuario: tab "Moneda y
+Cuentas" e "Inmobiliaria") es funcional pero se nota que cada pestaña
+sigue pensada para competir por espacio con una lista al lado, no para
+ocupar una página completa -- mucho aire vacío a los costados, formularios
+angostos y verticales cuando ahora hay ancho de sobra para 2-3 columnas,
+sin components de tabla (ej. Cuentas Bancarias) para una lista de más de
+2-3 items.
+
+**Pendiente (rediseño, separado del refactor estructural que ya está
+hecho):**
+- Usar el ancho completo de la página: formularios en grid de 2-3 columnas
+  en vez de una sola columna angosta, especialmente en Contactos/
+  Inmobiliaria/Mantenimiento (campos cortos: Nombre, Teléfono, Email,
+  Dirección) y Defaults/Multas (ya tiene varios `col-md-6`, pero dentro de
+  un contenedor que sigue angosto).
+- Cuentas Bancarias: hoy es una lista de filas con inputs en modo edición;
+  con ancho de sobra podría ser una tabla o cards en grid en vez de filas
+  apiladas.
+- Revisar si el patrón "lápiz flotante -> modo edición inline" (heredado
+  del panel viejo) sigue siendo el mejor ahora que cada sección tiene su
+  propia pestaña dedicada, o si conviene un patrón más simple (ej. la
+  pestaña entera en modo lectura con un solo botón "Editar" arriba a la
+  derecha, en vez de un lápiz por card).
+- Definir esto CON el usuario antes de tocar CSS/markup de nuevo -- es
+  trabajo de diseño, no un bug a resolver solo.
+
 **Verificado en el código -- confirma el problema que señaló el usuario.**
 `/buildings` (`BuildingPage.razor`, **1518 líneas** de markup + 909 de
 code-behind) hoy mezcla dos superficies de configuración distintas en la
@@ -1022,7 +1053,7 @@ que confirme si mejoró y en qué medida.
 | 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |
 | 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
-| 24 | Configuración de Edificio: página propia con Tabs -- **HECHO**, falta probar en vivo | Media | Refactor UI (implementado) |
+| 24 | Configuración de Edificio: página propia con Tabs -- estructura **HECHA**, falta **rediseño visual** (usuario esperaba más que mover cards a pestañas) | Media | Diseño UI |
 | 25 | Email: falta Contraseña de Aplicación de Gmail + 2 flujos comentados | Alta | Configuración + decisión |
 | 26 | Perf: menú izquierdo demoraba hasta 1 min en la primera carga -- **HECHO**, falta confirmar en vivo | Alta | Código (bug de caché + paralelizar consultas) |
 

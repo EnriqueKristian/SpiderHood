@@ -34,9 +34,13 @@ secas, es la secuencia en la que conviene tocarlos.
    define proveedor (Cloud API vs. Twilio) y plantillas.
 4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
    (solo lectura: presupuesto, incidencias, calendario).
-5. **#18** Storage de fotos en Incidencias (disco/Blob, no BD) -- habilita
-   "reportar incidente con foto", el caso de uso #1 de por qué alguien abre
-   el celular.
+5. **#18b** Storage de archivos, primero conectado a **PDFs de Recibos**
+   (disco/Blob, no BD) -- barato (el PDF ya se genera, sólo falta guardarlo),
+   y corrige un bug real de integridad (recibos viejos cambian de contenido
+   si el edificio cambia de banco/administrador). El mismo storage se
+   conecta después a **#18a** (fotos/video en Incidencias, más caro, depende
+   de la Fase 2 del piloto móvil) -- ver la evaluación de impacto/costo/
+   beneficio en el punto 18.
 
 **Grupo 2 -- importante, no bloquea el lanzamiento:**
 6. **#2** Reportes financieros suman transacciones Ignoradas.
@@ -318,13 +322,20 @@ inmediato) o vive sólo en WhatsApp, y qué pasa con el residente que no dio
 opt-in o no tiene teléfono cargado (¿cae a email como respaldo? -- ya existe
 `IEmailService` para eso).
 
-### 18. Incidencias: subir fotos/video -- ¿en la BD o en carpetas del servidor?
-**Estado: pregunta técnica -- respuesta recomendada abajo.** Ya estaba
-anotada como pregunta abierta #3 en `Docs/Design-Piloto-Mobile-Android.md`
-(sección 9) al evaluar el piloto mobile -- hoy `Incident` (`Classes/Incidents/Incident.cs`)
-no tiene ninguna columna para adjuntar nada, no existe integración de storage
-de archivos en ningún lado (`appsettings*.json` tampoco tiene nada de Azure
-Blob/S3), y `InputFile`/`IBrowserFile` sólo se usa hoy para subir Excel.
+### 18. Storage de archivos -- fotos/video en Incidencias Y PDFs de Recibos
+**Estado: pregunta técnica -- respuesta recomendada abajo. Ampliado
+2026-09-11: sumado el caso de los recibos PDF (pedido del usuario), que
+termina necesitando el mismo storage pero con un problema más urgente que
+Incidencias -- ver evaluación al final de este punto.**
+
+#### 18a. Fotos/video en Incidencias
+
+Ya estaba anotada como pregunta abierta #3 en
+`Docs/Design-Piloto-Mobile-Android.md` (sección 9) al evaluar el piloto
+mobile -- hoy `Incident` (`Classes/Incidents/Incident.cs`) no tiene ninguna
+columna para adjuntar nada, no existe integración de storage de archivos en
+ningún lado (`appsettings*.json` tampoco tiene nada de Azure Blob/S3), y
+`InputFile`/`IBrowserFile` sólo se usa hoy para subir Excel.
 
 **Recomendación: archivos en disco/storage, NO en la base de datos.**
 - Guardar el archivo (foto/video) en una carpeta del servidor (o Azure Blob
@@ -348,6 +359,61 @@ Blob/S3), y `InputFile`/`IBrowserFile` sólo se usa hoy para subir Excel.
 - Falta igual: límite de tamaño/tipo de archivo (validar extensión real, no
   sólo el nombre), y si video entra al piloto o sólo fotos (video pesa
   bastante más y complica más el storage/streaming).
+
+#### 18b. PDFs de Recibos (agregado 2026-09-11, pedido del usuario)
+
+**Verificado en el código: los recibos tampoco se guardan en ningún lado
+hoy.** `InstallmentExportService.GenerateReceipt`/`GenerateAllReceiptsZip`
+(`Classes/Utilities.cs:761,784`) generan el PDF 100% en memoria con
+QuestPDF, **desde cero, cada vez** que alguien lo pide -- botón "Imprimir"
+en `MyReceipts.razor` (Residente), `InstallmentTable.razor`/
+`InstallmentList.razor` (Administrador), o el ZIP con un PDF por cuota que
+arma `BudgetGenerator.razor` al publicar un presupuesto. Nunca se persiste
+el archivo generado -- mismo síntoma que Incidencias (cero capacidad de
+storage en el proyecto), pero acá con un problema de fondo más grave que
+sólo performance:
+
+**Bug de integridad encontrado:** `ComposeFooter`
+(`Classes/Utilities.cs:1047,1053,1062-1063`) arma el pie del recibo con la
+configuración VIGENTE del edificio **en el momento en que alguien lo
+descarga** -- cuenta bancaria (`BankAccounts.FirstOrDefault()`), texto del
+pie (`ReceiptFooterText`), nombre/email del Administrador (`AdminContact`)
+-- no con una foto de cómo era esa configuración cuando la cuota se emitió
+originalmente. Si el edificio cambia de banco, de administrador, o edita el
+texto del pie, **cualquier recibo viejo que se vuelva a descargar sale con
+los datos NUEVOS**: un recibo de enero descargado en julio, después de un
+cambio de cuenta bancaria, muestra la cuenta de julio, no la de enero. Para
+un comprobante financiero que un residente puede necesitar como respaldo,
+esto es un problema real de integridad/auditoría (el documento "reescribe"
+su propio pasado), no sólo algo que se podría optimizar.
+
+**Misma recomendación que 18a: guardar el PDF ya generado (bytes en
+disco/Blob), no en la BD** -- acá con un motivo extra para no usar la BD:
+el volumen es más previsible (un PDF por cuota por periodo, no fotos de
+tamaño variable) pero el ritmo de generación es mucho más alto (TODOS los
+residentes de TODOS los edificios, todos los meses).
+
+#### Evaluación -- impacto / costo / beneficio, para priorizar cuál atacar primero
+
+| | 18a. Fotos/video en Incidencias | 18b. PDFs de Recibos |
+|---|---|---|
+| **Impacto de no hacerlo** | Sigue sin poder reportarse un incidente con evidencia visual -- la razón #1 (según el diagnóstico del piloto móvil) de por qué alguien abre el celular. Sin foto, el residente describe en texto y Administrador/Junta deciden a ciegas. | Cada descarga recalcula todo desde BD (presupuesto, lecturas de agua, exoneraciones, categorías, cargos adicionales) y regenera el PDF -- costo repetido para el MISMO documento. Más grave: el contenido puede cambiar retroactivamente (bug de integridad de arriba) -- nadie puede confiar en que un recibo viejo muestre lo que decía originalmente. |
+| **Costo de implementarlo** | Alto: además del storage en sí, hace falta UI de carga (`InputFile`/cámara en mobile), validación de tipo/tamaño, y depende de llegar a la Fase 2 del piloto móvil (ya estaba secuenciado ahí). Funcionalidad nueva de punta a punta. | Bajo-medio: el PDF YA se genera (QuestPDF, funciona hoy) -- sólo falta guardarlo la primera vez (el momento natural es al publicar el presupuesto, `GenerateAllReceiptsZip` ya recorre todas las cuotas del periodo) y, en descargas siguientes, servir el archivo guardado en vez de regenerar. No hay UI de carga ni validación de archivos de terceros que construir. |
+| **Beneficio** | Habilita un caso de uso nuevo (evidencia visual) -- valor claro, pero condicionado a que el piloto móvil llegue a Fase 2. | Corrige un bug real de integridad en un documento financiero, reduce carga repetida de BD/CPU en el flujo más usado de la app (recibos, que TODOS los residentes descargan todos los meses), y deja la base de storage lista para cuando haga falta para Incidencias. |
+| **Urgencia si el piloto ya está corriendo** | Baja si la Fase 1 del piloto (solo lectura, sin foto) ya cubre el lanzamiento -- reportar sin foto sigue funcionando. | Más urgente de lo que parecía al anotarlo: si el piloto ya tiene residentes reales pagando cuotas y descargando recibos, el bug de integridad ya está activo hoy, en silencio. |
+
+**Recomendación de orden:** construir el storage genérico (carpeta/Blob +
+un endpoint propio que sirva el archivo validando permisos -- **nunca**
+archivos estáticos servidos sin autenticación desde `wwwroot`, porque un
+recibo tiene datos personales/financieros y una foto de incidente puede ser
+sensible, así que la ruta no debe alcanzar para descargarlo, hace falta
+verificar que quien pide el archivo tiene derecho a verlo) una sola vez, y
+conectarlo primero a **18b (Recibos)** -- más barato, corrige un bug real
+que ya puede estar afectando al piloto, y toca el flujo de mayor volumen de
+toda la app. Recién después conectarlo a **18a (Incidencias)**, que es más
+caro y de todos modos depende de la Fase 2 del piloto móvil, que no arranca
+todavía. Es la misma infraestructura para las dos -- no es trabajo
+duplicado, es sólo invertir qué se conecta primero.
 
 ### 19. Alta de usuarios con Google / Facebook / Apple -- qué se necesita
 **Estado: no existe -- hoy sólo hay autenticación por cookie/usuario y
@@ -458,7 +524,7 @@ madurez (sólo lectura vs. acciones como aprobar gastos).
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
 | 17 | Comunicados vía WhatsApp (canal prioritario, decidido) | Alta* | Producto + integración externa |
-| 18 | Fotos/video en Incidencias: disco/storage, no BD | Alta* | Decisión + código |
+| 18 | Storage de archivos: 18b Recibos PDF primero, 18a Incidencias después | Alta* | Decisión + código |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
 | 21 | Módulo de Reuniones/Citas/Votaciones | Baja-Media* | Diseño + código (grande) |

@@ -1,0 +1,79 @@
+@* Components/RejectionModal.razor -- variante de ConfirmationModal que exige un
+   motivo de texto antes de confirmar. Usado para rechazar presupuestos/gastos: la
+   Junta tiene que dejar por escrito por qué rechaza, no sólo un sí/no. *@
+<div class="modal @(_isVisible ? "show d-block" : "d-none")" style="background-color: rgba(0,0,0,0.5)">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-slash-circle me-2"></i>
+                    @Title
+                </h5>
+            </div>
+            <div class="modal-body">
+                <p>@Message</p>
+                <label class="form-label">Motivo del rechazo *</label>
+                <textarea class="form-control" rows="3" @bind="_motivo" @bind:event="oninput"
+                          placeholder="Explicá por qué se rechaza -- quedará guardado en el historial."></textarea>
+                @if (_showError)
+                {
+                    <div class="text-danger small mt-1">El motivo es obligatorio.</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="Cancel">
+                    <i class="bi bi-x-lg me-1"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" @onclick="Confirm">
+                    <i class="bi bi-slash-circle me-1"></i> Rechazar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Rechazar";
+    [Parameter] public string Message { get; set; } = "¿Estás seguro de rechazar esto?";
+
+    // null si se canceló; el motivo (nunca vacío) si se confirmó.
+    [Parameter] public EventCallback<string?> OnClose { get; set; }
+
+    private bool _isVisible;
+    private string _motivo = string.Empty;
+    private bool _showError;
+
+    public void Show()
+    {
+        _motivo = string.Empty;
+        _showError = false;
+        _isVisible = true;
+        StateHasChanged();
+    }
+
+    public void Hide()
+    {
+        _isVisible = false;
+        StateHasChanged();
+    }
+
+    private async Task Confirm()
+    {
+        if (string.IsNullOrWhiteSpace(_motivo))
+        {
+            _showError = true;
+            StateHasChanged();
+            return;
+        }
+
+        var motivo = _motivo.Trim();
+        Hide();
+        await OnClose.InvokeAsync(motivo);
+    }
+
+    private async Task Cancel()
+    {
+        Hide();
+        await OnClose.InvokeAsync(null);
+    }
+}

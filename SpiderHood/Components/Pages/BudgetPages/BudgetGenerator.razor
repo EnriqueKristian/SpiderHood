@@ -95,7 +95,7 @@
                                 <button class="btn btn-sm btn-success" @onclick="AprobarPresupuesto">
                                     <i class="bi bi-check-circle"></i>&nbsp;Aprobar
                                 </button>
-                                <button class="btn btn-sm btn-outline-danger" @onclick="RechazarPresupuesto">
+                                <button class="btn btn-sm btn-outline-danger" @onclick="PedirRechazoPresupuesto">
                                     <i class="bi bi-slash-circle"></i>&nbsp;Rechazar
                                 </button>
                             }
@@ -475,6 +475,10 @@
 <!-- Agregar al final del componente -->
 <ConfirmationModal @ref="_confirmationModal"
                    OnClose="OnConfirmationResult" />
+<RejectionModal @ref="_rejectionModal"
+                Title="Rechazar Presupuesto"
+                Message="Este presupuesto vuelve a quedar editable para el Administrador -- indicá qué hay que corregir."
+                OnClose="OnRechazoPresupuestoConfirmado" />
 
 @code {
 
@@ -1244,15 +1248,26 @@
     // La Junta rechaza: Check -> Rejected (antes volvía directo a Created, perdiendo el
     // registro de que había sido rechazado). Rejected se trata igual que Created para
     // edición (ver CanEdit), así que el Administrador puede corregirlo y reenviarlo a
-    // aprobación.
-    private async Task RechazarPresupuesto()
+    // aprobación. El motivo es obligatorio (RejectionModal) -- antes se rechazaba sin
+    // dejar ningún registro de por qué, así que el Administrador no tenía forma de saber
+    // qué corregir sin preguntarle a la Junta por fuera de la app.
+    private RejectionModal? _rejectionModal;
+
+    private void PedirRechazoPresupuesto()
     {
+        if (!_canApproveBudget || _Status != BudgetStatus.Check) return;
+        _rejectionModal?.Show();
+    }
+
+    private async Task OnRechazoPresupuestoConfirmado(string? motivo)
+    {
+        if (motivo == null) return; // cancelado
         if (!_canApproveBudget || _Status != BudgetStatus.Check) return;
 
         _Status = BudgetStatus.Rejected;
         _BudgetState.Status = _Status;
         await SaveCalculation();
-        await WorkflowAuditService.LogAsync("Budget", _BudgetState.Budget.IdBudgetHeader, WorkflowAction.Rejected, currentUser.Email, _BudgetState.Budget.IdBuilding);
+        await WorkflowAuditService.LogAsync("Budget", _BudgetState.Budget.IdBudgetHeader, WorkflowAction.Rejected, currentUser.Email, _BudgetState.Budget.IdBuilding, motivo);
         await ShowToast("Info", $"Presupuesto{getStatusNameMessage(_Status)}", "warning");
         StateHasChanged();
     }

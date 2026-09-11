@@ -29,11 +29,13 @@ secas, es la secuencia en la que conviene tocarlos.
    edificio piloto tiene cuotas migradas, hoy se ven "Parcial" sin serlo.
 2. **#1** Unidades sin propietario no facturan a la inmobiliaria -- si el
    edificio piloto tiene unidades sin vender.
-3. **#17** Comunicados vía WhatsApp -- diseño cerrado (2026-09-11): 3
-   alcances (Público/Reservado/Privado) + 4 categorías de plantilla,
-   módulo chico a propósito. Arrancar ya con la verificación de negocio en
-   Meta y las 4 plantillas (no es instantáneo) mientras se construye la
-   pantalla en modo Simulado.
+3. **#17** Comunicados vía WhatsApp -- **IMPLEMENTADO** (2026-09-11):
+   3 alcances (Público/Reservado/Privado) + 4 categorías, pantalla admin y
+   de residente construidas y compilando. Falta probar contra BD real,
+   asignar el permiso `create_announcements` vía `/Settings/Roles`, y
+   arrancar la verificación de negocio en Meta + aprobación de las 4
+   plantillas (no es instantáneo -- mientras tanto todo sale como texto
+   libre, que puede fallar fuera de la ventana de 24hs).
 4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
    (solo lectura: presupuesto, incidencias, calendario).
 5. **#18** Storage de archivos -- **18b (Recibos PDF) y 18a (fotos/video en
@@ -289,11 +291,60 @@ que ya existía), esto es funcionalidad que **no está construida en absoluto**
 -- verificado buscando en todo el repo, no por sospecha.
 
 ### 17. Comunicados / Anuncios
-**Estado: servicio de envío por WhatsApp construido
-(`IWhatsAppService`/`WhatsAppService`, vía Twilio); diseño de negocio del
-módulo (alcance, plantillas, estructura) cerrado con el usuario el
-2026-09-11 -- ver detalle abajo. La pantalla en sí (tabla, formulario de
-publicar) todavía no está construida.**
+**Estado: IMPLEMENTADO (2026-09-11) -- `dotnet build` en 0 errores, mismo
+baseline de warnings (139). Falta probar contra una BD real (correr
+`Database/Scripts/2026-09-11_97_Comunicado.sql`) y asignar el permiso
+`create_announcements` a Administrador/Junta desde `/Settings/Roles`.**
+
+**Qué se construyó:**
+- `Database/Scripts/2026-09-11_97_Comunicado.sql` -- tablas `Comunicado`
+  (cabecera) + `ComunicadoDestinatario` (detalle, a quién le llegó y con
+  qué resultado por canal), SPs `INS_Comunicado`/`GET_ComunicadosByBuilding`/
+  `INS_ComunicadoDestinatario`/`GET_ComunicadoDestinatariosByComunicado`/
+  `GET_ComunicadosParaUsuario`, permisos `view_announcements`/
+  `create_announcements` (idempotentes), grupo de Parameter "Categoría de
+  Comunicado" con las 4 categorías (Mantenimiento Programado, Corte de
+  Servicio, Convocatoria de Reunión, Aviso General -- NO idempotente ese
+  bloque, no re-correr), y el ítem de menú admin "Comunicados" (`/comunicados`).
+- `Classes/Communication/Comunicado.cs` -- `Comunicado`, `ComunicadoDestinatario`,
+  enums `AlcanceComunicado`/`EstadoEnvioWhatsApp`/`EstadoEnvioCorreo`,
+  `PublicarComunicadoResultado`.
+- `Services/IComunicadoService.cs` -- `PublicarComunicadoAsync` resuelve
+  destinatarios según Alcance (Público/Privado contra `OwnerUnitView`
+  filtrado `Role==1 && TypeUnit==1`, mismo criterio que
+  `IExtraChargeService.GetUnidadesAsync`; Reservado contra
+  `UserBuildingAssociation` por rol de portal, con lookup de teléfono por
+  usuario -- aceptable porque la audiencia de un Reservado suele ser
+  chica), crea cabecera+destinatarios, manda por WhatsApp siempre (texto
+  libre vía `SendMessageAsync` -- **todavía no usa plantillas de Meta
+  porque no existe ninguna aprobada**, cuando exista cambiar a
+  `SendTemplateMessageAsync`) y por correo sólo si se marcó el check,
+  "best effort" (un fallo de un canal no tumba el otro).
+- `IWhatsAppService` ganó una propiedad nueva `IsSimulate` -- sin esto, el
+  Comunicado no podía distinguir "Enviado" de "Simulado" en su registro de
+  entrega (el `SendMessageAsync` existente devuelve `true` en ambos casos).
+- `Components/Pages/CommunicationPages/Comunicados.razor` (admin: listado
+  paginado+buscable con `ComunicadoPagination`, modal "Nuevo Comunicado"
+  con selector de Categoría/Alcance/Rol/Unidades según corresponda, y
+  `ConfirmationModal`/`ConfirmationUtil` antes de publicar -- nunca un
+  `alert()`/`confirm()` de JS) y
+  `Components/Pages/ResidentPages/MyAnnouncements.razor` (residente: lista
+  de comunicados visibles según su rol/unidad -- esta ruta y su permiso
+  `view_announcements` ya estaban seedeados sin nada detrás, ahora sí
+  apuntan a una pantalla real).
+- Gateo de acceso: `PermissionService.HasPermissionAsync(user,
+  "create_announcements")` en la pantalla admin -- falta que alguien
+  asigne ese permiso a Administrador/Junta desde `/Settings/Roles` (no se
+  hace por script, mismo criterio que el resto de permisos de este repo).
+
+**Pendiente:** probar contra una BD real (crear un Comunicado de cada
+Alcance, confirmar que `GET_ComunicadosParaUsuario` filtra bien por rol/
+unidad, confirmar que el envío real de WhatsApp -- no sólo Simulado --
+funciona una vez que existan credenciales de Twilio activas). Las
+plantillas de Meta siguen sin existir -- mientras tanto todo comunicado
+sale como texto libre de WhatsApp, lo cual puede fallar fuera de la
+ventana de 24hs de conversación (ver el error "ContentSid Required" que
+ya se vio esta sesión).
 
 **Qué se hizo:** `Services/IWhatsAppService.cs` (patrón calcado de
 `IEmailService`/`IPaymentService`) -- `SendMessageAsync` (texto libre, sirve
@@ -1335,7 +1386,7 @@ que confirme si mejoró y en qué medida.
 | 14 | Confirmar upsert de `ServiceReadingDetail` | Baja | Investigación |
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
-| 17 | Comunicados vía WhatsApp -- **diseño cerrado**, falta construir la pantalla | Alta* | Producto + integración externa |
+| 17 | Comunicados vía WhatsApp -- **IMPLEMENTADO**, falta probar en vivo + plantillas de Meta | Alta* | Implementado, falta validar |
 | 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados** | Alta* | **Resuelto** (2026-09-11), falta probar con BD real |
 | 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |

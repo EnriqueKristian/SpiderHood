@@ -292,6 +292,13 @@ namespace SpiderHood.Data
             public const string INS_IncidentAttachment = "INS_IncidentAttachment";
             public const string GET_IncidentAttachmentsByIncident = "GET_IncidentAttachmentsByIncident";
 
+            // Comunicado Procedures -- Docs/Pendientes-Negocio-Consolidado.md #17
+            public const string INS_Comunicado = "INS_Comunicado";
+            public const string GET_ComunicadosByBuilding = "GET_ComunicadosByBuilding";
+            public const string INS_ComunicadoDestinatario = "INS_ComunicadoDestinatario";
+            public const string GET_ComunicadoDestinatariosByComunicado = "GET_ComunicadoDestinatariosByComunicado";
+            public const string GET_ComunicadosParaUsuario = "GET_ComunicadosParaUsuario";
+
             // Calendar Procedures
             public const string INS_CalendarItem = "INS_CalendarItem";
             public const string UPD_CalendarItem = "UPD_CalendarItem";

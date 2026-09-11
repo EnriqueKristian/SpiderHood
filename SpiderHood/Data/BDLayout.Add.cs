@@ -1009,6 +1009,49 @@ namespace SpiderHood.Data
             }, "AddIncidentAttachment", cancellationToken);
         }
 
+        public async Task<Models.Comunicado> AddNewRecordAsync(Models.Comunicado comunicado, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(comunicado, nameof(comunicado));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Comunicado,
+                    cancellationToken,
+                    comunicado.IdComunicado,
+                    comunicado.IdBuilding,
+                    comunicado.Titulo,
+                    comunicado.Cuerpo,
+                    comunicado.IdCategoria,
+                    (int)comunicado.Alcance,
+                    (object?)comunicado.RolReservado ?? DBNull.Value,
+                    comunicado.EnviarPorCorreo,
+                    comunicado.CreatedBy);
+                return comunicado;
+            }, "AddComunicado", cancellationToken);
+        }
+
+        public async Task<Models.ComunicadoDestinatario> AddNewRecordAsync(Models.ComunicadoDestinatario destinatario, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(destinatario, nameof(destinatario));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ComunicadoDestinatario,
+                    cancellationToken,
+                    destinatario.IdComunicadoDestinatario,
+                    destinatario.IdComunicado,
+                    (object?)destinatario.IdGroupUnit ?? DBNull.Value,
+                    destinatario.NombreDestinatario,
+                    (object?)destinatario.Telefono ?? DBNull.Value,
+                    (object?)destinatario.Email ?? DBNull.Value,
+                    (int)destinatario.EstadoWhatsApp,
+                    (int)destinatario.EstadoCorreo);
+                return destinatario;
+            }, "AddComunicadoDestinatario", cancellationToken);
+        }
+
         public async Task<Models.CalendarItem> AddNewRecordAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

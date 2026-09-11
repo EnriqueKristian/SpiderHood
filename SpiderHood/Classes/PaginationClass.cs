@@ -716,4 +716,30 @@ namespace SpiderHood.Utilities
             ).ToList();
         }
     }
+
+    // Paginación/búsqueda para /comunicados (Docs/Pendientes-Negocio-Consolidado.md #17).
+    public class ComunicadoPagination : PaginationClass<Comunicado>
+    {
+        public ComunicadoPagination() : base()
+        {
+            var sortExpressions = new Dictionary<string, Func<Comunicado, object>>
+            {
+                { "Titulo", x => x.Titulo },
+                { "CreatedOn", x => x.CreatedOn }
+            };
+
+            InitializeConfiguration(new Dictionary<string, string>(), sortExpressions, "CreatedOn", defaultSortAscending: false);
+        }
+
+        protected override List<Comunicado> ApplySearch(List<Comunicado> data, string searchTerm)
+        {
+            var term = searchTerm.ToLower();
+
+            return data.Where(x =>
+                x.Titulo.ToLower().Contains(term) ||
+                x.Cuerpo.ToLower().Contains(term) ||
+                x.CreatedByName.ToLower().Contains(term)
+            ).ToList();
+        }
+    }
 }

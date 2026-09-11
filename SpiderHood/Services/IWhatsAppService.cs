@@ -34,6 +34,13 @@ namespace SpiderHood.Services
         // Expuesto aparte para poder validar un número (o depurar por qué no
         // se pudo mandar algo) sin tener que mandar un mensaje real.
         string? NormalizeToE164(string phoneNumber);
+
+        // Docs/Pendientes-Negocio-Consolidado.md #17 (Comunicados) -- SendMessageAsync
+        // devuelve true tanto si mandó de verdad como si sólo simuló, así que un
+        // caller que necesita distinguir ambos casos para su propio registro (ej. el
+        // estado de envío por destinatario de un Comunicado) no tenía forma de
+        // saberlo sin este flag.
+        bool IsSimulate { get; }
     }
 
     public class WhatsAppService : IWhatsAppService
@@ -44,6 +51,8 @@ namespace SpiderHood.Services
         private readonly string _fromNumber;
         private readonly string _defaultCountryCode;
         private readonly bool _simulate;
+
+        public bool IsSimulate => _simulate;
 
         public WhatsAppService(IConfiguration configuration, ILogger<WhatsAppService> logger)
         {

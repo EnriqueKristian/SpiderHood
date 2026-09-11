@@ -1135,6 +1135,31 @@ namespace SpiderHood.Data
             }, "GetIncidentAttachments", cancellationToken);
         }
 
+        public async Task<List<Models.Comunicado>> GetComunicadosByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Comunicado>(StoredProcedures.GET_ComunicadosByBuilding, idBuilding);
+            }, "GetComunicadosByBuilding", cancellationToken);
+        }
+
+        public async Task<List<Models.ComunicadoDestinatario>> GetComunicadoDestinatariosAsync(Guid idComunicado, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.ComunicadoDestinatario>(StoredProcedures.GET_ComunicadoDestinatariosByComunicado, idComunicado);
+            }, "GetComunicadoDestinatarios", cancellationToken);
+        }
+
+        public async Task<List<Models.Comunicado>> GetComunicadosParaUsuarioAsync(Guid idBuilding, string rolUsuario, Guid? idGroupUnit, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Comunicado>(
+                    StoredProcedures.GET_ComunicadosParaUsuario, idBuilding, rolUsuario, (object?)idGroupUnit ?? DBNull.Value);
+            }, "GetComunicadosParaUsuario", cancellationToken);
+        }
+
         public async Task<List<Models.CalendarItem>> GetCalendarItemsByBuildingAsync(Guid idBuilding, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

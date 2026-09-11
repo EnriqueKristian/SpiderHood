@@ -43,7 +43,7 @@ secas, es la secuencia en la que conviene tocarlos.
 **Grupo 2 -- importante, no bloquea el lanzamiento:**
 6. **#2** Reportes financieros suman transacciones Ignoradas.
 7. **#6** Bug compartido en modales de confirmación (`ConfirmationUtil`) --
-   fix chico, pero toca 4+ pantallas.
+   **resuelto (2026-09-11)**, ver detalle del punto 6.
 8. **#11** Falta el ítem de menú "Permisos" -- 5 minutos de configuración.
 9. **#20** Reportes de Incidencias -- mismo patrón que los otros 4 reportes.
 10. **#4** Borrado de edificio: FKs sin confirmar -- sólo urge si se va a

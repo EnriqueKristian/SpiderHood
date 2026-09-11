@@ -9,63 +9,20 @@ namespace SpiderHood.Components.Pages.BuildingPages
     public partial class BuildingPage
     {
         [Inject]
-        public Services.ICategoryService CategoryService { get; set; } = default!;
-        [Inject]
         public Services.IBuildingService BuildingService { get; set; } = default!;
-        [Inject]
-        public Services.IBankAccountService BankAccountService { get; set; } = default!;
 
         private List<Building> Buildings = new();
         private Building SelectedBuilding = null;
         private Building _editingBuilding = new();
-        private Building _quickConfigBuilding = null;
-        private BankAccount _editingBankAccout = new();
 
-        // El checkbox "Activo" del modal de Cuenta Bancaria estaba conectado por error
-        // a _editingBuilding.IsActive (el estado del EDIFICIO, no de la cuenta) --
-        // BankAccount.Status es un int (no bool), así que además hace falta este wrapper
-        // para poder usarlo con InputCheckbox. Convención 1=Activo/0=Inactivo -- Status
-        // no tenía ningún otro lugar en la app que lo leyera todavía.
-        private bool BankAccountIsActive
-        {
-            get => _editingBankAccout.Status == 1;
-            set => _editingBankAccout.Status = value ? 1 : 0;
-        }
-        private Exoneration _Exoneration = new();
-        private IReadOnlyList<Models.Parameter> filteredParameters;
-        private List<Models.Category> filteredCategory = new();
-        private List<Models.UnitView> filteredUnits = new();
-
-        private string _editingSection = "";
-        private BuildingConfiguration _configurationBackup = new();
         private bool _isEditingBuilding = false;
-        private bool _isEditingBanckAccount = false;
-        private Guid? _sourceBuildingId = null;
-        private bool _copyCurrency = true;
-        private bool _copyPayments = true;
-        private bool _copyFines = true;
-        private bool _copyContacts = true;
-        private bool _copyAll = true;
 
         private Modal _buildingModal = null!;
-        private Modal _quickConfigModal = null!;
-        private Modal _bankAccount = null!;
-        private Modal _exoneration = null!;
         private Modal _deleteBuildingModal = null!;
         private Building _buildingToDelete = null;
         private string _deleteBuildingConfirmText = "";
 
-        private List<string> _paymentMethods = new();// { "Transferencia Bancaria", "Pago en Efectivo", "Tarjeta de Crédito", "Cheque" };
-        private List<Currency> _currencies = new()
-    {
-        new Currency { Code = "PEN", Symbol = "S/", Name = "Soles" },
-        new Currency { Code = "USD", Symbol = "$", Name = "Dólares" },
-        new Currency { Code = "EUR", Symbol = "€", Name = "Euros" }
-    };
-
-        //private Guid IdBuilding = Guid.Empty;
         private UserSession currentUser = new();
-        //private bool _loaded = false;
         private bool _canEditBuilding;
         private bool _canCreateBuilding;
 
@@ -83,19 +40,16 @@ namespace SpiderHood.Components.Pages.BuildingPages
             if (firstRender)
             {
                 await InicializarPagina();
-                //_loaded = true;
                 StateHasChanged();
             }
         }
 
         protected async Task InicializarPagina()
         {
-            // Verificar si ya está inicializado o cancelado
             Console.WriteLine($"🏢 Buildings.OnInitializedAsync - Iniciando");
 
             try
             {
-                // 1. CARGAR DATOS DE LA PÁGINA
                 await CargarDatosPagina();
             }
             catch (Exception ex)
@@ -106,17 +60,14 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private async Task CargarDatosPagina()
         {
-            Console.WriteLine($"📦 Cargando datos para edificio: ");
-
             // Cargar edificios del propietario
             Buildings = currentUser!.Buildings!.Where(c => c.Role == currentUser.Role).Select(ub => ub.Building).ToList()!;
 
             // Sin ningún Building todavía (instalación nueva) Buildings queda vacía --
             // Buildings.First() tiraba InvalidOperationException acá, silenciada por el
-            // try/catch de InicializarPagina, y el resto de la carga (parámetros,
-            // categorías, unidades) nunca corría. El markup ya maneja bien
-            // SelectedBuilding == null (@if (Buildings.Any())/@if (SelectedBuilding != null)),
-            // así que alcanza con no crashear acá.
+            // try/catch de InicializarPagina, y el resto de la carga nunca corría. El
+            // markup ya maneja bien Buildings vacía (@if (Buildings.Any())), así que
+            // alcanza con no crashear acá.
             if (!Buildings.Any())
             {
                 // Quien se acaba de registrar desde /register-admin (Administrador
@@ -131,60 +82,18 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 return;
             }
 
-            SelectedBuilding = Buildings.First();   //GetBuildingDefault
+            SelectedBuilding = Buildings.First();
 
-            // Cargar parámetros -- antes esta página sólo LEÍA
-            // ParameterService.ListParameters (lo que ya hubiera en memoria), sin nunca
-            // pedirle la carga a propósito. Si se entraba directo acá (sin pasar antes por
-            // /parameter, Home u otra pantalla que sí llame a LoadParametersAsync), la
-            // lista quedaba vacía o con los datos de otro edificio -- el badge de Tipo
-            // ("No se encontró coincidencia") y los Métodos de Pago de más abajo dependían
-            // de esta misma lista. LoadParametersAsync ya cachea por edificio (5 min), así
-            // que llamarlo acá no repite trabajo si ya se había cargado antes.
+            // Necesarios acá sólo para el badge de Tipo de la lista y para el <select>
+            // "Tipo" del modal de crear/editar edificio -- la configuración completa
+            // (BankAccounts, Exonerations, categorías, unidades, etc.) ya no se carga en
+            // esta página, se carga en BuildingConfig al entrar a /buildings/{Id}/config.
             await ParameterService.LoadParametersAsync(SelectedBuilding.IdBuilding);
-            filteredParameters = ParameterService.ListParameters;
-
-            // Cargar categorías
-            filteredCategory = await CategoryService.GetCategoriesAsync(SelectedBuilding.IdBuilding);
-
-            // Cargar unidades
-            filteredUnits = await BuildingService.GetGroupUnitsByTypeAsync(SelectedBuilding.IdBuilding, 1);
-
-            // Cargar métodos de pago (PARAMETRO_PADRE = 16)
-            _paymentMethods = filteredParameters
-                .Where(c => c.IdParent == 16)
-                .Select(c => c.ShortDescription)
-                .ToList();
-
-            // Seleccionar el primer edificio por defecto
-            if (Buildings.Any())
-            {
-                //SelectedBuilding = Buildings.First();   //GetBuildingDefault
-                SelectedBuilding.Configuration = await GetConfigurationAsync(SelectedBuilding.IdBuilding);
-            }
-
-            Console.WriteLine("✅ Datos cargados correctamente");
         }
 
-        private async Task<BuildingConfiguration> GetConfigurationAsync(Guid IdBuilding)
+        private void GoToConfig(Building building)
         {
-            return await BuildingService.GetConfigurationAsync(IdBuilding);
-        }
-
-        private async Task SelectBuilding(Building building)
-        {
-            SelectedBuilding = building;
-            CancelEdit(); // Cancelar cualquier edición en curso
-
-            // Sin este refresh, SelectedBuilding.Configuration quedaba con la versión
-            // "liviana" que trae la sesión (GetAllBuildingsConfigAsync, usada para poblar
-            // currentUser.Buildings al loguear) en vez de la completa que sí carga
-            // GetConfigurationAsync (BankAccounts, Exonerations, etc.) -- sólo el primer
-            // edificio (el que selecciona CargarDatosPagina al entrar) la tenía. Al
-            // cambiar de edificio en el mismo circuito sin recargar la página, las cuentas
-            // bancarias de cualquier otro edificio se veían vacías, y agregar una ahí
-            // corría el riesgo de guardarse contra datos de configuración desactualizados.
-            SelectedBuilding.Configuration = await GetConfigurationAsync(SelectedBuilding.IdBuilding);
+            Navigation.NavigateTo($"/buildings/{building.IdBuilding}/config");
         }
 
         // Docs/Pendientes-Negocio-Migracion.md #6.3 -- sólo SysAdmin (gate repetido acá
@@ -234,10 +143,6 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 if (SelectedBuilding?.IdBuilding == building.IdBuilding)
                 {
                     SelectedBuilding = Buildings.FirstOrDefault();
-                    if (SelectedBuilding != null)
-                    {
-                        SelectedBuilding.Configuration = await GetConfigurationAsync(SelectedBuilding.IdBuilding);
-                    }
                 }
 
                 // Mismo motivo que en SaveBuilding: sin esto, el edificio borrado seguía
@@ -325,24 +230,6 @@ namespace SpiderHood.Components.Pages.BuildingPages
             await _buildingModal.ShowAsync();
         }
 
-        private async Task CloseBankModal()
-        {
-            //RemoveBankAccount(SelectedBuilding!.Configuration.BankAccounts.Count);
-            await _bankAccount.HideAsync();
-        }
-
-        private async Task CloseContactModal()
-        {
-            RemoveBankAccount(SelectedBuilding!.Configuration.BankAccounts.Count);
-            await _bankAccount.HideAsync();
-        }
-
-        private async Task CloseExonerationModal()
-        {
-            //RemoveBankAccount(SelectedBuilding!.Configuration.BankAccounts.Count);
-            await _exoneration.HideAsync();
-        }
-
         private async Task SaveBuilding()
         {
             if (_isEditingBuilding ? !_canEditBuilding : !_canCreateBuilding) return;
@@ -408,503 +295,5 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 Console.WriteLine($"Error al guardar edificio: {ex.Message}");
             }
         }
-
-        private async Task SaveBankAccout()
-        {
-            try
-            {
-                if (!_isEditingBanckAccount)
-                {
-                    SelectedBuilding!.Configuration.BankAccounts.Add(_editingBankAccout);
-                    _editingBankAccout = new BankAccount();
-                }
-                else
-                {
-                    //SelectedBuilding!.Configuration.BankAccounts.Add(_editingBankAccout);
-                }
-                await _bankAccount.HideAsync();
-                StateHasChanged();
-                _isEditingBanckAccount = false;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al guardar edificio: {ex.Message}");
-            }
-        }
-
-        private async Task SaveContact()
-        {
-            try
-            {
-                if (!_isEditingBanckAccount)
-                {
-                    SelectedBuilding!.Configuration.BankAccounts.Add(_editingBankAccout);
-                    _editingBankAccout = new BankAccount();
-                }
-                else
-                {
-                    //SelectedBuilding!.Configuration.BankAccounts.Add(_editingBankAccout);
-                }
-                await _bankAccount.HideAsync();
-                StateHasChanged();
-                _isEditingBanckAccount = false;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al guardar edificio: {ex.Message}");
-            }
-        }
-
-        private async Task SaveExoneration()
-        {
-            try
-            {
-                SelectedBuilding!.Configuration.Exonerations.Add(_Exoneration);
-                _Exoneration = new Exoneration();
-                await _exoneration.HideAsync();
-                StateHasChanged();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al guardar edificio: {ex.Message}");
-            }
-        }
-
-        private void StartEditSection(string section)
-        {
-            if (!_canEditBuilding) return;
-            if (SelectedBuilding != null)
-            {
-                _configurationBackup = SelectedBuilding.Configuration.Clone();
-                _editingSection = section;
-            }
-        }
-
-        private void CancelEdit()
-        {
-            if (SelectedBuilding != null && !string.IsNullOrEmpty(_editingSection))
-            {
-                SelectedBuilding.Configuration = _configurationBackup.Clone();
-            }
-            _editingSection = "";
-        }
-
-        private async Task SaveSection(string section)
-        {
-            if (!_canEditBuilding) return;
-            try
-            {
-                // Aquí iría la lógica para guardar en la base de datos
-                var interno = SelectedBuilding!.Configuration;
-
-                //validar el Id, si esta vacio, guardar configuracion Base
-                if (interno.IdBuildingConfiguration == Guid.Empty)
-                {
-                    interno.IdBuildingConfiguration = Guid.NewGuid();
-                    interno.IdBuilding = currentUser.CurrentBuildingId;
-                    await BuildingService.CreateConfigurationAsync(interno);
-                }
-
-                switch (section)
-                {
-                    case "payments":
-                        //await SaveSectionAAsync(ct);
-
-                        break;
-
-                    case "currency":
-                        //await SaveSectionBAsync(ct);
-                        //Actualizar Moneda
-
-                        //Actualizar Bank Account
-                        if (interno.BankAccounts.Count > 0)
-                        {
-                            foreach (var bankaccount in interno.BankAccounts)
-                            {
-                                if (bankaccount.IdBankAccount == Guid.Empty)
-                                {
-                                    //add BankAccount
-                                    bankaccount.IdBankAccount = Guid.NewGuid();
-                                    bankaccount.IdBuilding = interno.IdBuilding;
-
-                                    await BankAccountService.AddBankAccount(bankaccount);
-                                }
-                                else
-                                {
-                                    //Update BankAccount
-                                    await BankAccountService.UpdateBankAccount(bankaccount);
-                                }
-                            }
-                        }
-                        break;
-
-                    case "fines":
-                        //await SaveSectionCAsync(ct);
-                        break;
-                    case "admin":
-                        //await SaveSectionAAsync(ct);
-
-                        if (SelectedBuilding.Configuration.AdminContact.IdContact == Guid.Empty)
-                        {
-                            SelectedBuilding.Configuration.AdminContact.IdContact = Guid.NewGuid();
-                            SelectedBuilding.Configuration.AdminContact.IdRelatedEntity = interno.IdBuildingConfiguration;
-                            SelectedBuilding.Configuration.AdminContact.TypeContact = 1;
-                            await BuildingService.AddContactAsync(SelectedBuilding.Configuration.AdminContact);
-                        }
-                        else
-                        {
-                            await BuildingService.UpdateContactAsync(SelectedBuilding.Configuration.AdminContact);
-                        }
-                        break;
-
-                    case "realty":
-                        //await SaveSectionBAsync(ct);
-                        if (SelectedBuilding.Configuration.RealEstateCompany.IdContact == Guid.Empty)
-                        {
-                            SelectedBuilding.Configuration.RealEstateCompany.IdContact = Guid.NewGuid();
-                            SelectedBuilding.Configuration.RealEstateCompany.IdRelatedEntity = interno.IdBuildingConfiguration;
-                            SelectedBuilding.Configuration.RealEstateCompany.TypeContact = 2;
-                            await BuildingService.AddContactAsync(SelectedBuilding.Configuration.RealEstateCompany);
-                        }
-                        else
-                        {
-                            await BuildingService.UpdateContactAsync(SelectedBuilding.Configuration.RealEstateCompany);
-                        }
-                        break;
-
-                    case "maintenance":
-                        //await SaveSectionCAsync(ct);
-                        if (SelectedBuilding.Configuration.MaintenanceCompany.IdContact == Guid.Empty)
-                        {
-                            SelectedBuilding.Configuration.MaintenanceCompany.IdContact = Guid.NewGuid();
-                            SelectedBuilding.Configuration.MaintenanceCompany.IdRelatedEntity = interno.IdBuildingConfiguration;
-                            SelectedBuilding.Configuration.MaintenanceCompany.TypeContact = 3;
-                            await BuildingService.AddContactAsync(SelectedBuilding.Configuration.MaintenanceCompany);
-                        }
-                        else
-                        {
-                            await BuildingService.UpdateContactAsync(SelectedBuilding.Configuration.MaintenanceCompany);
-                        }
-                        break;
-                    case "category":
-                        //await SaveSectionCAsync(ct);
-                        break;
-                    case "exception":
-                        //Actualizar Bank Account
-                        if (interno.Exonerations.Count > 0)
-                        {
-                            foreach (var _exception in interno.Exonerations)
-                            {
-                                if (_exception.IdExoneration == Guid.Empty)
-                                {
-                                    //add Exoneration
-                                    _exception.IdExoneration = Guid.NewGuid();
-                                    _exception.IdBuilding = interno.IdBuilding;
-
-                                    await BuildingService.AddExonerationAsync(_exception);
-                                }
-                                else
-                                {
-                                    //Delete Exoneration
-                                    if (_exception.IsDeleted)
-                                        await BuildingService.DeleteExonerationAsync(_exception);
-                                }
-                            }
-                        }
-                        break;
-                    default:
-                        //await SaveSectionDefaultAsync(section, ct);
-                        break;
-                }
-
-                await BuildingService.UpdateConfigurationAsync(SelectedBuilding.Configuration);
-
-                // ExpenseApprovalThreshold NO viaja en UpdateConfigurationAsync (esa llama a
-                // UPD_BuildingConfiguration, que pasa sus 16 parámetros posicionalmente --
-                // agregar uno ahí exige tocar esa lista Y el SP en el mismo orden exacto sin
-                // que el compilador avise si se desalinean). Se guarda aparte con su propio
-                // UPD chico, pero desde el mismo botón "Guardar" para que sea un solo flujo.
-                await BuildingService.UpdateExpenseApprovalThresholdAsync(
-                    SelectedBuilding.Configuration.IdBuildingConfiguration,
-                    SelectedBuilding.Configuration.ExpenseApprovalThreshold);
-
-                // ParameterService.CurrentBuilding se carga una sola vez al iniciar sesión
-                // (HeaderMainLayout) y no se refresca solo — sin este sync, un cambio como
-                // el pie del recibo o el CCI quedaba guardado en BD pero el resto de la app
-                // (p.ej. el recibo PDF, que lee ParameterService.CurrentBuilding.Configuration)
-                // seguía viendo el valor viejo hasta un relogin.
-                if (ParameterService.CurrentBuilding != null &&
-                    ParameterService.CurrentBuilding.IdBuilding == SelectedBuilding.IdBuilding)
-                {
-                    ParameterService.CurrentBuilding.Configuration = SelectedBuilding.Configuration.Clone();
-                }
-
-                _editingSection = "";
-                StateHasChanged();
-            }
-            catch (Exception ex)
-            {
-                // Antes esto sólo se logueaba a consola -- un error real de guardado
-                // (p.ej. el truncamiento de CCI que motivó este fix) no se le mostraba
-                // nunca al usuario, así que "Guardar" simplemente no parecía hacer nada.
-                Console.WriteLine($"Error al guardar: {ex.Message}");
-                await JSRuntime.InvokeVoidAsync("alert", $"No se pudo guardar: {ex.Message}");
-            }
-        }
-
-        private async Task SaveConfiguration()
-        {
-            try
-            {
-                // Guardar todas las configuraciones del edificio actual
-                await Task.Delay(500);
-                // Lógica de guardado en base de datos
-                // await SaveBuildingConfiguration(SelectedBuilding);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al guardar configuración: {ex.Message}");
-            }
-        }
-
-        private async Task SaveAllConfigurations()
-        {
-            try
-            {
-                // Guardar configuraciones de todos los edificios
-                // Esta función sería útil para guardar cambios en lote
-                foreach (var building in Buildings)
-                {
-                    //await SaveBuildingConfiguration(building);
-                }
-
-                // Mostrar mensaje de éxito
-                Console.WriteLine("Todas las configuraciones guardadas exitosamente");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al guardar todas las configuraciones: {ex.Message}");
-            }
-        }
-
-        private void AddBankAccount()
-        {
-            if (SelectedBuilding != null)
-            {
-                // Sin este reset, si antes se había abierto "Editar" sobre otra cuenta,
-                // "Nuevo Cta." reabría el modal reusando ese mismo objeto (_isEditingBanckAccount
-                // seguía en true) -- terminaba editando la cuenta vieja en vez de crear una nueva.
-                _editingBankAccout = new BankAccount { Status = 1 };
-                _isEditingBanckAccount = false;
-                _bankAccount.ShowAsync();
-            }
-        }
-
-        private void ShowAddExceptionModal()
-        {
-            if (SelectedBuilding != null)
-            {
-                _exoneration.ShowAsync();
-            }
-        }
-
-        private void EditBankAccount(int index)
-        {
-            // "> 1" dejaba a este método sin efecto cuando el edificio tenía exactamente
-            // UNA cuenta bancaria (el caso más común) -- el modal se abría igual, pero sin
-            // cargar los datos de esa cuenta.
-            if (SelectedBuilding != null && index >= 0 && index < SelectedBuilding.Configuration.BankAccounts.Count)
-            {
-                _editingBankAccout = SelectedBuilding.Configuration.BankAccounts[index];
-                _isEditingBanckAccount = true;
-            }
-            _bankAccount.ShowAsync();
-        }
-
-        private void RemoveBankAccount(int index)
-        {
-            if (SelectedBuilding != null && SelectedBuilding.Configuration.BankAccounts.Count > 1)
-            {
-                SelectedBuilding.Configuration.BankAccounts.RemoveAt(index);
-            }
-        }
-
-        private void RemoveException(Exoneration item)
-        {
-            item.IsDeleted = true;
-            StateHasChanged();
-        }
-
-        private void TogglePaymentMethod(string method)
-        {
-            if (SelectedBuilding != null)
-            {
-                if (SelectedBuilding.Configuration.PaymentMethods.Contains(method))
-                {
-                    SelectedBuilding.Configuration.PaymentMethods.Remove(method);
-                }
-                else
-                {
-                    SelectedBuilding.Configuration.PaymentMethods.Add(method);
-                }
-            }
-        }
-
-        private async Task ShowQuickConfig(Building building)
-        {
-            _quickConfigBuilding = building;
-            _sourceBuildingId = null;
-            _copyCurrency = _copyPayments = _copyFines = _copyContacts = _copyAll = true;
-            await _quickConfigModal.ShowAsync();
-        }
-
-        private async Task ApplyQuickConfig()
-        {
-            if (_quickConfigBuilding != null && _sourceBuildingId.HasValue)
-            {
-                var sourceBuilding = Buildings.FirstOrDefault(b => b.IdBuilding == _sourceBuildingId.Value);
-                if (sourceBuilding != null)
-                {
-                    if (_copyCurrency)
-                    {
-                        _quickConfigBuilding.Configuration.Currency = sourceBuilding.Configuration.Currency;
-                        // .Clone() es un MemberwiseClone -- conserva IdBankAccount/IdBuilding
-                        // del edificio ORIGEN. Sin resetearlos acá, al guardar (SaveSection
-                        // "currency") IdBankAccount != Guid.Empty hace que se llame
-                        // UpdateBankAccount en vez de AddBankAccount, y la cuenta bancaria
-                        // real del edificio origen queda re-escrita con estos datos en vez de
-                        // crearse una cuenta nueva para el edificio destino.
-                        _quickConfigBuilding.Configuration.BankAccounts = sourceBuilding.Configuration.BankAccounts
-                            .Select(a =>
-                            {
-                                var clon = a.Clone();
-                                clon.IdBankAccount = Guid.Empty;
-                                clon.IdBuilding = Guid.Empty;
-                                return clon;
-                            }).ToList();
-                    }
-
-                    if (_copyPayments)
-                    {
-                        _quickConfigBuilding.Configuration.PaymentMethods = new List<string>(sourceBuilding.Configuration.PaymentMethods);
-                        _quickConfigBuilding.Configuration.PaymentPeriod = sourceBuilding.Configuration.PaymentPeriod;
-                        _quickConfigBuilding.Configuration.DueDay = sourceBuilding.Configuration.DueDay;
-                    }
-
-                    if (_copyFines)
-                    {
-                        _quickConfigBuilding.Configuration.FineAmount = sourceBuilding.Configuration.FineAmount;
-                        _quickConfigBuilding.Configuration.LateInterestRate = sourceBuilding.Configuration.LateInterestRate;
-                        _quickConfigBuilding.Configuration.InvoiceDay = sourceBuilding.Configuration.InvoiceDay;
-                    }
-
-                    if (_copyContacts)
-                    {
-                        // Mismo problema que con BankAccounts: sin resetear IdContact/
-                        // IdRelatedEntity, "Guardar" en la sección Admin/Inmobiliaria/
-                        // Mantenimiento del edificio destino terminaba llamando
-                        // UpdateContactAsync sobre el Contact real del edificio ORIGEN
-                        // (mismo IdContact) -- el nombre editado se guardaba en el contacto
-                        // del origen, no se creaba uno nuevo para el destino, y el edificio
-                        // destino seguía sin ningún Contact propio en la BD.
-                        _quickConfigBuilding.Configuration.AdminContact = sourceBuilding.Configuration.AdminContact.Clone();
-                        _quickConfigBuilding.Configuration.AdminContact.IdContact = Guid.Empty;
-                        _quickConfigBuilding.Configuration.AdminContact.IdRelatedEntity = Guid.Empty;
-
-                        _quickConfigBuilding.Configuration.RealEstateCompany = sourceBuilding.Configuration.RealEstateCompany.Clone();
-                        _quickConfigBuilding.Configuration.RealEstateCompany.IdContact = Guid.Empty;
-                        _quickConfigBuilding.Configuration.RealEstateCompany.IdRelatedEntity = Guid.Empty;
-
-                        _quickConfigBuilding.Configuration.MaintenanceCompany = sourceBuilding.Configuration.MaintenanceCompany.Clone();
-                        _quickConfigBuilding.Configuration.MaintenanceCompany.IdContact = Guid.Empty;
-                        _quickConfigBuilding.Configuration.MaintenanceCompany.IdRelatedEntity = Guid.Empty;
-                    }
-
-                    // Si estamos editando el edificio seleccionado, actualizar la vista
-                    if (SelectedBuilding?.IdBuilding == _quickConfigBuilding.IdBuilding)
-                    {
-                        SelectedBuilding = _quickConfigBuilding;
-                    }
-
-                    await _quickConfigModal.HideAsync();
-                    StateHasChanged();
-                }
-            }
-        }
-
-        private async Task CopyConfigToAll()
-        {
-            if (SelectedBuilding != null)
-            {
-                // Copiar configuración del edificio seleccionado a todos los demás
-                foreach (var building in Buildings.Where(b => b.IdBuilding != SelectedBuilding.IdBuilding))
-                {
-                    // Clone() preserva IdBuildingConfiguration/IdBuilding del edificio
-                    // ORIGEN, además de IdContact/IdBankAccount de cada Contact/BankAccount
-                    // -- sin resetearlos, este building quedaba apuntando a la fila de
-                    // configuración y a los contactos/cuentas reales de otro edificio, y
-                    // guardar cualquier sección después terminaría actualizando esos
-                    // registros ajenos en vez de crear los propios de este edificio (mismo
-                    // problema que ApplyQuickConfig).
-                    var clonedConfig = SelectedBuilding.Configuration.Clone();
-                    clonedConfig.IdBuildingConfiguration = building.Configuration.IdBuildingConfiguration;
-                    clonedConfig.IdBuilding = building.IdBuilding;
-
-                    clonedConfig.AdminContact.IdContact = Guid.Empty;
-                    clonedConfig.AdminContact.IdRelatedEntity = Guid.Empty;
-                    clonedConfig.RealEstateCompany.IdContact = Guid.Empty;
-                    clonedConfig.RealEstateCompany.IdRelatedEntity = Guid.Empty;
-                    clonedConfig.MaintenanceCompany.IdContact = Guid.Empty;
-                    clonedConfig.MaintenanceCompany.IdRelatedEntity = Guid.Empty;
-
-                    foreach (var bankAccount in clonedConfig.BankAccounts)
-                    {
-                        bankAccount.IdBankAccount = Guid.Empty;
-                        bankAccount.IdBuilding = Guid.Empty;
-                    }
-
-                    building.Configuration = clonedConfig;
-                }
-
-                // Mostrar mensaje de éxito
-                Console.WriteLine($"Configuración copiada a {Buildings.Count - 1} edificios");
-            }
-        }
-
-        private bool CopyAll
-        {
-            get => _copyAll;
-            set
-            {
-                _copyAll = value;
-                if (value)
-                {
-                    _copyCurrency = _copyPayments = _copyFines = _copyContacts = true;
-                }
-                else
-                {
-                    _copyCurrency = _copyPayments = _copyFines = _copyContacts = false;
-                }
-            }
-        }
-
-        private async Task ChangeTypeAccount(ChangeEventArgs args)
-        {
-            //Logica para cambiar el tipo de cuenta
-            _editingBankAccout.AccountNumber = args.Value!.ToString()!;
-        }
-
-        private string GetCategoryName(Guid IdSearch)
-        {
-            var category = filteredCategory.FirstOrDefault(c => c.IdCategory == IdSearch);
-            return category?.ShortDescript ?? "Categoría General";
-        }
-
-        private string GetGroupUnitName(Guid IdSearch)
-        {
-            var groupunit = filteredUnits.FirstOrDefault(c => c.IdGroupUnit == IdSearch);
-            return groupunit?.UnitNumber ?? "Sin Data";
-        }
-
     }
 }

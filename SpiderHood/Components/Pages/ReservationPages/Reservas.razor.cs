@@ -45,6 +45,20 @@ namespace SpiderHood.Components.Pages.ReservationPages
             currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
             _idGroupUnit = await AuthService.GetCurrentUnitIdAsync();
 
+            // Esta pantalla es de autoservicio del Residente (siempre reserva a nombre de
+            // SU unidad) -- Administrador/Junta/SysAdmin nunca tienen una acá, así que
+            // "sin unidad" no es un caso de error para ellos sino la señal de que vinieron
+            // a la pantalla equivocada. Si tiene el permiso de gestión, se lo manda directo
+            // a /reservas-admin (ahí puede elegir cualquier unidad como responsable) en vez
+            // de dejarlo en un cartel de advertencia -- feedback del usuario (2026-09-12):
+            // seguía sin poder entrar, no encontraba el otro link.
+            if (_idGroupUnit == null && currentUser.CurrentBuildingId != Guid.Empty
+                && await PermissionService.HasPermissionAsync(currentUser, "manage_reservations"))
+            {
+                Navigation.NavigateTo("/reservas-admin");
+                return;
+            }
+
             if (currentUser.CurrentBuildingId != Guid.Empty && _idGroupUnit != null)
             {
                 if (ParameterService.CurrentBuilding == null || ParameterService.CurrentBuilding.IdBuilding != currentUser.CurrentBuildingId)

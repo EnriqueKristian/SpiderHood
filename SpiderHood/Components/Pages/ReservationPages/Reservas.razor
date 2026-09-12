@@ -3,10 +3,12 @@
 @using SpiderHood.Models
 @using SpiderHood.Components.Pages.Components
 @inject Services.AuthService AuthService
+@inject Services.IPermissionService PermissionService
 @inject Services.IAreaComunService AreaComunService
 @inject Services.IReservaService ReservaService
 @inject Services.IBuildingService BuildingService
 @inject Services.ParameterService ParameterService
+@inject NavigationManager Navigation
 
 <PageTitle>Reservas</PageTitle>
 
@@ -23,14 +25,9 @@ else if (_idGroupUnit == null)
             <i class="bi bi-exclamation-triangle me-1"></i>
             Tu cuenta no tiene una unidad asignada en este edificio -- no se puede solicitar una reserva
             desde esta pantalla (es la vista de un Residente, para reservar a nombre de su propia unidad).
-            @if (currentUser.Role is "Administrador" or "Junta")
-            {
-                <span>
-                    Si es para alquilar el área a alguien externo o gestionar el pedido de un propietario,
-                    hacelo desde <a href="/reservas-admin">Gestión de Reservas</a>, donde podés elegir la
-                    unidad responsable.
-                </span>
-            }
+            No tenés tampoco el permiso de gestión de Reservas para que te redirijamos a la vista de
+            Administrador -- pedí que te asignen <code>manage_reservations</code> en
+            <code>/Settings/Roles</code> si necesitás cargar reservas en nombre de otra unidad.
         </div>
     </div>
 }

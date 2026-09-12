@@ -21,7 +21,16 @@ else if (_idGroupUnit == null)
     <div class="container-fluid px-4 py-3">
         <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle me-1"></i>
-            Tu cuenta no tiene una unidad asignada en este edificio -- no se puede solicitar una reserva.
+            Tu cuenta no tiene una unidad asignada en este edificio -- no se puede solicitar una reserva
+            desde esta pantalla (es la vista de un Residente, para reservar a nombre de su propia unidad).
+            @if (currentUser.Role is "Administrador" or "Junta")
+            {
+                <span>
+                    Si es para alquilar el área a alguien externo o gestionar el pedido de un propietario,
+                    hacelo desde <a href="/reservas-admin">Gestión de Reservas</a>, donde podés elegir la
+                    unidad responsable.
+                </span>
+            }
         </div>
     </div>
 }

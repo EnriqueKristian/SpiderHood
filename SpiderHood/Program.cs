@@ -10,6 +10,7 @@ using MercadoPago.Client.Preapproval;
 using MercadoPago.Config;
 using SpiderHood.Services;
 using SpiderHood.Services.Logging;
+using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -331,6 +332,75 @@ app.MapPost("/api/mercadopago/webhook", async (HttpRequest request, ISubscriptio
 
     return Results.Ok();
 }).AllowAnonymous(); // MercadoPago llama sin cookie -- ver el comentario de arriba.
+
+// Formulario de contacto de la landing pública (wwwroot/index.html, sección
+// #contacto) -- un <form method="post" action="/api/contacto"> plano, sin
+// JS/fetch, así que el navegador hace un POST normal application/x-www-form-
+// urlencoded. AllowAnonymous porque lo llena gente sin sesión; DisableAntiforgery
+// porque el HTML es estático (SendFileAsync, no un componente Razor) y no tiene
+// forma de incrustar un token -- igual que el webhook de MercadoPago de arriba,
+// la superficie pública es aceptable acá: en el peor caso es spam, no hay ninguna
+// acción sobre datos de un usuario autenticado detrás de este endpoint.
+// El campo "_empresa" es un honeypot (input oculto vía CSS, invisible para una
+// persona real) -- si viene lleno, se responde OK sin enviar nada, para no
+// pelear con captchas por unos bots de formulario.
+app.MapPost("/api/contacto", async (HttpRequest request, IEmailService emailService, IConfiguration configuration, ILogger<Program> logger) =>
+{
+    var form = await request.ReadFormAsync();
+    string Campo(string nombre) => form[nombre].ToString().Trim();
+
+    if (!string.IsNullOrEmpty(Campo("_empresa")))
+    {
+        return Results.Redirect("/?contacto=ok");
+    }
+
+    var nombre = Campo("nombre");
+    var email = Campo("email");
+    var telefono = Campo("telefono");
+    var comunidad = Campo("comunidad");
+    var interes = Campo("interes");
+    var mensaje = Campo("mensaje");
+
+    if (string.IsNullOrEmpty(nombre) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(mensaje)
+        || !await emailService.IsValidEmailAsync(email))
+    {
+        return Results.Redirect("/?contacto=error");
+    }
+
+    // Sin un "buzón de ventas" propio todavía -- llega al mismo correo desde el
+    // que la app manda el resto de sus notificaciones (Email:SmtpUser), salvo
+    // que se configure explícitamente Email:ContactRecipient más adelante.
+    var destinatario = configuration["Email:ContactRecipient"] ?? configuration["Email:SmtpUser"];
+    if (string.IsNullOrEmpty(destinatario))
+    {
+        logger.LogWarning("Formulario de contacto: no hay Email:ContactRecipient ni Email:SmtpUser configurado, no se puede enviar.");
+        return Results.Redirect("/?contacto=error");
+    }
+
+    var cuerpo = $"""
+        <p>Nuevo mensaje desde el formulario de contacto de la landing:</p>
+        <ul>
+          <li><strong>Nombre:</strong> {WebUtility.HtmlEncode(nombre)}</li>
+          <li><strong>Email:</strong> {WebUtility.HtmlEncode(email)}</li>
+          <li><strong>Teléfono:</strong> {WebUtility.HtmlEncode(telefono)}</li>
+          <li><strong>Comunidad:</strong> {WebUtility.HtmlEncode(comunidad)}</li>
+          <li><strong>Interés:</strong> {WebUtility.HtmlEncode(interes)}</li>
+        </ul>
+        <p><strong>Mensaje:</strong></p>
+        <p>{WebUtility.HtmlEncode(mensaje).Replace("\n", "<br>")}</p>
+        """;
+
+    try
+    {
+        await emailService.SendEmailAsync(destinatario, $"Nuevo contacto SpiderHood: {nombre}", cuerpo);
+        return Results.Redirect("/?contacto=ok");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error enviando el formulario de contacto de la landing.");
+        return Results.Redirect("/?contacto=error");
+    }
+}).AllowAnonymous().DisableAntiforgery();
 
 // AllowAnonymous explícito: sin esto, el FallbackPolicy de arriba (RequireAuthenticatedUser)
 // también alcanzaría a CSS/JS/imágenes -- incluido _framework/blazor.web.js, sin el

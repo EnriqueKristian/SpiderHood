@@ -633,6 +633,8 @@
 
             _BudgetState.Installments = await InstallmentService.GetInstallmentsByBudgetAsync(_BudgetState.Budget.IdBudgetHeader);
             _BudgetState.CalculateTotals();
+            // Recién cargado desde la BD -- nada sin guardar todavía.
+            _BudgetState.HasUnsavedChanges = false;
         }
     }
 
@@ -641,6 +643,7 @@
     private async Task LoadSampleData()
     {
         await presupuestoService.LoadDefaultBudgetDetailsAsync(_BudgetState);
+        _BudgetState.HasUnsavedChanges = true;
         //await CalculateTotals();
     }
 
@@ -662,6 +665,7 @@
     private async Task CalculateTotals()
     {
         _BudgetState.CalculateTotals();
+        _BudgetState.HasUnsavedChanges = true;
         StateHasChanged();
     }
 
@@ -1212,6 +1216,7 @@
         }).ToList();
 
         _BudgetState.CalculateTotals();
+        _BudgetState.HasUnsavedChanges = true;
     }
 
     /*  SECCION SAVE   */
@@ -1220,6 +1225,7 @@
     {
         await presupuestoService.SaveBudgetAsync(_BudgetState, _periods);
         await ReloadBudgetData();
+        _BudgetState.HasUnsavedChanges = false;
     }
 
     private async Task ReloadBudgetData()
@@ -1305,6 +1311,7 @@
     private void ClearAllData()
     {
         _BudgetState.Budget.Details.Clear();
+        _BudgetState.HasUnsavedChanges = true;
         StateHasChanged();
     }
 

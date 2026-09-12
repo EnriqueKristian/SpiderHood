@@ -38,6 +38,13 @@ namespace SpiderHood.Models
         }
 
         public bool IsNewBudget { get; set; } = true;
+        // "Sin guardar todavía" en BudgetHeaderComponent -- a diferencia de SaveBudget()
+        // (que sólo indica que el presupuesto TODAVÍA es editable, Status Created/Rejected,
+        // y se queda en ese Status aún después de guardar con éxito hasta que se envía a
+        // aprobación), esto sí refleja si hay cambios en memoria sin persistir: arranca en
+        // true (nada guardado todavía), se apaga al cargar un presupuesto ya existente y al
+        // terminar un guardado exitoso, y se prende de nuevo con cualquier edición.
+        public bool HasUnsavedChanges { get; set; } = true;
         public DateTime LastPeriod { get; set; }
         public bool AddSampleData => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
         public bool LoadServiceReading => !(Budget.Details.Count > 0);

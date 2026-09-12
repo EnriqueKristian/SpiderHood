@@ -121,10 +121,14 @@
                                 </button>
                             }
                         </div>
-                        @if (_budgetState!.SaveBudget())
+                        @if (_budgetState!.SaveBudget() && _budgetState!.HasUnsavedChanges)
                         {
-                            <!-- Hasta acá todo vive solo en memoria (BudgetState) — nada se
-                                 escribe en la base de datos hasta apretar Guardar. -->
+                            <!-- SaveBudget() sólo dice que el presupuesto sigue en un Status
+                                 editable (Created/Rejected) -- se queda así aún después de un
+                                 Guardar exitoso, hasta que se envía a aprobación. Sin
+                                 HasUnsavedChanges, este aviso seguía mostrándose después de
+                                 guardar aunque ya no hubiera nada pendiente de escribir en la
+                                 base de datos. -->
                             <small class="text-warning">
                                 <i class="bi bi-exclamation-circle me-1"></i>Sin guardar todavía
                             </small>

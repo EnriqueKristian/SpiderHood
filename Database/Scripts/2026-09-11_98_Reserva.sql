@@ -531,9 +531,14 @@ GO
 -- vista del Administrador/Junta sobre TODAS las reservas del edificio.
 -- 'C30303F7-DF5D-4526-976E-85C0881A1C79' es el IdMenu de "Portal del
 -- Residente"; orden 7 sigue a "Mi consumo de agua" (orden 6, ver ese mismo
--- script).
+-- script). Se arma con @Now (variable), no llamando a SYSUTCDATETIME()
+-- directo como argumento posicional del EXEC -- visto en vivo (2026-09-12):
+-- esto último tira "Incorrect syntax near ')'", igual que el resto del
+-- codebase ya evita (2026-09-10_85_Reorganizar_Menu.sql usa @Now, nunca la
+-- función inline, en el mismo tipo de llamada).
+DECLARE @NowMenu DATETIME2 = SYSUTCDATETIME();
 EXEC dbo.UPD_MenuItem
     'C4A8E2D6-1F5B-4A9C-8E2D-3B7A6F1C9D80', 'C30303F7-DF5D-4526-976E-85C0881A1C79',
     'reservations', 'Mis Reservas', 'bi-calendar-check', 'reservas', NULL,
-    7, 1, NULL, NULL, SYSUTCDATETIME();
+    7, 1, NULL, NULL, @NowMenu;
 GO

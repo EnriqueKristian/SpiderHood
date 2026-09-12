@@ -996,6 +996,15 @@ el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
     envolviendo ambos en `IF NOT EXISTS (SELECT 1 FROM dbo.MenuItems WHERE
     IdMenu = ...)`, mismo patrón ya usado en
     `2026-09-11_91_Fix_Menu_Junta_Aprobaciones.sql`.
+  - **`SYSUTCDATETIME()` como argumento posicional directo de `EXEC` tira
+    "Incorrect syntax near ')'"** -- visto en vivo (2026-09-12) en el
+    `EXEC dbo.UPD_MenuItem` que reubica "Reservas". El resto del codebase
+    ya evitaba esto (`2026-09-10_85_Reorganizar_Menu.sql` siempre usa una
+    variable `@Now` ya declarada, nunca llama a la función inline en esa
+    posición) -- corregido de la misma forma acá, con `DECLARE @NowMenu
+    DATETIME2 = SYSUTCDATETIME();` antes del `EXEC`.
+
+    `2026-09-11_91_Fix_Menu_Junta_Aprobaciones.sql`.
 - **Falta:** volver a correr el script SQL contra la base real (agregó las
   columnas `IdCalendarItem`/`PagoConfirmado`+3, el SP `UPD_ReservaPago`,
   corrigió 2 SPs, y reubica el ítem de menú "Reservas"), y probar el flujo

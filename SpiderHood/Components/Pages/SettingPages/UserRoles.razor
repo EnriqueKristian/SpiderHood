@@ -661,10 +661,12 @@ else
         return Task.CompletedTask;
     }
 
-    // Genera el link de invitación (código único, válido 7 días) para que el
-    // administrador se lo pase a la persona por fuera de la app (WhatsApp, email
-    // manual, etc.) -- no hay envío de correo automático todavía, sólo se arma
-    // el link, igual que "Invitar Colaborador" en /Settings (Cuenta).
+    // Genera el link de invitación (código único, válido 7 días) y dispara el envío
+    // del correo con ese link (best-effort -- ver AuthService.SendInvitationEmailAsync,
+    // mismo criterio que "Invitar Colaborador" en /Settings/Cuenta: si el SMTP no está
+    // configurado en este entorno, no bloquea nada). El link se muestra igual acá abajo
+    // para que el administrador pueda copiarlo y pasarlo a mano (WhatsApp, etc.) si el
+    // correo no llega.
     private async Task SendInvitationAsync()
     {
         _inviteError = null;

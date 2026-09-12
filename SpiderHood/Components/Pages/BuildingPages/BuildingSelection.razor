@@ -65,6 +65,18 @@
                             </div>
                         </div>
 
+                        @if (errors.ContainsKey("General"))
+                        {
+                            <!-- Antes "General" se guardaba (registro fallido, ej. email ya
+                                 registrado, o cualquier excepción) pero nunca se mostraba en
+                                 ningún lado -- al usuario le quedaba el botón "Aceptar
+                                 Invitación" pareciendo no hacer absolutamente nada. -->
+                            <div class="alert alert-danger alert-dismissible fade show">
+                                @errors["General"]
+                                <button type="button" class="btn-close" @onclick='() => errors.Remove("General")'></button>
+                            </div>
+                        }
+
                         <!-- Información del Usuario -->
                         <div class="user-info mb-4">
                             <h6 class="mb-3">Tu Información</h6>

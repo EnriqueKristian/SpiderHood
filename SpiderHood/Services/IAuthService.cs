@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using SpiderHood.Data;
 using SpiderHood.Models;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -1165,7 +1166,45 @@ namespace SpiderHood.Services
             };
 
             await Ec.InsertInvitationAsync(invitation);
+
+            // Best-effort -- mismo criterio que InviteCollaboratorAsync/SendWelcomeEmailAsync:
+            // si el SMTP no está configurado en este entorno (dev/test) no bloquea la
+            // creación de la invitación, el link igual queda visible en UserRoles.razor
+            // para copiar y compartir a mano.
+            await SendInvitationEmailAsync(invitation);
+
             return invitation;
+        }
+
+        private async Task SendInvitationEmailAsync(InvitationModel invitation)
+        {
+            try
+            {
+                var link = $"{_baseUrl.TrimEnd('/')}/invitation/{invitation.Code}";
+                var subject = $"Invitación a {invitation.BuildingName} en SpiderHood";
+
+                var mensajeAdmin = string.IsNullOrWhiteSpace(invitation.AdminMessage)
+                    ? string.Empty
+                    : $"<p style='background:#f8f9fa;border-left:3px solid #0d6efd;padding:10px 14px;margin:16px 0;'>“{WebUtility.HtmlEncode(invitation.AdminMessage)}”</p>";
+
+                var body = $@"
+                    <h2>Te invitaron a unirte a {WebUtility.HtmlEncode(invitation.BuildingName)}</h2>
+                    <p><strong>{WebUtility.HtmlEncode(invitation.InvitedBy)}</strong> te invitó a SpiderHood con el rol <strong>{WebUtility.HtmlEncode(invitation.Role)}</strong>.</p>
+                    {mensajeAdmin}
+                    <p style='margin:24px 0;'>
+                        <a href='{link}' style='background:#0d6efd;color:#ffffff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;'>Aceptar invitación</a>
+                    </p>
+                    <p>O copiá y pegá este link en tu navegador:<br><a href='{link}'>{link}</a></p>
+                    <p style='color:#6c757d;font-size:13px;'>Este link vence el {invitation.ExpirationDate:dd/MM/yyyy}.</p>
+                    <br>
+                    <p>Saludos,<br>El equipo de SpiderHood</p>";
+
+                await _emailService.SendEmailAsync(invitation.Email, subject, body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error enviando email de invitación a: {Email}", invitation.Email);
+            }
         }
 
         public async Task<AuthResult> RegisterWithInvitationAsync(

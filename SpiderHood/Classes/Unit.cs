@@ -108,9 +108,16 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal Area { get; set; }
         public int TypeUnit { get; set; }
-        public int Number { get; set; } 
+        public int Number { get; set; }
         public bool IsAvailable { get; set; }
-        public Guid IdGroupUnit { get; set; }
+
+        // Nullable a propósito (Docs/Pendientes-Negocio-Consolidado.md #9): GET_UnitsByType
+        // arma esta columna con un LEFT JOIN contra la tabla de grupos/propietarios, así
+        // que viene NULL para una unidad que todavía no tiene propietario/grupo asignado.
+        // Como Guid no-nullable, EF reventaba con SqlNullValueException al leer esa fila
+        // (SqlDataReader.GetGuid no tolera NULL) -- afectaba cualquier pantalla que listara
+        // unidades de un edificio a mitad de configurar, no sólo el importador de migración.
+        public Guid? IdGroupUnit { get; set; }
 
 
     }

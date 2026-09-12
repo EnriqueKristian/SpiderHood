@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
+using System.Text.Json;
 
 namespace SpiderHood.Data
 {
@@ -295,7 +296,9 @@ namespace SpiderHood.Data
                     cancellationToken,
                     configuration.IdBuildingConfiguration!,
                     configuration.Currency!,
-                    configuration.PaymentMethods!,
+                    // Ver comentario en BDLayout.Add.cs.AddNewRecordAsync(BuildingConfiguration)
+                    // sobre por qué PaymentMethods necesita serializarse a JSON acá.
+                    JsonSerializer.Serialize(configuration.PaymentMethods),
                     configuration.PaymentPeriod!,
                     configuration.DueDay!,
                     configuration.FineAmount!,

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SpiderHood.Models;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
+using System.Text.Json;
 
 namespace SpiderHood.Data
 {
@@ -427,7 +428,14 @@ namespace SpiderHood.Data
                     cancellationToken,
                     configuration.IdBuildingConfiguration!,
                     configuration.Currency!,
-                    configuration.PaymentMethods!,
+                    // PaymentMethods es List<string> -- EF lo mapea como columna JSON
+                    // (primitive collections), pero acá se arma el parámetro a mano con
+                    // SqlParameter, que no sabe traducir un List<string> a un tipo ADO.NET
+                    // ("No mapping exists from object type
+                    // System.Collections.Generic.List`1..."). Se serializa a JSON explícito
+                    // para que quede en el mismo formato que la columna espera al leerla de
+                    // vuelta (GET_AllBuildingsConfig/GET_BuildingConfiguration).
+                    JsonSerializer.Serialize(configuration.PaymentMethods),
                     configuration.PaymentPeriod!,
                     configuration.DueDay!,
                     configuration.FineAmount!,

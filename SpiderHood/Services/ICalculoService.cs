@@ -221,7 +221,7 @@ namespace SpiderHood.Services
                     }
                     else
                     {
-                        idGroupUnit = unidad.IdGroupUnit;
+                        idGroupUnit = unidad.IdGroupUnit ?? Guid.Empty;
                     }
                     lecturaAnterior = readExcel.InitialReadingValue;
                 }

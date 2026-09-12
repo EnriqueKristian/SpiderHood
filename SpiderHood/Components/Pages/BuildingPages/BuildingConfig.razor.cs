@@ -122,7 +122,11 @@ namespace SpiderHood.Components.Pages.BuildingPages
             filteredParameters = ParameterService.ListParameters;
 
             filteredCategory = await CategoryService.GetCategoriesAsync(idBuilding);
-            filteredUnits = await BuildingService.GetGroupUnitsByTypeAsync(idBuilding, 1);
+            // Una unidad sin propietario/grupo asignado (IdGroupUnit null) no puede tener
+            // una Exoneración -- se excluye del selector "Departamento".
+            filteredUnits = (await BuildingService.GetGroupUnitsByTypeAsync(idBuilding, 1))
+                .Where(u => u.IdGroupUnit.HasValue)
+                .ToList();
 
             _paymentMethods = filteredParameters
                 .Where(c => c.IdParent == 16)

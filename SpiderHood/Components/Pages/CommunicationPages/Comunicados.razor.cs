@@ -63,7 +63,11 @@ namespace SpiderHood.Components.Pages.CommunicationPages
                     .OrderBy(p => p.Sort)
                     .ToList();
 
-                _unidades = await BuildingService.GetGroupUnitsByTypeAsync(currentUser.CurrentBuildingId, 1);
+                // Una unidad sin propietario/grupo asignado (IdGroupUnit null) no tiene a
+                // quién notificarle un Comunicado Privado -- se excluye del selector.
+                _unidades = (await BuildingService.GetGroupUnitsByTypeAsync(currentUser.CurrentBuildingId, 1))
+                    .Where(u => u.IdGroupUnit.HasValue)
+                    .ToList();
 
                 await CargarComunicadosAsync();
             }

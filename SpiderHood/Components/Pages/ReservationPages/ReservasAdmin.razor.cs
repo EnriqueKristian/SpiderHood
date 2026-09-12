@@ -72,7 +72,12 @@ namespace SpiderHood.Components.Pages.ReservationPages
                     await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId);
                 }
 
-                _unidades = await BuildingService.GetGroupUnitsByTypeAsync(currentUser.CurrentBuildingId, 1);
+                // Una unidad sin propietario/grupo asignado (IdGroupUnit null) no puede ser
+                // "responsable" de una reserva -- no hay a quién asociársela -- así que no
+                // entra al desplegable.
+                _unidades = (await BuildingService.GetGroupUnitsByTypeAsync(currentUser.CurrentBuildingId, 1))
+                    .Where(u => u.IdGroupUnit.HasValue)
+                    .ToList();
                 _areasComunes = (await AreaComunService.GetAreaComunesAsync(currentUser.CurrentBuildingId))
                     .Where(a => a.Activo)
                     .ToList();

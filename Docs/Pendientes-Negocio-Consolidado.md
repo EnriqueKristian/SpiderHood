@@ -57,7 +57,7 @@ secas, es la secuencia en la que conviene tocarlos.
 9. **#20** Reportes de Incidencias -- mismo patrón que los otros 4 reportes.
 10. **#4** Borrado de edificio: FKs sin confirmar -- sólo urge si se va a
     usar el botón sobre algo más que un edificio de prueba vacío.
-11. **#9** `GET_UnitsByType` no tolera unidades sin grupo.
+11. **#9** `GET_UnitsByType` no tolera unidades sin grupo -- **resuelto de raíz (2026-09-12)**.
 12. **#5** Soporte real de multimoneda -- no urge si el piloto es una sola
     moneda.
 13. **#7** Garantía de reserva de área común.
@@ -227,14 +227,34 @@ texto libre en `Installment.OwnerName`). Falta diseñar una tabla de
 historial con vigencia.
 
 ### 9. `GET_UnitsByType` no tolera unidades sin grupo
-*(Migración #5 — mitigado solo en un lugar, sin corregir de raíz)*
+**Estado: corregido de raíz (2026-09-12).** *(Migración #5 -- antes sólo
+mitigado con un `try/catch` puntual en el importador)*
 
-Tira `SqlNullValueException` si una unidad no tiene `IdGroupUnit` asignado
--- afecta a **cualquier edificio a mitad de configurar unidades**, no sólo
-al importador de migración (ej. "Descargar plantilla" de Lecturas de Agua
-en `BlockWaterReading.razor` también lo usa). Sólo se puso un `try/catch`
-local en el importador; la causa (SP/mapeo EF) sigue sin filtrar/manejar
-unidades sin grupo en el resto de la app.
+Reventaba con `SqlNullValueException` (`SqlDataReader.GetGuid`) porque
+`Models.UnitView.IdGroupUnit` era un `Guid` no-nullable, pero
+`GET_UnitsByType` arma esa columna con un `LEFT JOIN` contra la tabla de
+grupos/propietarios -- viene NULL para cualquier unidad todavía sin
+propietario/grupo asignado. Encontrado en producción por el usuario al usar
+el picker de unidades de "Nueva Reserva" (`/reservas-admin`, agregado esta
+sesión), pero afectaba a **cualquier pantalla que listara unidades de un
+edificio a mitad de configurar** -- no sólo el importador de migración
+(ej. "Descargar plantilla" de Lecturas de Agua en `BlockWaterReading.razor`
+también pasaba por el mismo método).
+
+**Corregido:** `UnitView.IdGroupUnit` ahora es `Guid?` -- EF ya no revienta
+al leer la fila. Los 3 selectores que necesitan una unidad CON grupo para
+tener sentido (Unidad Responsable en "Nueva Reserva", destinatarios de un
+Comunicado Privado, Departamento de una Exoneración) filtran
+`.Where(u => u.IdGroupUnit.HasValue)` -- una unidad sin propietario
+simplemente no aparece ahí, porque no hay a quién asociarle la reserva/
+comunicado/exoneración. Los lugares que sólo usan la lista para un lookup
+por Id (`Approvals.razor`, `BuildingConfig.GetGroupUnitName`) no necesitaron
+cambios -- la comparación `Guid? == Guid` sigue funcionando igual.
+`ICalculoService.ImportarDesdeExcelAsync` (Lecturas de Agua) usa
+`unidad.IdGroupUnit ?? Guid.Empty`, mismo sentinel que ya usaba esa función
+para "grupo desconocido". `dotnet build` en 0 errores, mismo baseline de
+warnings -- se verificó rastreando los 6 lugares reales que llaman a
+`GetGroupUnitsByTypeAsync` en todo el repo, no sólo el que reportó el bug.
 
 ### 10. Estado de Cuenta migrado no crea Gastos categorizados
 *(Migración #7 — fuera de alcance por ahora)*

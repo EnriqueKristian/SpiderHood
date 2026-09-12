@@ -204,8 +204,8 @@ else
                         {
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="@("u_" + unidad.IdGroupUnit)"
-                                       checked="@_unidadesSeleccionadas.Contains(unidad.IdGroupUnit)"
-                                       @onchange="(e) => ToggleUnidad(unidad.IdGroupUnit, (bool)e.Value!)" />
+                                       checked="@_unidadesSeleccionadas.Contains(unidad.IdGroupUnit!.Value)"
+                                       @onchange="(e) => ToggleUnidad(unidad.IdGroupUnit!.Value, (bool)e.Value!)" />
                                 <label class="form-check-label" for="@("u_" + unidad.IdGroupUnit)">DPTO @unidad.UnitNumber</label>
                             </div>
                         }

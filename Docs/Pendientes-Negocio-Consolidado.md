@@ -987,6 +987,15 @@ el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
     quedar con un daño por encima de la garantía sin nadie a quien
     cargárselo (`IExtraChargeService.GenerarCuotaExtraordinariaAsync`
     necesita un `IdGroupUnit` real).
+  - **Los dos `INS_MenuItem` ("Reservas"/"Gestión de Reservas") no eran
+    idempotentes** -- a diferencia de TODO el resto del script (que sí usa
+    `CREATE OR ALTER`/`IF NOT EXISTS`), estos dos EXEC quedaron sin guardia
+    desde el principio. Visto en vivo (2026-09-12): al volver a correr el
+    script completo por segunda vez (agregar la confirmación de pago), los
+    dos revientan con "Violation of PRIMARY KEY constraint" -- corregido
+    envolviendo ambos en `IF NOT EXISTS (SELECT 1 FROM dbo.MenuItems WHERE
+    IdMenu = ...)`, mismo patrón ya usado en
+    `2026-09-11_91_Fix_Menu_Junta_Aprobaciones.sql`.
 - **Falta:** volver a correr el script SQL contra la base real (agregó las
   columnas `IdCalendarItem`/`PagoConfirmado`+3, el SP `UPD_ReservaPago`,
   corrigió 2 SPs, y reubica el ítem de menú "Reservas"), y probar el flujo

@@ -942,6 +942,13 @@ el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
     usan `UseStaticBackdrop="true" CloseOnEscape="false"` -- feedback del
     usuario: un clic afuera del modal perdía todo lo cargado en el
     formulario. Mismo patrón ya usado en varios modales de `BuildingPages`.
+  - Los mensajes de error de validación (ej. "el área ya está reservada en
+    ese horario") se movieron de adentro del alert de la página al cuerpo
+    de cada modal -- feedback del usuario (2026-09-12): con el modal
+    abierto, ese alert vivía en la página de atrás y quedaba tapado por el
+    backdrop, invisible hasta cerrar el modal. Aplicado a los 4 modales de
+    formulario de esta ronda (Nueva Solicitud, Nueva Reserva, Cerrar
+    Reserva, Área Común) y al de Comunicados.
 - **Falta:** volver a correr el script SQL contra la base real (agregó la
   columna `IdCalendarItem` y corrigió los 2 SPs), y probar el flujo
   completo (solicitar -> aprobar -> check-in -> check-out -> cerrar) de

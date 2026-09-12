@@ -28,6 +28,12 @@ namespace SpiderHood.Components.Pages.CommunicationPages
         private string? _resultado;
         private bool _resultadoOk;
 
+        // Distinto de _resultado -- ese alert vive en el cuerpo de la página y queda
+        // tapado por el backdrop del Modal mientras está abierto (feedback del usuario
+        // 2026-09-12: "el mensaje sale por atrás, no se ve"). Los errores de validación
+        // que ocurren CON el modal todavía abierto se muestran acá adentro en su lugar.
+        private string? _errorModal;
+
         private List<ComunicadoDestinatario> _destinatarios = new();
 
         private Modal _nuevoModal = null!;
@@ -93,6 +99,7 @@ namespace SpiderHood.Components.Pages.CommunicationPages
             };
             _unidadesSeleccionadas.Clear();
             _resultado = null;
+            _errorModal = null;
             await _nuevoModal.ShowAsync();
         }
 
@@ -110,8 +117,9 @@ namespace SpiderHood.Components.Pages.CommunicationPages
         {
             if (string.IsNullOrWhiteSpace(_form.Titulo) || string.IsNullOrWhiteSpace(_form.Cuerpo))
             {
-                _resultado = "Título y Cuerpo son obligatorios.";
-                _resultadoOk = false;
+                // El modal sigue abierto acá -- el mensaje va adentro (_errorModal), no en
+                // _resultado (quedaría tapado por el backdrop del modal).
+                _errorModal = "Título y Cuerpo son obligatorios.";
                 return;
             }
 
@@ -133,17 +141,19 @@ namespace SpiderHood.Components.Pages.CommunicationPages
             try
             {
                 var resultado = await ComunicadoService.PublicarComunicadoAsync(_form, _unidadesSeleccionadas.ToList());
-                _resultadoOk = resultado.Exito;
-                _resultado = resultado.Exito
-                    ? $"Comunicado publicado a {resultado.TotalDestinatarios} destinatario(s) -- " +
-                      $"WhatsApp: {resultado.EnviadosWhatsApp} enviados, {resultado.SimuladosWhatsApp} simulados, {resultado.FallidosWhatsApp} fallidos" +
-                      (_form.EnviarPorCorreo ? $"; Correo: {resultado.EnviadosCorreo} enviados, {resultado.FallidosCorreo} fallidos." : ".")
-                    : resultado.Mensaje;
 
                 if (resultado.Exito)
                 {
+                    _resultadoOk = true;
+                    _resultado = $"Comunicado publicado a {resultado.TotalDestinatarios} destinatario(s) -- " +
+                        $"WhatsApp: {resultado.EnviadosWhatsApp} enviados, {resultado.SimuladosWhatsApp} simulados, {resultado.FallidosWhatsApp} fallidos" +
+                        (_form.EnviarPorCorreo ? $"; Correo: {resultado.EnviadosCorreo} enviados, {resultado.FallidosCorreo} fallidos." : ".");
                     await _nuevoModal.HideAsync();
                     await CargarComunicadosAsync();
+                }
+                else
+                {
+                    _errorModal = resultado.Mensaje;
                 }
             }
             finally

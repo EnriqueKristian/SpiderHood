@@ -147,6 +147,13 @@ else
     <!-- Modal: Nueva Solicitud -->
     <Modal @ref="_nuevaModal" Title="Nueva Solicitud de Reserva" Size="ModalSize.Large" UseStaticBackdrop="true" CloseOnEscape="false">
         <BodyTemplate>
+            @if (_errorModal is not null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show">
+                    @_errorModal
+                    <button type="button" class="btn-close" @onclick="() => _errorModal = null"></button>
+                </div>
+            }
             <EditForm Model="_form" OnValidSubmit="ConfirmarSolicitar">
                 <div class="mb-3">
                     <label class="form-label">Área Común *</label>

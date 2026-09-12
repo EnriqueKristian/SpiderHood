@@ -25,6 +25,13 @@ namespace SpiderHood.Components.Pages.ReservationPages
         private bool _resultadoOk;
         private bool _procesando;
 
+        // Distinto de _resultado -- ese alert vive en el cuerpo de la página y queda
+        // tapado por el backdrop del Modal mientras está abierto (feedback del usuario
+        // 2026-09-12: "el mensaje sale por atrás, no se ve"). Los errores de validación
+        // que ocurren CON el modal todavía abierto se muestran acá adentro en su lugar --
+        // compartido entre los modales de esta página porque sólo uno está abierto a la vez.
+        private string? _errorModal;
+
         private Modal _checklistModal = null!;
         private Modal _cerrarModal = null!;
         private Reserva? _reservaSeleccionada;
@@ -115,6 +122,7 @@ namespace SpiderHood.Components.Pages.ReservationPages
         {
             _reservaSeleccionada = reserva;
             _montoDanio = 0;
+            _errorModal = null;
             await _cerrarModal.ShowAsync();
         }
 
@@ -201,16 +209,18 @@ namespace SpiderHood.Components.Pages.ReservationPages
             try
             {
                 var resultado = await ReservaService.CerrarAsync(_reservaSeleccionada.IdReserva, currentUser.IdUser, _montoDanio);
-                _resultadoOk = resultado.Exito;
-                _resultado = resultado.Exito
-                    ? $"Reserva cerrada -- Devuelto: {Moneda(resultado.MontoDevuelto)}, Retenido: {Moneda(resultado.MontoRetenido)}" +
-                      (resultado.SeGeneroCuotaExtraordinaria ? $", Cuota Extraordinaria generada por {Moneda(resultado.MontoCuotaExtraordinaria)}." : ".")
-                    : resultado.Mensaje;
 
                 if (resultado.Exito)
                 {
+                    _resultadoOk = true;
+                    _resultado = $"Reserva cerrada -- Devuelto: {Moneda(resultado.MontoDevuelto)}, Retenido: {Moneda(resultado.MontoRetenido)}" +
+                        (resultado.SeGeneroCuotaExtraordinaria ? $", Cuota Extraordinaria generada por {Moneda(resultado.MontoCuotaExtraordinaria)}." : ".");
                     await _cerrarModal.HideAsync();
                     await CargarReservasAsync();
+                }
+                else
+                {
+                    _errorModal = resultado.Mensaje;
                 }
             }
             finally
@@ -270,6 +280,7 @@ namespace SpiderHood.Components.Pages.ReservationPages
         private async Task AbrirNuevaReserva()
         {
             _resultado = null;
+            _errorModal = null;
             _areaSeleccionada = _areasComunes.FirstOrDefault();
             _nuevaReserva = new Reserva
             {
@@ -308,13 +319,17 @@ namespace SpiderHood.Components.Pages.ReservationPages
             try
             {
                 var resultado = await ReservaService.SolicitarAsync(_nuevaReserva, _areaSeleccionada);
-                _resultadoOk = resultado.Exito;
-                _resultado = resultado.Mensaje;
 
                 if (resultado.Exito)
                 {
+                    _resultadoOk = true;
+                    _resultado = resultado.Mensaje;
                     await _nuevaReservaModal.HideAsync();
                     await CargarReservasAsync();
+                }
+                else
+                {
+                    _errorModal = resultado.Mensaje;
                 }
             }
             finally

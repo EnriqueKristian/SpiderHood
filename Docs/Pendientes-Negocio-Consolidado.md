@@ -922,7 +922,13 @@ el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
     un correo a TODOS los residentes del edificio por cada `CalendarItem`
     nuevo -- bien para un evento real, pero saldría un correo masivo por
     cada Solicitud de reserva, incluso antes de aprobarse. Agregada la
-    columna `Reserva.IdCalendarItem` para el vínculo.
+    columna `Reserva.IdCalendarItem` para el vínculo. `AprobarAsync` se
+    autocura solo si encuentra una reserva sin `IdCalendarItem` (le crea uno
+    recién ahí); para una reserva que YA estaba Aprobada antes de este fix
+    (visto en vivo 2026-09-12, sin botón "Aprobar" para volver a dispararlo)
+    se agregó un botón manual "Sincronizar con Calendario"
+    (`IReservaService.AsegurarCalendarItemAsync`) en `/reservas-admin`,
+    visible sólo en las filas sin `IdCalendarItem` que todavía lo necesitan.
   - Aprobar/Rechazar una reserva ahora también está disponible **inline en
     `/reservas-admin`** (no sólo en `/aprobaciones`) -- feedback del usuario
     de que, con el permiso de Junta ya asignado, no encontraba dónde

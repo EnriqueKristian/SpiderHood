@@ -122,6 +122,12 @@ else
                                             <i class="bi bi-shield-check me-1"></i>Cerrar
                                         </button>
                                     }
+                                    @if (_canGestionar && reserva.IdCalendarItem == null && reserva.Estado is ReservaEstado.PendienteDeAprobacion or ReservaEstado.Aprobada or ReservaEstado.Entregada or ReservaEstado.Finalizada)
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary ms-1" title="No aparece en el Calendario -- sincronizar" @onclick="() => SincronizarCalendario(reserva)">
+                                            <i class="bi bi-calendar-plus"></i>
+                                        </button>
+                                    }
                                 </td>
                             </tr>
                         }

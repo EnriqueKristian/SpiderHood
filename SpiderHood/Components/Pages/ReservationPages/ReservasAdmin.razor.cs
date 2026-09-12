@@ -257,6 +257,16 @@ namespace SpiderHood.Components.Pages.ReservationPages
             await CargarReservasAsync();
         }
 
+        private async Task SincronizarCalendario(Reserva reserva)
+        {
+            var creado = await ReservaService.AsegurarCalendarItemAsync(reserva.IdReserva);
+            _resultadoOk = creado;
+            _resultado = creado
+                ? "Reserva sincronizada -- ya debería verse en el Calendario."
+                : "Esta reserva ya estaba sincronizada o su estado ya no lo necesita.";
+            await CargarReservasAsync();
+        }
+
         private async Task AbrirNuevaReserva()
         {
             _resultado = null;

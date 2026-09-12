@@ -409,7 +409,29 @@ app.MapPost("/api/contacto", async (HttpRequest request, IEmailService emailServ
 // para protegerlos.
 app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    // El circuito interactivo compartido de Blazor Server (/_blazor, /_blazor/negotiate,
+    // /_blazor/initializers, /_blazor/disconnect) es UN SOLO endpoint genérico que usan
+    // TODAS las páginas interactivas por igual -- no lleva el [AllowAnonymous] de la
+    // página puntual que lo abrió. El FallbackPolicy de arriba lo bloqueaba sin más
+    // (302 a /login), lo que rompía en silencio CUALQUIER evento (click, submit) en
+    // páginas anónimas con @rendermode InteractiveServer (/register, /invitation/{code},
+    // /aceptar-invitacion): la página cargaba bien (su GET inicial sí respeta su propio
+    // [AllowAnonymous]), pero como el circuito nunca llegaba a conectar, ningún botón
+    // hacía nada -- caso real: "Aceptar Invitación" sin ningún efecto visible.
+    // Eximir sólo estos 4 endpoints es seguro: no exponen contenido por sí mismos, y el
+    // request inicial de una página protegida sigue bloqueado en SU PROPIO endpoint
+    // (confirmado con /diag temporal: "/" anónimo sigue devolviendo 302 a /login) --
+    // esto sólo permite que una página YA permitida se vuelva interactiva.
+    .Add(endpointBuilder =>
+    {
+        if (endpointBuilder is Microsoft.AspNetCore.Routing.RouteEndpointBuilder routeEndpoint &&
+            routeEndpoint.RoutePattern.RawText is string rawPattern &&
+            rawPattern.TrimStart('/').StartsWith("_blazor", StringComparison.OrdinalIgnoreCase))
+        {
+            routeEndpoint.Metadata.Add(new Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute());
+        }
+    });
 
 app.Run();
 

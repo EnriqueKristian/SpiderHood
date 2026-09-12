@@ -1201,11 +1201,11 @@ namespace SpiderHood.Data
             }, "GetReservasByGroupUnit", cancellationToken);
         }
 
-        public async Task<List<Models.Reserva>> GetReservasConflictoAsync(Guid idAreaComun, DateTime fechaInicio, DateTime fechaFin, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Reserva>> GetReservasConflictoAsync(Guid idAreaComun, DateTime fechaInicio, DateTime fechaFin, Guid? excluirIdReserva = null, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Reserva>(StoredProcedures.GET_ReservasConflicto, idAreaComun, fechaInicio, fechaFin);
+                return await ExecuteQueryListAsync<Models.Reserva>(StoredProcedures.GET_ReservasConflicto, idAreaComun, fechaInicio, fechaFin, (object?)excluirIdReserva ?? DBNull.Value);
             }, "GetReservasConflicto", cancellationToken);
         }
 

@@ -232,8 +232,23 @@ else
 </Modal>
 
 <!-- Modal: detalle de destinatarios -->
-<Modal @ref="_detalleModal" Title="Destinatarios" Size="ModalSize.Large">
+<Modal @ref="_detalleModal" Title="@(_comunicadoSeleccionado?.Titulo ?? "Detalle del Comunicado")" Size="ModalSize.Large">
     <BodyTemplate>
+        @if (_comunicadoSeleccionado is not null)
+        {
+            <div class="mb-3">
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <span class="badge bg-secondary">@ParameterService.GetChildParameterDescription(_idCategoriaComunicado, _comunicadoSeleccionado.IdCategoria)</span>
+                    <span class="badge bg-light text-dark border">@DescripcionAlcance(_comunicadoSeleccionado)</span>
+                </div>
+                <p style="white-space: pre-wrap;">@_comunicadoSeleccionado.Cuerpo</p>
+                <p class="text-muted small mb-0">
+                    Publicado por @_comunicadoSeleccionado.CreatedByName el @_comunicadoSeleccionado.CreatedOn.ToString("dd/MM/yyyy HH:mm")
+                </p>
+            </div>
+            <hr />
+        }
+        <h6 class="mb-2">Destinatarios</h6>
         <div class="table-responsive">
             <table class="table table-sm">
                 <thead>

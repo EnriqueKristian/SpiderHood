@@ -38,6 +38,18 @@ namespace SpiderHood.Components.Pages.ReservationPages
         private readonly ConfirmationUtil _util = new();
         private Reserva? _reservaACancelar;
 
+        private Modal _detalleModal = null!;
+        private Reserva? _reservaDetalle;
+        private List<ReservaChecklistItem> _checklistDetalle = new();
+        private List<ReservaAttachment> _adjuntosDetalle = new();
+
+        private Modal _reprogramarModal = null!;
+        private Reserva? _reservaAReprogramar;
+        private DateTime _nuevaFechaInicio;
+        private DateTime _nuevaFechaFin;
+        private bool _reprogramando;
+        private string? _errorReprogramar;
+
         private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
         protected override async Task OnInitializedAsync()
@@ -149,6 +161,59 @@ namespace SpiderHood.Components.Pages.ReservationPages
             finally
             {
                 _solicitando = false;
+                StateHasChanged();
+            }
+        }
+
+        private async Task VerDetalle(Reserva reserva)
+        {
+            _reservaDetalle = reserva;
+            _checklistDetalle = await ReservaService.GetChecklistAsync(reserva.IdReserva);
+            _adjuntosDetalle = await ReservaService.GetAdjuntosAsync(reserva.IdReserva);
+            await _detalleModal.ShowAsync();
+        }
+
+        private async Task AbrirReprogramar(Reserva reserva)
+        {
+            _reservaAReprogramar = reserva;
+            _nuevaFechaInicio = reserva.FechaInicio;
+            _nuevaFechaFin = reserva.FechaFin;
+            _errorReprogramar = null;
+            await _reprogramarModal.ShowAsync();
+        }
+
+        private async Task ConfirmarReprogramar()
+        {
+            if (_reservaAReprogramar == null) return;
+
+            var areaComun = _areasComunes.FirstOrDefault(a => a.IdAreaComun == _reservaAReprogramar.IdAreaComun);
+            if (areaComun == null)
+            {
+                _errorReprogramar = "No se encontró la configuración del área común.";
+                return;
+            }
+
+            _reprogramando = true;
+            StateHasChanged();
+
+            try
+            {
+                var resultado = await ReservaService.ReprogramarAsync(_reservaAReprogramar.IdReserva, _nuevaFechaInicio, _nuevaFechaFin, areaComun);
+                if (resultado.Exito)
+                {
+                    _resultadoOk = true;
+                    _resultado = resultado.Mensaje;
+                    await _reprogramarModal.HideAsync();
+                    await CargarReservasAsync();
+                }
+                else
+                {
+                    _errorReprogramar = resultado.Mensaje;
+                }
+            }
+            finally
+            {
+                _reprogramando = false;
                 StateHasChanged();
             }
         }

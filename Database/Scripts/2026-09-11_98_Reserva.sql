@@ -299,6 +299,28 @@ BEGIN
 END
 GO
 
+-- Reprogramar -- decisión cerrada con el usuario 2026-09-12: cambiar la
+-- fecha/hora de una reserva Aprobada la vuelve a Pendiente de Aprobación
+-- (una fecha nueva es, en la práctica, una solicitud nueva -- puede violar
+-- la ventana de anticipación o generar un conflicto distinto). Limpia
+-- AprobadoPor/FechaAprobacion -- la aprobación anterior ya no aplica a la
+-- fecha nueva. NO toca PagoConfirmado -- si ya pagó, no hace falta
+-- reconfirmar sólo por cambiar el horario.
+CREATE OR ALTER PROCEDURE dbo.UPD_ReservaFechas
+    @IdReserva UNIQUEIDENTIFIER, @FechaInicio DATETIME2, @FechaFin DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Reserva SET
+        FechaInicio = @FechaInicio,
+        FechaFin = @FechaFin,
+        Estado = 1, -- PendienteDeAprobacion
+        AprobadoPor = NULL,
+        FechaAprobacion = NULL
+    WHERE IdReserva = @IdReserva;
+END
+GO
+
 -- NombreUnidad NO se resuelve acá -- no hay certeza del nombre real de la
 -- tabla/vista de unidades desde este script (VW_OwnerUnit es una VIEW, no
 -- necesariamente 1:1 con una tabla "Unit"). Se resuelve del lado C# con el
@@ -374,8 +396,12 @@ GO
 -- ellas, FromSqlRaw revienta con "required column ... was not present",
 -- visto en vivo al abrir "Nueva Solicitud" -- Docs/Pendientes-Negocio-
 -- Consolidado.md #21).
+-- @ExcluirIdReserva -- reprogramar chequea conflicto contra las MISMAS
+-- reglas que solicitar, pero sin contarse a sí misma como su propio
+-- conflicto (agregado 2026-09-12 para IReservaService.ReprogramarAsync).
 CREATE OR ALTER PROCEDURE dbo.GET_ReservasConflicto
-    @IdAreaComun UNIQUEIDENTIFIER, @FechaInicio DATETIME2, @FechaFin DATETIME2
+    @IdAreaComun UNIQUEIDENTIFIER, @FechaInicio DATETIME2, @FechaFin DATETIME2,
+    @ExcluirIdReserva UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -387,7 +413,8 @@ BEGIN
     WHERE r.IdAreaComun = @IdAreaComun
       AND r.Estado NOT IN (3, 4, 5) -- Rechazada, Cancelada, NoPresentado
       AND r.FechaInicio < @FechaFin
-      AND r.FechaFin > @FechaInicio;
+      AND r.FechaFin > @FechaInicio
+      AND (@ExcluirIdReserva IS NULL OR r.IdReserva <> @ExcluirIdReserva);
 END
 GO
 
@@ -531,9 +558,14 @@ GO
 -- vista del Administrador/Junta sobre TODAS las reservas del edificio.
 -- 'C30303F7-DF5D-4526-976E-85C0881A1C79' es el IdMenu de "Portal del
 -- Residente"; orden 7 sigue a "Mi consumo de agua" (orden 6, ver ese mismo
--- script).
+-- script). Se arma con @Now (variable), no llamando a SYSUTCDATETIME()
+-- directo como argumento posicional del EXEC -- visto en vivo (2026-09-12):
+-- esto último tira "Incorrect syntax near ')'", igual que el resto del
+-- codebase ya evita (2026-09-10_85_Reorganizar_Menu.sql usa @Now, nunca la
+-- función inline, en el mismo tipo de llamada).
+DECLARE @NowMenu DATETIME2 = SYSUTCDATETIME();
 EXEC dbo.UPD_MenuItem
     'C4A8E2D6-1F5B-4A9C-8E2D-3B7A6F1C9D80', 'C30303F7-DF5D-4526-976E-85C0881A1C79',
     'reservations', 'Mis Reservas', 'bi-calendar-check', 'reservas', NULL,
-    7, 1, NULL, NULL, SYSUTCDATETIME();
+    7, 1, NULL, NULL, @NowMenu;
 GO

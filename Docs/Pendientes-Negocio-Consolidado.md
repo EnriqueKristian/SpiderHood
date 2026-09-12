@@ -996,6 +996,35 @@ el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
     envolviendo ambos en `IF NOT EXISTS (SELECT 1 FROM dbo.MenuItems WHERE
     IdMenu = ...)`, mismo patrón ya usado en
     `2026-09-11_91_Fix_Menu_Junta_Aprobaciones.sql`.
+  - **`SYSUTCDATETIME()` como argumento posicional directo de `EXEC` tira
+    "Incorrect syntax near ')'"** -- visto en vivo (2026-09-12) en el
+    `EXEC dbo.UPD_MenuItem` que reubica "Reservas". El resto del codebase
+    ya evitaba esto (`2026-09-10_85_Reorganizar_Menu.sql` siempre usa una
+    variable `@Now` ya declarada, nunca llama a la función inline en esa
+    posición) -- corregido de la misma forma acá, con `DECLARE @NowMenu
+    DATETIME2 = SYSUTCDATETIME();` antes del `EXEC`.
+  - **Detalle/reprogramación en Reservas y Comunicados** -- feedback del
+    usuario (2026-09-12): no había forma de ver el cuerpo completo de un
+    Comunicado ya publicado (el modal de "Detalle" solo mostraba
+    destinatarios), ni el detalle de una Reserva propia (organizador,
+    motivo de rechazo, checklist), ni de reprogramar una reserva ya
+    creada (solo se podía Cancelar y volver a solicitar). Resuelto:
+    - Modal "Detalle" de Comunicados ahora también muestra categoría,
+      alcance, cuerpo completo y quién/cuándo lo publicó.
+    - Nuevo modal "Ver Detalle" en `/reservas` (Mis Reservas) con
+      organizador externo, motivo de rechazo, montos, y
+      checklist/adjuntos si ya hubo check-in/check-out.
+    - Nuevo botón "Reprogramar" (`IReservaService.ReprogramarAsync`) en
+      `/reservas` para una reserva Pendiente o Aprobada -- revalida las
+      mismas reglas de `SolicitarAsync` (ventana de anticipación/
+      duración, conflicto de horario -- `GET_ReservasConflicto` ahora
+      acepta `@ExcluirIdReserva` para no chocar consigo misma) y, si
+      estaba Aprobada, la vuelve a `PendienteDeAprobacion` (decisión
+      cerrada con el usuario: una fecha nueva es, en la práctica, una
+      solicitud nueva). Nuevo SP `UPD_ReservaFechas`.
+    - Los botones de Cancelar/Ver Detalle ahora tienen `title` (tooltip)
+      -- antes el ícono de cancelar no explicaba qué hacía hasta hacerle
+      clic.
 - **Falta:** volver a correr el script SQL contra la base real (agregó las
   columnas `IdCalendarItem`/`PagoConfirmado`+3, el SP `UPD_ReservaPago`,
   corrigió 2 SPs, y reubica el ítem de menú "Reservas"), y probar el flujo

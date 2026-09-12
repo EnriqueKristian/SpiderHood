@@ -35,6 +35,7 @@ namespace SpiderHood.Components.Pages.CommunicationPages
         private string? _errorModal;
 
         private List<ComunicadoDestinatario> _destinatarios = new();
+        private Comunicado? _comunicadoSeleccionado;
 
         private Modal _nuevoModal = null!;
         private Modal _detalleModal = null!;
@@ -165,6 +166,7 @@ namespace SpiderHood.Components.Pages.CommunicationPages
 
         private async Task VerDetalle(Comunicado comunicado)
         {
+            _comunicadoSeleccionado = comunicado;
             _destinatarios = await ComunicadoService.GetDestinatariosAsync(comunicado.IdComunicado);
             await _detalleModal.ShowAsync();
         }

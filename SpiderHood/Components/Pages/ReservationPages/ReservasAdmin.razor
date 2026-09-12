@@ -93,7 +93,13 @@ else
                                 <td>@reserva.NombreAreaComun</td>
                                 <td>@GetGroupUnitName(reserva.IdGroupUnit)</td>
                                 <td>@reserva.FechaInicio.ToString("dd/MM/yyyy HH:mm") - @reserva.FechaFin.ToString("HH:mm")</td>
-                                <td>@EtiquetaEstado(reserva)</td>
+                                <td>
+                                    @EtiquetaEstado(reserva)
+                                    @if (reserva.Estado is ReservaEstado.Aprobada or ReservaEstado.Entregada or ReservaEstado.Finalizada && reserva.PagoConfirmado)
+                                    {
+                                        <span class="badge bg-success ms-1" title="Pago confirmado">💰</span>
+                                    }
+                                </td>
                                 <td>
                                     @if (_canAprobar && reserva.Estado == ReservaEstado.PendienteDeAprobacion)
                                     {
@@ -104,7 +110,13 @@ else
                                             <i class="bi bi-x-lg me-1"></i>Rechazar
                                         </button>
                                     }
-                                    @if (_canGestionar && reserva.Estado == ReservaEstado.Aprobada)
+                                    @if (_canGestionar && reserva.Estado == ReservaEstado.Aprobada && !reserva.PagoConfirmado)
+                                    {
+                                        <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirConfirmarPago(reserva)">
+                                            <i class="bi bi-cash-coin me-1"></i>Confirmar Pago
+                                        </button>
+                                    }
+                                    else if (_canGestionar && reserva.Estado == ReservaEstado.Aprobada)
                                     {
                                         <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirCheckIn(reserva)">
                                             <i class="bi bi-box-arrow-in-right me-1"></i>Check-in
@@ -161,6 +173,13 @@ else
     <Modal @ref="_checklistModal" Title="@(_etapaChecklist == ChecklistEtapa.Entrega ? "Check-in" : "Check-out")" Size="ModalSize.Large"
            UseStaticBackdrop="true" CloseOnEscape="false">
         <BodyTemplate>
+            @if (_errorModal is not null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show">
+                    @_errorModal
+                    <button type="button" class="btn-close" @onclick="() => _errorModal = null"></button>
+                </div>
+            }
             @if (_reservaSeleccionada != null)
             {
                 <p class="text-muted small">
@@ -383,6 +402,53 @@ else
                 <i class="bi bi-send me-1"></i>Registrar Reserva
             </button>
             <button class="btn btn-secondary" @onclick="() => _nuevaReservaModal.HideAsync()">Cancelar</button>
+        </FooterTemplate>
+    </Modal>
+
+    <!-- Modal: Confirmar Pago -- no hay pasarela de pago ni conciliación bancaria
+         conectada (Docs/Pendientes-Negocio-Consolidado.md #21, "Cobro"); esto es
+         un check manual del Administrador antes de habilitar el check-in. -->
+    <Modal @ref="_confirmarPagoModal" Title="Confirmar Pago" Size="ModalSize.Regular" UseStaticBackdrop="true" CloseOnEscape="false">
+        <BodyTemplate>
+            @if (_errorModal is not null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show">
+                    @_errorModal
+                    <button type="button" class="btn-close" @onclick="() => _errorModal = null"></button>
+                </div>
+            }
+            @if (_reservaSeleccionada != null)
+            {
+                <p class="text-muted small">
+                    @_reservaSeleccionada.NombreAreaComun -- @_reservaSeleccionada.FechaInicio.ToString("dd/MM/yyyy HH:mm")
+                </p>
+                <p class="text-muted small">
+                    Garantía + Alquiler + Limpieza: <strong>@Moneda(_reservaSeleccionada.MontoGarantia + _reservaSeleccionada.MontoAlquiler + _reservaSeleccionada.MontoLimpieza)</strong>
+                </p>
+
+                <div class="mb-3">
+                    <label class="form-label">Monto recibido</label>
+                    <input type="number" step="0.01" class="form-control" @bind="_montoPagoConfirmado" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Fecha del pago</label>
+                    <InputDate Type="InputDateType.Date" @bind-Value="_fechaPagoConfirmado" class="form-control" />
+                </div>
+                <div class="alert alert-light border small mb-0">
+                    Esto sólo queda registrado en la Reserva -- no valida nada contra una
+                    cuenta bancaria real ni la Conciliación existente.
+                </div>
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <button class="btn btn-primary" @onclick="ConfirmarPago" disabled="@_procesando">
+                @if (_procesando)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="bi bi-check-lg me-1"></i>Confirmar Pago
+            </button>
+            <button class="btn btn-secondary" @onclick="() => _confirmarPagoModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
     </Modal>
 }

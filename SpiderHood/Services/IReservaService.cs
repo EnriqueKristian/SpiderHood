@@ -49,7 +49,16 @@ namespace SpiderHood.Services
         // el 100% de la garantía, sin campo de días (es binario).
         Task MarcarNoPresentadoAsync(Guid idReserva, AreaComun areaComun);
 
-        Task HacerCheckInAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos);
+        // No hay pasarela de pago ni conciliación bancaria conectada (Docs/
+        // Pendientes-Negocio-Consolidado.md #21, "Cobro") -- esto es un check
+        // manual del Administrador confirmando que recibió la Garantía/Alquiler/
+        // Limpieza, sin validar nada contra una cuenta real.
+        Task ConfirmarPagoAsync(Guid idReserva, decimal? montoConfirmado, DateTime? fechaPago, Guid confirmadoPor);
+
+        // Falla (Exito=false) si la reserva todavía no tiene el pago confirmado --
+        // feedback del usuario 2026-09-12: no había ninguna verificación de pago
+        // antes de entregar el área.
+        Task<CheckInResultado> HacerCheckInAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos);
 
         Task HacerCheckOutAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos);
 
@@ -314,10 +323,20 @@ namespace SpiderHood.Services
             return calendarItem;
         }
 
-        public async Task HacerCheckInAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)
+        public async Task ConfirmarPagoAsync(Guid idReserva, decimal? montoConfirmado, DateTime? fechaPago, Guid confirmadoPor)
+            => await ec.ConfirmarPagoReservaAsync(idReserva, montoConfirmado, fechaPago, confirmadoPor);
+
+        public async Task<CheckInResultado> HacerCheckInAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)
         {
+            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            if (!reserva.PagoConfirmado)
+            {
+                return new CheckInResultado { Mensaje = "Falta confirmar el pago de la Garantía/Alquiler/Limpieza antes de hacer el check-in." };
+            }
+
             await GuardarChecklistYFotosAsync(idReserva, usuario, ChecklistEtapa.Entrega, checklist, fotos);
             await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Entregada);
+            return new CheckInResultado { Exito = true, Mensaje = "Check-in registrado." };
         }
 
         public async Task HacerCheckOutAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)

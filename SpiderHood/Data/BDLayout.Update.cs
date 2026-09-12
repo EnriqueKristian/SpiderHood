@@ -838,6 +838,21 @@ namespace SpiderHood.Data
             }, "UpdateReservaEstado", cancellationToken);
         }
 
+        public async Task ConfirmarPagoReservaAsync(Guid idReserva, decimal? montoPagoConfirmado, DateTime? fechaPagoConfirmado, Guid pagoConfirmadoPor, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ReservaPago,
+                    cancellationToken,
+                    idReserva,
+                    (object?)montoPagoConfirmado ?? DBNull.Value,
+                    (object?)fechaPagoConfirmado ?? DBNull.Value,
+                    pagoConfirmadoPor);
+                return true;
+            }, "ConfirmarPagoReserva", cancellationToken);
+        }
+
         public async Task UpdateCalendarItemAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

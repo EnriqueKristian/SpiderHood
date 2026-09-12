@@ -43,6 +43,10 @@ namespace SpiderHood.Components.Pages.ReservationPages
         private List<StagedFoto> _fotosStaged = new();
         private decimal _montoDanio;
 
+        private Modal _confirmarPagoModal = null!;
+        private decimal _montoPagoConfirmado;
+        private DateTime _fechaPagoConfirmado = DateTime.Today;
+
         private ConfirmationModal? _confirmationModal;
         private RejectionModal? _rejectionModal;
 
@@ -100,6 +104,7 @@ namespace SpiderHood.Components.Pages.ReservationPages
             _nuevoItemDescripcion = string.Empty;
             _nuevoItemEstado = ChecklistEstado.Ok;
             _nuevoItemObservacion = string.Empty;
+            _errorModal = null;
         }
 
         private async Task AbrirCheckIn(Reserva reserva)
@@ -124,6 +129,37 @@ namespace SpiderHood.Components.Pages.ReservationPages
             _montoDanio = 0;
             _errorModal = null;
             await _cerrarModal.ShowAsync();
+        }
+
+        private async Task AbrirConfirmarPago(Reserva reserva)
+        {
+            _reservaSeleccionada = reserva;
+            _montoPagoConfirmado = reserva.MontoGarantia + reserva.MontoAlquiler + reserva.MontoLimpieza;
+            _fechaPagoConfirmado = DateTime.Today;
+            _errorModal = null;
+            await _confirmarPagoModal.ShowAsync();
+        }
+
+        private async Task ConfirmarPago()
+        {
+            if (_reservaSeleccionada == null) return;
+
+            _procesando = true;
+            StateHasChanged();
+
+            try
+            {
+                await ReservaService.ConfirmarPagoAsync(_reservaSeleccionada.IdReserva, _montoPagoConfirmado, _fechaPagoConfirmado, currentUser.IdUser);
+                _resultadoOk = true;
+                _resultado = "Pago confirmado.";
+                await _confirmarPagoModal.HideAsync();
+                await CargarReservasAsync();
+            }
+            finally
+            {
+                _procesando = false;
+                StateHasChanged();
+            }
         }
 
         private void AgregarItemChecklist()
@@ -179,16 +215,22 @@ namespace SpiderHood.Components.Pages.ReservationPages
 
                 if (_etapaChecklist == ChecklistEtapa.Entrega)
                 {
-                    await ReservaService.HacerCheckInAsync(_reservaSeleccionada.IdReserva, currentUser.IdUser, checklist, fotos);
-                    _resultado = "Check-in registrado.";
+                    var resultado = await ReservaService.HacerCheckInAsync(_reservaSeleccionada.IdReserva, currentUser.IdUser, checklist, fotos);
+                    if (!resultado.Exito)
+                    {
+                        _errorModal = resultado.Mensaje;
+                        return;
+                    }
+                    _resultadoOk = true;
+                    _resultado = resultado.Mensaje;
                 }
                 else
                 {
                     await ReservaService.HacerCheckOutAsync(_reservaSeleccionada.IdReserva, currentUser.IdUser, checklist, fotos);
+                    _resultadoOk = true;
                     _resultado = "Check-out registrado.";
                 }
 
-                _resultadoOk = true;
                 await _checklistModal.HideAsync();
                 await CargarReservasAsync();
             }

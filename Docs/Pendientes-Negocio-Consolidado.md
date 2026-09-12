@@ -953,12 +953,47 @@ el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
     backdrop, invisible hasta cerrar el modal. Aplicado a los 4 modales de
     formulario de esta ronda (Nueva Solicitud, Nueva Reserva, Cerrar
     Reserva, Área Común) y al de Comunicados.
-- **Falta:** volver a correr el script SQL contra la base real (agregó la
-  columna `IdCalendarItem` y corrigió los 2 SPs), y probar el flujo
-  completo (solicitar -> aprobar -> check-in -> check-out -> cerrar) de
-  punta a punta -- no se pudo probar la UI en vivo en este entorno (sin
-  conexión a una BD real disponible), todo lo de acá se corrigió a partir
-  de los stack traces que compartió el usuario.
+  - **"Reservas" se reubicó dentro de "Portal del Residente" y se renombró
+    a "Mis Reservas"** -- feedback del usuario (2026-09-12): al vivir como
+    ítem raíz suelto igual que "Gestión de Reservas", con el auto-redirect
+    de más arriba (Administrador/Junta/SysAdmin sin unidad terminan
+    siempre en `/reservas-admin`) los dos ítems del menú se veían
+    idénticos para esos roles y confundía. Es exactamente el mismo caso
+    que ya resolvió `2026-09-10_85_Reorganizar_Menu.sql` para "Mis Pagos"/
+    "Comunicados"/etc -- mismo criterio aplicado acá. "Gestión de
+    Reservas" se queda como ítem raíz (es la vista de Administrador/Junta
+    sobre TODAS las reservas del edificio, no tiene sentido "de mi
+    portal").
+  - **Confirmación manual de pago antes del check-in.** El usuario preguntó
+    cómo se verifica el cobro de una reserva Aprobada -- no hay ninguna
+    pasarela ni conciliación bancaria conectada (mismo "Cobro" ya abierto
+    más arriba), así que se resolvió con un check manual: nueva columna
+    `Reserva.PagoConfirmado` (+ `MontoPagoConfirmado`/`FechaPagoConfirmado`/
+    `PagoConfirmadoPor`) y SP `UPD_ReservaPago`. Una reserva Aprobada sin
+    pago confirmado muestra el botón "Confirmar Pago" (monto sugerido =
+    Garantía+Alquiler+Limpieza, editable, con fecha) en vez de "Check-in" --
+    `IReservaService.HacerCheckInAsync` ahora devuelve `CheckInResultado`
+    (antes `Task` sin resultado) y rechaza el check-in si
+    `!reserva.PagoConfirmado`, con el error mostrado dentro del mismo modal.
+    Decisión explícita del usuario: NO conectar esto a Conciliación Bancaria
+    todavía -- eso es la resolución completa del "Cobro" abierto, que se
+    encara aparte.
+  - **Un alquiler externo sigue exigiendo una unidad responsable** -- el
+    usuario preguntó si, marcando "Es Externo", convendría no pedir unidad
+    (ej. alguien de la calle alquila el salón sin ningún propietario de por
+    medio). Decisión explícita del usuario: mantener la regla actual sin
+    cambios -- si el edificio alquila a alguien totalmente ajeno, un
+    propietario (o la Junta) figura como responsable nominal, para no
+    quedar con un daño por encima de la garantía sin nadie a quien
+    cargárselo (`IExtraChargeService.GenerarCuotaExtraordinariaAsync`
+    necesita un `IdGroupUnit` real).
+- **Falta:** volver a correr el script SQL contra la base real (agregó las
+  columnas `IdCalendarItem`/`PagoConfirmado`+3, el SP `UPD_ReservaPago`,
+  corrigió 2 SPs, y reubica el ítem de menú "Reservas"), y probar el flujo
+  completo (solicitar -> aprobar -> confirmar pago -> check-in -> check-out
+  -> cerrar) de punta a punta -- no se pudo probar la UI en vivo en este
+  entorno (sin conexión a una BD real disponible), todo lo de acá se
+  corrigió a partir de los stack traces que compartió el usuario.
 
 *Configuración del Área Común (por edificio, en `BuildingConfig` -- ver
 item #24, encajaría como una pestaña nueva "Áreas Comunes"):*

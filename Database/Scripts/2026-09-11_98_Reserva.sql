@@ -79,6 +79,10 @@ BEGIN
         AprobadoPor        UNIQUEIDENTIFIER NULL,
         FechaAprobacion    DATETIME2        NULL,
         IdCalendarItem     UNIQUEIDENTIFIER NULL,       -- ver nota de IdCalendarItem abajo
+        PagoConfirmado     BIT              NOT NULL DEFAULT (0), -- ver nota de PagoConfirmado abajo
+        MontoPagoConfirmado DECIMAL(18,2)   NULL,
+        FechaPagoConfirmado DATETIME2       NULL,
+        PagoConfirmadoPor  UNIQUEIDENTIFIER NULL,
         CreatedBy          UNIQUEIDENTIFIER NOT NULL,
         CreatedOn          DATETIME2        NOT NULL
     );
@@ -100,6 +104,24 @@ GO
 -- de este agregado).
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Reserva') AND name = 'IdCalendarItem')
     ALTER TABLE dbo.Reserva ADD IdCalendarItem UNIQUEIDENTIFIER NULL;
+GO
+
+-- Feedback del usuario (2026-09-12): no hay pasarela de pago (brecha ya
+-- señalada en el análisis de mercado) -- confirmar el cobro de Garantía/
+-- Alquiler/Limpieza es, por ahora, un check manual del Administrador, sin
+-- conectarse a ninguna cuenta bancaria real ni a la Conciliación existente
+-- (eso queda para cuando se diseñe la pantalla de conciliación específica
+-- de Reservas). El check-in NO se habilita hasta que esto esté marcado --
+-- ver IReservaService.HacerCheckInAsync. Columnas agregadas acá también
+-- para instalaciones que ya habían corrido este script antes.
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Reserva') AND name = 'PagoConfirmado')
+    ALTER TABLE dbo.Reserva ADD PagoConfirmado BIT NOT NULL CONSTRAINT DF_Reserva_PagoConfirmado DEFAULT (0);
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Reserva') AND name = 'MontoPagoConfirmado')
+    ALTER TABLE dbo.Reserva ADD MontoPagoConfirmado DECIMAL(18,2) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Reserva') AND name = 'FechaPagoConfirmado')
+    ALTER TABLE dbo.Reserva ADD FechaPagoConfirmado DATETIME2 NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Reserva') AND name = 'PagoConfirmadoPor')
+    ALTER TABLE dbo.Reserva ADD PagoConfirmadoPor UNIQUEIDENTIFIER NULL;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ReservaChecklistItem')
@@ -254,6 +276,25 @@ BEGIN
         FechaAprobacion = CASE WHEN @AprobadoPor IS NOT NULL THEN SYSUTCDATETIME() ELSE FechaAprobacion END,
         MontoRetenido = COALESCE(@MontoRetenido, MontoRetenido),
         IdCalendarItem = COALESCE(@IdCalendarItem, IdCalendarItem)
+    WHERE IdReserva = @IdReserva;
+END
+GO
+
+-- Confirmación manual de pago (ver nota en la definición de la tabla más
+-- arriba) -- separado de UPD_ReservaEstado porque no es una transición de
+-- Estado, es un dato aparte que se puede confirmar en cualquier momento
+-- después de Aprobada.
+CREATE OR ALTER PROCEDURE dbo.UPD_ReservaPago
+    @IdReserva UNIQUEIDENTIFIER, @MontoPagoConfirmado DECIMAL(18,2) = NULL,
+    @FechaPagoConfirmado DATETIME2 = NULL, @PagoConfirmadoPor UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Reserva SET
+        PagoConfirmado = 1,
+        MontoPagoConfirmado = @MontoPagoConfirmado,
+        FechaPagoConfirmado = COALESCE(@FechaPagoConfirmado, SYSUTCDATETIME()),
+        PagoConfirmadoPor = @PagoConfirmadoPor
     WHERE IdReserva = @IdReserva;
 END
 GO
@@ -441,9 +482,11 @@ VALUES (NEWID(), 'manage_reservations', 'Gestionar Reservas', 'Hacer check-in/ch
 GO
 
 -- Menú: "Reservas" (residente, solicitar) y "Gestión de Reservas" (admin,
--- check-in/check-out) -- ambos standalone (IdParent NULL), mismo criterio
--- que Comunicados (2026-09-11_97_Comunicado.sql): el gateo real es por
--- permiso dentro de cada página, no por una tabla menú-a-permiso.
+-- check-in/check-out) -- se crean acá ambos standalone (IdParent NULL),
+-- mismo criterio que Comunicados (2026-09-11_97_Comunicado.sql): el gateo
+-- real es por permiso dentro de cada página, no por una tabla menú-a-
+-- permiso. "Reservas" se reubica más abajo dentro de "Portal del
+-- Residente" -- ver esa nota.
 EXEC dbo.INS_MenuItem
     @IdMenu = 'C4A8E2D6-1F5B-4A9C-8E2D-3B7A6F1C9D80',
     @IdParent = NULL,
@@ -469,4 +512,20 @@ EXEC dbo.INS_MenuItem
     @IsVisible = 1,
     @BadgeText = NULL,
     @BadgeColor = NULL;
+GO
+
+-- Feedback del usuario (2026-09-12): "Reservas" es la vista de autoservicio
+-- del Residente (reserva a nombre de SU propia unidad, ve sólo sus propias
+-- reservas) -- corresponde adentro de "Portal del Residente" igual que "Mis
+-- Pagos"/"Comunicados"/etc (ver Database/Scripts/2026-09-10_85_Reorganizar_
+-- Menu.sql), no como ítem raíz suelto, y el título debe dejar claro que es
+-- personal. "Gestión de Reservas" (arriba) se queda como ítem raíz -- es la
+-- vista del Administrador/Junta sobre TODAS las reservas del edificio.
+-- 'C30303F7-DF5D-4526-976E-85C0881A1C79' es el IdMenu de "Portal del
+-- Residente"; orden 7 sigue a "Mi consumo de agua" (orden 6, ver ese mismo
+-- script).
+EXEC dbo.UPD_MenuItem
+    'C4A8E2D6-1F5B-4A9C-8E2D-3B7A6F1C9D80', 'C30303F7-DF5D-4526-976E-85C0881A1C79',
+    'reservations', 'Mis Reservas', 'bi-calendar-check', 'reservas', NULL,
+    7, 1, NULL, NULL, SYSUTCDATETIME();
 GO

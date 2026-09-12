@@ -937,7 +937,11 @@ el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
     reserva en nombre de una unidad** (ej. alguien llamó a pedir el salón
     para un evento externo) -- mismo `SolicitarAsync`, elige la unidad
     responsable de una lista en vez de resolverla del usuario actual (que
-    no tiene DPTO si es Administrador/Junta puro).
+    no tiene DPTO si es Administrador/Junta/SysAdmin). `/reservas` ahora
+    redirige automáticamente a `/reservas-admin` cuando el usuario no tiene
+    unidad pero sí el permiso `manage_reservations`, en vez de sólo mostrar
+    un cartel con un link -- feedback del usuario (2026-09-12): seguía sin
+    poder entrar por esa pantalla, un link no era suficientemente visible.
   - Todos los modales nuevos de este módulo (y el de Comunicados) ahora
     usan `UseStaticBackdrop="true" CloseOnEscape="false"` -- feedback del
     usuario: un clic afuera del modal perdía todo lo cargado en el

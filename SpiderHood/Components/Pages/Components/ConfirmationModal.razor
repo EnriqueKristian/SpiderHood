@@ -1,5 +1,11 @@
 ﻿﻿@* Components/ConfirmationModal.razor *@
-<div class="modal @(_isVisible ? "show d-block" : "d-none")" style="background-color: rgba(0,0,0,0.5)">
+@* z-index explícito -- feedback del usuario 2026-09-12: al confirmar una acción
+   con OTRO modal (BlazorBootstrap) todavía abierto detrás (ej. "Nuevo Comunicado"
+   -> "¿Publicar?"), este modal quedaba tapado. Al ser un <div> a mano (no usa la
+   API real de Bootstrap JS), nunca recibe el auto-incremento de z-index que
+   Bootstrap le da a un modal real abierto arriba de otro -- se fija acá un valor
+   más alto que cualquier Modal de BlazorBootstrap para que siempre gane. *@
+<div class="modal @(_isVisible ? "show d-block" : "d-none")" style="background-color: rgba(0,0,0,0.5); z-index: 1090;">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-@(_type == "danger" ? "danger" : "warning") text-white">

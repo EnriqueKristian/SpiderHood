@@ -1,7 +1,10 @@
 @* Components/RejectionModal.razor -- variante de ConfirmationModal que exige un
    motivo de texto antes de confirmar. Usado para rechazar presupuestos/gastos: la
    Junta tiene que dejar por escrito por qué rechaza, no sólo un sí/no. *@
-<div class="modal @(_isVisible ? "show d-block" : "d-none")" style="background-color: rgba(0,0,0,0.5)">
+@* z-index explícito -- mismo motivo que ConfirmationModal.razor: sin esto, un
+   modal de BlazorBootstrap todavía abierto detrás lo tapa (feedback del usuario
+   2026-09-12). *@
+<div class="modal @(_isVisible ? "show d-block" : "d-none")" style="background-color: rgba(0,0,0,0.5); z-index: 1090;">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">

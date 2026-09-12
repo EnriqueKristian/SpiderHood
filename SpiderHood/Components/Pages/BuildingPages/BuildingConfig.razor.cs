@@ -33,6 +33,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
         }
 
         private Exoneration _Exoneration = new();
+        private string _errorExoneracion = string.Empty;
         private IReadOnlyList<Models.Parameter> filteredParameters = new List<Models.Parameter>();
         private List<Models.Category> filteredCategory = new();
         private List<Models.UnitView> filteredUnits = new();
@@ -371,6 +372,15 @@ namespace SpiderHood.Components.Pages.BuildingPages
         {
             if (SelectedBuilding != null)
             {
+                // Sin esto, reabrir el modal (tras Cancelar o tras un Guardar previo que ya
+                // reseteó _Exoneration) podía arrancar con un IdGroupUnit/IdCategory de Guid.Empty
+                // que el <select> de Departamento no tenía cómo reflejar (no había option en blanco),
+                // así que el navegador mostraba seleccionado el primer DPTO de la lista aunque el
+                // valor bindeado siguiera en Guid.Empty -- si el usuario no tocaba el combo, se
+                // guardaba una Exoneration con IdGroupUnit=Guid.Empty, que no existe en GroupUnit
+                // (FK_Exception_GroupUnit) y rompía el INSERT.
+                _Exoneration = new Exoneration();
+                _errorExoneracion = string.Empty;
                 _exoneration.ShowAsync();
             }
         }
@@ -437,8 +447,25 @@ namespace SpiderHood.Components.Pages.BuildingPages
         {
             try
             {
+                // Sin este chequeo, dejar el combo de Departamento en el placeholder (o cualquier
+                // otro caso donde IdGroupUnit/IdCategory queden en Guid.Empty) agregaba la
+                // Exoneration igual a la lista en memoria, y recién al Guardar el edificio
+                // completo reventaba con FK_Exception_GroupUnit -- acá se corta antes, con el
+                // mismo mensaje visible que ya usa AreaComun para "El nombre es obligatorio.".
+                if (_Exoneration.IdGroupUnit == Guid.Empty)
+                {
+                    _errorExoneracion = "Debe seleccionar un departamento.";
+                    return;
+                }
+                if (_Exoneration.IdCategory == Guid.Empty)
+                {
+                    _errorExoneracion = "Debe seleccionar una categoría de gasto.";
+                    return;
+                }
+
                 SelectedBuilding!.Configuration.Exonerations.Add(_Exoneration);
                 _Exoneration = new Exoneration();
+                _errorExoneracion = string.Empty;
                 await _exoneration.HideAsync();
                 StateHasChanged();
             }

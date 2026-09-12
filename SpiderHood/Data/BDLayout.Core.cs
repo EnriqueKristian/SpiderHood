@@ -411,7 +411,23 @@ namespace SpiderHood.Data
             {
                 var paramName = $"@p{i}";
                 paramNames.Add(paramName);
-                sqlParams.Add(new SqlParameter(paramName, parameters[i] ?? DBNull.Value));
+                // Un caller puede mandar ya un SqlParameter armado a mano (p.ej.
+                // DefaultCategory/WaterReadingDefault en UpdateRecordAsync(BuildingConfiguration),
+                // ExpenseApprovalThreshold en UpdateExpenseApprovalThresholdAsync) para tipar
+                // explícito un DBNull -- envolverlo de nuevo en "new SqlParameter(paramName,
+                // parameters[i])" pone ese SqlParameter como Value de OTRO SqlParameter, y ADO.NET
+                // no sabe mapear un SqlParameter como valor ("No mapping exists from object type
+                // Microsoft.Data.SqlClient.SqlParameter..."). Si ya es un SqlParameter, se reusa
+                // tal cual, sólo renombrado para que coincida con el placeholder posicional.
+                if (parameters[i] is SqlParameter existingParam)
+                {
+                    existingParam.ParameterName = paramName;
+                    sqlParams.Add(existingParam);
+                }
+                else
+                {
+                    sqlParams.Add(new SqlParameter(paramName, parameters[i] ?? DBNull.Value));
+                }
             }
 
             var sql = $"{storedProcedureName} {string.Join(", ", paramNames)}";
@@ -442,8 +458,18 @@ namespace SpiderHood.Data
                 var paramName = $"@p{i}";
                 paramNames.Add(paramName);
 
-                // Create SqlParameter for better type handling
-                sqlParams.Add(new SqlParameter(paramName, parameters[i] ?? DBNull.Value));
+                // Create SqlParameter for better type handling -- si ya viene un SqlParameter
+                // armado a mano (para tipar un DBNull explícito), se reusa en vez de envolverlo
+                // de nuevo (ver comentario equivalente en ExecuteStoredProcedureAsync).
+                if (parameters[i] is SqlParameter existingParam)
+                {
+                    existingParam.ParameterName = paramName;
+                    sqlParams.Add(existingParam);
+                }
+                else
+                {
+                    sqlParams.Add(new SqlParameter(paramName, parameters[i] ?? DBNull.Value));
+                }
             }
 
             var sql = $"EXEC {storedProcedureName} {string.Join(", ", paramNames)}";
@@ -478,8 +504,18 @@ namespace SpiderHood.Data
                 var paramName = $"@p{i}";
                 paramNames.Add(paramName);
 
-                // Create SqlParameter for better type handling
-                sqlParams.Add(new SqlParameter(paramName, parameters[i] ?? DBNull.Value));
+                // Create SqlParameter for better type handling -- ver comentario equivalente
+                // en ExecuteStoredProcedureAsync sobre por qué un SqlParameter ya armado se
+                // reusa en vez de envolverlo de nuevo.
+                if (parameters[i] is SqlParameter existingParam)
+                {
+                    existingParam.ParameterName = paramName;
+                    sqlParams.Add(existingParam);
+                }
+                else
+                {
+                    sqlParams.Add(new SqlParameter(paramName, parameters[i] ?? DBNull.Value));
+                }
             }
 
             var sql = $"EXEC {storedProcedureName} {string.Join(", ", paramNames)}";

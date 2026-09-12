@@ -1280,7 +1280,14 @@
 <!-- Modal para crear/editar Exoneraciones -->
 <Modal @ref="_exoneration" Title="Agregar Exoneracion"  Size="ModalSize.Regular">
     <BodyTemplate>
-        <EditForm Model="_editingBankAccout" OnValidSubmit="SaveExoneration" method="post" FormName="create" Enhance>
+        @if (!string.IsNullOrEmpty(_errorExoneracion))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @_errorExoneracion
+                <button type="button" class="btn-close" @onclick='() => _errorExoneracion = string.Empty'></button>
+            </div>
+        }
+        <EditForm Model="_Exoneration" OnValidSubmit="SaveExoneration" method="post" FormName="create" Enhance>
             <DataAnnotationsValidator />
             <ValidationSummary />
 
@@ -1289,6 +1296,7 @@
                     <div class="form-group">
                         <label class="form-label">Departamento *</label>
                         <select @bind-Value="_Exoneration.IdGroupUnit" @bind-Value:event="oninput" class="form-select">
+                            <option value="@Guid.Empty">Seleccionar departamento</option>
                             <!--    PARAMETRO_PADRE     -->
                             @foreach (var type in filteredUnits)
                             {

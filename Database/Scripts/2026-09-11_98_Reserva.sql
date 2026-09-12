@@ -299,6 +299,28 @@ BEGIN
 END
 GO
 
+-- Reprogramar -- decisión cerrada con el usuario 2026-09-12: cambiar la
+-- fecha/hora de una reserva Aprobada la vuelve a Pendiente de Aprobación
+-- (una fecha nueva es, en la práctica, una solicitud nueva -- puede violar
+-- la ventana de anticipación o generar un conflicto distinto). Limpia
+-- AprobadoPor/FechaAprobacion -- la aprobación anterior ya no aplica a la
+-- fecha nueva. NO toca PagoConfirmado -- si ya pagó, no hace falta
+-- reconfirmar sólo por cambiar el horario.
+CREATE OR ALTER PROCEDURE dbo.UPD_ReservaFechas
+    @IdReserva UNIQUEIDENTIFIER, @FechaInicio DATETIME2, @FechaFin DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.Reserva SET
+        FechaInicio = @FechaInicio,
+        FechaFin = @FechaFin,
+        Estado = 1, -- PendienteDeAprobacion
+        AprobadoPor = NULL,
+        FechaAprobacion = NULL
+    WHERE IdReserva = @IdReserva;
+END
+GO
+
 -- NombreUnidad NO se resuelve acá -- no hay certeza del nombre real de la
 -- tabla/vista de unidades desde este script (VW_OwnerUnit es una VIEW, no
 -- necesariamente 1:1 con una tabla "Unit"). Se resuelve del lado C# con el
@@ -374,8 +396,12 @@ GO
 -- ellas, FromSqlRaw revienta con "required column ... was not present",
 -- visto en vivo al abrir "Nueva Solicitud" -- Docs/Pendientes-Negocio-
 -- Consolidado.md #21).
+-- @ExcluirIdReserva -- reprogramar chequea conflicto contra las MISMAS
+-- reglas que solicitar, pero sin contarse a sí misma como su propio
+-- conflicto (agregado 2026-09-12 para IReservaService.ReprogramarAsync).
 CREATE OR ALTER PROCEDURE dbo.GET_ReservasConflicto
-    @IdAreaComun UNIQUEIDENTIFIER, @FechaInicio DATETIME2, @FechaFin DATETIME2
+    @IdAreaComun UNIQUEIDENTIFIER, @FechaInicio DATETIME2, @FechaFin DATETIME2,
+    @ExcluirIdReserva UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -387,7 +413,8 @@ BEGIN
     WHERE r.IdAreaComun = @IdAreaComun
       AND r.Estado NOT IN (3, 4, 5) -- Rechazada, Cancelada, NoPresentado
       AND r.FechaInicio < @FechaFin
-      AND r.FechaFin > @FechaInicio;
+      AND r.FechaFin > @FechaInicio
+      AND (@ExcluirIdReserva IS NULL OR r.IdReserva <> @ExcluirIdReserva);
 END
 GO
 

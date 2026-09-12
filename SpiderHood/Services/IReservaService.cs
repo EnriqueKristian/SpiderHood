@@ -36,6 +36,14 @@ namespace SpiderHood.Services
         // Limpieza según EsExterno, y guarda en PendienteDeAprobacion.
         Task<SolicitarReservaResultado> SolicitarAsync(Reserva reserva, AreaComun areaComun);
 
+        // Decisión cerrada con el usuario 2026-09-12: sólo se puede reprogramar una
+        // reserva PendienteDeAprobacion o Aprobada -- si estaba Aprobada, vuelve a
+        // Pendiente (una fecha nueva es, en la práctica, una solicitud nueva: puede
+        // violar la ventana de anticipación o generar un conflicto distinto, así que
+        // la Junta tiene que volver a mirarla). Revalida las mismas reglas que
+        // SolicitarAsync y el conflicto de horario (excluyéndose a sí misma).
+        Task<SolicitarReservaResultado> ReprogramarAsync(Guid idReserva, DateTime nuevaFechaInicio, DateTime nuevaFechaFin, AreaComun areaComun);
+
         Task AprobarAsync(Guid idReserva, Guid aprobadoPor);
 
         Task RechazarAsync(Guid idReserva, Guid aprobadoPor, string motivo);
@@ -114,38 +122,39 @@ namespace SpiderHood.Services
         public async Task<List<ReservaAttachment>> GetAdjuntosAsync(Guid idReserva)
             => await ec.GetReservaAttachmentsByReservaAsync(idReserva);
 
+        // Compartida entre SolicitarAsync y ReprogramarAsync -- las reglas de ventana
+        // (anticipación/duración) son las mismas para las dos; el tope de reservas
+        // activas y el chequeo de conflicto NO se comparten (reprogramar no suma una
+        // reserva nueva, y el conflicto tiene que excluirse a sí misma).
+        private static string? ValidarVentana(DateTime fechaInicio, DateTime fechaFin, AreaComun areaComun)
+        {
+            if (fechaInicio >= fechaFin)
+                return "La fecha de inicio debe ser anterior a la fecha de fin.";
+
+            if (fechaInicio < DateTime.Now.AddHours(areaComun.AnticipacionMinHoras))
+                return $"Esta área requiere al menos {areaComun.AnticipacionMinHoras} horas de anticipación.";
+
+            if (areaComun.AnticipacionMaxDias.HasValue && fechaInicio > DateTime.Now.AddDays(areaComun.AnticipacionMaxDias.Value))
+                return $"Esta área no admite reservas con más de {areaComun.AnticipacionMaxDias} días de anticipación.";
+
+            var duracionMinutos = (fechaFin - fechaInicio).TotalMinutes;
+            if (areaComun.DuracionMinMinutos.HasValue && duracionMinutos < areaComun.DuracionMinMinutos.Value)
+                return $"La duración mínima de la reserva es de {areaComun.DuracionMinMinutos} minutos.";
+
+            if (areaComun.DuracionMaxMinutos.HasValue && duracionMinutos > areaComun.DuracionMaxMinutos.Value)
+                return $"La duración máxima de la reserva es de {areaComun.DuracionMaxMinutos} minutos.";
+
+            return null;
+        }
+
         public async Task<SolicitarReservaResultado> SolicitarAsync(Reserva reserva, AreaComun areaComun)
         {
             var resultado = new SolicitarReservaResultado();
 
-            if (reserva.FechaInicio >= reserva.FechaFin)
+            var errorVentana = ValidarVentana(reserva.FechaInicio, reserva.FechaFin, areaComun);
+            if (errorVentana != null)
             {
-                resultado.Mensaje = "La fecha de inicio debe ser anterior a la fecha de fin.";
-                return resultado;
-            }
-
-            if (reserva.FechaInicio < DateTime.Now.AddHours(areaComun.AnticipacionMinHoras))
-            {
-                resultado.Mensaje = $"Esta área requiere al menos {areaComun.AnticipacionMinHoras} horas de anticipación.";
-                return resultado;
-            }
-
-            if (areaComun.AnticipacionMaxDias.HasValue && reserva.FechaInicio > DateTime.Now.AddDays(areaComun.AnticipacionMaxDias.Value))
-            {
-                resultado.Mensaje = $"Esta área no admite reservas con más de {areaComun.AnticipacionMaxDias} días de anticipación.";
-                return resultado;
-            }
-
-            var duracionMinutos = (reserva.FechaFin - reserva.FechaInicio).TotalMinutes;
-            if (areaComun.DuracionMinMinutos.HasValue && duracionMinutos < areaComun.DuracionMinMinutos.Value)
-            {
-                resultado.Mensaje = $"La duración mínima de la reserva es de {areaComun.DuracionMinMinutos} minutos.";
-                return resultado;
-            }
-
-            if (areaComun.DuracionMaxMinutos.HasValue && duracionMinutos > areaComun.DuracionMaxMinutos.Value)
-            {
-                resultado.Mensaje = $"La duración máxima de la reserva es de {areaComun.DuracionMaxMinutos} minutos.";
+                resultado.Mensaje = errorVentana;
                 return resultado;
             }
 
@@ -190,6 +199,50 @@ namespace SpiderHood.Services
             resultado.Exito = true;
             resultado.IdReserva = reserva.IdReserva;
             resultado.Mensaje = "Reserva solicitada -- queda pendiente de aprobación de la Junta.";
+            return resultado;
+        }
+
+        public async Task<SolicitarReservaResultado> ReprogramarAsync(Guid idReserva, DateTime nuevaFechaInicio, DateTime nuevaFechaFin, AreaComun areaComun)
+        {
+            var resultado = new SolicitarReservaResultado { IdReserva = idReserva };
+
+            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            if (reserva.Estado is not (ReservaEstado.PendienteDeAprobacion or ReservaEstado.Aprobada))
+            {
+                resultado.Mensaje = "Sólo se puede reprogramar una reserva Pendiente de Aprobación o Aprobada.";
+                return resultado;
+            }
+
+            var errorVentana = ValidarVentana(nuevaFechaInicio, nuevaFechaFin, areaComun);
+            if (errorVentana != null)
+            {
+                resultado.Mensaje = errorVentana;
+                return resultado;
+            }
+
+            var buffer = TimeSpan.FromMinutes(areaComun.BufferMinutos);
+            var conflictos = await ec.GetReservasConflictoAsync(areaComun.IdAreaComun, nuevaFechaInicio - buffer, nuevaFechaFin + buffer, idReserva);
+            if (conflictos.Any())
+            {
+                resultado.Mensaje = "El área ya está reservada (o no hay suficiente buffer de limpieza) en ese horario.";
+                return resultado;
+            }
+
+            await ec.UpdateReservaFechasAsync(idReserva, nuevaFechaInicio, nuevaFechaFin);
+
+            if (reserva.IdCalendarItem.HasValue)
+            {
+                var calendarItem = await _calendarService.GetByIdAsync(reserva.IdCalendarItem.Value);
+                calendarItem.StartDate = nuevaFechaInicio;
+                calendarItem.EndDate = nuevaFechaFin;
+                calendarItem.Description = "Pendiente de aprobación de la Junta (reprogramada).";
+                calendarItem.ModifiedBy = reserva.CreatedBy.ToString();
+                calendarItem.ModifiedOn = DateTime.Now;
+                await _calendarService.UpdateAsync(calendarItem);
+            }
+
+            resultado.Exito = true;
+            resultado.Mensaje = "Reserva reprogramada -- vuelve a quedar pendiente de aprobación de la Junta.";
             return resultado;
         }
 

@@ -853,6 +853,20 @@ namespace SpiderHood.Data
             }, "ConfirmarPagoReserva", cancellationToken);
         }
 
+        public async Task UpdateReservaFechasAsync(Guid idReserva, DateTime fechaInicio, DateTime fechaFin, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ReservaFechas,
+                    cancellationToken,
+                    idReserva,
+                    fechaInicio,
+                    fechaFin);
+                return true;
+            }, "UpdateReservaFechas", cancellationToken);
+        }
+
         public async Task UpdateCalendarItemAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));

@@ -110,9 +110,15 @@ else
                                 <td class="text-end">@Moneda(reserva.MontoGarantia)</td>
                                 <td class="text-end">@Moneda(reserva.MontoAlquiler)</td>
                                 <td>
+                                    <button class="btn btn-sm btn-outline-secondary me-1" title="Ver detalle" @onclick="() => VerDetalle(reserva)">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
                                     @if (reserva.Estado is ReservaEstado.PendienteDeAprobacion or ReservaEstado.Aprobada)
                                     {
-                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => PedirCancelar(reserva)">
+                                        <button class="btn btn-sm btn-outline-warning me-1" title="Reprogramar (cambiar fecha/hora)" @onclick="() => AbrirReprogramar(reserva)">
+                                            <i class="bi bi-calendar-event"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" title="Cancelar reserva" @onclick="() => PedirCancelar(reserva)">
                                             <i class="bi bi-x-lg"></i>
                                         </button>
                                     }
@@ -241,6 +247,117 @@ else
                 <i class="bi bi-send me-1"></i>Solicitar
             </button>
             <button class="btn btn-secondary" @onclick="() => _nuevaModal.HideAsync()">Cancelar</button>
+        </FooterTemplate>
+    </Modal>
+
+    <!-- Modal: Detalle de la reserva -->
+    <Modal @ref="_detalleModal" Title="Detalle de la Reserva" Size="ModalSize.Regular">
+        <BodyTemplate>
+            @if (_reservaDetalle is not null)
+            {
+                <p class="mb-1"><strong>@_reservaDetalle.NombreAreaComun</strong></p>
+                <p class="text-muted small">
+                    @_reservaDetalle.FechaInicio.ToString("dd/MM/yyyy HH:mm") - @_reservaDetalle.FechaFin.ToString("dd/MM/yyyy HH:mm")
+                </p>
+                <p>Estado: @EtiquetaEstado(_reservaDetalle)</p>
+
+                @if (_reservaDetalle.EsExterno)
+                {
+                    <div class="alert alert-light border small">
+                        <strong>Organizador externo:</strong> @_reservaDetalle.OrganizadorNombre
+                        @if (!string.IsNullOrWhiteSpace(_reservaDetalle.OrganizadorDocumento)) { <span> -- Doc: @_reservaDetalle.OrganizadorDocumento</span> }
+                        @if (!string.IsNullOrWhiteSpace(_reservaDetalle.OrganizadorTelefono)) { <span> -- Tel: @_reservaDetalle.OrganizadorTelefono</span> }
+                    </div>
+                }
+
+                @if (_reservaDetalle.Estado == ReservaEstado.Rechazada && !string.IsNullOrWhiteSpace(_reservaDetalle.MotivoRechazo))
+                {
+                    <div class="alert alert-danger small">Motivo del rechazo: @_reservaDetalle.MotivoRechazo</div>
+                }
+
+                <table class="table table-sm">
+                    <tbody>
+                        <tr><td>Garantía</td><td class="text-end">@Moneda(_reservaDetalle.MontoGarantia)</td></tr>
+                        <tr><td>Alquiler</td><td class="text-end">@Moneda(_reservaDetalle.MontoAlquiler)</td></tr>
+                        <tr><td>Limpieza</td><td class="text-end">@Moneda(_reservaDetalle.MontoLimpieza)</td></tr>
+                        @if (_reservaDetalle.MontoRetenido.HasValue)
+                        {
+                            <tr><td>Retenido</td><td class="text-end">@Moneda(_reservaDetalle.MontoRetenido.Value)</td></tr>
+                        }
+                    </tbody>
+                </table>
+
+                @if (_checklistDetalle.Any())
+                {
+                    <h6 class="mt-3">Checklist</h6>
+                    @foreach (var etapa in _checklistDetalle.GroupBy(c => c.Etapa))
+                    {
+                        <p class="mb-1 small fw-semibold">@(etapa.Key == ChecklistEtapa.Entrega ? "Entrega" : "Devolución")</p>
+                        <ul class="small">
+                            @foreach (var item in etapa)
+                            {
+                                <li>@item.Descripcion -- @item.Estado @(!string.IsNullOrWhiteSpace(item.Observacion) ? $"({item.Observacion})" : "")</li>
+                            }
+                        </ul>
+                    }
+                }
+
+                @if (_adjuntosDetalle.Any())
+                {
+                    <h6 class="mt-3">Fotos</h6>
+                    <p class="small text-muted">@_adjuntosDetalle.Count foto(s) adjunta(s) por el Administrador.</p>
+                }
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <button class="btn btn-secondary" @onclick="() => _detalleModal.HideAsync()">Cerrar</button>
+        </FooterTemplate>
+    </Modal>
+
+    <!-- Modal: Reprogramar -- decisión cerrada con el usuario 2026-09-12: cambiar la
+         fecha de una reserva Aprobada la vuelve a Pendiente de Aprobación. -->
+    <Modal @ref="_reprogramarModal" Title="Reprogramar Reserva" Size="ModalSize.Regular" UseStaticBackdrop="true" CloseOnEscape="false">
+        <BodyTemplate>
+            @if (_errorReprogramar is not null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show">
+                    @_errorReprogramar
+                    <button type="button" class="btn-close" @onclick="() => _errorReprogramar = null"></button>
+                </div>
+            }
+            @if (_reservaAReprogramar is not null)
+            {
+                <p class="text-muted small">@_reservaAReprogramar.NombreAreaComun</p>
+
+                @if (_reservaAReprogramar.Estado == ReservaEstado.Aprobada)
+                {
+                    <div class="alert alert-warning small">
+                        Esta reserva ya está Aprobada -- al reprogramarla vuelve a quedar Pendiente de
+                        Aprobación de la Junta.
+                    </div>
+                }
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Nueva Fecha/Hora de Inicio *</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_nuevaFechaInicio" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nueva Fecha/Hora de Fin *</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_nuevaFechaFin" class="form-control" />
+                    </div>
+                </div>
+            }
+        </BodyTemplate>
+        <FooterTemplate>
+            <button class="btn btn-primary" @onclick="ConfirmarReprogramar" disabled="@_reprogramando">
+                @if (_reprogramando)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="bi bi-calendar-event me-1"></i>Reprogramar
+            </button>
+            <button class="btn btn-secondary" @onclick="() => _reprogramarModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
     </Modal>
 }

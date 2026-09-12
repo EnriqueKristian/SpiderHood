@@ -821,7 +821,7 @@ namespace SpiderHood.Data
             }, "UpdateAreaComun", cancellationToken);
         }
 
-        public async Task UpdateReservaEstadoAsync(Guid idReserva, Models.ReservaEstado estado, string? motivoRechazo = null, Guid? aprobadoPor = null, decimal? montoRetenido = null, CancellationToken cancellationToken = default)
+        public async Task UpdateReservaEstadoAsync(Guid idReserva, Models.ReservaEstado estado, string? motivoRechazo = null, Guid? aprobadoPor = null, decimal? montoRetenido = null, Guid? idCalendarItem = null, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
@@ -832,7 +832,8 @@ namespace SpiderHood.Data
                     (int)estado,
                     (object?)motivoRechazo ?? DBNull.Value,
                     (object?)aprobadoPor ?? DBNull.Value,
-                    (object?)montoRetenido ?? DBNull.Value);
+                    (object?)montoRetenido ?? DBNull.Value,
+                    (object?)idCalendarItem ?? DBNull.Value);
                 return true;
             }, "UpdateReservaEstado", cancellationToken);
         }

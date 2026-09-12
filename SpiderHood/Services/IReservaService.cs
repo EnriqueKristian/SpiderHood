@@ -23,6 +23,14 @@ namespace SpiderHood.Services
 
         Task<List<ReservaAttachment>> GetAdjuntosAsync(Guid idReserva);
 
+        // Autocuración manual para una reserva que quedó sin CalendarItem (ej. una
+        // solicitada/aprobada antes de que existiera esta integración, o cualquier otra
+        // causa) -- AprobarAsync ya se autocura solo, pero eso no ayuda a una reserva que
+        // YA está Aprobada (no hay botón "Aprobar" para volver a disparar el fix). Devuelve
+        // false sin hacer nada si ya tenía CalendarItem o si el estado ya no lo necesita
+        // (Rechazada/Cancelada/NoPresentado/Cerrada).
+        Task<bool> AsegurarCalendarItemAsync(Guid idReserva);
+
         // Valida ventanas de anticipación/duración del Área Común, chequea
         // solapamiento con GET_ReservasConflicto, calcula Garantía/Alquiler/
         // Limpieza según EsExterno, y guarda en PendienteDeAprobacion.
@@ -165,30 +173,7 @@ namespace SpiderHood.Services
             // una Reserva Pendiente/Aprobada no se veía en el Calendario general, así que
             // otro propietario no tenía forma visual de saber que el área ya estaba
             // comprometida en ese horario (más allá del chequeo de conflicto de arriba).
-            // Se inserta directo por BDLayout, sin pasar por ICalendarService.CreateAsync
-            // a propósito: ese método manda un correo a TODOS los residentes del edificio
-            // ("Nuevo evento programado...") cada vez que se crea un CalendarItem -- bien
-            // para un evento real cargado por el Administrador, pero acá saldría un correo
-            // masivo por cada Solicitud de reserva, incluso antes de que la Junta la
-            // apruebe. Este CalendarItem es sólo un marcador visual de "horario ocupado",
-            // no un anuncio -- si en el futuro se quiere avisar de una reserva Aprobada,
-            // debería salir del módulo de Comunicados, no de acá.
-            var nombreUnidad = await ResolverNombreUnidadAsync(areaComun.IdBuilding, reserva.IdGroupUnit);
-            var calendarItem = new CalendarItem
-            {
-                IdCalendarItem = Guid.NewGuid(),
-                IdBuilding = areaComun.IdBuilding,
-                Title = $"Reserva: {areaComun.Nombre} ({nombreUnidad})",
-                Description = "Pendiente de aprobación de la Junta.",
-                Type = CalendarItemType.Event,
-                StartDate = reserva.FechaInicio,
-                EndDate = reserva.FechaFin,
-                Location = areaComun.Nombre,
-                Status = CalendarItemStatus.Scheduled,
-                CreatedBy = reserva.CreatedBy.ToString(),
-                CreatedOn = DateTime.Now
-            };
-            await ec.AddNewRecordAsync(calendarItem);
+            var calendarItem = await CrearCalendarItemDeReservaAsync(reserva, areaComun.Nombre, areaComun.IdBuilding, "Pendiente de aprobación de la Junta.");
             reserva.IdCalendarItem = calendarItem.IdCalendarItem;
 
             await ec.AddNewRecordAsync(reserva);
@@ -201,9 +186,8 @@ namespace SpiderHood.Services
 
         public async Task AprobarAsync(Guid idReserva, Guid aprobadoPor)
         {
-            await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Aprobada, aprobadoPor: aprobadoPor);
-
             var reserva = await ec.GetReservaByIdAsync(idReserva);
+
             if (reserva.IdCalendarItem.HasValue)
             {
                 var calendarItem = await _calendarService.GetByIdAsync(reserva.IdCalendarItem.Value);
@@ -211,7 +195,38 @@ namespace SpiderHood.Services
                 calendarItem.ModifiedBy = aprobadoPor.ToString();
                 calendarItem.ModifiedOn = DateTime.Now;
                 await _calendarService.UpdateAsync(calendarItem);
+
+                await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Aprobada, aprobadoPor: aprobadoPor);
             }
+            else
+            {
+                // Autocuración: reservas solicitadas antes de que existiera esta
+                // integración con el Calendario (o cualquier otra causa por la que
+                // haya quedado sin CalendarItem) no tienen nada que actualizar -- se
+                // les crea uno recién ahora en vez de dejarlas invisibles para
+                // siempre. Visto en vivo (2026-09-12): una reserva ya Aprobada de una
+                // ronda de pruebas anterior a este fix no aparecía en el Calendario.
+                var nuevoCalendarItem = await CrearCalendarItemDeReservaAsync(reserva, reserva.NombreAreaComun, reserva.IdBuilding, "Aprobada por la Junta.");
+                await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Aprobada, aprobadoPor: aprobadoPor, idCalendarItem: nuevoCalendarItem.IdCalendarItem);
+            }
+        }
+
+        public async Task<bool> AsegurarCalendarItemAsync(Guid idReserva)
+        {
+            var reserva = await ec.GetReservaByIdAsync(idReserva);
+
+            if (reserva.IdCalendarItem.HasValue
+                || reserva.Estado is ReservaEstado.Rechazada or ReservaEstado.Cancelada or ReservaEstado.NoPresentado or ReservaEstado.Cerrada)
+            {
+                return false;
+            }
+
+            var descripcion = reserva.Estado == ReservaEstado.PendienteDeAprobacion
+                ? "Pendiente de aprobación de la Junta."
+                : "Aprobada por la Junta.";
+            var calendarItem = await CrearCalendarItemDeReservaAsync(reserva, reserva.NombreAreaComun, reserva.IdBuilding, descripcion);
+            await ec.UpdateReservaEstadoAsync(idReserva, reserva.Estado, idCalendarItem: calendarItem.IdCalendarItem);
+            return true;
         }
 
         public async Task RechazarAsync(Guid idReserva, Guid aprobadoPor, string motivo)
@@ -268,6 +283,35 @@ namespace SpiderHood.Services
             var unidades = await ec.GetOwnersByBuildingAsync(idBuilding);
             var unidad = unidades.FirstOrDefault(u => u.IdGroupUnit == idGroupUnit);
             return unidad != null ? $"DPTO {unidad.UnitNumber}" : "unidad";
+        }
+
+        // Se inserta directo por BDLayout, sin pasar por ICalendarService.CreateAsync a
+        // propósito: ese método manda un correo a TODOS los residentes del edificio
+        // ("Nuevo evento programado...") cada vez que se crea un CalendarItem -- bien para
+        // un evento real cargado por el Administrador, pero acá saldría un correo masivo
+        // por cada Solicitud de reserva (o cada vez que Aprobar necesita autocurar una sin
+        // vínculo), incluso antes de que la Junta la apruebe. Este CalendarItem es sólo un
+        // marcador visual de "horario ocupado", no un anuncio -- si en el futuro se quiere
+        // avisar de una reserva Aprobada, debería salir del módulo de Comunicados, no de acá.
+        private async Task<CalendarItem> CrearCalendarItemDeReservaAsync(Reserva reserva, string nombreAreaComun, Guid idBuilding, string descripcion)
+        {
+            var nombreUnidad = await ResolverNombreUnidadAsync(idBuilding, reserva.IdGroupUnit);
+            var calendarItem = new CalendarItem
+            {
+                IdCalendarItem = Guid.NewGuid(),
+                IdBuilding = idBuilding,
+                Title = $"Reserva: {nombreAreaComun} ({nombreUnidad})",
+                Description = descripcion,
+                Type = CalendarItemType.Event,
+                StartDate = reserva.FechaInicio,
+                EndDate = reserva.FechaFin,
+                Location = nombreAreaComun,
+                Status = CalendarItemStatus.Scheduled,
+                CreatedBy = reserva.CreatedBy.ToString(),
+                CreatedOn = DateTime.Now
+            };
+            await ec.AddNewRecordAsync(calendarItem);
+            return calendarItem;
         }
 
         public async Task HacerCheckInAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)

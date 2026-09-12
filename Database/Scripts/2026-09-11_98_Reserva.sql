@@ -242,7 +242,8 @@ GO
 -- puntual quedan NULL y no pisan el valor ya guardado (COALESCE).
 CREATE OR ALTER PROCEDURE dbo.UPD_ReservaEstado
     @IdReserva UNIQUEIDENTIFIER, @Estado INT, @MotivoRechazo NVARCHAR(500) = NULL,
-    @AprobadoPor UNIQUEIDENTIFIER = NULL, @MontoRetenido DECIMAL(18,2) = NULL
+    @AprobadoPor UNIQUEIDENTIFIER = NULL, @MontoRetenido DECIMAL(18,2) = NULL,
+    @IdCalendarItem UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -251,7 +252,8 @@ BEGIN
         MotivoRechazo = COALESCE(@MotivoRechazo, MotivoRechazo),
         AprobadoPor = COALESCE(@AprobadoPor, AprobadoPor),
         FechaAprobacion = CASE WHEN @AprobadoPor IS NOT NULL THEN SYSUTCDATETIME() ELSE FechaAprobacion END,
-        MontoRetenido = COALESCE(@MontoRetenido, MontoRetenido)
+        MontoRetenido = COALESCE(@MontoRetenido, MontoRetenido),
+        IdCalendarItem = COALESCE(@IdCalendarItem, IdCalendarItem)
     WHERE IdReserva = @IdReserva;
 END
 GO

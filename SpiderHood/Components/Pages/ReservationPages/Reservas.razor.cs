@@ -26,6 +26,13 @@ namespace SpiderHood.Components.Pages.ReservationPages
         private string? _resultado;
         private bool _resultadoOk;
 
+        // Distinto de _resultado -- ese alert vive en el cuerpo de la página y queda
+        // tapado por el backdrop del Modal mientras está abierto (feedback del usuario
+        // 2026-09-12: "el mensaje sale por atrás, no se ve"). Los errores de validación
+        // que ocurren CON el modal todavía abierto (ej. "el área ya está reservada en
+        // ese horario") se muestran acá adentro en su lugar.
+        private string? _errorModal;
+
         private Modal _nuevaModal = null!;
         private ConfirmationModal? _confirmationModal;
         private readonly ConfirmationUtil _util = new();
@@ -70,6 +77,7 @@ namespace SpiderHood.Components.Pages.ReservationPages
         private async Task AbrirNuevaSolicitud()
         {
             _resultado = null;
+            _errorModal = null;
             _areaSeleccionada = _areasComunes.FirstOrDefault();
             _form = new Reserva
             {
@@ -109,13 +117,19 @@ namespace SpiderHood.Components.Pages.ReservationPages
             try
             {
                 var resultado = await ReservaService.SolicitarAsync(_form, _areaSeleccionada);
-                _resultadoOk = resultado.Exito;
-                _resultado = resultado.Mensaje;
 
                 if (resultado.Exito)
                 {
+                    _resultadoOk = true;
+                    _resultado = resultado.Mensaje;
                     await _nuevaModal.HideAsync();
                     await CargarReservasAsync();
+                }
+                else
+                {
+                    // El modal sigue abierto -- el mensaje va adentro (_errorModal), no en
+                    // _resultado (quedaría tapado por el backdrop del modal).
+                    _errorModal = resultado.Mensaje;
                 }
             }
             finally

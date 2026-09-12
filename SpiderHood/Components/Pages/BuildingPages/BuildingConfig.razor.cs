@@ -59,6 +59,13 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private bool _loadingAreasComunes = true;
         private AreaComun _editingAreaComun = new();
 
+        // Se muestra DENTRO del modal (no en el cuerpo de la página, que queda tapado
+        // por el backdrop mientras el modal está abierto -- feedback del usuario
+        // 2026-09-12: "el mensaje sale por atrás, no se ve"). string.Empty = sin error --
+        // este archivo no tiene #nullable enable (es grande y preexistente, no vale la
+        // pena habilitarlo sólo por este campo), así que se evita "string?" acá.
+        private string _errorAreaComun = string.Empty;
+
         private string Moneda(decimal valor) => valor.FormatoMoneda(SelectedBuilding?.Configuration.Currency);
 
         private List<string> _paymentMethods = new();
@@ -136,6 +143,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
         {
             if (!_canEditBuilding) return;
             _editingAreaComun = new AreaComun { IdBuilding = SelectedBuilding!.IdBuilding, Activo = true };
+            _errorAreaComun = string.Empty;
             _areaComunModal.ShowAsync();
         }
 
@@ -143,6 +151,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
         {
             if (!_canEditBuilding) return;
             _editingAreaComun = area.Clone();
+            _errorAreaComun = string.Empty;
             _areaComunModal.ShowAsync();
         }
 
@@ -151,7 +160,10 @@ namespace SpiderHood.Components.Pages.BuildingPages
             if (!_canEditBuilding || SelectedBuilding == null) return;
 
             if (string.IsNullOrWhiteSpace(_editingAreaComun.Nombre))
+            {
+                _errorAreaComun = "El nombre es obligatorio.";
                 return;
+            }
 
             if (_editingAreaComun.IdAreaComun == Guid.Empty)
             {

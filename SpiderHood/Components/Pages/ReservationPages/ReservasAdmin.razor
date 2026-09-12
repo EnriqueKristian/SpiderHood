@@ -242,6 +242,13 @@ else
     <!-- Modal: Cerrar reserva / liquidar garantía -->
     <Modal @ref="_cerrarModal" Title="Cerrar Reserva" Size="ModalSize.Regular" UseStaticBackdrop="true" CloseOnEscape="false">
         <BodyTemplate>
+            @if (_errorModal is not null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show">
+                    @_errorModal
+                    <button type="button" class="btn-close" @onclick="() => _errorModal = null"></button>
+                </div>
+            }
             @if (_reservaSeleccionada != null)
             {
                 <p class="text-muted small">
@@ -283,6 +290,13 @@ else
          resolverla del usuario actual. -->
     <Modal @ref="_nuevaReservaModal" Title="Nueva Reserva" Size="ModalSize.Large" UseStaticBackdrop="true" CloseOnEscape="false">
         <BodyTemplate>
+            @if (_errorModal is not null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show">
+                    @_errorModal
+                    <button type="button" class="btn-close" @onclick="() => _errorModal = null"></button>
+                </div>
+            }
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <label class="form-label">Área Común *</label>

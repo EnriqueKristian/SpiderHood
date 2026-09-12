@@ -144,6 +144,13 @@ else
 <!-- Modal: Nuevo Comunicado -->
 <Modal @ref="_nuevoModal" Title="Nuevo Comunicado" Size="ModalSize.Large" UseStaticBackdrop="true" CloseOnEscape="false">
     <BodyTemplate>
+        @if (_errorModal is not null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @_errorModal
+                <button type="button" class="btn-close" @onclick="() => _errorModal = null"></button>
+            </div>
+        }
         <EditForm Model="_form" OnValidSubmit="ConfirmarPublicar">
             <DataAnnotationsValidator />
 

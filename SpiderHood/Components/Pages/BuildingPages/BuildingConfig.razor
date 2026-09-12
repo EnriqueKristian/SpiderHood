@@ -1340,6 +1340,13 @@
 <!-- Modal para crear/editar Áreas Comunes -->
 <Modal @ref="_areaComunModal" Title="@(_editingAreaComun.IdAreaComun == Guid.Empty ? "Nueva Área Común" : "Editar Área Común")" Size="ModalSize.Large" UseStaticBackdrop="true" CloseOnEscape="false">
     <BodyTemplate>
+        @if (!string.IsNullOrEmpty(_errorAreaComun))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @_errorAreaComun
+                <button type="button" class="btn-close" @onclick='() => _errorAreaComun = string.Empty'></button>
+            </div>
+        }
         <EditForm Model="_editingAreaComun" OnValidSubmit="SaveAreaComun">
             <DataAnnotationsValidator />
             <ValidationSummary />

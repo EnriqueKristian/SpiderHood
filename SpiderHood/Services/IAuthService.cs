@@ -1250,6 +1250,11 @@ namespace SpiderHood.Services
                 _user.FirstName = model.FirstName;
                 _user.LastName = model.LastName;
                 _user.PasswordHash = _passwordHasher.HashPassword(_user, model.Password);
+                // UserModel.IsActive no tiene default (bool = false) -- sin esto, un usuario
+                // que acepta una invitación por edificio quedaba creado inactivo y no podía
+                // ni loguearse ("Tu cuenta está desactivada"), aunque la invitación ya
+                // implica que el administrador lo aprobó al invitarlo.
+                _user.IsActive = true;
 
                 //EmailConfirmed = true // El email está verificado por la invitación
 

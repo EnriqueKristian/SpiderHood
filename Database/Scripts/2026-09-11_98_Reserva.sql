@@ -486,7 +486,14 @@ GO
 -- mismo criterio que Comunicados (2026-09-11_97_Comunicado.sql): el gateo
 -- real es por permiso dentro de cada página, no por una tabla menú-a-
 -- permiso. "Reservas" se reubica más abajo dentro de "Portal del
--- Residente" -- ver esa nota.
+-- Residente" -- ver esa nota. A diferencia de Comunicados, acá SÍ se
+-- guarda con IF NOT EXISTS -- confirmado que la tabla física es
+-- dbo.MenuItems (mismo patrón ya usado en
+-- 2026-09-11_91_Fix_Menu_Junta_Aprobaciones.sql), y este script se viene
+-- re-corriendo seguido durante las pruebas en vivo de esta sesión: sin el
+-- guard, INS_MenuItem revienta con "Violation of PRIMARY KEY constraint"
+-- en cada corrida después de la primera (visto en vivo 2026-09-12).
+IF NOT EXISTS (SELECT 1 FROM dbo.MenuItems WHERE IdMenu = 'C4A8E2D6-1F5B-4A9C-8E2D-3B7A6F1C9D80')
 EXEC dbo.INS_MenuItem
     @IdMenu = 'C4A8E2D6-1F5B-4A9C-8E2D-3B7A6F1C9D80',
     @IdParent = NULL,
@@ -500,6 +507,7 @@ EXEC dbo.INS_MenuItem
     @BadgeText = NULL,
     @BadgeColor = NULL;
 
+IF NOT EXISTS (SELECT 1 FROM dbo.MenuItems WHERE IdMenu = 'D5B9F3E7-2A6C-4B0D-9F3E-4C8B7A2D0E91')
 EXEC dbo.INS_MenuItem
     @IdMenu = 'D5B9F3E7-2A6C-4B0D-9F3E-4C8B7A2D0E91',
     @IdParent = NULL,

@@ -305,6 +305,7 @@ namespace SpiderHood.Data
             public const string GET_AreaComunesByBuilding = "GET_AreaComunesByBuilding";
             public const string INS_Reserva = "INS_Reserva";
             public const string UPD_ReservaEstado = "UPD_ReservaEstado";
+            public const string UPD_ReservaPago = "UPD_ReservaPago";
             public const string GET_ReservasByBuilding = "GET_ReservasByBuilding";
             public const string GET_ReservaById = "GET_ReservaById";
             public const string GET_ReservasPendientesByBuilding = "GET_ReservasPendientesByBuilding";

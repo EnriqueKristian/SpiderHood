@@ -131,6 +131,16 @@ namespace SpiderHood.Models
         // horario. Se borra si la Reserva se Rechaza/Cancela/marca NoPresentado.
         public Guid? IdCalendarItem { get; set; }
 
+        // Confirmación manual de pago -- no hay pasarela de pago ni conciliación
+        // bancaria conectada todavía (Docs/Pendientes-Negocio-Consolidado.md #21,
+        // "Cobro"). El Administrador tilda esto a mano antes de poder hacer
+        // check-in (ver IReservaService.HacerCheckInAsync) -- feedback del usuario
+        // 2026-09-12.
+        public bool PagoConfirmado { get; set; }
+        [Precision(18, 2)] public decimal? MontoPagoConfirmado { get; set; }
+        public DateTime? FechaPagoConfirmado { get; set; }
+        public Guid? PagoConfirmadoPor { get; set; }
+
         public Guid CreatedBy { get; set; }
         public DateTime CreatedOn { get; set; }
 
@@ -183,6 +193,12 @@ namespace SpiderHood.Models
         public bool Exito { get; set; }
         public string Mensaje { get; set; } = string.Empty;
         public Guid IdReserva { get; set; }
+    }
+
+    public class CheckInResultado
+    {
+        public bool Exito { get; set; }
+        public string Mensaje { get; set; } = string.Empty;
     }
 
     public class CerrarReservaResultado

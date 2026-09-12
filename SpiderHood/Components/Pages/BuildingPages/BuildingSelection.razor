@@ -281,19 +281,25 @@
     private bool showPassword = false;
     private Dictionary<string, string> errors = new();
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    // OnAfterRenderAsync(firstRender) sólo corre una vez conectado el circuito
+    // interactivo -- durante el prerender estático (la respuesta HTTP inicial que
+    // realmente ve un visitante anónimo que recién abre el link) nunca se ejecuta.
+    // Si por lo que sea ese circuito no llega a conectar para ese visitante, esta
+    // página se quedaba congelada para siempre en el spinner "Cargando información
+    // de la invitación..." -- exactamente el mismo dato inicial (info de la
+    // invitación) que AcceptInvitation.razor, la otra pantalla de invitación
+    // anónima de la app, ya carga en OnInitializedAsync (que SÍ corre durante el
+    // prerender, sin depender de que el circuito llegue a conectar). Se unifica acá
+    // con el mismo patrón.
+    protected override async Task OnInitializedAsync()
     {
-        if (firstRender)
+        if (!string.IsNullOrEmpty(InvitationCode))
         {
-            if (!string.IsNullOrEmpty(InvitationCode))
-            {
-                await LoadInvitation();
-                StateHasChanged();
-            }
-            else
-            {
-                Navigation.NavigateTo("/dashboard");
-            }
+            await LoadInvitation();
+        }
+        else
+        {
+            Navigation.NavigateTo("/dashboard");
         }
     }
 

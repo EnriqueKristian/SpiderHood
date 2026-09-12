@@ -953,11 +953,23 @@ el usuario el 2026-09-11, IMPLEMENTADO el mismo día.** Lo construido:
     backdrop, invisible hasta cerrar el modal. Aplicado a los 4 modales de
     formulario de esta ronda (Nueva Solicitud, Nueva Reserva, Cerrar
     Reserva, Área Común) y al de Comunicados.
+  - **"Reservas" se reubicó dentro de "Portal del Residente" y se renombró
+    a "Mis Reservas"** -- feedback del usuario (2026-09-12): al vivir como
+    ítem raíz suelto igual que "Gestión de Reservas", con el auto-redirect
+    de más arriba (Administrador/Junta/SysAdmin sin unidad terminan
+    siempre en `/reservas-admin`) los dos ítems del menú se veían
+    idénticos para esos roles y confundía. Es exactamente el mismo caso
+    que ya resolvió `2026-09-10_85_Reorganizar_Menu.sql` para "Mis Pagos"/
+    "Comunicados"/etc -- mismo criterio aplicado acá. "Gestión de
+    Reservas" se queda como ítem raíz (es la vista de Administrador/Junta
+    sobre TODAS las reservas del edificio, no tiene sentido "de mi
+    portal").
 - **Falta:** volver a correr el script SQL contra la base real (agregó la
-  columna `IdCalendarItem` y corrigió los 2 SPs), y probar el flujo
-  completo (solicitar -> aprobar -> check-in -> check-out -> cerrar) de
-  punta a punta -- no se pudo probar la UI en vivo en este entorno (sin
-  conexión a una BD real disponible), todo lo de acá se corrigió a partir
+  columna `IdCalendarItem`, corrigió los 2 SPs, y ahora también reubica el
+  ítem de menú "Reservas"), y probar el flujo completo (solicitar ->
+  aprobar -> check-in -> check-out -> cerrar) de punta a punta -- no se
+  pudo probar la UI en vivo en este entorno (sin conexión a una BD real
+  disponible), todo lo de acá se corrigió a partir
   de los stack traces que compartió el usuario.
 
 *Configuración del Área Común (por edificio, en `BuildingConfig` -- ver

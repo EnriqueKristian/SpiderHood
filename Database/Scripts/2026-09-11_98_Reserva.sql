@@ -441,9 +441,11 @@ VALUES (NEWID(), 'manage_reservations', 'Gestionar Reservas', 'Hacer check-in/ch
 GO
 
 -- Menú: "Reservas" (residente, solicitar) y "Gestión de Reservas" (admin,
--- check-in/check-out) -- ambos standalone (IdParent NULL), mismo criterio
--- que Comunicados (2026-09-11_97_Comunicado.sql): el gateo real es por
--- permiso dentro de cada página, no por una tabla menú-a-permiso.
+-- check-in/check-out) -- se crean acá ambos standalone (IdParent NULL),
+-- mismo criterio que Comunicados (2026-09-11_97_Comunicado.sql): el gateo
+-- real es por permiso dentro de cada página, no por una tabla menú-a-
+-- permiso. "Reservas" se reubica más abajo dentro de "Portal del
+-- Residente" -- ver esa nota.
 EXEC dbo.INS_MenuItem
     @IdMenu = 'C4A8E2D6-1F5B-4A9C-8E2D-3B7A6F1C9D80',
     @IdParent = NULL,
@@ -469,4 +471,20 @@ EXEC dbo.INS_MenuItem
     @IsVisible = 1,
     @BadgeText = NULL,
     @BadgeColor = NULL;
+GO
+
+-- Feedback del usuario (2026-09-12): "Reservas" es la vista de autoservicio
+-- del Residente (reserva a nombre de SU propia unidad, ve sólo sus propias
+-- reservas) -- corresponde adentro de "Portal del Residente" igual que "Mis
+-- Pagos"/"Comunicados"/etc (ver Database/Scripts/2026-09-10_85_Reorganizar_
+-- Menu.sql), no como ítem raíz suelto, y el título debe dejar claro que es
+-- personal. "Gestión de Reservas" (arriba) se queda como ítem raíz -- es la
+-- vista del Administrador/Junta sobre TODAS las reservas del edificio.
+-- 'C30303F7-DF5D-4526-976E-85C0881A1C79' es el IdMenu de "Portal del
+-- Residente"; orden 7 sigue a "Mi consumo de agua" (orden 6, ver ese mismo
+-- script).
+EXEC dbo.UPD_MenuItem
+    'C4A8E2D6-1F5B-4A9C-8E2D-3B7A6F1C9D80', 'C30303F7-DF5D-4526-976E-85C0881A1C79',
+    'reservations', 'Mis Reservas', 'bi-calendar-check', 'reservas', NULL,
+    7, 1, NULL, NULL, SYSUTCDATETIME();
 GO

@@ -125,6 +125,12 @@ namespace SpiderHood.Models
         public Guid? AprobadoPor { get; set; }
         public DateTime? FechaAprobacion { get; set; }
 
+        // CalendarItem creado junto con la Reserva -- feedback del usuario tras probar
+        // en vivo (2026-09-11): sin esto la Reserva no aparecía en el Calendario general,
+        // así que otro propietario no veía que el área ya estaba comprometida para ese
+        // horario. Se borra si la Reserva se Rechaza/Cancela/marca NoPresentado.
+        public Guid? IdCalendarItem { get; set; }
+
         public Guid CreatedBy { get; set; }
         public DateTime CreatedOn { get; set; }
 

@@ -1338,7 +1338,7 @@
 </Modal>
 
 <!-- Modal para crear/editar Áreas Comunes -->
-<Modal @ref="_areaComunModal" Title="@(_editingAreaComun.IdAreaComun == Guid.Empty ? "Nueva Área Común" : "Editar Área Común")" Size="ModalSize.Large">
+<Modal @ref="_areaComunModal" Title="@(_editingAreaComun.IdAreaComun == Guid.Empty ? "Nueva Área Común" : "Editar Área Común")" Size="ModalSize.Large" UseStaticBackdrop="true" CloseOnEscape="false">
     <BodyTemplate>
         <EditForm Model="_editingAreaComun" OnValidSubmit="SaveAreaComun">
             <DataAnnotationsValidator />

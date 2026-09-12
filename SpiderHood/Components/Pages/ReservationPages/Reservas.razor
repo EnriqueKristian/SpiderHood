@@ -136,7 +136,7 @@ else
     <ConfirmationModal @ref="_confirmationModal" OnClose="OnConfirmationResult" />
 
     <!-- Modal: Nueva Solicitud -->
-    <Modal @ref="_nuevaModal" Title="Nueva Solicitud de Reserva" Size="ModalSize.Large">
+    <Modal @ref="_nuevaModal" Title="Nueva Solicitud de Reserva" Size="ModalSize.Large" UseStaticBackdrop="true" CloseOnEscape="false">
         <BodyTemplate>
             <EditForm Model="_form" OnValidSubmit="ConfirmarSolicitar">
                 <div class="mb-3">

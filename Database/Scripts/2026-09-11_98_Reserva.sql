@@ -78,6 +78,7 @@ BEGIN
         MotivoRechazo      NVARCHAR(500)    NULL,
         AprobadoPor        UNIQUEIDENTIFIER NULL,
         FechaAprobacion    DATETIME2        NULL,
+        IdCalendarItem     UNIQUEIDENTIFIER NULL,       -- ver nota de IdCalendarItem abajo
         CreatedBy          UNIQUEIDENTIFIER NOT NULL,
         CreatedOn          DATETIME2        NOT NULL
     );
@@ -85,6 +86,20 @@ BEGIN
     CREATE INDEX IX_Reserva_Building ON dbo.Reserva (IdBuilding, FechaInicio);
     CREATE INDEX IX_Reserva_AreaComun ON dbo.Reserva (IdAreaComun, FechaInicio, FechaFin);
 END
+GO
+
+-- Feedback del usuario tras probar en vivo (2026-09-11): una reserva Pendiente/
+-- Aprobada no aparecía en el Calendario general, así que otro propietario no
+-- tenía forma de ver visualmente que el área ya estaba comprometida para ese
+-- horario (más allá del chequeo de conflicto al solicitar). Se resuelve
+-- creando un CalendarItem (Type=Event) por cada Reserva -- se borra si la
+-- Reserva se Rechaza/Cancela/marca NoPresentado (libera el horario), se
+-- mantiene visible el resto del ciclo de vida. IdCalendarItem guarda el
+-- vínculo para poder actualizarlo/borrarlo después (columna agregada acá para
+-- que también quede en instalaciones que ya habían corrido este script antes
+-- de este agregado).
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Reserva') AND name = 'IdCalendarItem')
+    ALTER TABLE dbo.Reserva ADD IdCalendarItem UNIQUEIDENTIFIER NULL;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'ReservaChecklistItem')
@@ -208,16 +223,17 @@ CREATE OR ALTER PROCEDURE dbo.INS_Reserva
     @FechaInicio DATETIME2, @FechaFin DATETIME2, @EsExterno BIT = 0,
     @OrganizadorNombre NVARCHAR(200) = NULL, @OrganizadorDocumento NVARCHAR(30) = NULL, @OrganizadorTelefono NVARCHAR(30) = NULL,
     @Estado INT, @MontoGarantia DECIMAL(18,2), @MontoAlquiler DECIMAL(18,2), @MontoLimpieza DECIMAL(18,2),
+    @IdCalendarItem UNIQUEIDENTIFIER = NULL,
     @CreatedBy UNIQUEIDENTIFIER
 AS
 BEGIN
     SET NOCOUNT ON;
     INSERT INTO dbo.Reserva
         (IdReserva, IdBuilding, IdAreaComun, IdGroupUnit, FechaInicio, FechaFin, EsExterno, OrganizadorNombre,
-         OrganizadorDocumento, OrganizadorTelefono, Estado, MontoGarantia, MontoAlquiler, MontoLimpieza, CreatedBy, CreatedOn)
+         OrganizadorDocumento, OrganizadorTelefono, Estado, MontoGarantia, MontoAlquiler, MontoLimpieza, IdCalendarItem, CreatedBy, CreatedOn)
     VALUES
         (@IdReserva, @IdBuilding, @IdAreaComun, @IdGroupUnit, @FechaInicio, @FechaFin, @EsExterno, @OrganizadorNombre,
-         @OrganizadorDocumento, @OrganizadorTelefono, @Estado, @MontoGarantia, @MontoAlquiler, @MontoLimpieza, @CreatedBy, SYSUTCDATETIME());
+         @OrganizadorDocumento, @OrganizadorTelefono, @Estado, @MontoGarantia, @MontoAlquiler, @MontoLimpieza, @IdCalendarItem, @CreatedBy, SYSUTCDATETIME());
 END
 GO
 
@@ -308,16 +324,27 @@ GO
 -- Reservas que ocupan el Área Común en una ventana de fechas, para chequear
 -- solapamiento antes de confirmar una nueva -- excluye estados que ya no
 -- bloquean el horario (Rechazada/Cancelada/NoPresentado).
+-- Igual que las demás GET_Reservas*: trae NombreAreaComun/CreatedByName vía
+-- LEFT JOIN -- Models.Reserva es una entidad keyless mapeada 1:1 a estas dos
+-- columnas "extra" en TODOS los SPs que la devuelven, así que EF exige que
+-- estén siempre presentes (si un SP hace sólo "SELECT * FROM Reserva" sin
+-- ellas, FromSqlRaw revienta con "required column ... was not present",
+-- visto en vivo al abrir "Nueva Solicitud" -- Docs/Pendientes-Negocio-
+-- Consolidado.md #21).
 CREATE OR ALTER PROCEDURE dbo.GET_ReservasConflicto
     @IdAreaComun UNIQUEIDENTIFIER, @FechaInicio DATETIME2, @FechaFin DATETIME2
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT * FROM dbo.Reserva
-    WHERE IdAreaComun = @IdAreaComun
-      AND Estado NOT IN (3, 4, 5) -- Rechazada, Cancelada, NoPresentado
-      AND FechaInicio < @FechaFin
-      AND FechaFin > @FechaInicio;
+    SELECT r.*, a.Nombre AS NombreAreaComun,
+           creador.FirstName + ' ' + creador.LastName AS CreatedByName
+    FROM dbo.Reserva r
+    LEFT JOIN dbo.AreaComun a ON a.IdAreaComun = r.IdAreaComun
+    LEFT JOIN dbo.Users creador ON creador.IdUser = r.CreatedBy
+    WHERE r.IdAreaComun = @IdAreaComun
+      AND r.Estado NOT IN (3, 4, 5) -- Rechazada, Cancelada, NoPresentado
+      AND r.FechaInicio < @FechaFin
+      AND r.FechaFin > @FechaInicio;
 END
 GO
 
@@ -326,7 +353,11 @@ CREATE OR ALTER PROCEDURE dbo.GET_ReservasProximasByAreaComun
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT * FROM dbo.Reserva r
+    SELECT r.*, a.Nombre AS NombreAreaComun,
+           creador.FirstName + ' ' + creador.LastName AS CreatedByName
+    FROM dbo.Reserva r
+    LEFT JOIN dbo.AreaComun a ON a.IdAreaComun = r.IdAreaComun
+    LEFT JOIN dbo.Users creador ON creador.IdUser = r.CreatedBy
     WHERE r.IdAreaComun = @IdAreaComun
       AND r.Estado IN (1, 2, 6) -- PendienteDeAprobacion, Aprobada, Entregada
       AND r.FechaFin >= SYSUTCDATETIME()

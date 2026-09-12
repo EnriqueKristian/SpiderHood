@@ -142,7 +142,7 @@ else
 <ConfirmationModal @ref="_confirmationModal" OnClose="OnConfirmationResult" />
 
 <!-- Modal: Nuevo Comunicado -->
-<Modal @ref="_nuevoModal" Title="Nuevo Comunicado" Size="ModalSize.Large">
+<Modal @ref="_nuevoModal" Title="Nuevo Comunicado" Size="ModalSize.Large" UseStaticBackdrop="true" CloseOnEscape="false">
     <BodyTemplate>
         <EditForm Model="_form" OnValidSubmit="ConfirmarPublicar">
             <DataAnnotationsValidator />

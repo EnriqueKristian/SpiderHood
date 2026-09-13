@@ -1,7 +1,9 @@
 ﻿// SpiderHood/Services/IEmailService.cs
+using MailKit.Security;
+using MimeKit;
 using System.Net;
 using System.Net.Mail;
-
+using MailKit.Net.Smtp;
 
 namespace SpiderHood.Services
 {
@@ -41,19 +43,21 @@ namespace SpiderHood.Services
         {
             try
             {
-                using var message = new MailMessage();
-                using var client = new SmtpClient(_smtpServer, _smtpPort);
+                var email = new MimeMessage();
+                email.From.Add(new MailboxAddress(_fromName, _fromEmail));
+                email.To.Add(MailboxAddress.Parse(to));
+                email.Subject = subject;
 
-                message.From = new MailAddress(_fromEmail, _fromName);
-                message.To.Add(to);
-                message.Subject = subject;
-                message.Body = body;
-                message.IsBodyHtml = true;
+                var builder = new BodyBuilder { HtmlBody = body };
+                email.Body = builder.ToMessageBody();
 
-                client.EnableSsl = true;
-                client.Credentials = new NetworkCredential(_smtpUser, _smtpPass);
+                using var client = new MailKit.Net.Smtp.SmtpClient();
 
-                await client.SendMailAsync(message);
+                // Conexión segura con STARTTLS para Brevo
+                await client.ConnectAsync(_smtpServer, _smtpPort, SecureSocketOptions.StartTls);
+                await client.AuthenticateAsync(_smtpUser, _smtpPass);
+                await client.SendAsync(email);
+                await client.DisconnectAsync(true);
 
                 _logger.LogInformation("Email enviado exitosamente a: {To}", to);
             }

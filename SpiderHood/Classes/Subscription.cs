@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace SpiderHood.Models
 {
     public class SubscriptionPlan
@@ -16,7 +18,7 @@ namespace SpiderHood.Models
         // el monto directo en la llamada, así que se guarda acá. NULL en el
         // plan Trial a propósito -- nunca se cobra, IPaymentService.CreateCheckoutSessionAsync
         // rechaza intentarlo.
-        public decimal? Amount { get; set; }
+        [Precision(18, 2)] public decimal? Amount { get; set; }
         public string? CurrencyId { get; set; } // "PEN"
     }
 

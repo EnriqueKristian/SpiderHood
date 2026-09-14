@@ -177,7 +177,9 @@
                 _errorMessage = result.Message;
                 return;
             }
-            Navigation.NavigateTo("/buildings");
+            // Ver comentario en RegisterAdmin.razor: la cookie real sólo se firma en
+            // /auto-login/{token}, que necesita una request HTTP real (forceLoad:true).
+            Navigation.NavigateTo($"/auto-login/{result.Token}?returnUrl={Uri.EscapeDataString("/buildings")}", forceLoad: true);
         }
         finally
         {

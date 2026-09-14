@@ -155,10 +155,14 @@
                 return;
             }
 
-            // RegisterNewAdministratorAsync ya deja al usuario logueado (autologin) --
+            // RegisterNewAdministratorAsync ya deja al usuario logueado (autologin) a
+            // nivel de circuito, pero la cookie de verdad recién se firma en
+            // /auto-login/{token} (requiere una request HTTP real -- ver comentario en
+            // Login.razor y en AutoLoginTokenService). forceLoad:true es necesario para
+            // que sea una navegación HTTP real y no una transición SPA por SignalR.
             // BuildingPage abre el modal de "Nuevo Edificio" solo cuando detecta que
             // no tiene ninguno todavía (ver BuildingPage.razor.cs).
-            Navigation.NavigateTo("/buildings");
+            Navigation.NavigateTo($"/auto-login/{result.Token}?returnUrl={Uri.EscapeDataString("/buildings")}", forceLoad: true);
         }
         finally
         {

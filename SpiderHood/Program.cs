@@ -53,6 +53,10 @@ builder.Services.AddHttpContextAccessor();
 // que sobrevivir más que el scope de un solo circuito.
 builder.Services.AddSingleton<ISessionRevocationService, SessionRevocationService>();
 
+// Ver Services/IAutoLoginTokenService.cs -- puente para el autologin de
+// registro/invitación desde un circuito InteractiveServer ya conectado.
+builder.Services.AddSingleton<IAutoLoginTokenService, AutoLoginTokenService>();
+
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -401,6 +405,64 @@ app.MapPost("/api/contacto", async (HttpRequest request, IEmailService emailServ
         return Results.Redirect("/?contacto=error");
     }
 }).AllowAnonymous().DisableAntiforgery();
+
+// Completa el autologin de /register-admin, /aceptar-invitacion (email nuevo) e
+// /invitation/{code} -- las tres crean la cuenta y "loguean" al usuario desde un
+// circuito InteractiveServer ya conectado, donde HttpContext.SignInAsync no tiene
+// ninguna respuesta HTTP abierta donde escribir el Set-Cookie (mismo motivo por el
+// que Login.razor corre en modo estático, ver su comentario) -- así que quedaba sólo
+// como estado en memoria del circuito viejo: el header mostraba al usuario ya
+// logueado, pero la primera navegación a una página protegida (ej. /buildings) caía
+// en el FallbackPolicy real (sin cookie) y redirigía a /login, dejando al
+// administrador recién registrado mirando el formulario de login en vez del de
+// "Nuevo Edificio". Acá SÍ hay una respuesta HTTP real (GET normal, no un evento de
+// SignalR), así que el Set-Cookie funciona. El token (IAutoLoginTokenService) es de
+// un solo uso y expira en 60s -- ver AuthService.RegisterNewAdministratorAsync/
+// RegisterCollaboratorAsync/RegisterWithInvitationAsync, que lo emiten en
+// AuthResult.Token tras crear la cuenta.
+app.MapGet("/auto-login/{token}", async (
+    string token,
+    string? returnUrl,
+    HttpContext httpContext,
+    IAutoLoginTokenService tokenService,
+    IUserSessionLoader sessionLoader,
+    AuthService authService) =>
+{
+    var idUser = tokenService.Consume(token);
+    if (idUser == null)
+        return Results.Redirect("/login");
+
+    var session = await sessionLoader.LoadAsync(idUser.Value);
+    if (session == null)
+        return Results.Redirect("/login");
+
+    var securityStamp = await authService.GetSecurityStampAsync(session.IdUser);
+
+    var claims = new List<Claim>
+    {
+        new(ClaimTypes.NameIdentifier, session.IdUser.ToString()),
+        new(ClaimTypes.Email, session.Email),
+        new(ClaimTypes.Name, session.FullName),
+        new("security_stamp", securityStamp ?? string.Empty),
+    };
+    claims.AddRange(session.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+    var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+    var principal = new ClaimsPrincipal(identity);
+
+    await httpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal, new AuthenticationProperties
+    {
+        IsPersistent = false,
+        ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
+    });
+
+    // Sólo rutas locales -- mismo guard que Login.razor.GetSafeReturnUrl(), nunca una
+    // URL externa que un link armado a mano pudiera intentar colar.
+    var safeReturnUrl = !string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/') && !returnUrl.StartsWith("//")
+        ? returnUrl
+        : "/dashboard";
+    return Results.Redirect(safeReturnUrl);
+}).AllowAnonymous();
 
 // AllowAnonymous explícito: sin esto, el FallbackPolicy de arriba (RequireAuthenticatedUser)
 // también alcanzaría a CSS/JS/imágenes -- incluido _framework/blazor.web.js, sin el

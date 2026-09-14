@@ -408,8 +408,9 @@
                 }
                 else
                 {
-                    // Acceso inmediato
-                    Navigation.NavigateTo("/dashboard");
+                    // Acceso inmediato. Ver comentario en RegisterAdmin.razor: la cookie
+                    // real sólo se firma en /auto-login/{token} (request HTTP real).
+                    Navigation.NavigateTo($"/auto-login/{result.Token}?returnUrl={Uri.EscapeDataString("/dashboard")}", forceLoad: true);
                 }
             }
             else

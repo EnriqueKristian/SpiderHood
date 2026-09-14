@@ -70,6 +70,7 @@ namespace SpiderHood.Services
         private readonly ISessionRevocationService _sessionRevocation;
         private readonly ISubscriptionService _subscriptionService;
         private readonly IAccountService _accountService;
+        private readonly IAutoLoginTokenService _autoLoginTokenService;
 
         private List<UserModel> _users = new();
         private List<UserBuildingAssociation> _userBuildings = new();
@@ -94,12 +95,14 @@ namespace SpiderHood.Services
            IJSRuntime jsRuntime,
            IConfiguration configuration,
            ISubscriptionService subscriptionService,
-           IAccountService accountService) // Added parameter to satisfy readonly field assignment
+           IAccountService accountService,
+           IAutoLoginTokenService autoLoginTokenService) // Added parameter to satisfy readonly field assignment
         {
             _logger = logger;
             _authStateProvider = authStateProvider;
             _sessionRevocation = sessionRevocation;
             _jsRuntime = jsRuntime; // Assign the non-nullable readonly field
+            _autoLoginTokenService = autoLoginTokenService;
             Ec = new BDLayout(contextFactory);
             _emailService = emailService;
             //InitializeSampleData();
@@ -900,7 +903,14 @@ namespace SpiderHood.Services
                 {
                     Success = true,
                     Message = "Cuenta creada. Ahora vas a crear tu primer edificio.",
-                    User = user
+                    User = user,
+                    // El caller (RegisterAdmin.razor) navega a /auto-login/{Token} con
+                    // forceLoad:true -- LoginAsync de arriba sólo deja al usuario
+                    // "logueado" en memoria de ESTE circuito, no firma ninguna cookie real
+                    // (eso exige un HttpContext de una request HTTP genuina, que un
+                    // circuito InteractiveServer ya conectado no tiene -- ver el
+                    // comentario del endpoint /auto-login en Program.cs).
+                    Token = _autoLoginTokenService.IssueToken(user.IdUser)
                 };
             }
             catch (Exception ex)
@@ -959,7 +969,10 @@ namespace SpiderHood.Services
                     };
                 }
 
-                return new AuthResult { Success = true, Message = "Cuenta creada.", User = user };
+                // Ver el mismo comentario en RegisterNewAdministratorAsync -- el caller
+                // (AcceptInvitation.razor) navega a /auto-login/{Token} con forceLoad:true
+                // para que HttpContext.SignInAsync corra en una request HTTP real.
+                return new AuthResult { Success = true, Message = "Cuenta creada.", User = user, Token = _autoLoginTokenService.IssueToken(user.IdUser) };
             }
             catch (Exception ex)
             {
@@ -1262,7 +1275,11 @@ namespace SpiderHood.Services
 
                 await AcceptInvitationAsync(invitation, _user, model);
 
-                // Si no requiere aprobación, iniciar sesión automáticamente
+                // Si no requiere aprobación, iniciar sesión automáticamente. El Token de
+                // autologin (ver comentario en RegisterNewAdministratorAsync) sólo tiene
+                // sentido cuando de verdad queda logueado -- si requiere aprobación se
+                // queda sin sesión, como antes.
+                string? autoLoginToken = null;
                 if (!invitation.RequiresApproval)
                 {
                     LoginModel login = new LoginModel();
@@ -1270,6 +1287,7 @@ namespace SpiderHood.Services
                     login.Password = model.Password;
                     login.RememberMe = false;
                     await LoginAsync(login);
+                    autoLoginToken = _autoLoginTokenService.IssueToken(_user.IdUser);
                 }
 
                 // Enviar correo de confirmación
@@ -1291,7 +1309,8 @@ namespace SpiderHood.Services
                         PhoneNumber = model.PhoneNumber!,
                         //RequiresApproval = invitation.RequiresApproval
                     },
-                    RequiresApproval = invitation.RequiresApproval
+                    RequiresApproval = invitation.RequiresApproval,
+                    Token = autoLoginToken ?? ""
                 };
             }
             catch (Exception ex)

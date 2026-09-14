@@ -266,10 +266,45 @@
     protected override async Task OnInitializedAsync()
     {
         _pagination.OnPaginationChanged += StateHasChanged;
+        _unitId = await AuthService.GetCurrentUnitIdAsync();
+    }
 
+    // ParameterService.CurrentBuilding lo resuelve HeaderMainLayout en SU PROPIO
+    // OnAfterRenderAsync (necesita IJSRuntime para leer localStorage, no disponible
+    // antes del primer render) -- un round-trip real, más lento que el resto del árbol
+    // de componentes. Leerlo desde OnInitializedAsync (como estaba antes) siempre lo
+    // encontraba en null en la primera carga real de un circuito (F5, login, cualquier
+    // navegación nueva): la pantalla quedaba vacía y nunca reintentaba. Se reintenta en
+    // cada re-render (HeaderMainLayout dispara StateHasChanged al resolver el edificio)
+    // hasta que esté listo, con un tope para no dejar el spinner girando para siempre si
+    // de verdad nunca se resuelve.
+    private bool _dataLoaded = false;
+    private int _renderAttempts = 0;
+    private const int MaxRenderAttemptsBeforeGivingUp = 20;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_dataLoaded) return;
+
+        var edificioListo = ParameterService.CurrentBuilding != null && ParameterService.CurrentBuilding.IdBuilding != Guid.Empty;
+
+        if (!edificioListo && _renderAttempts < MaxRenderAttemptsBeforeGivingUp)
+        {
+            _renderAttempts++;
+            await Task.Delay(150);
+            StateHasChanged();
+            return;
+        }
+
+        _dataLoaded = true;
+        await CargarCuotasAsync();
+        StateHasChanged();
+    }
+
+    private async Task CargarCuotasAsync()
+    {
         try
         {
-            _unitId = await AuthService.GetCurrentUnitIdAsync();
             if (_unitId != null && ParameterService.CurrentBuilding != null)
             {
                 // GetInstallmentsByBuildingAsync (no GetPendingInstallmentsAsync): esta página

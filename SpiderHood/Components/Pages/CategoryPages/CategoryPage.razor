@@ -163,8 +163,45 @@
     {
         var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
         _canManageCategories = await PermissionService.HasPermissionAsync(currentUser, "manage_categories");
+    }
 
+    // ParameterService.CurrentBuilding lo resuelve HeaderMainLayout en SU PROPIO
+    // OnAfterRenderAsync (necesita IJSRuntime para leer localStorage, no disponible
+    // antes del primer render) -- un round-trip real, más lento que el resto del árbol
+    // de componentes. Leerlo desde OnInitializedAsync (como estaba antes) siempre lo
+    // encontraba en null en la primera carga real de un circuito (F5, login, cualquier
+    // navegación nueva): la pantalla mostraba "No hay categorías registradas" aunque sí
+    // hubiera, y nunca reintentaba (confirmado en vivo). Se reintenta en cada re-render
+    // (HeaderMainLayout dispara StateHasChanged al resolver el edificio) hasta que esté
+    // listo, con un tope para no dejar el spinner girando para siempre si de verdad
+    // nunca se resuelve.
+    private bool _dataLoaded = false;
+    private int _renderAttempts = 0;
+    private const int MaxRenderAttemptsBeforeGivingUp = 20;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_dataLoaded) return;
+
+        var edificioListo = ParameterService.CurrentBuilding != null && ParameterService.CurrentBuilding.IdBuilding != Guid.Empty;
+
+        // No alcanza con esperar a que ALGO MÁS dispare otro OnAfterRenderAsync (probado
+        // en vivo: a veces sólo hay UN re-render de cortesía después del primero, y
+        // ninguno más -- si CurrentBuilding sigue sin resolverse en ese, la página se
+        // quedaba esperando para siempre). Autoreintentamos con un delay corto: eso
+        // dispara nuestro propio StateHasChanged(), que a su vez vuelve a llamar a este
+        // mismo método -- ciclo acotado por el tope de intentos.
+        if (!edificioListo && _renderAttempts < MaxRenderAttemptsBeforeGivingUp)
+        {
+            _renderAttempts++;
+            await Task.Delay(150);
+            StateHasChanged();
+            return;
+        }
+
+        _dataLoaded = true;
         await LoadCategories();
+        StateHasChanged();
     }
 
     private async Task LoadCategories()

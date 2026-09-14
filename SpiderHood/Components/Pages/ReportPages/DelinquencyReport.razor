@@ -226,11 +226,7 @@
         // verificar el schema del catálogo de Permission/RolePermissions).
         _canView = await PermissionService.HasPermissionAsync(currentUser, "view_delinquency");
 
-        if (_canView)
-        {
-            await CargarAsync();
-        }
-        else
+        if (!_canView)
         {
             cargando = false;
         }
@@ -238,6 +234,16 @@
         _inicializado = true;
     }
 
+    // ParameterService.CurrentBuilding lo resuelve HeaderMainLayout en SU PROPIO
+    // OnAfterRenderAsync (necesita IJSRuntime para leer localStorage, no disponible
+    // antes del primer render) -- un round-trip real, más lento que el resto del árbol
+    // de componentes. Leerlo desde OnInitializedAsync (como CargarAsync hacía antes)
+    // siempre lo encontraba en null en la primera carga real de un circuito (F5, login,
+    // cualquier navegación nueva): quedaba pidiendo "Selecciona un edificio" aunque ya
+    // hubiera uno, y nunca reintentaba. Se reintenta en cada re-render (HeaderMainLayout
+    // dispara StateHasChanged al resolver el edificio) hasta que esté listo, con un tope
+    // para no dejar el spinner girando para siempre si de verdad nunca se resuelve.
+    //
     // El gráfico se dibuja acá, no al final de CargarAsync -- StateHasChanged() sólo
     // ENCOLA el render, no espera a que el DOM del browser ya tenga el <canvas> antes de
     // seguir ejecutando; un JS interop llamado justo después corre el riesgo real de que
@@ -248,8 +254,29 @@
     // corre durante el prerender estático, así que de paso evita el
     // InvalidOperationException de JS interop en ese pase sin necesitar adivinar
     // RendererInfo.IsInteractive.
+    private bool _dataLoaded = false;
+    private int _renderAttempts = 0;
+    private const int MaxRenderAttemptsBeforeGivingUp = 20;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_canView && !_dataLoaded)
+        {
+            var edificioListo = ParameterService.CurrentBuilding != null && ParameterService.CurrentBuilding.IdBuilding != Guid.Empty;
+
+            if (!edificioListo && _renderAttempts < MaxRenderAttemptsBeforeGivingUp)
+            {
+                _renderAttempts++;
+                await Task.Delay(150);
+                StateHasChanged();
+                return;
+            }
+
+            _dataLoaded = true;
+            await CargarAsync();
+            StateHasChanged();
+        }
+
         if (_debeRedibujarGrafico)
         {
             _debeRedibujarGrafico = false;

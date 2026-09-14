@@ -804,12 +804,43 @@
         _canUploadStatements = await PermissionService.HasPermissionAsync(currentUser, "upload_statements");
 
         pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
+    }
+
+    // ParameterService.CurrentBuilding lo resuelve HeaderMainLayout en SU PROPIO
+    // OnAfterRenderAsync (necesita IJSRuntime para leer localStorage, no disponible
+    // antes del primer render) -- un round-trip real, más lento que el resto del árbol
+    // de componentes. Leerlo desde OnInitializedAsync (como estaba antes) siempre lo
+    // encontraba en null en la primera carga real de un circuito (F5, login, cualquier
+    // navegación nueva): el combo de cuenta bancaria quedaba vacío y nunca reintentaba.
+    // Se reintenta en cada re-render (HeaderMainLayout dispara StateHasChanged al
+    // resolver el edificio) hasta que esté listo, con un tope para no reintentar para
+    // siempre si de verdad nunca se resuelve.
+    private bool _dataLoaded = false;
+    private int _renderAttempts = 0;
+    private const int MaxRenderAttemptsBeforeGivingUp = 20;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_dataLoaded) return;
+
+        var edificioListo = ParameterService.CurrentBuilding != null && ParameterService.CurrentBuilding.IdBuilding != Guid.Empty;
+
+        if (!edificioListo && _renderAttempts < MaxRenderAttemptsBeforeGivingUp)
+        {
+            _renderAttempts++;
+            await Task.Delay(150);
+            StateHasChanged();
+            return;
+        }
+
+        _dataLoaded = true;
 
         if (ParameterService.CurrentBuilding != null)
         {
-            // Sólo cuentas Activas: una cuenta Inactiva (cerrada) no debe admitir nuevas
-            // cargas de Estado de Cuenta, aunque su histórico se siga consultando en el
-            // resto de la app (Movimientos, Conciliación) sin este filtro.
+            // Sólo cuentas Activas: una cuenta Inactiva (cerrada) no debe admitir
+            // nuevas cargas de Estado de Cuenta, aunque su histórico se siga
+            // consultando en el resto de la app (Movimientos, Conciliación) sin este
+            // filtro.
             var todasLasCuentas = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
             _totalCuentasBancarias = todasLasCuentas.Count;
             cuentasBancarias = todasLasCuentas.Where(c => c.Status == 1).ToList();
@@ -818,6 +849,8 @@
                 selectedBankAccountId = cuentasBancarias[0].IdBankAccount;
             }
         }
+
+        StateHasChanged();
     }
 
     private async Task AddItem(Models.TransactionBankDetail item)

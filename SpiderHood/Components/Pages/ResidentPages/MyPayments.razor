@@ -8,6 +8,7 @@
 @inject Services.IInstallmentService InstallmentService
 @inject Services.IBudgetService BudgetService
 @inject Services.IServiceReadingService ServiceReadingService
+@inject Services.IBankAccountService BankAccountService
 @inject ParameterService ParameterService
 
 <PageTitle>Mis Pagos - SpiderHood</PageTitle>
@@ -20,7 +21,7 @@
             </div>
             <div>
                 <h1 class="h3 fw-bold mb-1">Mis Pagos</h1>
-                <p class="text-muted mb-0">Consulta tus pagos realizados y cómo se aplicaron a tus cuotas</p>
+                <p class="text-muted mb-0">Consulta los depósitos que hiciste y cómo se aplicaron a tus cuotas</p>
             </div>
         </div>
     </div>
@@ -43,13 +44,13 @@
     {
         <!-- Resumen -->
         <div class="row g-3 mb-4">
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="card card-hover h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="text-muted text-uppercase small mb-1">Nro. de Pagos</h6>
-                                <h2 class="mb-0">@_misPagos.Count</h2>
+                                <h6 class="text-muted text-uppercase small mb-1">Nro. de Depósitos</h6>
+                                <h2 class="mb-0">@_pagosAgrupados.Count</h2>
                             </div>
                             <div style="color: #3b82f6;">
                                 <i class="bi bi-receipt-cutoff" style="font-size: 1.2rem;"></i>
@@ -58,13 +59,13 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="card card-hover h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <h6 class="text-muted text-uppercase small mb-1">Total Pagado</h6>
-                                <h2 class="mb-0">@Moneda(_misPagos.Sum(p => p.Amount))</h2>
+                                <h6 class="text-muted text-uppercase small mb-1">Total Depositado</h6>
+                                <h2 class="mb-0">@Moneda(_pagosAgrupados.Sum(p => p.MontoDeposito))</h2>
                             </div>
                             <div style="color: #10b981;">
                                 <i class="bi bi-check-circle" style="font-size: 1.2rem;"></i>
@@ -73,19 +74,37 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-md-4">
+            <div class="col-6 col-md-3">
                 <div class="card card-hover h-100">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-muted text-uppercase small mb-1">Último Pago</h6>
                                 @{
-                                    var ultimo = _misPagos.OrderByDescending(p => p.PaymentDate).FirstOrDefault();
+                                    var ultimo = _pagosAgrupados.OrderByDescending(p => p.Fecha).FirstOrDefault();
                                 }
-                                <h2 class="mb-0">@(ultimo == null ? "—" : ultimo.PaymentDate.ToString("dd/MM/yy"))</h2>
+                                <h2 class="mb-0">@(ultimo == null ? "—" : ultimo.Fecha.ToString("dd/MM/yy"))</h2>
                             </div>
                             <div style="color: #f59e0b;">
                                 <i class="bi bi-calendar-event" style="font-size: 1.2rem;"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                @{
+                    var totalSaldoAFavor = _pagosAgrupados.Sum(p => p.SaldoAFavor);
+                }
+                <div class="card card-hover h-100 @(totalSaldoAFavor > 0 ? "border-success" : "")">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted text-uppercase small mb-1">Saldo a Favor</h6>
+                                <h2 class="mb-0 @(totalSaldoAFavor > 0 ? "text-success" : "")">@Moneda(totalSaldoAFavor)</h2>
+                            </div>
+                            <div style="color: #10b981;">
+                                <i class="bi bi-piggy-bank" style="font-size: 1.2rem;"></i>
                             </div>
                         </div>
                     </div>
@@ -152,12 +171,11 @@
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th>Fecha de Pago</th>
-                            <th>Período de la Cuota</th>
-                            <th class="text-end">Monto Aplicado</th>
-                            <th>Tipo</th>
-                            <th class="text-end">Total de la Cuota</th>
-                            <th class="text-end">Pendiente de la Cuota</th>
+                            <th>Fecha</th>
+                            <th>Descripción</th>
+                            <th class="text-end">Monto del Depósito</th>
+                            <th>Aplicado a</th>
+                            <th class="text-end">Saldo a Favor</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -165,24 +183,31 @@
                         @foreach (var pago in _pagination.CurrentPageData)
                         {
                             <tr>
-                                <td>@pago.PaymentDate.ToString("dd/MM/yyyy")</td>
-                                <td>@pago.Period.ToString("MMM-yy")</td>
-                                <td class="text-end fw-bold text-success">@Moneda(pago.Amount)</td>
+                                <td>@pago.Fecha.ToString("dd/MM/yyyy")</td>
+                                <td>@pago.Descripcion</td>
+                                <td class="text-end fw-bold text-success">@Moneda(pago.MontoDeposito)</td>
                                 <td>
-                                    @if (pago.IsPartialPayment)
+                                    @foreach (var aplicacion in pago.Aplicaciones)
                                     {
-                                        <span class="badge bg-warning text-dark">Pago parcial</span>
+                                        <span class="badge bg-light text-dark border me-1 mb-1">
+                                            @aplicacion.Period.ToString("MMM-yy")
+                                            @(aplicacion.IsPartialPayment ? " (parcial)" : "")
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (pago.SaldoAFavor > 0)
+                                    {
+                                        <span class="badge bg-success">@Moneda(pago.SaldoAFavor)</span>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-success">Pago total</span>
+                                        <span class="text-muted">—</span>
                                     }
                                 </td>
-                                <td class="text-end">@Moneda(pago.InstallmentAmount)</td>
-                                <td class="text-end">@Moneda(Math.Max(pago.InstallmentDebt, 0))</td>
                                 <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerCuota(pago)">
-                                        <i class="bi bi-eye me-1"></i>Ver Cuota
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetallePago(pago)">
+                                        <i class="bi bi-eye me-1"></i>Ver Detalle
                                     </button>
                                 </td>
                             </tr>
@@ -199,10 +224,87 @@
     }
 </div>
 
+<!-- Detalle de un depósito: mismo contenido que "Cuotas asociadas al pago" en
+     ReconciliationWorkspace.razor/MovementPages/Index.razor -- de un solo click, el
+     propietario ve el monto real que depositó y cómo se repartió entre sus cuotas
+     (y si quedó algo sin aplicar, su saldo a favor). -->
+@if (_pagoSeleccionado != null)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Cuotas asociadas al pago</h5>
+                    <button type="button" class="btn-close" @onclick="() => _pagoSeleccionado = null"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="row mb-3">
+                        <dt class="col-sm-4">Fecha:</dt>
+                        <dd class="col-sm-8">@_pagoSeleccionado.Fecha.ToString("dd/MM/yyyy")</dd>
+                        <dt class="col-sm-4">Descripción:</dt>
+                        <dd class="col-sm-8">@_pagoSeleccionado.Descripcion</dd>
+                        <dt class="col-sm-4">Monto:</dt>
+                        <dd class="col-sm-8 fw-bold text-success">@Moneda(_pagoSeleccionado.MontoDeposito)</dd>
+                        <dt class="col-sm-4">Saldo a favor:</dt>
+                        <dd class="col-sm-8 @(_pagoSeleccionado.SaldoAFavor > 0 ? "fw-bold text-success" : "")">@Moneda(_pagoSeleccionado.SaldoAFavor)</dd>
+                    </dl>
+
+                    <div class="list-group">
+                        @foreach (var aplicacion in _pagoSeleccionado.Aplicaciones)
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <span class="fw-bold">Cuota @aplicacion.Period.ToString("MMM-yy")</span>
+                                        @if (aplicacion.IsPartialPayment)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-2">Pago parcial</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success ms-2">Pago total de la cuota</span>
+                                        }
+                                    </span>
+                                    <span class="fw-bold text-primary">@Moneda(aplicacion.Amount)</span>
+                                </div>
+                                <small class="text-muted d-block mb-2">
+                                    Cuota @aplicacion.Period.ToString("MMM-yy"): @Moneda(aplicacion.InstallmentAmount)
+                                    &middot; Pendiente de la cuota: @Moneda(Math.Max(aplicacion.InstallmentDebt, 0))
+                                </small>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => VerCuota(aplicacion)">
+                                    <i class="bi bi-eye me-1"></i>Ver Cuota
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <InstallmentDetailModal @ref="_detalleModal" />
 
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
+    // Un depósito real (un IdTransaction, la fila que el propietario ve en su estado de
+    // cuenta) puede aplicarse a más de una cuota -- antes esta pantalla mostraba una fila
+    // por CADA aplicación (InstallmentPaid), así que un solo depósito de S/ 247.67
+    // repartido en dos cuotas aparecía como dos filas de S/ 32.09 y S/ 203.82 sin
+    // ninguna forma de ver que en realidad eran UN solo pago. Se agrupa por IdTransaction
+    // -- mismo criterio que "Cuotas asociadas al pago" en Conciliación/Movimientos.
+    private class PagoAgrupado
+    {
+        public Guid IdTransaction { get; set; }
+        public DateTime Fecha { get; set; }
+        public string Descripcion { get; set; } = string.Empty;
+        public decimal MontoDeposito { get; set; }
+        public List<InstallmentPaid> Aplicaciones { get; set; } = new();
+        public decimal TotalAplicado => Aplicaciones.Sum(a => a.Amount);
+        public decimal SaldoAFavor => Math.Max(MontoDeposito - TotalAplicado, 0);
+    }
 
     private bool _loading = true;
     private Guid? _unitId;
@@ -210,13 +312,15 @@
     // Se guarda para poder resolver la Installment completa en VerCuota (InstallmentDetailModal
     // necesita el objeto Installment, no solo el InstallmentPaid).
     private List<Installment> _misCuotas = new();
-    private PaginationClass<InstallmentPaid> _pagination = new();
+    private List<PagoAgrupado> _pagosAgrupados = new();
+    private PaginationClass<PagoAgrupado> _pagination = new();
 
     private DateTime? _filtroPeriodo;
     private string _filtroTipo = "todos";
     private string _filtroMonto = string.Empty;
 
     private InstallmentDetailModal _detalleModal = null!;
+    private PagoAgrupado? _pagoSeleccionado;
 
     protected override async Task OnInitializedAsync()
     {
@@ -240,7 +344,35 @@
                     .OrderByDescending(p => p.PaymentDate)
                     .ToList();
 
-                _pagination.Initialize(_misPagos);
+                // Detalle del edificio completo (mismo método que usa Movimientos > Detalle) --
+                // sólo para resolver Monto/Fecha/Descripción REALES del depósito por
+                // IdTransaction; no hay un GET acotado a "mis transacciones" y el propio
+                // filtro por misCuotaIds de arriba ya evita mostrar nada ajeno.
+                var todasLasTransacciones = await BankAccountService.GetStatementDetailsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding, null);
+                var transaccionesPorId = todasLasTransacciones.ToDictionary(t => t.IdStatementDetail, t => t);
+
+                _pagosAgrupados = _misPagos
+                    .GroupBy(p => p.IdTransaction)
+                    .Select(g =>
+                    {
+                        transaccionesPorId.TryGetValue(g.Key, out var transaccion);
+                        var aplicaciones = g.OrderBy(a => a.Period).ToList();
+                        return new PagoAgrupado
+                        {
+                            IdTransaction = g.Key,
+                            Fecha = transaccion?.StatementDate ?? aplicaciones.Min(a => a.PaymentDate),
+                            Descripcion = transaccion?.Description ?? "Pago",
+                            // Si no se encontró la transacción original (dato migrado, o el
+                            // detalle bancario se borró), se usa lo aplicado como mejor estimado
+                            // -- así el saldo a favor da 0 en vez de un número inventado.
+                            MontoDeposito = transaccion != null ? Math.Abs(transaccion.Amount) : aplicaciones.Sum(a => a.Amount),
+                            Aplicaciones = aplicaciones
+                        };
+                    })
+                    .OrderByDescending(p => p.Fecha)
+                    .ToList();
+
+                _pagination.Initialize(_pagosAgrupados);
             }
         }
         finally
@@ -276,15 +408,17 @@
     private void AplicarFiltros()
     {
         _pagination.ApplyCustomFilter(item =>
-            (_filtroPeriodo == null || item.Period.Date == _filtroPeriodo.Value.Date)
+            (_filtroPeriodo == null || item.Aplicaciones.Any(a => a.Period.Date == _filtroPeriodo.Value.Date))
             && _filtroTipo switch
             {
-                "total" => !item.IsPartialPayment,
-                "parcial" => item.IsPartialPayment,
+                "total" => item.Aplicaciones.Any(a => !a.IsPartialPayment),
+                "parcial" => item.Aplicaciones.Any(a => a.IsPartialPayment),
                 _ => true
             }
-            && (string.IsNullOrWhiteSpace(_filtroMonto) || item.Amount.ToString("F2").Contains(_filtroMonto)));
+            && (string.IsNullOrWhiteSpace(_filtroMonto) || item.MontoDeposito.ToString("F2").Contains(_filtroMonto)));
     }
+
+    private void VerDetallePago(PagoAgrupado pago) => _pagoSeleccionado = pago;
 
     private async Task VerCuota(InstallmentPaid pago)
     {

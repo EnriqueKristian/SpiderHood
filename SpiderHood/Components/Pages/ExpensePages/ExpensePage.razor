@@ -131,9 +131,15 @@
                             <tbody>
                                 @foreach (var item in pagination.CurrentPageData)
                                 {
-                                    <tr>
+                                    <tr class="@(item.RequiresExpenseCreation ? "table-warning" : "")">
                                         <td class="ps-3 text-muted">@GetGrupo(item.IdCategory)</td>
-                                        <td>@item.Category</td>
+                                        <td>
+                                            @item.Category
+                                            @if (item.RequiresExpenseCreation)
+                                            {
+                                                <i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="Egreso del banco sin Gasto creado todavía"></i>
+                                            }
+                                        </td>
                                         <td>@item.Description</td>
                                         <td class="text-end">@item.ExpenseDate.ToString("dd-MMM-yy")</td>
                                         <td>@(item.Distribution?.ToString() ?? "-")</td>
@@ -156,19 +162,33 @@
                                         </td>
                                         <td class="text-end">@Moneda(item.Amount)</td>
                                         <td class="text-center">
-                                            @if (_canEditExpense)
+                                            @if (item.RequiresExpenseCreation)
                                             {
-                                                <button class="btn btn-sm btn-outline-secondary me-1"
-                                                        title="Editar"
-                                                        @onclick="@(() => AbrirModal(item, OpenType.Update))">
-                                                    <i class="bi bi-pencil-square"></i>
+                                                @if (_canCreateExpense)
+                                                {
+                                                    <button class="btn btn-sm btn-warning"
+                                                            title="Crear Gasto para este egreso bancario"
+                                                            @onclick="@(() => AbrirModalCrearGastoDesdeBanco(item))">
+                                                        <i class="bi bi-plus-circle me-1"></i>Crear Gasto
+                                                    </button>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                @if (_canEditExpense)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-secondary me-1"
+                                                            title="Editar"
+                                                            @onclick="@(() => AbrirModal(item, OpenType.Update))">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                    </button>
+                                                }
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        title="Eliminar"
+                                                        @onclick="@(() => DeleteItem(item))">
+                                                    <i class="bi bi-trash3"></i>
                                                 </button>
                                             }
-                                            <button class="btn btn-sm btn-outline-danger"
-                                                    title="Eliminar"
-                                                    @onclick="@(() => DeleteItem(item))">
-                                                <i class="bi bi-trash3"></i>
-                                            </button>
                                         </td>
                                     </tr>
                                 }
@@ -253,11 +273,38 @@
 <!--    CONFIRMACIÓN PARA ELIMINAR GASTO   -->
 <ConfirmationModal @ref="_confirmationModal" OnClose="OnDeleteConfirmed" />
 
+<!--    CREAR GASTO DESDE UN EGRESO BANCARIO SIN CATEGORIZAR (mismo formulario que
+        usa Conciliación, ver CreateExpenseFromTransactionModal.razor)   -->
+@if (_mostrarModalCrearGastoBanco && _transaccionParaGastoBanco != null)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-plus-circle me-2"></i>Crear Gasto desde Transacción
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalCrearGastoBanco"></button>
+                </div>
+                <div class="modal-body">
+                    <SpiderHood.Components.Pages.ReconciliationPages.CreateExpenseFromTransactionModal
+                        Transaccion="_transaccionParaGastoBanco"
+                        OnGastoCreado="GastoBancoCreadoExitosamente"
+                        OnCancel="CerrarModalCrearGastoBanco"
+                        FilteredCategory="FilteredCategory" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     [Inject] private IExpenseService ExpenseService { get; set; } = default!;
     [Inject] private ICategoryService CategoryService { get; set; } = default!;
+    [Inject] private IBankAccountService BankAccountService { get; set; } = default!;
 
     // ViewExpense, no Expense -- ver el hallazgo grande de esta sesión: Classes/Expense.cs
     // no coincide con ninguna columna real de dbo.Expense (confirmado con
@@ -278,14 +325,29 @@
     private bool _canCreateExpense;
     private bool _canEditExpense;
 
+    // "Crear Gasto" desde una fila virtual "Sin Categorizar" (egreso del banco sin
+    // Gasto creado todavía) -- reutiliza CreateExpenseFromTransactionModal, el mismo
+    // formulario que usa Conciliación.
+    private bool _mostrarModalCrearGastoBanco = false;
+    private Models.TransactionBankDetail? _transaccionParaGastoBanco;
+
     // Totales generales -- sobre TODO el dataset del edificio, no sobre lo filtrado/
-    // paginado (mismo criterio que las tarjetas de resumen en /cuotas). Sólo cuenta
-    // gasto real/confirmado (Approved/Paid) -- un gasto "Pending" (por encima del
-    // monto de aprobación de la Junta, ver ResolverEstadoAlGuardar) todavía no es
-    // gasto real y un "Rejected" nunca lo va a ser; incluirlos acá inflaba el total
-    // con dinero que todavía no salió (o nunca salió) del edificio.
+    // paginado (mismo criterio que las tarjetas de resumen en /cuotas).
+    //
+    // Dos formas de contar como gasto real/confirmado:
+    //  - Una fila "virtual" (RequiresExpenseCreation, ver ViewExpense) es un egreso que
+    //    el estado de cuenta ya muestra como salido del banco, aunque todavía no se creó
+    //    el Gasto -- cuenta siempre, sea cual sea su Status/Reconciled (que ni siquiera
+    //    aplican de verdad a una fila que no es un Gasto real todavía).
+    //  - Un Gasto real (Expense en BD) sólo cuenta si está Approved/Paid Y conciliado con
+    //    el banco -- antes bastaba con Approved (un gasto manual chico, por debajo del
+    //    umbral de aprobación, contaba apenas se guardaba). Pedido explícito del negocio:
+    //    un gasto cargado a mano que el banco todavía no confirmó no debe inflar el total
+    //    ("puede que ese dinero nunca haya salido de verdad") -- sigue apareciendo en la
+    //    lista como "No Conciliado", pero no suma hasta que se concilie.
     private static bool EsGastoConfirmado(Models.ViewExpense e) =>
-        e.Status == Models.StatusExpense.Approved || e.Status == Models.StatusExpense.Paid;
+        e.RequiresExpenseCreation
+        || (e.Reconciled && (e.Status == Models.StatusExpense.Approved || e.Status == Models.StatusExpense.Paid));
 
     private decimal TotalExpenses => allExpenses.Where(EsGastoConfirmado).Sum(e => e.Amount);
     private int TotalCount => allExpenses.Count(EsGastoConfirmado);
@@ -448,6 +510,62 @@
         }
 
         await LoadData();
+    }
+
+    // "Crear Gasto" sobre una fila virtual "Sin Categorizar" (egreso del banco que
+    // GET_ExpensesByBuilding arma con IdExpense = IdStatementDetail de la transacción,
+    // ver ViewExpense.RequiresExpenseCreation) -- trae la transacción real completa
+    // (necesaria para no pisar otras columnas de AccountStatementDetail al conciliar,
+    // ver el comentario en BDLayout.UpdateRecordAsync(TransactionBankDetail)) y abre el
+    // mismo formulario que usa Conciliación.
+    private async Task AbrirModalCrearGastoDesdeBanco(Models.ViewExpense item)
+    {
+        if (!_canCreateExpense || !item.ReconciledTransactionId.HasValue) return;
+
+        _transaccionParaGastoBanco = await BankAccountService.ObtenerTransaccionPorIdAsync(item.ReconciledTransactionId.Value);
+        if (_transaccionParaGastoBanco == null)
+        {
+            await ShowToast("Error", "No se pudo cargar la transacción bancaria.", "danger");
+            return;
+        }
+
+        _mostrarModalCrearGastoBanco = true;
+    }
+
+    private void CerrarModalCrearGastoBanco()
+    {
+        _mostrarModalCrearGastoBanco = false;
+        _transaccionParaGastoBanco = null;
+    }
+
+    // Persistencia directa e inmediata (a diferencia del flujo de dos fases de
+    // Conciliación -- acá no hay lote que confirmar después, un solo "Crear Gasto" ya
+    // es la confirmación): inserta el Gasto y concilia la transacción en el mismo paso,
+    // igual que ReconciliationWorkspace.EnviarAConciliar hace para una propuesta de
+    // Gasto nuevo, ver esa función para el mismo patrón de 2 llamadas.
+    private async Task GastoBancoCreadoExitosamente(Models.ViewExpense gasto)
+    {
+        if (_transaccionParaGastoBanco == null) return;
+
+        try
+        {
+            gasto.IdBuilding = ParameterService.CurrentBuilding.IdBuilding;
+            await ExpenseService.AddExpenseAsync(gasto);
+
+            var transaccion = _transaccionParaGastoBanco;
+            transaccion.ReconciliationStatus = Models.ConcilationType.Conciliada;
+            transaccion.ReconciliationDate = DateTime.Now;
+            transaccion.GastoConciliado = gasto;
+            await BankAccountService.ConciliarTransaccionAsync(transaccion, gasto);
+
+            CerrarModalCrearGastoBanco();
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al crear gasto desde transacción bancaria: {ex.Message}");
+            await ShowToast("Error", "No se pudo crear el gasto.", "danger");
+        }
     }
 
     private async Task AddItem(Models.ViewExpense item)

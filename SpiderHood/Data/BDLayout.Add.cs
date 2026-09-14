@@ -684,7 +684,8 @@ namespace SpiderHood.Data
                     category.ParentId! == Guid.Empty ? null! : category.ParentId!,
                     category.IdBuilding,
                     category.Sort,
-                    category.ShowDetailInReceipt);
+                    category.ShowDetailInReceipt,
+                    category.IsSystemCategory);
                 return category;
             }, "AddCategory", cancellationToken);
         }

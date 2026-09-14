@@ -151,6 +151,21 @@ namespace SpiderHood.Data
             }, "GetBankTransactionsNoConcilied", cancellationToken);
         }
 
+        // Trae UNA transacción bancaria completa por Id -- usado por el botón "Crear
+        // Gasto" inline de /expense (fila "virtual" de un egreso sin conciliar, ver
+        // GET_ExpensesByBuilding), que sólo tiene el IdStatementDetail a mano y necesita
+        // el TransactionBankDetail completo para abrir CreateExpenseFromTransactionModal
+        // (el mismo formulario que usa Conciliación).
+        public async Task<TransactionBankDetail?> GetTransactionByIdAsync(Guid idStatementDetail, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQuerySingleAsync<TransactionBankDetail>(
+                    StoredProcedures.GET_TransactionBankDetailById,
+                    idStatementDetail);
+            }, "GetTransactionById", cancellationToken);
+        }
+
         // Solo para migración de datos históricos (IMigrationImportService,
         // ImportarCuotasYPagosAsync) -- busca el IdStatementDetail del movimiento
         // bancario original por la referencia externa que trajo la plantilla de Estado

@@ -40,6 +40,13 @@ namespace SpiderHood.Models
         // siempre muestra el desglose completo. Columna agregada por
         // Database/Migrations/2026-08-27f_Category_ShowDetailInReceipt.sql.
         public bool ShowDetailInReceipt { get; set; } = true;
+
+        // "Sin Categorizar" -- una por edificio, sembrada al crear el edificio (ver
+        // IBuildingService.CreateBuildingAsync) y por el backfill de
+        // Database/Scripts/2026-09-14_100_SinCategorizar_Category_GastosBanco.sql para
+        // los que ya existían. Protegida a nivel de BD (UPD_Category/DEL_Category
+        // rechazan tocarla) -- la UI (CategoryCard) también oculta Editar/Eliminar acá.
+        public bool IsSystemCategory { get; set; } = false;
     }
 
 

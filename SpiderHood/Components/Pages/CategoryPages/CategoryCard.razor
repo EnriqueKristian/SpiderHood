@@ -4,21 +4,32 @@
             <i class="@(string.IsNullOrEmpty(Category.Icon) ? "bi bi-folder2" : Category.Icon)"></i>
         </div>
         <div class="category-header-text">
-            <div class="category-name">@Category.ShortDescript</div>
+            <div class="category-name">
+                @Category.ShortDescript
+                @if (Category.IsSystemCategory)
+                {
+                    <span class="badge bg-secondary ms-1" title="Categoría del sistema: no se puede editar ni eliminar">
+                        <i class="bi bi-lock-fill"></i> Sistema
+                    </span>
+                }
+            </div>
             <div class="subcategory-count">
                 @Categories.Count(c => c.ParentId == Category.IdCategory) subcategorías
             </div>
         </div>
-        <div class="btn-group btn-group-sm" role="group">
-            <button type="button" class="btn btn-icon"
-                    title="Editar" @onclick="() => EditItem(Category)">
-                <i class="bi bi-pencil"></i>
-            </button>
-            <button type="button" class="btn btn-icon text-danger"
-                    title="Eliminar" @onclick="() => ConfirmDelete(Category.IdCategory)">
-                <i class="bi bi-trash"></i>
-            </button>
-        </div>
+        @if (!Category.IsSystemCategory)
+        {
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-icon"
+                        title="Editar" @onclick="() => EditItem(Category)">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button type="button" class="btn btn-icon text-danger"
+                        title="Eliminar" @onclick="() => ConfirmDelete(Category.IdCategory)">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        }
     </div>
 
     <div class="subcategory-list">
@@ -49,9 +60,12 @@
         }
     </div>
 
-    <div class="add-subcategory" @onclick="OnAddSubcategory">
-        <i class="bi bi-plus-lg"></i> Agregar Sub Categoría
-    </div>
+    @if (!Category.IsSystemCategory)
+    {
+        <div class="add-subcategory" @onclick="OnAddSubcategory">
+            <i class="bi bi-plus-lg"></i> Agregar Sub Categoría
+        </div>
+    }
 </div>
 
 @code {

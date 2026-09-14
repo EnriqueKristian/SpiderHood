@@ -457,20 +457,31 @@ namespace SpiderHood.Services
 
         private async Task SaveInstallment(BDLayout ecLocal, BudgetState state, string performedBy)
         {
-
             foreach (var item in state.Installments)
                 await ecLocal.AddNewRecordAsync(item);
 
-
+            // Un presupuesto puede publicarse sin lectura de agua asociada (edificio sin
+            // servicio de agua configurado, o simplemente no cargada todavía -- es una
+            // advertencia "blanda" que ConfirmarYProceder deja pasar si el Administrador
+            // decide continuar). Antes se asumía WaterReadings siempre no vacío y se hacía
+            // `state.WaterReadings.FirstOrDefault()!.IdServiceReading` -- el `!` no evita
+            // la NullReferenceException en runtime, sólo silencia el warning del compilador,
+            // así que Publicar tiraba esa excepción para cualquier presupuesto sin lectura de
+            // agua. Y como ConfirmationUtil invocaba la acción confirmada fire-and-forget
+            // (ver OnConfirmationResult), esa excepción no llegaba a ningún catch ni se
+            // mostraba como error -- la UI se quedaba con el spinner de carga trabado para
+            // siempre, indistinguible de un hang real (eso también se corrigió aparte).
             var ServiceHeader = state.WaterReadings.FirstOrDefault();
-            ServiceReading UpdStatus = new ServiceReading();
+            if (ServiceHeader != null)
+            {
+                ServiceReading UpdStatus = new ServiceReading();
+                UpdStatus.IdServiceReading = ServiceHeader.IdServiceReading;
+                UpdStatus.Status = 2;
 
-            UpdStatus.IdServiceReading = ServiceHeader!.IdServiceReading;
-            UpdStatus.Status = 2;
-
-            //Actualizar lectura de Agua
-            await ecLocal.UpdateRecordAsync(UpdStatus);
-            await ecLocal.StampAuditAsync(AuditableEntity.ServiceReading, UpdStatus.IdServiceReading, performedBy, isCreate: false);
+                //Actualizar lectura de Agua
+                await ecLocal.UpdateRecordAsync(UpdStatus);
+                await ecLocal.StampAuditAsync(AuditableEntity.ServiceReading, UpdStatus.IdServiceReading, performedBy, isCreate: false);
+            }
 
             InstallmentExoneration _exoneration = new();
             _exoneration.IdBudgetHeader = state.Budget.IdBudgetHeader;

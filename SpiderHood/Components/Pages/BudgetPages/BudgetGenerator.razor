@@ -1457,10 +1457,17 @@
         }
 
         // 4. Validar lectura de agua
-        var waterCategoryId = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
-        var hasWaterSection = sections.Any(s =>
+        // La categoría de agua es la configurada por edificio (Configuration.WaterReadingDefault
+        // -- así es como el resto del código la identifica, ver BudgetCalculator.CalculateQuota,
+        // InstallmentDetailModal, Utilities.cs), no un Guid fijo: un Guid hardcodeado nunca
+        // coincide con la categoría real de un edificio, así que esta validación jamás
+        // detectaba una sección de Agua y dejaba pasar presupuestos con Agua sin lectura
+        // cargada -- exactamente lo que la decisión de negocio del 2026-09-11 (ver abajo)
+        // dice que debe bloquear.
+        var waterCategoryId = _BudgetState.Configuration.WaterReadingDefault;
+        var hasWaterSection = waterCategoryId.HasValue && sections.Any(s =>
             _BudgetState.Budget.Details.Any(d => d.IdSection == s.IdSection &&
-                                  d.IdCategory == waterCategoryId &&
+                                  d.IdCategory == waterCategoryId.Value &&
                                   !d.IsHeader));
 
         bool waterReadingValid = false;

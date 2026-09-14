@@ -18,17 +18,22 @@ namespace SpiderHood.Models
     public class ConfirmationUtil
     {
         //private ConfirmationModal? _confirmationModal;
-        private Action? _pendingAction;
+        // Antes era un `Action` invocado fire-and-forget (`Task task = ExecuteWithLoading(...)`
+        // sin await) desde OnConfirmationResult -- cualquier excepción dentro de la acción
+        // confirmada (ej. Publicar un presupuesto sin lectura de agua) quedaba en un Task
+        // que nadie observaba: no llegaba al catch del propio `proceed` del llamador, no
+        // mostraba ningún toast de error, y la UI se quedaba con el spinner de carga
+        // trabado para siempre (indistinguible de un hang real). Ahora es un `Func<Task>`
+        // que OnConfirmationResult awaitea, así la excepción sí propaga hasta el catch del
+        // llamador (o, en su defecto, hasta el manejo de errores del propio circuito).
+        private Func<Task>? _pendingAction;
         private string _pendingActionName = "";
         public bool _isLoading = false;
         public string _currentOperation = "";
 
         public async Task ExecuteWithConfirmation(Func<Task> action, string actionName, ConfirmationModal? _confirmationModal, string message = "", string type = "warning", bool isCancelOnly = false)
         {
-            _pendingAction = () =>
-            {
-                Task task = ExecuteWithLoading(async () => { await action.Invoke(); }, actionName);
-            };
+            _pendingAction = () => ExecuteWithLoading(async () => { await action.Invoke(); }, actionName);
 
             _pendingActionName = actionName;
 
@@ -56,7 +61,7 @@ namespace SpiderHood.Models
         {
             if (confirmed && _pendingAction != null)
             {
-                _pendingAction.Invoke();
+                await _pendingAction.Invoke();
             }
 
             _pendingAction = null;

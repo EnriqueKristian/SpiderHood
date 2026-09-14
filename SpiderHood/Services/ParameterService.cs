@@ -170,6 +170,39 @@ namespace SpiderHood.Services
             return innermost.Message;
         }
 
+        // Resuelve los hijos ACTIVOS de un grupo Mixto por su ShortDescription (ej. "Método
+        // de Pago", "Tipo Incidente") -- mismo criterio ya usado en IncidentList.razor
+        // (ResolveGroupChildren), centralizado acá para no duplicarlo en cada pantalla que
+        // necesite un combo poblado desde /parameter. El match ignora mayúsculas/espacios de
+        // más; si hay más de un grupo con ese nombre, prefiere el que realmente tenga hijos
+        // activos (y entre esos, el más reciente por IdTabla).
+        public List<Parameter> GetGroupChildren(string groupShortDescription, out string? warning)
+        {
+            var candidatos = ListParameters
+                .Where(p => p.IdParent == 0
+                    && p.ShortDescription != null
+                    && p.ShortDescription.Trim().Equals(groupShortDescription, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(p => p.IdTabla);
+
+            foreach (var grupo in candidatos)
+            {
+                var hijosActivos = ListParameters
+                    .Where(p => p.IdParent == grupo.IdTabla && p.Estado == ParameterEstado.Activo)
+                    .OrderBy(p => p.Sort)
+                    .ToList();
+
+                if (hijosActivos.Count > 0)
+                {
+                    warning = null;
+                    return hijosActivos;
+                }
+            }
+
+            warning = $"No se encontró el grupo de Parámetros \"{groupShortDescription}\" (o no tiene valores activos). " +
+                "Revisa /parameter -- puede haberse renombrado o desactivado.";
+            return new List<Parameter>();
+        }
+
 
 
 

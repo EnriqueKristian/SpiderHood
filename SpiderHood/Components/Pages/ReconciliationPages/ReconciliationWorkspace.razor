@@ -2055,6 +2055,13 @@
             return;
         }
 
+        // "Método de Pago" viene del grupo Mixto homónimo en /parameter (ver
+        // ParameterService.GetGroupChildren), no de un enum fijo -- "Transferencia" es el
+        // default razonable para gastos generados en lote desde el estado de cuenta.
+        var metodosPago = ParameterService.GetGroupChildren("Método de Pago", out _);
+        var metodoPagoDefault = (metodosPago.FirstOrDefault(m => m.ShortDescription.Contains("Transfer", StringComparison.OrdinalIgnoreCase))
+            ?? metodosPago.FirstOrDefault())?.Value ?? 0;
+
         // Aquí se podría abrir un modal para crear múltiples gastos a la vez
         // Por ahora, crear uno por uno
         foreach (var transaccion in transaccionesSeleccionadas)
@@ -2072,7 +2079,7 @@
                 IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
                 Distribution = TypeDistribution.Fija,
                 Status = StatusExpense.Approved,
-                PaymentMethod = PaymentMethod.BankTransfer
+                PaymentMethod = metodoPagoDefault
                 //Reconciled = false
             };
 

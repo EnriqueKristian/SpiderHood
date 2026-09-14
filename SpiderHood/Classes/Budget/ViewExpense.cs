@@ -30,5 +30,14 @@ namespace SpiderHood.Models
         public DateTime ExpenseDate { get; set; }
         public bool IncludeInQuota { get; set; }
         //public DateTime? PaymentDate { get; set; }
+
+        // Fila "virtual": un egreso del estado de cuenta que ya salió del banco pero
+        // todavía no tiene un Gasto real creado (GET_ExpensesByBuilding lo arma en la
+        // segunda rama del UNION, IdExpense = IdStatementDetail de la transacción). La UI
+        // (ExpensePage) muestra un botón "Crear Gasto" en vez de Editar/Eliminar para
+        // estas filas, y SÍ las cuenta en el total (el dinero ya salió) aunque
+        // Reconciled quede en false -- a diferencia de un Gasto manual sin conciliar, que
+        // no cuenta hasta que se concilie de verdad.
+        public bool RequiresExpenseCreation { get; set; } = false;
     }
 }

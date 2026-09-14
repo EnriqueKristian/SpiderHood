@@ -13,6 +13,7 @@ namespace SpiderHood.Services
         Task SetInitialBalanceAsync(Guid idBankAccount, decimal initialBalance);
         Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding);
         Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync(Guid cuentaId, DateTime desde, DateTime hasta);
+        Task<TransactionBankDetail?> ObtenerTransaccionPorIdAsync(Guid idStatementDetail);
         Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto);
         Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion);
         // "Corregir" (Fase B) para Gastos -- a diferencia de DesconciliarTransaccionAsync
@@ -241,6 +242,19 @@ namespace SpiderHood.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error al obtener transacciones: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<TransactionBankDetail?> ObtenerTransaccionPorIdAsync(Guid idStatementDetail)
+        {
+            try
+            {
+                return await ec.GetTransactionByIdAsync(idStatementDetail);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al obtener transacción por Id: {ex.Message}");
                 throw;
             }
         }

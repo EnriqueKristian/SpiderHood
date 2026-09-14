@@ -137,6 +137,28 @@ namespace SpiderHood.Services
                     await CloneCategoriesAsync(template.IdBuilding, building.IdBuilding);
                 }
 
+                // "Sin Categorizar" (Docs de la sesión: reporte de Gastos) -- a diferencia
+                // del resto de categorías, NO depende de un Template: todo edificio nuevo
+                // la necesita desde el día uno, porque GET_ExpensesByBuilding la usa para
+                // agrupar los egresos del estado de cuenta que todavía no tienen Gasto
+                // creado. Protegida (IsSystemCategory=1, ver INS_Category/UPD_Category/
+                // DEL_Category en Database/Scripts/2026-09-14_100_...sql).
+                await ec.AddNewRecordAsync(new Models.Category
+                {
+                    IdCategory = Guid.NewGuid(),
+                    Description = "Sin Categorizar",
+                    ShortDescript = "Sin Categorizar",
+                    Icon = "bi bi-question-circle",
+                    Color = "#9CA3AF",
+                    Distribution = TypeDistribution.Fija,
+                    ParentId = Guid.Empty,
+                    IdBuilding = building.IdBuilding,
+                    Nivel = 0,
+                    Sort = 9999,
+                    ShowDetailInReceipt = true,
+                    IsSystemCategory = true
+                });
+
                 await ec.AcceptInvitationAsync(new UserBuildingAssociation
                 {
                     IdUser = createdByUserId,

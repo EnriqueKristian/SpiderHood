@@ -1457,11 +1457,19 @@
         }
 
         // 4. Validar lectura de agua
-        var waterCategoryId = Guid.Parse("CB42DE58-8C94-4CAA-82CF-4E5D0F6B2B8C");
-        var hasWaterSection = sections.Any(s =>
-            _BudgetState.Budget.Details.Any(d => d.IdSection == s.IdSection &&
-                                  d.IdCategory == waterCategoryId &&
-                                  !d.IsHeader));
+        // El cálculo de agua es parte intrínseca de todo presupuesto Ordinario (ver el
+        // botón "Cal. Agua" en BudgetHeaderComponent: "no aplica a una Cuota Extraordinaria
+        // ni a los Cargos de Multas/Mora, que no dependen de ninguna lectura de consumo") --
+        // así que se exige lectura de agua para cualquier Ordinario (BudgetType vacío), sin
+        // importar si el edificio ya tiene una categoría específica marcada como agua.
+        // Antes se buscaba una sección cuya categoría coincidiera con
+        // Configuration.WaterReadingDefault -- eso dejaba pasar sin validar a cualquier
+        // presupuesto Ordinario de un edificio sin ese campo configurado (o, antes de eso,
+        // usaba un Guid hardcodeado que no coincidía con ninguna categoría real -- ver
+        // historial), permitiendo enviar a aprobación y hasta publicar sin lectura de agua
+        // cargada.
+        var esOrdinario = string.IsNullOrEmpty(_BudgetState.Budget.BudgetType);
+        var hasWaterSection = esOrdinario;
 
         bool waterReadingValid = false;
         string waterReadingMessage = string.Empty;

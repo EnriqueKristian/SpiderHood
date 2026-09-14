@@ -221,8 +221,16 @@
                                     <span class="badge @EstadoBadgeClass(item)">@EstadoBadgeText(item)</span>
                                 </td>
                                 <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(item)">
-                                        <i class="bi bi-eye me-1"></i>Ver Detalle
+                                    <button class="btn btn-sm btn-outline-primary" disabled="@(_generandoPdf == item.IdInstallment)" @onclick="() => VerDetalle(item)">
+                                        @if (_generandoPdf == item.IdInstallment)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-file-earmark-pdf me-1"></i>
+                                        }
+                                        Ver Detalle
                                     </button>
                                 </td>
                             </tr>
@@ -239,21 +247,6 @@
     }
 </div>
 
-<InstallmentDetailModal @ref="_detalleModal" OnImprimir="ImprimirCuota">
-    <ExtraContent>
-        @if (_selectedInstallment != null)
-        {
-            <hr />
-            <p class="mb-0">
-                <span class="text-muted me-2">Estado:</span>
-                <span class="badge @EstadoBadgeClass(_selectedInstallment)">@EstadoBadgeText(_selectedInstallment)</span>
-                <span class="text-muted ms-3 me-2">Deuda:</span>
-                <span class="@GetDeudaClass(_selectedInstallment)">@Moneda(_selectedInstallment.Debt)</span>
-            </p>
-        }
-    </ExtraContent>
-</InstallmentDetailModal>
-
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
@@ -266,15 +259,9 @@
     private string _filtroEstado = "todos";
     private DateTime? _filtroPeriodo;
 
-    private InstallmentDetailModal _detalleModal = null!;
-    private Installment? _selectedInstallment;
-
-    // Presupuesto/lecturas/excepciones de la cuota actualmente abierta en el modal --
-    // cargados on-demand en VerDetalle (cada recibo puede ser de un periodo distinto) y
-    // reusados por ImprimirCuota para no volver a pedirlos.
-    private BudgetHeader? _budgetActual;
-    private List<ServiceReadingDetail> _waterReadingsActual = new();
-    private List<Exoneration> _exonerationsActual = new();
+    // IdInstallment cuyo PDF se está generando ahora mismo -- deshabilita ese botón
+    // puntual (VerDetalle) mientras dura, sin bloquear el resto de la tabla.
+    private Guid? _generandoPdf;
 
     protected override async Task OnInitializedAsync()
     {
@@ -354,30 +341,22 @@
         _ => item.DueDate.Date < DateTime.Today ? "Vencida" : "Pendiente de Pago"
     };
 
+    // "Ver Detalle" -- antes abría un modal con el desglose de la cuota y recién desde
+    // ahí, con un segundo click en "Imprimir", se generaba/descargaba el PDF. Ahora
+    // genera (o reusa, ver GetOrGenerateReceiptAsync) el mismo recibo PDF que ya usa
+    // /cuotas directamente y lo abre para VERLO (no fuerza la descarga) -- el propietario
+    // quiere ver el recibo real, no un resumen aparte.
     private async Task VerDetalle(Installment item)
     {
-        _selectedInstallment = item;
+        if (ParameterService.CurrentBuilding == null || _generandoPdf != null) return;
 
-        var budget = await BudgetService.GetPresupuestoByIdAsync(item.IdBudgetHeader);
-        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period, ParameterService.CurrentBuilding!.IdBuilding);
-        var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(item.IdBudgetHeader);
-
-        _budgetActual = budget;
-        _waterReadingsActual = waterReadings;
-        _exonerationsActual = exonerations;
-
-        await _detalleModal.ShowAsync(item, budget, waterReadings, exonerations);
-    }
-
-    private async Task ImprimirCuota(Installment item)
-    {
-        if (_budgetActual == null || ParameterService.CurrentBuilding == null)
-        {
-            return;
-        }
-
+        _generandoPdf = item.IdInstallment;
         try
         {
+            var budget = await BudgetService.GetPresupuestoByIdAsync(item.IdBudgetHeader);
+            var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period, ParameterService.CurrentBuilding.IdBuilding);
+            var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(item.IdBudgetHeader);
+
             // Igual que en /cuotas: refresca la configuración completa del edificio
             // (bancos/contactos/pie del recibo) antes de generar el PDF.
             ParameterService.CurrentBuilding.Configuration =
@@ -391,9 +370,9 @@
 
             var exportService = new InstallmentExportService(
                 new List<Installment> { item },
-                _budgetActual,
-                _waterReadingsActual,
-                _exonerationsActual,
+                budget,
+                waterReadings,
+                exonerations,
                 ParameterService.CurrentBuilding,
                 categorias,
                 cargosAdicionales);
@@ -405,14 +384,17 @@
             var pdfBytes = await ReceiptStorageService.GetOrGenerateReceiptAsync(
                 exportService, item, ParameterService.CurrentBuilding.IdBuilding, currentUser?.Email ?? "Sistema");
 
-            await JSRuntime.InvokeVoidAsync("downloadFile",
+            await JSRuntime.InvokeVoidAsync("openPdfInNewTab",
                 Convert.ToBase64String(pdfBytes),
-                $"{ReceiptPagination.NombreRecibo(item)}.pdf",
-                "application/pdf");
+                $"{ReceiptPagination.NombreRecibo(item)}.pdf");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error al generar el recibo: {ex.Message}");
+        }
+        finally
+        {
+            _generandoPdf = null;
         }
     }
 }

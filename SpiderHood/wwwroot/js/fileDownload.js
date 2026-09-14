@@ -12,6 +12,27 @@ window.downloadFile = (base64String, fileName, contentType) => {
     document.body.removeChild(link);
 };
 
+// Abre un PDF (base64) en una pestaña nueva para VERLO (visor nativo del navegador),
+// a diferencia de downloadFile (que fuerza la descarga vía <a download>). Usada por
+// MyReceipts.razor ("Ver Detalle" carga el recibo PDF en vez de forzar su descarga).
+window.openPdfInNewTab = (base64String, fileName) => {
+    const byteCharacters = atob(base64String);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const opened = window.open(url, '_blank');
+    if (!opened) {
+        // Bloqueado por el navegador (popup blocker) -- como fallback, al menos
+        // ofrecer la descarga en vez de dejar el click sin ningún efecto.
+        window.downloadFile(base64String, fileName, 'application/pdf');
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
 window.descargarArchivo = (filename, base64Data) => {
     const link = document.createElement('a');
     link.download = filename;

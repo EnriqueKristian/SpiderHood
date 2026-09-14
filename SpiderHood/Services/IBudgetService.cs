@@ -280,6 +280,17 @@ namespace SpiderHood.Services
             state.ExpensesList = await ec.GetPendingConciliationExpensesAsync(state.Budget.IdBuilding, state.Budget.BudgetDate, state.Budget.BudgetDate);
             state.Owners = await ec.GetOwnersByBuildingAsync(state.Budget.IdBuilding);
             state.Owners = state.Owners.Where(c => c.Role == 1 && c.TypeUnit == 1).ToList();
+
+            // BudgetState.TotalApartments nunca se asignaba desde datos reales -- se quedaba
+            // siempre en el default de la clase (30). BudgetCalculator.CalculateQuota() usa
+            // ese número como divisor para los items "Tipo 1" (división igualitaria entre
+            // unidades), así que cualquier edificio con un número real de unidades distinto
+            // de 30 cobraba de más o de menos en esos items sin que nada lo avisara
+            // (verificado en vivo: un edificio de 6 deptos, 5 items Tipo 1 de S/150 c/u,
+            // terminaba cobrando sólo S/5/depto/item en vez de S/25 -- 1/5 de lo
+            // presupuestado). Se usa Distinct() por IdGroupUnit porque un mismo depto puede
+            // traer más de una fila de Owners (copropietarios).
+            state.TotalApartments = state.Owners.Select(o => o.IdGroupUnit).Distinct().Count();
         }
 
         public async Task LoadDefaultBudgetDetailsAsync(BudgetState state)

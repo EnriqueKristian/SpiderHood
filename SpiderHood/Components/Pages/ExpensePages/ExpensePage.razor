@@ -373,8 +373,40 @@
         var currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
         _canCreateExpense = await PermissionService.HasPermissionAsync(currentUser, "create_expense");
         _canEditExpense = await PermissionService.HasPermissionAsync(currentUser, "edit_expense");
+    }
 
-        await LoadData();
+    // ParameterService.CurrentBuilding lo resuelve HeaderMainLayout en SU PROPIO
+    // OnAfterRenderAsync (necesita IJSRuntime para leer localStorage, que no está
+    // disponible antes del primer render) -- esa resolución hace un round-trip real de
+    // JS interop (lento comparado con el resto), así que ni siquiera alcanza con mover
+    // LoadData() al OnAfterRenderAsync(firstRender=true) DE ESTA página: esa primera
+    // pasada de ExpensePage también puede ganarle la carrera a la de HeaderMainLayout
+    // (confirmado: CurrentBuilding seguía null ahí). HeaderMainLayout sí dispara
+    // StateHasChanged() cuando por fin resuelve el edificio, lo que produce más pasadas
+    // de OnAfterRenderAsync acá (con firstRender=false) -- _dataLoaded controla que
+    // reintentemos en cada una de esas hasta que el edificio esté disponible, sin volver
+    // a cargar de nuevo una vez que ya cargó.
+    private bool _dataLoaded = false;
+    // Tope de reintentos -- si CurrentBuilding de verdad nunca se resuelve (caso raro:
+    // usuario sin ningún edificio, o con más de uno ambiguo sin elegir todavía), no
+    // tiene sentido reintentar para siempre y dejar el spinner girando; a los 20
+    // re-renders se rinde y muestra el estado vacío normal (mismo resultado que antes).
+    private int _renderAttempts = 0;
+    private const int MaxRenderAttemptsBeforeGivingUp = 20;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_dataLoaded) return;
+
+        var edificioListo = ParameterService.CurrentBuilding != null && ParameterService.CurrentBuilding.IdBuilding != Guid.Empty;
+        _renderAttempts++;
+
+        if (edificioListo || _renderAttempts >= MaxRenderAttemptsBeforeGivingUp)
+        {
+            _dataLoaded = true;
+            await LoadData();
+            StateHasChanged();
+        }
     }
 
     private async Task LoadData()

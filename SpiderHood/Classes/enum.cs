@@ -48,16 +48,6 @@
         Administrativo,
         Otros
     }
-    public enum PaymentMethod
-    {
-        Cash = 1,
-        CreditCard = 2,
-        BankTransfer = 3,
-        Check = 4,
-        DebitCard = 5,
-        Other = 6
-    }
-
     public enum StatusExpense
     {
         Pending,

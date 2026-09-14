@@ -11,7 +11,14 @@ namespace SpiderHood.Models
         public string Category { get; set; } = string.Empty;
         public Guid IdCategory { get; set; }
         public string Supplier { get; set; } = string.Empty;
-        public PaymentMethod PaymentMethod { get; set; }
+        // Antes un enum fijo de 5 valores -- ahora referencia Parameter.Value dentro del
+        // grupo Mixto "Método de Pago" (mismo criterio que Incident.Type/Priority), para que
+        // un administrador pueda agregar sus propios métodos desde /parameter (Yape, Plin,
+        // depósito en agencia, etc.) sin depender de un release. GET_ExpensesByBuilding sigue
+        // devolviendo la columna Expense.PaymentMethod tal cual (INT, sin CHECK constraint
+        // conocido) -- el nombre a mostrar se resuelve del lado de la UI contra
+        // ParameterService.GetGroupChildren("Método de Pago", ...), no viene por JOIN.
+        public int PaymentMethod { get; set; }
         public StatusExpense Status { get; set; }  // Pending, Approved, Rejected
         public bool Reconciled { get; set; } = false;
         public Guid? ReconciledTransactionId { get; set; }

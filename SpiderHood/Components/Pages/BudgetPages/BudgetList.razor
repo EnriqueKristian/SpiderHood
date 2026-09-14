@@ -39,7 +39,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted text-uppercase small">Total Presupuestos:</h6>
-                            <h2 class="mb-0">@filteredbudgets.Count</h2>
+                            <h2 class="mb-0">@budgetService._Budgets.Count</h2>
                         </div>
                         <div style="color: #3b82f6;">
                             <i class="bi bi-calculator-fill" style="font-size: 1.2rem;"></i>
@@ -55,7 +55,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h6 class="text-muted text-uppercase small">Total Cerrados</h6>
-                            <h2 class="mb-0">@TotalActivos</h2>
+                            <h2 class="mb-0">@TotalCerrados</h2>
                         </div>
                         <div style="color: #10b981;">
                             <i class="bi bi-calendar-check-fill" style="font-size: 1.2rem;"></i>
@@ -436,7 +436,12 @@
         filteredbudgets.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
 
     private decimal TotalGeneral => filteredbudgets.Sum(p => p.Amount);
-    private int TotalActivos => filteredbudgets.Count(p => p.Status == BudgetStatus.Active);
+    // Las tarjetas de resumen (Total Presupuestos/Total Cerrados) muestran el estado real
+    // del edificio, no lo que queda del lado del filtro de búsqueda/estado -- antes "Total
+    // Presupuestos" usaba filteredbudgets.Count (bajaba de 5 a 4 apenas había un filtro
+    // aplicado) y "Total Cerrados" mostraba, mal rotulado, la cuenta de Status.Active en
+    // vez de Status.Closed.
+    private int TotalCerrados => budgetService._Budgets.Count(p => p.Status == BudgetStatus.Closed);
 
     private List<BudgetSumCategory> SumCategory = new();
 

@@ -142,13 +142,21 @@
 
             <div class="col-md-6">
                 <label class="form-label">Método de Pago</label>
-                <select class="form-select" @bind="nuevoGasto.PaymentMethod">
-                    <option value=@PaymentMethod.BankTransfer>Transferencia</option>
-                    <option value=@PaymentMethod.CreditCard>Tarjeta de Crédito</option>
-                    <option value=@PaymentMethod.DebitCard>Tarjeta de Débito</option>
-                    <option value=@PaymentMethod.Cash>Efectivo</option>
-                    <option value=@PaymentMethod.Check>Cheque</option>
-                </select>
+                @if (_metodosPago.Count == 0)
+                {
+                    <div class="alert alert-warning py-2 mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>@_metodosPagoWarning
+                    </div>
+                }
+                else
+                {
+                    <select class="form-select" @bind="nuevoGasto.PaymentMethod">
+                        @foreach (var metodo in _metodosPago)
+                        {
+                            <option value="@metodo.Value">@metodo.ShortDescription</option>
+                        }
+                    </select>
+                }
             </div>
 
             <div class="col-12">
@@ -254,6 +262,10 @@
     private bool guardarComoPlantilla = false;
     private Dictionary<string, string> errores = new();
     private ExpenseTemplate? _plantillaAplicada;
+    // Combo "Método de Pago" -- se puebla desde el grupo Mixto homónimo en /parameter (ver
+    // ParameterService.GetGroupChildren), no desde un enum fijo.
+    private List<Models.Parameter> _metodosPago = new();
+    private string? _metodosPagoWarning;
     // Evita reconstruir nuevoGasto (y perder lo que el usuario ya tipeó) cada vez que el
     // padre re-renderiza mientras el modal sigue abierto para LA MISMA transacción --
     // OnParametersSet(Async) corre en cada ciclo de parámetros, no sólo cuando Transaccion
@@ -267,6 +279,12 @@
 
         _idTransaccionInicializada = Transaccion.IdStatementDetail;
 
+        _metodosPago = ParameterService.GetGroupChildren("Método de Pago", out _metodosPagoWarning);
+        // Viene de una transacción bancaria -- "Transferencia" es el default más probable;
+        // si no existe con ese nombre exacto en /parameter, se cae al primero disponible.
+        var metodoDefault = _metodosPago.FirstOrDefault(m => m.ShortDescription.Contains("Transfer", StringComparison.OrdinalIgnoreCase))
+            ?? _metodosPago.FirstOrDefault();
+
         // Inicializar el gasto con datos de la transacción
         nuevoGasto = new ViewExpense
         {
@@ -277,6 +295,7 @@
             Distribution = TypeDistribution.Fija,
             Reconciled = false,
             AutoReconcile = true,
+            PaymentMethod = metodoDefault?.Value ?? 0,
             Notes = $"Creado desde transacción bancaria. Referencia: {Transaccion.Reference}"
         };
         guardarComoPlantilla = false;

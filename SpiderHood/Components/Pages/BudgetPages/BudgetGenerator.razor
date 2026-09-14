@@ -464,7 +464,7 @@
 
 <p></p>
 
-@if (_BudgetState.IsWaterReadingReady && _BudgetState.Status > BudgetStatus.Created)
+@if ((!_BudgetState.RequiereLecturaAgua || _BudgetState.IsWaterReadingReady) && _BudgetState.Status > BudgetStatus.Created)
 {
     <InstallmentTable Installments="@_BudgetState.Installments"
                       Budget="@_BudgetState.Budget"

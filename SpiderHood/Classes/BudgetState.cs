@@ -49,6 +49,14 @@ namespace SpiderHood.Models
         public bool AddSampleData => Status == BudgetStatus.Rejected || Status == BudgetStatus.Created;
         public bool LoadServiceReading => !(Budget.Details.Count > 0);
         public bool IsWaterReadingReady => (WaterReadings.Count > 0);
+
+        // Sólo un presupuesto que de verdad incluye la categoría de agua del edificio
+        // (Configuration.WaterReadingDefault) entre sus Details depende de tener lectura
+        // cargada -- uno sin esa sección (ej. Cuotas Extraordinarias, o un Ordinario que
+        // todavía no la agregó) puede calcular cuotas igual, ver CalculateQuota().
+        public bool RequiereLecturaAgua =>
+            Configuration.WaterReadingDefault.HasValue &&
+            Budget.Details.Any(d => !d.IsHeader && d.IdCategory == Configuration.WaterReadingDefault.Value);
         public bool SaveBudget()
         {
             return (Status == BudgetStatus.Rejected || Status == BudgetStatus.Created)
@@ -74,13 +82,22 @@ namespace SpiderHood.Models
 
         public void CalculateQuota()
         {
-            if (WaterReadings == null || !IsWaterReadingReady) return;
-            
+            // Antes este guard bloqueaba el cálculo COMPLETO de cuotas (todas las
+            // categorías, no sólo Agua) para cualquier presupuesto sin lectura de agua
+            // cargada -- incluso uno que no tiene ninguna sección de Agua y nunca la va a
+            // tener (ver el mismo fix ya aplicado en BudgetGenerator.ValidarPresupuestoParaAprobacion).
+            // BudgetCalculator.CalculateQuota() ya maneja WaterReadings vacío
+            // correctamente (sólo omite el aporte de agua) -- lo único que de verdad
+            // necesita la lectura cargada es la categoría configurada como
+            // Configuration.WaterReadingDefault, así que sólo bloqueamos si el
+            // presupuesto realmente la incluye.
+            if (RequiereLecturaAgua && !IsWaterReadingReady) return;
+
             if ( Status != BudgetStatus.Active && Status != BudgetStatus.Closed)
                 TotalInstallments = _calculator.CalculateQuota(TotalApartments);
-            else 
+            else
                 TotalInstallments = Installments.Sum(i => i.Amount);
-            
+
         }
     }
 

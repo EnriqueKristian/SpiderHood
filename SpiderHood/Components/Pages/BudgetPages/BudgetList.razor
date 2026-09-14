@@ -458,50 +458,68 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // ParameterService.CurrentBuilding se asigna en HeaderMainLayout.OnAfterRenderAsync,
-        // que corre DESPUÉS de este OnInitializedAsync en el primer render del circuito.
-        // Sin esperar, esta página se quedaba con el spinner de carga para siempre en la
-        // primera navegación tras el login. Reintentamos brevemente antes de rendirnos.
-        //
-        // El prerenderizado estático (SSR) corre este método completo — reintentos incluidos
-        // — ANTES de mandar el primer HTML al navegador, y en esa pasada CurrentBuilding
-        // nunca se llega a setear (HeaderMainLayout.OnAfterRenderAsync no corre durante
-        // prerenderizado). O sea que el HTML inicial ya llega en el estado "sin datos", no
-        // en el spinner. Forzamos un render aquí para que, en la pasada interactiva real, el
-        // usuario vea "Cargando presupuestos..." desde el primer instante en vez de quedarse
-        // viendo el HTML prerenderizado sin cambios durante los ~3s que dura el retry.
         isLoading = true;
-        StateHasChanged();
         currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
         _canCreateBudget = await PermissionService.HasPermissionAsync(currentUser, "create_budget");
         _canEditBudget = await PermissionService.HasPermissionAsync(currentUser, "edit_budget");
         _canDeleteBudget = await PermissionService.HasPermissionAsync(currentUser, "delete_budget");
         _canCloneBudget = await PermissionService.HasPermissionAsync(currentUser, "clone_budget");
-        var attempts = 0;
-        while (ParameterService.CurrentBuilding == null && attempts < 2)
-        {
-            await Task.Delay(10);
-            attempts++;
-            Console.WriteLine($"Index razor. Intento nro: {attempts}");
-        }
+    }
 
-        if (ParameterService.CurrentBuilding == null)
+    // ParameterService.CurrentBuilding se asigna en HeaderMainLayout.OnAfterRenderAsync
+    // (necesita IJSRuntime para leer localStorage, no disponible antes del primer
+    // render) -- un round-trip real, más lento que el resto del árbol de componentes.
+    // El intento anterior (un loop de 2×10ms adentro de ESTE OnInitializedAsync) corría
+    // en el lugar equivocado -- OnInitializedAsync para TODO el árbol de componentes
+    // termina antes de que CUALQUIER OnAfterRenderAsync empiece, así que ni 10ms ni
+    // 10 segundos ahí adentro le daban tiempo real a HeaderMainLayout -- y encima
+    // bloqueaba el hilo de renderizado, marcando el spinner recién al final. Ahora se
+    // reintenta en cada re-render real (HeaderMainLayout dispara StateHasChanged al
+    // resolver el edificio) hasta que esté listo, con un tope para no dejar el spinner
+    // girando para siempre si de verdad nunca se resuelve.
+    private bool _dataLoaded = false;
+    private int _renderAttempts = 0;
+    private const int MaxRenderAttemptsBeforeGivingUp = 20;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_dataLoaded) return;
+
+        var edificioListo = ParameterService.CurrentBuilding != null && ParameterService.CurrentBuilding.IdBuilding != Guid.Empty;
+
+        if (!edificioListo && _renderAttempts < MaxRenderAttemptsBeforeGivingUp)
         {
-            isLoading = false;
+            _renderAttempts++;
+            await Task.Delay(150);
+            StateHasChanged();
             return;
         }
-        // ParameterService._listParameters (de donde sale la descripción de ESTADO, vía
-        // GetChildParameterDescription) solo se carga hoy desde Home.razor, Owners.razor o
-        // ParameterPage.razor — ninguna de las tres corre necesariamente antes que esta
-        // página. Si el usuario llega aquí sin haber pasado antes por el Dashboard en este
-        // mismo circuito, _listParameters queda vacío y CADA fila de la tabla muestra "No se
-        // encontro coincidencia", sin importar el estado real. Lo cargamos explícitamente
-        // acá (usa caché si Home ya lo hizo, así que no duplica la consulta en ese caso).
-        await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
 
-        await CargarDatos();
-        await LoadMonths();
-        UpdatePagination();
+        _dataLoaded = true;
+
+        if (ParameterService.CurrentBuilding != null)
+        {
+            // ParameterService._listParameters (de donde sale la descripción de
+            // ESTADO, vía GetChildParameterDescription) solo se carga hoy desde
+            // Home.razor, Owners.razor o ParameterPage.razor — ninguna de las tres
+            // corre necesariamente antes que esta página. Si el usuario llega aquí
+            // sin haber pasado antes por el Dashboard en este mismo circuito,
+            // _listParameters queda vacío y CADA fila de la tabla muestra "No se
+            // encontro coincidencia", sin importar el estado real. Lo cargamos
+            // explícitamente acá (usa caché si Home ya lo hizo, así que no duplica
+            // la consulta en ese caso).
+            await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+            await CargarDatos();
+            await LoadMonths();
+            UpdatePagination();
+        }
+        else
+        {
+            isLoading = false;
+        }
+
+        StateHasChanged();
     }
 
     private async Task CargarDatos()

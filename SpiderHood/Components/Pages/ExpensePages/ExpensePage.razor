@@ -399,14 +399,24 @@
         if (_dataLoaded) return;
 
         var edificioListo = ParameterService.CurrentBuilding != null && ParameterService.CurrentBuilding.IdBuilding != Guid.Empty;
-        _renderAttempts++;
 
-        if (edificioListo || _renderAttempts >= MaxRenderAttemptsBeforeGivingUp)
+        // No alcanza con esperar a que ALGO MÁS dispare otro OnAfterRenderAsync (probado
+        // en vivo: a veces sólo hay UN re-render de cortesía después del primero, y
+        // ninguno más -- si CurrentBuilding sigue sin resolverse en ese, la página se
+        // quedaba esperando para siempre). Autoreintentamos con un delay corto: eso
+        // dispara nuestro propio StateHasChanged(), que a su vez vuelve a llamar a este
+        // mismo método -- ciclo acotado por el tope de intentos.
+        if (!edificioListo && _renderAttempts < MaxRenderAttemptsBeforeGivingUp)
         {
-            _dataLoaded = true;
-            await LoadData();
+            _renderAttempts++;
+            await Task.Delay(150);
             StateHasChanged();
+            return;
         }
+
+        _dataLoaded = true;
+        await LoadData();
+        StateHasChanged();
     }
 
     private async Task LoadData()

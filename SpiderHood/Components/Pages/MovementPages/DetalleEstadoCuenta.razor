@@ -208,6 +208,46 @@
     {
         pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
 
+        // No depende de CurrentBuilding (IdStatementHeader ya viene resuelto en la ruta),
+        // así que puede cargarse acá sin correr la carrera de abajo.
+        var detalles = (await BankAccountService.GetStatementDetailsAsync(IdStatementHeader))
+            .OrderBy(d => d.StatementDate)
+            .ThenBy(d => d.SequenceNumber)
+            .ToList();
+
+        pagination.Initialize(detalles);
+        cargando = false;
+    }
+
+    // ParameterService.CurrentBuilding lo resuelve HeaderMainLayout en SU PROPIO
+    // OnAfterRenderAsync (necesita IJSRuntime para leer localStorage, no disponible
+    // antes del primer render) -- un round-trip real, más lento que el resto del árbol
+    // de componentes. Leerlo desde OnInitializedAsync (como estaba antes) siempre lo
+    // encontraba en null en la primera carga real de un circuito (F5, login, cualquier
+    // navegación nueva): el nombre de la cuenta bancaria y el encabezado quedaban en
+    // blanco y nunca reintentaba. Se reintenta en cada re-render (HeaderMainLayout
+    // dispara StateHasChanged al resolver el edificio) hasta que esté listo, con un tope
+    // para no reintentar para siempre si de verdad nunca se resuelve.
+    private bool _dataLoaded = false;
+    private int _renderAttempts = 0;
+    private const int MaxRenderAttemptsBeforeGivingUp = 20;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_dataLoaded) return;
+
+        var edificioListo = ParameterService.CurrentBuilding != null && ParameterService.CurrentBuilding.IdBuilding != Guid.Empty;
+
+        if (!edificioListo && _renderAttempts < MaxRenderAttemptsBeforeGivingUp)
+        {
+            _renderAttempts++;
+            await Task.Delay(150);
+            StateHasChanged();
+            return;
+        }
+
+        _dataLoaded = true;
+
         if (ParameterService.CurrentBuilding != null)
         {
             cuentasBancarias = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
@@ -216,13 +256,7 @@
             header = headers.FirstOrDefault(h => h.IdStatementHeader == IdStatementHeader);
         }
 
-        var detalles = (await BankAccountService.GetStatementDetailsAsync(IdStatementHeader))
-            .OrderBy(d => d.StatementDate)
-            .ThenBy(d => d.SequenceNumber)
-            .ToList();
-
-        pagination.Initialize(detalles);
-        cargando = false;
+        StateHasChanged();
     }
 
     private string GetNombreCuenta(Guid idBankAccount)

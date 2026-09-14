@@ -573,23 +573,47 @@
         _ => "bg-secondary"
     };
 
-    protected override async Task OnInitializedAsync()
+    // ParameterService.CurrentBuilding se asigna en HeaderMainLayout.OnAfterRenderAsync
+    // (necesita IJSRuntime para leer localStorage, no disponible antes del primer
+    // render) -- un round-trip real, más lento que el resto del árbol de componentes.
+    // El intento anterior (un loop de 20×20ms adentro de OnInitializedAsync) corría en
+    // el lugar equivocado: OnInitializedAsync para TODO el árbol de componentes termina
+    // antes de que CUALQUIER OnAfterRenderAsync empiece, así que ese delay no le daba
+    // tiempo real a HeaderMainLayout (mismo problema, confirmado, en ExpensePage/
+    // BudgetList/CategoryPage). Ahora se reintenta en cada re-render real
+    // (HeaderMainLayout dispara StateHasChanged al resolver el edificio) hasta que esté
+    // listo, con un tope para no dejar la página sin inicializar para siempre si de
+    // verdad nunca se resuelve.
+    private bool _dataLoaded = false;
+    private int _renderAttempts = 0;
+    private const int MaxRenderAttemptsBeforeGivingUp = 20;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // ParameterService.CurrentBuilding se asigna en HeaderMainLayout.OnAfterRenderAsync,
-        // que corre DESPUÉS de este OnInitializedAsync en el primer render del circuito
-        // (mismo problema que tenía Index.razor / la lista de presupuestos: sin esperar,
-        // esta página se quedaba sin inicializar nada — sin periodos, sin categorías, sin
-        // BudgetState — la primera vez que se entraba tras el login).
-        var attempts = 0;
-        while (ParameterService.CurrentBuilding == null && attempts < 20)
+        if (_dataLoaded) return;
+
+        var edificioListo = ParameterService.CurrentBuilding != null && ParameterService.CurrentBuilding.IdBuilding != Guid.Empty;
+
+        if (!edificioListo && _renderAttempts < MaxRenderAttemptsBeforeGivingUp)
         {
-            await Task.Delay(20);
-            attempts++;
+            _renderAttempts++;
+            await Task.Delay(150);
+            StateHasChanged();
+            return;
         }
 
-        if (ParameterService.CurrentBuilding == null)
-            return;
+        _dataLoaded = true;
 
+        if (ParameterService.CurrentBuilding != null)
+        {
+            await InicializarPresupuestoAsync();
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task InicializarPresupuestoAsync()
+    {
         currentUser = await AuthService.GetCurrentUserAsync();
 
         // Permisos granulares del módulo Presupuesto (Acción 2: antes esto era todo

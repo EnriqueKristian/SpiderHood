@@ -69,7 +69,16 @@ namespace SpiderHood.Services
                 return null;
             }
 
+            // Timer temporal -- Docs de la sesión: "primer click tarda, después va rápido".
+            // EnsureHydratedAsync() memoiza _hydrationTask, así que esto corre UNA sola vez
+            // por circuito -- lo que se mide acá es el costo real (y de cuándo se paga) de
+            // reconstruir la sesión desde la cookie, sin importar qué componente sea el que
+            // termina disparándolo primero (típicamente el primer OnInitializedAsync que
+            // llama AuthService.GetCurrentUserAsync tras la primera navegación).
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var session = await _sessionLoader.LoadAsync(idUser);
+            sw.Stop();
+            _logger.LogInformation("⏱️ HydrateFromCookieAsync (UserSessionLoader.LoadAsync) para {IdUser} tardó {ElapsedMs}ms", idUser, sw.ElapsedMilliseconds);
             if (session == null)
             {
                 // A diferencia del caso anterior, acá la cookie SÍ es válida — el null

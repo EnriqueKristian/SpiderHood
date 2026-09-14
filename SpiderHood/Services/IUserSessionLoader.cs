@@ -31,7 +31,11 @@ namespace SpiderHood.Services
         {
             try
             {
+                var swTotal = System.Diagnostics.Stopwatch.StartNew();
+                var swStep = System.Diagnostics.Stopwatch.StartNew();
+
                 var user = await _ec.GetUserByIdAsync(idUser);
+                _logger.LogInformation("⏱️ UserSessionLoader.GetUserByIdAsync tardó {ElapsedMs}ms", swStep.ElapsedMilliseconds);
                 if (!user.IsActive)
                     return null;
 
@@ -51,7 +55,11 @@ namespace SpiderHood.Services
                 // UserBuildingAssociation, vía el rol global en UserRole.
                 var rolGlobalTask = _ec.GetRoleByUserIdAsync(user.IdUser);
 
+                swStep.Restart();
                 await Task.WhenAll(userBuildingsTask, buildsTask, configurationsTask, rolGlobalTask);
+                _logger.LogInformation(
+                    "⏱️ UserSessionLoader: las 4 consultas en paralelo (UserBuildingAssociation/AllBuildingByOwner/AllBuildingsConfig/RoleByUserId) tardaron {ElapsedMs}ms en total",
+                    swStep.ElapsedMilliseconds);
 
                 var userBuildings = userBuildingsTask.Result;
                 var builds = buildsTask.Result;

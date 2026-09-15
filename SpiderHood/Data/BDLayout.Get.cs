@@ -1287,6 +1287,72 @@ namespace SpiderHood.Data
                 return result ?? throw new EntityNotFoundException($"CalendarItem with ID {idCalendarItem} not found");
             }, "GetCalendarItemById", cancellationToken);
         }
+
+        // Personal y Planillas -- Fase 1
+        public async Task<List<Models.Personal>> GetPersonalByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Personal>(StoredProcedures.GET_PersonalByAccount, idAccount);
+            }, "GetPersonalByAccount", cancellationToken);
+        }
+
+        public async Task<Models.Personal> GetPersonalByIdAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<Models.Personal>(StoredProcedures.GET_PersonalById, idPersonal);
+                return result ?? throw new EntityNotFoundException($"Personal with ID {idPersonal} not found");
+            }, "GetPersonalById", cancellationToken);
+        }
+
+        public async Task<List<Models.Turno>> GetTurnosByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Turno>(StoredProcedures.GET_TurnosByAccount, idAccount);
+            }, "GetTurnosByAccount", cancellationToken);
+        }
+
+        public async Task<List<Models.AsignacionPersonalTurno>> GetAsignacionesTurnoByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.AsignacionPersonalTurno>(StoredProcedures.GET_AsignacionesTurnoByPersonal, idPersonal);
+            }, "GetAsignacionesTurnoByPersonal", cancellationToken);
+        }
+
+        public async Task<List<Models.AsignacionPersonalEdificio>> GetAsignacionesEdificioByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.AsignacionPersonalEdificio>(StoredProcedures.GET_AsignacionesEdificioByPersonal, idPersonal);
+            }, "GetAsignacionesEdificioByPersonal", cancellationToken);
+        }
+
+        public async Task<List<Models.AsignacionPersonalEdificio>> GetAsignacionesEdificioByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.AsignacionPersonalEdificio>(StoredProcedures.GET_AsignacionesEdificioByBuilding, idBuilding);
+            }, "GetAsignacionesEdificioByBuilding", cancellationToken);
+        }
+
+        public async Task<List<Models.RegistroHoras>> GetRegistroHorasByPersonalAsync(Guid idPersonal, DateTime fechaDesde, DateTime fechaHasta, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.RegistroHoras>(StoredProcedures.GET_RegistroHorasByPersonal, idPersonal, fechaDesde, fechaHasta);
+            }, "GetRegistroHorasByPersonal", cancellationToken);
+        }
+
+        public async Task<List<Models.ConfiguracionFeriado>> GetFeriadosByAccountAndYearAsync(Guid? idAccount, int anio, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.ConfiguracionFeriado>(StoredProcedures.GET_FeriadosByAccountAndYear, (object?)idAccount ?? DBNull.Value, anio);
+            }, "GetFeriadosByAccountAndYear", cancellationToken);
+        }
         #endregion
     }
 }

@@ -1309,6 +1309,130 @@ namespace SpiderHood.Data
                 return invitation;
             }, "AddAccountInvitation", cancellationToken);
         }
+
+        // Personal y Planillas -- Fase 1
+        public async Task<Models.Personal> AddNewRecordAsync(Models.Personal personal, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(personal, nameof(personal));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Personal,
+                    cancellationToken,
+                    personal.IdPersonal,
+                    personal.IdAccount,
+                    personal.DNI,
+                    personal.Nombres,
+                    personal.Apellidos,
+                    personal.Cargo,
+                    personal.FechaIngreso,
+                    personal.RemuneracionBase,
+                    personal.SistemaPensionario,
+                    (object?)personal.Telefono ?? DBNull.Value,
+                    personal.CreatedBy);
+                return personal;
+            }, "AddPersonal", cancellationToken);
+        }
+
+        public async Task<Models.Turno> AddNewRecordAsync(Models.Turno turno, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(turno, nameof(turno));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Turno,
+                    cancellationToken,
+                    turno.IdTurno,
+                    turno.IdAccount,
+                    turno.Nombre,
+                    turno.HoraInicio,
+                    turno.HoraFin,
+                    turno.DiasSemana,
+                    turno.CreatedBy);
+                return turno;
+            }, "AddTurno", cancellationToken);
+        }
+
+        public async Task<Models.AsignacionPersonalTurno> AddNewRecordAsync(Models.AsignacionPersonalTurno asignacion, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(asignacion, nameof(asignacion));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_AsignacionPersonalTurno,
+                    cancellationToken,
+                    asignacion.IdAsignacionPersonalTurno,
+                    asignacion.IdPersonal,
+                    asignacion.IdTurno,
+                    asignacion.FechaDesde,
+                    asignacion.CreatedBy);
+                return asignacion;
+            }, "AddAsignacionPersonalTurno", cancellationToken);
+        }
+
+        public async Task<Models.AsignacionPersonalEdificio> AddNewRecordAsync(Models.AsignacionPersonalEdificio asignacion, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(asignacion, nameof(asignacion));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_AsignacionPersonalEdificio,
+                    cancellationToken,
+                    asignacion.IdAsignacionPersonalEdificio,
+                    asignacion.IdPersonal,
+                    asignacion.IdBuilding,
+                    asignacion.FechaDesde,
+                    asignacion.PorcentajeDedicacion,
+                    asignacion.CreatedBy);
+                return asignacion;
+            }, "AddAsignacionPersonalEdificio", cancellationToken);
+        }
+
+        public async Task<Models.RegistroHoras> AddNewRecordAsync(Models.RegistroHoras registro, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(registro, nameof(registro));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_RegistroHoras,
+                    cancellationToken,
+                    registro.IdRegistroHoras,
+                    registro.IdPersonal,
+                    registro.IdAsignacionEdificio,
+                    registro.Fecha,
+                    registro.HorasOrdinarias,
+                    registro.HorasExtra25,
+                    registro.HorasExtra35,
+                    registro.EsFeriado,
+                    (object?)registro.Observaciones ?? DBNull.Value,
+                    registro.IdUsuarioRegistro);
+                return registro;
+            }, "AddRegistroHoras", cancellationToken);
+        }
+
+        public async Task<Models.ConfiguracionFeriado> AddNewRecordAsync(Models.ConfiguracionFeriado feriado, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(feriado, nameof(feriado));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ConfiguracionFeriados,
+                    cancellationToken,
+                    feriado.IdConfiguracionFeriados,
+                    (object?)feriado.IdAccount ?? DBNull.Value,
+                    feriado.Fecha,
+                    feriado.Nombre,
+                    feriado.Tipo,
+                    feriado.CreatedBy);
+                return feriado;
+            }, "AddConfiguracionFeriado", cancellationToken);
+        }
         #endregion
     }
 }

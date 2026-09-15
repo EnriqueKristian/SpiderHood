@@ -1,0 +1,453 @@
+@page "/personal/{Id:guid}"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPersonalService PersonalService
+@inject IAccountService AccountService
+@inject SpiderHood.Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Personal - Detalle</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else if (!_isStaff)
+    {
+        <div class="alert alert-warning">No tienes acceso a este módulo.</div>
+    }
+    else if (_personal == null)
+    {
+        <div class="alert alert-danger">No se encontró a esta persona.</div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center mb-3">
+            <div class="page-header-title">
+                <button class="btn btn-sm btn-outline-secondary me-3" @onclick="Volver"><i class="bi bi-arrow-left"></i></button>
+                <div>
+                    <h1 class="h4 fw-bold mb-0">@_personal.NombreCompleto</h1>
+                    <div class="text-muted small">@_personal.Cargo -- DNI @_personal.DNI</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- Turno -->
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-clock-history me-2"></i>Turno</span>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="AbrirAsignarTurno" disabled="@(_turnosDisponibles.Count == 0)">
+                            <i class="bi bi-plus-lg"></i> Asignar
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (_turnosDisponibles.Count == 0)
+                        {
+                            <p class="text-muted small mb-0">No hay Turnos creados todavía -- ve a <a href="/personal/turnos">Turnos</a> para crear uno.</p>
+                        }
+                        @if (_asignacionesTurno.Count == 0)
+                        {
+                            <p class="text-muted mb-0">Sin turno asignado.</p>
+                        }
+                        else
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var a in _asignacionesTurno)
+                                {
+                                    <li class="list-group-item px-0 d-flex justify-content-between">
+                                        <div>
+                                            <strong>@a.TurnoNombre</strong>
+                                            <div class="text-muted small">@a.HoraInicio.ToString(@"hh\:mm") - @a.HoraFin.ToString(@"hh\:mm")</div>
+                                        </div>
+                                        <div class="text-end small text-muted">
+                                            @a.FechaDesde.ToString("dd/MM/yyyy") -- @(a.FechaHasta?.ToString("dd/MM/yyyy") ?? "vigente")
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rotación / Edificios -->
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-building me-2"></i>Rotación (edificios)</span>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="AbrirAsignarEdificio" disabled="@(_edificiosDisponibles.Count == 0)">
+                            <i class="bi bi-plus-lg"></i> Asignar
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (_asignacionesEdificio.Count == 0)
+                        {
+                            <p class="text-muted mb-0">Sin edificio asignado.</p>
+                        }
+                        else
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var a in _asignacionesEdificio)
+                                {
+                                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>@a.BuildingName</strong>
+                                            <div class="text-muted small">@a.PorcentajeDedicacion% -- desde @a.FechaDesde.ToString("dd/MM/yyyy")@(a.FechaHasta != null ? $" hasta {a.FechaHasta:dd/MM/yyyy}" : "")</div>
+                                        </div>
+                                        @if (a.FechaHasta == null)
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => CerrarAsignacionEdificio(a)">Cerrar</button>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registro de horas -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-stopwatch me-2"></i>Registro de horas</span>
+                        <button class="btn btn-sm btn-primary" @onclick="AbrirRegistrarHoras" disabled="@(_asignacionesEdificioVigentes.Count == 0)">
+                            <i class="bi bi-plus-lg"></i> Registrar horas
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (_asignacionesEdificioVigentes.Count == 0)
+                        {
+                            <p class="text-muted small">Asigna primero un edificio (rotación) para poder registrar horas.</p>
+                        }
+                        @if (_registros.Count == 0)
+                        {
+                            <p class="text-muted mb-0">Sin registros en los últimos 30 días.</p>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Edificio</th>
+                                            <th class="text-end">Ordinarias</th>
+                                            <th class="text-end">Extra 25%</th>
+                                            <th class="text-end">Extra 35%</th>
+                                            <th>Feriado</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var r in _registros)
+                                        {
+                                            <tr>
+                                                <td>@r.Fecha.ToString("dd/MM/yyyy")</td>
+                                                <td>@r.BuildingName</td>
+                                                <td class="text-end">@r.HorasOrdinarias.ToString("N2")</td>
+                                                <td class="text-end">@r.HorasExtra25.ToString("N2")</td>
+                                                <td class="text-end">@r.HorasExtra35.ToString("N2")</td>
+                                                <td>@(r.EsFeriado ? "Sí" : "-")</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarRegistro(r)">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_showAsignarTurno)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Asignar Turno</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showAsignarTurno = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Turno</label>
+                        <select class="form-select" @bind="_idTurnoSeleccionado">
+                            @foreach (var t in _turnosDisponibles)
+                            {
+                                <option value="@t.IdTurno">@t.Nombre (@t.HoraInicio.ToString(@"hh\:mm")-@t.HoraFin.ToString(@"hh\:mm"))</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Desde</label>
+                        <InputDate class="form-control" @bind-Value="_fechaDesdeTurno" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showAsignarTurno = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmarAsignarTurno">Asignar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showAsignarEdificio)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Asignar edificio (rotación)</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showAsignarEdificio = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Edificio</label>
+                        <select class="form-select" @bind="_idBuildingSeleccionado">
+                            @foreach (var b in _edificiosDisponibles)
+                            {
+                                <option value="@b.IdBuilding">@b.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Desde</label>
+                            <InputDate class="form-control" @bind-Value="_fechaDesdeEdificio" />
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">% Dedicación</label>
+                            <InputNumber class="form-control" @bind-Value="_porcentajeDedicacion" />
+                        </div>
+                    </div>
+                    <div class="form-text">Si el Personal rota entre varios edificios en la misma semana, se pueden crear varias asignaciones vigentes a la vez.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showAsignarEdificio = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmarAsignarEdificio">Asignar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showRegistrarHoras)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar horas</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showRegistrarHoras = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Edificio</label>
+                        <select class="form-select" @bind="_idAsignacionEdificioSeleccionada">
+                            @foreach (var a in _asignacionesEdificioVigentes)
+                            {
+                                <option value="@a.IdAsignacionPersonalEdificio">@a.BuildingName</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha</label>
+                        <InputDate class="form-control" @bind-Value="_registroForm.Fecha" />
+                    </div>
+                    <div class="row">
+                        <div class="col-4 mb-3">
+                            <label class="form-label">Ordinarias</label>
+                            <InputNumber class="form-control" @bind-Value="_registroForm.HorasOrdinarias" />
+                        </div>
+                        <div class="col-4 mb-3">
+                            <label class="form-label">Extra 25%</label>
+                            <InputNumber class="form-control" @bind-Value="_registroForm.HorasExtra25" />
+                        </div>
+                        <div class="col-4 mb-3">
+                            <label class="form-label">Extra 35%</label>
+                            <InputNumber class="form-control" @bind-Value="_registroForm.HorasExtra35" />
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" @bind="_registroForm.EsFeriado" id="chkFeriado" />
+                        <label class="form-check-label" for="chkFeriado">Feriado trabajado</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observaciones</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="_registroForm.Observaciones" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(_errorRegistro))
+                    {
+                        <div class="alert alert-danger py-2 px-3">@_errorRegistro</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showRegistrarHoras = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmarRegistrarHoras">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private Models.Personal? _personal;
+
+    private List<Models.Turno> _turnosDisponibles = new();
+    private List<Models.AsignacionPersonalTurno> _asignacionesTurno = new();
+    private List<Models.Building> _edificiosDisponibles = new();
+    private List<Models.AsignacionPersonalEdificio> _asignacionesEdificio = new();
+    private List<Models.AsignacionPersonalEdificio> _asignacionesEdificioVigentes => _asignacionesEdificio.Where(a => a.FechaHasta == null).ToList();
+    private List<Models.RegistroHoras> _registros = new();
+
+    private bool _showAsignarTurno;
+    private Guid _idTurnoSeleccionado;
+    private DateTime _fechaDesdeTurno = DateTime.Today;
+
+    private bool _showAsignarEdificio;
+    private Guid _idBuildingSeleccionado;
+    private DateTime _fechaDesdeEdificio = DateTime.Today;
+    private decimal _porcentajeDedicacion = 100;
+
+    private bool _showRegistrarHoras;
+    private Guid _idAsignacionEdificioSeleccionada;
+    private Models.RegistroHoras _registroForm = new();
+    private string? _errorRegistro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+
+        if (_isStaff)
+        {
+            _personal = await PersonalService.GetPersonalByIdAsync(Id);
+            if (_personal != null)
+            {
+                var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
+                _turnosDisponibles = account != null
+                    ? (await PersonalService.GetTurnosByAccountAsync(account.IdAccount)).Where(t => t.IsActive).ToList()
+                    : new();
+
+                // Edificios que este administrador ve, todos los de su Cuenta --
+                // mismo criterio que BuildingPage: _currentUser.Buildings ya trae
+                // sólo los que le corresponden.
+                _edificiosDisponibles = _currentUser.Buildings
+                    .Select(b => b.Building)
+                    .Where(b => b != null)
+                    .Select(b => b!)
+                    .DistinctBy(b => b.IdBuilding)
+                    .ToList();
+
+                await CargarAsync();
+            }
+        }
+
+        _loading = false;
+    }
+
+    private async Task CargarAsync()
+    {
+        if (_personal == null) return;
+
+        _asignacionesTurno = await PersonalService.GetAsignacionesTurnoByPersonalAsync(_personal.IdPersonal);
+        _asignacionesEdificio = await PersonalService.GetAsignacionesEdificioByPersonalAsync(_personal.IdPersonal);
+        _registros = await PersonalService.GetRegistroHorasByPersonalAsync(_personal.IdPersonal, DateTime.Today.AddDays(-30), DateTime.Today);
+    }
+
+    private void Volver() => Navigation.NavigateTo("/personal");
+
+    private void AbrirAsignarTurno()
+    {
+        _idTurnoSeleccionado = _turnosDisponibles.FirstOrDefault()?.IdTurno ?? Guid.Empty;
+        _fechaDesdeTurno = DateTime.Today;
+        _showAsignarTurno = true;
+    }
+
+    private async Task ConfirmarAsignarTurno()
+    {
+        if (_personal == null || _idTurnoSeleccionado == Guid.Empty) return;
+
+        await PersonalService.AsignarTurnoAsync(_personal.IdPersonal, _idTurnoSeleccionado, _fechaDesdeTurno);
+        _showAsignarTurno = false;
+        await CargarAsync();
+    }
+
+    private void AbrirAsignarEdificio()
+    {
+        _idBuildingSeleccionado = _edificiosDisponibles.FirstOrDefault()?.IdBuilding ?? Guid.Empty;
+        _fechaDesdeEdificio = DateTime.Today;
+        _porcentajeDedicacion = 100;
+        _showAsignarEdificio = true;
+    }
+
+    private async Task ConfirmarAsignarEdificio()
+    {
+        if (_personal == null || _idBuildingSeleccionado == Guid.Empty) return;
+
+        await PersonalService.AsignarEdificioAsync(_personal.IdPersonal, _idBuildingSeleccionado, _fechaDesdeEdificio, _porcentajeDedicacion, _currentUser.Email);
+        _showAsignarEdificio = false;
+        await CargarAsync();
+    }
+
+    private async Task CerrarAsignacionEdificio(Models.AsignacionPersonalEdificio a)
+    {
+        await PersonalService.CerrarAsignacionEdificioAsync(a.IdAsignacionPersonalEdificio, DateTime.Today);
+        await CargarAsync();
+    }
+
+    private void AbrirRegistrarHoras()
+    {
+        _idAsignacionEdificioSeleccionada = _asignacionesEdificioVigentes.FirstOrDefault()?.IdAsignacionPersonalEdificio ?? Guid.Empty;
+        _registroForm = new Models.RegistroHoras { Fecha = DateTime.Today };
+        _errorRegistro = null;
+        _showRegistrarHoras = true;
+    }
+
+    private async Task ConfirmarRegistrarHoras()
+    {
+        if (_personal == null || _idAsignacionEdificioSeleccionada == Guid.Empty) return;
+
+        _registroForm.IdPersonal = _personal.IdPersonal;
+        _registroForm.IdAsignacionEdificio = _idAsignacionEdificioSeleccionada;
+        _registroForm.IdUsuarioRegistro = _currentUser.IdUser;
+
+        var result = await PersonalService.RegistrarHorasAsync(_registroForm);
+        if (!result.IsSuccess)
+        {
+            _errorRegistro = result.ErrorMessage;
+            return;
+        }
+
+        _showRegistrarHoras = false;
+        await CargarAsync();
+    }
+
+    private async Task EliminarRegistro(Models.RegistroHoras r)
+    {
+        await PersonalService.DeleteRegistroHorasAsync(r);
+        await CargarAsync();
+    }
+}

@@ -906,6 +906,101 @@ namespace SpiderHood.Data
                 return true;
             }, "UpdateCalendarItemStatus", cancellationToken);
         }
+
+        // Personal y Planillas -- Fase 1
+        public async Task<Models.Personal> UpdateRecordAsync(Models.Personal personal, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(personal, nameof(personal));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Personal,
+                    cancellationToken,
+                    personal.IdPersonal,
+                    personal.DNI,
+                    personal.Nombres,
+                    personal.Apellidos,
+                    personal.Cargo,
+                    personal.RemuneracionBase,
+                    personal.SistemaPensionario,
+                    (object?)personal.Telefono ?? DBNull.Value,
+                    personal.IsActive,
+                    (object?)personal.FechaCese ?? DBNull.Value,
+                    personal.ModifiedBy!);
+                return personal;
+            }, "UpdatePersonal", cancellationToken);
+        }
+
+        public async Task<Models.Turno> UpdateRecordAsync(Models.Turno turno, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(turno, nameof(turno));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Turno,
+                    cancellationToken,
+                    turno.IdTurno,
+                    turno.Nombre,
+                    turno.HoraInicio,
+                    turno.HoraFin,
+                    turno.DiasSemana,
+                    turno.IsActive);
+                return turno;
+            }, "UpdateTurno", cancellationToken);
+        }
+
+        // Cierra una rotación (fin de la asignación a ese edificio) -- ver
+        // comentario de UPD_AsignacionPersonalEdificio_Cerrar en el script de BD.
+        public async Task CerrarAsignacionPersonalEdificioAsync(Guid idAsignacionPersonalEdificio, DateTime fechaHasta, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_AsignacionPersonalEdificio_Cerrar,
+                    cancellationToken,
+                    idAsignacionPersonalEdificio,
+                    fechaHasta);
+                return true;
+            }, "CerrarAsignacionPersonalEdificio", cancellationToken);
+        }
+
+        public async Task<Models.RegistroHoras> UpdateRecordAsync(Models.RegistroHoras registro, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(registro, nameof(registro));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_RegistroHoras,
+                    cancellationToken,
+                    registro.IdRegistroHoras,
+                    registro.HorasOrdinarias,
+                    registro.HorasExtra25,
+                    registro.HorasExtra35,
+                    registro.EsFeriado,
+                    (object?)registro.Observaciones ?? DBNull.Value);
+                return registro;
+            }, "UpdateRegistroHoras", cancellationToken);
+        }
+
+        public async Task<Models.ConfiguracionFeriado> UpdateRecordAsync(Models.ConfiguracionFeriado feriado, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(feriado, nameof(feriado));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ConfiguracionFeriados,
+                    cancellationToken,
+                    feriado.IdConfiguracionFeriados,
+                    feriado.Fecha,
+                    feriado.Nombre,
+                    feriado.Tipo);
+                return feriado;
+            }, "UpdateConfiguracionFeriado", cancellationToken);
+        }
         #endregion
     }
 }

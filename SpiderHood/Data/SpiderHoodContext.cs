@@ -127,6 +127,15 @@ namespace SpiderHood.Data
                 entity.Property(c => c.Recurrence).HasConversion<string>();
             });
 
+            // Módulo Personal y Planillas -- Fase 1, ver
+            // Database/Scripts/2026-09-15_108_Personal_Planillas_Fase1.sql.
+            modelBuilder.Entity<Models.Personal>().HasNoKey();
+            modelBuilder.Entity<Models.Turno>().HasNoKey();
+            modelBuilder.Entity<Models.AsignacionPersonalTurno>().HasNoKey();
+            modelBuilder.Entity<Models.AsignacionPersonalEdificio>().HasNoKey();
+            modelBuilder.Entity<Models.RegistroHoras>().HasNoKey();
+            modelBuilder.Entity<Models.ConfiguracionFeriado>().HasNoKey();
+
             base.OnModelCreating(modelBuilder);
         }
     }

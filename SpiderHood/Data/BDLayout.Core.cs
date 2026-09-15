@@ -332,6 +332,34 @@ namespace SpiderHood.Data
             public const string DEL_CalendarItem = "DEL_CalendarItem";
             public const string GET_CalendarItemsByBuilding = "GET_CalendarItemsByBuilding";
             public const string GET_CalendarItemById = "GET_CalendarItemById";
+
+            // Personal y Planillas -- Fase 1 (Database/Scripts/2026-09-15_108_Personal_Planillas_Fase1.sql)
+            public const string INS_Personal = "INS_Personal";
+            public const string UPD_Personal = "UPD_Personal";
+            public const string GET_PersonalByAccount = "GET_PersonalByAccount";
+            public const string GET_PersonalById = "GET_PersonalById";
+
+            public const string INS_Turno = "INS_Turno";
+            public const string UPD_Turno = "UPD_Turno";
+            public const string GET_TurnosByAccount = "GET_TurnosByAccount";
+
+            public const string INS_AsignacionPersonalTurno = "INS_AsignacionPersonalTurno";
+            public const string GET_AsignacionesTurnoByPersonal = "GET_AsignacionesTurnoByPersonal";
+
+            public const string INS_AsignacionPersonalEdificio = "INS_AsignacionPersonalEdificio";
+            public const string UPD_AsignacionPersonalEdificio_Cerrar = "UPD_AsignacionPersonalEdificio_Cerrar";
+            public const string GET_AsignacionesEdificioByPersonal = "GET_AsignacionesEdificioByPersonal";
+            public const string GET_AsignacionesEdificioByBuilding = "GET_AsignacionesEdificioByBuilding";
+
+            public const string INS_RegistroHoras = "INS_RegistroHoras";
+            public const string UPD_RegistroHoras = "UPD_RegistroHoras";
+            public const string DEL_RegistroHoras = "DEL_RegistroHoras";
+            public const string GET_RegistroHorasByPersonal = "GET_RegistroHorasByPersonal";
+
+            public const string INS_ConfiguracionFeriados = "INS_ConfiguracionFeriados";
+            public const string UPD_ConfiguracionFeriados = "UPD_ConfiguracionFeriados";
+            public const string DEL_ConfiguracionFeriados = "DEL_ConfiguracionFeriados";
+            public const string GET_FeriadosByAccountAndYear = "GET_FeriadosByAccountAndYear";
         }
         #endregion
 

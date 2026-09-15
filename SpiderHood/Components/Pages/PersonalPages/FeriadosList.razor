@@ -1,0 +1,204 @@
+@page "/personal/feriados"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPersonalService PersonalService
+@inject IAccountService AccountService
+@inject SpiderHood.Services.AuthService AuthService
+
+<PageTitle>Feriados</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (!_loading && !_isStaff)
+    {
+        <div class="alert alert-warning">No tienes acceso a este módulo.</div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-calendar-event"></i>
+                </div>
+                <h1 class="h3 fw-bold mb-0">Feriados @_anio</h1>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <select class="form-select" style="width:auto" @bind="_anio" @bind:after="CargarAsync">
+                    @for (var y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+                    {
+                        <option value="@y">@y</option>
+                    }
+                </select>
+                <button class="btn btn-primary" @onclick="AbrirNuevo" disabled="@(_idAccount == null)">
+                    <i class="bi bi-plus-lg me-1"></i>Nuevo
+                </button>
+            </div>
+        </div>
+        <p class="text-muted">Feriados nacionales (no editables acá) más los propios de tu Cuenta. Perú declara no-laborables adicionales por decreto supremo cada año -- agrégalos acá cuando salgan.</p>
+
+        @if (_loading)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Nombre</th>
+                            <th>Tipo</th>
+                            <th>Origen</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in _feriados.OrderBy(f => f.Fecha))
+                        {
+                            <tr>
+                                <td>@f.Fecha.ToString("dd/MM/yyyy")</td>
+                                <td>@f.Nombre</td>
+                                <td>@f.Tipo</td>
+                                <td>
+                                    @if (f.EsNacional)
+                                    {
+                                        <span class="badge bg-secondary">Nacional</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-info text-dark">Cuenta</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!f.EsNacional)
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => AbrirEditar(f)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Eliminar(f)">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editando ? "Editar" : "Nuevo") Feriado</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Fecha</label>
+                        <InputDate class="form-control" @bind-Value="_form.Fecha" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <InputText class="form-control" @bind-Value="_form.Nombre" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" @bind="_form.Tipo">
+                            <option value="NoLaborableCompensable">No laborable compensable</option>
+                            <option value="Cuenta">Propio de la Cuenta</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="Guardar">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private bool _editando;
+    private bool _showModal;
+    private Guid? _idAccount;
+    private int _anio = DateTime.Today.Year;
+    private List<Models.ConfiguracionFeriado> _feriados = new();
+    private Models.ConfiguracionFeriado _form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+
+        if (_isStaff)
+        {
+            var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
+            _idAccount = account?.IdAccount;
+            await CargarAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task CargarAsync()
+    {
+        _feriados = await PersonalService.GetFeriadosAsync(_idAccount, _anio);
+    }
+
+    private void AbrirNuevo()
+    {
+        _form = new Models.ConfiguracionFeriado { Fecha = new DateTime(_anio, 1, 1), Tipo = "Cuenta" };
+        _editando = false;
+        _showModal = true;
+    }
+
+    private void AbrirEditar(Models.ConfiguracionFeriado f)
+    {
+        _form = new Models.ConfiguracionFeriado
+        {
+            IdConfiguracionFeriados = f.IdConfiguracionFeriados,
+            IdAccount = f.IdAccount,
+            Fecha = f.Fecha,
+            Nombre = f.Nombre,
+            Tipo = f.Tipo
+        };
+        _editando = true;
+        _showModal = true;
+    }
+
+    private async Task Guardar()
+    {
+        if (_editando)
+        {
+            await PersonalService.UpdateFeriadoAsync(_form);
+        }
+        else
+        {
+            _form.IdAccount = _idAccount;
+            await PersonalService.CreateFeriadoAsync(_form);
+        }
+
+        _showModal = false;
+        _anio = _form.Fecha.Year;
+        await CargarAsync();
+    }
+
+    private async Task Eliminar(Models.ConfiguracionFeriado f)
+    {
+        await PersonalService.DeleteFeriadoAsync(f);
+        await CargarAsync();
+    }
+}

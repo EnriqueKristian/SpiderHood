@@ -261,6 +261,29 @@ namespace SpiderHood.Data
                 return true;
             }, "DeleteCalendarItem", cancellationToken);
         }
+
+        // Personal y Planillas -- Fase 1
+        public async Task<bool> DeleteRecordAsync(Models.RegistroHoras registro, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(registro, nameof(registro));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_RegistroHoras, cancellationToken, registro.IdRegistroHoras);
+                return true;
+            }, "DeleteRegistroHoras", cancellationToken);
+        }
+
+        public async Task<bool> DeleteRecordAsync(Models.ConfiguracionFeriado feriado, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(feriado, nameof(feriado));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_ConfiguracionFeriados, cancellationToken, feriado.IdConfiguracionFeriados);
+                return true;
+            }, "DeleteConfiguracionFeriado", cancellationToken);
+        }
         #endregion
     }
 }

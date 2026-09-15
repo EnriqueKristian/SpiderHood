@@ -1,0 +1,261 @@
+@page "/personal"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPersonalService PersonalService
+@inject IAccountService AccountService
+@inject SpiderHood.Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Personal</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (!_loading && !_isStaff)
+    {
+        <div class="alert alert-warning">No tienes acceso a este módulo.</div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-people"></i>
+                </div>
+                <h1 class="h3 fw-bold mb-0">Personal</h1>
+            </div>
+            <button class="btn btn-primary" @onclick="AbrirNuevo" disabled="@(_idAccount == null)">
+                <i class="bi bi-plus-lg me-1"></i>Nuevo
+            </button>
+        </div>
+
+        @if (_idAccount == null && !_loading)
+        {
+            <div class="alert alert-warning">No se encontró una Cuenta asociada a tu usuario -- no se puede administrar Personal.</div>
+        }
+
+        @if (_loading)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+        }
+        else if (_personal.Count == 0)
+        {
+            <p class="text-muted">No hay personal registrado todavía.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>DNI</th>
+                            <th>Cargo</th>
+                            <th>Ingreso</th>
+                            <th>Remuneración</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in _personal)
+                        {
+                            <tr style="cursor:pointer" @onclick="() => VerDetalle(p.IdPersonal)">
+                                <td>@p.NombreCompleto</td>
+                                <td>@p.DNI</td>
+                                <td>@p.Cargo</td>
+                                <td>@p.FechaIngreso.ToString("dd/MM/yyyy")</td>
+                                <td>S/ @p.RemuneracionBase.ToString("N2")</td>
+                                <td><span class="badge @(p.IsActive ? "bg-success" : "bg-secondary")">@(p.IsActive ? "Activo" : "Inactivo")</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => AbrirEditar(p)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-people me-2 text-primary"></i>@(_editando ? "Editar" : "Nuevo") Personal</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <EditForm Model="@_form" OnValidSubmit="Guardar">
+                    <DataAnnotationsValidator />
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Nombres</label>
+                                <InputText class="form-control" @bind-Value="_form.Nombres" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Apellidos</label>
+                                <InputText class="form-control" @bind-Value="_form.Apellidos" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">DNI</label>
+                                <InputText class="form-control" @bind-Value="_form.DNI" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Teléfono</label>
+                                <InputText class="form-control" @bind-Value="_form.Telefono" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Cargo</label>
+                            <select class="form-select" @bind="_form.Cargo">
+                                <option value="Conserjería">Conserjería</option>
+                                <option value="Seguridad">Seguridad</option>
+                                <option value="Limpieza">Limpieza</option>
+                                <option value="Mantenimiento">Mantenimiento</option>
+                                <option value="Administración">Administración</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha de ingreso</label>
+                                <InputDate class="form-control" @bind-Value="_form.FechaIngreso" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Remuneración básica (mensual)</label>
+                                <InputNumber class="form-control" @bind-Value="_form.RemuneracionBase" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Sistema pensionario</label>
+                            <select class="form-select" @bind="_form.SistemaPensionario">
+                                <option value="ONP">ONP</option>
+                                <option value="AFP">AFP</option>
+                            </select>
+                        </div>
+                        @if (_editando)
+                        {
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" @bind="_form.IsActive" id="chkActivo" />
+                                <label class="form-check-label" for="chkActivo">Activo</label>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(_error))
+                        {
+                            <div class="alert alert-danger mt-2 mb-0 py-2 px-3">@_error</div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>Guardar
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private bool _showModal;
+    private bool _editando;
+    private string? _error;
+    private Guid? _idAccount;
+    private List<Models.Personal> _personal = new();
+    private Models.Personal _form = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+
+        if (_isStaff)
+        {
+            var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
+            _idAccount = account?.IdAccount;
+            await CargarAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task CargarAsync()
+    {
+        if (_idAccount == null)
+            return;
+
+        _personal = await PersonalService.GetPersonalByAccountAsync(_idAccount.Value);
+    }
+
+    private void AbrirNuevo()
+    {
+        _form = new Models.Personal { FechaIngreso = DateTime.Today, Cargo = "Conserjería" };
+        _editando = false;
+        _error = null;
+        _showModal = true;
+    }
+
+    private void AbrirEditar(Models.Personal p)
+    {
+        _form = new Models.Personal
+        {
+            IdPersonal = p.IdPersonal,
+            IdAccount = p.IdAccount,
+            DNI = p.DNI,
+            Nombres = p.Nombres,
+            Apellidos = p.Apellidos,
+            Cargo = p.Cargo,
+            FechaIngreso = p.FechaIngreso,
+            FechaCese = p.FechaCese,
+            RemuneracionBase = p.RemuneracionBase,
+            SistemaPensionario = p.SistemaPensionario,
+            Telefono = p.Telefono,
+            IsActive = p.IsActive
+        };
+        _editando = true;
+        _error = null;
+        _showModal = true;
+    }
+
+    private void CerrarModal() => _showModal = false;
+
+    private async Task Guardar()
+    {
+        _error = null;
+        try
+        {
+            if (_editando)
+            {
+                await PersonalService.UpdatePersonalAsync(_form);
+            }
+            else
+            {
+                _form.IdAccount = _idAccount!.Value;
+                await PersonalService.CreatePersonalAsync(_form);
+            }
+
+            _showModal = false;
+            await CargarAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"No se pudo guardar: {ex.Message}";
+        }
+    }
+
+    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/personal/{id}");
+}

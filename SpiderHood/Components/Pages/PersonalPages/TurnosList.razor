@@ -1,0 +1,225 @@
+@page "/personal/turnos"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPersonalService PersonalService
+@inject IAccountService AccountService
+@inject SpiderHood.Services.AuthService AuthService
+
+<PageTitle>Turnos</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (!_loading && !_isStaff)
+    {
+        <div class="alert alert-warning">No tienes acceso a este módulo.</div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div class="page-header-title">
+                <div class="icon-badge">
+                    <i class="bi bi-clock-history"></i>
+                </div>
+                <h1 class="h3 fw-bold mb-0">Turnos</h1>
+            </div>
+            <button class="btn btn-primary" @onclick="AbrirNuevo" disabled="@(_idAccount == null)">
+                <i class="bi bi-plus-lg me-1"></i>Nuevo
+            </button>
+        </div>
+        <p class="text-muted">Plantillas de horario reutilizables -- se definen una vez y se asignan a cualquier persona desde su ficha.</p>
+
+        @if (_loading)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
+        }
+        else if (_turnos.Count == 0)
+        {
+            <p class="text-muted">No hay turnos creados todavía.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Horario</th>
+                            <th>Días</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in _turnos)
+                        {
+                            <tr>
+                                <td>@t.Nombre</td>
+                                <td>@t.HoraInicio.ToString(@"hh\:mm") - @t.HoraFin.ToString(@"hh\:mm")</td>
+                                <td>@DiasTexto(t.DiasSemanaList)</td>
+                                <td><span class="badge @(t.IsActive ? "bg-success" : "bg-secondary")">@(t.IsActive ? "Activo" : "Inactivo")</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirEditar(t)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editando ? "Editar" : "Nuevo") Turno</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <InputText class="form-control" @bind-Value="_form.Nombre" placeholder="Ej. Diurno 7am-3pm" />
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Hora inicio</label>
+                            <input type="time" class="form-control" @bind="_horaInicio" />
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Hora fin</label>
+                            <input type="time" class="form-control" @bind="_horaFin" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Días de la semana</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var dia in _diasSemana)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" checked="@_diasSeleccionados.Contains(dia.Key)"
+                                           @onchange="e => ToggleDia(dia.Key, (bool)e.Value!)" id="dia_@dia.Key" />
+                                    <label class="form-check-label" for="dia_@dia.Key">@dia.Value</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    @if (_editando)
+                    {
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" @bind="_form.IsActive" id="chkActivo" />
+                            <label class="form-check-label" for="chkActivo">Activo</label>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="Guardar">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private bool _editando;
+    private bool _showModal;
+    private Guid? _idAccount;
+    private List<Models.Turno> _turnos = new();
+    private Models.Turno _form = new();
+    private TimeOnly _horaInicio = new(7, 0);
+    private TimeOnly _horaFin = new(15, 0);
+    private HashSet<int> _diasSeleccionados = new() { 1, 2, 3, 4, 5 };
+
+    private static readonly Dictionary<int, string> _diasSemana = new()
+    {
+        { 1, "Lun" }, { 2, "Mar" }, { 3, "Mié" }, { 4, "Jue" }, { 5, "Vie" }, { 6, "Sáb" }, { 7, "Dom" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+
+        if (_isStaff)
+        {
+            var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
+            _idAccount = account?.IdAccount;
+            await CargarAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task CargarAsync()
+    {
+        if (_idAccount == null) return;
+        _turnos = await PersonalService.GetTurnosByAccountAsync(_idAccount.Value);
+    }
+
+    private static string DiasTexto(List<int> dias) => string.Join(", ", dias.Select(d => _diasSemana.GetValueOrDefault(d, "?")));
+
+    private void ToggleDia(int dia, bool marcado)
+    {
+        if (marcado) _diasSeleccionados.Add(dia);
+        else _diasSeleccionados.Remove(dia);
+    }
+
+    private void AbrirNuevo()
+    {
+        _form = new Models.Turno();
+        _horaInicio = new TimeOnly(7, 0);
+        _horaFin = new TimeOnly(15, 0);
+        _diasSeleccionados = new() { 1, 2, 3, 4, 5 };
+        _editando = false;
+        _showModal = true;
+    }
+
+    private void AbrirEditar(Models.Turno t)
+    {
+        _form = new Models.Turno
+        {
+            IdTurno = t.IdTurno,
+            IdAccount = t.IdAccount,
+            Nombre = t.Nombre,
+            HoraInicio = t.HoraInicio,
+            HoraFin = t.HoraFin,
+            DiasSemana = t.DiasSemana,
+            IsActive = t.IsActive
+        };
+        _horaInicio = TimeOnly.FromTimeSpan(t.HoraInicio);
+        _horaFin = TimeOnly.FromTimeSpan(t.HoraFin);
+        _diasSeleccionados = t.DiasSemanaList.ToHashSet();
+        _editando = true;
+        _showModal = true;
+    }
+
+    private async Task Guardar()
+    {
+        _form.HoraInicio = _horaInicio.ToTimeSpan();
+        _form.HoraFin = _horaFin.ToTimeSpan();
+        _form.DiasSemana = string.Join(",", _diasSeleccionados.OrderBy(d => d));
+
+        if (_editando)
+        {
+            await PersonalService.UpdateTurnoAsync(_form);
+        }
+        else
+        {
+            _form.IdAccount = _idAccount!.Value;
+            await PersonalService.CreateTurnoAsync(_form);
+        }
+
+        _showModal = false;
+        await CargarAsync();
+    }
+}

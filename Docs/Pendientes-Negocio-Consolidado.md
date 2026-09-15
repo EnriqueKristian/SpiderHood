@@ -899,10 +899,21 @@ compartido por el usuario. **"Citas" descartado a pedido explícito del
 usuario**: "el tema de cita como está planteado aquí, no suma" -- no forma
 parte del alcance de este item.)*
 
-**Estado: Reservas IMPLEMENTADO (2026-09-11); Gobernanza (Reuniones/
-Votación/Actas/Encuestas) sigue sin construir** -- `CalendarItem`/
-`CalendarPage.razor` sigue siendo el único calendario genérico de eventos,
-sin ningún concepto de convocatoria, quorum, agenda, acta o votación.
+**Estado: Reservas IMPLEMENTADO (2026-09-11); Gobernanza -- Reuniones Fase 1
+IMPLEMENTADA (2026-09-15): Convocatoria + Agenda + Asistencia + Quórum +
+Segunda Convocatoria. Votación en vivo (Fase 2) y Actas autogeneradas
+(Fase 3) siguen sin construir -- los puntos de agenda "Sujeto a Votación"
+ya se configuran (tipo nominal/secreta, mayoría, revotación) pero quedan en
+Pendiente hasta que exista la mecánica de voto. Encuestas queda para
+después de las tres anteriores (decisión del usuario 2026-09-15).**
+Ver `Database/Scripts/2026-09-15_113_Gobernanza_Fase1_Reuniones.sql`,
+`SpiderHood/Classes/Gobernanza/Reunion.cs`, `SpiderHood/Services/
+IReunionService.cs`, `SpiderHood/Components/Pages/GobernanzaPages/`.
+Alícuota derivada (OwnerUnitView.TotalArea / Building.TotalArea) sin campo
+nuevo, tal como quedó cerrado en el análisis original. Probado end-to-end
+con Playwright -- 22/22 casos en verde (convocatoria, roster de alícuotas,
+quórum no alcanzado, segunda convocatoria con agenda clonada, quórum
+alcanzado, marcar punto informado, finalizar, cancelar).
 
 **Son dos mecanismos distintos, no tres módulos sueltos ni uno solo:**
 uno de **agenda** (Reservas -- quién usa qué recurso físico, cuándo) y uno

@@ -899,26 +899,45 @@ compartido por el usuario. **"Citas" descartado a pedido explícito del
 usuario**: "el tema de cita como está planteado aquí, no suma" -- no forma
 parte del alcance de este item.)*
 
-**Estado: Reservas IMPLEMENTADO (2026-09-11); Gobernanza -- Reuniones Fase 1
-IMPLEMENTADA (2026-09-15): Convocatoria + Agenda + Asistencia + Quórum +
-Segunda Convocatoria. Votación Fase 2 IMPLEMENTADA (2026-09-15): votación
-en vivo ponderada por alícuota sobre los puntos "Sujeto a Votación", con
-rondas (revotación flexible), mayoría Simple/Calificada/75% legal, y
-Nominal vs. Secreta. Actas autogeneradas (Fase 3) sigue sin construir.
-Encuestas queda para después de las tres anteriores (decisión del usuario
-2026-09-15).**
-Ver `Database/Scripts/2026-09-15_113_Gobernanza_Fase1_Reuniones.sql` y
-`_114_Gobernanza_Fase2_Votacion.sql`, `SpiderHood/Classes/Gobernanza/
-Reunion.cs` y `Votacion.cs`, `SpiderHood/Services/IReunionService.cs`,
+**Estado: Reservas IMPLEMENTADO (2026-09-11); Gobernanza -- Reuniones+
+Votación+Actas COMPLETO (2026-09-15).** Las tres piezas que el usuario pidió
+juntas ya están construidas y probadas de punta a punta:
+- **Fase 1 -- Reuniones:** Convocatoria + Agenda + Asistencia + Quórum +
+  Segunda Convocatoria.
+- **Fase 2 -- Votación:** en vivo, ponderada por alícuota, sobre los puntos
+  "Sujeto a Votación" -- rondas (revotación flexible), mayoría Simple/
+  Calificada/75% legal, Nominal vs. Secreta.
+- **Fase 3 -- Actas:** borrador autogenerado desde Reunion+Agenda+
+  Asistencia+Votacion, regenerable mientras no esté Firmada, inmutable una
+  vez firmada, con exportación a PDF (QuestPDF, mismo patrón que
+  BoletaPagoExportService).
+
+**Encuestas** (sin peso legal) queda para una entrega aparte, decisión del
+usuario 2026-09-15 -- es lo único de "Gobernanza" que falta.
+
+Ver `Database/Scripts/2026-09-15_113/114/115_Gobernanza_Fase*.sql`,
+`SpiderHood/Classes/Gobernanza/` (Reunion.cs, Votacion.cs, Acta.cs),
+`SpiderHood/Services/IReunionService.cs` y `ActaExportService.cs`,
 `SpiderHood/Components/Pages/GobernanzaPages/`.
 Alícuota derivada (OwnerUnitView.TotalArea / Building.TotalArea) sin campo
 nuevo, tal como quedó cerrado en el análisis original. Probado end-to-end
-con Playwright -- Fase 1: 22/22 casos en verde (convocatoria, roster de
-alícuotas, quórum no alcanzado, segunda convocatoria con agenda clonada,
-quórum alcanzado, marcar punto informado, finalizar, cancelar). Fase 2:
-15/15 casos en verde (punto Nominal sin revotación rechazado
-automáticamente al no alcanzar mayoría, punto Secreto con revotación que
-alcanza mayoría en la ronda 2, corrección de voto antes de cerrar).
+con Playwright, las tres fases en verde: Fase 1 22/22 (convocatoria, roster
+de alícuotas, quórum no alcanzado, segunda convocatoria con agenda
+clonada, quórum alcanzado, marcar punto informado, finalizar, cancelar);
+Fase 2 15/15 (punto Nominal sin revotación rechazado automáticamente,
+punto Secreto con revotación que alcanza mayoría en la ronda 2, corrección
+de voto antes de cerrar); Fase 3 22/22 + verificación adicional del caso
+Quórum No Alcanzado (generar borrador con el contenido correcto,
+regenerar, firmar con inmutabilidad confirmada en la UI, descargar PDF).
+
+**Bugs propios encontrados en las pruebas de esta sesión y corregidos antes
+de cada commit** (documentados en detalle en los mensajes de commit): al
+finalizar una reunión, marcar el CalendarItem como completado no hacía
+nada (UPD_CalendarItem no toca la columna Status, tiene su propio SP
+dedicado); y los combos "Tipo de votación"/"Mayoría" de un punto de
+agenda nuevo se veían mostrando su primera opción pero guardaban `null`
+si el usuario no los tocaba explícitamente (mismo patrón de bug ya visto y
+corregido ese mismo día en Administrar Menú).
 
 **Son dos mecanismos distintos, no tres módulos sueltos ni uno solo:**
 uno de **agenda** (Reservas -- quién usa qué recurso físico, cuándo) y uno

@@ -720,11 +720,11 @@
         ["budgetlist"] = "Presupuestos",
         ["budgetgenerator"] = "Generar Presupuesto",
         ["cuotas"] = "Cuotas",
-        ["cuotahistorico"] = "Histórico de Cuotas",
-        ["cuotaextraordinaria"] = "Cuota Extraordinaria",
-        ["multasymora"] = "Multas y Mora",
-        ["detallecuota"] = "Detalle de Cuota",
-        ["generacioncuota"] = "Generación de Cuotas",
+        ["monthlyinstallmenthistory"] = "Histórico de Cuotas",
+        ["extraordinaryinstallment"] = "Cuota Extraordinaria",
+        ["finesandlatefees"] = "Multas y Mora",
+        ["monthlyinstallmentdetail"] = "Detalle de Cuota",
+        ["monthlyinstallmentgeneration"] = "Generación de Cuotas",
         ["reconcileinstallments"] = "Conciliar Cuotas",
         ["reconcileexpenses"] = "Conciliación Bancaria",
         ["reconcile/payments"] = "Conciliación de Pagos",
@@ -798,7 +798,7 @@
             return "Detalle de Incidencia";
 
         // Probar el path completo y después ir sacando el último segmento -- así una ruta
-        // con id al final (p.ej. "cuotahistorico/{guid}", "periods/{guid}",
+        // con id al final (p.ej. "monthlyinstallmenthistory/{guid}", "periods/{guid}",
         // "reconcileexpenses/{guid}") cae en la entrada de su prefijo estático
         // ("Histórico de Cuotas", "Períodos", "Conciliación Bancaria") salvo que exista
         // una entrada más específica para ese prefijo completo (como

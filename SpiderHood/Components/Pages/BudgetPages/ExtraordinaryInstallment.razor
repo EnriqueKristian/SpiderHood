@@ -1,4 +1,4 @@
-﻿@page "/cuotaextraordinaria"
+﻿@page "/extraordinaryinstallment"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
@@ -63,7 +63,7 @@
 
                         @if (exito)
                         {
-                            <button class="btn btn-outline-primary mb-3" @onclick='() => Navigation.NavigateTo("/cuotas")'>
+                            <button class="btn btn-outline-primary mb-3" @onclick='() => Navigation.NavigateTo("/installments-list")'>
                                 <i class="bi bi-list-check"></i> Ver Listado de Cuotas
                             </button>
                         }

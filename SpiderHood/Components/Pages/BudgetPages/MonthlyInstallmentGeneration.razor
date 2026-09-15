@@ -1,4 +1,4 @@
-﻿@page "/generacioncuota"
+﻿@page "/monthlyinstallmentgeneration"
 @using Microsoft.AspNetCore.Components
 @using SpiderHood.Models
 @using SpiderHood.Services
@@ -208,8 +208,8 @@
         if (resultado.Exito)
         {
             // Antes navegaba a /cuotas/detalle/{id}, una ruta que no existe -- la real es
-            // /DetalleCuota/{id:int} (ver DetalleCuota.razor). Corregido de paso al renombrar.
-            Navigation.NavigateTo($"/DetalleCuota/{resultado.CuotaId}");
+            // /monthlyinstallmentdetail/{id:int} (ver MonthlyInstallmentDetail.razor). Corregido de paso al renombrar.
+            Navigation.NavigateTo($"/monthlyinstallmentdetail/{resultado.CuotaId}");
         }
     }
 

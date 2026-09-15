@@ -1,5 +1,5 @@
-﻿@page "/cuotahistorico"
-@page "/cuotahistorico/{IdBudgetHeader:guid}"
+﻿@page "/monthlyinstallmenthistory"
+@page "/monthlyinstallmenthistory/{IdBudgetHeader:guid}"
 @using Microsoft.EntityFrameworkCore.Metadata.Internal
 @using SpiderHood.Models
 @using SpiderHood.Services
@@ -77,6 +77,14 @@
 </table>
 
 @code {
+    // La ruta con {IdBudgetHeader:guid} (arriba) exige una property [Parameter] con ese
+    // nombre exacto -- sin esto, Blazor tira InvalidOperationException al armar la ruta
+    // "no tiene una propiedad IdBudgetHeader", incluso al entrar por la variante SIN el
+    // segmento (la que usa esta pantalla hoy). No usado todavía en el cuerpo: esta vista
+    // filtra por año/mes, no por presupuesto puntual (ver OnInitializedAsync, comentado).
+    [Parameter]
+    public Guid? IdBudgetHeader { get; set; }
+
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     private List<MonthlyInstallmentBatch> cuotas = new();
@@ -87,7 +95,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
+        // ParameterService.CurrentBuilding recién lo resuelve HeaderMainLayout en su
+        // propio OnAfterRenderAsync -- en la primera carga real de un circuito todavía es
+        // null acá (mismo caveat que MyWaterConsumption.razor/WaterConsumptionReport.razor).
+        if (ParameterService.CurrentBuilding == null || ParameterService.CurrentBuilding.IdBuilding == Guid.Empty)
             return;
 
         //var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
@@ -115,8 +126,8 @@
     private void VerDetalle(int cuotaId)
     {
         // Antes navegaba a /cuotas/detalle/{id}, una ruta que no existe -- la real es
-        // /DetalleCuota/{id:int} (ver DetalleCuota.razor). Corregido de paso al renombrar.
-        Navigation.NavigateTo($"/DetalleCuota/{cuotaId}");
+        // /monthlyinstallmentdetail/{id:int} (ver MonthlyInstallmentDetail.razor). Corregido de paso al renombrar.
+        Navigation.NavigateTo($"/monthlyinstallmentdetail/{cuotaId}");
     }
 
     private async Task ReversarCuota(int cuotaId)

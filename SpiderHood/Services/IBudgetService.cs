@@ -27,6 +27,7 @@ namespace SpiderHood.Services
         Task<List<BudgetDetail>> GetBudgetDetailAsync(Guid presupuestoId);
 
         // Categorías
+        Task<List<ViewBudgetDetail>> GetLastBudgetItemsByParentCategoryAsync(Guid idBuilding, Guid idParentCategory);
         Task<List<Category>> GetCategoriasAsync(Guid IdBuilding, bool? activas = true);
         Task<Category?> GetCategoriaByIdAsync(Guid id);
         Task<Category> CreateCategoriaAsync(Category categoria);
@@ -301,6 +302,15 @@ namespace SpiderHood.Services
             // segundo caso; contar filas crudas sobrecontaba el primero. IdUnit distinto es lo
             // único que corresponde 1:1 con "una unidad real".
             state.TotalApartments = state.Owners.Select(o => o.IdUnit).Distinct().Count();
+        }
+
+        // Items reales de la última vez que se usó esta categoría en un presupuesto real
+        // del edificio -- usado por BudgetGenerator para sugerir contenido al crear una
+        // sección que matchea una categoría existente, o al agregar el primer item de una
+        // sección vacía, en vez de partir siempre de un item en blanco ("Nuevo Item").
+        public async Task<List<ViewBudgetDetail>> GetLastBudgetItemsByParentCategoryAsync(Guid idBuilding, Guid idParentCategory)
+        {
+            return await ec.GetLastBudgetItemsByParentCategoryAsync(idBuilding, idParentCategory);
         }
 
         public async Task LoadDefaultBudgetDetailsAsync(BudgetState state)

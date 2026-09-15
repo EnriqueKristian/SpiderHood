@@ -141,6 +141,21 @@ namespace SpiderHood.Data
             }, "GetBudgetDetailDefault", cancellationToken);
         }
 
+        // Items reales que tuvieron las categorías hijas de @idParentCategory la última vez
+        // que aparecieron en un presupuesto real de este edificio -- ver
+        // Database/Scripts/2026-09-15_107_GET_LastBudgetItemsByParentCategory.sql. A
+        // diferencia de GetBudgetDetailDefaultAsync (la Plantilla, siempre en S/0.00), acá
+        // vienen los montos reales que se usaron antes.
+        public async Task<List<ViewBudgetDetail>> GetLastBudgetItemsByParentCategoryAsync(Guid idBuilding, Guid idParentCategory, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<ViewBudgetDetail>(
+                    StoredProcedures.GET_LastBudgetItemsByParentCategory,
+                    idBuilding, idParentCategory);
+            }, "GetLastBudgetItemsByParentCategory", cancellationToken);
+        }
+
         public async Task<List<TransactionBankDetail>> GetBankTransactionsNoConciliedAsync(Guid idBuilding, DateTime star, DateTime end, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

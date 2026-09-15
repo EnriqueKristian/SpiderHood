@@ -415,29 +415,37 @@
             <ValidationSummary />
 
             <!-- Categorías disponibles -->
-            <div class="mb-3">
-                <label class="form-label"><strong>Categorías Disponibles</strong></label>
-
-                <div class="list-group mb-3">
-                    @foreach (var categoria in _Categories)
-                    {
-                        <button type="button"
-                                class="list-group-item list-group-item-action"
-                                @onclick="() => SeleccionarCategoria(categoria)">
-                            @categoria.Description
-                        </button>
-                    }
-                </div>
-            </div>
-
-            @if (_Categories.Count == 0)
+            @if (_Categories.Any())
             {
-                <div class="form-group mb-3">
-                    <label class="form-label"><strong>Nombre de la Sección *</strong></label>
-                    <InputText @bind-Value="_newSection.Name" class="form-control" />
-                    <ValidationMessage For="@(() => _newSection.Name)" />
+                <div class="mb-3">
+                    <label class="form-label"><strong>Categorías Disponibles</strong></label>
+                    <small class="text-muted d-block mb-2">Elegí una para reusarla, o escribí un nombre nuevo abajo para crear una categoría.</small>
+
+                    <div class="list-group mb-3">
+                        @foreach (var categoria in _Categories)
+                        {
+                            <button type="button"
+                                    class="list-group-item list-group-item-action @(_newSection.Name == categoria.Description ? "active" : "")"
+                                    @onclick="() => SeleccionarCategoria(categoria)">
+                                @categoria.Description
+                            </button>
+                        }
+                    </div>
                 </div>
             }
+
+            <!-- Antes este campo sólo aparecía cuando _Categories.Count == 0 -- es decir,
+                 recién después de haber agregado TODAS las categorías existentes del
+                 edificio como secciones. En la práctica nunca se podía escribir el nombre
+                 de una sección/categoría de verdad nueva mientras quedara aunque sea una
+                 categoría existente sin usar. Ahora el campo siempre está visible: elegir
+                 de la lista de arriba sólo lo completa como atajo (SeleccionarCategoria),
+                 pero se puede editar libremente para crear algo nuevo. -->
+            <div class="form-group mb-3">
+                <label class="form-label"><strong>Nombre de la Sección *</strong></label>
+                <InputText @bind-Value="_newSection.Name" class="form-control" />
+                <ValidationMessage For="@(() => _newSection.Name)" />
+            </div>
 
             <div class="form-group mb-3">
                 <label class="form-label"><strong>Posición</strong></label>
@@ -816,9 +824,31 @@
         return sections;
     }
 
-    private void AddExpenseItemToSection(int sectionId)
+    private async Task AddExpenseItemToSection(int sectionId)
     {
         var sectionItems = _BudgetState.Budget.Details.Where(x => x.IdSection == sectionId && !x.IsHeader).ToList();
+
+        // Primer item de una sección vacía: antes de agregar un item en blanco, ofrecer
+        // lo que esa categoría tuvo la última vez en un presupuesto real de este edificio
+        // (mismo criterio que al crear la sección, ver AddSuggestedItemsToSection). Si la
+        // sección ya tiene items, un click más en "Agregar Item" sigue agregando uno en
+        // blanco como siempre -- el pre-cargado sólo tiene sentido la primera vez.
+        if (!sectionItems.Any())
+        {
+            var header = _BudgetState.Budget.Details.FirstOrDefault(x => x.IdSection == sectionId && x.IsHeader);
+            if (header != null)
+            {
+                await AddSuggestedItemsToSection(sectionId, header.IdCategory);
+                sectionItems = _BudgetState.Budget.Details.Where(x => x.IdSection == sectionId && !x.IsHeader).ToList();
+                if (sectionItems.Any())
+                {
+                    _ = CalculateTotals();
+                    StateHasChanged();
+                    return;
+                }
+            }
+        }
+
         var lastItemNumber = sectionItems.Any()
             ? sectionItems.Max(x => x.ItemNumber)
             : Math.Floor(GetNextSectionItemNumber(sectionId));
@@ -859,20 +889,6 @@
         }
 
         _ = CalculateTotals();
-    }
-
-    private void AddExpenseItemToFirstSection()
-    {
-        var firstSection = GetSections().FirstOrDefault();
-        if (firstSection != null)
-        {
-            AddExpenseItemToSection(firstSection.Id);
-        }
-        else
-        {
-            // Si no hay secciones, crear una primero
-            _ = AddNewSection();
-        }
     }
 
     private async Task AddNewSection()
@@ -1008,11 +1024,58 @@
 
         if (!isNewCategory)
         {
-            await AddTemplateItemsToSection(newSectionId, existingCategory!.IdCategory);
+            await AddSuggestedItemsToSection(newSectionId, existingCategory!.IdCategory);
         }
+
+        // Encontrado al probar este mismo fix: nunca se recalculaba el total general acá
+        // (sólo el subtotal por sección, que se computa aparte en cada render) -- con la
+        // Plantilla (siempre S/0.00) nunca se notaba, pero con montos reales precargados
+        // el "TOTAL MENSUAL PRESUPUESTADO" se quedaba en S/0.00 hasta que algo más
+        // disparara un recálculo.
+        _BudgetState.CalculateTotals();
 
         await _newSectionModal.HideAsync();
         StateHasChanged();
+    }
+
+    // Sugiere contenido real para una sección que matchea una Categoría existente --
+    // primero intenta los items que esa categoría tuvo la ÚLTIMA VEZ en un presupuesto
+    // real de este edificio (con sus montos reales, ver
+    // GetLastBudgetItemsByParentCategoryAsync); si nunca se usó antes (categoría nueva
+    // para este edificio, o la BD no tiene historial), cae al esqueleto de la Plantilla
+    // (AddTemplateItemsToSection, siempre en S/0.00) como red de seguridad -- mismo
+    // comportamiento que ya existía si no había nada mejor que ofrecer.
+    private async Task AddSuggestedItemsToSection(int sectionId, Guid categoryId)
+    {
+        var lastRealItems = await presupuestoService.GetLastBudgetItemsByParentCategoryAsync(
+            ParameterService.CurrentBuilding.IdBuilding, categoryId);
+
+        if (!lastRealItems.Any())
+        {
+            await AddTemplateItemsToSection(sectionId, categoryId);
+            return;
+        }
+
+        var sequentialNumber = (decimal)sectionId + 0.01m;
+        foreach (var item in lastRealItems)
+        {
+            _BudgetState.Budget.Details.Add(new BudgetDetail
+            {
+                IdBudgetDetail = Guid.NewGuid(),
+                IdCategory = item.IdCategory,
+                IdSection = sectionId,
+                ItemNumber = sequentialNumber,
+                Description = item.Description,
+                MonthlyAmount = item.MonthlyAmount,
+                AnnualAmount = item.AnnualAmount,
+                Frequency = item.Frequency,
+                Type = item.Type,
+                IsHeader = false,
+                IsNewItem = false, // la categoría ya existe en BD, no hay que recrearla al guardar
+                IdBudgetHeader = _BudgetState.Budget.IdBudgetHeader
+            });
+            sequentialNumber += 0.01m;
+        }
     }
 
     private BudgetDetail CreateSectionHeader(int sectionId, Guid categoryId, bool isNew)

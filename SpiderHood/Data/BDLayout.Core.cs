@@ -200,6 +200,7 @@ namespace SpiderHood.Data
             public const string GET_ServiceReadingDetailList = "GET_ServiceReadingDetailList";
             public const string GET_FirstWaterReadingDetailList = "GET_FirstWaterReadingDetailList";
             public const string GET_BudgetDetailDefault = "GET_BudgetDetailDefault";
+            public const string GET_LastBudgetItemsByParentCategory = "GET_LastBudgetItemsByParentCategory";
             public const string GET_List_BudgetDetail = "GET_List_BudgetDetail";
             public const string GET_AllContacts = "GET_AllContacts";
             public const string GET_PendingConciliationExpenses = "GET_PendingConciliationExpenses";

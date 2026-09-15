@@ -352,7 +352,11 @@
                                                     </div>
                                                 </td>
                                                 <td class="text-end fw-bold @(transaccion.Amount  < 0 ? "text-danger" : "text-success")">
-                                                    @Moneda(Math.Abs(transaccion.Amount))
+                                                    @Moneda(Math.Abs(transaccion.AmountInReportingCurrency))
+                                                    @if (transaccion.Currency != ParameterService.CurrentBuilding?.Configuration.Currency)
+                                                    {
+                                                        <div class="text-muted small fw-normal">@Math.Abs(transaccion.Amount).FormatoMoneda(transaccion.Currency)</div>
+                                                    }
                                                 </td>
                                                 <td class="text-end @(transaccion.Tipo == "Ingreso" && Math.Abs(transaccion.Balance) > 0.01m ? "fw-bold text-warning" : "text-muted")">
                                                     @* Balance sale de VW_SUM_InstallmentPaidTransaction (pagos de cuota), que
@@ -2376,8 +2380,12 @@
     private void CalcularEstadisticas()
     {
         totalTransacciones = transacciones.Count;
-        totalGastos = transacciones.Where(t => t.Amount < 0).Sum(t => t.Amount);
-        totalIngresos = transacciones.Where(t => t.Amount > 0).Sum(t => t.Amount);
+        // AmountInReportingCurrency (no Amount) -- para una cuenta en otra moneda que
+        // el edificio, es el monto ya convertido a la moneda de reporte. Para una
+        // cuenta en la misma moneda es un espejo exacto de Amount, sin cambio de
+        // comportamiento (ver Docs/Pendientes-Negocio-Consolidado.md #5).
+        totalGastos = transacciones.Where(t => t.Amount < 0).Sum(t => t.AmountInReportingCurrency);
+        totalIngresos = transacciones.Where(t => t.Amount > 0).Sum(t => t.AmountInReportingCurrency);
         saldoFinalCalculado = saldoInicial + totalGastos + totalIngresos;
 
         // Calcular diferencia entre transacciones conciliadas y gastos

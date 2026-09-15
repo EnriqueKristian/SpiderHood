@@ -155,8 +155,12 @@
                                                                        class="form-control form-control-sm me-2"
                                                                        placeholder="Número de cuenta" />
                                                             <InputText @bind-Value="SelectedBuilding.Configuration.BankAccounts[index].AccountName"
-                                                                       class="form-control form-control-sm"
+                                                                       class="form-control form-control-sm me-2"
                                                                        placeholder="Titular de la cuenta" />
+                                                            <span class="badge @(SelectedBuilding.Configuration.BankAccounts[index].Currency == SelectedBuilding.Configuration.Currency ? "bg-secondary" : "bg-info") me-2"
+                                                                  title="Moneda de la cuenta -- se elige al crearla, en el botón Editar">
+                                                                @SelectedBuilding.Configuration.BankAccounts[index].Currency
+                                                            </span>
                                                             <button type="button" class="btn btn-outline-secondary"
                                                                     @onclick="() => EditBankAccount(index)"
                                                                     title="Editar (incluye marcar Activa/Inactiva)">
@@ -207,6 +211,9 @@
                                                         <div>
                                                             <div class="fw-semibold">
                                                                 @account.BankName
+                                                                <span class="badge @(account.Currency == SelectedBuilding.Configuration.Currency ? "bg-secondary" : "bg-info") ms-1">
+                                                                    @account.Currency
+                                                                </span>
                                                                 @if (account.Status == 1)
                                                                 {
                                                                     <span class="badge bg-success ms-1">Activa</span>
@@ -1242,6 +1249,25 @@
                         @if (_isEditingBanckAccount)
                         {
                             <small class="text-muted">No se puede modificar después de creada la cuenta.</small>
+                        }
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label class="form-label">Moneda de la cuenta *</label>
+                        <select @bind="_editingBankAccout.Currency" class="form-select" disabled="@_isEditingBanckAccount">
+                            @foreach (var currency in _currencies)
+                            {
+                                <option value="@currency.Code">@currency.Symbol @currency.Name (@currency.Code)</option>
+                            }
+                        </select>
+                        @if (_isEditingBanckAccount)
+                        {
+                            <small class="text-muted">No se puede modificar después de creada la cuenta.</small>
+                        }
+                        else if (_editingBankAccout.Currency != SelectedBuilding?.Configuration.Currency)
+                        {
+                            <small class="text-info"><i class="bi bi-info-circle me-1"></i>Distinta a la moneda de reporte del edificio (@SelectedBuilding?.Configuration.Currency) -- al cargar un Estado de Cuenta de esta cuenta se va a pedir el tipo de cambio del lote.</small>
                         }
                     </div>
                 </div>

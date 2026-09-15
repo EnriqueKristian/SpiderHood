@@ -43,6 +43,12 @@ namespace SpiderHood.Models
         public int Status { get; set; }
         public Guid IdBuilding { get; set; }
 
+        // Moneda de ESTA cuenta -- default = moneda de reporte del edificio al crearla
+        // (BuildingConfiguration.Currency), pero puede ser otra (ej. una cuenta de
+        // reserva en USD en un edificio que reporta en PEN). Inmutable después de
+        // creada, igual que InitialBalance -- UPD_BankAccount no la toca.
+        public string Currency { get; set; } = "PEN";
+
         public BankAccount Clone() => (BankAccount)this.MemberwiseClone();
     }
 }

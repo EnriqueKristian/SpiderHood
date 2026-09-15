@@ -462,7 +462,8 @@ namespace SpiderHood.Data
                     movementheader.IdUser!,
                     movementheader.TotalRecords!,
                     movementheader.UploadState!,
-                    movementheader.IdBankAccount!);
+                    movementheader.IdBankAccount!,
+                    movementheader.ExchangeRate!);
                 return movementheader;
             }, "AddMovementHeader", cancellationToken);
         }
@@ -536,7 +537,8 @@ namespace SpiderHood.Data
                     bankaccount.IdBuilding!,
                     bankaccount.Status!,
                     bankaccount.CCI!,
-                    bankaccount.InitialBalance);
+                    bankaccount.InitialBalance,
+                    bankaccount.Currency!);
                 return bankaccount;
             }, "AddBankAccount", cancellationToken);
         }

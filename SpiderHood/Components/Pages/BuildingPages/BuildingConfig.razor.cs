@@ -362,7 +362,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
         {
             if (SelectedBuilding != null)
             {
-                _editingBankAccout = new BankAccount { Status = 1 };
+                _editingBankAccout = new BankAccount { Status = 1, Currency = SelectedBuilding.Configuration.Currency };
                 _isEditingBanckAccount = false;
                 _bankAccount.ShowAsync();
             }

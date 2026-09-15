@@ -155,6 +155,22 @@
                                                     <span class="badge bg-light text-dark border">@TraducirMayoria(item.MajorityType)</span>
                                                 }
                                             </div>
+                                            @if (_reunion.Estado != MeetingStatus.Convocada)
+                                            {
+                                                @if (NotasEditable)
+                                                {
+                                                    <div class="mt-2">
+                                                        <textarea class="form-control form-control-sm" rows="2" placeholder="Notas de lo conversado en este punto..." @bind="item.Notas"></textarea>
+                                                        <button class="btn btn-sm btn-outline-primary mt-1" @onclick="() => GuardarNotas(item)">
+                                                            <i class="bi bi-floppy me-1"></i>Guardar nota
+                                                        </button>
+                                                    </div>
+                                                }
+                                                else if (!string.IsNullOrEmpty(item.Notas))
+                                                {
+                                                    <div class="mt-2 p-2 bg-light rounded small"><strong>Notas:</strong> @item.Notas</div>
+                                                }
+                                            }
                                         </div>
                                         <div class="text-end">
                                             <span class="badge @BadgeAgendaClase(item.Estado)">@TraducirEstadoAgenda(item.Estado)</span>
@@ -506,6 +522,28 @@
     private async Task CargarAsync()
     {
         _reunion = await MeetingService.GetMeetingByIdAsync(Id);
+        _meetingMinutes = await MeetingService.GetMeetingMinutesAsync(Id);
+    }
+
+    private MeetingMinutes? _meetingMinutes;
+
+    // Las notas quedan cerradas junto con el resto del Acta una vez Firmada --
+    // mismo criterio que ActualizarNotasAgendaItemAsync del lado del servidor.
+    private bool NotasEditable => _puedeGestionar && _meetingMinutes?.Estado != MeetingMinutesStatus.Firmada;
+
+    private async Task GuardarNotas(AgendaItem item)
+    {
+        try
+        {
+            await MeetingService.ActualizarNotasAgendaItemAsync(item.IdAgendaItem, item.Notas);
+            _mensaje = "Nota guardada.";
+            _mensajeEsError = false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensaje = ex.Message;
+            _mensajeEsError = true;
+        }
     }
 
     private void Volver() => Navigation.NavigateTo("/governance/meetings");

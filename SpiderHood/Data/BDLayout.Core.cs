@@ -340,6 +340,7 @@ namespace SpiderHood.Data
             public const string INS_AgendaItem = "INS_AgendaItem";
             public const string UPD_AgendaItem = "UPD_AgendaItem";
             public const string UPD_AgendaItemEstado = "UPD_AgendaItemEstado";
+            public const string UPD_AgendaItemNotas = "UPD_AgendaItemNotas";
             public const string GET_AgendaItemsByMeeting = "GET_AgendaItemsByMeeting";
             public const string GET_AgendaItemById = "GET_AgendaItemById";
             public const string DEL_AgendaItem = "DEL_AgendaItem";

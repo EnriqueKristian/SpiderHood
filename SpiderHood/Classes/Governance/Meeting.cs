@@ -106,6 +106,12 @@ namespace SpiderHood.Models
         public bool PermiteRevotacion { get; set; }
         public AgendaItemStatus Estado { get; set; }
         public DateTime CreatedOn { get; set; }
+
+        // Notas de quien dirige la reunión sobre lo conversado en este punto --
+        // separadas de Descripcion (que se fija al crear el punto, antes de la
+        // reunión). Editable mientras el MeetingMinutes no esté Firmada (ver
+        // IMeetingService.ActualizarNotasAgendaItemAsync); se incluye en el Acta.
+        public string? Notas { get; set; }
     }
 
     public class Attendance

@@ -71,6 +71,12 @@ namespace SpiderHood.Services
         // CerrarVotingRoundAsync).
         Task MarcarAgendaItemEstadoAsync(Guid idAgendaItem, AgendaItemStatus nuevoEstado);
 
+        // Notas de quien dirige la reunión sobre lo conversado en un punto de agenda --
+        // a diferencia de EditarAgendaItemAsync (restringido a Estado=Convocada), esto
+        // vale mientras la reunión está EnCurso o ya Finalizada, hasta que el Acta quede
+        // Firmada (ahí sí queda inmutable, igual que el resto del contenido del Acta).
+        Task ActualizarNotasAgendaItemAsync(Guid idAgendaItem, string? notas);
+
         // ===================== Votación (Fase 2) =====================
 
         // Todas las rondas de votación de un punto de agenda, con sus Votes
@@ -277,6 +283,16 @@ namespace SpiderHood.Services
                 throw new InvalidOperationException("Sólo se puede editar un punto de agenda mientras la reunión está Convocada.");
 
             await ec.UpdateAgendaItemAsync(item);
+        }
+
+        public async Task ActualizarNotasAgendaItemAsync(Guid idAgendaItem, string? notas)
+        {
+            var item = await ec.GetAgendaItemByIdAsync(idAgendaItem);
+            var meetingMinutes = await ec.GetMeetingMinutesByMeetingAsync(item.IdMeeting);
+            if (meetingMinutes?.Estado == MeetingMinutesStatus.Firmada)
+                throw new InvalidOperationException("El Acta ya está firmada -- las notas de la reunión quedaron cerradas.");
+
+            await ec.UpdateAgendaItemNotasAsync(idAgendaItem, notas);
         }
 
         // Mismo motivo -- borrar un punto que ya tiene VotingRound asociada
@@ -713,6 +729,8 @@ namespace SpiderHood.Services
                 sb.AppendLine($"{item.Orden}. {item.Titulo} [{(item.Tipo == AgendaItemType.Informativo ? "Informativo" : "Sujeto a Votación")}]");
                 if (!string.IsNullOrEmpty(item.Descripcion))
                     sb.AppendLine($"   {item.Descripcion}");
+                if (!string.IsNullOrEmpty(item.Notas))
+                    sb.AppendLine($"   Notas: {item.Notas}");
 
                 if (item.Tipo == AgendaItemType.SujetoAVotacion)
                 {

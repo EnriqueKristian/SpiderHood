@@ -99,12 +99,12 @@
 
     private async Task CargarCuotas()
     {
-        cuotas = await MonthlyInstallmentService.ObtenerCuotasAsync(anioFiltro, mesFiltro);
+        cuotas = await MonthlyInstallmentService.GetInstallmentBatchesAsync(anioFiltro, mesFiltro);
     }
 
     private async Task CargarAñosDisponibles()
     {
-        añosDisponibles = await MonthlyInstallmentService.ObtenerAñosDisponiblesAsync();
+        añosDisponibles = await MonthlyInstallmentService.GetAvailableYearsAsync();
     }
 
     private async Task Filtrar()

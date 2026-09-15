@@ -1769,7 +1769,7 @@
                     // normalmente vacío en este punto (recién se está publicando el
                     // presupuesto), pero se consulta igual para que el recibo salga
                     // consistente con "Ver Detalle" si ya hubiera cargos generados.
-                    var cargosAdicionales = await ExtraChargeService.GetCargosAdicionalesAsync(
+                    var cargosAdicionales = await ExtraChargeService.GetAdditionalChargesAsync(
                         ParameterService.CurrentBuilding!.IdBuilding, _BudgetState.Installments);
 
                     // Genera el recibo (PDF) de cada unidad y los descarga en un solo ZIP.

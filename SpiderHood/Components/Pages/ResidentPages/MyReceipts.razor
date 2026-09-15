@@ -400,7 +400,7 @@
             var categorias = await BudgetService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             var cargosAdicionales = item.Type == InstallmentType.Ordinaria
-                ? await ExtraChargeService.GetCargosAdicionalesAsync(ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { item })
+                ? await ExtraChargeService.GetAdditionalChargesAsync(ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { item })
                 : new List<Installment>();
 
             var exportService = new InstallmentExportService(

@@ -305,7 +305,7 @@
         // Sólo pre-llena: el usuario sigue revisando y tocando "Crear Gasto" él mismo.
         if (ParameterService.CurrentBuilding != null)
         {
-            _plantillaAplicada = await ExpenseTemplateService.BuscarPlantillaAsync(
+            _plantillaAplicada = await ExpenseTemplateService.FindTemplateAsync(
                 ParameterService.CurrentBuilding.IdBuilding, Transaccion.Description);
 
             if (_plantillaAplicada != null)
@@ -379,7 +379,7 @@
             {
                 var currentUser = await AuthService.GetCurrentUserAsync();
                 var performedBy = string.IsNullOrWhiteSpace(currentUser?.FullName) ? currentUser?.Email ?? "system" : currentUser.FullName;
-                await ExpenseTemplateService.GuardarPlantillaAsync(
+                await ExpenseTemplateService.SaveTemplateAsync(
                     ParameterService.CurrentBuilding.IdBuilding,
                     Transaccion.Description,
                     nuevoGasto.IdCategory,

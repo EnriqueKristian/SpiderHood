@@ -491,7 +491,7 @@
                                                                         {
                                                                             <li>
                                                                                 <a class="dropdown-item"
-                                                                                   @onclick="() => ConciliarConCuota(transaccion, match)">
+                                                                                   @onclick="() => ReconcileWithInstallment(transaccion, match)">
                                                                                     <div class="d-flex justify-content-between">
                                                                                         <span>@match.OwnerName</span>
                                                                                         <span class="text-muted">@Moneda(match.Amount)</span>
@@ -1060,7 +1060,7 @@
                     }
                     @if (transaccionDetalleIngreso.PendingProposal && transaccionDetalleIngreso.ProposedInstallments.Any())
                     {
-                        // Todavía no hay nada en pagosCuotas -- AplicarPagoAsync (lo que crea esos
+                        // Todavía no hay nada en pagosCuotas -- ApplyPaymentAsync (lo que crea esos
                         // registros) recién se llama al confirmar con "Enviar a Conciliar". Se
                         // muestra la propuesta desde ProposedInstallments (en memoria) en su lugar.
                         <div class="alert alert-primary">
@@ -1543,7 +1543,7 @@
             pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // Buscar coincidencias automáticas
-            await BuscarCoincidencias();
+            await FindMatches();
 
             // Calcular estadísticas
             CalcularEstadisticas();
@@ -1571,7 +1571,7 @@
         }
     }
 
-    private async Task BuscarCoincidencias()
+    private async Task FindMatches()
     {
         totalCoincidencias = 0;
         totalCoincidenciasI = 0;
@@ -1616,7 +1616,7 @@
             var matchExacto = posiblesMatches.FirstOrDefault(g => g.Amount == montoTransaccion);
             if (matchExacto != null)
             {
-                await ConciliarConCuota(transaccion, matchExacto, automatico: true);
+                await ReconcileWithInstallment(transaccion, matchExacto, automatico: true);
             }
 
             totalCoincidenciasI += posiblesMatches.Count;
@@ -1661,8 +1661,8 @@
 
     // Único camino para proponer un Ingreso contra una o varias cuotas: cubre pago menor,
     // igual y mayor (incluso cubriendo varias cuotas) -- la aplicación real contra
-    // InstallmentService.AplicarPagoAsync ocurre recién en EnviarAConciliar.
-    private async Task ConciliarConCuota(TransactionBankDetail transaccion, Installment cuota, bool automatico = false)
+    // InstallmentService.ApplyPaymentAsync ocurre recién en EnviarAConciliar.
+    private async Task ReconcileWithInstallment(TransactionBankDetail transaccion, Installment cuota, bool automatico = false)
     {
         await AplicarPagoACuotas(transaccion, new List<Installment> { cuota }, automatico);
     }
@@ -1761,7 +1761,7 @@
             {
                 if (transaccion.Tipo == "Ingreso" && transaccion.ProposedInstallments.Any())
                 {
-                    await InstallmentService.AplicarPagoAsync(transaccion, transaccion.ProposedInstallments, BankService, transaccion.AutomaticProposal);
+                    await InstallmentService.ApplyPaymentAsync(transaccion, transaccion.ProposedInstallments, BankService, transaccion.AutomaticProposal);
 
                     var detalle = $"{transaccion.ProposedInstallments.Count} cuota(s): Unidad " +
                         string.Join(", ", transaccion.ProposedInstallments.Select(c => c.UnitName).Distinct());
@@ -1809,7 +1809,7 @@
         }
 
         // Recarga completa (no solo ActualizarListasPendientes) a propósito: para Ingresos,
-        // AplicarPagoAsync puede dejar la transacción en Conciliada o Parcial según cuánto
+        // ApplyPaymentAsync puede dejar la transacción en Conciliada o Parcial según cuánto
         // cubrió el pago -- ese resultado lo decide el SP, no algo que convenga adivinar acá.
         // Sin recargar, la fila confirmada seguía con su ReconciliationStatus viejo en
         // memoria y, con las pestañas nuevas (solo Pendientes/Propuestos), volvía a aparecer
@@ -1830,7 +1830,7 @@
         if (ParameterService.CurrentBuilding == null) return;
 
         // Recargar cuotas pendientes y pagos ya registrados para que "Ver Detalle"
-        // refleje los InstallmentPaid recién creados por AplicarPagoAsync.
+        // refleje los InstallmentPaid recién creados por ApplyPaymentAsync.
         cuotaspendientes = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
         pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
     }
@@ -1919,7 +1919,7 @@
             var detalleAnterior = $"{pagosDeEstaTransaccion.Count} cuota(s): Unidad " +
                 string.Join(", ", pagosDeEstaTransaccion.Select(p => p.UnitName).Distinct());
 
-            await InstallmentService.RevertirPagoAsync(transaccion, pagosDeEstaTransaccion, BankService);
+            await InstallmentService.RevertPaymentAsync(transaccion, pagosDeEstaTransaccion, BankService);
 
             var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
             await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Corrected,
@@ -2156,7 +2156,7 @@
             }
             else if (transaccion.Tipo == "Ingreso" && _canReconcileInstallments && transaccion.PossibleInstallmentMatches.Any())
             {
-                await ConciliarConCuota(transaccion, transaccion.PossibleInstallmentMatches.First(), automatico: false);
+                await ReconcileWithInstallment(transaccion, transaccion.PossibleInstallmentMatches.First(), automatico: false);
                 propuestas++;
             }
         }
@@ -2326,7 +2326,7 @@
 
         try
         {
-            await BuscarCoincidencias();
+            await FindMatches();
             ActualizarPaginacion();
             mensajeExito = "Búsqueda de coincidencias completada";
         }

@@ -340,7 +340,7 @@
     // por su texto literal fragmentaría el reporte en una fila por cuota en vez de un grupo
     // por tipo, así que se agrupan bajo una etiqueta fija. Extraordinaria sí agrupa por su
     // Concept real: es el nombre de campaña (ej. "CE. Cerco Eléctrico"), igual para todas
-    // las unidades de esa misma campaña -- ver IExtraChargeService.GenerarCuotaExtraordinariaAsync.
+    // las unidades de esa misma campaña -- ver IExtraChargeService.GenerateExtraordinaryInstallmentAsync.
     private static string EtiquetaConcepto(Installment i) => i.Type switch
     {
         InstallmentType.Ordinaria => "Cuota",

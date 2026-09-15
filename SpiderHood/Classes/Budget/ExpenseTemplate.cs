@@ -4,7 +4,7 @@ namespace SpiderHood.Models
     // transacciones similares" en CreateExpenseFromTransactionModal.razor. Match por
     // prefijo: una transacción nueva "es de esta plantilla" si su Description empieza
     // con DescriptionPattern (case-insensitive) -- ver
-    // IExpenseTemplateService.BuscarPlantillaAsync.
+    // IExpenseTemplateService.FindTemplateAsync.
     public class ExpenseTemplate
     {
         public Guid IdExpenseTemplate { get; set; } = Guid.NewGuid();

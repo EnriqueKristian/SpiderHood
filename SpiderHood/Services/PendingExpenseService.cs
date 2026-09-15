@@ -11,7 +11,7 @@ namespace SpiderHood.Services
     {
         private ParameterService ParameterService { get; set; } = default!;
 
-        public async Task<List<PendingExpenseViewModel>> ObtenerGastosPendientesAsync()
+        public async Task<List<PendingExpenseViewModel>> GetPendingExpensesAsync()
         {
             return new List<PendingExpenseViewModel>(); // await ParameterService.ec.ObtenerGastosPendientes();
             /*return await _context.Gasto
@@ -32,7 +32,7 @@ namespace SpiderHood.Services
                 .ToListAsync();*/
         }
 
-        public async Task<ViewExpense> ObtenerGastoPorIdAsync(Guid id)
+        public async Task<ViewExpense> GetExpenseByIdAsync(Guid id)
         {
             var gastos = new List<ViewExpense>();// await ParameterService.ec.GetGastos();
             return gastos.FirstOrDefault(g => g.IdExpense == id)!;
@@ -41,7 +41,7 @@ namespace SpiderHood.Services
                 .FirstOrDefaultAsync(g => g.Id == id);*/
         }
 
-        public async Task<List<ViewExpense>> ObtenerGastosPorPeriodoAsync(DateTime fechaInicio, DateTime fechaFin)
+        public async Task<List<ViewExpense>> GetExpensesByPeriodAsync(DateTime fechaInicio, DateTime fechaFin)
         {
             return new List<ViewExpense>();//await ParameterService.ec.GetGastos();
             /*return await _context.Gasto
@@ -51,13 +51,13 @@ namespace SpiderHood.Services
                 .ToListAsync();*/
         }
 
-        public async Task<ViewExpense> CrearGastoAsync(ViewExpense gasto)
+        public async Task<ViewExpense> CreateExpenseAsync(ViewExpense gasto)
         {
             //_context.Gastos.Add(gasto);
             return gasto;
         }
 
-        public async Task<bool> ActualizarGastoAsync(ViewExpense gasto)
+        public async Task<bool> UpdateExpenseAsync(ViewExpense gasto)
         {
             /*var gastoExistente = await _context.Gastos.FindAsync(gasto.Id);
             if (gastoExistente == null)
@@ -67,7 +67,7 @@ namespace SpiderHood.Services
             return true;
         }
 
-        public async Task<bool> EliminarGastoAsync(Guid id)
+        public async Task<bool> DeleteExpenseAsync(Guid id)
         {
             /*var gasto = await _context.Gastos.FindAsync(id);
             if (gasto == null)

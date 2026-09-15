@@ -5,12 +5,12 @@ namespace SpiderHood.Services
 {
     public interface IPendingExpenseService
     {
-        Task<List<PendingExpenseViewModel>> ObtenerGastosPendientesAsync();
-        Task<ViewExpense> ObtenerGastoPorIdAsync(Guid id);
-        Task<List<ViewExpense>> ObtenerGastosPorPeriodoAsync(DateTime fechaInicio, DateTime fechaFin);
-        Task<ViewExpense> CrearGastoAsync(ViewExpense gasto);
-        Task<bool> ActualizarGastoAsync(ViewExpense gasto);
-        Task<bool> EliminarGastoAsync(Guid id);
+        Task<List<PendingExpenseViewModel>> GetPendingExpensesAsync();
+        Task<ViewExpense> GetExpenseByIdAsync(Guid id);
+        Task<List<ViewExpense>> GetExpensesByPeriodAsync(DateTime fechaInicio, DateTime fechaFin);
+        Task<ViewExpense> CreateExpenseAsync(ViewExpense gasto);
+        Task<bool> UpdateExpenseAsync(ViewExpense gasto);
+        Task<bool> DeleteExpenseAsync(Guid id);
         //Task<List<CategoriaGasto>> ObtenerCategoriasAsync();
     }
 }

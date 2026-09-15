@@ -338,7 +338,7 @@ namespace SpiderHood.Services
             }
         }
 
-        // Mismo filtro Role==1 && TypeUnit==1 que ya usa IExtraChargeService.GetUnidadesAsync
+        // Mismo filtro Role==1 && TypeUnit==1 que ya usa IExtraChargeService.GetUnitsAsync
         // -- sólo para armar un título legible del CalendarItem, no crítico si no matchea.
         private async Task<string> ResolverNombreUnidadAsync(Guid idBuilding, Guid idGroupUnit)
         {
@@ -533,7 +533,7 @@ namespace SpiderHood.Services
             if (danio > todas.MontoGarantia)
             {
                 var excedente = danio - todas.MontoGarantia;
-                var cuota = await _extraChargeService.GenerarCuotaExtraordinariaAsync(
+                var cuota = await _extraChargeService.GenerateExtraordinaryInstallmentAsync(
                     todas.IdBuilding,
                     $"Daño en {todas.NombreCommonArea} (excede garantía) - Reserva del {todas.FechaInicio:dd/MM/yyyy}",
                     DateTime.Today.AddDays(15),

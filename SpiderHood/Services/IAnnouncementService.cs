@@ -131,7 +131,7 @@ namespace SpiderHood.Services
 
         // Público/Privado resuelven contra los propietarios titulares del edificio
         // (mismo filtro Role==1 && TypeUnit==1 que ya usa IExtraChargeService.
-        // GetUnidadesAsync para cuotas extraordinarias) -- Reservado resuelve contra
+        // GetUnitsAsync para cuotas extraordinarias) -- Reservado resuelve contra
         // UserBuildingAssociation (rol de portal, no el rol de propietario dentro de
         // la unidad) y pide el teléfono aparte por usuario (aceptable: la audiencia de
         // un Reservado suele ser chica, ej. sólo la Junta).

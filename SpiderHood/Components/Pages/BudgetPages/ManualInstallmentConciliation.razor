@@ -38,7 +38,7 @@
                             @foreach (var transaccion in transacciones!)
                             {
                                 <button class="list-group-item list-group-item-action"
-                                        @onclick="() => ConciliarConCuota(cuota, transaccion)">
+                                        @onclick="() => ReconcileWithInstallment(cuota, transaccion)">
                                     <div class="d-flex w-100 justify-content-between align-items-center">
                                         <div>
                                             <h6 class="mb-1">@transaccion.Description</h6>
@@ -132,7 +132,7 @@
         await util.OnConfirmationResult(confirmed);
     }
 
-    private void ConciliarConCuota(Installment _cuota, TransactionBankDetail _transaccion)
+    private void ReconcileWithInstallment(Installment _cuota, TransactionBankDetail _transaccion)
     {
         DisabledConcilicar = false;
         Transaction = _transaccion;

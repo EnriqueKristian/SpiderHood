@@ -270,7 +270,7 @@
         cargando = true;
         StateHasChanged();
 
-        vencidas = await ExtraChargeService.GetCuotasVencidasAsync(ParameterService.CurrentBuilding.IdBuilding);
+        vencidas = await ExtraChargeService.GetOverdueInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
         pagination.Initialize(vencidas);
         cargando = false;
     }
@@ -289,7 +289,7 @@
             usuario = authState.User.Identity?.Name ?? usuario;
         }
 
-        resultado = await ExtraChargeService.AplicarMultasYMoraAsync(ParameterService.CurrentBuilding, usuario);
+        resultado = await ExtraChargeService.ApplyFinesAndLateFeesAsync(ParameterService.CurrentBuilding, usuario);
 
         mensajeResultado = !resultado.Exito
             ? resultado.Mensaje

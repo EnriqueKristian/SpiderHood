@@ -10,7 +10,7 @@ namespace SpiderHood.Services
     {
         Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync(Guid IdBuilding, DateTime desde, DateTime hasta);
         //Task<List<CategoriaGasto>> ObtenerCategoriasAsync();
-        Task<ViewExpense> CrearGastoAsync(ViewExpense gasto);
+        Task<ViewExpense> CreateExpenseAsync(ViewExpense gasto);
         Task MarcarGastoComoConciliadoAsync(Guid gastoId, Guid transaccionId);
         Task DesconciliarGastoAsync(Guid gastoId);
         Task AddExpenseAsync(ViewExpense expense);
@@ -230,7 +230,7 @@ namespace SpiderHood.Services
             return innermost is SqlException sqlEx && sqlEx.Number == 547;
         }
 
-        public async Task<ViewExpense> CrearGastoAsync(ViewExpense gasto)
+        public async Task<ViewExpense> CreateExpenseAsync(ViewExpense gasto)
         {
 
             gasto.IdExpense = Guid.NewGuid(); //gastos.Max(g => g.Id) + 1;

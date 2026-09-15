@@ -8,26 +8,26 @@ namespace SpiderHood.Services
     {
         // Unidades activas (propietarios) del edificio, para armar la grilla de reparto
         // de una cuota extraordinaria (partes iguales o monto manual por unidad).
-        Task<List<OwnerUnitView>> GetUnidadesAsync(Guid idBuilding);
+        Task<List<OwnerUnitView>> GetUnitsAsync(Guid idBuilding);
 
         // El presupuesto Ordinario (BudgetType vacío) vigente del edificio — el ciclo
         // mensual normal, distinto de los BudgetHeader "Extraordinario"/"Cargos" que usa
         // este mismo servicio. Null si el edificio no tiene ninguno Activo todavía.
-        Task<BudgetHeader?> GetPresupuestoActivoAsync(Guid idBuilding);
+        Task<BudgetHeader?> GetActiveBudgetAsync(Guid idBuilding);
 
         // El periodo marcado como "Actual" en /periods (Period.IsCurrentPeriod) — el
         // ciclo vigente del edificio para aplicar una cuota extraordinaria, sin
         // depender de si el presupuesto Ordinario de ese periodo ya fue publicado
         // (Activo) o todavía está en borrador/revisión. Null si el edificio no tiene
         // ningún periodo marcado como actual.
-        Task<Models.Period?> GetPeriodoActivoAsync(Guid idBuilding);
+        Task<Models.Period?> GetActivePeriodAsync(Guid idBuilding);
 
         // Crea un BudgetHeader (BudgetType = "Extraordinario") y una cuota (Installment,
         // Type = Extraordinaria) por cada unidad con monto > 0 en montosPorUnidad. El
         // periodo de la cuota SIEMPRE es el periodo marcado como Actual del edificio —
         // no se puede elegir un periodo distinto ni aplicar retroactivamente (falla si
         // no hay periodo Actual o si fechaVencimiento ya pasó).
-        Task<ExtraordinaryInstallmentResult> GenerarCuotaExtraordinariaAsync(
+        Task<ExtraordinaryInstallmentResult> GenerateExtraordinaryInstallmentAsync(
             Guid idBuilding,
             string descripcion,
             DateTime fechaVencimiento,
@@ -36,20 +36,20 @@ namespace SpiderHood.Services
 
         // Cuotas Ordinarias vencidas (Debt > 0, DueDate < hoy) del edificio — para
         // mostrar la previsualización antes de aplicar Multas y Mora.
-        Task<List<Installment>> GetCuotasVencidasAsync(Guid idBuilding);
+        Task<List<Installment>> GetOverdueInstallmentsAsync(Guid idBuilding);
 
         // Recorre las cuotas Ordinarias vencidas del edificio y genera, bajo un
         // BudgetHeader compartido (BudgetType = "Cargos"): una Multa fija (una sola vez
         // por cuota, la primera vez que se detecta vencida) y una Mora = Deuda x
         // TasaInterésMora% x meses de atraso, cobrando solo el incremento respecto de lo
         // ya generado en corridas anteriores para esa misma cuota (sin duplicar).
-        Task<ChargeApplicationResult> AplicarMultasYMoraAsync(Building building, string usuario);
+        Task<ChargeApplicationResult> ApplyFinesAndLateFeesAsync(Building building, string usuario);
 
         // Cuotas Extraordinarias (mismo mes/año que cada cuota Ordinaria) y Multas/Mora
         // (SourceInstallmentId apuntando a esa cuota Ordinaria) asociadas a las cuotas
         // dadas — para mostrarlas como items adicionales en "Ver Detalle" y en el recibo
         // de una cuota Ordinaria, sin mezclarlas con su desglose de BudgetDetail.
-        Task<List<Installment>> GetCargosAdicionalesAsync(Guid idBuilding, List<Installment> cuotasOrdinarias);
+        Task<List<Installment>> GetAdditionalChargesAsync(Guid idBuilding, List<Installment> cuotasOrdinarias);
     }
 
     public class ExtraChargeService : IExtraChargeService
@@ -63,25 +63,25 @@ namespace SpiderHood.Services
             ec = new BDLayout(contextFactory);
         }
 
-        public async Task<List<OwnerUnitView>> GetUnidadesAsync(Guid idBuilding)
+        public async Task<List<OwnerUnitView>> GetUnitsAsync(Guid idBuilding)
         {
             var unidades = await ec.GetOwnersByBuildingAsync(idBuilding);
             return unidades.Where(c => c.Role == 1 && c.TypeUnit == 1).OrderBy(u => u.Number).ToList();
         }
 
-        public async Task<BudgetHeader?> GetPresupuestoActivoAsync(Guid idBuilding)
+        public async Task<BudgetHeader?> GetActiveBudgetAsync(Guid idBuilding)
         {
             var presupuestos = await ec.GetBudgetsAsync(idBuilding);
             return presupuestos.FirstOrDefault(b => b.Status == BudgetStatus.Active && string.IsNullOrEmpty(b.BudgetType));
         }
 
-        public async Task<Models.Period?> GetPeriodoActivoAsync(Guid idBuilding)
+        public async Task<Models.Period?> GetActivePeriodAsync(Guid idBuilding)
         {
             var periodos = await ec.GetPeriodsByBuildingAsync(idBuilding);
             return periodos.FirstOrDefault(p => p.IsCurrentPeriod);
         }
 
-        public async Task<ExtraordinaryInstallmentResult> GenerarCuotaExtraordinariaAsync(
+        public async Task<ExtraordinaryInstallmentResult> GenerateExtraordinaryInstallmentAsync(
             Guid idBuilding,
             string descripcion,
             DateTime fechaVencimiento,
@@ -108,7 +108,7 @@ namespace SpiderHood.Services
                 return resultado;
             }
 
-            var periodoActivo = await GetPeriodoActivoAsync(idBuilding);
+            var periodoActivo = await GetActivePeriodAsync(idBuilding);
             if (periodoActivo == null)
             {
                 resultado.Mensaje = "No hay un periodo marcado como Actual para este edificio. " +
@@ -118,7 +118,7 @@ namespace SpiderHood.Services
 
             try
             {
-                var unidades = await GetUnidadesAsync(idBuilding);
+                var unidades = await GetUnitsAsync(idBuilding);
 
                 // El periodo SIEMPRE es el marcado como Actual — la cuota extraordinaria se
                 // aplica al ciclo vigente, nunca a uno pasado ni futuro elegido a mano. No
@@ -198,7 +198,7 @@ namespace SpiderHood.Services
             return resultado;
         }
 
-        public async Task<List<Installment>> GetCuotasVencidasAsync(Guid idBuilding)
+        public async Task<List<Installment>> GetOverdueInstallmentsAsync(Guid idBuilding)
         {
             var pendientes = await ec.GetPendingInstallmentsAsync(idBuilding);
             return pendientes
@@ -208,7 +208,7 @@ namespace SpiderHood.Services
                 .ToList();
         }
 
-        public async Task<List<Installment>> GetCargosAdicionalesAsync(Guid idBuilding, List<Installment> cuotasOrdinarias)
+        public async Task<List<Installment>> GetAdditionalChargesAsync(Guid idBuilding, List<Installment> cuotasOrdinarias)
         {
             var resultado = new List<Installment>();
             if (cuotasOrdinarias == null || !cuotasOrdinarias.Any())
@@ -256,13 +256,13 @@ namespace SpiderHood.Services
             return resultado.OrderBy(i => i.Type).ThenBy(i => i.CreationDate).ToList();
         }
 
-        public async Task<ChargeApplicationResult> AplicarMultasYMoraAsync(Building building, string usuario)
+        public async Task<ChargeApplicationResult> ApplyFinesAndLateFeesAsync(Building building, string usuario)
         {
             var resultado = new ChargeApplicationResult();
 
             try
             {
-                var vencidas = await GetCuotasVencidasAsync(building.IdBuilding);
+                var vencidas = await GetOverdueInstallmentsAsync(building.IdBuilding);
                 resultado.CuotasRevisadas = vencidas.Count;
 
                 if (!vencidas.Any())

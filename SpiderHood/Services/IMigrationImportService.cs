@@ -52,7 +52,7 @@ namespace SpiderHood.Services
     // nada. BDLayout.AddNewRecordAsync sí relanza (como RepositoryException, con la
     // excepción real de SQL en .InnerException) -- por eso se usa directo acá, y se
     // captura por fila/periodo para no abortar todo el lote por un solo error.
-    // AddOwnerAsync/AddInstallmentAsync/AgregarPagoAsync/AddTransactionBankHeaderAsync/
+    // AddOwnerAsync/AddInstallmentAsync/AddPaymentAsync/AddTransactionBankHeaderAsync/
     // AddTransactionFromEECCAsync/CreatePresupuestoAsync/AddDetalleToPresupuestoAsync
     // sí relanzan correctamente -- esos importadores no tenían este problema.
     //
@@ -1190,7 +1190,7 @@ namespace SpiderHood.Services
                             }
 
                             var esParcial = f.MontoPagado < primera.Monto || grupo.Count(g => g.MontoPagado > 0) > 1;
-                            await _installmentService.AgregarPagoAsync(new Models.InstallmentPaid
+                            await _installmentService.AddPaymentAsync(new Models.InstallmentPaid
                             {
                                 IdPaid = Guid.NewGuid(),
                                 IdInstallment = installment.IdInstallment,

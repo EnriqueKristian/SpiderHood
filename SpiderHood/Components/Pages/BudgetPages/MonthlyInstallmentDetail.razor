@@ -127,9 +127,9 @@ else
 
     private async Task CargarDatos()
     {
-        cuota = await MonthlyInstallmentService.ObtenerCuotaAsync(Id);
-        detalles = await MonthlyInstallmentService.ObtenerDetallesCuotaAsync(Id);
-        gastosIncluidos = await MonthlyInstallmentService.ObtenerGastosIncluidosAsync(Id);
+        cuota = await MonthlyInstallmentService.GetInstallmentBatchAsync(Id);
+        detalles = await MonthlyInstallmentService.GetInstallmentDetailsAsync(Id);
+        gastosIncluidos = await MonthlyInstallmentService.GetIncludedExpensesAsync(Id);
     }
 
     private string GetNombreMes(int mes)

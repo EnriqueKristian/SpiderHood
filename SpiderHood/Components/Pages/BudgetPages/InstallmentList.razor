@@ -615,7 +615,7 @@
             // Cuotas Extraordinarias/Multas/Mora de esta unidad, para que el recibo
             // muestre lo mismo que "Ver Detalle" (solo aplica sobre cuotas Ordinarias).
             var cargosAdicionales = item.Type == InstallmentType.Ordinaria
-                ? await ExtraChargeService.GetCargosAdicionalesAsync(ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { item })
+                ? await ExtraChargeService.GetAdditionalChargesAsync(ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { item })
                 : new List<Installment>();
 
             var exportService = new InstallmentExportService(

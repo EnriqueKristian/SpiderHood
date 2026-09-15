@@ -16,20 +16,20 @@ namespace SpiderHood.Services
         Task<List<Models.Installment>> GetInstallmentsByBudgetAsync(Guid IdBudgetHeader);
         Task<List<Models.Installment>> GetPendingInstallmentsAsync(Guid IdBuilding);
         Task<List<Models.Installment>> GetInstallmentsByBuildingAsync(Guid IdBuilding);
-        Task<Models.InstallmentPaid> AgregarPagoAsync(InstallmentPaid paid);
+        Task<Models.InstallmentPaid> AddPaymentAsync(InstallmentPaid paid);
         Task<List<Models.InstallmentPaid>> GetInstallmentsPaidAsync(Guid IdBuilding);
-        Task<int> BuscarCoincidencias(List<Installment> Installments, List<TransactionBankDetail> transacciones);
-        Task ConciliarConCuota(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, bool automatico = false);
+        Task<int> FindMatches(List<Installment> Installments, List<TransactionBankDetail> transacciones);
+        Task ReconcileWithInstallment(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, bool automatico = false);
 
         // Aplica un pago (transacción bancaria) contra una o varias cuotas seleccionadas.
-        // Reemplaza a ConciliarConCuota/ConciliarTotalmente/ConciliarParcialmente/ConciliarConSobrante
+        // Reemplaza a ReconcileWithInstallment/ConciliarTotalmente/ConciliarParcialmente/ConciliarConSobrante
         // como el único camino para conciliar Ingresos: cubre pago menor, igual y mayor (incluso
         // cubriendo varias cuotas) con la misma lógica, sin duplicarla en cada página que la usa.
-        Task AplicarPagoAsync(TransactionBankDetail pago, List<Installment> cuotasSeleccionadas, Services.IBankAccountService BankService, bool automatico = false);
+        Task ApplyPaymentAsync(TransactionBankDetail pago, List<Installment> cuotasSeleccionadas, Services.IBankAccountService BankService, bool automatico = false);
 
-        // Deshace AplicarPagoAsync: borra los InstallmentPaid ligados a este pago y devuelve
+        // Deshace ApplyPaymentAsync: borra los InstallmentPaid ligados a este pago y devuelve
         // tanto el pago como las cuotas afectadas a NoConciliada.
-        Task RevertirPagoAsync(TransactionBankDetail pago, List<InstallmentPaid> pagosDeEstaTransaccion, Services.IBankAccountService BankService);
+        Task RevertPaymentAsync(TransactionBankDetail pago, List<InstallmentPaid> pagosDeEstaTransaccion, Services.IBankAccountService BankService);
     }
 
     public class InstallmentService : IInstallmentService
@@ -101,7 +101,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<Models.InstallmentPaid> AgregarPagoAsync(InstallmentPaid paid)
+        public async Task<Models.InstallmentPaid> AddPaymentAsync(InstallmentPaid paid)
         {
             try
             {
@@ -127,7 +127,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<int> BuscarCoincidencias(List<Installment> Installments, List<TransactionBankDetail> transacciones)
+        public async Task<int> FindMatches(List<Installment> Installments, List<TransactionBankDetail> transacciones)
         {
             int totalCoincidencias = 0;
 
@@ -208,7 +208,7 @@ namespace SpiderHood.Services
             return totalCoincidencias;
         }
 
-        public async Task ConciliarConCuota(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, bool automatico = false)
+        public async Task ReconcileWithInstallment(List<Installment> filteredInstallments, List<TransactionBankDetail> transacciones, Services.IBankAccountService BankService, TransactionBankDetail transaccion, Installment cuota, bool automatico = false)
         {
             try
             {
@@ -267,7 +267,7 @@ namespace SpiderHood.Services
             cuota.Status = ReconciliationType.Conciliada;
 
             // Guardar en base de datos
-            await AgregarPagoAsync(pago);
+            await AddPaymentAsync(pago);
             await BankService.InstallmentConciliationAsync(transaccion, cuota);
 
             var x = filteredInstallments!.Where(c => c.IdInstallment == cuota.IdInstallment).FirstOrDefault();
@@ -305,7 +305,7 @@ namespace SpiderHood.Services
             cuota.Status = ReconciliationType.Parcial;
 
             // Guardar en base de datos
-            await AgregarPagoAsync(pagoParcial);
+            await AddPaymentAsync(pagoParcial);
             await BankService.InstallmentConciliationAsync(transaccion, cuota);
 
             var x = filteredInstallments!.Where(c => c.IdInstallment == cuota.IdInstallment).FirstOrDefault();
@@ -342,7 +342,7 @@ namespace SpiderHood.Services
             cuota.Status = ReconciliationType.Conciliada;
 
             // 3. Guardar en base de datos
-            await AgregarPagoAsync(pagoCompleto);
+            await AddPaymentAsync(pagoCompleto);
             await BankService.InstallmentConciliationAsync(transaccion, cuota);
 
             // 5. Agregar transacción sobrante a la lista pendiente
@@ -356,7 +356,7 @@ namespace SpiderHood.Services
             y!.ReconciliationStatus = transaccion.ReconciliationStatus;
         }
 
-        public async Task AplicarPagoAsync(TransactionBankDetail pago, List<Installment> cuotasSeleccionadas, Services.IBankAccountService BankService, bool automatico = false)
+        public async Task ApplyPaymentAsync(TransactionBankDetail pago, List<Installment> cuotasSeleccionadas, Services.IBankAccountService BankService, bool automatico = false)
         {
             if (pago == null) throw new ArgumentNullException(nameof(pago));
             if (cuotasSeleccionadas == null || !cuotasSeleccionadas.Any())
@@ -416,12 +416,12 @@ namespace SpiderHood.Services
                 pago.ReconciliationStatus = saldoRestante <= 0 ? ReconciliationType.Conciliada : ReconciliationType.Parcial;
                 pago.ReconciliationDate = DateTime.Now;
 
-                await AgregarPagoAsync(pagoCuota);
+                await AddPaymentAsync(pagoCuota);
                 await BankService.InstallmentConciliationAsync(pago, cuota);
             }
         }
 
-        public async Task RevertirPagoAsync(TransactionBankDetail pago, List<InstallmentPaid> pagosDeEstaTransaccion, Services.IBankAccountService BankService)
+        public async Task RevertPaymentAsync(TransactionBankDetail pago, List<InstallmentPaid> pagosDeEstaTransaccion, Services.IBankAccountService BankService)
         {
             if (pago == null) throw new ArgumentNullException(nameof(pago));
             if (pagosDeEstaTransaccion == null || !pagosDeEstaTransaccion.Any()) return;

@@ -295,7 +295,7 @@
                                                                     @foreach (var paid in item.PreviousPaid)
                                                                     {
                                                                         <a class="dropdown-item"
-                                                                           @onclick="() => ConciliarConCuota(item, paid)">
+                                                                           @onclick="() => ReconcileWithInstallment(item, paid)">
                                                                             <div class="d-flex justify-content-between">
                                                                                 <span>@paid.Description</span>
                                                                                 <span class="text-muted">@Moneda(paid.Balance)</span>
@@ -311,7 +311,7 @@
                                                                     {
                                                                         <li>
                                                                             <a class="dropdown-item"
-                                                                               @onclick="() => ConciliarConCuota(item, match)">
+                                                                               @onclick="() => ReconcileWithInstallment(item, match)">
                                                                                 <div class="d-flex justify-content-between">
                                                                                     <span>@match.Description</span>
                                                                                     <span class="text-muted">@Moneda(match.Balance)</span>
@@ -460,7 +460,7 @@
             // Suscribirse a cambios en la paginación
             _pagination.OnPaginationChanged += StateHasChanged;
 
-            if (Conciliar) await BuscarCoincidencias();
+            if (Conciliar) await FindMatches();
 
             // ParameterService.CurrentBuilding.Configuration viene del login (GET_AllBuildingsConfig),
             // que NO trae BankAccounts ni AdminContact (se cargan aparte, solo cuando se
@@ -485,7 +485,7 @@
             // el recibo muestre lo mismo que "Ver Detalle" (una sola consulta para todas
             // las unidades, filtrada por IdGroupUnit al armar cada recibo individual).
             var cargosAdicionales = ParameterService.CurrentBuilding != null
-                ? await ExtraChargeService.GetCargosAdicionalesAsync(ParameterService.CurrentBuilding.IdBuilding, Installments ?? new())
+                ? await ExtraChargeService.GetAdditionalChargesAsync(ParameterService.CurrentBuilding.IdBuilding, Installments ?? new())
                 : new List<Installment>();
 
             // Inicializar servicio de exportación
@@ -582,16 +582,16 @@
         // Lógica para enviar por email
     }
 
-    private async Task BuscarCoincidencias()
+    private async Task FindMatches()
     {
-        totalCoincidencias = await InstallmentService.BuscarCoincidencias(Installments!, transacciones!);
+        totalCoincidencias = await InstallmentService.FindMatches(Installments!, transacciones!);
     }
 
-    private async Task ConciliarConCuota(Installment cuota, TransactionBankDetail transaccion, bool automatico = false)
+    private async Task ReconcileWithInstallment(Installment cuota, TransactionBankDetail transaccion, bool automatico = false)
     {
         try
         {
-            await InstallmentService.ConciliarConCuota(filteredInstallments!, transacciones!, BankService, transaccion, cuota, automatico);
+            await InstallmentService.ReconcileWithInstallment(filteredInstallments!, transacciones!, BankService, transaccion, cuota, automatico);
 
             // Actualizar UI y estado
             await ActualizarEstadoPostConciliacion(automatico);
@@ -645,7 +645,7 @@
         _pagination.Initialize(filteredInstallments);
         _pagination.OnPaginationChanged += StateHasChanged;
 
-        await BuscarCoincidencias();
+        await FindMatches();
 
         // Opcional: Recargar cuotas pendientes desde el servidor
         // cuotaspendientes = await InstallmentService.ObtenerCuotasPendientesAsync();
@@ -758,6 +758,6 @@
 
     private async Task OnSaveManualConciliation(TransactionBankDetail _transaction)
     {
-        await ConciliarConCuota(selectedInstallment!, _transaction, false);
+        await ReconcileWithInstallment(selectedInstallment!, _transaction, false);
     }
 }

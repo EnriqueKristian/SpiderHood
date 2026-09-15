@@ -246,7 +246,7 @@
 
         if (ParameterService.CurrentBuilding != null)
         {
-            periodoActivo = await ExtraChargeService.GetPeriodoActivoAsync(ParameterService.CurrentBuilding.IdBuilding);
+            periodoActivo = await ExtraChargeService.GetActivePeriodAsync(ParameterService.CurrentBuilding.IdBuilding);
         }
 
         cargandoPresupuesto = false;
@@ -260,7 +260,7 @@
         cargando = true;
         StateHasChanged();
 
-        unidades = await ExtraChargeService.GetUnidadesAsync(ParameterService.CurrentBuilding.IdBuilding);
+        unidades = await ExtraChargeService.GetUnitsAsync(ParameterService.CurrentBuilding.IdBuilding);
         montosPorUnidad = unidades.ToDictionary(u => u.IdGroupUnit, u => 0m);
 
         if (modo == ModoReparto.PartesIguales)
@@ -319,7 +319,7 @@
             usuario = authState.User.Identity?.Name ?? usuario;
         }
 
-        var resultado = await ExtraChargeService.GenerarCuotaExtraordinariaAsync(
+        var resultado = await ExtraChargeService.GenerateExtraordinaryInstallmentAsync(
             ParameterService.CurrentBuilding.IdBuilding,
             descripcion,
             fechaVencimiento,

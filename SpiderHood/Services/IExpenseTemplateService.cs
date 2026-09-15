@@ -12,12 +12,12 @@ namespace SpiderHood.Services
         // insensitive) -- si hay más de una que matchee, la más larga/específica gana. Null
         // si ninguna aplica. Sólo para PRE-LLENAR el formulario -- nunca crea ni concilia
         // nada por su cuenta.
-        Task<ExpenseTemplate?> BuscarPlantillaAsync(Guid idBuilding, string descripcion);
+        Task<ExpenseTemplate?> FindTemplateAsync(Guid idBuilding, string descripcion);
 
         // Upsert por (IdBuilding, DescriptionPattern) case-insensitive -- volver a guardar
         // la misma descripción con otra categoría/distribución actualiza la plantilla
         // existente en vez de duplicarla (no hay pantalla de gestión en v1, ver doc).
-        Task GuardarPlantillaAsync(Guid idBuilding, string descripcion, Guid idCategory, TypeDistribution distribution, string? supplier, string performedBy);
+        Task SaveTemplateAsync(Guid idBuilding, string descripcion, Guid idCategory, TypeDistribution distribution, string? supplier, string performedBy);
     }
 
     public class ExpenseTemplateService : IExpenseTemplateService
@@ -29,7 +29,7 @@ namespace SpiderHood.Services
             ec = new BDLayout(contextFactory);
         }
 
-        public async Task<ExpenseTemplate?> BuscarPlantillaAsync(Guid idBuilding, string descripcion)
+        public async Task<ExpenseTemplate?> FindTemplateAsync(Guid idBuilding, string descripcion)
         {
             if (string.IsNullOrWhiteSpace(descripcion)) return null;
 
@@ -40,7 +40,7 @@ namespace SpiderHood.Services
                 .FirstOrDefault();
         }
 
-        public async Task GuardarPlantillaAsync(Guid idBuilding, string descripcion, Guid idCategory, TypeDistribution distribution, string? supplier, string performedBy)
+        public async Task SaveTemplateAsync(Guid idBuilding, string descripcion, Guid idCategory, TypeDistribution distribution, string? supplier, string performedBy)
         {
             var descripcionNormalizada = descripcion.Trim();
             if (string.IsNullOrWhiteSpace(descripcionNormalizada)) return;

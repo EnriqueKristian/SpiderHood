@@ -20,7 +20,7 @@ namespace SpiderHood.Services
             _logger = logger;
         }
 
-        public async Task<GenerationResult> GenerarCuotaMensualAsync(
+        public async Task<GenerationResult> GenerateMonthlyInstallmentAsync(
             int mes,
             int anio,
             DateTime fechaVencimiento,
@@ -219,13 +219,13 @@ namespace SpiderHood.Services
             await _context.SaveChangesAsync();*/
         }
 
-        public async Task<MonthlyInstallmentBatch> ObtenerCuotaAsync(int cuotaId)
+        public async Task<MonthlyInstallmentBatch> GetInstallmentBatchAsync(int cuotaId)
         {
             var cuotas = new List<MonthlyInstallmentBatch>(); // await ParameterService.ec.ObtenerCuotaMensuales();
             return cuotas.FirstOrDefault(c => c.Id == cuotaId)!;
         }
 
-        public async Task<List<MonthlyInstallmentBatch>> ObtenerCuotasAsync(int? anio = null, int? mes = null)
+        public async Task<List<MonthlyInstallmentBatch>> GetInstallmentBatchesAsync(int? anio = null, int? mes = null)
         {
             /*var query = _context.CuotasMensuales.AsQueryable();
 
@@ -247,7 +247,7 @@ namespace SpiderHood.Services
                 .ToListAsync();*/
         }
 
-        public async Task<List<InstallmentDetailViewModel>> ObtenerDetallesCuotaAsync(int cuotaId)
+        public async Task<List<InstallmentDetailViewModel>> GetInstallmentDetailsAsync(int cuotaId)
         {
             return new List<InstallmentDetailViewModel>(); // await ParameterService.ec.GetDetallesCuotaByCuotaId(cuotaId);
             /*
@@ -276,7 +276,7 @@ namespace SpiderHood.Services
             */
         }
 
-        public async Task<List<ExpenseViewModel>> ObtenerGastosIncluidosAsync(int cuotaId)
+        public async Task<List<ExpenseViewModel>> GetIncludedExpensesAsync(int cuotaId)
         {
             // Return an empty list to avoid possible null reference return
             return new List<ExpenseViewModel>();
@@ -299,7 +299,7 @@ namespace SpiderHood.Services
                 .ToListAsync();*/
         }
 
-        public async Task<List<int>> ObtenerAñosDisponiblesAsync()
+        public async Task<List<int>> GetAvailableYearsAsync()
         {
 
             List<int> x = [];
@@ -315,7 +315,7 @@ namespace SpiderHood.Services
                 .ToListAsync();*/
         }
 
-        public async Task<bool> ProcesarCuotaAsync(int cuotaId)
+        public async Task<bool> ProcessInstallmentBatchAsync(int cuotaId)
         {
             try
             {
@@ -354,7 +354,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<bool> ReversarCuotaAsync(int cuotaId)
+        public async Task<bool> ReverseInstallmentBatchAsync(int cuotaId)
         {
             try
             {
@@ -401,22 +401,22 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<byte[]> ExportarCuotaPDFAsync(int cuotaId)
+        public async Task<byte[]> ExportInstallmentBatchPdfAsync(int cuotaId)
         {
             // Implementación básica - usar una librería como QuestPDF o iTextSharp
             throw new NotImplementedException();
         }
 
-        public async Task<byte[]> ExportarCuotaExcelAsync(int cuotaId)
+        public async Task<byte[]> ExportInstallmentBatchExcelAsync(int cuotaId)
         {
             // Implementación básica - usar una librería como ClosedXML
             throw new NotImplementedException();
         }
 
-        public async Task<InstallmentSummary> ObtenerResumenCuotaAsync(int cuotaId)
+        public async Task<InstallmentSummary> GetInstallmentSummaryAsync(int cuotaId)
         {
-            var cuota = await ObtenerCuotaAsync(cuotaId);
-            var detalles = await ObtenerDetallesCuotaAsync(cuotaId);
+            var cuota = await GetInstallmentBatchAsync(cuotaId);
+            var detalles = await GetInstallmentDetailsAsync(cuotaId);
 
             if (cuota == null || !detalles.Any())
                 return null!;

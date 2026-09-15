@@ -162,7 +162,7 @@
 
     private async Task VerGastosPendientes()
     {
-        gastosPendientes = await PendingExpenseService.ObtenerGastosPendientesAsync();
+        gastosPendientes = await PendingExpenseService.GetPendingExpensesAsync();
         mostrarGastos = true;
         CalcularTotalSeleccionado();
         StateHasChanged();
@@ -198,7 +198,7 @@
             .Select(g => g.Id)
             .ToList();
 
-        var resultado = await MonthlyInstallmentService.GenerarCuotaMensualAsync(
+        var resultado = await MonthlyInstallmentService.GenerateMonthlyInstallmentAsync(
             mesSeleccionado,
             anioSeleccionado,
             fechaVencimiento,

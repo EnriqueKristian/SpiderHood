@@ -208,7 +208,7 @@
 
             @* Cuotas Extraordinarias / Multas / Mora asociadas a esta misma unidad —
                solo aplica cuando se ve el detalle de una cuota Ordinaria (ShowAsync las
-               carga vía ExtraChargeService.GetCargosAdicionalesAsync); se listan aparte
+               carga vía ExtraChargeService.GetAdditionalChargesAsync); se listan aparte
                del desglose de arriba y se suman a un Total General. *@
             @if (_cargosAdicionales.Any())
             {
@@ -361,7 +361,7 @@
 
             if (installment.Type == InstallmentType.Ordinaria)
             {
-                _cargosAdicionales = await ExtraChargeService.GetCargosAdicionalesAsync(
+                _cargosAdicionales = await ExtraChargeService.GetAdditionalChargesAsync(
                     ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { installment });
             }
         }

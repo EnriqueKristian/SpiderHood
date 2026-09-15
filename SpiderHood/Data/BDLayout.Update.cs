@@ -1037,6 +1037,21 @@ namespace SpiderHood.Data
                 return true;
             }, "UpdateVacacionesEstado", cancellationToken);
         }
+
+        // Personal y Planillas -- Fase 3 (Permisos y licencias)
+        public async Task UpdatePermisoLicenciaEstadoAsync(Guid idPermisoLicencia, string estado, Guid idAprobador, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_PermisoLicenciaEstado,
+                    cancellationToken,
+                    idPermisoLicencia,
+                    estado,
+                    idAprobador);
+                return true;
+            }, "UpdatePermisoLicenciaEstado", cancellationToken);
+        }
         #endregion
     }
 }

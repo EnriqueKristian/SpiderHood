@@ -1,0 +1,212 @@
+@page "/personal/permisos"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPlanillaService PlanillaService
+@inject IPersonalService PersonalService
+@inject IAccountService AccountService
+@inject SpiderHood.Services.AuthService AuthService
+
+<PageTitle>Permisos y licencias</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (!_loading && !_isStaff)
+    {
+        <div class="alert alert-warning">No tienes acceso a este módulo.</div>
+    }
+    else if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div class="page-header-title">
+                <div class="icon-badge"><i class="bi bi-calendar-x"></i></div>
+                <h1 class="h3 fw-bold mb-0">Permisos y licencias</h1>
+            </div>
+            <button class="btn btn-primary" @onclick="AbrirNuevaSolicitud" disabled="@(_personal.Count == 0)">
+                <i class="bi bi-plus-lg me-1"></i>Nueva solicitud
+            </button>
+        </div>
+        <p class="text-muted">Un permiso <strong>con goce de haber</strong> no afecta la boleta. Un permiso <strong>sin goce</strong>, una vez aprobado, se descuenta proporcional a los días en la boleta del mes correspondiente.</p>
+
+        <div class="card">
+            <div class="card-header"><i class="bi bi-hourglass-split me-2"></i>Solicitudes pendientes de aprobación</div>
+            <div class="card-body">
+                @if (_pendientes.Count == 0)
+                {
+                    <p class="text-muted mb-0">No hay solicitudes pendientes.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Persona</th>
+                                    <th>Período</th>
+                                    <th>Días</th>
+                                    <th>Tipo</th>
+                                    <th>Motivo</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in _pendientes)
+                                {
+                                    <tr>
+                                        <td>@p.Nombres @p.Apellidos</td>
+                                        <td>@p.FechaInicio.ToString("dd/MM/yyyy") - @p.FechaFin.ToString("dd/MM/yyyy")</td>
+                                        <td>@p.DiasSolicitados</td>
+                                        <td><span class="badge @(p.ConGoceDeHaber ? "bg-success" : "bg-warning text-dark")">@(p.ConGoceDeHaber ? "Con goce" : "Sin goce")</span></td>
+                                        <td>@p.Motivo</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-success me-1" @onclick="() => Aprobar(p)">
+                                                <i class="bi bi-check-lg"></i> Aprobar
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Rechazar(p)">
+                                                <i class="bi bi-x-lg"></i> Rechazar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nueva solicitud de permiso</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Persona</label>
+                        <select class="form-select" @bind="_form.IdPersonal">
+                            @foreach (var p in _personal)
+                            {
+                                <option value="@p.IdPersonal">@p.NombreCompleto</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Desde</label>
+                            <InputDate class="form-control" @bind-Value="_form.FechaInicio" />
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Hasta</label>
+                            <InputDate class="form-control" @bind-Value="_form.FechaFin" />
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" @bind="_form.ConGoceDeHaber" id="chkConGoce" />
+                        <label class="form-check-label" for="chkConGoce">Con goce de haber</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Motivo</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="_form.Motivo" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(_error))
+                    {
+                        <div class="alert alert-danger py-2 px-3">@_error</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="Guardar">Solicitar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private Guid? _idAccount;
+
+    private List<Models.Personal> _personal = new();
+    private List<Models.PermisoLicencia> _pendientes = new();
+
+    private bool _showModal;
+    private Models.PermisoLicencia _form = new();
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+
+        if (_isStaff)
+        {
+            var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
+            _idAccount = account?.IdAccount;
+            if (_idAccount != null)
+            {
+                _personal = (await PersonalService.GetPersonalByAccountAsync(_idAccount.Value)).Where(p => p.IsActive).ToList();
+                await CargarPendientesAsync();
+            }
+        }
+
+        _loading = false;
+    }
+
+    private async Task CargarPendientesAsync()
+    {
+        if (_idAccount == null) return;
+        _pendientes = await PlanillaService.GetPermisosPendientesByAccountAsync(_idAccount.Value);
+    }
+
+    private void AbrirNuevaSolicitud()
+    {
+        _form = new Models.PermisoLicencia
+        {
+            IdPersonal = _personal.FirstOrDefault()?.IdPersonal ?? Guid.Empty,
+            FechaInicio = DateTime.Today,
+            FechaFin = DateTime.Today,
+            ConGoceDeHaber = true
+        };
+        _error = null;
+        _showModal = true;
+    }
+
+    private async Task Guardar()
+    {
+        _error = null;
+        var result = await PlanillaService.SolicitarPermisoAsync(_form, _currentUser.Email);
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _showModal = false;
+        await CargarPendientesAsync();
+    }
+
+    private async Task Aprobar(Models.PermisoLicencia p)
+    {
+        await PlanillaService.AprobarPermisoAsync(p.IdPermisoLicencia, p.IdPersonal, _currentUser.IdUser, _currentUser.Email);
+        await CargarPendientesAsync();
+    }
+
+    private async Task Rechazar(Models.PermisoLicencia p)
+    {
+        await PlanillaService.RechazarPermisoAsync(p.IdPermisoLicencia, p.IdPersonal, _currentUser.IdUser, _currentUser.Email, null);
+        await CargarPendientesAsync();
+    }
+}

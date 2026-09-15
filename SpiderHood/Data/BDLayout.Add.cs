@@ -1540,6 +1540,27 @@ namespace SpiderHood.Data
                 return detalle;
             }, "AddBoletaPagoDetalle", cancellationToken);
         }
+
+        // Personal y Planillas -- Fase 3 (Permisos y licencias)
+        public async Task<Models.PermisoLicencia> AddNewRecordAsync(Models.PermisoLicencia permiso, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(permiso, nameof(permiso));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_PermisoLicencia,
+                    cancellationToken,
+                    permiso.IdPermisoLicencia,
+                    permiso.IdPersonal,
+                    permiso.FechaInicio,
+                    permiso.FechaFin,
+                    permiso.ConGoceDeHaber,
+                    (object?)permiso.Motivo ?? DBNull.Value,
+                    permiso.CreatedBy);
+                return permiso;
+            }, "AddPermisoLicencia", cancellationToken);
+        }
         #endregion
     }
 }

@@ -1451,6 +1451,47 @@ namespace SpiderHood.Data
                 return await ExecuteQueryListAsync<Models.BoletaPagoDetalle>(StoredProcedures.GET_BoletaPagoDetalleByBoleta, idBoletaPago);
             }, "GetBoletaPagoDetalleByBoleta", cancellationToken);
         }
+
+        // Personal y Planillas -- Fase 3 (Permisos y licencias)
+        public async Task<List<Models.PermisoLicencia>> GetPermisoLicenciaByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.PermisoLicencia>(StoredProcedures.GET_PermisoLicenciaByPersonal, idPersonal);
+            }, "GetPermisoLicenciaByPersonal", cancellationToken);
+        }
+
+        public async Task<List<Models.PermisoLicencia>> GetPermisoLicenciaPendientesByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.PermisoLicencia>(StoredProcedures.GET_PermisoLicenciaPendientesByAccount, idAccount);
+            }, "GetPermisoLicenciaPendientesByAccount", cancellationToken);
+        }
+
+        // Escalar (un int) -- mismo motivo que GetVacacionesGozadasByPersonalAnioAsync.
+        public async Task<int> GetPermisoLicenciaSinGoceDiasByPersonalMesAsync(Guid idPersonal, DateTime fechaDesde, DateTime fechaHasta, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var dbContext = await RentContextAsync(cancellationToken);
+                try
+                {
+                    var sql = $"EXEC {StoredProcedures.GET_PermisoLicenciaSinGoceDiasByPersonalMes} @p0, @p1, @p2";
+                    var resultados = await dbContext.Database
+                        .SqlQueryRaw<int>(sql,
+                            new SqlParameter("@p0", idPersonal),
+                            new SqlParameter("@p1", fechaDesde),
+                            new SqlParameter("@p2", fechaHasta))
+                        .ToListAsync(cancellationToken);
+                    return resultados.Count > 0 ? resultados[0] : 0;
+                }
+                finally
+                {
+                    ReturnContext(dbContext);
+                }
+            }, "GetPermisoLicenciaSinGoceDiasByPersonalMes", cancellationToken);
+        }
         #endregion
     }
 }

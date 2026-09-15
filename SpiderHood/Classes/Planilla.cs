@@ -70,6 +70,39 @@ namespace SpiderHood.Models
         Gozada
     }
 
+    public enum EstadoPermisoLicencia
+    {
+        Pendiente,
+        Aprobado,
+        Rechazado
+    }
+
+    // Fase 3 -- Permisos y licencias. Mismo patrón que Vacaciones (una fila por
+    // solicitud, aprobación vía WorkflowAuditLog, Module = 'PermisoLicencia'),
+    // pero a diferencia de Vacaciones un permiso SIN goce de haber SÍ descuenta
+    // de la boleta -- ver GET_PermisoLicenciaSinGoceDiasByPersonalMes e
+    // IPlanillaService.GenerarBoletaAsync.
+    public class PermisoLicencia
+    {
+        public Guid IdPermisoLicencia { get; set; }
+        public Guid IdPersonal { get; set; }
+        public DateTime FechaInicio { get; set; } = DateTime.Today;
+        public DateTime FechaFin { get; set; } = DateTime.Today;
+        public bool ConGoceDeHaber { get; set; } = true;
+        public string? Motivo { get; set; }
+        public string Estado { get; set; } = nameof(EstadoPermisoLicencia.Pendiente);
+        public Guid? IdAprobador { get; set; }
+        public DateTime? FechaResolucion { get; set; }
+        public string CreatedBy { get; set; } = "";
+        public DateTime CreatedOn { get; set; }
+
+        // Sólo poblado por GET_PermisoLicenciaPendientesByAccount (join contra Personal).
+        public string? Nombres { get; set; }
+        public string? Apellidos { get; set; }
+
+        public int DiasSolicitados => (FechaFin.Date - FechaInicio.Date).Days + 1;
+    }
+
     // Una fila por SOLICITUD de goce -- el saldo (ganados/gozados/pendientes)
     // se deriva en tiempo de lectura (ver IPlanillaService.GetSaldoVacacionesAsync),
     // no se guarda como un total aparte. Reutiliza WorkflowAuditLog (Module =

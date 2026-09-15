@@ -30,6 +30,13 @@ namespace SpiderHood.Services
         Task<List<Models.BoletaPago>> GetBoletasByPersonalAsync(Guid idPersonal);
         Task<List<Models.BoletaPago>> GetBoletasByAccountAndPeriodoAsync(Guid idAccount, int anio, int mes);
         Task<Models.BoletaPago?> GetBoletaConDetalleAsync(Guid idBoletaPago);
+
+        // Fase 3 -- Permisos y licencias
+        Task<List<Models.PermisoLicencia>> GetPermisosByPersonalAsync(Guid idPersonal);
+        Task<List<Models.PermisoLicencia>> GetPermisosPendientesByAccountAsync(Guid idAccount);
+        Task<OperationResult> SolicitarPermisoAsync(Models.PermisoLicencia permiso, string performedBy);
+        Task AprobarPermisoAsync(Guid idPermisoLicencia, Guid idPersonal, Guid idAprobador, string performedBy);
+        Task RechazarPermisoAsync(Guid idPermisoLicencia, Guid idPersonal, Guid idAprobador, string performedBy, string? motivo);
     }
 
     public class PlanillaService : IPlanillaService
@@ -143,6 +150,47 @@ namespace SpiderHood.Services
             await _workflowAuditService.LogAsync("Vacaciones", idVacaciones, WorkflowAction.Rejected, performedBy, idBuilding, motivo);
         }
 
+        // Fase 3 -- Permisos y licencias. Mismo patrón exacto que Vacaciones,
+        // sólo cambia el Module de WorkflowAuditLog.
+        public async Task<List<Models.PermisoLicencia>> GetPermisosByPersonalAsync(Guid idPersonal)
+            => await ec.GetPermisoLicenciaByPersonalAsync(idPersonal);
+
+        public async Task<List<Models.PermisoLicencia>> GetPermisosPendientesByAccountAsync(Guid idAccount)
+            => await ec.GetPermisoLicenciaPendientesByAccountAsync(idAccount);
+
+        public async Task<OperationResult> SolicitarPermisoAsync(Models.PermisoLicencia permiso, string performedBy)
+        {
+            try
+            {
+                permiso.IdPermisoLicencia = Guid.NewGuid();
+                permiso.CreatedBy = performedBy;
+                await ec.AddNewRecordAsync(permiso);
+
+                var idBuilding = await ResolveIdBuildingAsync(permiso.IdPersonal);
+                await _workflowAuditService.LogAsync("PermisoLicencia", permiso.IdPermisoLicencia, WorkflowAction.Submitted, performedBy, idBuilding);
+
+                return OperationResult.Success(permiso);
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Failure($"No se pudo registrar la solicitud de permiso: {DescribeError(ex)}");
+            }
+        }
+
+        public async Task AprobarPermisoAsync(Guid idPermisoLicencia, Guid idPersonal, Guid idAprobador, string performedBy)
+        {
+            await ec.UpdatePermisoLicenciaEstadoAsync(idPermisoLicencia, nameof(EstadoPermisoLicencia.Aprobado), idAprobador);
+            var idBuilding = await ResolveIdBuildingAsync(idPersonal);
+            await _workflowAuditService.LogAsync("PermisoLicencia", idPermisoLicencia, WorkflowAction.Approved, performedBy, idBuilding);
+        }
+
+        public async Task RechazarPermisoAsync(Guid idPermisoLicencia, Guid idPersonal, Guid idAprobador, string performedBy, string? motivo)
+        {
+            await ec.UpdatePermisoLicenciaEstadoAsync(idPermisoLicencia, nameof(EstadoPermisoLicencia.Rechazado), idAprobador);
+            var idBuilding = await ResolveIdBuildingAsync(idPersonal);
+            await _workflowAuditService.LogAsync("PermisoLicencia", idPermisoLicencia, WorkflowAction.Rejected, performedBy, idBuilding, motivo);
+        }
+
         // Lee RegistroHoras del mes y aplica las reglas del régimen vigente
         // (sección 9 de la especificación: la estructura de la boleta no cambia
         // por régimen, sólo qué filas de BoletaPagoDetalle aparecen).
@@ -234,6 +282,20 @@ namespace SpiderHood.Services
                     var montoOnp = Math.Round(baseComputable * parametros.PorcentajeONP / 100m, 2);
                     if (montoOnp > 0)
                         detalles.Add(new Models.BoletaPagoDetalle { TipoConcepto = "DescuentoTrabajador", CodigoConcepto = "ONP", Descripcion = "Aporte ONP", Monto = montoOnp, EsRemunerativo = false });
+                }
+
+                // Permisos SIN goce de haber (Fase 3) -- se descuentan proporcional a
+                // los días que caen dentro de este mes y ya fueron Aprobados. Un
+                // permiso CON goce no descuenta nada (igual que unas vacaciones).
+                // Simplificación: ONP/AFP arriba se calculan sobre la base completa,
+                // sin restar estos días -- el ajuste fino de la base computable por
+                // ausencias parciales queda para una iteración futura.
+                var diasSinGoce = await ec.GetPermisoLicenciaSinGoceDiasByPersonalMesAsync(idPersonal, fechaDesde, fechaCorte);
+                if (diasSinGoce > 0)
+                {
+                    var montoPermisoSinGoce = Math.Round(diasSinGoce * (personal.RemuneracionBase / 30m), 2);
+                    if (montoPermisoSinGoce > 0)
+                        detalles.Add(new Models.BoletaPagoDetalle { TipoConcepto = "DescuentoTrabajador", CodigoConcepto = "PERMISO_SG", Descripcion = $"Permiso sin goce de haber ({diasSinGoce} día(s))", Monto = montoPermisoSinGoce, EsRemunerativo = false });
                 }
 
                 var totalDescuentos = detalles.Where(d => d.TipoConcepto == "DescuentoTrabajador").Sum(d => d.Monto);

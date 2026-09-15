@@ -382,6 +382,14 @@ namespace SpiderHood.Data
             public const string GET_BoletasByAccountAndPeriodo = "GET_BoletasByAccountAndPeriodo";
             public const string INS_BoletaPagoDetalle = "INS_BoletaPagoDetalle";
             public const string GET_BoletaPagoDetalleByBoleta = "GET_BoletaPagoDetalleByBoleta";
+
+            // Personal y Planillas -- Fase 3, Permisos y licencias
+            // (Database/Scripts/2026-09-15_110_Personal_Planillas_Fase3_Permisos.sql)
+            public const string INS_PermisoLicencia = "INS_PermisoLicencia";
+            public const string UPD_PermisoLicenciaEstado = "UPD_PermisoLicenciaEstado";
+            public const string GET_PermisoLicenciaByPersonal = "GET_PermisoLicenciaByPersonal";
+            public const string GET_PermisoLicenciaPendientesByAccount = "GET_PermisoLicenciaPendientesByAccount";
+            public const string GET_PermisoLicenciaSinGoceDiasByPersonalMes = "GET_PermisoLicenciaSinGoceDiasByPersonalMes";
         }
         #endregion
 

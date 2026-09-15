@@ -144,6 +144,10 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.BoletaPago>().HasNoKey();
             modelBuilder.Entity<Models.BoletaPagoDetalle>().HasNoKey();
 
+            // Módulo Personal y Planillas -- Fase 3 (Permisos y licencias), ver
+            // Database/Scripts/2026-09-15_110_Personal_Planillas_Fase3_Permisos.sql.
+            modelBuilder.Entity<Models.PermisoLicencia>().HasNoKey();
+
             base.OnModelCreating(modelBuilder);
         }
     }

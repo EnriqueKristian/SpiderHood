@@ -128,7 +128,7 @@ namespace SpiderHood.Models
             // TODO: Implementar descarga
         }
 
-        // La plantilla tiene que calzar exactamente con lo que CalculoService.
+        // La plantilla tiene que calzar exactamente con lo que WaterCalculationService.
         // ImportarDesdeExcelAsync espera al leerla de vuelta: hoja 1, fila 1 = encabezado
         // (se descarta con RowsUsed().Skip(1), sin importar su contenido), y desde la
         // fila 2 en adelante, EXACTAMENTE las columnas del layout correspondiente — ver
@@ -196,7 +196,7 @@ namespace SpiderHood.Models
 
                     worksheet.Columns().AdjustToContents();
 
-                    // Las instrucciones van en una hoja aparte — CalculoService.
+                    // Las instrucciones van en una hoja aparte — WaterCalculationService.
                     // ImportarDesdeExcelAsync solo lee workbook.Worksheet(1) (la primera),
                     // así que esto no interfiere para nada con la importación.
                     var hojaInstrucciones = workbook.Worksheets.Add("Instrucciones");

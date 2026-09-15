@@ -4,7 +4,7 @@
 @using SpiderHood.Services
 @using SpiderHood.Utilities
 @using ClosedXML.Excel
-@inject ICalculoService CalculoService
+@inject IWaterCalculationService WaterCalculationService
 @inject IBuildingService BuildingService
 @inject ParameterService ParameterService
 @inject SpiderHood.Services.AuthService AuthService
@@ -239,14 +239,14 @@
         {
             var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
 
-            var detalles = await CalculoService.GetServiceReadingDetailsByBuildingAsync(idBuilding, fechaDesde, fechaHasta);
+            var detalles = await WaterCalculationService.GetServiceReadingDetailsByBuildingAsync(idBuilding, fechaDesde, fechaHasta);
 
             // Nombres de unidad/propietario -- ServiceReadingDetail sólo trae GroupNumber
             // (número de Dpto) e IdGroupUnit, no el nombre del propietario (a diferencia de
             // Installment, que ya lo trae resuelto). Se arma acá con una sola consulta más,
             // no una por unidad.
             // GetServiceReadingDetailsByBuildingAsync ya filtra por edificio internamente
-            // (ver su comentario en ICalculoService.cs) -- acá sólo hace falta para
+            // (ver su comentario en IWaterCalculationService.cs) -- acá sólo hace falta para
             // resolver nombre de unidad/propietario, que ServiceReadingDetail no trae.
             var propietarios = await BuildingService.GetOwnersByBuildingAsync(idBuilding);
             var nombrePorUnidad = propietarios

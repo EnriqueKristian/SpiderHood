@@ -1,8 +1,8 @@
-﻿@page "/calculoagua"
+﻿@page "/watercalculation"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject ICalculoService CalculoService
+@inject IWaterCalculationService WaterCalculationService
 @inject SpiderHood.Services.ParameterService ParameterService
 
 <div class="agua-calculator">
@@ -190,9 +190,9 @@
 
     private Departamento departamento = new();
     private decimal cargoFijo = 5.04m;
-    private CalculoResultado? resultado;
+    private CalculationResult? resultado;
     private List<ConsumoHistorico> historicoConsumo = new();
-    private List<TarifaAgua> tarifas = new();
+    private List<WaterRate> tarifas = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -202,14 +202,14 @@
 
     private async Task CargarTarifas()
     {
-        tarifas = await CalculoService.ObtenerTarifasAsync();
+        tarifas = await WaterCalculationService.ObtenerTarifasAsync();
     }
 
     private async Task CargarHistorico()
     {
         if (departamento.Id > 0)
         {
-            historicoConsumo = await CalculoService.ObtenerHistoricoAsync(departamento.Id);
+            historicoConsumo = await WaterCalculationService.ObtenerHistoricoAsync(departamento.Id);
         }
     }
 
@@ -217,7 +217,7 @@
     {
         if (departamento.ConsumoActual > 0)
         {
-            resultado = await CalculoService.CalcularConsumoAsync(departamento.ConsumoActual, cargoFijo);
+            resultado = await WaterCalculationService.CalcularConsumoAsync(departamento.ConsumoActual, cargoFijo);
         }
     }
 
@@ -225,7 +225,7 @@
     {
         if (departamento.ConsumoActual > 0)
         {
-            await CalculoService.GuardarLecturaAsync(departamento);
+            await WaterCalculationService.GuardarLecturaAsync(departamento);
             await CargarHistorico();
             await Calcular();
         }

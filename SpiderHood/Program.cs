@@ -199,7 +199,7 @@ builder.Services.AddScoped<IParameterPromotionService, ParameterPromotionService
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
-builder.Services.AddScoped<ICalculoService, CalculoService>();
+builder.Services.AddScoped<IWaterCalculationService, WaterCalculationService>();
 builder.Services.AddScoped<IExceptionService, ExceptionService>();
 builder.Services.AddScoped<IPeriodService, PeriodService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();

@@ -34,7 +34,7 @@ namespace SpiderHood.Models
         public double Consumo { get; set; }
     }
 
-    public class TarifaAgua
+    public class WaterRate
     {
         public int Id { get; set; }
         public string Rango { get; set; } = string.Empty;
@@ -58,17 +58,17 @@ namespace SpiderHood.Models
         }
     }
 
-    public class CalculoResultado
+    public class CalculationResult
     {
         public decimal Subtotal { get; set; }
         public decimal CargoFijo { get; set; }
         public decimal TotalSinIGV { get; set; }
         public decimal IGV { get; set; } = 0.18m; // 18%
         public decimal TotalConIGV => TotalSinIGV * (1 + IGV);
-        public List<DetalleCalculo> Detalles { get; set; } = [];
+        public List<CalculationLineItem> Detalles { get; set; } = [];
     }
 
-    public class DetalleCalculo
+    public class CalculationLineItem
     {
         public string Rango { get; set; } = string.Empty;
         public double Consumo { get; set; }
@@ -94,7 +94,7 @@ namespace SpiderHood.Models
         [NotMapped]
         public bool Procesed { get; set; } = false;
         [NotMapped]
-        public CalculoResultado? CalculationDetail { get; set; }
+        public CalculationResult? CalculationDetail { get; set; }
         // Motivo por el que esta fila NO pasó la validación al importar el Excel (ej.
         // "Dpto. no encontrado", "Lectura Final menor que Inicial"). Null/vacío = fila
         // válida. Se muestra resaltada en rojo en la vista previa para que el usuario la

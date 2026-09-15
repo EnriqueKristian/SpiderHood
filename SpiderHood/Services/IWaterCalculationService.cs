@@ -8,11 +8,11 @@ using SpiderHood.Models;
 
 namespace SpiderHood.Services
 {
-    public interface ICalculoService
+    public interface IWaterCalculationService
     {
-        Task<List<TarifaAgua>> ObtenerTarifasAsync();
-        Task GuardarTarifasAsync(List<TarifaAgua> tarifas);
-        Task<CalculoResultado> CalcularConsumoAsync(double consumo, decimal cargoFijo);
+        Task<List<WaterRate>> ObtenerTarifasAsync();
+        Task GuardarTarifasAsync(List<WaterRate> tarifas);
+        Task<CalculationResult> CalcularConsumoAsync(double consumo, decimal cargoFijo);
         Task<List<ConsumoHistorico>> ObtenerHistoricoAsync(int departamentoId);
         Task GuardarLecturaAsync(Departamento departamento);
         // unidades: lista de unidades del edificio (para resolver IdGroupUnit en la
@@ -33,13 +33,13 @@ namespace SpiderHood.Services
     }
 
     // Implementación del servicio
-    public class CalculoService : ICalculoService
+    public class WaterCalculationService : IWaterCalculationService
     {
-        private List<TarifaAgua> _tarifas = [];
+        private List<WaterRate> _tarifas = [];
         private List<ConsumoHistorico> _historicos = [];
         private BDLayout ec { get; set; }
 
-        public CalculoService(IDbContextFactory<SpiderHoodContext> contextFactory)
+        public WaterCalculationService(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
             // Tarifas por defecto según la tabla proporcionada
             _tarifas = [
@@ -58,20 +58,20 @@ namespace SpiderHood.Services
             ec = new BDLayout(contextFactory);
         }
 
-        public Task<List<TarifaAgua>> ObtenerTarifasAsync()
+        public Task<List<WaterRate>> ObtenerTarifasAsync()
         {
             return Task.FromResult(_tarifas);
         }
 
-        public Task GuardarTarifasAsync(List<TarifaAgua> tarifas)
+        public Task GuardarTarifasAsync(List<WaterRate> tarifas)
         {
             _tarifas = tarifas;
             return Task.CompletedTask;
         }
 
-        public Task<CalculoResultado> CalcularConsumoAsync(double consumo, decimal cargoFijo)
+        public Task<CalculationResult> CalcularConsumoAsync(double consumo, decimal cargoFijo)
         {
-            var resultado = new CalculoResultado
+            var resultado = new CalculationResult
             {
                 CargoFijo = cargoFijo
             };
@@ -100,7 +100,7 @@ namespace SpiderHood.Services
                     decimal monto = (decimal)consumoEnRango * tarifa.Total;
                     subtotal += monto;
 
-                    resultado.Detalles.Add(new DetalleCalculo
+                    resultado.Detalles.Add(new CalculationLineItem
                     {
                         Rango = tarifa.Rango,
                         Consumo = consumoEnRango,

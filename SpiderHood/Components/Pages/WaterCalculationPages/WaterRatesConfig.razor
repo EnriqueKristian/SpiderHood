@@ -2,7 +2,7 @@
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject ICalculoService CalculoService
+@inject IWaterCalculationService WaterCalculationService
 @inject NavigationManager Navigation
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
@@ -103,7 +103,7 @@ else
 }
 
 @code {
-    private List<TarifaAgua> tarifas = new();
+    private List<WaterRate> tarifas = new();
     private bool _loading = true;
     private bool _canManageWaterReadings;
 
@@ -113,13 +113,13 @@ else
         _canManageWaterReadings = await PermissionService.HasPermissionAsync(currentUser, "manage_water_readings");
         _loading = false;
 
-        tarifas = await CalculoService.ObtenerTarifasAsync();
+        tarifas = await WaterCalculationService.ObtenerTarifasAsync();
     }
 
     private void AgregarTarifa()
     {
         if (!_canManageWaterReadings) return;
-        var nuevaTarifa = new TarifaAgua
+        var nuevaTarifa = new WaterRate
         {
             Id = tarifas.Count + 1,
             Rango = $"R{tarifas.Count + 1}",
@@ -132,7 +132,7 @@ else
         tarifas.Add(nuevaTarifa);
     }
 
-    private void EliminarTarifa(TarifaAgua tarifa)
+    private void EliminarTarifa(WaterRate tarifa)
     {
         if (!_canManageWaterReadings) return;
         tarifas.Remove(tarifa);
@@ -146,13 +146,13 @@ else
     private async Task GuardarConfiguracion()
     {
         if (!_canManageWaterReadings) return;
-        await CalculoService.GuardarTarifasAsync(tarifas);
+        await WaterCalculationService.GuardarTarifasAsync(tarifas);
         VolverAlCalculo();
     }
 
     private async Task RestablecerValores()
     {
-        tarifas = await CalculoService.ObtenerTarifasAsync();
+        tarifas = await WaterCalculationService.ObtenerTarifasAsync();
     }
 
     private void VolverAlCalculo()

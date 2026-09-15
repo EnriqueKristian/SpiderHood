@@ -4,7 +4,7 @@
 @using SpiderHood.Services
 @using SpiderHood.Utilities
 @using System.Globalization
-@inject ICalculoService CalculoService
+@inject IWaterCalculationService WaterCalculationService
 @inject NavigationManager Navigation
 @inject ParameterService ParameterService
 @using ClosedXML.Excel
@@ -571,7 +571,7 @@
     private async Task ConfigurarPeriodoInicial()
     {
         //Obtener el último período registrado
-        readings = await CalculoService.GetServiceReadingsAsync(ParameterService.CurrentBuilding.IdBuilding);
+        readings = await WaterCalculationService.GetServiceReadingsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         _ServiceReadingState.Period = _period;
 
@@ -624,7 +624,7 @@
                     _ServiceReadingState.CurrentReading = nuevoPeriodo;
                 }
 
-                _ServiceReadingState.CurrentReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(periodo, ParameterService.CurrentBuilding.IdBuilding);
+                _ServiceReadingState.CurrentReadingDetail = await WaterCalculationService.ObtenerLecturasPorPeriodoAsync(periodo, ParameterService.CurrentBuilding.IdBuilding);
 
                 if (_ServiceReadingState.CurrentReadingDetail.Count > 0)
                 {
@@ -653,7 +653,7 @@
                 else
                 {
                     var periodoAnterior = periodo.AddMonths(-1);
-                    _ServiceReadingState.PreviousReadingDetail = await CalculoService.ObtenerLecturasPorPeriodoAsync(periodoAnterior, ParameterService.CurrentBuilding.IdBuilding);
+                    _ServiceReadingState.PreviousReadingDetail = await WaterCalculationService.ObtenerLecturasPorPeriodoAsync(periodoAnterior, ParameterService.CurrentBuilding.IdBuilding);
                 }
 
                 await OnSaveReady.InvokeAsync(_ServiceReadingState);
@@ -713,7 +713,7 @@
             var esPrimeraCarga = _ServiceReadingState.PreviousReadingDetail == null || !_ServiceReadingState.PreviousReadingDetail.Any();
             var unidadesDelEdificio = await ObtenerUnidadesDelEdificio();
 
-            _ServiceReadingState.CurrentReading = await CalculoService.ImportarDesdeExcelAsync(
+            _ServiceReadingState.CurrentReading = await WaterCalculationService.ImportarDesdeExcelAsync(
                 memoryStream,
                 _ServiceReadingState.CurrentReading,
                 _ServiceReadingState.PreviousReadingDetail ?? new List<ServiceReadingDetail>(),
@@ -769,7 +769,7 @@
         }
         else
         {
-            _ServiceReadingState.CurrentReadingDetail = await CalculoService.ProcesarLecturasBloqueAsync(
+            _ServiceReadingState.CurrentReadingDetail = await WaterCalculationService.ProcesarLecturasBloqueAsync(
                 _lecturasCargadas,
                 _ServiceReadingState.CargoFijo
             );
@@ -809,7 +809,7 @@
             var consumo = lectura.Consumption == 0 ?
                                 value : lectura.Consumption;
 
-            var calculo = await CalculoService.CalcularConsumoAsync(consumo, _ServiceReadingState.CargoFijo);
+            var calculo = await WaterCalculationService.CalcularConsumoAsync(consumo, _ServiceReadingState.CargoFijo);
 
             lectura.CalculationDetail = calculo;
             lectura.CalculatedAmount = calculo.TotalConIGV;

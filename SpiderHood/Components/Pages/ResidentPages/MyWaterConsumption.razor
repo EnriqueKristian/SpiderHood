@@ -3,7 +3,7 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @using SpiderHood.Utilities
-@inject ICalculoService CalculoService
+@inject IWaterCalculationService WaterCalculationService
 @inject SpiderHood.Services.AuthService AuthService
 @inject ParameterService ParameterService
 @inject IJSRuntime JSRuntime
@@ -136,7 +136,7 @@
     private bool _loading = true;
     private Guid? _unitId;
     private List<Models.ServiceReadingDetail> _lecturas = new();
-    private List<TarifaAgua> _tarifas = new();
+    private List<WaterRate> _tarifas = new();
     private bool _debeRedibujarGrafico;
 
     // Últimos 12 meses -- suficiente para ver la tendencia reciente sin cargar años de
@@ -199,7 +199,7 @@
             if (_unitId != null && ParameterService.CurrentBuilding != null)
             {
                 var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
-                var todasLasLecturas = await CalculoService.GetServiceReadingDetailsByBuildingAsync(idBuilding, fechaDesde, fechaHasta);
+                var todasLasLecturas = await WaterCalculationService.GetServiceReadingDetailsByBuildingAsync(idBuilding, fechaDesde, fechaHasta);
 
                 _lecturas = todasLasLecturas
                     .Where(l => l.IdGroupUnit == _unitId)
@@ -214,7 +214,7 @@
                     .GroupBy(l => l.Period.Date)
                     .ToDictionary(g => g.Key, g => g.Average(l => l.Consumption));
 
-                _tarifas = await CalculoService.ObtenerTarifasAsync();
+                _tarifas = await WaterCalculationService.ObtenerTarifasAsync();
             }
         }
         finally

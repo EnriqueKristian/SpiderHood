@@ -360,6 +360,28 @@ namespace SpiderHood.Data
             public const string UPD_ConfiguracionFeriados = "UPD_ConfiguracionFeriados";
             public const string DEL_ConfiguracionFeriados = "DEL_ConfiguracionFeriados";
             public const string GET_FeriadosByAccountAndYear = "GET_FeriadosByAccountAndYear";
+
+            // Personal y Planillas -- Fase 2 (Database/Scripts/2026-09-15_109_Personal_Planillas_Fase2.sql)
+            public const string INS_ConfiguracionRegimenLaboral = "INS_ConfiguracionRegimenLaboral";
+            public const string GET_ConfiguracionRegimenLaboralVigente = "GET_ConfiguracionRegimenLaboralVigente";
+            public const string GET_ConfiguracionRegimenLaboralHistorial = "GET_ConfiguracionRegimenLaboralHistorial";
+
+            public const string INS_ParametrosLegales = "INS_ParametrosLegales";
+            public const string UPD_ParametrosLegales = "UPD_ParametrosLegales";
+            public const string GET_ParametrosLegalesByAccountAndYear = "GET_ParametrosLegalesByAccountAndYear";
+
+            public const string INS_Vacaciones = "INS_Vacaciones";
+            public const string UPD_VacacionesEstado = "UPD_VacacionesEstado";
+            public const string GET_VacacionesByPersonal = "GET_VacacionesByPersonal";
+            public const string GET_VacacionesPendientesByAccount = "GET_VacacionesPendientesByAccount";
+            public const string GET_VacacionesGozadasByPersonalAnio = "GET_VacacionesGozadasByPersonalAnio";
+
+            public const string INS_BoletaPago = "INS_BoletaPago";
+            public const string GET_BoletasByPersonal = "GET_BoletasByPersonal";
+            public const string GET_BoletaById = "GET_BoletaById";
+            public const string GET_BoletasByAccountAndPeriodo = "GET_BoletasByAccountAndPeriodo";
+            public const string INS_BoletaPagoDetalle = "INS_BoletaPagoDetalle";
+            public const string GET_BoletaPagoDetalleByBoleta = "GET_BoletaPagoDetalleByBoleta";
         }
         #endregion
 

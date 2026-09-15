@@ -1,0 +1,168 @@
+@page "/personal/boletas"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPlanillaService PlanillaService
+@inject IAccountService AccountService
+@inject SpiderHood.Services.AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Boletas de pago</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (!_loading && !_isStaff)
+    {
+        <div class="alert alert-warning">No tienes acceso a este módulo.</div>
+    }
+    else if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div class="page-header-title">
+                <div class="icon-badge"><i class="bi bi-receipt"></i></div>
+                <h1 class="h3 fw-bold mb-0">Boletas de pago</h1>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <select class="form-select" style="width:auto" @bind="_mes">
+                    @for (var m = 1; m <= 12; m++)
+                    {
+                        <option value="@m">@System.Globalization.CultureInfo.GetCultureInfo("es-PE").DateTimeFormat.GetMonthName(m)</option>
+                    }
+                </select>
+                <select class="form-select" style="width:auto" @bind="_anio">
+                    @for (var y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+                    {
+                        <option value="@y">@y</option>
+                    }
+                </select>
+                <button class="btn btn-outline-secondary" @onclick="CargarAsync">
+                    <i class="bi bi-search"></i> Ver
+                </button>
+                <button class="btn btn-primary" @onclick="GenerarBoletasDelMes" disabled="@_generando">
+                    @if (_generando)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-lightning-charge me-1"></i>Generar boletas del mes
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_mensajeGeneracion))
+        {
+            <div class="alert @(_erroresGeneracion.Count > 0 ? "alert-warning" : "alert-success")">
+                @_mensajeGeneracion
+                @if (_erroresGeneracion.Count > 0)
+                {
+                    <ul class="mb-0 mt-2">
+                        @foreach (var e in _erroresGeneracion)
+                        {
+                            <li>@e</li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+
+        @if (_boletas.Count == 0)
+        {
+            <p class="text-muted">No hay boletas generadas para este período.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Persona</th>
+                            <th>Cargo</th>
+                            <th>Régimen</th>
+                            <th class="text-end">Ingresos</th>
+                            <th class="text-end">Descuentos</th>
+                            <th class="text-end">Neto</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in _boletas)
+                        {
+                            <tr style="cursor:pointer" @onclick="() => VerDetalle(b.IdBoletaPago)">
+                                <td>@b.Nombres @b.Apellidos</td>
+                                <td>@b.Cargo</td>
+                                <td>@b.TipoRegimen</td>
+                                <td class="text-end">S/ @b.TotalIngresos.ToString("N2")</td>
+                                <td class="text-end">S/ @b.TotalDescuentos.ToString("N2")</td>
+                                <td class="text-end fw-bold">S/ @b.NetoAPagar.ToString("N2")</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => VerDetalle(b.IdBoletaPago)">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private Guid? _idAccount;
+
+    private int _mes = DateTime.Today.Month;
+    private int _anio = DateTime.Today.Year;
+    private List<Models.BoletaPago> _boletas = new();
+
+    private bool _generando;
+    private string? _mensajeGeneracion;
+    private List<string> _erroresGeneracion = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+
+        if (_isStaff)
+        {
+            var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
+            _idAccount = account?.IdAccount;
+            await CargarAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task CargarAsync()
+    {
+        if (_idAccount == null) return;
+        _boletas = await PlanillaService.GetBoletasByAccountAndPeriodoAsync(_idAccount.Value, _anio, _mes);
+    }
+
+    private async Task GenerarBoletasDelMes()
+    {
+        if (_idAccount == null) return;
+
+        _generando = true;
+        _mensajeGeneracion = null;
+        _erroresGeneracion.Clear();
+
+        var (generadas, yaExistian, errores) = await PlanillaService.GenerarBoletasDelMesAsync(_idAccount.Value, _anio, _mes, _currentUser.Email);
+
+        _mensajeGeneracion = $"{generadas} boleta(s) generada(s)" + (yaExistian > 0 ? $", {yaExistian} ya existían" : "") + ".";
+        _erroresGeneracion = errores;
+        _generando = false;
+
+        await CargarAsync();
+    }
+
+    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/personal/boletas/{id}");
+}

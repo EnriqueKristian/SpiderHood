@@ -3,6 +3,7 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject IPersonalService PersonalService
+@inject IPlanillaService PlanillaService
 @inject IAccountService AccountService
 @inject SpiderHood.Services.AuthService AuthService
 @inject NavigationManager Navigation
@@ -171,6 +172,48 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Planillas -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-receipt me-2"></i>Planillas</span>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-secondary" href="/personal/vacaciones"><i class="bi bi-airplane me-1"></i>Vacaciones</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="/personal/boletas"><i class="bi bi-receipt me-1"></i>Boletas</a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <p class="small text-muted mb-1">Saldo de vacaciones @_saldoVacaciones?.Anio</p>
+                                @if (_saldoVacaciones != null)
+                                {
+                                    <p class="mb-0"><strong>@_saldoVacaciones.DiasPendientes</strong> días pendientes de @_saldoVacaciones.DiasGanados ganados (@_saldoVacaciones.DiasGozados gozados)</p>
+                                }
+                            </div>
+                            <div class="col-md-8">
+                                <p class="small text-muted mb-1">Últimas boletas</p>
+                                @if (_boletas.Count == 0)
+                                {
+                                    <p class="text-muted mb-0 small">Sin boletas generadas todavía.</p>
+                                }
+                                else
+                                {
+                                    <ul class="list-unstyled mb-0 small">
+                                        @foreach (var b in _boletas.Take(3))
+                                        {
+                                            <li>
+                                                <a href="/personal/boletas/@b.IdBoletaPago">@b.NombrePeriodo</a> -- Neto S/ @b.NetoAPagar.ToString("N2")
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     }
 </div>
@@ -321,6 +364,8 @@
     private List<Models.AsignacionPersonalEdificio> _asignacionesEdificio = new();
     private List<Models.AsignacionPersonalEdificio> _asignacionesEdificioVigentes => _asignacionesEdificio.Where(a => a.FechaHasta == null).ToList();
     private List<Models.RegistroHoras> _registros = new();
+    private Models.SaldoVacaciones? _saldoVacaciones;
+    private List<Models.BoletaPago> _boletas = new();
 
     private bool _showAsignarTurno;
     private Guid _idTurnoSeleccionado;
@@ -375,6 +420,8 @@
         _asignacionesTurno = await PersonalService.GetAsignacionesTurnoByPersonalAsync(_personal.IdPersonal);
         _asignacionesEdificio = await PersonalService.GetAsignacionesEdificioByPersonalAsync(_personal.IdPersonal);
         _registros = await PersonalService.GetRegistroHorasByPersonalAsync(_personal.IdPersonal, DateTime.Today.AddDays(-30), DateTime.Today);
+        _saldoVacaciones = await PlanillaService.GetSaldoVacacionesAsync(_personal.IdPersonal, _personal.IdAccount, DateTime.Today.Year);
+        _boletas = await PlanillaService.GetBoletasByPersonalAsync(_personal.IdPersonal);
     }
 
     private void Volver() => Navigation.NavigateTo("/personal");

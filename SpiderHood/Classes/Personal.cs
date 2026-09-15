@@ -25,6 +25,9 @@ namespace SpiderHood.Models
         public DateTime CreatedOn { get; set; }
         public string? ModifiedBy { get; set; }
         public DateTime? ModifiedOn { get; set; }
+        // Fase 2 -- Asignación Familiar (Régimen General, S/ 113/mes si tiene
+        // hijos, ver Database/Scripts/2026-09-15_109_Personal_Planillas_Fase2.sql).
+        public bool TieneHijos { get; set; }
 
         public string NombreCompleto => $"{Nombres} {Apellidos}".Trim();
     }

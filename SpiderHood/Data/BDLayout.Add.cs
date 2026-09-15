@@ -1330,7 +1330,8 @@ namespace SpiderHood.Data
                     personal.RemuneracionBase,
                     personal.SistemaPensionario,
                     (object?)personal.Telefono ?? DBNull.Value,
-                    personal.CreatedBy);
+                    personal.CreatedBy,
+                    personal.TieneHijos);
                 return personal;
             }, "AddPersonal", cancellationToken);
         }
@@ -1432,6 +1433,112 @@ namespace SpiderHood.Data
                     feriado.CreatedBy);
                 return feriado;
             }, "AddConfiguracionFeriado", cancellationToken);
+        }
+
+        // Personal y Planillas -- Fase 2
+        public async Task<Models.ConfiguracionRegimenLaboral> AddNewRecordAsync(Models.ConfiguracionRegimenLaboral regimen, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(regimen, nameof(regimen));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ConfiguracionRegimenLaboral,
+                    cancellationToken,
+                    regimen.IdConfiguracionRegimenLaboral,
+                    regimen.IdAccount,
+                    regimen.TipoRegimen,
+                    (object?)regimen.RUC ?? DBNull.Value,
+                    (object?)regimen.RazonSocial ?? DBNull.Value,
+                    regimen.FechaVigenciaDesde,
+                    regimen.CreatedBy);
+                return regimen;
+            }, "AddConfiguracionRegimenLaboral", cancellationToken);
+        }
+
+        public async Task<Models.ParametrosLegales> AddNewRecordAsync(Models.ParametrosLegales parametros, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(parametros, nameof(parametros));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_ParametrosLegales,
+                    cancellationToken,
+                    parametros.IdParametrosLegales,
+                    parametros.IdAccount,
+                    parametros.Anio,
+                    parametros.ValorUIT,
+                    parametros.MontoAsignacionFamiliar,
+                    parametros.CostoSISMensual,
+                    parametros.PorcentajeEsSalud,
+                    parametros.PorcentajeONP,
+                    parametros.PorcentajeAFP,
+                    parametros.CreatedBy);
+                return parametros;
+            }, "AddParametrosLegales", cancellationToken);
+        }
+
+        public async Task<Models.Vacaciones> AddNewRecordAsync(Models.Vacaciones vacaciones, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(vacaciones, nameof(vacaciones));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Vacaciones,
+                    cancellationToken,
+                    vacaciones.IdVacaciones,
+                    vacaciones.IdPersonal,
+                    vacaciones.Anio,
+                    vacaciones.FechaInicio,
+                    vacaciones.FechaFin,
+                    vacaciones.DiasSolicitados,
+                    vacaciones.CreatedBy);
+                return vacaciones;
+            }, "AddVacaciones", cancellationToken);
+        }
+
+        public async Task<Models.BoletaPago> AddNewRecordAsync(Models.BoletaPago boleta, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(boleta, nameof(boleta));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_BoletaPago,
+                    cancellationToken,
+                    boleta.IdBoletaPago,
+                    boleta.IdPersonal,
+                    boleta.Anio,
+                    boleta.Mes,
+                    boleta.TipoRegimen,
+                    boleta.TotalIngresos,
+                    boleta.TotalDescuentos,
+                    boleta.NetoAPagar,
+                    boleta.GeneradoPor);
+                return boleta;
+            }, "AddBoletaPago", cancellationToken);
+        }
+
+        public async Task<Models.BoletaPagoDetalle> AddNewRecordAsync(Models.BoletaPagoDetalle detalle, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(detalle, nameof(detalle));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_BoletaPagoDetalle,
+                    cancellationToken,
+                    detalle.IdBoletaPagoDetalle,
+                    detalle.IdBoletaPago,
+                    detalle.TipoConcepto,
+                    detalle.CodigoConcepto,
+                    detalle.Descripcion,
+                    detalle.Monto,
+                    detalle.EsRemunerativo);
+                return detalle;
+            }, "AddBoletaPagoDetalle", cancellationToken);
         }
         #endregion
     }

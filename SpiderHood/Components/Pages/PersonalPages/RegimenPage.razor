@@ -1,0 +1,327 @@
+@page "/personal/regimen"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPlanillaService PlanillaService
+@inject IAccountService AccountService
+@inject SpiderHood.Services.AuthService AuthService
+
+<PageTitle>Régimen laboral</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (!_loading && !_isStaff)
+    {
+        <div class="alert alert-warning">No tienes acceso a este módulo.</div>
+    }
+    else if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_idAccount == null)
+    {
+        <div class="alert alert-warning">No se encontró una Cuenta asociada a tu usuario.</div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div class="page-header-title">
+                <div class="icon-badge"><i class="bi bi-gear"></i></div>
+                <h1 class="h3 fw-bold mb-0">Régimen laboral</h1>
+            </div>
+        </div>
+        <p class="text-muted">Define el régimen de tu Cuenta y los valores legales vigentes cada año -- de acá sale qué conceptos calcula la boleta de pago.</p>
+
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-briefcase me-2"></i>Régimen vigente</span>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="AbrirNuevoRegimen">
+                            <i class="bi bi-plus-lg"></i> Cambiar régimen
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (_regimenVigente == null)
+                        {
+                            <p class="text-muted mb-0">Sin régimen configurado todavía -- las boletas no se pueden generar hasta configurar uno.</p>
+                        }
+                        else
+                        {
+                            <p class="mb-1"><strong>@TraducirRegimen(_regimenVigente.TipoRegimen)</strong></p>
+                            <p class="text-muted small mb-1">@_regimenVigente.RazonSocial -- RUC @_regimenVigente.RUC</p>
+                            <p class="text-muted small mb-0">Vigente desde @_regimenVigente.FechaVigenciaDesde.ToString("dd/MM/yyyy")</p>
+                        }
+
+                        @if (_historial.Count > 1)
+                        {
+                            <hr />
+                            <p class="small text-muted mb-1">Historial:</p>
+                            <ul class="list-unstyled small text-muted mb-0">
+                                @foreach (var h in _historial.Skip(1))
+                                {
+                                    <li>@TraducirRegimen(h.TipoRegimen) -- desde @h.FechaVigenciaDesde.ToString("dd/MM/yyyy")</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-cash-coin me-2"></i>Parámetros legales @_anioParametros</span>
+                        <select class="form-select form-select-sm" style="width:auto" @bind="_anioParametros" @bind:after="CargarParametrosAsync">
+                            @for (var y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+                            {
+                                <option value="@y">@y</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="card-body">
+                        @if (_parametros == null)
+                        {
+                            <p class="text-muted">Sin configurar para @_anioParametros.</p>
+                            <button class="btn btn-sm btn-primary" @onclick="AbrirNuevoParametros">
+                                <i class="bi bi-plus-lg"></i> Configurar
+                            </button>
+                        }
+                        else
+                        {
+                            <table class="table table-sm mb-2">
+                                <tbody>
+                                    <tr><td>Valor UIT</td><td class="text-end">S/ @_parametros.ValorUIT.ToString("N2")</td></tr>
+                                    <tr><td>Asignación familiar</td><td class="text-end">S/ @_parametros.MontoAsignacionFamiliar.ToString("N2")</td></tr>
+                                    <tr><td>Costo SIS mensual</td><td class="text-end">S/ @_parametros.CostoSISMensual.ToString("N2")</td></tr>
+                                    <tr><td>% EsSalud</td><td class="text-end">@_parametros.PorcentajeEsSalud.ToString("N2")%</td></tr>
+                                    <tr><td>% ONP</td><td class="text-end">@_parametros.PorcentajeONP.ToString("N2")%</td></tr>
+                                    <tr><td>% AFP (aprox.)</td><td class="text-end">@_parametros.PorcentajeAFP.ToString("N2")%</td></tr>
+                                </tbody>
+                            </table>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="AbrirEditarParametros">
+                                <i class="bi bi-pencil"></i> Editar
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_showRegimenModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cambiar régimen laboral</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showRegimenModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small">El cambio aplica desde la fecha que elijas en adelante -- las boletas ya emitidas no se recalculan (sección 11 de la especificación).</div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de régimen</label>
+                        <select class="form-select" @bind="_formRegimen.TipoRegimen">
+                            <option value="@nameof(TipoRegimenLaboral.Microempresa)">Microempresa</option>
+                            <option value="@nameof(TipoRegimenLaboral.PequenaEmpresa)">Pequeña Empresa</option>
+                            <option value="@nameof(TipoRegimenLaboral.RegimenGeneral)">Régimen General</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">RUC</label>
+                            <InputText class="form-control" @bind-Value="_formRegimen.RUC" />
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Vigente desde</label>
+                            <InputDate class="form-control" @bind-Value="_formRegimen.FechaVigenciaDesde" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Razón social</label>
+                        <InputText class="form-control" @bind-Value="_formRegimen.RazonSocial" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showRegimenModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="GuardarRegimen">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showParametrosModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Parámetros legales @_anioParametros</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showParametrosModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Valor UIT</label>
+                            <InputNumber class="form-control" @bind-Value="_formParametros.ValorUIT" />
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Asignación familiar</label>
+                            <InputNumber class="form-control" @bind-Value="_formParametros.MontoAsignacionFamiliar" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Costo SIS mensual</label>
+                            <InputNumber class="form-control" @bind-Value="_formParametros.CostoSISMensual" />
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">% EsSalud</label>
+                            <InputNumber class="form-control" @bind-Value="_formParametros.PorcentajeEsSalud" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">% ONP</label>
+                            <InputNumber class="form-control" @bind-Value="_formParametros.PorcentajeONP" />
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">% AFP (aproximado)</label>
+                            <InputNumber class="form-control" @bind-Value="_formParametros.PorcentajeAFP" />
+                        </div>
+                    </div>
+                    <div class="form-text">Valores de referencia -- verifícalos con tu contador antes de usarlos para generar boletas.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showParametrosModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="GuardarParametros">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private Guid? _idAccount;
+
+    private Models.ConfiguracionRegimenLaboral? _regimenVigente;
+    private List<Models.ConfiguracionRegimenLaboral> _historial = new();
+    private bool _showRegimenModal;
+    private Models.ConfiguracionRegimenLaboral _formRegimen = new();
+
+    private int _anioParametros = DateTime.Today.Year;
+    private Models.ParametrosLegales? _parametros;
+    private bool _showParametrosModal;
+    private bool _editandoParametros;
+    private Models.ParametrosLegales _formParametros = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+
+        if (_isStaff)
+        {
+            var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
+            _idAccount = account?.IdAccount;
+            if (_idAccount != null)
+            {
+                await CargarRegimenAsync();
+                await CargarParametrosAsync();
+            }
+        }
+
+        _loading = false;
+    }
+
+    private async Task CargarRegimenAsync()
+    {
+        _regimenVigente = await PlanillaService.GetRegimenVigenteAsync(_idAccount!.Value);
+        _historial = await PlanillaService.GetHistorialRegimenAsync(_idAccount.Value);
+    }
+
+    private async Task CargarParametrosAsync()
+    {
+        _parametros = await PlanillaService.GetParametrosLegalesAsync(_idAccount!.Value, _anioParametros);
+    }
+
+    private void AbrirNuevoRegimen()
+    {
+        _formRegimen = new Models.ConfiguracionRegimenLaboral
+        {
+            TipoRegimen = _regimenVigente?.TipoRegimen ?? nameof(TipoRegimenLaboral.Microempresa),
+            RUC = _regimenVigente?.RUC,
+            RazonSocial = _regimenVigente?.RazonSocial,
+            FechaVigenciaDesde = DateTime.Today
+        };
+        _showRegimenModal = true;
+    }
+
+    private async Task GuardarRegimen()
+    {
+        _formRegimen.IdAccount = _idAccount!.Value;
+        _formRegimen.CreatedBy = _currentUser.Email;
+        await PlanillaService.CrearRegimenAsync(_formRegimen);
+        _showRegimenModal = false;
+        await CargarRegimenAsync();
+    }
+
+    private void AbrirNuevoParametros()
+    {
+        _formParametros = new Models.ParametrosLegales { Anio = _anioParametros };
+        _editandoParametros = false;
+        _showParametrosModal = true;
+    }
+
+    private void AbrirEditarParametros()
+    {
+        if (_parametros == null) return;
+        _formParametros = new Models.ParametrosLegales
+        {
+            IdParametrosLegales = _parametros.IdParametrosLegales,
+            IdAccount = _parametros.IdAccount,
+            Anio = _parametros.Anio,
+            ValorUIT = _parametros.ValorUIT,
+            MontoAsignacionFamiliar = _parametros.MontoAsignacionFamiliar,
+            CostoSISMensual = _parametros.CostoSISMensual,
+            PorcentajeEsSalud = _parametros.PorcentajeEsSalud,
+            PorcentajeONP = _parametros.PorcentajeONP,
+            PorcentajeAFP = _parametros.PorcentajeAFP
+        };
+        _editandoParametros = true;
+        _showParametrosModal = true;
+    }
+
+    private async Task GuardarParametros()
+    {
+        if (_editandoParametros)
+        {
+            await PlanillaService.ActualizarParametrosLegalesAsync(_formParametros);
+        }
+        else
+        {
+            _formParametros.IdAccount = _idAccount!.Value;
+            _formParametros.Anio = _anioParametros;
+            _formParametros.CreatedBy = _currentUser.Email;
+            await PlanillaService.CrearParametrosLegalesAsync(_formParametros);
+        }
+
+        _showParametrosModal = false;
+        await CargarParametrosAsync();
+    }
+
+    private static string TraducirRegimen(string tipoRegimen) => tipoRegimen switch
+    {
+        nameof(TipoRegimenLaboral.Microempresa) => "Microempresa",
+        nameof(TipoRegimenLaboral.PequenaEmpresa) => "Pequeña Empresa",
+        nameof(TipoRegimenLaboral.RegimenGeneral) => "Régimen General",
+        _ => tipoRegimen
+    };
+}

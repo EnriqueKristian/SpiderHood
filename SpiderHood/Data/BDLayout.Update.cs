@@ -927,7 +927,8 @@ namespace SpiderHood.Data
                     (object?)personal.Telefono ?? DBNull.Value,
                     personal.IsActive,
                     (object?)personal.FechaCese ?? DBNull.Value,
-                    personal.ModifiedBy!);
+                    personal.ModifiedBy!,
+                    personal.TieneHijos);
                 return personal;
             }, "UpdatePersonal", cancellationToken);
         }
@@ -1000,6 +1001,41 @@ namespace SpiderHood.Data
                     feriado.Tipo);
                 return feriado;
             }, "UpdateConfiguracionFeriado", cancellationToken);
+        }
+
+        // Personal y Planillas -- Fase 2
+        public async Task<Models.ParametrosLegales> UpdateRecordAsync(Models.ParametrosLegales parametros, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(parametros, nameof(parametros));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ParametrosLegales,
+                    cancellationToken,
+                    parametros.IdParametrosLegales,
+                    parametros.ValorUIT,
+                    parametros.MontoAsignacionFamiliar,
+                    parametros.CostoSISMensual,
+                    parametros.PorcentajeEsSalud,
+                    parametros.PorcentajeONP,
+                    parametros.PorcentajeAFP);
+                return parametros;
+            }, "UpdateParametrosLegales", cancellationToken);
+        }
+
+        public async Task UpdateVacacionesEstadoAsync(Guid idVacaciones, string estado, Guid idAprobador, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_VacacionesEstado,
+                    cancellationToken,
+                    idVacaciones,
+                    estado,
+                    idAprobador);
+                return true;
+            }, "UpdateVacacionesEstado", cancellationToken);
         }
         #endregion
     }

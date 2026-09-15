@@ -1353,6 +1353,104 @@ namespace SpiderHood.Data
                 return await ExecuteQueryListAsync<Models.ConfiguracionFeriado>(StoredProcedures.GET_FeriadosByAccountAndYear, (object?)idAccount ?? DBNull.Value, anio);
             }, "GetFeriadosByAccountAndYear", cancellationToken);
         }
+
+        // Personal y Planillas -- Fase 2
+        public async Task<Models.ConfiguracionRegimenLaboral?> GetConfiguracionRegimenLaboralVigenteAsync(Guid idAccount, DateTime? fecha = null, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQuerySingleAsync<Models.ConfiguracionRegimenLaboral>(StoredProcedures.GET_ConfiguracionRegimenLaboralVigente, idAccount, (object?)fecha ?? DBNull.Value);
+            }, "GetConfiguracionRegimenLaboralVigente", cancellationToken);
+        }
+
+        public async Task<List<Models.ConfiguracionRegimenLaboral>> GetConfiguracionRegimenLaboralHistorialAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.ConfiguracionRegimenLaboral>(StoredProcedures.GET_ConfiguracionRegimenLaboralHistorial, idAccount);
+            }, "GetConfiguracionRegimenLaboralHistorial", cancellationToken);
+        }
+
+        public async Task<Models.ParametrosLegales?> GetParametrosLegalesByAccountAndYearAsync(Guid idAccount, int anio, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQuerySingleAsync<Models.ParametrosLegales>(StoredProcedures.GET_ParametrosLegalesByAccountAndYear, idAccount, anio);
+            }, "GetParametrosLegalesByAccountAndYear", cancellationToken);
+        }
+
+        public async Task<List<Models.Vacaciones>> GetVacacionesByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Vacaciones>(StoredProcedures.GET_VacacionesByPersonal, idPersonal);
+            }, "GetVacacionesByPersonal", cancellationToken);
+        }
+
+        public async Task<List<Models.Vacaciones>> GetVacacionesPendientesByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Vacaciones>(StoredProcedures.GET_VacacionesPendientesByAccount, idAccount);
+            }, "GetVacacionesPendientesByAccount", cancellationToken);
+        }
+
+        // Escalar (un int) -- no un Models.* completo, así que se pide con
+        // SqlQueryRaw en vez de ExecuteQueryListAsync<T> (mismo motivo que
+        // GetTransactionByOriginalReferenceAsync más arriba).
+        public async Task<int> GetVacacionesGozadasByPersonalAnioAsync(Guid idPersonal, int anio, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var dbContext = await RentContextAsync(cancellationToken);
+                try
+                {
+                    var sql = $"EXEC {StoredProcedures.GET_VacacionesGozadasByPersonalAnio} @p0, @p1";
+                    var resultados = await dbContext.Database
+                        .SqlQueryRaw<int>(sql,
+                            new SqlParameter("@p0", idPersonal),
+                            new SqlParameter("@p1", anio))
+                        .ToListAsync(cancellationToken);
+                    return resultados.Count > 0 ? resultados[0] : 0;
+                }
+                finally
+                {
+                    ReturnContext(dbContext);
+                }
+            }, "GetVacacionesGozadasByPersonalAnio", cancellationToken);
+        }
+
+        public async Task<List<Models.BoletaPago>> GetBoletasByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.BoletaPago>(StoredProcedures.GET_BoletasByPersonal, idPersonal);
+            }, "GetBoletasByPersonal", cancellationToken);
+        }
+
+        public async Task<Models.BoletaPago?> GetBoletaByIdAsync(Guid idBoletaPago, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQuerySingleAsync<Models.BoletaPago>(StoredProcedures.GET_BoletaById, idBoletaPago);
+            }, "GetBoletaById", cancellationToken);
+        }
+
+        public async Task<List<Models.BoletaPago>> GetBoletasByAccountAndPeriodoAsync(Guid idAccount, int anio, int mes, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.BoletaPago>(StoredProcedures.GET_BoletasByAccountAndPeriodo, idAccount, anio, mes);
+            }, "GetBoletasByAccountAndPeriodo", cancellationToken);
+        }
+
+        public async Task<List<Models.BoletaPagoDetalle>> GetBoletaPagoDetalleByBoletaAsync(Guid idBoletaPago, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.BoletaPagoDetalle>(StoredProcedures.GET_BoletaPagoDetalleByBoleta, idBoletaPago);
+            }, "GetBoletaPagoDetalleByBoleta", cancellationToken);
+        }
         #endregion
     }
 }

@@ -1,0 +1,163 @@
+@page "/personal/boletas/{Id:guid}"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IPlanillaService PlanillaService
+@inject SpiderHood.Services.AuthService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Boleta de pago</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (!_isStaff)
+    {
+        <div class="alert alert-warning">No tienes acceso a este módulo.</div>
+    }
+    else if (_boleta == null)
+    {
+        <div class="alert alert-danger">No se encontró la boleta.</div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center mb-3">
+            <div class="page-header-title">
+                <button class="btn btn-sm btn-outline-secondary me-3" @onclick="Volver"><i class="bi bi-arrow-left"></i></button>
+                <div>
+                    <h1 class="h4 fw-bold mb-0">@_boleta.NombrePersonal</h1>
+                    <div class="text-muted small">Boleta de @char.ToUpper(_boleta.NombrePeriodo[0])@_boleta.NombrePeriodo.Substring(1)</div>
+                </div>
+            </div>
+            <button class="btn btn-primary" @onclick="Descargar" disabled="@_descargando">
+                @if (_descargando)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="bi bi-download me-1"></i>Descargar PDF
+            </button>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">Trabajador</div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong>@_boleta.NombrePersonal</strong></p>
+                        <p class="mb-1 text-muted small">DNI @_boleta.DNI -- @_boleta.Cargo</p>
+                        <p class="mb-1 text-muted small">Ingreso: @_boleta.FechaIngreso?.ToString("dd/MM/yyyy")</p>
+                        <p class="mb-0 text-muted small">Sistema pensionario: @_boleta.SistemaPensionario -- Régimen: @_boleta.TipoRegimen</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">Resumen</div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between"><span>Total ingresos</span><strong>S/ @_boleta.TotalIngresos.ToString("N2")</strong></div>
+                        <div class="d-flex justify-content-between"><span>Total descuentos</span><strong>S/ @_boleta.TotalDescuentos.ToString("N2")</strong></div>
+                        <hr />
+                        <div class="d-flex justify-content-between fs-5"><span>Neto a pagar</span><strong class="text-success">S/ @_boleta.NetoAPagar.ToString("N2")</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">Detalle de conceptos</div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Concepto</th>
+                                        <th class="text-end">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var d in _boleta.Detalle)
+                                    {
+                                        <tr>
+                                            <td><span class="badge @BadgeClase(d.TipoConcepto)">@TraducirTipo(d.TipoConcepto)</span></td>
+                                            <td>@d.Descripcion</td>
+                                            <td class="text-end">S/ @d.Monto.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-muted small mb-0">Los aportes a cargo del empleador (EsSalud/SIS) son informativos -- no afectan el neto a pagar del trabajador.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private UserSession _currentUser = new();
+    private bool _isStaff;
+    private bool _loading = true;
+    private bool _descargando;
+    private Models.BoletaPago? _boleta;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _isStaff = _currentUser.Roles.Contains("Administrador") || _currentUser.Roles.Contains("SysAdmin");
+
+        if (_isStaff)
+        {
+            _boleta = await PlanillaService.GetBoletaConDetalleAsync(Id);
+        }
+
+        _loading = false;
+    }
+
+    private void Volver() => Navigation.NavigateTo("/personal/boletas");
+
+    private async Task Descargar()
+    {
+        if (_boleta == null) return;
+
+        _descargando = true;
+        try
+        {
+            var regimen = await PlanillaService.GetRegimenVigenteAsync(_boleta.IdAccount!.Value, new DateTime(_boleta.Anio, _boleta.Mes, 1));
+            var exportService = new BoletaPagoExportService(_boleta, regimen?.RazonSocial, regimen?.RUC);
+            var pdfBytes = exportService.GeneratePdf();
+
+            await JSRuntime.InvokeVoidAsync("openPdfInNewTab",
+                Convert.ToBase64String(pdfBytes),
+                $"Boleta_{_boleta.NombrePersonal.Replace(" ", "_")}_{_boleta.Anio}{_boleta.Mes:00}.pdf");
+        }
+        finally
+        {
+            _descargando = false;
+        }
+    }
+
+    private static string TraducirTipo(string tipoConcepto) => tipoConcepto switch
+    {
+        "Ingreso" => "Ingreso",
+        "DescuentoTrabajador" => "Descuento",
+        "AporteEmpleador" => "Aporte empleador",
+        _ => tipoConcepto
+    };
+
+    private static string BadgeClase(string tipoConcepto) => tipoConcepto switch
+    {
+        "Ingreso" => "bg-success",
+        "DescuentoTrabajador" => "bg-warning text-dark",
+        "AporteEmpleador" => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

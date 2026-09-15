@@ -143,6 +143,10 @@
                                 <option value="AFP">AFP</option>
                             </select>
                         </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" @bind="_form.TieneHijos" id="chkTieneHijos" />
+                            <label class="form-check-label" for="chkTieneHijos">Tiene hijos (asignación familiar, Régimen General)</label>
+                        </div>
                         @if (_editando)
                         {
                             <div class="form-check form-switch">
@@ -224,7 +228,8 @@
             RemuneracionBase = p.RemuneracionBase,
             SistemaPensionario = p.SistemaPensionario,
             Telefono = p.Telefono,
-            IsActive = p.IsActive
+            IsActive = p.IsActive,
+            TieneHijos = p.TieneHijos
         };
         _editando = true;
         _error = null;

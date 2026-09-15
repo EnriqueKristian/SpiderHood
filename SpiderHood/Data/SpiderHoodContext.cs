@@ -136,6 +136,14 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.RegistroHoras>().HasNoKey();
             modelBuilder.Entity<Models.ConfiguracionFeriado>().HasNoKey();
 
+            // Módulo Personal y Planillas -- Fase 2, ver
+            // Database/Scripts/2026-09-15_109_Personal_Planillas_Fase2.sql.
+            modelBuilder.Entity<Models.ConfiguracionRegimenLaboral>().HasNoKey();
+            modelBuilder.Entity<Models.ParametrosLegales>().HasNoKey();
+            modelBuilder.Entity<Models.Vacaciones>().HasNoKey();
+            modelBuilder.Entity<Models.BoletaPago>().HasNoKey();
+            modelBuilder.Entity<Models.BoletaPagoDetalle>().HasNoKey();
+
             base.OnModelCreating(modelBuilder);
         }
     }

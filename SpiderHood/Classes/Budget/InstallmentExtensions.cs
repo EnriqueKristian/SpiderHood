@@ -3,7 +3,7 @@ using System.Globalization;
 namespace SpiderHood.Models
 {
     // Extension methods para utilidades
-    public static class CuotaExtensions
+    public static class InstallmentExtensions
     {
         // BuildingConfiguration.Currency (PEN/USD/EUR, ver Classes/Building.cs) es la
         // moneda con la que transacciona CADA edificio -- .ToString("C")/"C2" (que se

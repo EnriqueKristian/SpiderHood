@@ -12,7 +12,7 @@ namespace SpiderHood.Components.Pages
         private Guid IdBuilding = Guid.Empty;
 
         // Formatea siempre en la moneda configurada del edificio actual (BuildingConfiguration.Currency),
-        // no en la del server -- ver CuotaExtensions.FormatoMoneda.
+        // no en la del server -- ver InstallmentExtensions.FormatoMoneda.
         private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
         [Inject]

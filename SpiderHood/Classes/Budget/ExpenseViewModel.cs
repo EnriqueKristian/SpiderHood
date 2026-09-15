@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace SpiderHood.Models
 {
     // ViewModel para Gasto
-    public class GastoViewModel
+    public class ExpenseViewModel
     {
         public int Id { get; set; }
         public string CategoriaNombre { get; set; } = string.Empty;

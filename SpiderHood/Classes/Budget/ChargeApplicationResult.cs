@@ -2,7 +2,7 @@ namespace SpiderHood.Models
 {
     // Resultado de correr el proceso de Multas y Mora: qué se generó en esta corrida
     // (no es un acumulado histórico, solo lo que se creó ahora).
-    public class AplicacionCargosResultado
+    public class ChargeApplicationResult
     {
         public bool Exito { get; set; } = true;
         public string Mensaje { get; set; } = string.Empty;

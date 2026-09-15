@@ -33,12 +33,12 @@ namespace SpiderHood.Services
                 // Validar que no exista cuota para el mismo periodo
                 //var existeCuota = await _context.CuotasMensuales
                 //var cuotasMensuales = await ec.GetCuotasMensuales(ParameterService.IdBuilding);
-                // If cuotasMensuales is a single CuotaViewModel, check its properties directly
+                // If cuotasMensuales is a single InstallmentViewModel, check its properties directly
                 // If it's a collection, use .Any(...) as below
                 
 
                 bool existeCuota = false;
-                if (cuotasMensuales is IEnumerable<CuotaViewModel> collection)
+                if (cuotasMensuales is IEnumerable<InstallmentViewModel> collection)
                 {
                     existeCuota = collection.Any(c => c.Mes == mes && c.Anio == anio && !c.Procesada);
                 }
@@ -247,16 +247,16 @@ namespace SpiderHood.Services
                 .ToListAsync();*/
         }
 
-        public async Task<List<DetalleCuotaViewModel>> ObtenerDetallesCuotaAsync(int cuotaId)
+        public async Task<List<InstallmentDetailViewModel>> ObtenerDetallesCuotaAsync(int cuotaId)
         {
-            return new List<DetalleCuotaViewModel>(); // await ParameterService.ec.GetDetallesCuotaByCuotaId(cuotaId);
+            return new List<InstallmentDetailViewModel>(); // await ParameterService.ec.GetDetallesCuotaByCuotaId(cuotaId);
             /*
             return await _context.DetallesCuota
                 .Include(d => d.Departamentos)
                 .Include(d => d.Gasto)
                     .ThenInclude(g => g.Categoria)
                 .Where(d => d.CuotaId == cuotaId)
-                .Select(d => new DetalleCuotaViewModel
+                .Select(d => new InstallmentDetailViewModel
                 {
                     Id = d.Id,
                     CuotaId = d.CuotaId,
@@ -276,16 +276,16 @@ namespace SpiderHood.Services
             */
         }
 
-        public async Task<List<GastoViewModel>> ObtenerGastosIncluidosAsync(int cuotaId)
+        public async Task<List<ExpenseViewModel>> ObtenerGastosIncluidosAsync(int cuotaId)
         {
             // Return an empty list to avoid possible null reference return
-            return new List<GastoViewModel>();
+            return new List<ExpenseViewModel>();
             /*
             return await _context.DetallesCuota
                 .Where(d => d.CuotaId == cuotaId)
                 .Select(d => d.Gasto)
                 .Distinct()
-                .Select(g => new GastoViewModel
+                .Select(g => new ExpenseViewModel
                 {
                     Id = g.Id,
                     CategoriaNombre = g.Categoria.Nombre,
@@ -413,7 +413,7 @@ namespace SpiderHood.Services
             throw new NotImplementedException();
         }
 
-        public async Task<ResumenCuota> ObtenerResumenCuotaAsync(int cuotaId)
+        public async Task<InstallmentSummary> ObtenerResumenCuotaAsync(int cuotaId)
         {
             var cuota = await ObtenerCuotaAsync(cuotaId);
             var detalles = await ObtenerDetallesCuotaAsync(cuotaId);
@@ -440,13 +440,13 @@ namespace SpiderHood.Services
                     g => g.Sum(d => d.Monto)
                 );
 
-            var gastosPrincipales = new List<GastoResumen>(); // await ParameterService.ec.GetGastosPrincipales();
+            var gastosPrincipales = new List<ExpenseSummary>(); // await ParameterService.ec.GetGastosPrincipales();
 
             /*var gastosPrincipales = await _context.DetallesCuota
                 .Where(d => d.CuotaId == cuotaId)
                 .Select(d => d.Gasto)
                 .Distinct()
-                .Select(g => new GastoResumen
+                .Select(g => new ExpenseSummary
                 {
                     Categoria = g.Categoria.Nombre,
                     Descripcion = g.Descripcion,
@@ -458,7 +458,7 @@ namespace SpiderHood.Services
                 .ToListAsync();
             */
 
-            return new ResumenCuota
+            return new InstallmentSummary
             {
                 CuotaId = cuotaId,
                 Periodo = $"{GetNombreMes(cuota.Mes)} {cuota.Anio}",

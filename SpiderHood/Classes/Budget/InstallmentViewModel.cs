@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace SpiderHood.Models
 {
-    public class CuotaViewModel
+    public class InstallmentViewModel
     {
         public int Id { get; set; }
         public string Periodo { get; set; } = string.Empty;

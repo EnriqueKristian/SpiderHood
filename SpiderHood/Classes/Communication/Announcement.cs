@@ -81,7 +81,7 @@ namespace SpiderHood.Models
     // Resultado de PublicarAnnouncementAsync -- para mostrarle a quien publica
     // cuántos destinatarios recibieron el comunicado y por qué canal, sin
     // tener que ir a mirar la consola del servidor (mismo espíritu que
-    // CuotaExtraordinariaResultado).
+    // ExtraordinaryInstallmentResult).
     public class PublishAnnouncementResult
     {
         public bool Exito { get; set; }

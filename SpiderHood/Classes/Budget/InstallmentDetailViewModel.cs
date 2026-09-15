@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace SpiderHood.Models
 {
     // ViewModel para Detalle Cuota
-    public class DetalleCuotaViewModel
+    public class InstallmentDetailViewModel
     {
         public int Id { get; set; }
         public int CuotaId { get; set; }

@@ -117,8 +117,8 @@ else
     [Parameter] public int Id { get; set; }
 
     private Models.MonthlyInstallmentBatch cuota = new();
-    private List<DetalleCuotaViewModel> detalles = new();
-    private List<GastoViewModel> gastosIncluidos = new();
+    private List<InstallmentDetailViewModel> detalles = new();
+    private List<ExpenseViewModel> gastosIncluidos = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -137,7 +137,7 @@ else
         return CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(mes);
     }
 
-    private IEnumerable<IGrouping<string, DetalleCuotaViewModel>> detallesPorDepartamento =>
+    private IEnumerable<IGrouping<string, InstallmentDetailViewModel>> detallesPorDepartamento =>
         detalles.GroupBy(d => d.DepartamentoNombre);
 
     private List<string> categoriasUnicas =>

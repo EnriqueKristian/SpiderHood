@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace SpiderHood.Models
 {
-    public class GastoResumen
+    public class ExpenseSummary
     {
         public string Categoria { get; set; } = string.Empty;
         public string Descripcion { get; set; } = string.Empty;

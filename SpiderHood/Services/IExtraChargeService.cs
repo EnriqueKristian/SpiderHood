@@ -27,7 +27,7 @@ namespace SpiderHood.Services
         // periodo de la cuota SIEMPRE es el periodo marcado como Actual del edificio —
         // no se puede elegir un periodo distinto ni aplicar retroactivamente (falla si
         // no hay periodo Actual o si fechaVencimiento ya pasó).
-        Task<CuotaExtraordinariaResultado> GenerarCuotaExtraordinariaAsync(
+        Task<ExtraordinaryInstallmentResult> GenerarCuotaExtraordinariaAsync(
             Guid idBuilding,
             string descripcion,
             DateTime fechaVencimiento,
@@ -43,7 +43,7 @@ namespace SpiderHood.Services
         // por cuota, la primera vez que se detecta vencida) y una Mora = Deuda x
         // TasaInterésMora% x meses de atraso, cobrando solo el incremento respecto de lo
         // ya generado en corridas anteriores para esa misma cuota (sin duplicar).
-        Task<AplicacionCargosResultado> AplicarMultasYMoraAsync(Building building, string usuario);
+        Task<ChargeApplicationResult> AplicarMultasYMoraAsync(Building building, string usuario);
 
         // Cuotas Extraordinarias (mismo mes/año que cada cuota Ordinaria) y Multas/Mora
         // (SourceInstallmentId apuntando a esa cuota Ordinaria) asociadas a las cuotas
@@ -81,14 +81,14 @@ namespace SpiderHood.Services
             return periodos.FirstOrDefault(p => p.IsCurrentPeriod);
         }
 
-        public async Task<CuotaExtraordinariaResultado> GenerarCuotaExtraordinariaAsync(
+        public async Task<ExtraordinaryInstallmentResult> GenerarCuotaExtraordinariaAsync(
             Guid idBuilding,
             string descripcion,
             DateTime fechaVencimiento,
             Dictionary<Guid, decimal> montosPorUnidad,
             string usuario)
         {
-            var resultado = new CuotaExtraordinariaResultado();
+            var resultado = new ExtraordinaryInstallmentResult();
 
             if (string.IsNullOrWhiteSpace(descripcion))
             {
@@ -256,9 +256,9 @@ namespace SpiderHood.Services
             return resultado.OrderBy(i => i.Type).ThenBy(i => i.CreationDate).ToList();
         }
 
-        public async Task<AplicacionCargosResultado> AplicarMultasYMoraAsync(Building building, string usuario)
+        public async Task<ChargeApplicationResult> AplicarMultasYMoraAsync(Building building, string usuario)
         {
-            var resultado = new AplicacionCargosResultado();
+            var resultado = new ChargeApplicationResult();
 
             try
             {

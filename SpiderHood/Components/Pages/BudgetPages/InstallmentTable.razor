@@ -395,7 +395,7 @@
 @code {
 
     // Moneda del edificio actual (BuildingConfiguration.Currency), no la del server --
-    // ver CuotaExtensions.FormatoMoneda.
+    // ver InstallmentExtensions.FormatoMoneda.
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     private void CloseModalManual()

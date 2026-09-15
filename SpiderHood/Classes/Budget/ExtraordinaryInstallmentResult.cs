@@ -2,7 +2,7 @@ namespace SpiderHood.Models
 {
     // Resultado de generar una cuota extraordinaria: cuántas unidades quedaron con
     // cargo y el total repartido, para mostrar una confirmación en la UI.
-    public class CuotaExtraordinariaResultado
+    public class ExtraordinaryInstallmentResult
     {
         public bool Exito { get; set; }
         public string Mensaje { get; set; } = string.Empty;

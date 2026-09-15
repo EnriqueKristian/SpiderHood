@@ -15,13 +15,13 @@ namespace SpiderHood.Services
 
         Task<MonthlyInstallmentBatch> ObtenerCuotaAsync(int cuotaId);
         Task<List<MonthlyInstallmentBatch>> ObtenerCuotasAsync(int? anio = null, int? mes = null);
-        Task<List<DetalleCuotaViewModel>> ObtenerDetallesCuotaAsync(int cuotaId);
-        Task<List<GastoViewModel>> ObtenerGastosIncluidosAsync(int cuotaId);
+        Task<List<InstallmentDetailViewModel>> ObtenerDetallesCuotaAsync(int cuotaId);
+        Task<List<ExpenseViewModel>> ObtenerGastosIncluidosAsync(int cuotaId);
         Task<List<int>> ObtenerAñosDisponiblesAsync();
         Task<bool> ProcesarCuotaAsync(int cuotaId);
         Task<bool> ReversarCuotaAsync(int cuotaId);
         Task<byte[]> ExportarCuotaPDFAsync(int cuotaId);
         Task<byte[]> ExportarCuotaExcelAsync(int cuotaId);
-        Task<ResumenCuota> ObtenerResumenCuotaAsync(int cuotaId);
+        Task<InstallmentSummary> ObtenerResumenCuotaAsync(int cuotaId);
     }
 }

@@ -11,19 +11,19 @@ namespace SpiderHood.Services
         Task AddBankAccount(BankAccount newbank);
         Task UpdateBankAccount(BankAccount bankaccount);
         Task SetInitialBalanceAsync(Guid idBankAccount, decimal initialBalance);
-        Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding);
-        Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync(Guid cuentaId, DateTime desde, DateTime hasta);
-        Task<TransactionBankDetail?> ObtenerTransaccionPorIdAsync(Guid idStatementDetail);
-        Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto);
-        Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion);
-        // "Corregir" (Fase B) para Gastos -- a diferencia de DesconciliarTransaccionAsync
+        Task<List<BankAccount>> GetBankAccountsAsync(Guid IdBulding);
+        Task<List<TransactionBankDetail>> GetTransactionsAsync(Guid cuentaId, DateTime desde, DateTime hasta);
+        Task<TransactionBankDetail?> GetTransactionByIdAsync(Guid idStatementDetail);
+        Task ReconcileTransactionAsync(TransactionBankDetail transaccion, ViewExpense gasto);
+        Task UnreconcileTransactionAsync(TransactionBankDetail transaccion);
+        // "Corregir" (Fase B) para Gastos -- a diferencia de UnreconcileTransactionAsync
         // (nunca tocó la BD, ver comentario en su implementación), esta sí revierte de
         // verdad vía UPD_ExpenseDeReconcilied.
-        Task DesconciliarGastoRealAsync(Guid idStatementDetail, Guid idExpense);
-        Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion, string motivo, IgnoredReasonType tipo);
-        Task<Conciliacion?> ObtenerUltimaConciliacionAsync(Guid idBankAccount);
-        Task GuardarConciliacionAsync(Conciliacion conciliacion);
-        Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato);
+        Task UnreconcileExpenseAsync(Guid idStatementDetail, Guid idExpense);
+        Task MarkTransactionAsIgnoredAsync(TransactionBankDetail transaccion, string motivo, IgnoredReasonType tipo);
+        Task<ReconciliationSession?> GetLastReconciliationAsync(Guid idBankAccount);
+        Task SaveReconciliationAsync(ReconciliationSession conciliacion);
+        Task<List<TransactionBankDetail>> ProcessBankStatementFileAsync(IBrowserFile archivo, string formato);
         Task InstallmentConciliationAsync(TransactionBankDetail transaccion, Installment cuota);
         Task<List<TransactionBankHeader>> GetTransactionsByFileNameAsync(string filename, Guid IdBankAccount);
         Task<List<TransactionBankHeader>> GetMovementHeadersAsync(Guid idBuilding, Guid? idBankAccount);
@@ -32,7 +32,7 @@ namespace SpiderHood.Services
         Task<List<MovDetKey>> GetTransactionsDetailsAsync(Guid IdBankAccount, DateTime minValue, DateTime maxValue);
         Task AddTransactionFromEECCAsync(TransactionBankDetail newtransaction);
         Task AddTransactionBankHeaderAsync(TransactionBankHeader newtransaction);
-        Task CrearTransaccionSobranteAsync(TransactionBankDetail paidexcesc);
+        Task CreateExcessPaymentTransactionAsync(TransactionBankDetail paidexcesc);
     }
 
     public class BankAccountService : IBankAccountService
@@ -219,7 +219,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<List<BankAccount>> ObtenerCuentasBancariasAsync(Guid IdBulding)
+        public async Task<List<BankAccount>> GetBankAccountsAsync(Guid IdBulding)
         {
             try
             {
@@ -233,7 +233,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<List<TransactionBankDetail>> ObtenerTransaccionesAsync(Guid cuentaId, DateTime desde, DateTime hasta)
+        public async Task<List<TransactionBankDetail>> GetTransactionsAsync(Guid cuentaId, DateTime desde, DateTime hasta)
         {
             try
             {
@@ -246,7 +246,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<TransactionBankDetail?> ObtenerTransaccionPorIdAsync(Guid idStatementDetail)
+        public async Task<TransactionBankDetail?> GetTransactionByIdAsync(Guid idStatementDetail)
         {
             try
             {
@@ -259,7 +259,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task ConciliarTransaccionAsync(TransactionBankDetail transaccion, ViewExpense gasto)
+        public async Task ReconcileTransactionAsync(TransactionBankDetail transaccion, ViewExpense gasto)
         {
             Console.WriteLine($"Transacción {transaccion.IdStatementDetail} conciliada con gasto {gasto.IdExpense}");
             await ec.UpdateRecordAsync(transaccion);
@@ -280,20 +280,20 @@ namespace SpiderHood.Services
 
         }
 
-        public async Task DesconciliarTransaccionAsync(TransactionBankDetail transaccion)
+        public async Task UnreconcileTransactionAsync(TransactionBankDetail transaccion)
         {
             await Task.Delay(200);
             Console.WriteLine($"Transacción {transaccion.IdStatementDetail} desconciliada");
         }
 
-        public async Task DesconciliarGastoRealAsync(Guid idStatementDetail, Guid idExpense)
+        public async Task UnreconcileExpenseAsync(Guid idStatementDetail, Guid idExpense)
         {
             await ec.DesconciliarGastoAsync(idStatementDetail, idExpense);
         }
 
         // Docs/Pendientes-Negocio-Conciliacion.md #1 -- antes era un stub que no tocaba la
         // BD (Task.Delay + Console.WriteLine); "Ignorar" no se guardaba en ningún lado.
-        public async Task MarcarTransaccionComoIgnoradaAsync(TransactionBankDetail transaccion, string motivo, IgnoredReasonType tipo)
+        public async Task MarkTransactionAsIgnoredAsync(TransactionBankDetail transaccion, string motivo, IgnoredReasonType tipo)
         {
             try
             {
@@ -310,18 +310,18 @@ namespace SpiderHood.Services
         // siempre el mismo registro inventado (Id=1, "Admin Principal", etc.), sin tocar
         // la BD -- la tarjeta "Última Conciliación" mostraba datos falsos sin importar lo
         // que hubiera pasado realmente. Ahora trae la sesión real más reciente de ESTA
-        // cuenta bancaria (ver GuardarConciliacionAsync).
-        public async Task<Conciliacion?> ObtenerUltimaConciliacionAsync(Guid idBankAccount)
+        // cuenta bancaria (ver SaveReconciliationAsync).
+        public async Task<ReconciliationSession?> GetLastReconciliationAsync(Guid idBankAccount)
         {
             return await ec.GetLastReconciliationSessionAsync(idBankAccount);
         }
 
-        public async Task GuardarConciliacionAsync(Conciliacion conciliacion)
+        public async Task SaveReconciliationAsync(ReconciliationSession conciliacion)
         {
             await ec.AddNewRecordAsync(conciliacion);
         }
 
-        public async Task<List<TransactionBankDetail>> ProcesarArchivoEstadoCuentaAsync(IBrowserFile archivo, string formato)
+        public async Task<List<TransactionBankDetail>> ProcessBankStatementFileAsync(IBrowserFile archivo, string formato)
         {
             // En una implementación real, esto procesaría el archivo
             await Task.Delay(1000);
@@ -330,7 +330,7 @@ namespace SpiderHood.Services
             return new List<TransactionBankDetail>();
         }
 
-        public async Task CrearTransaccionSobranteAsync(TransactionBankDetail paidexcesc)
+        public async Task CreateExcessPaymentTransactionAsync(TransactionBankDetail paidexcesc)
         {
             try
             {

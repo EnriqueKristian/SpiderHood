@@ -176,7 +176,7 @@
                     <div class="card-body py-2">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex gap-3 align-items-center">
-                                @if (ModoFijo == null)
+                                @if (FixedMode == null)
                                 {
                                     <div class="vr"></div>
 
@@ -725,9 +725,9 @@
                                                     </a>
                                                 </li>
                                                 @* "Generar gastos" crea Expense nuevos -- no tiene sentido en la vista de
-                                                   Pagos (ModoFijo="Ingreso"), donde ni siquiera hay gastosPendientes que
+                                                   Pagos (FixedMode="Ingreso"), donde ni siquiera hay gastosPendientes que
                                                    mostrar. *@
-                                                @if (_canReconcileExpenses && ModoFijo != "Ingreso")
+                                                @if (_canReconcileExpenses && FixedMode != "Ingreso")
                                                 {
                                                     <li>
                                                         <a class="dropdown-item" @onclick="GenerarGastosSeleccionados">
@@ -856,11 +856,11 @@
                             {
                                 <div class="alert alert-info">
                                     <div class="small">
-                                        <strong>@ultimaConciliacion.Fecha.ToString("dd/MM/yyyy")</strong><br />
-                                        Por: @ultimaConciliacion.Usuario<br />
+                                        <strong>@ultimaConciliacion.Date.ToString("dd/MM/yyyy")</strong><br />
+                                        Por: @ultimaConciliacion.PerformedBy<br />
                                         Estado: 
-                                        <span class="badge @(ultimaConciliacion.Completada ? "bg-success" : "bg-warning")">
-                                            @(ultimaConciliacion.Completada ? "Completada" : "Pendiente")
+                                        <span class="badge @(ultimaConciliacion.Completed ? "bg-success" : "bg-warning")">
+                                            @(ultimaConciliacion.Completed ? "Completada" : "Pendiente")
                                         </span>
                                     </div>
                                 </div>
@@ -1289,12 +1289,12 @@
 
     // null = vista combinada (Pagos + Gastos, con el toggle Todas/Gastos/Ingresos visible --
     // uso de /ReconcileExpenses, la página vieja, ahora oculta del menú). "Gasto"/"Ingreso" =
-    // vista fija para /ConciliacionGastos y /ConciliacionPagos respectivamente -- mismos datos,
+    // vista fija para /reconcile/expenses y /reconcile/payments respectivamente -- mismos datos,
     // mismo motor de conciliación, sólo cambia qué filtro queda trabado y visible.
     [Parameter]
-    public string? ModoFijo { get; set; }
+    public string? FixedMode { get; set; }
 
-    private string TituloPagina => ModoFijo switch
+    private string TituloPagina => FixedMode switch
     {
         "Gasto" => "Conciliación de Gastos",
         "Ingreso" => "Conciliación de Pagos",
@@ -1370,7 +1370,7 @@
     private int totalTransacciones = 0;
     private int totalCoincidencias = 0;
     private int totalCoincidenciasI = 0;
-    private Conciliacion? ultimaConciliacion = null;
+    private ReconciliationSession? ultimaConciliacion = null;
 
     // Claves ya existentes en BD (ver mapeo de permisos), sin necesidad de script nuevo.
     private bool _canReconcileExpenses;
@@ -1395,7 +1395,7 @@
     // página -- si no, mostrarían números de ambos tipos mezclados aunque la tabla de
     // abajo (GetTransaccionesFiltradas, que sí respeta filtroTipo) sólo muestre uno.
     private IEnumerable<TransactionBankDetail> TransaccionesDelModo =>
-        ModoFijo == null ? transacciones : transacciones.Where(t => t.Tipo == ModoFijo);
+        FixedMode == null ? transacciones : transacciones.Where(t => t.Tipo == FixedMode);
     private List<TransactionBankDetail> transaccionesConciliadas =>
         TransaccionesDelModo.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada).ToList();
     // "No Conciliados" agrupa Pendientes (NoConciliada) y Parciales -- una transacción
@@ -1419,10 +1419,10 @@
         pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
 
         // Vista fija (Pagos o Gastos): arranca ya filtrada por ese tipo -- el toggle
-        // Todas/Gastos/Ingresos queda oculto (ver ModoFijo más arriba), así que sin esto
+        // Todas/Gastos/Ingresos queda oculto (ver FixedMode más arriba), así que sin esto
         // se seguiría viendo la lista completa hasta que el usuario tocara algo.
-        if (ModoFijo != null)
-            filtroTipo = ModoFijo;
+        if (FixedMode != null)
+            filtroTipo = FixedMode;
     }
 
     // ParameterService.CurrentBuilding lo resuelve HeaderMainLayout en SU PROPIO
@@ -1484,7 +1484,7 @@
         try
         {
             // Cargar cuentas bancarias
-            cuentasBancarias = await BankService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            cuentasBancarias = await BankService.GetBankAccountsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // Cargar categorías de gastos
             //categoriasGastos = await ExpenseService.ObtenerCategoriasAsync();
@@ -1525,13 +1525,13 @@
             saldoInicial = cuentasBancarias.FirstOrDefault(c => c.IdBankAccount == cuentaSeleccionadaId)?.InitialBalance ?? 0;
 
             // Docs/Pendientes-Negocio-Conciliacion.md #3 -- antes traía siempre el mismo
-            // registro inventado (ver el comentario de ObtenerUltimaConciliacionAsync);
+            // registro inventado (ver el comentario de GetLastReconciliationAsync);
             // ahora es la sesión real más reciente de esta cuenta bancaria.
-            ultimaConciliacion = await BankService.ObtenerUltimaConciliacionAsync(cuentaSeleccionadaId);
+            ultimaConciliacion = await BankService.GetLastReconciliationAsync(cuentaSeleccionadaId);
 
             // Cargar transacciones del período seleccionado
             var (fechaInicio, fechaFin) = ObtenerFechasPeriodo();
-            transacciones = await BankService.ObtenerTransaccionesAsync(cuentaSeleccionadaId, fechaInicio, fechaFin);
+            transacciones = await BankService.GetTransactionsAsync(cuentaSeleccionadaId, fechaInicio, fechaFin);
 
             // Cargar gastos pendientes del mismo período
             gastosPendientes = await ExpenseService.ObtenerGastosPendientesConciliacionAsync( ParameterService.CurrentBuilding.IdBuilding, fechaInicio, fechaFin);
@@ -1735,9 +1735,9 @@
     // lo usa para saber si de verdad hay algo que cerrar (el usuario pudo cancelar el
     // confirm de abajo, o no haber propuestas para empezar).
     //
-    // Acotado por TransaccionesDelModo (ModoFijo) -- antes usaba `transacciones` a secas,
-    // así que "Finalizar Conciliación" en /ConciliacionGastos también confirmaba propuestas
-    // de Ingreso que estaban pendientes de revisar en /ConciliacionPagos (típicamente los
+    // Acotado por TransaccionesDelModo (FixedMode) -- antes usaba `transacciones` a secas,
+    // así que "Finalizar Conciliación" en /reconcile/expenses también confirmaba propuestas
+    // de Ingreso que estaban pendientes de revisar en /reconcile/payments (típicamente los
     // matches automáticos 1:1, que se auto-proponen para ambos tipos apenas se cargan las
     // transacciones, sin importar en qué pantalla fija estés parado).
     private async Task<bool> EnviarAConciliar()
@@ -1780,14 +1780,14 @@
                         await ExpenseService.AddExpenseAsync(transaccion.ReconciledExpense);
                     }
 
-                    // ConciliarTransaccionAsync graba el ESTADO ACTUAL de `transaccion` (UPDATE
+                    // ReconcileTransactionAsync graba el ESTADO ACTUAL de `transaccion` (UPDATE
                     // directo, sin recibir un status aparte) -- si se llama antes de fijar
                     // ReconciliationStatus = Conciliada, lo que queda grabado en BD es el
                     // NoConciliada viejo. Por eso "Finalizar Conciliación" parecía funcionar
                     // (guardaba algo) pero al recargar la transacción volvía a "No Conciliadas".
                     transaccion.ReconciliationStatus = ConcilationType.Conciliada;
                     transaccion.ReconciliationDate = DateTime.Now;
-                    await BankService.ConciliarTransaccionAsync(transaccion, transaccion.ReconciledExpense);
+                    await BankService.ReconcileTransactionAsync(transaccion, transaccion.ReconciledExpense);
 
                     await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Reconciled,
                         performedBy, idBuilding, $"{(transaccion.AutomaticProposal ? "Automático" : "Manual")} -- Gasto: {transaccion.ReconciledExpense.Description}");
@@ -1959,7 +1959,7 @@
         {
             var gastoAnterior = transaccion.ReconciledExpense;
 
-            await BankService.DesconciliarGastoRealAsync(transaccion.IdStatementDetail, gastoAnterior.IdExpense);
+            await BankService.UnreconcileExpenseAsync(transaccion.IdStatementDetail, gastoAnterior.IdExpense);
 
             transaccion.ReconciliationStatus = ConcilationType.NoConciliada;
             transaccion.ReconciliationDate = null;
@@ -2127,7 +2127,7 @@
     }
 
     // Sólo cubría Gastos (transaccion.PossibleExpenseMatches) -- en la vista de Pagos (Ingresos,
-    // ModoFijo="Ingreso") no hacía absolutamente nada, porque PossibleInstallmentMatches (el
+    // FixedMode="Ingreso") no hacía absolutamente nada, porque PossibleInstallmentMatches (el
     // equivalente para cuotas) nunca se miraba acá. Ahora deja PROPUESTO (Fase B) con el
     // primer match disponible de cada tipo, igual que ya hace el auto-match individual.
     private async Task ConciliarSeleccionadas()
@@ -2202,7 +2202,7 @@
         {
             try
             {
-                await BankService.MarcarTransaccionComoIgnoradaAsync(transaccion, motivo, tipo);
+                await BankService.MarkTransactionAsIgnoredAsync(transaccion, motivo, tipo);
                 transaccion.Ignored = true;
                 transaccion.IgnoredReason = motivo;
                 transaccion.IgnoredType = tipo;
@@ -2247,7 +2247,7 @@
     }
 
     // Antes duplicaba la lógica de EnviarAConciliar con métodos que ya no eran reales
-    // (ExpenseService.MarcarGastoComoConciliadoAsync/BankService.DesconciliarTransaccionAsync
+    // (ExpenseService.MarcarGastoComoConciliadoAsync/BankService.UnreconcileTransactionAsync
     // -- ambos en memoria, nunca tocaban la BD) y buscaba
     // ReconciliationStatus == Conciliada, que con la Fase B ya no se setea hasta confirmar --
     // este botón nunca encontraba nada que guardar. Ahora es la misma acción que "Enviar a
@@ -2277,7 +2277,7 @@
         {
             // Acotado a TransaccionesDelModo (ver comentario en EnviarAConciliar) -- si no,
             // una propuesta pendiente del OTRO tipo (ej. un match automático de Ingreso
-            // visto desde /ConciliacionGastos) hacía entrar acá y, peor, el chequeo de abajo
+            // visto desde /reconcile/expenses) hacía entrar acá y, peor, el chequeo de abajo
             // seguía dando "true" después de confirmar (porque esa propuesta ajena seguía
             // pendiente), cortando la sesión sin registrarla aunque sí se hubiera conciliado
             // todo lo de esta pantalla.
@@ -2292,24 +2292,24 @@
             }
 
             var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
-            var conciliacion = new Conciliacion
+            var conciliacion = new ReconciliationSession
             {
-                CuentaBancariaId = cuentaSeleccionadaId,
+                IdBankAccount = cuentaSeleccionadaId,
                 IdBuilding = ParameterService.CurrentBuilding.IdBuilding,
-                FechaInicio = fechaDesde,
-                FechaFin = fechaHasta,
-                TransaccionesProcesadas = transacciones.Count,
-                TransaccionesConciliadas = transaccionesConciliadas.Count,
-                Diferencia = diferenciaConciliacion,
-                Completada = true,
-                Fecha = DateTime.Now,
-                Usuario = performedBy
+                StartDate = fechaDesde,
+                EndDate = fechaHasta,
+                ProcessedTransactions = transacciones.Count,
+                ReconciledTransactions = transaccionesConciliadas.Count,
+                Difference = diferenciaConciliacion,
+                Completed = true,
+                Date = DateTime.Now,
+                PerformedBy = performedBy
             };
 
             // Docs/Pendientes-Negocio-Conciliacion.md #3 -- antes esto no tocaba la BD
             // (Task.Delay + Console.WriteLine), así que "Finalizar Conciliación" nunca
             // dejaba registro real de la sesión completa.
-            await BankService.GuardarConciliacionAsync(conciliacion);
+            await BankService.SaveReconciliationAsync(conciliacion);
             mensajeExito = "Conciliación finalizada exitosamente";
 
             await CargarTransacciones();
@@ -2411,7 +2411,7 @@
 
     // Null = no se pudo determinar (transacción sin conciliar, o Gasto conciliado en una
     // sesión anterior -- ReconciledExpense solo queda poblado en memoria durante la sesión que
-    // hizo la conciliación, ObtenerTransaccionesAsync no lo trae). Para Ingresos sí es
+    // hizo la conciliación, GetTransactionsAsync no lo trae). Para Ingresos sí es
     // confiable siempre: pagosCuotas se recarga completo desde BD en cada CargarTransacciones.
     private bool? EsConciliacionAutomatica(TransactionBankDetail transaccion)
     {
@@ -2476,7 +2476,7 @@
         {
             // Rango amplio (no DateTime.MinValue: desborda el tipo datetime de SQL
             // Server, que arranca en 1753) en vez de un caso especial que salte el
-            // filtro de fechas -- así ObtenerTransaccionesAsync no necesita cambios.
+            // filtro de fechas -- así GetTransactionsAsync no necesita cambios.
             "todos" => (new DateTime(1900, 1, 1), DateTime.Today.AddDays(1)),
             "mesAnterior" => (
                 new DateTime(hoy.Year, hoy.Month, 1).AddMonths(-1),
@@ -2527,7 +2527,7 @@
     {
         // En modo fijo (Pagos/Gastos) no se limpia el tipo -- si no, el botón "Limpiar
         // filtros" (la X) se saltaría el candado y volvería a mostrar ambos tipos mezclados.
-        filtroTipo = ModoFijo;
+        filtroTipo = FixedMode;
         textoBusqueda = "";
         ActualizarPaginacion();
         DeseleccionarTodo();

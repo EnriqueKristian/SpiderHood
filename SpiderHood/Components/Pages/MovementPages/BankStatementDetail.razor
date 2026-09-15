@@ -250,7 +250,7 @@
 
         if (ParameterService.CurrentBuilding != null)
         {
-            cuentasBancarias = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            cuentasBancarias = await BankAccountService.GetBankAccountsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             var headers = await BankAccountService.GetMovementHeadersAsync(ParameterService.CurrentBuilding.IdBuilding, null);
             header = headers.FirstOrDefault(h => h.IdStatementHeader == IdStatementHeader);

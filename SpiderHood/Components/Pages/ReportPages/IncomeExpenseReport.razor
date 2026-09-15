@@ -251,7 +251,7 @@
             if (ParameterService.CurrentBuilding != null)
             {
                 // Sólo cuentas Activas -- mismo filtro que /movement/upload.
-                var todasLasCuentas = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+                var todasLasCuentas = await BankAccountService.GetBankAccountsAsync(ParameterService.CurrentBuilding.IdBuilding);
                 cuentasBancarias = todasLasCuentas.Where(c => c.Status == 1).ToList();
 
                 await CargarAsync();

@@ -911,7 +911,7 @@ namespace SpiderHood.Data
         }
 
         // Docs/Pendientes-Negocio-Conciliacion.md #3
-        public async Task<Models.Conciliacion> AddNewRecordAsync(Models.Conciliacion sesion, CancellationToken cancellationToken = default)
+        public async Task<Models.ReconciliationSession> AddNewRecordAsync(Models.ReconciliationSession sesion, CancellationToken cancellationToken = default)
         {
             ValidateEntity(sesion, nameof(sesion));
 
@@ -921,17 +921,17 @@ namespace SpiderHood.Data
                     StoredProcedures.INS_ReconciliationSession,
                     cancellationToken,
                     sesion.Id,
-                    sesion.CuentaBancariaId,
+                    sesion.IdBankAccount,
                     sesion.IdBuilding,
-                    sesion.FechaInicio,
-                    sesion.FechaFin,
-                    sesion.TransaccionesProcesadas,
-                    sesion.TransaccionesConciliadas,
-                    sesion.Diferencia,
-                    sesion.Completada,
-                    sesion.Fecha,
-                    sesion.Usuario,
-                    (object?)(string.IsNullOrWhiteSpace(sesion.Notas) ? null : sesion.Notas));
+                    sesion.StartDate,
+                    sesion.EndDate,
+                    sesion.ProcessedTransactions,
+                    sesion.ReconciledTransactions,
+                    sesion.Difference,
+                    sesion.Completed,
+                    sesion.Date,
+                    sesion.PerformedBy,
+                    (object?)(string.IsNullOrWhiteSpace(sesion.Notes) ? null : sesion.Notes));
                 return sesion;
             }, "AddReconciliationSession", cancellationToken);
         }

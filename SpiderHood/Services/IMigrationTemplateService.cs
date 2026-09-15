@@ -8,7 +8,7 @@ namespace SpiderHood.Services
     // SpiderHood para ese edificio -- así el administrador no reescribe nombres a mano
     // y no termina creando categorías/cuentas duplicadas al importar.
     //
-    // Distinto del importador del día a día (BankAccountService.ProcesarArchivoEstadoCuentaAsync,
+    // Distinto del importador del día a día (BankAccountService.ProcessBankStatementFileAsync,
     // ExcelExportService.ExportarPlantillaVacia para lecturas de agua): esas plantillas
     // cargan UN periodo/cuenta a la vez con el formato que entrega el banco. Estas
     // cargan AÑOS de historial de una sola vez, ya consolidado por el administrador
@@ -386,7 +386,7 @@ namespace SpiderHood.Services
 
         private async Task<List<(string Numero, string Banco)>> ObtenerCuentasAsync(Guid idBuilding)
         {
-            var cuentas = await _bankAccountService.ObtenerCuentasBancariasAsync(idBuilding);
+            var cuentas = await _bankAccountService.GetBankAccountsAsync(idBuilding);
             return cuentas
                 .Where(c => !string.IsNullOrWhiteSpace(c.AccountNumber))
                 .Select(c => (Numero: c.AccountNumber.Trim(), Banco: c.BankName))

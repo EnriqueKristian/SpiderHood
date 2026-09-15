@@ -1120,11 +1120,11 @@ namespace SpiderHood.Data
 
         // Docs/Pendientes-Negocio-Conciliacion.md #3 -- GET_LastReconciliationSession ya
         // trae sólo la más reciente (TOP 1 ORDER BY Fecha DESC) por cuenta bancaria.
-        public async Task<Models.Conciliacion?> GetLastReconciliationSessionAsync(Guid idBankAccount, CancellationToken cancellationToken = default)
+        public async Task<Models.ReconciliationSession?> GetLastReconciliationSessionAsync(Guid idBankAccount, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var resultado = await ExecuteQueryListAsync<Models.Conciliacion>(StoredProcedures.GET_LastReconciliationSession, idBankAccount);
+                var resultado = await ExecuteQueryListAsync<Models.ReconciliationSession>(StoredProcedures.GET_LastReconciliationSession, idBankAccount);
                 return resultado.FirstOrDefault();
             }, "GetLastReconciliationSession", cancellationToken);
         }

@@ -583,7 +583,7 @@
 
         if (ParameterService.CurrentBuilding != null)
         {
-            cuentasBancarias = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            cuentasBancarias = await BankAccountService.GetBankAccountsAsync(ParameterService.CurrentBuilding.IdBuilding);
         }
 
         await CargarEstadosDeCuentaAsync();

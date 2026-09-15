@@ -57,7 +57,7 @@ namespace SpiderHood.Services
     // sí relanzan correctamente -- esos importadores no tenían este problema.
     //
     // Mismo antipatrón encontrado después en una LECTURA:
-    // IBankAccountService.ObtenerCuentasBancariasAsync (usado por
+    // IBankAccountService.GetBankAccountsAsync (usado por
     // ImportarEstadoDeCuentaAsync) también atrapa cualquier error y devuelve una
     // lista vacía -- ahí el efecto era más engañoso todavía, porque con la lista
     // vacía CADA fila del archivo reporta "la cuenta no existe" (una validación que
@@ -1244,7 +1244,7 @@ namespace SpiderHood.Services
         {
             var resultado = new MigrationImportResult();
 
-            // IBankAccountService.ObtenerCuentasBancariasAsync atrapa cualquier error con
+            // IBankAccountService.GetBankAccountsAsync atrapa cualquier error con
             // un catch mudo (Console.WriteLine, sin throw) y devuelve una lista vacía --
             // mismo antipatrón ya encontrado en Unidades/Lecturas de Agua. Acá es
             // particularmente engañoso: con la lista vacía, CADA fila del archivo reporta

@@ -80,7 +80,7 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.SystemLogEntry>().HasNoKey(); // If SP doesn't return a primary key
             modelBuilder.Entity<Models.SystemLogSettings>().HasNoKey(); // If SP doesn't return a primary key
             // Docs/Pendientes-Negocio-Conciliacion.md #3
-            modelBuilder.Entity<Models.Conciliacion>().HasNoKey(); // If SP doesn't return a primary key
+            modelBuilder.Entity<Models.ReconciliationSession>().HasNoKey(); // If SP doesn't return a primary key
             // Docs/Pendientes-Negocio-Conciliacion.md #5 -- Distribution (TypeDistribution)
             // no necesita HasConversion, igual que Category.Distribution más arriba: el
             // enum ya es int por default y la columna es INT.

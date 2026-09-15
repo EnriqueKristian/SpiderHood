@@ -527,7 +527,7 @@
         ultimoTipoCambioUsado = cargasPrevias.FirstOrDefault(h => h.ExchangeRate.HasValue)?.ExchangeRate;
     }
 
-    // Ruta a la que volver tras guardar (ej. /ConciliacionPagos?cuenta=...), pasada por
+    // Ruta a la que volver tras guardar (ej. /reconcile/payments?cuenta=...), pasada por
     // ReconciliationWorkspace.razor en su link "Cargar Estado" -- antes no había forma de
     // volver a Conciliación de Pagos/Gastos, solo a "Estados de Cuenta" en general. Se valida
     // que sea una ruta relativa propia (empieza con "/" y no con "//") para no abrir la puerta
@@ -894,7 +894,7 @@
             // nuevas cargas de Estado de Cuenta, aunque su histórico se siga
             // consultando en el resto de la app (Movimientos, Conciliación) sin este
             // filtro.
-            var todasLasCuentas = await BankAccountService.ObtenerCuentasBancariasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            var todasLasCuentas = await BankAccountService.GetBankAccountsAsync(ParameterService.CurrentBuilding.IdBuilding);
             _totalCuentasBancarias = todasLasCuentas.Count;
             cuentasBancarias = todasLasCuentas.Where(c => c.Status == 1).ToList();
             if (cuentasBancarias.Count == 1)

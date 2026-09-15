@@ -377,7 +377,7 @@ namespace SpiderHood.Data
         }
 
         // Ver Docs/Pendientes-Negocio-Conciliacion.md #1 -- reemplaza el stub de
-        // IBankAccountService.MarcarTransaccionComoIgnoradaAsync, que no tocaba la BD.
+        // IBankAccountService.MarkTransactionAsIgnoredAsync, que no tocaba la BD.
         public async Task MarkTransactionIgnoredAsync(Guid idStatementDetail, bool ignored, string? ignoredReason, int? ignoredType, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>

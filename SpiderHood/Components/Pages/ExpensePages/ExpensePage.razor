@@ -564,7 +564,7 @@
     {
         if (!_canCreateExpense || !item.ReconciledTransactionId.HasValue) return;
 
-        _transaccionParaGastoBanco = await BankAccountService.ObtenerTransaccionPorIdAsync(item.ReconciledTransactionId.Value);
+        _transaccionParaGastoBanco = await BankAccountService.GetTransactionByIdAsync(item.ReconciledTransactionId.Value);
         if (_transaccionParaGastoBanco == null)
         {
             await ShowToast("Error", "No se pudo cargar la transacción bancaria.", "danger");
@@ -598,7 +598,7 @@
             transaccion.ReconciliationStatus = Models.ConcilationType.Conciliada;
             transaccion.ReconciliationDate = DateTime.Now;
             transaccion.ReconciledExpense = gasto;
-            await BankAccountService.ConciliarTransaccionAsync(transaccion, gasto);
+            await BankAccountService.ReconcileTransactionAsync(transaccion, gasto);
 
             CerrarModalCrearGastoBanco();
             await LoadData();

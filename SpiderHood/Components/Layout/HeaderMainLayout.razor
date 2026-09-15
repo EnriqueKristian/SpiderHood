@@ -727,8 +727,8 @@
         ["generacioncuota"] = "Generación de Cuotas",
         ["reconcileinstallments"] = "Conciliar Cuotas",
         ["reconcileexpenses"] = "Conciliación Bancaria",
-        ["conciliacionpagos"] = "Conciliación de Pagos",
-        ["conciliaciongastos"] = "Conciliación de Gastos",
+        ["reconcile/payments"] = "Conciliación de Pagos",
+        ["reconcile/expenses"] = "Conciliación de Gastos",
         ["movement"] = "Movimientos",
         ["movement/upload"] = "Cargar Estado de Cuenta",
         ["movement/detail"] = "Detalle de Movimiento",
@@ -793,7 +793,7 @@
         // IncidentList (lista) e IncidentDetail (un incidente puntual) son páginas
         // distintas de verdad -- a diferencia del resto de las rutas con id, donde la
         // "versión con id" es la MISMA página razor filtrada (ver comentario sobre
-        // PeriodPage/ConciliacionExpensesPage/MonthlyInstallmentHistory más abajo).
+        // PeriodPage/ReconciliationLegacyPage/MonthlyInstallmentHistory más abajo).
         if (segments.Length == 2 && segments[0].Equals("incidents", StringComparison.OrdinalIgnoreCase) && IsDynamicSegment(segments[1]))
             return "Detalle de Incidencia";
 

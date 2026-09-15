@@ -1,8 +1,8 @@
-@page "/personal/turnos"
+@page "/employees/shifts"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IPersonalService PersonalService
+@inject IEmployeeService EmployeeService
 @inject IAccountService AccountService
 @inject SpiderHood.Services.AuthService AuthService
 
@@ -20,7 +20,7 @@
                 <div class="icon-badge">
                     <i class="bi bi-clock-history"></i>
                 </div>
-                <h1 class="h3 fw-bold mb-0">Turnos</h1>
+                <h1 class="h3 fw-bold mb-0">Shifts</h1>
             </div>
             <button class="btn btn-primary" @onclick="AbrirNuevo" disabled="@(_idAccount == null)">
                 <i class="bi bi-plus-lg me-1"></i>Nuevo
@@ -134,8 +134,8 @@
     private bool _editando;
     private bool _showModal;
     private Guid? _idAccount;
-    private List<Models.Turno> _turnos = new();
-    private Models.Turno _form = new();
+    private List<Models.Shift> _turnos = new();
+    private Models.Shift _form = new();
     private TimeOnly _horaInicio = new(7, 0);
     private TimeOnly _horaFin = new(15, 0);
     private HashSet<int> _diasSeleccionados = new() { 1, 2, 3, 4, 5 };
@@ -163,7 +163,7 @@
     private async Task CargarAsync()
     {
         if (_idAccount == null) return;
-        _turnos = await PersonalService.GetTurnosByAccountAsync(_idAccount.Value);
+        _turnos = await EmployeeService.GetShiftsByAccountAsync(_idAccount.Value);
     }
 
     private static string DiasTexto(List<int> dias) => string.Join(", ", dias.Select(d => _diasSemana.GetValueOrDefault(d, "?")));
@@ -176,7 +176,7 @@
 
     private void AbrirNuevo()
     {
-        _form = new Models.Turno();
+        _form = new Models.Shift();
         _horaInicio = new TimeOnly(7, 0);
         _horaFin = new TimeOnly(15, 0);
         _diasSeleccionados = new() { 1, 2, 3, 4, 5 };
@@ -184,11 +184,11 @@
         _showModal = true;
     }
 
-    private void AbrirEditar(Models.Turno t)
+    private void AbrirEditar(Models.Shift t)
     {
-        _form = new Models.Turno
+        _form = new Models.Shift
         {
-            IdTurno = t.IdTurno,
+            IdShift = t.IdShift,
             IdAccount = t.IdAccount,
             Nombre = t.Nombre,
             HoraInicio = t.HoraInicio,
@@ -211,12 +211,12 @@
 
         if (_editando)
         {
-            await PersonalService.UpdateTurnoAsync(_form);
+            await EmployeeService.UpdateShiftAsync(_form);
         }
         else
         {
             _form.IdAccount = _idAccount!.Value;
-            await PersonalService.CreateTurnoAsync(_form);
+            await EmployeeService.CreateShiftAsync(_form);
         }
 
         _showModal = false;

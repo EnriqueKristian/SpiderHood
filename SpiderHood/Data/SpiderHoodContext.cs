@@ -136,26 +136,26 @@ namespace SpiderHood.Data
                 entity.Property(c => c.Recurrence).HasConversion<string>();
             });
 
-            // Módulo Personal y Planillas -- Fase 1, ver
-            // Database/Scripts/2026-09-15_108_Personal_Planillas_Fase1.sql.
-            modelBuilder.Entity<Models.Personal>().HasNoKey();
-            modelBuilder.Entity<Models.Turno>().HasNoKey();
-            modelBuilder.Entity<Models.AsignacionPersonalTurno>().HasNoKey();
-            modelBuilder.Entity<Models.AsignacionPersonalEdificio>().HasNoKey();
-            modelBuilder.Entity<Models.RegistroHoras>().HasNoKey();
-            modelBuilder.Entity<Models.ConfiguracionFeriado>().HasNoKey();
+            // Módulo Employee y Payroll -- Fase 1, ver
+            // Database/Scripts/2026-09-15_108_Employee_Payroll_Fase1.sql.
+            modelBuilder.Entity<Models.Employee>().HasNoKey();
+            modelBuilder.Entity<Models.Shift>().HasNoKey();
+            modelBuilder.Entity<Models.EmployeeShiftAssignment>().HasNoKey();
+            modelBuilder.Entity<Models.EmployeeBuildingAssignment>().HasNoKey();
+            modelBuilder.Entity<Models.TimeEntry>().HasNoKey();
+            modelBuilder.Entity<Models.HolidayConfiguration>().HasNoKey();
 
-            // Módulo Personal y Planillas -- Fase 2, ver
-            // Database/Scripts/2026-09-15_109_Personal_Planillas_Fase2.sql.
-            modelBuilder.Entity<Models.ConfiguracionRegimenLaboral>().HasNoKey();
-            modelBuilder.Entity<Models.ParametrosLegales>().HasNoKey();
-            modelBuilder.Entity<Models.Vacaciones>().HasNoKey();
-            modelBuilder.Entity<Models.BoletaPago>().HasNoKey();
-            modelBuilder.Entity<Models.BoletaPagoDetalle>().HasNoKey();
+            // Módulo Employee y Payroll -- Fase 2, ver
+            // Database/Scripts/2026-09-15_109_Employee_Payroll_Fase2.sql.
+            modelBuilder.Entity<Models.LaborRegimeConfiguration>().HasNoKey();
+            modelBuilder.Entity<Models.LegalParameters>().HasNoKey();
+            modelBuilder.Entity<Models.Vacation>().HasNoKey();
+            modelBuilder.Entity<Models.Payslip>().HasNoKey();
+            modelBuilder.Entity<Models.PayslipDetail>().HasNoKey();
 
-            // Módulo Personal y Planillas -- Fase 3 (Permisos y licencias), ver
-            // Database/Scripts/2026-09-15_110_Personal_Planillas_Fase3_Permisos.sql.
-            modelBuilder.Entity<Models.PermisoLicencia>().HasNoKey();
+            // Módulo Employee y Payroll -- Fase 3 (Permisos y licencias), ver
+            // Database/Scripts/2026-09-15_110_Employee_Payroll_Fase3_Permisos.sql.
+            modelBuilder.Entity<Models.LeaveRequest>().HasNoKey();
 
             base.OnModelCreating(modelBuilder);
         }

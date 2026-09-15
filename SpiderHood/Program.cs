@@ -220,8 +220,8 @@ MercadoPagoConfig.AccessToken = builder.Configuration["MercadoPago:AccessToken"]
 builder.Services.AddScoped<IWorkflowService, WorkflowService>();
 builder.Services.AddScoped<IWorkflowAuditService, WorkflowAuditService>();
 builder.Services.AddScoped<IIncidentService, IncidentService>();
-builder.Services.AddScoped<IPersonalService, PersonalService>();
-builder.Services.AddScoped<IPlanillaService, PlanillaService>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IPayrollService, PayrollService>();
 builder.Services.AddScoped<ICalendarService, CalendarService>();
 
 // Logs de sistema: sink a BD (Singleton, ver DatabaseLoggerProvider) + purga diaria por

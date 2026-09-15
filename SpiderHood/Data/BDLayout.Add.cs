@@ -1310,17 +1310,17 @@ namespace SpiderHood.Data
             }, "AddAccountInvitation", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 1
-        public async Task<Models.Personal> AddNewRecordAsync(Models.Personal personal, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 1
+        public async Task<Models.Employee> AddNewRecordAsync(Models.Employee personal, CancellationToken cancellationToken = default)
         {
             ValidateEntity(personal, nameof(personal));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_Personal,
+                    StoredProcedures.INS_Employee,
                     cancellationToken,
-                    personal.IdPersonal,
+                    personal.IdEmployee,
                     personal.IdAccount,
                     personal.DNI,
                     personal.Nombres,
@@ -1333,19 +1333,19 @@ namespace SpiderHood.Data
                     personal.CreatedBy,
                     personal.TieneHijos);
                 return personal;
-            }, "AddPersonal", cancellationToken);
+            }, "AddEmployee", cancellationToken);
         }
 
-        public async Task<Models.Turno> AddNewRecordAsync(Models.Turno turno, CancellationToken cancellationToken = default)
+        public async Task<Models.Shift> AddNewRecordAsync(Models.Shift turno, CancellationToken cancellationToken = default)
         {
             ValidateEntity(turno, nameof(turno));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_Turno,
+                    StoredProcedures.INS_Shift,
                     cancellationToken,
-                    turno.IdTurno,
+                    turno.IdShift,
                     turno.IdAccount,
                     turno.Nombre,
                     turno.HoraInicio,
@@ -1353,57 +1353,57 @@ namespace SpiderHood.Data
                     turno.DiasSemana,
                     turno.CreatedBy);
                 return turno;
-            }, "AddTurno", cancellationToken);
+            }, "AddShift", cancellationToken);
         }
 
-        public async Task<Models.AsignacionPersonalTurno> AddNewRecordAsync(Models.AsignacionPersonalTurno asignacion, CancellationToken cancellationToken = default)
+        public async Task<Models.EmployeeShiftAssignment> AddNewRecordAsync(Models.EmployeeShiftAssignment asignacion, CancellationToken cancellationToken = default)
         {
             ValidateEntity(asignacion, nameof(asignacion));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_AsignacionPersonalTurno,
+                    StoredProcedures.INS_EmployeeShiftAssignment,
                     cancellationToken,
-                    asignacion.IdAsignacionPersonalTurno,
-                    asignacion.IdPersonal,
-                    asignacion.IdTurno,
+                    asignacion.IdEmployeeShiftAssignment,
+                    asignacion.IdEmployee,
+                    asignacion.IdShift,
                     asignacion.FechaDesde,
                     asignacion.CreatedBy);
                 return asignacion;
-            }, "AddAsignacionPersonalTurno", cancellationToken);
+            }, "AddEmployeeShiftAssignment", cancellationToken);
         }
 
-        public async Task<Models.AsignacionPersonalEdificio> AddNewRecordAsync(Models.AsignacionPersonalEdificio asignacion, CancellationToken cancellationToken = default)
+        public async Task<Models.EmployeeBuildingAssignment> AddNewRecordAsync(Models.EmployeeBuildingAssignment asignacion, CancellationToken cancellationToken = default)
         {
             ValidateEntity(asignacion, nameof(asignacion));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_AsignacionPersonalEdificio,
+                    StoredProcedures.INS_EmployeeBuildingAssignment,
                     cancellationToken,
-                    asignacion.IdAsignacionPersonalEdificio,
-                    asignacion.IdPersonal,
+                    asignacion.IdEmployeeBuildingAssignment,
+                    asignacion.IdEmployee,
                     asignacion.IdBuilding,
                     asignacion.FechaDesde,
                     asignacion.PorcentajeDedicacion,
                     asignacion.CreatedBy);
                 return asignacion;
-            }, "AddAsignacionPersonalEdificio", cancellationToken);
+            }, "AddEmployeeBuildingAssignment", cancellationToken);
         }
 
-        public async Task<Models.RegistroHoras> AddNewRecordAsync(Models.RegistroHoras registro, CancellationToken cancellationToken = default)
+        public async Task<Models.TimeEntry> AddNewRecordAsync(Models.TimeEntry registro, CancellationToken cancellationToken = default)
         {
             ValidateEntity(registro, nameof(registro));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_RegistroHoras,
+                    StoredProcedures.INS_TimeEntry,
                     cancellationToken,
-                    registro.IdRegistroHoras,
-                    registro.IdPersonal,
+                    registro.IdTimeEntry,
+                    registro.IdEmployee,
                     registro.IdAsignacionEdificio,
                     registro.Fecha,
                     registro.HorasOrdinarias,
@@ -1413,39 +1413,39 @@ namespace SpiderHood.Data
                     (object?)registro.Observaciones ?? DBNull.Value,
                     registro.IdUsuarioRegistro);
                 return registro;
-            }, "AddRegistroHoras", cancellationToken);
+            }, "AddTimeEntry", cancellationToken);
         }
 
-        public async Task<Models.ConfiguracionFeriado> AddNewRecordAsync(Models.ConfiguracionFeriado feriado, CancellationToken cancellationToken = default)
+        public async Task<Models.HolidayConfiguration> AddNewRecordAsync(Models.HolidayConfiguration feriado, CancellationToken cancellationToken = default)
         {
             ValidateEntity(feriado, nameof(feriado));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_ConfiguracionFeriados,
+                    StoredProcedures.INS_HolidayConfiguration,
                     cancellationToken,
-                    feriado.IdConfiguracionFeriados,
+                    feriado.IdHolidayConfiguration,
                     (object?)feriado.IdAccount ?? DBNull.Value,
                     feriado.Fecha,
                     feriado.Nombre,
                     feriado.Tipo,
                     feriado.CreatedBy);
                 return feriado;
-            }, "AddConfiguracionFeriado", cancellationToken);
+            }, "AddHolidayConfiguration", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 2
-        public async Task<Models.ConfiguracionRegimenLaboral> AddNewRecordAsync(Models.ConfiguracionRegimenLaboral regimen, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 2
+        public async Task<Models.LaborRegimeConfiguration> AddNewRecordAsync(Models.LaborRegimeConfiguration regimen, CancellationToken cancellationToken = default)
         {
             ValidateEntity(regimen, nameof(regimen));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_ConfiguracionRegimenLaboral,
+                    StoredProcedures.INS_LaborRegimeConfiguration,
                     cancellationToken,
-                    regimen.IdConfiguracionRegimenLaboral,
+                    regimen.IdLaborRegimeConfiguration,
                     regimen.IdAccount,
                     regimen.TipoRegimen,
                     (object?)regimen.RUC ?? DBNull.Value,
@@ -1453,19 +1453,19 @@ namespace SpiderHood.Data
                     regimen.FechaVigenciaDesde,
                     regimen.CreatedBy);
                 return regimen;
-            }, "AddConfiguracionRegimenLaboral", cancellationToken);
+            }, "AddLaborRegimeConfiguration", cancellationToken);
         }
 
-        public async Task<Models.ParametrosLegales> AddNewRecordAsync(Models.ParametrosLegales parametros, CancellationToken cancellationToken = default)
+        public async Task<Models.LegalParameters> AddNewRecordAsync(Models.LegalParameters parametros, CancellationToken cancellationToken = default)
         {
             ValidateEntity(parametros, nameof(parametros));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_ParametrosLegales,
+                    StoredProcedures.INS_LegalParameters,
                     cancellationToken,
-                    parametros.IdParametrosLegales,
+                    parametros.IdLegalParameters,
                     parametros.IdAccount,
                     parametros.Anio,
                     parametros.ValorUIT,
@@ -1476,40 +1476,40 @@ namespace SpiderHood.Data
                     parametros.PorcentajeAFP,
                     parametros.CreatedBy);
                 return parametros;
-            }, "AddParametrosLegales", cancellationToken);
+            }, "AddLegalParameters", cancellationToken);
         }
 
-        public async Task<Models.Vacaciones> AddNewRecordAsync(Models.Vacaciones vacaciones, CancellationToken cancellationToken = default)
+        public async Task<Models.Vacation> AddNewRecordAsync(Models.Vacation vacaciones, CancellationToken cancellationToken = default)
         {
             ValidateEntity(vacaciones, nameof(vacaciones));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_Vacaciones,
+                    StoredProcedures.INS_Vacation,
                     cancellationToken,
-                    vacaciones.IdVacaciones,
-                    vacaciones.IdPersonal,
+                    vacaciones.IdVacation,
+                    vacaciones.IdEmployee,
                     vacaciones.Anio,
                     vacaciones.FechaInicio,
                     vacaciones.FechaFin,
                     vacaciones.DiasSolicitados,
                     vacaciones.CreatedBy);
                 return vacaciones;
-            }, "AddVacaciones", cancellationToken);
+            }, "AddVacation", cancellationToken);
         }
 
-        public async Task<Models.BoletaPago> AddNewRecordAsync(Models.BoletaPago boleta, CancellationToken cancellationToken = default)
+        public async Task<Models.Payslip> AddNewRecordAsync(Models.Payslip boleta, CancellationToken cancellationToken = default)
         {
             ValidateEntity(boleta, nameof(boleta));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_BoletaPago,
+                    StoredProcedures.INS_Payslip,
                     cancellationToken,
-                    boleta.IdBoletaPago,
-                    boleta.IdPersonal,
+                    boleta.IdPayslip,
+                    boleta.IdEmployee,
                     boleta.Anio,
                     boleta.Mes,
                     boleta.TipoRegimen,
@@ -1518,48 +1518,48 @@ namespace SpiderHood.Data
                     boleta.NetoAPagar,
                     boleta.GeneradoPor);
                 return boleta;
-            }, "AddBoletaPago", cancellationToken);
+            }, "AddPayslip", cancellationToken);
         }
 
-        public async Task<Models.BoletaPagoDetalle> AddNewRecordAsync(Models.BoletaPagoDetalle detalle, CancellationToken cancellationToken = default)
+        public async Task<Models.PayslipDetail> AddNewRecordAsync(Models.PayslipDetail detalle, CancellationToken cancellationToken = default)
         {
             ValidateEntity(detalle, nameof(detalle));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_BoletaPagoDetalle,
+                    StoredProcedures.INS_PayslipDetail,
                     cancellationToken,
-                    detalle.IdBoletaPagoDetalle,
-                    detalle.IdBoletaPago,
+                    detalle.IdPayslipDetail,
+                    detalle.IdPayslip,
                     detalle.TipoConcepto,
                     detalle.CodigoConcepto,
                     detalle.Descripcion,
                     detalle.Monto,
                     detalle.EsRemunerativo);
                 return detalle;
-            }, "AddBoletaPagoDetalle", cancellationToken);
+            }, "AddPayslipDetail", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 3 (Permisos y licencias)
-        public async Task<Models.PermisoLicencia> AddNewRecordAsync(Models.PermisoLicencia permiso, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 3 (Permisos y licencias)
+        public async Task<Models.LeaveRequest> AddNewRecordAsync(Models.LeaveRequest permiso, CancellationToken cancellationToken = default)
         {
             ValidateEntity(permiso, nameof(permiso));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_PermisoLicencia,
+                    StoredProcedures.INS_LeaveRequest,
                     cancellationToken,
-                    permiso.IdPermisoLicencia,
-                    permiso.IdPersonal,
+                    permiso.IdLeaveRequest,
+                    permiso.IdEmployee,
                     permiso.FechaInicio,
                     permiso.FechaFin,
                     permiso.ConGoceDeHaber,
                     (object?)permiso.Motivo ?? DBNull.Value,
                     permiso.CreatedBy);
                 return permiso;
-            }, "AddPermisoLicencia", cancellationToken);
+            }, "AddLeaveRequest", cancellationToken);
         }
 
         // Gobernanza / Reuniones -- Fase 1

@@ -1,8 +1,8 @@
-@page "/personal/feriados"
+@page "/employees/holidays"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IPersonalService PersonalService
+@inject IEmployeeService EmployeeService
 @inject IAccountService AccountService
 @inject SpiderHood.Services.AuthService AuthService
 
@@ -135,8 +135,8 @@
     private bool _showModal;
     private Guid? _idAccount;
     private int _anio = DateTime.Today.Year;
-    private List<Models.ConfiguracionFeriado> _feriados = new();
-    private Models.ConfiguracionFeriado _form = new();
+    private List<Models.HolidayConfiguration> _feriados = new();
+    private Models.HolidayConfiguration _form = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -155,21 +155,21 @@
 
     private async Task CargarAsync()
     {
-        _feriados = await PersonalService.GetFeriadosAsync(_idAccount, _anio);
+        _feriados = await EmployeeService.GetFeriadosAsync(_idAccount, _anio);
     }
 
     private void AbrirNuevo()
     {
-        _form = new Models.ConfiguracionFeriado { Fecha = new DateTime(_anio, 1, 1), Tipo = "Cuenta" };
+        _form = new Models.HolidayConfiguration { Fecha = new DateTime(_anio, 1, 1), Tipo = "Cuenta" };
         _editando = false;
         _showModal = true;
     }
 
-    private void AbrirEditar(Models.ConfiguracionFeriado f)
+    private void AbrirEditar(Models.HolidayConfiguration f)
     {
-        _form = new Models.ConfiguracionFeriado
+        _form = new Models.HolidayConfiguration
         {
-            IdConfiguracionFeriados = f.IdConfiguracionFeriados,
+            IdHolidayConfiguration = f.IdHolidayConfiguration,
             IdAccount = f.IdAccount,
             Fecha = f.Fecha,
             Nombre = f.Nombre,
@@ -183,12 +183,12 @@
     {
         if (_editando)
         {
-            await PersonalService.UpdateFeriadoAsync(_form);
+            await EmployeeService.UpdateFeriadoAsync(_form);
         }
         else
         {
             _form.IdAccount = _idAccount;
-            await PersonalService.CreateFeriadoAsync(_form);
+            await EmployeeService.CreateFeriadoAsync(_form);
         }
 
         _showModal = false;
@@ -196,9 +196,9 @@
         await CargarAsync();
     }
 
-    private async Task Eliminar(Models.ConfiguracionFeriado f)
+    private async Task Eliminar(Models.HolidayConfiguration f)
     {
-        await PersonalService.DeleteFeriadoAsync(f);
+        await EmployeeService.DeleteFeriadoAsync(f);
         await CargarAsync();
     }
 }

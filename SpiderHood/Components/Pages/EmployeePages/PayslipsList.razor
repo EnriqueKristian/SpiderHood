@@ -1,8 +1,8 @@
-@page "/personal/boletas"
+@page "/employees/payslips"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IPlanillaService PlanillaService
+@inject IPayrollService PayrollService
 @inject IAccountService AccountService
 @inject SpiderHood.Services.AuthService AuthService
 @inject NavigationManager Navigation
@@ -25,7 +25,7 @@
         <div class="page-header d-flex justify-content-between align-items-center">
             <div class="page-header-title">
                 <div class="icon-badge"><i class="bi bi-receipt"></i></div>
-                <h1 class="h3 fw-bold mb-0">Boletas de pago</h1>
+                <h1 class="h3 fw-bold mb-0">Payslips de pago</h1>
             </div>
             <div class="d-flex gap-2 align-items-center">
                 <select class="form-select" style="width:auto" @bind="_mes">
@@ -43,7 +43,7 @@
                 <button class="btn btn-outline-secondary" @onclick="CargarAsync">
                     <i class="bi bi-search"></i> Ver
                 </button>
-                <button class="btn btn-primary" @onclick="GenerarBoletasDelMes" disabled="@_generando">
+                <button class="btn btn-primary" @onclick="GenerarPayslipsDelMes" disabled="@_generando">
                     @if (_generando)
                     {
                         <span class="spinner-border spinner-border-sm me-1"></span>
@@ -91,7 +91,7 @@
                     <tbody>
                         @foreach (var b in _boletas)
                         {
-                            <tr style="cursor:pointer" @onclick="() => VerDetalle(b.IdBoletaPago)">
+                            <tr style="cursor:pointer" @onclick="() => VerDetalle(b.IdPayslip)">
                                 <td>@b.Nombres @b.Apellidos</td>
                                 <td>@b.Cargo</td>
                                 <td>@TraducirRegimen(b.TipoRegimen)</td>
@@ -99,7 +99,7 @@
                                 <td class="text-end">S/ @b.TotalDescuentos.ToString("N2")</td>
                                 <td class="text-end fw-bold">S/ @b.NetoAPagar.ToString("N2")</td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => VerDetalle(b.IdBoletaPago)">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick:stopPropagation="true" @onclick="() => VerDetalle(b.IdPayslip)">
                                         <i class="bi bi-eye"></i>
                                     </button>
                                 </td>
@@ -120,7 +120,7 @@
 
     private int _mes = DateTime.Today.Month;
     private int _anio = DateTime.Today.Year;
-    private List<Models.BoletaPago> _boletas = new();
+    private List<Models.Payslip> _boletas = new();
 
     private bool _generando;
     private string? _mensajeGeneracion;
@@ -128,9 +128,9 @@
 
     private static string TraducirRegimen(string tipoRegimen) => tipoRegimen switch
     {
-        nameof(TipoRegimenLaboral.Microempresa) => "Microempresa",
-        nameof(TipoRegimenLaboral.PequenaEmpresa) => "Pequeña Empresa",
-        nameof(TipoRegimenLaboral.RegimenGeneral) => "Régimen General",
+        nameof(LaborRegimeType.Microempresa) => "Microempresa",
+        nameof(LaborRegimeType.PequenaEmpresa) => "Pequeña Empresa",
+        nameof(LaborRegimeType.RegimenGeneral) => "Régimen General",
         _ => tipoRegimen
     };
 
@@ -152,10 +152,10 @@
     private async Task CargarAsync()
     {
         if (_idAccount == null) return;
-        _boletas = await PlanillaService.GetBoletasByAccountAndPeriodoAsync(_idAccount.Value, _anio, _mes);
+        _boletas = await PayrollService.GetPayslipsByAccountAndPeriodoAsync(_idAccount.Value, _anio, _mes);
     }
 
-    private async Task GenerarBoletasDelMes()
+    private async Task GenerarPayslipsDelMes()
     {
         if (_idAccount == null) return;
 
@@ -163,7 +163,7 @@
         _mensajeGeneracion = null;
         _erroresGeneracion.Clear();
 
-        var (generadas, yaExistian, errores) = await PlanillaService.GenerarBoletasDelMesAsync(_idAccount.Value, _anio, _mes, _currentUser.Email);
+        var (generadas, yaExistian, errores) = await PayrollService.GenerarPayslipsDelMesAsync(_idAccount.Value, _anio, _mes, _currentUser.Email);
 
         _mensajeGeneracion = $"{generadas} boleta(s) generada(s)" + (yaExistian > 0 ? $", {yaExistian} ya existían" : "") + ".";
         _erroresGeneracion = errores;
@@ -172,5 +172,5 @@
         await CargarAsync();
     }
 
-    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/personal/boletas/{id}");
+    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/employees/payslips/{id}");
 }

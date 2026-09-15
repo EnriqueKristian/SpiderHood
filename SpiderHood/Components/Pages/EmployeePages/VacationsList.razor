@@ -1,13 +1,13 @@
-@page "/personal/permisos"
+@page "/employees/vacations"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IPlanillaService PlanillaService
-@inject IPersonalService PersonalService
+@inject IPayrollService PayrollService
+@inject IEmployeeService EmployeeService
 @inject IAccountService AccountService
 @inject SpiderHood.Services.AuthService AuthService
 
-<PageTitle>Permisos y licencias</PageTitle>
+<PageTitle>Vacaciones</PageTitle>
 
 <div class="container-fluid px-4 py-3">
     @if (!_loading && !_isStaff)
@@ -24,16 +24,15 @@
     {
         <div class="page-header d-flex justify-content-between align-items-center">
             <div class="page-header-title">
-                <div class="icon-badge"><i class="bi bi-calendar-x"></i></div>
-                <h1 class="h3 fw-bold mb-0">Permisos y licencias</h1>
+                <div class="icon-badge"><i class="bi bi-airplane"></i></div>
+                <h1 class="h3 fw-bold mb-0">Vacaciones</h1>
             </div>
             <button class="btn btn-primary" @onclick="AbrirNuevaSolicitud" disabled="@(_personal.Count == 0)">
                 <i class="bi bi-plus-lg me-1"></i>Nueva solicitud
             </button>
         </div>
-        <p class="text-muted">Un permiso <strong>con goce de haber</strong> no afecta la boleta. Un permiso <strong>sin goce</strong>, una vez aprobado, se descuenta proporcional a los días en la boleta del mes correspondiente.</p>
 
-        <div class="card">
+        <div class="card mb-3">
             <div class="card-header"><i class="bi bi-hourglass-split me-2"></i>Solicitudes pendientes de aprobación</div>
             <div class="card-body">
                 @if (_pendientes.Count == 0)
@@ -49,28 +48,68 @@
                                     <th>Persona</th>
                                     <th>Período</th>
                                     <th>Días</th>
-                                    <th>Tipo</th>
-                                    <th>Motivo</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var p in _pendientes)
+                                @foreach (var v in _pendientes)
                                 {
                                     <tr>
-                                        <td>@p.Nombres @p.Apellidos</td>
-                                        <td>@p.FechaInicio.ToString("dd/MM/yyyy") - @p.FechaFin.ToString("dd/MM/yyyy")</td>
-                                        <td>@p.DiasSolicitados</td>
-                                        <td><span class="badge @(p.ConGoceDeHaber ? "bg-success" : "bg-warning text-dark")">@(p.ConGoceDeHaber ? "Con goce" : "Sin goce")</span></td>
-                                        <td>@p.Motivo</td>
+                                        <td>@v.Nombres @v.Apellidos</td>
+                                        <td>@v.FechaInicio.ToString("dd/MM/yyyy") - @v.FechaFin.ToString("dd/MM/yyyy")</td>
+                                        <td>@v.DiasSolicitados</td>
                                         <td>
-                                            <button class="btn btn-sm btn-outline-success me-1" @onclick="() => Aprobar(p)">
+                                            <button class="btn btn-sm btn-outline-success me-1" @onclick="() => Aprobar(v)">
                                                 <i class="bi bi-check-lg"></i> Aprobar
                                             </button>
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Rechazar(p)">
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Rechazar(v)">
                                                 <i class="bi bi-x-lg"></i> Rechazar
                                             </button>
                                         </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-check me-2"></i>Saldo por persona</span>
+                <select class="form-select form-select-sm" style="width:auto" @bind="_anioSaldo" @bind:after="CargarSaldosAsync">
+                    @for (var y = DateTime.Today.Year - 1; y <= DateTime.Today.Year + 1; y++)
+                    {
+                        <option value="@y">@y</option>
+                    }
+                </select>
+            </div>
+            <div class="card-body">
+                @if (_saldos.Count == 0)
+                {
+                    <p class="text-muted mb-0">No hay personal registrado.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Persona</th>
+                                    <th class="text-end">Ganados</th>
+                                    <th class="text-end">Gozados</th>
+                                    <th class="text-end">Pendientes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var (persona, saldo) in _saldos)
+                                {
+                                    <tr>
+                                        <td>@persona.NombreCompleto</td>
+                                        <td class="text-end">@saldo.DiasGanados</td>
+                                        <td class="text-end">@saldo.DiasGozados</td>
+                                        <td class="text-end fw-bold">@saldo.DiasPendientes</td>
                                     </tr>
                                 }
                             </tbody>
@@ -88,16 +127,16 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content shadow-lg">
                 <div class="modal-header">
-                    <h5 class="modal-title">Nueva solicitud de permiso</h5>
+                    <h5 class="modal-title">Nueva solicitud de vacaciones</h5>
                     <button type="button" class="btn-close" @onclick="() => _showModal = false"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Persona</label>
-                        <select class="form-select" @bind="_form.IdPersonal">
+                        <select class="form-select" @bind="_form.IdEmployee">
                             @foreach (var p in _personal)
                             {
-                                <option value="@p.IdPersonal">@p.NombreCompleto</option>
+                                <option value="@p.IdEmployee">@p.NombreCompleto</option>
                             }
                         </select>
                     </div>
@@ -111,13 +150,13 @@
                             <InputDate class="form-control" @bind-Value="_form.FechaFin" />
                         </div>
                     </div>
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" @bind="_form.ConGoceDeHaber" id="chkConGoce" />
-                        <label class="form-check-label" for="chkConGoce">Con goce de haber</label>
+                    <div class="mb-3">
+                        <label class="form-label">Días solicitados</label>
+                        <InputNumber class="form-control" @bind-Value="_form.DiasSolicitados" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Motivo</label>
-                        <InputTextArea class="form-control" rows="2" @bind-Value="_form.Motivo" />
+                        <label class="form-label">Año de período devengado</label>
+                        <InputNumber class="form-control" @bind-Value="_form.Anio" />
                     </div>
                     @if (!string.IsNullOrEmpty(_error))
                     {
@@ -139,11 +178,13 @@
     private bool _loading = true;
     private Guid? _idAccount;
 
-    private List<Models.Personal> _personal = new();
-    private List<Models.PermisoLicencia> _pendientes = new();
+    private List<Models.Employee> _personal = new();
+    private List<Models.Vacation> _pendientes = new();
+    private int _anioSaldo = DateTime.Today.Year;
+    private List<(Models.Employee Persona, Models.VacationBalance Saldo)> _saldos = new();
 
     private bool _showModal;
-    private Models.PermisoLicencia _form = new();
+    private Models.Vacation _form = new();
     private string? _error;
 
     protected override async Task OnInitializedAsync()
@@ -157,8 +198,9 @@
             _idAccount = account?.IdAccount;
             if (_idAccount != null)
             {
-                _personal = (await PersonalService.GetPersonalByAccountAsync(_idAccount.Value)).Where(p => p.IsActive).ToList();
+                _personal = (await EmployeeService.GetEmployeeByAccountAsync(_idAccount.Value)).Where(p => p.IsActive).ToList();
                 await CargarPendientesAsync();
+                await CargarSaldosAsync();
             }
         }
 
@@ -168,17 +210,30 @@
     private async Task CargarPendientesAsync()
     {
         if (_idAccount == null) return;
-        _pendientes = await PlanillaService.GetPermisosPendientesByAccountAsync(_idAccount.Value);
+        _pendientes = await PayrollService.GetVacationPendientesByAccountAsync(_idAccount.Value);
+    }
+
+    private async Task CargarSaldosAsync()
+    {
+        if (_idAccount == null) return;
+        var lista = new List<(Models.Employee, Models.VacationBalance)>();
+        foreach (var p in _personal)
+        {
+            var saldo = await PayrollService.GetVacationBalanceAsync(p.IdEmployee, _idAccount.Value, _anioSaldo);
+            lista.Add((p, saldo));
+        }
+        _saldos = lista;
     }
 
     private void AbrirNuevaSolicitud()
     {
-        _form = new Models.PermisoLicencia
+        _form = new Models.Vacation
         {
-            IdPersonal = _personal.FirstOrDefault()?.IdPersonal ?? Guid.Empty,
+            IdEmployee = _personal.FirstOrDefault()?.IdEmployee ?? Guid.Empty,
+            Anio = DateTime.Today.Year,
             FechaInicio = DateTime.Today,
-            FechaFin = DateTime.Today,
-            ConGoceDeHaber = true
+            FechaFin = DateTime.Today.AddDays(7),
+            DiasSolicitados = 7
         };
         _error = null;
         _showModal = true;
@@ -187,7 +242,7 @@
     private async Task Guardar()
     {
         _error = null;
-        var result = await PlanillaService.SolicitarPermisoAsync(_form, _currentUser.Email);
+        var result = await PayrollService.SolicitarVacationAsync(_form, _currentUser.Email);
         if (!result.IsSuccess)
         {
             _error = result.ErrorMessage;
@@ -198,15 +253,16 @@
         await CargarPendientesAsync();
     }
 
-    private async Task Aprobar(Models.PermisoLicencia p)
+    private async Task Aprobar(Models.Vacation v)
     {
-        await PlanillaService.AprobarPermisoAsync(p.IdPermisoLicencia, p.IdPersonal, _currentUser.IdUser, _currentUser.Email);
+        await PayrollService.AprobarVacationAsync(v.IdVacation, v.IdEmployee, _currentUser.IdUser, _currentUser.Email);
         await CargarPendientesAsync();
+        await CargarSaldosAsync();
     }
 
-    private async Task Rechazar(Models.PermisoLicencia p)
+    private async Task Rechazar(Models.Vacation v)
     {
-        await PlanillaService.RechazarPermisoAsync(p.IdPermisoLicencia, p.IdPersonal, _currentUser.IdUser, _currentUser.Email, null);
+        await PayrollService.RechazarVacationAsync(v.IdVacation, v.IdEmployee, _currentUser.IdUser, _currentUser.Email, null);
         await CargarPendientesAsync();
     }
 }

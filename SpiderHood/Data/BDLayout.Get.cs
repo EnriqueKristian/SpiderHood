@@ -1288,127 +1288,127 @@ namespace SpiderHood.Data
             }, "GetCalendarItemById", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 1
-        public async Task<List<Models.Personal>> GetPersonalByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 1
+        public async Task<List<Models.Employee>> GetEmployeeByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Personal>(StoredProcedures.GET_PersonalByAccount, idAccount);
-            }, "GetPersonalByAccount", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Employee>(StoredProcedures.GET_EmployeeByAccount, idAccount);
+            }, "GetEmployeeByAccount", cancellationToken);
         }
 
-        public async Task<Models.Personal> GetPersonalByIdAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        public async Task<Models.Employee> GetEmployeeByIdAsync(Guid idEmployee, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = await ExecuteQuerySingleAsync<Models.Personal>(StoredProcedures.GET_PersonalById, idPersonal);
-                return result ?? throw new EntityNotFoundException($"Personal with ID {idPersonal} not found");
-            }, "GetPersonalById", cancellationToken);
+                var result = await ExecuteQuerySingleAsync<Models.Employee>(StoredProcedures.GET_EmployeeById, idEmployee);
+                return result ?? throw new EntityNotFoundException($"Employee with ID {idEmployee} not found");
+            }, "GetEmployeeById", cancellationToken);
         }
 
-        public async Task<List<Models.Turno>> GetTurnosByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Shift>> GetShiftsByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Turno>(StoredProcedures.GET_TurnosByAccount, idAccount);
-            }, "GetTurnosByAccount", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Shift>(StoredProcedures.GET_ShiftsByAccount, idAccount);
+            }, "GetShiftsByAccount", cancellationToken);
         }
 
-        public async Task<List<Models.AsignacionPersonalTurno>> GetAsignacionesTurnoByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        public async Task<List<Models.EmployeeShiftAssignment>> GetAsignacionesShiftByEmployeeAsync(Guid idEmployee, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.AsignacionPersonalTurno>(StoredProcedures.GET_AsignacionesTurnoByPersonal, idPersonal);
-            }, "GetAsignacionesTurnoByPersonal", cancellationToken);
+                return await ExecuteQueryListAsync<Models.EmployeeShiftAssignment>(StoredProcedures.GET_AsignacionesShiftByEmployee, idEmployee);
+            }, "GetAsignacionesShiftByEmployee", cancellationToken);
         }
 
-        public async Task<List<Models.AsignacionPersonalEdificio>> GetAsignacionesEdificioByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        public async Task<List<Models.EmployeeBuildingAssignment>> GetAsignacionesEdificioByEmployeeAsync(Guid idEmployee, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.AsignacionPersonalEdificio>(StoredProcedures.GET_AsignacionesEdificioByPersonal, idPersonal);
-            }, "GetAsignacionesEdificioByPersonal", cancellationToken);
+                return await ExecuteQueryListAsync<Models.EmployeeBuildingAssignment>(StoredProcedures.GET_AsignacionesEdificioByEmployee, idEmployee);
+            }, "GetAsignacionesEdificioByEmployee", cancellationToken);
         }
 
-        public async Task<List<Models.AsignacionPersonalEdificio>> GetAsignacionesEdificioByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<Models.EmployeeBuildingAssignment>> GetAsignacionesEdificioByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.AsignacionPersonalEdificio>(StoredProcedures.GET_AsignacionesEdificioByBuilding, idBuilding);
+                return await ExecuteQueryListAsync<Models.EmployeeBuildingAssignment>(StoredProcedures.GET_AsignacionesEdificioByBuilding, idBuilding);
             }, "GetAsignacionesEdificioByBuilding", cancellationToken);
         }
 
-        public async Task<List<Models.RegistroHoras>> GetRegistroHorasByPersonalAsync(Guid idPersonal, DateTime fechaDesde, DateTime fechaHasta, CancellationToken cancellationToken = default)
+        public async Task<List<Models.TimeEntry>> GetTimeEntryByEmployeeAsync(Guid idEmployee, DateTime fechaDesde, DateTime fechaHasta, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.RegistroHoras>(StoredProcedures.GET_RegistroHorasByPersonal, idPersonal, fechaDesde, fechaHasta);
-            }, "GetRegistroHorasByPersonal", cancellationToken);
+                return await ExecuteQueryListAsync<Models.TimeEntry>(StoredProcedures.GET_TimeEntryByEmployee, idEmployee, fechaDesde, fechaHasta);
+            }, "GetTimeEntryByEmployee", cancellationToken);
         }
 
-        public async Task<List<Models.ConfiguracionFeriado>> GetFeriadosByAccountAndYearAsync(Guid? idAccount, int anio, CancellationToken cancellationToken = default)
+        public async Task<List<Models.HolidayConfiguration>> GetFeriadosByAccountAndYearAsync(Guid? idAccount, int anio, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.ConfiguracionFeriado>(StoredProcedures.GET_FeriadosByAccountAndYear, (object?)idAccount ?? DBNull.Value, anio);
+                return await ExecuteQueryListAsync<Models.HolidayConfiguration>(StoredProcedures.GET_FeriadosByAccountAndYear, (object?)idAccount ?? DBNull.Value, anio);
             }, "GetFeriadosByAccountAndYear", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 2
-        public async Task<Models.ConfiguracionRegimenLaboral?> GetConfiguracionRegimenLaboralVigenteAsync(Guid idAccount, DateTime? fecha = null, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 2
+        public async Task<Models.LaborRegimeConfiguration?> GetLaborRegimeConfigurationVigenteAsync(Guid idAccount, DateTime? fecha = null, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQuerySingleAsync<Models.ConfiguracionRegimenLaboral>(StoredProcedures.GET_ConfiguracionRegimenLaboralVigente, idAccount, (object?)fecha ?? DBNull.Value);
-            }, "GetConfiguracionRegimenLaboralVigente", cancellationToken);
+                return await ExecuteQuerySingleAsync<Models.LaborRegimeConfiguration>(StoredProcedures.GET_LaborRegimeConfigurationVigente, idAccount, (object?)fecha ?? DBNull.Value);
+            }, "GetLaborRegimeConfigurationVigente", cancellationToken);
         }
 
-        public async Task<List<Models.ConfiguracionRegimenLaboral>> GetConfiguracionRegimenLaboralHistorialAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        public async Task<List<Models.LaborRegimeConfiguration>> GetLaborRegimeConfigurationHistorialAsync(Guid idAccount, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.ConfiguracionRegimenLaboral>(StoredProcedures.GET_ConfiguracionRegimenLaboralHistorial, idAccount);
-            }, "GetConfiguracionRegimenLaboralHistorial", cancellationToken);
+                return await ExecuteQueryListAsync<Models.LaborRegimeConfiguration>(StoredProcedures.GET_LaborRegimeConfigurationHistorial, idAccount);
+            }, "GetLaborRegimeConfigurationHistorial", cancellationToken);
         }
 
-        public async Task<Models.ParametrosLegales?> GetParametrosLegalesByAccountAndYearAsync(Guid idAccount, int anio, CancellationToken cancellationToken = default)
+        public async Task<Models.LegalParameters?> GetLegalParametersByAccountAndYearAsync(Guid idAccount, int anio, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQuerySingleAsync<Models.ParametrosLegales>(StoredProcedures.GET_ParametrosLegalesByAccountAndYear, idAccount, anio);
-            }, "GetParametrosLegalesByAccountAndYear", cancellationToken);
+                return await ExecuteQuerySingleAsync<Models.LegalParameters>(StoredProcedures.GET_LegalParametersByAccountAndYear, idAccount, anio);
+            }, "GetLegalParametersByAccountAndYear", cancellationToken);
         }
 
-        public async Task<List<Models.Vacaciones>> GetVacacionesByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Vacation>> GetVacationByEmployeeAsync(Guid idEmployee, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Vacaciones>(StoredProcedures.GET_VacacionesByPersonal, idPersonal);
-            }, "GetVacacionesByPersonal", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Vacation>(StoredProcedures.GET_VacationByEmployee, idEmployee);
+            }, "GetVacationByEmployee", cancellationToken);
         }
 
-        public async Task<List<Models.Vacaciones>> GetVacacionesPendientesByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Vacation>> GetVacationPendientesByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Vacaciones>(StoredProcedures.GET_VacacionesPendientesByAccount, idAccount);
-            }, "GetVacacionesPendientesByAccount", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Vacation>(StoredProcedures.GET_VacationPendientesByAccount, idAccount);
+            }, "GetVacationPendientesByAccount", cancellationToken);
         }
 
         // Escalar (un int) -- no un Models.* completo, así que se pide con
         // SqlQueryRaw en vez de ExecuteQueryListAsync<T> (mismo motivo que
         // GetTransactionByOriginalReferenceAsync más arriba).
-        public async Task<int> GetVacacionesGozadasByPersonalAnioAsync(Guid idPersonal, int anio, CancellationToken cancellationToken = default)
+        public async Task<int> GetVacationGozadasByEmployeeAnioAsync(Guid idEmployee, int anio, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 var dbContext = await RentContextAsync(cancellationToken);
                 try
                 {
-                    var sql = $"EXEC {StoredProcedures.GET_VacacionesGozadasByPersonalAnio} @p0, @p1";
+                    var sql = $"EXEC {StoredProcedures.GET_VacationGozadasByEmployeeAnio} @p0, @p1";
                     var resultados = await dbContext.Database
                         .SqlQueryRaw<int>(sql,
-                            new SqlParameter("@p0", idPersonal),
+                            new SqlParameter("@p0", idEmployee),
                             new SqlParameter("@p1", anio))
                         .ToListAsync(cancellationToken);
                     return resultados.Count > 0 ? resultados[0] : 0;
@@ -1417,70 +1417,70 @@ namespace SpiderHood.Data
                 {
                     ReturnContext(dbContext);
                 }
-            }, "GetVacacionesGozadasByPersonalAnio", cancellationToken);
+            }, "GetVacationGozadasByEmployeeAnio", cancellationToken);
         }
 
-        public async Task<List<Models.BoletaPago>> GetBoletasByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Payslip>> GetPayslipsByEmployeeAsync(Guid idEmployee, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.BoletaPago>(StoredProcedures.GET_BoletasByPersonal, idPersonal);
-            }, "GetBoletasByPersonal", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Payslip>(StoredProcedures.GET_PayslipsByEmployee, idEmployee);
+            }, "GetPayslipsByEmployee", cancellationToken);
         }
 
-        public async Task<Models.BoletaPago?> GetBoletaByIdAsync(Guid idBoletaPago, CancellationToken cancellationToken = default)
+        public async Task<Models.Payslip?> GetPayslipByIdAsync(Guid idPayslip, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQuerySingleAsync<Models.BoletaPago>(StoredProcedures.GET_BoletaById, idBoletaPago);
-            }, "GetBoletaById", cancellationToken);
+                return await ExecuteQuerySingleAsync<Models.Payslip>(StoredProcedures.GET_PayslipById, idPayslip);
+            }, "GetPayslipById", cancellationToken);
         }
 
-        public async Task<List<Models.BoletaPago>> GetBoletasByAccountAndPeriodoAsync(Guid idAccount, int anio, int mes, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Payslip>> GetPayslipsByAccountAndPeriodoAsync(Guid idAccount, int anio, int mes, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.BoletaPago>(StoredProcedures.GET_BoletasByAccountAndPeriodo, idAccount, anio, mes);
-            }, "GetBoletasByAccountAndPeriodo", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Payslip>(StoredProcedures.GET_PayslipsByAccountAndPeriodo, idAccount, anio, mes);
+            }, "GetPayslipsByAccountAndPeriodo", cancellationToken);
         }
 
-        public async Task<List<Models.BoletaPagoDetalle>> GetBoletaPagoDetalleByBoletaAsync(Guid idBoletaPago, CancellationToken cancellationToken = default)
+        public async Task<List<Models.PayslipDetail>> GetPayslipDetailByPayslipAsync(Guid idPayslip, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.BoletaPagoDetalle>(StoredProcedures.GET_BoletaPagoDetalleByBoleta, idBoletaPago);
-            }, "GetBoletaPagoDetalleByBoleta", cancellationToken);
+                return await ExecuteQueryListAsync<Models.PayslipDetail>(StoredProcedures.GET_PayslipDetailByPayslip, idPayslip);
+            }, "GetPayslipDetailByPayslip", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 3 (Permisos y licencias)
-        public async Task<List<Models.PermisoLicencia>> GetPermisoLicenciaByPersonalAsync(Guid idPersonal, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 3 (Permisos y licencias)
+        public async Task<List<Models.LeaveRequest>> GetLeaveRequestByEmployeeAsync(Guid idEmployee, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.PermisoLicencia>(StoredProcedures.GET_PermisoLicenciaByPersonal, idPersonal);
-            }, "GetPermisoLicenciaByPersonal", cancellationToken);
+                return await ExecuteQueryListAsync<Models.LeaveRequest>(StoredProcedures.GET_LeaveRequestByEmployee, idEmployee);
+            }, "GetLeaveRequestByEmployee", cancellationToken);
         }
 
-        public async Task<List<Models.PermisoLicencia>> GetPermisoLicenciaPendientesByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        public async Task<List<Models.LeaveRequest>> GetLeaveRequestPendientesByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.PermisoLicencia>(StoredProcedures.GET_PermisoLicenciaPendientesByAccount, idAccount);
-            }, "GetPermisoLicenciaPendientesByAccount", cancellationToken);
+                return await ExecuteQueryListAsync<Models.LeaveRequest>(StoredProcedures.GET_LeaveRequestPendientesByAccount, idAccount);
+            }, "GetLeaveRequestPendientesByAccount", cancellationToken);
         }
 
-        // Escalar (un int) -- mismo motivo que GetVacacionesGozadasByPersonalAnioAsync.
-        public async Task<int> GetPermisoLicenciaSinGoceDiasByPersonalMesAsync(Guid idPersonal, DateTime fechaDesde, DateTime fechaHasta, CancellationToken cancellationToken = default)
+        // Escalar (un int) -- mismo motivo que GetVacationGozadasByEmployeeAnioAsync.
+        public async Task<int> GetLeaveRequestSinGoceDiasByEmployeeMesAsync(Guid idEmployee, DateTime fechaDesde, DateTime fechaHasta, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 var dbContext = await RentContextAsync(cancellationToken);
                 try
                 {
-                    var sql = $"EXEC {StoredProcedures.GET_PermisoLicenciaSinGoceDiasByPersonalMes} @p0, @p1, @p2";
+                    var sql = $"EXEC {StoredProcedures.GET_LeaveRequestSinGoceDiasByEmployeeMes} @p0, @p1, @p2";
                     var resultados = await dbContext.Database
                         .SqlQueryRaw<int>(sql,
-                            new SqlParameter("@p0", idPersonal),
+                            new SqlParameter("@p0", idEmployee),
                             new SqlParameter("@p1", fechaDesde),
                             new SqlParameter("@p2", fechaHasta))
                         .ToListAsync(cancellationToken);
@@ -1490,7 +1490,7 @@ namespace SpiderHood.Data
                 {
                     ReturnContext(dbContext);
                 }
-            }, "GetPermisoLicenciaSinGoceDiasByPersonalMes", cancellationToken);
+            }, "GetLeaveRequestSinGoceDiasByEmployeeMes", cancellationToken);
         }
 
         // Gobernanza / Reuniones -- Fase 1

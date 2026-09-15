@@ -7,18 +7,18 @@ using IContainer = QuestPDF.Infrastructure.IContainer;
 
 namespace SpiderHood.Services
 {
-    // Genera el PDF descargable de una BoletaPago (Personal y Planillas -- Fase
+    // Genera el PDF descargable de una Payslip (Employee y Payroll -- Fase
     // 2, sección 9 de la especificación: "lo mínimo indispensable" -- Empleador,
     // Trabajador, Periodo, Ingresos, Descuentos, Neto a pagar). Mismo patrón
     // stateless que InstallmentExportService (Classes/Utilities.cs) -- se
     // instancia, se llama GeneratePdf() una vez y se descarta.
-    public class BoletaPagoExportService
+    public class PayslipExportService
     {
-        private readonly BoletaPago _boleta;
+        private readonly Payslip _boleta;
         private readonly string _razonSocial;
         private readonly string _ruc;
 
-        public BoletaPagoExportService(BoletaPago boleta, string? razonSocial, string? ruc)
+        public PayslipExportService(Payslip boleta, string? razonSocial, string? ruc)
         {
             _boleta = boleta;
             _razonSocial = string.IsNullOrWhiteSpace(razonSocial) ? "(razón social no configurada)" : razonSocial;
@@ -70,7 +70,7 @@ namespace SpiderHood.Services
         {
             container.BorderBottom(1).BorderColor(Colors.Grey.Lighten1).Padding(10).Column(col =>
             {
-                col.Item().Text($"TRABAJADOR: {_boleta.NombrePersonal.ToUpper()}").FontSize(10).Bold();
+                col.Item().Text($"TRABAJADOR: {_boleta.NombreEmployee.ToUpper()}").FontSize(10).Bold();
                 col.Item().Text($"DNI: {_boleta.DNI}   Cargo: {_boleta.Cargo}");
                 col.Item().Text($"Fecha ingreso: {_boleta.FechaIngreso:dd/MM/yyyy}" +
                     (_boleta.FechaCese != null ? $"   Fecha cese: {_boleta.FechaCese:dd/MM/yyyy}" : ""));
@@ -154,9 +154,9 @@ namespace SpiderHood.Services
 
         private static string TraducirRegimen(string tipoRegimen) => tipoRegimen switch
         {
-            nameof(TipoRegimenLaboral.Microempresa) => "Microempresa",
-            nameof(TipoRegimenLaboral.PequenaEmpresa) => "Pequeña Empresa",
-            nameof(TipoRegimenLaboral.RegimenGeneral) => "Régimen General",
+            nameof(LaborRegimeType.Microempresa) => "Microempresa",
+            nameof(LaborRegimeType.PequenaEmpresa) => "Pequeña Empresa",
+            nameof(LaborRegimeType.RegimenGeneral) => "Régimen General",
             _ => tipoRegimen
         };
     }

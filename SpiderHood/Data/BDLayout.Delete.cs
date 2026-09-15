@@ -275,27 +275,27 @@ namespace SpiderHood.Data
             }, "DeleteCalendarItem", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 1
-        public async Task<bool> DeleteRecordAsync(Models.RegistroHoras registro, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 1
+        public async Task<bool> DeleteRecordAsync(Models.TimeEntry registro, CancellationToken cancellationToken = default)
         {
             ValidateEntity(registro, nameof(registro));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_RegistroHoras, cancellationToken, registro.IdRegistroHoras);
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_TimeEntry, cancellationToken, registro.IdTimeEntry);
                 return true;
-            }, "DeleteRegistroHoras", cancellationToken);
+            }, "DeleteTimeEntry", cancellationToken);
         }
 
-        public async Task<bool> DeleteRecordAsync(Models.ConfiguracionFeriado feriado, CancellationToken cancellationToken = default)
+        public async Task<bool> DeleteRecordAsync(Models.HolidayConfiguration feriado, CancellationToken cancellationToken = default)
         {
             ValidateEntity(feriado, nameof(feriado));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_ConfiguracionFeriados, cancellationToken, feriado.IdConfiguracionFeriados);
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_HolidayConfiguration, cancellationToken, feriado.IdHolidayConfiguration);
                 return true;
-            }, "DeleteConfiguracionFeriado", cancellationToken);
+            }, "DeleteHolidayConfiguration", cancellationToken);
         }
 
         // Gobernanza / Reuniones -- Fase 1

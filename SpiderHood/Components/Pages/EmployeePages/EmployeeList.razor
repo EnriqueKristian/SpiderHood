@@ -1,8 +1,8 @@
-@page "/personal"
+@page "/employees"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IPersonalService PersonalService
+@inject IEmployeeService EmployeeService
 @inject IAccountService AccountService
 @inject SpiderHood.Services.AuthService AuthService
 @inject NavigationManager Navigation
@@ -63,7 +63,7 @@
                     <tbody>
                         @foreach (var p in _personal)
                         {
-                            <tr style="cursor:pointer" @onclick="() => VerDetalle(p.IdPersonal)">
+                            <tr style="cursor:pointer" @onclick="() => VerDetalle(p.IdEmployee)">
                                 <td>@p.NombreCompleto</td>
                                 <td>@p.DNI</td>
                                 <td>@p.Cargo</td>
@@ -179,8 +179,8 @@
     private bool _editando;
     private string? _error;
     private Guid? _idAccount;
-    private List<Models.Personal> _personal = new();
-    private Models.Personal _form = new();
+    private List<Models.Employee> _personal = new();
+    private Models.Employee _form = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -202,22 +202,22 @@
         if (_idAccount == null)
             return;
 
-        _personal = await PersonalService.GetPersonalByAccountAsync(_idAccount.Value);
+        _personal = await EmployeeService.GetEmployeeByAccountAsync(_idAccount.Value);
     }
 
     private void AbrirNuevo()
     {
-        _form = new Models.Personal { FechaIngreso = DateTime.Today, Cargo = "Conserjería" };
+        _form = new Models.Employee { FechaIngreso = DateTime.Today, Cargo = "Conserjería" };
         _editando = false;
         _error = null;
         _showModal = true;
     }
 
-    private void AbrirEditar(Models.Personal p)
+    private void AbrirEditar(Models.Employee p)
     {
-        _form = new Models.Personal
+        _form = new Models.Employee
         {
-            IdPersonal = p.IdPersonal,
+            IdEmployee = p.IdEmployee,
             IdAccount = p.IdAccount,
             DNI = p.DNI,
             Nombres = p.Nombres,
@@ -245,12 +245,12 @@
         {
             if (_editando)
             {
-                await PersonalService.UpdatePersonalAsync(_form);
+                await EmployeeService.UpdateEmployeeAsync(_form);
             }
             else
             {
                 _form.IdAccount = _idAccount!.Value;
-                await PersonalService.CreatePersonalAsync(_form);
+                await EmployeeService.CreateEmployeeAsync(_form);
             }
 
             _showModal = false;
@@ -262,5 +262,5 @@
         }
     }
 
-    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/personal/{id}");
+    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/employees/{id}");
 }

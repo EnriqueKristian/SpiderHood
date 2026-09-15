@@ -1,9 +1,9 @@
-@page "/personal/{Id:guid}"
+@page "/employees/{Id:guid}"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IPersonalService PersonalService
-@inject IPlanillaService PlanillaService
+@inject IEmployeeService EmployeeService
+@inject IPayrollService PayrollService
 @inject IAccountService AccountService
 @inject SpiderHood.Services.AuthService AuthService
 @inject NavigationManager Navigation
@@ -40,32 +40,32 @@
         </div>
 
         <div class="row g-3">
-            <!-- Turno -->
+            <!-- Shift -->
             <div class="col-lg-6">
                 <div class="card h-100">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-clock-history me-2"></i>Turno</span>
-                        <button class="btn btn-sm btn-outline-primary" @onclick="AbrirAsignarTurno" disabled="@(_turnosDisponibles.Count == 0)">
+                        <button class="btn btn-sm btn-outline-primary" @onclick="AbrirAsignarShift" disabled="@(_turnosDisponibles.Count == 0)">
                             <i class="bi bi-plus-lg"></i> Asignar
                         </button>
                     </div>
                     <div class="card-body">
                         @if (_turnosDisponibles.Count == 0)
                         {
-                            <p class="text-muted small mb-0">No hay Turnos creados todavía -- ve a <a href="/personal/turnos">Turnos</a> para crear uno.</p>
+                            <p class="text-muted small mb-0">No hay Turnos creados todavía -- ve a <a href="/employees/shifts">Turnos</a> para crear uno.</p>
                         }
-                        @if (_asignacionesTurno.Count == 0)
+                        @if (_asignacionesShift.Count == 0)
                         {
                             <p class="text-muted mb-0">Sin turno asignado.</p>
                         }
                         else
                         {
                             <ul class="list-group list-group-flush">
-                                @foreach (var a in _asignacionesTurno)
+                                @foreach (var a in _asignacionesShift)
                                 {
                                     <li class="list-group-item px-0 d-flex justify-content-between">
                                         <div>
-                                            <strong>@a.TurnoNombre</strong>
+                                            <strong>@a.ShiftNombre</strong>
                                             <div class="text-muted small">@a.HoraInicio.ToString(@"hh\:mm") - @a.HoraFin.ToString(@"hh\:mm")</div>
                                         </div>
                                         <div class="text-end small text-muted">
@@ -173,24 +173,24 @@
                 </div>
             </div>
 
-            <!-- Planillas -->
+            <!-- Payroll -->
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-receipt me-2"></i>Planillas</span>
+                        <span><i class="bi bi-receipt me-2"></i>Payroll</span>
                         <div class="d-flex gap-2">
-                            <a class="btn btn-sm btn-outline-secondary" href="/personal/vacaciones"><i class="bi bi-airplane me-1"></i>Vacaciones</a>
-                            <a class="btn btn-sm btn-outline-secondary" href="/personal/permisos"><i class="bi bi-calendar-x me-1"></i>Permisos</a>
-                            <a class="btn btn-sm btn-outline-secondary" href="/personal/boletas"><i class="bi bi-receipt me-1"></i>Boletas</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="/employees/vacations"><i class="bi bi-airplane me-1"></i>Vacaciones</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="/employees/leave-requests"><i class="bi bi-calendar-x me-1"></i>Permisos</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="/employees/payslips"><i class="bi bi-receipt me-1"></i>Boletas</a>
                         </div>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-4">
-                                <p class="small text-muted mb-1">Saldo de vacaciones @_saldoVacaciones?.Anio</p>
-                                @if (_saldoVacaciones != null)
+                                <p class="small text-muted mb-1">Saldo de vacaciones @_saldoVacation?.Anio</p>
+                                @if (_saldoVacation != null)
                                 {
-                                    <p class="mb-0"><strong>@_saldoVacaciones.DiasPendientes</strong> días pendientes de @_saldoVacaciones.DiasGanados ganados (@_saldoVacaciones.DiasGozados gozados)</p>
+                                    <p class="mb-0"><strong>@_saldoVacation.DiasPendientes</strong> días pendientes de @_saldoVacation.DiasGanados ganados (@_saldoVacation.DiasGozados gozados)</p>
                                 }
                             </div>
                             <div class="col-md-8">
@@ -205,7 +205,7 @@
                                         @foreach (var b in _boletas.Take(3))
                                         {
                                             <li>
-                                                <a href="/personal/boletas/@b.IdBoletaPago">@b.NombrePeriodo</a> -- Neto S/ @b.NetoAPagar.ToString("N2")
+                                                <a href="/employees/payslips/@b.IdPayslip">@b.NombrePeriodo</a> -- Neto S/ @b.NetoAPagar.ToString("N2")
                                             </li>
                                         }
                                     </ul>
@@ -219,33 +219,33 @@
     }
 </div>
 
-@if (_showAsignarTurno)
+@if (_showAsignarShift)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content shadow-lg">
                 <div class="modal-header">
                     <h5 class="modal-title">Asignar Turno</h5>
-                    <button type="button" class="btn-close" @onclick="() => _showAsignarTurno = false"></button>
+                    <button type="button" class="btn-close" @onclick="() => _showAsignarShift = false"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Turno</label>
-                        <select class="form-select" @bind="_idTurnoSeleccionado">
+                        <select class="form-select" @bind="_idShiftSeleccionado">
                             @foreach (var t in _turnosDisponibles)
                             {
-                                <option value="@t.IdTurno">@t.Nombre (@t.HoraInicio.ToString(@"hh\:mm")-@t.HoraFin.ToString(@"hh\:mm"))</option>
+                                <option value="@t.IdShift">@t.Nombre (@t.HoraInicio.ToString(@"hh\:mm")-@t.HoraFin.ToString(@"hh\:mm"))</option>
                             }
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Desde</label>
-                        <InputDate class="form-control" @bind-Value="_fechaDesdeTurno" />
+                        <InputDate class="form-control" @bind-Value="_fechaDesdeShift" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showAsignarTurno = false">Cancelar</button>
-                    <button type="button" class="btn btn-primary" @onclick="ConfirmarAsignarTurno">Asignar</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showAsignarShift = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmarAsignarShift">Asignar</button>
                 </div>
             </div>
         </div>
@@ -307,7 +307,7 @@
                         <select class="form-select" @bind="_idAsignacionEdificioSeleccionada">
                             @foreach (var a in _asignacionesEdificioVigentes)
                             {
-                                <option value="@a.IdAsignacionPersonalEdificio">@a.BuildingName</option>
+                                <option value="@a.IdEmployeeBuildingAssignment">@a.BuildingName</option>
                             }
                         </select>
                     </div>
@@ -357,20 +357,20 @@
     private UserSession _currentUser = new();
     private bool _isStaff;
     private bool _loading = true;
-    private Models.Personal? _personal;
+    private Models.Employee? _personal;
 
-    private List<Models.Turno> _turnosDisponibles = new();
-    private List<Models.AsignacionPersonalTurno> _asignacionesTurno = new();
+    private List<Models.Shift> _turnosDisponibles = new();
+    private List<Models.EmployeeShiftAssignment> _asignacionesShift = new();
     private List<Models.Building> _edificiosDisponibles = new();
-    private List<Models.AsignacionPersonalEdificio> _asignacionesEdificio = new();
-    private List<Models.AsignacionPersonalEdificio> _asignacionesEdificioVigentes => _asignacionesEdificio.Where(a => a.FechaHasta == null).ToList();
-    private List<Models.RegistroHoras> _registros = new();
-    private Models.SaldoVacaciones? _saldoVacaciones;
-    private List<Models.BoletaPago> _boletas = new();
+    private List<Models.EmployeeBuildingAssignment> _asignacionesEdificio = new();
+    private List<Models.EmployeeBuildingAssignment> _asignacionesEdificioVigentes => _asignacionesEdificio.Where(a => a.FechaHasta == null).ToList();
+    private List<Models.TimeEntry> _registros = new();
+    private Models.VacationBalance? _saldoVacation;
+    private List<Models.Payslip> _boletas = new();
 
-    private bool _showAsignarTurno;
-    private Guid _idTurnoSeleccionado;
-    private DateTime _fechaDesdeTurno = DateTime.Today;
+    private bool _showAsignarShift;
+    private Guid _idShiftSeleccionado;
+    private DateTime _fechaDesdeShift = DateTime.Today;
 
     private bool _showAsignarEdificio;
     private Guid _idBuildingSeleccionado;
@@ -379,7 +379,7 @@
 
     private bool _showRegistrarHoras;
     private Guid _idAsignacionEdificioSeleccionada;
-    private Models.RegistroHoras _registroForm = new();
+    private Models.TimeEntry _registroForm = new();
     private string? _errorRegistro;
 
     protected override async Task OnInitializedAsync()
@@ -389,12 +389,12 @@
 
         if (_isStaff)
         {
-            _personal = await PersonalService.GetPersonalByIdAsync(Id);
+            _personal = await EmployeeService.GetEmployeeByIdAsync(Id);
             if (_personal != null)
             {
                 var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
                 _turnosDisponibles = account != null
-                    ? (await PersonalService.GetTurnosByAccountAsync(account.IdAccount)).Where(t => t.IsActive).ToList()
+                    ? (await EmployeeService.GetShiftsByAccountAsync(account.IdAccount)).Where(t => t.IsActive).ToList()
                     : new();
 
                 // Edificios que este administrador ve, todos los de su Cuenta --
@@ -418,28 +418,28 @@
     {
         if (_personal == null) return;
 
-        _asignacionesTurno = await PersonalService.GetAsignacionesTurnoByPersonalAsync(_personal.IdPersonal);
-        _asignacionesEdificio = await PersonalService.GetAsignacionesEdificioByPersonalAsync(_personal.IdPersonal);
-        _registros = await PersonalService.GetRegistroHorasByPersonalAsync(_personal.IdPersonal, DateTime.Today.AddDays(-30), DateTime.Today);
-        _saldoVacaciones = await PlanillaService.GetSaldoVacacionesAsync(_personal.IdPersonal, _personal.IdAccount, DateTime.Today.Year);
-        _boletas = await PlanillaService.GetBoletasByPersonalAsync(_personal.IdPersonal);
+        _asignacionesShift = await EmployeeService.GetAsignacionesShiftByEmployeeAsync(_personal.IdEmployee);
+        _asignacionesEdificio = await EmployeeService.GetAsignacionesEdificioByEmployeeAsync(_personal.IdEmployee);
+        _registros = await EmployeeService.GetTimeEntryByEmployeeAsync(_personal.IdEmployee, DateTime.Today.AddDays(-30), DateTime.Today);
+        _saldoVacation = await PayrollService.GetVacationBalanceAsync(_personal.IdEmployee, _personal.IdAccount, DateTime.Today.Year);
+        _boletas = await PayrollService.GetPayslipsByEmployeeAsync(_personal.IdEmployee);
     }
 
-    private void Volver() => Navigation.NavigateTo("/personal");
+    private void Volver() => Navigation.NavigateTo("/employees");
 
-    private void AbrirAsignarTurno()
+    private void AbrirAsignarShift()
     {
-        _idTurnoSeleccionado = _turnosDisponibles.FirstOrDefault()?.IdTurno ?? Guid.Empty;
-        _fechaDesdeTurno = DateTime.Today;
-        _showAsignarTurno = true;
+        _idShiftSeleccionado = _turnosDisponibles.FirstOrDefault()?.IdShift ?? Guid.Empty;
+        _fechaDesdeShift = DateTime.Today;
+        _showAsignarShift = true;
     }
 
-    private async Task ConfirmarAsignarTurno()
+    private async Task ConfirmarAsignarShift()
     {
-        if (_personal == null || _idTurnoSeleccionado == Guid.Empty) return;
+        if (_personal == null || _idShiftSeleccionado == Guid.Empty) return;
 
-        await PersonalService.AsignarTurnoAsync(_personal.IdPersonal, _idTurnoSeleccionado, _fechaDesdeTurno);
-        _showAsignarTurno = false;
+        await EmployeeService.AsignarShiftAsync(_personal.IdEmployee, _idShiftSeleccionado, _fechaDesdeShift);
+        _showAsignarShift = false;
         await CargarAsync();
     }
 
@@ -455,21 +455,21 @@
     {
         if (_personal == null || _idBuildingSeleccionado == Guid.Empty) return;
 
-        await PersonalService.AsignarEdificioAsync(_personal.IdPersonal, _idBuildingSeleccionado, _fechaDesdeEdificio, _porcentajeDedicacion, _currentUser.Email);
+        await EmployeeService.AsignarEdificioAsync(_personal.IdEmployee, _idBuildingSeleccionado, _fechaDesdeEdificio, _porcentajeDedicacion, _currentUser.Email);
         _showAsignarEdificio = false;
         await CargarAsync();
     }
 
-    private async Task CerrarAsignacionEdificio(Models.AsignacionPersonalEdificio a)
+    private async Task CerrarAsignacionEdificio(Models.EmployeeBuildingAssignment a)
     {
-        await PersonalService.CerrarAsignacionEdificioAsync(a.IdAsignacionPersonalEdificio, DateTime.Today);
+        await EmployeeService.CerrarAsignacionEdificioAsync(a.IdEmployeeBuildingAssignment, DateTime.Today);
         await CargarAsync();
     }
 
     private void AbrirRegistrarHoras()
     {
-        _idAsignacionEdificioSeleccionada = _asignacionesEdificioVigentes.FirstOrDefault()?.IdAsignacionPersonalEdificio ?? Guid.Empty;
-        _registroForm = new Models.RegistroHoras { Fecha = DateTime.Today };
+        _idAsignacionEdificioSeleccionada = _asignacionesEdificioVigentes.FirstOrDefault()?.IdEmployeeBuildingAssignment ?? Guid.Empty;
+        _registroForm = new Models.TimeEntry { Fecha = DateTime.Today };
         _errorRegistro = null;
         _showRegistrarHoras = true;
     }
@@ -478,11 +478,11 @@
     {
         if (_personal == null || _idAsignacionEdificioSeleccionada == Guid.Empty) return;
 
-        _registroForm.IdPersonal = _personal.IdPersonal;
+        _registroForm.IdEmployee = _personal.IdEmployee;
         _registroForm.IdAsignacionEdificio = _idAsignacionEdificioSeleccionada;
         _registroForm.IdUsuarioRegistro = _currentUser.IdUser;
 
-        var result = await PersonalService.RegistrarHorasAsync(_registroForm);
+        var result = await EmployeeService.RegistrarHorasAsync(_registroForm);
         if (!result.IsSuccess)
         {
             _errorRegistro = result.ErrorMessage;
@@ -493,9 +493,9 @@
         await CargarAsync();
     }
 
-    private async Task EliminarRegistro(Models.RegistroHoras r)
+    private async Task EliminarRegistro(Models.TimeEntry r)
     {
-        await PersonalService.DeleteRegistroHorasAsync(r);
+        await EmployeeService.DeleteTimeEntryAsync(r);
         await CargarAsync();
     }
 }

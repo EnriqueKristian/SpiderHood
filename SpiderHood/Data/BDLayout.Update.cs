@@ -907,17 +907,17 @@ namespace SpiderHood.Data
             }, "UpdateCalendarItemStatus", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 1
-        public async Task<Models.Personal> UpdateRecordAsync(Models.Personal personal, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 1
+        public async Task<Models.Employee> UpdateRecordAsync(Models.Employee personal, CancellationToken cancellationToken = default)
         {
             ValidateEntity(personal, nameof(personal));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_Personal,
+                    StoredProcedures.UPD_Employee,
                     cancellationToken,
-                    personal.IdPersonal,
+                    personal.IdEmployee,
                     personal.DNI,
                     personal.Nombres,
                     personal.Apellidos,
@@ -930,90 +930,90 @@ namespace SpiderHood.Data
                     personal.ModifiedBy!,
                     personal.TieneHijos);
                 return personal;
-            }, "UpdatePersonal", cancellationToken);
+            }, "UpdateEmployee", cancellationToken);
         }
 
-        public async Task<Models.Turno> UpdateRecordAsync(Models.Turno turno, CancellationToken cancellationToken = default)
+        public async Task<Models.Shift> UpdateRecordAsync(Models.Shift turno, CancellationToken cancellationToken = default)
         {
             ValidateEntity(turno, nameof(turno));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_Turno,
+                    StoredProcedures.UPD_Shift,
                     cancellationToken,
-                    turno.IdTurno,
+                    turno.IdShift,
                     turno.Nombre,
                     turno.HoraInicio,
                     turno.HoraFin,
                     turno.DiasSemana,
                     turno.IsActive);
                 return turno;
-            }, "UpdateTurno", cancellationToken);
+            }, "UpdateShift", cancellationToken);
         }
 
         // Cierra una rotación (fin de la asignación a ese edificio) -- ver
-        // comentario de UPD_AsignacionPersonalEdificio_Cerrar en el script de BD.
-        public async Task CerrarAsignacionPersonalEdificioAsync(Guid idAsignacionPersonalEdificio, DateTime fechaHasta, CancellationToken cancellationToken = default)
+        // comentario de UPD_EmployeeBuildingAssignment_Cerrar en el script de BD.
+        public async Task CerrarEmployeeBuildingAssignmentAsync(Guid idEmployeeBuildingAssignment, DateTime fechaHasta, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_AsignacionPersonalEdificio_Cerrar,
+                    StoredProcedures.UPD_EmployeeBuildingAssignment_Cerrar,
                     cancellationToken,
-                    idAsignacionPersonalEdificio,
+                    idEmployeeBuildingAssignment,
                     fechaHasta);
                 return true;
-            }, "CerrarAsignacionPersonalEdificio", cancellationToken);
+            }, "CerrarEmployeeBuildingAssignment", cancellationToken);
         }
 
-        public async Task<Models.RegistroHoras> UpdateRecordAsync(Models.RegistroHoras registro, CancellationToken cancellationToken = default)
+        public async Task<Models.TimeEntry> UpdateRecordAsync(Models.TimeEntry registro, CancellationToken cancellationToken = default)
         {
             ValidateEntity(registro, nameof(registro));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_RegistroHoras,
+                    StoredProcedures.UPD_TimeEntry,
                     cancellationToken,
-                    registro.IdRegistroHoras,
+                    registro.IdTimeEntry,
                     registro.HorasOrdinarias,
                     registro.HorasExtra25,
                     registro.HorasExtra35,
                     registro.EsFeriado,
                     (object?)registro.Observaciones ?? DBNull.Value);
                 return registro;
-            }, "UpdateRegistroHoras", cancellationToken);
+            }, "UpdateTimeEntry", cancellationToken);
         }
 
-        public async Task<Models.ConfiguracionFeriado> UpdateRecordAsync(Models.ConfiguracionFeriado feriado, CancellationToken cancellationToken = default)
+        public async Task<Models.HolidayConfiguration> UpdateRecordAsync(Models.HolidayConfiguration feriado, CancellationToken cancellationToken = default)
         {
             ValidateEntity(feriado, nameof(feriado));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_ConfiguracionFeriados,
+                    StoredProcedures.UPD_HolidayConfiguration,
                     cancellationToken,
-                    feriado.IdConfiguracionFeriados,
+                    feriado.IdHolidayConfiguration,
                     feriado.Fecha,
                     feriado.Nombre,
                     feriado.Tipo);
                 return feriado;
-            }, "UpdateConfiguracionFeriado", cancellationToken);
+            }, "UpdateHolidayConfiguration", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 2
-        public async Task<Models.ParametrosLegales> UpdateRecordAsync(Models.ParametrosLegales parametros, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 2
+        public async Task<Models.LegalParameters> UpdateRecordAsync(Models.LegalParameters parametros, CancellationToken cancellationToken = default)
         {
             ValidateEntity(parametros, nameof(parametros));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_ParametrosLegales,
+                    StoredProcedures.UPD_LegalParameters,
                     cancellationToken,
-                    parametros.IdParametrosLegales,
+                    parametros.IdLegalParameters,
                     parametros.ValorUIT,
                     parametros.MontoAsignacionFamiliar,
                     parametros.CostoSISMensual,
@@ -1021,36 +1021,36 @@ namespace SpiderHood.Data
                     parametros.PorcentajeONP,
                     parametros.PorcentajeAFP);
                 return parametros;
-            }, "UpdateParametrosLegales", cancellationToken);
+            }, "UpdateLegalParameters", cancellationToken);
         }
 
-        public async Task UpdateVacacionesEstadoAsync(Guid idVacaciones, string estado, Guid idAprobador, CancellationToken cancellationToken = default)
+        public async Task UpdateVacationEstadoAsync(Guid idVacation, string estado, Guid idAprobador, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_VacacionesEstado,
+                    StoredProcedures.UPD_VacationEstado,
                     cancellationToken,
-                    idVacaciones,
+                    idVacation,
                     estado,
                     idAprobador);
                 return true;
-            }, "UpdateVacacionesEstado", cancellationToken);
+            }, "UpdateVacationEstado", cancellationToken);
         }
 
-        // Personal y Planillas -- Fase 3 (Permisos y licencias)
-        public async Task UpdatePermisoLicenciaEstadoAsync(Guid idPermisoLicencia, string estado, Guid idAprobador, CancellationToken cancellationToken = default)
+        // Employee y Payroll -- Fase 3 (Permisos y licencias)
+        public async Task UpdateLeaveRequestEstadoAsync(Guid idLeaveRequest, string estado, Guid idAprobador, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_PermisoLicenciaEstado,
+                    StoredProcedures.UPD_LeaveRequestEstado,
                     cancellationToken,
-                    idPermisoLicencia,
+                    idLeaveRequest,
                     estado,
                     idAprobador);
                 return true;
-            }, "UpdatePermisoLicenciaEstado", cancellationToken);
+            }, "UpdateLeaveRequestEstado", cancellationToken);
         }
 
         // Gobernanza / Reuniones -- Fase 1

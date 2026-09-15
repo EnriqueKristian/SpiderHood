@@ -1,8 +1,8 @@
-@page "/personal/boletas/{Id:guid}"
+@page "/employees/payslips/{Id:guid}"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IPlanillaService PlanillaService
+@inject IPayrollService PayrollService
 @inject SpiderHood.Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
@@ -30,7 +30,7 @@
             <div class="page-header-title">
                 <button class="btn btn-sm btn-outline-secondary me-3" @onclick="Volver"><i class="bi bi-arrow-left"></i></button>
                 <div>
-                    <h1 class="h4 fw-bold mb-0">@_boleta.NombrePersonal</h1>
+                    <h1 class="h4 fw-bold mb-0">@_boleta.NombreEmployee</h1>
                     <div class="text-muted small">Boleta de @char.ToUpper(_boleta.NombrePeriodo[0])@_boleta.NombrePeriodo.Substring(1)</div>
                 </div>
             </div>
@@ -48,7 +48,7 @@
                 <div class="card">
                     <div class="card-header">Trabajador</div>
                     <div class="card-body">
-                        <p class="mb-1"><strong>@_boleta.NombrePersonal</strong></p>
+                        <p class="mb-1"><strong>@_boleta.NombreEmployee</strong></p>
                         <p class="mb-1 text-muted small">DNI @_boleta.DNI -- @_boleta.Cargo</p>
                         <p class="mb-1 text-muted small">Ingreso: @_boleta.FechaIngreso?.ToString("dd/MM/yyyy")</p>
                         <p class="mb-0 text-muted small">Sistema pensionario: @_boleta.SistemaPensionario -- Régimen: @TraducirRegimen(_boleta.TipoRegimen)</p>
@@ -107,7 +107,7 @@
     private bool _isStaff;
     private bool _loading = true;
     private bool _descargando;
-    private Models.BoletaPago? _boleta;
+    private Models.Payslip? _boleta;
 
     protected override async Task OnInitializedAsync()
     {
@@ -116,13 +116,13 @@
 
         if (_isStaff)
         {
-            _boleta = await PlanillaService.GetBoletaConDetalleAsync(Id);
+            _boleta = await PayrollService.GetPayslipConDetalleAsync(Id);
         }
 
         _loading = false;
     }
 
-    private void Volver() => Navigation.NavigateTo("/personal/boletas");
+    private void Volver() => Navigation.NavigateTo("/employees/payslips");
 
     private async Task Descargar()
     {
@@ -131,13 +131,13 @@
         _descargando = true;
         try
         {
-            var regimen = await PlanillaService.GetRegimenVigenteAsync(_boleta.IdAccount!.Value, new DateTime(_boleta.Anio, _boleta.Mes, 1));
-            var exportService = new BoletaPagoExportService(_boleta, regimen?.RazonSocial, regimen?.RUC);
+            var regimen = await PayrollService.GetRegimenVigenteAsync(_boleta.IdAccount!.Value, new DateTime(_boleta.Anio, _boleta.Mes, 1));
+            var exportService = new PayslipExportService(_boleta, regimen?.RazonSocial, regimen?.RUC);
             var pdfBytes = exportService.GeneratePdf();
 
             await JSRuntime.InvokeVoidAsync("openPdfInNewTab",
                 Convert.ToBase64String(pdfBytes),
-                $"Boleta_{_boleta.NombrePersonal.Replace(" ", "_")}_{_boleta.Anio}{_boleta.Mes:00}.pdf");
+                $"Payslip_{_boleta.NombreEmployee.Replace(" ", "_")}_{_boleta.Anio}{_boleta.Mes:00}.pdf");
         }
         finally
         {
@@ -147,9 +147,9 @@
 
     private static string TraducirRegimen(string tipoRegimen) => tipoRegimen switch
     {
-        nameof(TipoRegimenLaboral.Microempresa) => "Microempresa",
-        nameof(TipoRegimenLaboral.PequenaEmpresa) => "Pequeña Empresa",
-        nameof(TipoRegimenLaboral.RegimenGeneral) => "Régimen General",
+        nameof(LaborRegimeType.Microempresa) => "Microempresa",
+        nameof(LaborRegimeType.PequenaEmpresa) => "Pequeña Empresa",
+        nameof(LaborRegimeType.RegimenGeneral) => "Régimen General",
         _ => tipoRegimen
     };
 

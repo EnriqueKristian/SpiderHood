@@ -370,63 +370,63 @@ namespace SpiderHood.Data
             public const string GET_CalendarItemsByBuilding = "GET_CalendarItemsByBuilding";
             public const string GET_CalendarItemById = "GET_CalendarItemById";
 
-            // Personal y Planillas -- Fase 1 (Database/Scripts/2026-09-15_108_Personal_Planillas_Fase1.sql)
-            public const string INS_Personal = "INS_Personal";
-            public const string UPD_Personal = "UPD_Personal";
-            public const string GET_PersonalByAccount = "GET_PersonalByAccount";
-            public const string GET_PersonalById = "GET_PersonalById";
+            // Employee y Payroll -- Fase 1 (Database/Scripts/2026-09-15_108_Employee_Payroll_Fase1.sql)
+            public const string INS_Employee = "INS_Employee";
+            public const string UPD_Employee = "UPD_Employee";
+            public const string GET_EmployeeByAccount = "GET_EmployeeByAccount";
+            public const string GET_EmployeeById = "GET_EmployeeById";
 
-            public const string INS_Turno = "INS_Turno";
-            public const string UPD_Turno = "UPD_Turno";
-            public const string GET_TurnosByAccount = "GET_TurnosByAccount";
+            public const string INS_Shift = "INS_Shift";
+            public const string UPD_Shift = "UPD_Shift";
+            public const string GET_ShiftsByAccount = "GET_ShiftsByAccount";
 
-            public const string INS_AsignacionPersonalTurno = "INS_AsignacionPersonalTurno";
-            public const string GET_AsignacionesTurnoByPersonal = "GET_AsignacionesTurnoByPersonal";
+            public const string INS_EmployeeShiftAssignment = "INS_EmployeeShiftAssignment";
+            public const string GET_AsignacionesShiftByEmployee = "GET_AsignacionesShiftByEmployee";
 
-            public const string INS_AsignacionPersonalEdificio = "INS_AsignacionPersonalEdificio";
-            public const string UPD_AsignacionPersonalEdificio_Cerrar = "UPD_AsignacionPersonalEdificio_Cerrar";
-            public const string GET_AsignacionesEdificioByPersonal = "GET_AsignacionesEdificioByPersonal";
+            public const string INS_EmployeeBuildingAssignment = "INS_EmployeeBuildingAssignment";
+            public const string UPD_EmployeeBuildingAssignment_Cerrar = "UPD_EmployeeBuildingAssignment_Cerrar";
+            public const string GET_AsignacionesEdificioByEmployee = "GET_AsignacionesEdificioByEmployee";
             public const string GET_AsignacionesEdificioByBuilding = "GET_AsignacionesEdificioByBuilding";
 
-            public const string INS_RegistroHoras = "INS_RegistroHoras";
-            public const string UPD_RegistroHoras = "UPD_RegistroHoras";
-            public const string DEL_RegistroHoras = "DEL_RegistroHoras";
-            public const string GET_RegistroHorasByPersonal = "GET_RegistroHorasByPersonal";
+            public const string INS_TimeEntry = "INS_TimeEntry";
+            public const string UPD_TimeEntry = "UPD_TimeEntry";
+            public const string DEL_TimeEntry = "DEL_TimeEntry";
+            public const string GET_TimeEntryByEmployee = "GET_TimeEntryByEmployee";
 
-            public const string INS_ConfiguracionFeriados = "INS_ConfiguracionFeriados";
-            public const string UPD_ConfiguracionFeriados = "UPD_ConfiguracionFeriados";
-            public const string DEL_ConfiguracionFeriados = "DEL_ConfiguracionFeriados";
+            public const string INS_HolidayConfiguration = "INS_HolidayConfiguration";
+            public const string UPD_HolidayConfiguration = "UPD_HolidayConfiguration";
+            public const string DEL_HolidayConfiguration = "DEL_HolidayConfiguration";
             public const string GET_FeriadosByAccountAndYear = "GET_FeriadosByAccountAndYear";
 
-            // Personal y Planillas -- Fase 2 (Database/Scripts/2026-09-15_109_Personal_Planillas_Fase2.sql)
-            public const string INS_ConfiguracionRegimenLaboral = "INS_ConfiguracionRegimenLaboral";
-            public const string GET_ConfiguracionRegimenLaboralVigente = "GET_ConfiguracionRegimenLaboralVigente";
-            public const string GET_ConfiguracionRegimenLaboralHistorial = "GET_ConfiguracionRegimenLaboralHistorial";
+            // Employee y Payroll -- Fase 2 (Database/Scripts/2026-09-15_109_Employee_Payroll_Fase2.sql)
+            public const string INS_LaborRegimeConfiguration = "INS_LaborRegimeConfiguration";
+            public const string GET_LaborRegimeConfigurationVigente = "GET_LaborRegimeConfigurationVigente";
+            public const string GET_LaborRegimeConfigurationHistorial = "GET_LaborRegimeConfigurationHistorial";
 
-            public const string INS_ParametrosLegales = "INS_ParametrosLegales";
-            public const string UPD_ParametrosLegales = "UPD_ParametrosLegales";
-            public const string GET_ParametrosLegalesByAccountAndYear = "GET_ParametrosLegalesByAccountAndYear";
+            public const string INS_LegalParameters = "INS_LegalParameters";
+            public const string UPD_LegalParameters = "UPD_LegalParameters";
+            public const string GET_LegalParametersByAccountAndYear = "GET_LegalParametersByAccountAndYear";
 
-            public const string INS_Vacaciones = "INS_Vacaciones";
-            public const string UPD_VacacionesEstado = "UPD_VacacionesEstado";
-            public const string GET_VacacionesByPersonal = "GET_VacacionesByPersonal";
-            public const string GET_VacacionesPendientesByAccount = "GET_VacacionesPendientesByAccount";
-            public const string GET_VacacionesGozadasByPersonalAnio = "GET_VacacionesGozadasByPersonalAnio";
+            public const string INS_Vacation = "INS_Vacation";
+            public const string UPD_VacationEstado = "UPD_VacationEstado";
+            public const string GET_VacationByEmployee = "GET_VacationByEmployee";
+            public const string GET_VacationPendientesByAccount = "GET_VacationPendientesByAccount";
+            public const string GET_VacationGozadasByEmployeeAnio = "GET_VacationGozadasByEmployeeAnio";
 
-            public const string INS_BoletaPago = "INS_BoletaPago";
-            public const string GET_BoletasByPersonal = "GET_BoletasByPersonal";
-            public const string GET_BoletaById = "GET_BoletaById";
-            public const string GET_BoletasByAccountAndPeriodo = "GET_BoletasByAccountAndPeriodo";
-            public const string INS_BoletaPagoDetalle = "INS_BoletaPagoDetalle";
-            public const string GET_BoletaPagoDetalleByBoleta = "GET_BoletaPagoDetalleByBoleta";
+            public const string INS_Payslip = "INS_Payslip";
+            public const string GET_PayslipsByEmployee = "GET_PayslipsByEmployee";
+            public const string GET_PayslipById = "GET_PayslipById";
+            public const string GET_PayslipsByAccountAndPeriodo = "GET_PayslipsByAccountAndPeriodo";
+            public const string INS_PayslipDetail = "INS_PayslipDetail";
+            public const string GET_PayslipDetailByPayslip = "GET_PayslipDetailByPayslip";
 
-            // Personal y Planillas -- Fase 3, Permisos y licencias
-            // (Database/Scripts/2026-09-15_110_Personal_Planillas_Fase3_Permisos.sql)
-            public const string INS_PermisoLicencia = "INS_PermisoLicencia";
-            public const string UPD_PermisoLicenciaEstado = "UPD_PermisoLicenciaEstado";
-            public const string GET_PermisoLicenciaByPersonal = "GET_PermisoLicenciaByPersonal";
-            public const string GET_PermisoLicenciaPendientesByAccount = "GET_PermisoLicenciaPendientesByAccount";
-            public const string GET_PermisoLicenciaSinGoceDiasByPersonalMes = "GET_PermisoLicenciaSinGoceDiasByPersonalMes";
+            // Employee y Payroll -- Fase 3, Permisos y licencias
+            // (Database/Scripts/2026-09-15_110_Employee_Payroll_Fase3_Permisos.sql)
+            public const string INS_LeaveRequest = "INS_LeaveRequest";
+            public const string UPD_LeaveRequestEstado = "UPD_LeaveRequestEstado";
+            public const string GET_LeaveRequestByEmployee = "GET_LeaveRequestByEmployee";
+            public const string GET_LeaveRequestPendientesByAccount = "GET_LeaveRequestPendientesByAccount";
+            public const string GET_LeaveRequestSinGoceDiasByEmployeeMes = "GET_LeaveRequestSinGoceDiasByEmployeeMes";
         }
         #endregion
 

@@ -1,8 +1,8 @@
-@page "/personal/regimen"
+@page "/employees/labor-regime"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IPlanillaService PlanillaService
+@inject IPayrollService PayrollService
 @inject IAccountService AccountService
 @inject SpiderHood.Services.AuthService AuthService
 
@@ -125,9 +125,9 @@
                     <div class="mb-3">
                         <label class="form-label">Tipo de régimen</label>
                         <select class="form-select" @bind="_formRegimen.TipoRegimen">
-                            <option value="@nameof(TipoRegimenLaboral.Microempresa)">Microempresa</option>
-                            <option value="@nameof(TipoRegimenLaboral.PequenaEmpresa)">Pequeña Empresa</option>
-                            <option value="@nameof(TipoRegimenLaboral.RegimenGeneral)">Régimen General</option>
+                            <option value="@nameof(LaborRegimeType.Microempresa)">Microempresa</option>
+                            <option value="@nameof(LaborRegimeType.PequenaEmpresa)">Pequeña Empresa</option>
+                            <option value="@nameof(LaborRegimeType.RegimenGeneral)">Régimen General</option>
                         </select>
                     </div>
                     <div class="row">
@@ -211,16 +211,16 @@
     private bool _loading = true;
     private Guid? _idAccount;
 
-    private Models.ConfiguracionRegimenLaboral? _regimenVigente;
-    private List<Models.ConfiguracionRegimenLaboral> _historial = new();
+    private Models.LaborRegimeConfiguration? _regimenVigente;
+    private List<Models.LaborRegimeConfiguration> _historial = new();
     private bool _showRegimenModal;
-    private Models.ConfiguracionRegimenLaboral _formRegimen = new();
+    private Models.LaborRegimeConfiguration _formRegimen = new();
 
     private int _anioParametros = DateTime.Today.Year;
-    private Models.ParametrosLegales? _parametros;
+    private Models.LegalParameters? _parametros;
     private bool _showParametrosModal;
     private bool _editandoParametros;
-    private Models.ParametrosLegales _formParametros = new();
+    private Models.LegalParameters _formParametros = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -243,20 +243,20 @@
 
     private async Task CargarRegimenAsync()
     {
-        _regimenVigente = await PlanillaService.GetRegimenVigenteAsync(_idAccount!.Value);
-        _historial = await PlanillaService.GetHistorialRegimenAsync(_idAccount.Value);
+        _regimenVigente = await PayrollService.GetRegimenVigenteAsync(_idAccount!.Value);
+        _historial = await PayrollService.GetHistorialRegimenAsync(_idAccount.Value);
     }
 
     private async Task CargarParametrosAsync()
     {
-        _parametros = await PlanillaService.GetParametrosLegalesAsync(_idAccount!.Value, _anioParametros);
+        _parametros = await PayrollService.GetLegalParametersAsync(_idAccount!.Value, _anioParametros);
     }
 
     private void AbrirNuevoRegimen()
     {
-        _formRegimen = new Models.ConfiguracionRegimenLaboral
+        _formRegimen = new Models.LaborRegimeConfiguration
         {
-            TipoRegimen = _regimenVigente?.TipoRegimen ?? nameof(TipoRegimenLaboral.Microempresa),
+            TipoRegimen = _regimenVigente?.TipoRegimen ?? nameof(LaborRegimeType.Microempresa),
             RUC = _regimenVigente?.RUC,
             RazonSocial = _regimenVigente?.RazonSocial,
             FechaVigenciaDesde = DateTime.Today
@@ -268,14 +268,14 @@
     {
         _formRegimen.IdAccount = _idAccount!.Value;
         _formRegimen.CreatedBy = _currentUser.Email;
-        await PlanillaService.CrearRegimenAsync(_formRegimen);
+        await PayrollService.CrearRegimenAsync(_formRegimen);
         _showRegimenModal = false;
         await CargarRegimenAsync();
     }
 
     private void AbrirNuevoParametros()
     {
-        _formParametros = new Models.ParametrosLegales { Anio = _anioParametros };
+        _formParametros = new Models.LegalParameters { Anio = _anioParametros };
         _editandoParametros = false;
         _showParametrosModal = true;
     }
@@ -283,9 +283,9 @@
     private void AbrirEditarParametros()
     {
         if (_parametros == null) return;
-        _formParametros = new Models.ParametrosLegales
+        _formParametros = new Models.LegalParameters
         {
-            IdParametrosLegales = _parametros.IdParametrosLegales,
+            IdLegalParameters = _parametros.IdLegalParameters,
             IdAccount = _parametros.IdAccount,
             Anio = _parametros.Anio,
             ValorUIT = _parametros.ValorUIT,
@@ -303,14 +303,14 @@
     {
         if (_editandoParametros)
         {
-            await PlanillaService.ActualizarParametrosLegalesAsync(_formParametros);
+            await PayrollService.ActualizarLegalParametersAsync(_formParametros);
         }
         else
         {
             _formParametros.IdAccount = _idAccount!.Value;
             _formParametros.Anio = _anioParametros;
             _formParametros.CreatedBy = _currentUser.Email;
-            await PlanillaService.CrearParametrosLegalesAsync(_formParametros);
+            await PayrollService.CrearLegalParametersAsync(_formParametros);
         }
 
         _showParametrosModal = false;
@@ -319,9 +319,9 @@
 
     private static string TraducirRegimen(string tipoRegimen) => tipoRegimen switch
     {
-        nameof(TipoRegimenLaboral.Microempresa) => "Microempresa",
-        nameof(TipoRegimenLaboral.PequenaEmpresa) => "Pequeña Empresa",
-        nameof(TipoRegimenLaboral.RegimenGeneral) => "Régimen General",
+        nameof(LaborRegimeType.Microempresa) => "Microempresa",
+        nameof(LaborRegimeType.PequenaEmpresa) => "Pequeña Empresa",
+        nameof(LaborRegimeType.RegimenGeneral) => "Régimen General",
         _ => tipoRegimen
     };
 }

@@ -37,6 +37,24 @@ namespace SpiderHood.Data
             }, "ClosePastBudgets", cancellationToken);
         }
 
+        // Docs/Pendientes-Negocio-Consolidado.md #1 -- crea (si no existe) el Grupo +
+        // Owner "Inmobiliaria" del edificio y enlaza ahí toda RealEstateUnit sin
+        // grupo. Lanza RAISERROR (y por lo tanto una excepción acá) si el edificio no
+        // tiene cargados los datos de la Inmobiliaria (Edificios > Inmobiliaria) -- el
+        // caller (IBuildingService) lo traduce a un OperationResult.Failure con el
+        // mismo mensaje, no a un error genérico.
+        public async Task<bool> SyncUnsoldUnitsToRealEstateCompanyAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_SyncUnsoldUnitsToRealEstateCompany,
+                    cancellationToken,
+                    idBuilding);
+                return true;
+            }, "SyncUnsoldUnitsToRealEstateCompany", cancellationToken);
+        }
+
         public async Task<bool> SetPeriodAsCurrentAsync(Guid idPeriod, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

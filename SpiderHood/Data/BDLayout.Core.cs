@@ -117,6 +117,9 @@ namespace SpiderHood.Data
             public const string UPD_BankAccount_InitialBalance = "UPD_BankAccount_InitialBalance";
             public const string UPD_BuildingConfiguration = "UPD_BuildingConfiguration";
             public const string UPD_BuildingConfiguration_ExpenseThreshold = "UPD_BuildingConfiguration_ExpenseThreshold";
+            public const string UPD_BuildingConfiguration_DistributionMode = "UPD_BuildingConfiguration_DistributionMode";
+            public const string UPD_SyncUnsoldUnitsToRealEstateCompany = "UPD_SyncUnsoldUnitsToRealEstateCompany";
+            public const string UPD_Category_BulkDistribution = "UPD_Category_BulkDistribution";
             public const string UPD_BudgetHeader = "UPD_BudgetHeader";
             public const string UPD_ClosePastBudgets = "UPD_ClosePastBudgets";
             public const string UPD_Category = "UPD_Category";

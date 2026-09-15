@@ -120,6 +120,19 @@
                                     <i class="bi bi-droplet-fill"></i>&nbsp;Cal. Agua
                                 </button>
                             }
+                            @if (_budgetState!.SaveBudget())
+                            {
+                                <!-- Docs/Pendientes-Negocio-Consolidado.md #1 -- enlaza al Grupo
+                                     Inmobiliaria toda unidad sin vender antes de calcular cuotas,
+                                     para que su parte no se pierda ni se le cargue de más a los
+                                     vecinos actuales. Sólo tiene sentido mientras el presupuesto
+                                     sigue editable (Created/Rejected) -- uno ya Activo/Cerrado no
+                                     recalcula (ver BudgetState.CalculateQuota). -->
+                                <button class="btn btn-outline-secondary" @onclick="() => OnSyncUnsoldUnits.InvokeAsync()"
+                                        title="Enlaza las unidades sin vender a la Inmobiliaria antes de calcular cuotas">
+                                    <i class="bi bi-building-fill-gear"></i>&nbsp;Actualizar unidades sin vender
+                                </button>
+                            }
                         </div>
                         @if (_budgetState!.SaveBudget() && _budgetState!.HasUnsavedChanges)
                         {
@@ -166,6 +179,9 @@
 
     [Parameter]
     public EventCallback OnServiceReading { get; set; }
+
+    [Parameter]
+    public EventCallback OnSyncUnsoldUnits { get; set; }
 
     private bool TieneDetalles => _budgetState!.Budget.Details.Any(d => !d.IsHeader);
 

@@ -26,7 +26,8 @@
                            OnLoadTemplate="LoadSampleData"
                            OnSave="SaveCalculation"
                            OnGenerateReport="GenerateReport"
-                           OnServiceReading="ShowServiceReadingModal" />
+                           OnServiceReading="ShowServiceReadingModal"
+                           OnSyncUnsoldUnits="SyncUnsoldUnits" />
 
     @if (_BudgetState.Budget.IdBudgetHeader != Guid.Empty && !string.IsNullOrEmpty(_BudgetState.Budget.BudgetType))
     {
@@ -691,6 +692,39 @@
         _BudgetState.CalculateTotals();
         _BudgetState.HasUnsavedChanges = true;
         StateHasChanged();
+    }
+
+    // Docs/Pendientes-Negocio-Consolidado.md #1 -- enlaza al Grupo Inmobiliaria toda
+    // unidad sin vender del edificio antes de calcular cuotas, así su parte no se
+    // pierde (Proporcional) ni se le carga de más a los vecinos actuales (Fija). No
+    // se corre automático al abrir un presupuesto -- es una acción explícita del
+    // Administrador (mismo criterio que "Cal. Agua"), con confirmación porque
+    // enlaza unidades de verdad en BD.
+    private async Task SyncUnsoldUnits()
+    {
+        var message = "Esto va a enlazar todas las unidades sin vender del edificio al Grupo \"Inmobiliaria\" " +
+                      "(si ya existe, se le suman las que falten) y va a recalcular las cuotas en pantalla. ¿Continuar?";
+        await util.ExecuteWithConfirmation(ProcederSyncUnsoldUnits, "Actualizar unidades sin vender", _confirmationModal, message, "primary", false);
+    }
+
+    private async Task ProcederSyncUnsoldUnits()
+    {
+        var result = await BuildingService.SyncUnsoldUnitsToRealEstateCompanyAsync(ParameterService.CurrentBuilding.IdBuilding);
+        if (!result.IsSuccess)
+        {
+            // El motivo más esperable es que todavía no se cargaron los datos de la
+            // Inmobiliaria (Edificios > Inmobiliaria) -- el mensaje del SP ya lo dice así.
+            await ShowToast("No se pudo sincronizar", result.ErrorMessage ?? "Error desconocido.", "danger");
+            return;
+        }
+
+        // Recargar Owners (ahora puede incluir el Grupo Inmobiliaria) y recalcular las
+        // cuotas en memoria, sin tener que salir y volver a entrar al presupuesto.
+        await presupuestoService.LoadDataDefaultAsync(_BudgetState);
+        _BudgetState.CalculateTotals();
+        _BudgetState.HasUnsavedChanges = true;
+        StateHasChanged();
+        await ShowToast("Listo", "Unidades sin vender sincronizadas con la Inmobiliaria -- cuotas recalculadas en pantalla.", "success");
     }
 
     private decimal GetAnnualMultiplier(int frequency)

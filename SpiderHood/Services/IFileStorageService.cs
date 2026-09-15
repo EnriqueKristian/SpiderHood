@@ -35,7 +35,7 @@ namespace SpiderHood.Services
         private readonly string _basePath;
         private readonly ILogger<LocalFileStorageService> _logger;
 
-        public LocalFileStorageService(IConfiguration configuration, ILogger<LocalFileStorageService> logger)
+        public LocalFileStorageService(IConfiguration configuration, IWebHostEnvironment environment, ILogger<LocalFileStorageService> logger)
         {
             _logger = logger;
             // Default fuera de wwwroot (AppContext.BaseDirectory es la carpeta de
@@ -48,6 +48,26 @@ namespace SpiderHood.Services
                 ? Path.Combine(AppContext.BaseDirectory, "App_Data", "storage")
                 : configurado;
             Directory.CreateDirectory(_basePath);
+
+            // AppContext.BaseDirectory es la carpeta de PUBLICACIÓN -- en casi
+            // cualquier hosting en la nube (App Service, contenedores) esa carpeta
+            // se reemplaza en cada redeploy/restart/reescalado, así que cualquier
+            // archivo guardado ahí se pierde sin aviso (la BD sigue teniendo la
+            // ruta relativa, pero el archivo físico ya no está). Esto NO frena el
+            // arranque -- el piloto/desarrollo local siguen funcionando igual --
+            // pero deja un rastro fuerte en el log si alguien olvida configurar
+            // Storage:LocalBasePath antes de un deploy real.
+            if (string.IsNullOrWhiteSpace(configurado) && environment.IsProduction())
+            {
+                _logger.LogCritical(
+                    "Storage:LocalBasePath no está configurado en Producción -- los archivos se están " +
+                    "guardando en {RutaEphemeral}, dentro de la carpeta de publicación. En la mayoría de " +
+                    "hostings en la nube (App Service, contenedores) esta carpeta se pierde en el próximo " +
+                    "redeploy/restart/reescalado. Configurar Storage:LocalBasePath apuntando a un disco " +
+                    "persistente (ej. /home/storage en Azure App Service Linux, o el mount point de un " +
+                    "volumen persistente en un contenedor) antes de que haya archivos reales guardados.",
+                    _basePath);
+            }
         }
 
         public async Task<string> SaveAsync(string[] categorySegments, string fileName, byte[] content)

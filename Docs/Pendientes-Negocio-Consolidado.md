@@ -901,19 +901,24 @@ parte del alcance de este item.)*
 
 **Estado: Reservas IMPLEMENTADO (2026-09-11); Gobernanza -- Reuniones Fase 1
 IMPLEMENTADA (2026-09-15): Convocatoria + Agenda + Asistencia + Quórum +
-Segunda Convocatoria. Votación en vivo (Fase 2) y Actas autogeneradas
-(Fase 3) siguen sin construir -- los puntos de agenda "Sujeto a Votación"
-ya se configuran (tipo nominal/secreta, mayoría, revotación) pero quedan en
-Pendiente hasta que exista la mecánica de voto. Encuestas queda para
-después de las tres anteriores (decisión del usuario 2026-09-15).**
-Ver `Database/Scripts/2026-09-15_113_Gobernanza_Fase1_Reuniones.sql`,
-`SpiderHood/Classes/Gobernanza/Reunion.cs`, `SpiderHood/Services/
-IReunionService.cs`, `SpiderHood/Components/Pages/GobernanzaPages/`.
+Segunda Convocatoria. Votación Fase 2 IMPLEMENTADA (2026-09-15): votación
+en vivo ponderada por alícuota sobre los puntos "Sujeto a Votación", con
+rondas (revotación flexible), mayoría Simple/Calificada/75% legal, y
+Nominal vs. Secreta. Actas autogeneradas (Fase 3) sigue sin construir.
+Encuestas queda para después de las tres anteriores (decisión del usuario
+2026-09-15).**
+Ver `Database/Scripts/2026-09-15_113_Gobernanza_Fase1_Reuniones.sql` y
+`_114_Gobernanza_Fase2_Votacion.sql`, `SpiderHood/Classes/Gobernanza/
+Reunion.cs` y `Votacion.cs`, `SpiderHood/Services/IReunionService.cs`,
+`SpiderHood/Components/Pages/GobernanzaPages/`.
 Alícuota derivada (OwnerUnitView.TotalArea / Building.TotalArea) sin campo
 nuevo, tal como quedó cerrado en el análisis original. Probado end-to-end
-con Playwright -- 22/22 casos en verde (convocatoria, roster de alícuotas,
-quórum no alcanzado, segunda convocatoria con agenda clonada, quórum
-alcanzado, marcar punto informado, finalizar, cancelar).
+con Playwright -- Fase 1: 22/22 casos en verde (convocatoria, roster de
+alícuotas, quórum no alcanzado, segunda convocatoria con agenda clonada,
+quórum alcanzado, marcar punto informado, finalizar, cancelar). Fase 2:
+15/15 casos en verde (punto Nominal sin revotación rechazado
+automáticamente al no alcanzar mayoría, punto Secreto con revotación que
+alcanza mayoría en la ronda 2, corrección de voto antes de cerrar).
 
 **Son dos mecanismos distintos, no tres módulos sueltos ni uno solo:**
 uno de **agenda** (Reservas -- quién usa qué recurso físico, cuándo) y uno

@@ -64,11 +64,41 @@ namespace SpiderHood.Services
 
         Task CancelarReunionAsync(Guid idReunion);
 
-        // Override manual de un punto de agenda -- en Fase 1 sólo tiene
-        // sentido para puntos Informativos (marcar "Informado" durante la
-        // reunión, antes de Finalizar). Los Sujetos a Votación se gatean
-        // desde el service (ver implementación) hasta que exista Votación.
+        // Override manual de un punto de agenda -- para un punto Informativo,
+        // marcar "Informado" durante la reunión (antes de Finalizar); para un
+        // punto Sujeto a Votación, permite al operador cerrar el punto como
+        // Rechazado a mano cuando decide no abrir más rondas (ver
+        // CerrarVotacionAsync).
         Task MarcarAgendaItemEstadoAsync(Guid idAgendaItem, EstadoAgendaItem nuevoEstado);
+
+        // ===================== Votación (Fase 2) =====================
+
+        // Todas las rondas de votación de un punto de agenda, con sus Votos
+        // (NombreUnidad resuelto sólo si TipoVotacion=Nominal -- una votación
+        // Secreta no expone en la UI quién votó qué, aunque el voto se
+        // guarda con su IdGroupUnit real para poder validar quórum e impedir
+        // doble voto; una secrecía criptográfica real queda fuera de alcance
+        // de esta primera versión).
+        Task<List<Votacion>> GetVotacionesAsync(Guid idAgendaItem);
+
+        // Abre una nueva ronda sobre un AgendaItem.Tipo=SujetoAVotacion --
+        // sólo válido con la Reunion En Curso, el punto todavía Pendiente, y
+        // sin ninguna ronda ya abierta para ese mismo punto.
+        Task<Votacion> IniciarVotacionAsync(Guid idAgendaItem, Guid iniciadoPor);
+
+        // Sólo pueden votar unidades ya registradas como Asistencia de la
+        // Reunion (usa esa misma Alicuota). Permite corregir un voto ya
+        // cargado mientras la Votación sigue Abierta (upsert).
+        Task RegistrarVotoAsync(Guid idVotacion, Guid idGroupUnit, OpcionVoto opcion, Guid registradoPor);
+
+        // Suma las alícuotas por opción y evalúa la mayoría requerida por el
+        // AgendaItem (Simple/Calificada/75% legal). Si alcanza: el punto
+        // queda Aprobado. Si no alcanza y PermiteRevotacion está apagado: el
+        // punto queda Rechazado automáticamente. Si no alcanza y
+        // PermiteRevotacion está prendido: el punto queda Pendiente -- el
+        // operador decide si abre una nueva ronda (IniciarVotacionAsync) o
+        // lo rechaza a mano (MarcarAgendaItemEstadoAsync).
+        Task<CerrarVotacionResultado> CerrarVotacionAsync(Guid idVotacion);
     }
 
     public class ReunionService : IReunionService
@@ -350,6 +380,146 @@ namespace SpiderHood.Services
             };
             await ec.AddNewRecordAsync(calendarItem);
             return calendarItem;
+        }
+
+        // ===================== Votación (Fase 2) =====================
+
+        public async Task<List<Votacion>> GetVotacionesAsync(Guid idAgendaItem)
+        {
+            var votaciones = await ec.GetVotacionesByAgendaItemAsync(idAgendaItem);
+            if (votaciones.Count == 0) return votaciones;
+
+            var agendaItem = await ec.GetAgendaItemByIdAsync(idAgendaItem);
+            var reunion = await ec.GetReunionByIdAsync(agendaItem.IdReunion);
+            var unidades = await ec.GetOwnersByBuildingAsync(reunion.IdBuilding);
+            var nombresPorGrupo = ConstruirNombresPorGrupo(unidades);
+
+            foreach (var votacion in votaciones)
+            {
+                var votos = await ec.GetVotosByVotacionAsync(votacion.IdVotacion);
+                if (agendaItem.TipoVotacion == TipoVotacionAgenda.Nominal)
+                {
+                    foreach (var voto in votos)
+                        voto.NombreUnidad = nombresPorGrupo.TryGetValue(voto.IdGroupUnit, out var nombre) ? nombre : "Unidad";
+                }
+                votacion.Votos = votos;
+            }
+
+            return votaciones;
+        }
+
+        public async Task<Votacion> IniciarVotacionAsync(Guid idAgendaItem, Guid iniciadoPor)
+        {
+            var agendaItem = await ec.GetAgendaItemByIdAsync(idAgendaItem);
+            if (agendaItem.Tipo != TipoAgendaItem.SujetoAVotacion)
+                throw new InvalidOperationException("Este punto de agenda no está sujeto a votación.");
+            if (agendaItem.Estado != EstadoAgendaItem.Pendiente)
+                throw new InvalidOperationException("Este punto ya fue resuelto.");
+
+            var reunion = await ec.GetReunionByIdAsync(agendaItem.IdReunion);
+            if (reunion.Estado != EstadoReunion.EnCurso)
+                throw new InvalidOperationException("Sólo se puede votar mientras la reunión está En Curso.");
+
+            var rondasPrevias = await ec.GetVotacionesByAgendaItemAsync(idAgendaItem);
+            if (rondasPrevias.Any(v => v.Estado == EstadoVotacion.Abierta))
+                throw new InvalidOperationException("Ya hay una votación abierta para este punto.");
+
+            var votacion = new Votacion
+            {
+                IdVotacion = Guid.NewGuid(),
+                IdAgendaItem = idAgendaItem,
+                NroRonda = rondasPrevias.Count + 1,
+                Estado = EstadoVotacion.Abierta,
+                CreatedBy = iniciadoPor
+            };
+            await ec.AddNewRecordAsync(votacion);
+            return votacion;
+        }
+
+        public async Task RegistrarVotoAsync(Guid idVotacion, Guid idGroupUnit, OpcionVoto opcion, Guid registradoPor)
+        {
+            var votacion = await ec.GetVotacionByIdAsync(idVotacion);
+            if (votacion.Estado != EstadoVotacion.Abierta)
+                throw new InvalidOperationException("Esta votación ya está cerrada.");
+
+            var agendaItem = await ec.GetAgendaItemByIdAsync(votacion.IdAgendaItem);
+            var asistentes = await ec.GetAsistenciasByReunionAsync(agendaItem.IdReunion);
+            var asistente = asistentes.FirstOrDefault(a => a.IdGroupUnit == idGroupUnit)
+                ?? throw new InvalidOperationException("Sólo pueden votar las unidades registradas como asistentes de la reunión.");
+
+            // Permite corregir un voto ya cargado mientras la votación sigue abierta.
+            await ec.DeleteVotoAsync(idVotacion, idGroupUnit);
+            await ec.AddNewRecordAsync(new Voto
+            {
+                IdVoto = Guid.NewGuid(),
+                IdVotacion = idVotacion,
+                IdGroupUnit = idGroupUnit,
+                Opcion = opcion,
+                Alicuota = asistente.Alicuota,
+                RegistradoPor = registradoPor
+            });
+        }
+
+        public async Task<CerrarVotacionResultado> CerrarVotacionAsync(Guid idVotacion)
+        {
+            var votacion = await ec.GetVotacionByIdAsync(idVotacion);
+            if (votacion.Estado != EstadoVotacion.Abierta)
+                return new CerrarVotacionResultado { Exito = false, Mensaje = "Esta votación ya está cerrada." };
+
+            var votos = await ec.GetVotosByVotacionAsync(idVotacion);
+            var aFavor = votos.Where(v => v.Opcion == OpcionVoto.AFavor).Sum(v => v.Alicuota);
+            var enContra = votos.Where(v => v.Opcion == OpcionVoto.EnContra).Sum(v => v.Alicuota);
+            var abstencion = votos.Where(v => v.Opcion == OpcionVoto.Abstencion).Sum(v => v.Alicuota);
+
+            var agendaItem = await ec.GetAgendaItemByIdAsync(votacion.IdAgendaItem);
+            var alcanzada = EvaluarMayoria(agendaItem, aFavor, enContra, abstencion);
+
+            await ec.UpdateVotacionCierreAsync(idVotacion, aFavor, enContra, abstencion, alcanzada);
+
+            string mensaje;
+            if (alcanzada)
+            {
+                await ec.UpdateAgendaItemEstadoAsync(agendaItem.IdAgendaItem, EstadoAgendaItem.Aprobado);
+                mensaje = "Mayoría alcanzada -- punto aprobado.";
+            }
+            else if (!agendaItem.PermiteRevotacion)
+            {
+                await ec.UpdateAgendaItemEstadoAsync(agendaItem.IdAgendaItem, EstadoAgendaItem.Rechazado);
+                mensaje = "Mayoría no alcanzada -- punto rechazado.";
+            }
+            else
+            {
+                // El punto permite revotación y no la agotó -- queda Pendiente para
+                // que el operador abra una nueva ronda o lo rechace a mano.
+                mensaje = "Mayoría no alcanzada -- se puede abrir una nueva ronda de votación.";
+            }
+
+            return new CerrarVotacionResultado
+            {
+                Exito = true,
+                Mensaje = mensaje,
+                MayoriaAlcanzada = alcanzada,
+                AlicuotaAFavor = aFavor,
+                AlicuotaEnContra = enContra,
+                AlicuotaAbstencion = abstencion
+            };
+        }
+
+        // Mayoría -- simplificación deliberada (documentada en
+        // 2026-09-15_114_Gobernanza_Fase2_Votacion.sql): Simple compara
+        // alícuota a favor vs. en contra; Calificada es un % sobre los votos
+        // EMITIDOS (a favor + en contra + abstención), no sobre el edificio
+        // completo; Legal75 (Art. 14.1 D.L. 1568) sí es sobre el edificio
+        // completo, tal como lo fija la ley.
+        private static bool EvaluarMayoria(AgendaItem item, decimal aFavor, decimal enContra, decimal abstencion)
+        {
+            var totalEmitido = aFavor + enContra + abstencion;
+            return item.TipoMayoria switch
+            {
+                TipoMayoria.Legal75 => aFavor >= 75m,
+                TipoMayoria.Calificada => totalEmitido > 0 && (aFavor / totalEmitido * 100m) >= (item.PorcentajeMayoriaCalificada ?? 100m),
+                _ => aFavor > enContra // Simple
+            };
         }
     }
 }

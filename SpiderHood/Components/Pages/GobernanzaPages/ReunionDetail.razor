@@ -163,13 +163,17 @@
                                                     <button class="btn btn-sm btn-outline-secondary" @onclick="() => MarcarInformado(item.IdAgendaItem)">Marcar informado</button>
                                                 </div>
                                             }
+                                            @if (_reunion.Estado == EstadoReunion.EnCurso && item.Tipo == TipoAgendaItem.SujetoAVotacion)
+                                            {
+                                                <div class="mt-1">
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirVotacion(item)">
+                                                        <i class="bi bi-check2-square me-1"></i>@(item.Estado == EstadoAgendaItem.Pendiente ? "Votar" : "Ver votación")
+                                                    </button>
+                                                </div>
+                                            }
                                         </div>
                                     </div>
                                 </div>
-                            }
-                            @if (_reunion.Agenda.Any(a => a.Tipo == TipoAgendaItem.SujetoAVotacion))
-                            {
-                                <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>La votación en vivo de los puntos sujetos a votación está disponible en la próxima fase de este módulo.</p>
                             }
                         }
                     </div>
@@ -315,6 +319,122 @@
     </div>
 }
 
+@if (_showVotacionModal && _votacionItem != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Votación -- @_votacionItem.Titulo</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showVotacionModal = false"></button>
+                </div>
+                <div class="modal-body" style="max-height: 65vh; overflow-y: auto;">
+                    <div class="mb-2">
+                        <span class="badge bg-light text-dark border me-1">@_votacionItem.TipoVotacion</span>
+                        <span class="badge bg-light text-dark border">@TraducirMayoria(_votacionItem.TipoMayoria)</span>
+                        @if (_votacionItem.PermiteRevotacion)
+                        {
+                            <span class="badge bg-light text-dark border">Permite revotación</span>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_mensajeVotacion))
+                    {
+                        <div class="alert @(_mensajeVotacionEsError ? "alert-danger" : "alert-success") py-2 px-3">@_mensajeVotacion</div>
+                    }
+
+                    @{ var rondaAbierta = _votaciones.FirstOrDefault(v => v.Estado == EstadoVotacion.Abierta); }
+
+                    @if (rondaAbierta == null && _votacionItem.Estado == EstadoAgendaItem.Pendiente)
+                    {
+                        <div class="text-center py-3">
+                            <button class="btn btn-primary" @onclick="IniciarVotacion">
+                                <i class="bi bi-play-fill me-1"></i>Iniciar Votación @(_votaciones.Count > 0 ? $"(Ronda {_votaciones.Count + 1})" : "")
+                            </button>
+                        </div>
+                    }
+
+                    @if (rondaAbierta != null)
+                    {
+                        <div class="card mb-3">
+                            <div class="card-header">Ronda @rondaAbierta.NroRonda -- en curso</div>
+                            <div class="card-body">
+                                <table class="table table-sm mb-0">
+                                    <thead><tr><th>Unidad</th><th class="text-end">Alícuota</th><th>Voto</th></tr></thead>
+                                    <tbody>
+                                        @foreach (var asistente in _reunion!.Asistentes)
+                                        {
+                                            var votoActual = rondaAbierta.Votos.FirstOrDefault(v => v.IdGroupUnit == asistente.IdGroupUnit);
+                                            <tr>
+                                                <td>@asistente.NombreUnidad</td>
+                                                <td class="text-end">@asistente.Alicuota.ToString("0.####")%</td>
+                                                <td>
+                                                    @if (_puedeGestionar)
+                                                    {
+                                                        <select class="form-select form-select-sm" style="width:auto"
+                                                                value="@(votoActual?.Opcion.ToString() ?? "")"
+                                                                @onchange="(e) => RegistrarVoto(rondaAbierta.IdVotacion, asistente.IdGroupUnit, e.Value?.ToString())">
+                                                            <option value="">-- sin votar --</option>
+                                                            <option value="@OpcionVoto.AFavor">A favor</option>
+                                                            <option value="@OpcionVoto.EnContra">En contra</option>
+                                                            <option value="@OpcionVoto.Abstencion">Abstención</option>
+                                                        </select>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>@(votoActual != null ? TraducirOpcion(votoActual.Opcion) : "--")</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if (_puedeGestionar)
+                            {
+                                <div class="card-footer">
+                                    <button class="btn btn-sm btn-primary" @onclick="() => CerrarVotacion(rondaAbierta.IdVotacion)">
+                                        <i class="bi bi-check2-circle me-1"></i>Cerrar Votación
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (_votaciones.Any(v => v.Estado == EstadoVotacion.Cerrada))
+                    {
+                        <h6>Historial de rondas</h6>
+                        @foreach (var v in _votaciones.Where(v => v.Estado == EstadoVotacion.Cerrada).OrderByDescending(v => v.NroRonda))
+                        {
+                            <div class="border rounded p-2 mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <strong>Ronda @v.NroRonda</strong>
+                                    <span class="badge @(v.MayoriaAlcanzada == true ? "bg-success" : "bg-danger")">@(v.MayoriaAlcanzada == true ? "Mayoría alcanzada" : "Mayoría no alcanzada")</span>
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    A favor: @v.AlicuotaAFavor?.ToString("0.##")% -- En contra: @v.AlicuotaEnContra?.ToString("0.##")% -- Abstención: @v.AlicuotaAbstencion?.ToString("0.##")%
+                                </div>
+                                @if (_votacionItem.TipoVotacion == TipoVotacionAgenda.Nominal)
+                                {
+                                    <ul class="small mb-0 mt-1">
+                                        @foreach (var voto in v.Votos)
+                                        {
+                                            <li>@voto.NombreUnidad: @TraducirOpcion(voto.Opcion)</li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showVotacionModal = false">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -337,6 +457,12 @@
     private decimal _segundaQuorum = 25m;
     private string? _segundaLugar;
     private string? _errorSegunda;
+
+    private bool _showVotacionModal;
+    private AgendaItem? _votacionItem;
+    private List<Votacion> _votaciones = new();
+    private string? _mensajeVotacion;
+    private bool _mensajeVotacionEsError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -400,7 +526,15 @@
 
     private void AbrirAgregarPunto()
     {
-        _nuevoPunto = new AgendaItem { IdReunion = Id, Tipo = TipoAgendaItem.Informativo };
+        // TipoVotacion/TipoMayoria arrancan en el primer valor de cada <select>
+        // (no null) -- ver la misma nota en Reuniones.razor.NuevoPuntoAgenda.
+        _nuevoPunto = new AgendaItem
+        {
+            IdReunion = Id,
+            Tipo = TipoAgendaItem.Informativo,
+            TipoVotacion = TipoVotacionAgenda.Nominal,
+            TipoMayoria = TipoMayoria.Simple
+        };
         _errorAgenda = null;
         _showAgendaModal = true;
     }
@@ -453,6 +587,56 @@
         _showSegundaModal = false;
         Navigation.NavigateTo($"/gobernanza/reuniones/{resultado.IdReunion}");
     }
+
+    private async Task AbrirVotacion(AgendaItem item)
+    {
+        _votacionItem = item;
+        _mensajeVotacion = null;
+        _votaciones = await ReunionService.GetVotacionesAsync(item.IdAgendaItem);
+        _showVotacionModal = true;
+    }
+
+    private async Task IniciarVotacion()
+    {
+        if (_votacionItem == null) return;
+        try
+        {
+            await ReunionService.IniciarVotacionAsync(_votacionItem.IdAgendaItem, _currentUser.IdUser);
+            _votaciones = await ReunionService.GetVotacionesAsync(_votacionItem.IdAgendaItem);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensajeVotacion = ex.Message;
+            _mensajeVotacionEsError = true;
+        }
+    }
+
+    private async Task RegistrarVoto(Guid idVotacion, Guid idGroupUnit, string? opcionTexto)
+    {
+        if (_votacionItem == null || string.IsNullOrEmpty(opcionTexto)) return;
+        var opcion = Enum.Parse<OpcionVoto>(opcionTexto);
+        await ReunionService.RegistrarVotoAsync(idVotacion, idGroupUnit, opcion, _currentUser.IdUser);
+        _votaciones = await ReunionService.GetVotacionesAsync(_votacionItem.IdAgendaItem);
+    }
+
+    private async Task CerrarVotacion(Guid idVotacion)
+    {
+        if (_votacionItem == null) return;
+        var resultado = await ReunionService.CerrarVotacionAsync(idVotacion);
+        _mensajeVotacion = resultado.Mensaje;
+        _mensajeVotacionEsError = !resultado.Exito;
+        _votaciones = await ReunionService.GetVotacionesAsync(_votacionItem.IdAgendaItem);
+        await CargarAsync();
+        _votacionItem = _reunion?.Agenda.FirstOrDefault(a => a.IdAgendaItem == _votacionItem.IdAgendaItem) ?? _votacionItem;
+    }
+
+    private static string TraducirOpcion(OpcionVoto opcion) => opcion switch
+    {
+        OpcionVoto.AFavor => "A favor",
+        OpcionVoto.EnContra => "En contra",
+        OpcionVoto.Abstencion => "Abstención",
+        _ => opcion.ToString()
+    };
 
     private static string TraducirEstado(EstadoReunion estado) => estado switch
     {

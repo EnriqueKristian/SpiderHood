@@ -122,6 +122,8 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.Reunion>().HasNoKey();
             modelBuilder.Entity<Models.AgendaItem>().HasNoKey();
             modelBuilder.Entity<Models.Asistencia>().HasNoKey();
+            modelBuilder.Entity<Models.Votacion>().HasNoKey();
+            modelBuilder.Entity<Models.Voto>().HasNoKey();
 
             // Type/Category/Status/Recurrence son enums de C# pero se guardan como texto
             // en la BD -- mismo motivo que Incident arriba.

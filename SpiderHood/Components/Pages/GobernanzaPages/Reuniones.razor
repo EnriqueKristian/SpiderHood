@@ -217,12 +217,26 @@
             QuorumRequerido = 50m,
             CreatedBy = _currentUser.IdUser
         };
-        _agenda = new List<AgendaItem> { new() { Tipo = TipoAgendaItem.Informativo } };
+        _agenda = new List<AgendaItem> { NuevoPuntoAgenda() };
         _error = null;
         _showModal = true;
     }
 
-    private void AgregarPuntoAgenda() => _agenda.Add(new AgendaItem { Tipo = TipoAgendaItem.Informativo });
+    private void AgregarPuntoAgenda() => _agenda.Add(NuevoPuntoAgenda());
+
+    // TipoVotacion/TipoMayoria arrancan en el primer valor de cada <select>
+    // (Nominal / Mayoría simple) en vez de null -- si se dejan en null y el
+    // usuario cambia el Tipo a "Sujeto a Votación" sin tocar esos otros dos
+    // combos, el <select> se ve mostrando "Nominal"/"Mayoría simple" (así
+    // renderiza un <select> sin ninguna opción con value="" cuando el valor
+    // ligado es null) pero se guarda NULL -- el punto queda sin tipo de
+    // votación ni mayoría real, aunque la UI decía otra cosa.
+    private static AgendaItem NuevoPuntoAgenda() => new()
+    {
+        Tipo = TipoAgendaItem.Informativo,
+        TipoVotacion = TipoVotacionAgenda.Nominal,
+        TipoMayoria = TipoMayoria.Simple
+    };
 
     private async Task Convocar()
     {

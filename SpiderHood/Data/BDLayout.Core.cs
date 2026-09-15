@@ -341,10 +341,20 @@ namespace SpiderHood.Data
             public const string UPD_AgendaItem = "UPD_AgendaItem";
             public const string UPD_AgendaItemEstado = "UPD_AgendaItemEstado";
             public const string GET_AgendaItemsByReunion = "GET_AgendaItemsByReunion";
+            public const string GET_AgendaItemById = "GET_AgendaItemById";
             public const string DEL_AgendaItem = "DEL_AgendaItem";
             public const string INS_Asistencia = "INS_Asistencia";
             public const string GET_AsistenciasByReunion = "GET_AsistenciasByReunion";
             public const string DEL_Asistencia = "DEL_Asistencia";
+
+            // Gobernanza / Votación Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21, Fase 2
+            public const string INS_Votacion = "INS_Votacion";
+            public const string UPD_VotacionCierre = "UPD_VotacionCierre";
+            public const string GET_VotacionesByAgendaItem = "GET_VotacionesByAgendaItem";
+            public const string GET_VotacionById = "GET_VotacionById";
+            public const string INS_Voto = "INS_Voto";
+            public const string DEL_Voto = "DEL_Voto";
+            public const string GET_VotosByVotacion = "GET_VotosByVotacion";
 
             // Calendar Procedures
             public const string INS_CalendarItem = "INS_CalendarItem";

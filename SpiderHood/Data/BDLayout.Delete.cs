@@ -316,6 +316,16 @@ namespace SpiderHood.Data
                 return true;
             }, "DeleteAsistencia", cancellationToken);
         }
+
+        // Gobernanza / Votación -- Fase 2
+        public async Task<bool> DeleteVotoAsync(Guid idVotacion, Guid idGroupUnit, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Voto, cancellationToken, idVotacion, idGroupUnit);
+                return true;
+            }, "DeleteVoto", cancellationToken);
+        }
         #endregion
     }
 }

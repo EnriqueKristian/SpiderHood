@@ -1124,6 +1124,23 @@ namespace SpiderHood.Data
                 return true;
             }, "UpdateAgendaItemEstado", cancellationToken);
         }
+
+        // Gobernanza / Votación -- Fase 2
+        public async Task UpdateVotacionCierreAsync(Guid idVotacion, decimal alicuotaAFavor, decimal alicuotaEnContra, decimal alicuotaAbstencion, bool mayoriaAlcanzada, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_VotacionCierre,
+                    cancellationToken,
+                    idVotacion,
+                    alicuotaAFavor,
+                    alicuotaEnContra,
+                    alicuotaAbstencion,
+                    mayoriaAlcanzada);
+                return true;
+            }, "UpdateVotacionCierre", cancellationToken);
+        }
         #endregion
     }
 }

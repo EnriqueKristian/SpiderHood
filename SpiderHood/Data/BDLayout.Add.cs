@@ -1630,6 +1630,44 @@ namespace SpiderHood.Data
                 return asistencia;
             }, "AddAsistencia", cancellationToken);
         }
+
+        // Gobernanza / Votación -- Fase 2
+        public async Task<Models.Votacion> AddNewRecordAsync(Models.Votacion votacion, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(votacion, nameof(votacion));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Votacion,
+                    cancellationToken,
+                    votacion.IdVotacion,
+                    votacion.IdAgendaItem,
+                    votacion.NroRonda,
+                    (int)votacion.Estado,
+                    votacion.CreatedBy);
+                return votacion;
+            }, "AddVotacion", cancellationToken);
+        }
+
+        public async Task<Models.Voto> AddNewRecordAsync(Models.Voto voto, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(voto, nameof(voto));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Voto,
+                    cancellationToken,
+                    voto.IdVoto,
+                    voto.IdVotacion,
+                    voto.IdGroupUnit,
+                    (int)voto.Opcion,
+                    voto.Alicuota,
+                    voto.RegistradoPor);
+                return voto;
+            }, "AddVoto", cancellationToken);
+        }
         #endregion
     }
 }

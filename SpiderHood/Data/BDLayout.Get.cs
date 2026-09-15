@@ -1519,12 +1519,47 @@ namespace SpiderHood.Data
             }, "GetAgendaItemsByReunion", cancellationToken);
         }
 
+        public async Task<Models.AgendaItem> GetAgendaItemByIdAsync(Guid idAgendaItem, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<Models.AgendaItem>(StoredProcedures.GET_AgendaItemById, idAgendaItem);
+                return result ?? throw new EntityNotFoundException($"AgendaItem with ID {idAgendaItem} not found");
+            }, "GetAgendaItemById", cancellationToken);
+        }
+
         public async Task<List<Models.Asistencia>> GetAsistenciasByReunionAsync(Guid idReunion, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 return await ExecuteQueryListAsync<Models.Asistencia>(StoredProcedures.GET_AsistenciasByReunion, idReunion);
             }, "GetAsistenciasByReunion", cancellationToken);
+        }
+
+        // Gobernanza / Votación -- Fase 2
+        public async Task<List<Models.Votacion>> GetVotacionesByAgendaItemAsync(Guid idAgendaItem, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Votacion>(StoredProcedures.GET_VotacionesByAgendaItem, idAgendaItem);
+            }, "GetVotacionesByAgendaItem", cancellationToken);
+        }
+
+        public async Task<Models.Votacion> GetVotacionByIdAsync(Guid idVotacion, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<Models.Votacion>(StoredProcedures.GET_VotacionById, idVotacion);
+                return result ?? throw new EntityNotFoundException($"Votacion with ID {idVotacion} not found");
+            }, "GetVotacionById", cancellationToken);
+        }
+
+        public async Task<List<Models.Voto>> GetVotosByVotacionAsync(Guid idVotacion, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Voto>(StoredProcedures.GET_VotosByVotacion, idVotacion);
+            }, "GetVotosByVotacion", cancellationToken);
         }
         #endregion
     }

@@ -105,7 +105,7 @@ namespace SpiderHood.Models
         public string Telefono { get; set; } = string.Empty;
     }
 
-    // Aceptación de invitación a colaborador (/aceptar-invitacion) para un email
+    // Aceptación de invitación a colaborador (/accept-invitation) para un email
     // que todavía no tiene cuenta en SpiderHood -- el email no es editable, viene
     // fijo de la invitación (AccountInvitation.Email). Ver
     // AuthService.RegisterCollaboratorAsync.

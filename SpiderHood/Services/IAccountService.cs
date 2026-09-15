@@ -24,7 +24,7 @@ namespace SpiderHood.Services
 
         Task<AccountInvitation?> GetInvitationByCodeAsync(string code);
 
-        // Agrega al usuario (ya sea uno recién creado en /aceptar-invitacion, o uno
+        // Agrega al usuario (ya sea uno recién creado en /accept-invitation, o uno
         // que ya tenía cuenta en SpiderHood) como Colaborador de la Account de la
         // invitación: crea el AccountUser, le replica UserBuildingAssociation de
         // cada edificio de esa cuenta (para que "vea" lo mismo que el resto, ver
@@ -97,7 +97,7 @@ namespace SpiderHood.Services
             // no bloquea la invitación: el link queda visible en Settings.razor igual.
             try
             {
-                var link = $"{_baseUrl}/aceptar-invitacion?code={invitation.Code}";
+                var link = $"{_baseUrl}/accept-invitation?code={invitation.Code}";
                 await _emailService.SendEmailAsync(
                     normalizedEmail,
                     "Te invitaron a colaborar en SpiderHood",

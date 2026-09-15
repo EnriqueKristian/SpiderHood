@@ -1,4 +1,4 @@
-@page "/pago-simulado"
+@page "/payment-simulated"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @inject Services.AuthService AuthService
@@ -94,7 +94,7 @@
             // Mismo llamado que haría el webhook real (Program.cs) al confirmar
             // un pago -- así se prueba de verdad el camino de activación/BD.
             await SubscriptionService.ActivateSubscriptionAsync(_idUser, _idSubscriptionPlan, $"SIMULATED-{Guid.NewGuid()}");
-            Navigation.NavigateTo("/pago-exitoso", forceLoad: true);
+            Navigation.NavigateTo("/payment-success", forceLoad: true);
         }
 
         _procesando = false;

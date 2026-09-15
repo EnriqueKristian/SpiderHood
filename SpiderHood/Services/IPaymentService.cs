@@ -64,7 +64,7 @@ namespace SpiderHood.Services
                 throw new InvalidOperationException($"El plan '{plan.Name}' todavía no tiene un precio configurado.");
 
             if (_simulate)
-                return $"{_baseUrl}/pago-simulado?u={idUser}&p={idSubscriptionPlan}";
+                return $"{_baseUrl}/payment-simulated?u={idUser}&p={idSubscriptionPlan}";
 
             var request = new PreapprovalCreateRequest
             {
@@ -75,7 +75,7 @@ namespace SpiderHood.Services
                 // es de prueba", probado). Sin TestPayerEmail configurado (producción
                 // real), va el email real del Administrador.
                 PayerEmail = string.IsNullOrWhiteSpace(_testPayerEmail) ? userEmail : _testPayerEmail,
-                BackUrl = $"{_baseUrl}/pago-exitoso",
+                BackUrl = $"{_baseUrl}/payment-success",
                 // El webhook (subscription_preapproval) parsea esto para saber a
                 // qué usuario/plan activar -- ver Program.cs.
                 ExternalReference = $"{idUser}:{plan.IdSubscriptionPlan}",

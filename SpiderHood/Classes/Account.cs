@@ -41,7 +41,7 @@ namespace SpiderHood.Models
         public Guid InvitedByIdUser { get; set; }
         public DateTime CreatedAt { get; set; }
         // Sólo viene de GET_AccountInvitationByCode -- para mostrar "Te invitaron a
-        // [RazonSocial]" en /aceptar-invitacion sin un segundo round-trip.
+        // [RazonSocial]" en /accept-invitation sin un segundo round-trip.
         public string? RazonSocial { get; set; }
     }
 }

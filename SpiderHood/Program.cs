@@ -409,7 +409,7 @@ app.MapPost("/api/contacto", async (HttpRequest request, IEmailService emailServ
     }
 }).AllowAnonymous().DisableAntiforgery();
 
-// Completa el autologin de /register-admin, /aceptar-invitacion (email nuevo) e
+// Completa el autologin de /register-admin, /accept-invitation (email nuevo) e
 // /invitation/{code} -- las tres crean la cuenta y "loguean" al usuario desde un
 // circuito InteractiveServer ya conectado, donde HttpContext.SignInAsync no tiene
 // ninguna respuesta HTTP abierta donde escribir el Set-Cookie (mismo motivo por el
@@ -481,7 +481,7 @@ app.MapRazorComponents<App>()
     // página puntual que lo abrió. El FallbackPolicy de arriba lo bloqueaba sin más
     // (302 a /login), lo que rompía en silencio CUALQUIER evento (click, submit) en
     // páginas anónimas con @rendermode InteractiveServer (/register, /invitation/{code},
-    // /aceptar-invitacion): la página cargaba bien (su GET inicial sí respeta su propio
+    // /accept-invitation): la página cargaba bien (su GET inicial sí respeta su propio
     // [AllowAnonymous]), pero como el circuito nunca llegaba a conectar, ningún botón
     // hacía nada -- caso real: "Aceptar Invitación" sin ningún efecto visible.
     // Eximir sólo estos 4 endpoints es seguro: no exponen contenido por sí mismos, y el

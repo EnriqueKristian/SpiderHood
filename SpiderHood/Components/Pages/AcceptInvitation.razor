@@ -1,4 +1,4 @@
-@page "/aceptar-invitacion"
+@page "/accept-invitation"
 @attribute [AllowAnonymous]
 @rendermode InteractiveServer
 @using System.ComponentModel.DataAnnotations
@@ -133,7 +133,7 @@
             if (_invitation != null && _invitation.Status != "Pending")
                 _invitation = null;
 
-            _loginUrl = $"/login?returnUrl={Uri.EscapeDataString($"/aceptar-invitacion?code={_code}")}";
+            _loginUrl = $"/login?returnUrl={Uri.EscapeDataString($"/accept-invitation?code={_code}")}";
         }
 
         var currentUser = await AuthService.GetCurrentUserAsync();

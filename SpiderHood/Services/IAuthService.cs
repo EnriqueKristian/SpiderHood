@@ -40,7 +40,7 @@ namespace SpiderHood.Services
         // lo deja logueado, listo para crear su primer edificio.
         Task<AuthResult> RegisterNewAdministratorAsync(RegisterAdminModel model);
 
-        // /aceptar-invitacion, caso "email nuevo": crea el UserModel y en el mismo
+        // /accept-invitation, caso "email nuevo": crea el UserModel y en el mismo
         // paso lo asocia como Colaborador de la Account de la invitación (ver
         // IAccountService.AcceptInvitationAsync), autologueado -- igual criterio que
         // RegisterNewAdministratorAsync.

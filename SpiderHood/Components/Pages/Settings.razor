@@ -83,7 +83,7 @@
                 {
                     <div class="alert alert-warning py-2 d-flex justify-content-between align-items-center">
                         <span>Invitación pendiente: <strong>@invitation.Email</strong></span>
-                        <code class="small">/aceptar-invitacion?code=@invitation.Code</code>
+                        <code class="small">/accept-invitation?code=@invitation.Code</code>
                     </div>
                 }
 
@@ -228,7 +228,7 @@
             }
 
             var invitation = (Models.AccountInvitation)result.Data!;
-            _inviteLink = $"{Navigation.BaseUri.TrimEnd('/')}/aceptar-invitacion?code={invitation.Code}";
+            _inviteLink = $"{Navigation.BaseUri.TrimEnd('/')}/accept-invitation?code={invitation.Code}";
             _inviteEmail = "";
             _pendingInvitations = await AccountService.GetPendingInvitationsAsync(_account.IdAccount);
         }

@@ -1245,42 +1245,66 @@ namespace SpiderHood.Services
                     };
                 }
 
-                // Crear el usuario
-                var user = new IdentityUser
+                // Si ya existe una cuenta con este correo (ej. un Administrador la creó a
+                // mano desde /users, o la persona ya tiene acceso a otro edificio), no se
+                // crea una segunda -- antes esto SIEMPRE creaba un UserModel nuevo sin
+                // buscar primero, dejando dos filas en Users con el mismo Email. Login
+                // busca por email con FirstOrDefault (ver AuthService.LoginAsync), así que
+                // con dos filas el resultado es cuál gane el orden de la consulta: la
+                // cuenta original (y su contraseña real) podía quedar inalcanzable, sólo
+                // funcionaba la contraseña nueva tipeada acá -- confirmado en vivo.
+                var normalizedEmail = invitation.Email.Trim().ToLowerInvariant();
+                var existingUsers = await Ec.GetUsersByEmailAsync(normalizedEmail);
+                var existingUser = existingUsers.FirstOrDefault(u =>
+                    u.Email.Equals(normalizedEmail, StringComparison.OrdinalIgnoreCase));
+                var isNewUser = existingUser == null;
+
+                UserModel _user;
+                if (existingUser != null)
                 {
-                    UserName = invitation.Email,
-                    Email = invitation.Email,
-                    PhoneNumber = model.PhoneNumber,
-                    EmailConfirmed = true // El email está verificado por la invitación
-                };
+                    // No se toca ni el nombre ni la contraseña de la cuenta existente --
+                    // lo que se haya tipeado en este formulario para esos campos se
+                    // descarta, la cuenta ya tiene los suyos.
+                    _user = existingUser;
+                }
+                else
+                {
+                    // Crear el usuario
+                    var user = new IdentityUser
+                    {
+                        UserName = invitation.Email,
+                        Email = invitation.Email,
+                        PhoneNumber = model.PhoneNumber,
+                        EmailConfirmed = true // El email está verificado por la invitación
+                    };
 
-                // Crear el usuario en la base de datos
-                UserModel _user = new UserModel();
+                    // Crear el usuario en la base de datos
+                    _user = new UserModel();
 
-                _user.IdUser = Guid.Parse(user.Id);
-                _user.Email = invitation.Email;
-                _user.PhoneNumber = model.PhoneNumber!;
-                _user.FirstName = model.FirstName;
-                _user.LastName = model.LastName;
-                _user.PasswordHash = _passwordHasher.HashPassword(_user, model.Password);
-                // UserModel.IsActive no tiene default (bool = false) -- sin esto, un usuario
-                // que acepta una invitación por edificio quedaba creado inactivo y no podía
-                // ni loguearse ("Tu cuenta está desactivada"), aunque la invitación ya
-                // implica que el administrador lo aprobó al invitarlo.
-                _user.IsActive = true;
+                    _user.IdUser = Guid.Parse(user.Id);
+                    _user.Email = invitation.Email;
+                    _user.PhoneNumber = model.PhoneNumber!;
+                    _user.FirstName = model.FirstName;
+                    _user.LastName = model.LastName;
+                    _user.PasswordHash = _passwordHasher.HashPassword(_user, model.Password);
+                    // UserModel.IsActive no tiene default (bool = false) -- sin esto, un usuario
+                    // que acepta una invitación por edificio quedaba creado inactivo y no podía
+                    // ni loguearse ("Tu cuenta está desactivada"), aunque la invitación ya
+                    // implica que el administrador lo aprobó al invitarlo.
+                    _user.IsActive = true;
 
-                //EmailConfirmed = true // El email está verificado por la invitación
-
-                var createResult = await AddNewUserAsync(_user);
+                    await AddNewUserAsync(_user);
+                }
 
                 await AcceptInvitationAsync(invitation, _user, model);
 
-                // Si no requiere aprobación, iniciar sesión automáticamente. El Token de
-                // autologin (ver comentario en RegisterNewAdministratorAsync) sólo tiene
-                // sentido cuando de verdad queda logueado -- si requiere aprobación se
-                // queda sin sesión, como antes.
+                // Autologin sólo tiene sentido para una cuenta nueva -- ya se conoce la
+                // contraseña que se acaba de hashear. Para una cuenta existente NO se
+                // conoce su contraseña real (la tipeada acá nunca fue la suya), así que
+                // se la deja sin sesión y que inicie sesión normalmente con su contraseña
+                // habitual -- ver el Message de más abajo.
                 string? autoLoginToken = null;
-                if (!invitation.RequiresApproval)
+                if (isNewUser && !invitation.RequiresApproval)
                 {
                     LoginModel login = new LoginModel();
                     login.Email = invitation.Email;
@@ -1290,24 +1314,29 @@ namespace SpiderHood.Services
                     autoLoginToken = _autoLoginTokenService.IssueToken(_user.IdUser);
                 }
 
-                // Enviar correo de confirmación
-                await SendWelcomeEmailAsync(user, model.FirstName, invitation.RequiresApproval);
+                // Enviar correo de confirmación (sólo para cuentas nuevas -- una cuenta
+                // existente ya recibió su bienvenida original).
+                if (isNewUser)
+                {
+                    var identityForEmail = new IdentityUser { UserName = invitation.Email, Email = invitation.Email };
+                    await SendWelcomeEmailAsync(identityForEmail, _user.FirstName, invitation.RequiresApproval);
+                }
 
                 return new AuthResult
                 {
                     Success = true,
-                    Message = invitation.RequiresApproval
-                        ? "Registro exitoso. Esperando aprobación del administrador."
-                        : "Registro exitoso. ¡Bienvenido!",
+                    Message = !isNewUser
+                        ? "Te uniste al edificio correctamente. Ya tenías una cuenta con este correo -- inicia sesión con tu contraseña habitual."
+                        : invitation.RequiresApproval
+                            ? "Registro exitoso. Esperando aprobación del administrador."
+                            : "Registro exitoso. ¡Bienvenido!",
                     User = new UserModel
                     {
-                        IdUser = Guid.Parse(user.Id),
-                        //UserName = user.UserName,
-                        Email = user.Email,
-                        FirstName = model.FirstName,
-                        LastName = model.LastName,
-                        PhoneNumber = model.PhoneNumber!,
-                        //RequiresApproval = invitation.RequiresApproval
+                        IdUser = _user.IdUser,
+                        Email = invitation.Email,
+                        FirstName = _user.FirstName,
+                        LastName = _user.LastName,
+                        PhoneNumber = _user.PhoneNumber,
                     },
                     RequiresApproval = invitation.RequiresApproval,
                     Token = autoLoginToken ?? ""

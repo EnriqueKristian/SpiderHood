@@ -21,8 +21,8 @@ namespace SpiderHood.Services
         Task<List<Models.EmployeeShiftAssignment>> GetAsignacionesShiftByEmployeeAsync(Guid idEmployee);
         Task<Models.EmployeeShiftAssignment> AsignarShiftAsync(Guid idEmployee, Guid idShift, DateTime fechaDesde);
 
-        Task<List<Models.EmployeeBuildingAssignment>> GetAsignacionesEdificioByEmployeeAsync(Guid idEmployee);
-        Task<List<Models.EmployeeBuildingAssignment>> GetAsignacionesEdificioByBuildingAsync(Guid idBuilding);
+        Task<List<Models.EmployeeBuildingAssignment>> GetEmployeeBuildingAssignmentsByEmployeeAsync(Guid idEmployee);
+        Task<List<Models.EmployeeBuildingAssignment>> GetEmployeeBuildingAssignmentsByBuildingAsync(Guid idBuilding);
         Task<Models.EmployeeBuildingAssignment> AsignarEdificioAsync(Guid idEmployee, Guid idBuilding, DateTime fechaDesde, decimal porcentajeDedicacion, string createdBy);
         Task CerrarAsignacionEdificioAsync(Guid idEmployeeBuildingAssignment, DateTime fechaHasta);
 
@@ -125,11 +125,11 @@ namespace SpiderHood.Services
             return asignacion;
         }
 
-        public async Task<List<Models.EmployeeBuildingAssignment>> GetAsignacionesEdificioByEmployeeAsync(Guid idEmployee)
-            => await ec.GetAsignacionesEdificioByEmployeeAsync(idEmployee);
+        public async Task<List<Models.EmployeeBuildingAssignment>> GetEmployeeBuildingAssignmentsByEmployeeAsync(Guid idEmployee)
+            => await ec.GetEmployeeBuildingAssignmentsByEmployeeAsync(idEmployee);
 
-        public async Task<List<Models.EmployeeBuildingAssignment>> GetAsignacionesEdificioByBuildingAsync(Guid idBuilding)
-            => await ec.GetAsignacionesEdificioByBuildingAsync(idBuilding);
+        public async Task<List<Models.EmployeeBuildingAssignment>> GetEmployeeBuildingAssignmentsByBuildingAsync(Guid idBuilding)
+            => await ec.GetEmployeeBuildingAssignmentsByBuildingAsync(idBuilding);
 
         // ESTO es la rotación (sección 5 de la especificación) -- un Employee
         // puede tener varias filas vigentes a la vez, así que a diferencia de

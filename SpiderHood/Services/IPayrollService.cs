@@ -66,7 +66,7 @@ namespace SpiderHood.Services
         // Guid.Empty si no tiene ninguna (mismo fail-open que Building.IdAccount).
         private async Task<Guid> ResolveIdBuildingAsync(Guid idEmployee)
         {
-            var asignaciones = await _personalService.GetAsignacionesEdificioByEmployeeAsync(idEmployee);
+            var asignaciones = await _personalService.GetEmployeeBuildingAssignmentsByEmployeeAsync(idEmployee);
             return asignaciones.FirstOrDefault(a => a.FechaHasta == null)?.IdBuilding ?? Guid.Empty;
         }
 

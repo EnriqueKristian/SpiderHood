@@ -385,8 +385,8 @@ namespace SpiderHood.Data
 
             public const string INS_EmployeeBuildingAssignment = "INS_EmployeeBuildingAssignment";
             public const string UPD_EmployeeBuildingAssignment_Cerrar = "UPD_EmployeeBuildingAssignment_Cerrar";
-            public const string GET_AsignacionesEdificioByEmployee = "GET_AsignacionesEdificioByEmployee";
-            public const string GET_AsignacionesEdificioByBuilding = "GET_AsignacionesEdificioByBuilding";
+            public const string GET_EmployeeBuildingAssignmentsByEmployee = "GET_EmployeeBuildingAssignmentsByEmployee";
+            public const string GET_EmployeeBuildingAssignmentsByBuilding = "GET_EmployeeBuildingAssignmentsByBuilding";
 
             public const string INS_TimeEntry = "INS_TimeEntry";
             public const string UPD_TimeEntry = "UPD_TimeEntry";

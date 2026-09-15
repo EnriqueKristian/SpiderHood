@@ -1404,7 +1404,7 @@ namespace SpiderHood.Data
                     cancellationToken,
                     registro.IdTimeEntry,
                     registro.IdEmployee,
-                    registro.IdAsignacionEdificio,
+                    registro.IdEmployeeBuildingAssignment,
                     registro.Fecha,
                     registro.HorasOrdinarias,
                     registro.HorasExtra25,

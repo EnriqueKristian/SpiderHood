@@ -108,7 +108,7 @@ namespace SpiderHood.Models
     {
         public Guid IdTimeEntry { get; set; }
         public Guid IdEmployee { get; set; }
-        public Guid IdAsignacionEdificio { get; set; }
+        public Guid IdEmployeeBuildingAssignment { get; set; }
         public DateTime Fecha { get; set; } = DateTime.Today;
         [Precision(5, 2)]
         public decimal HorasOrdinarias { get; set; }

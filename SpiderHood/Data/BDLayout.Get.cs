@@ -1322,20 +1322,20 @@ namespace SpiderHood.Data
             }, "GetAsignacionesShiftByEmployee", cancellationToken);
         }
 
-        public async Task<List<Models.EmployeeBuildingAssignment>> GetAsignacionesEdificioByEmployeeAsync(Guid idEmployee, CancellationToken cancellationToken = default)
+        public async Task<List<Models.EmployeeBuildingAssignment>> GetEmployeeBuildingAssignmentsByEmployeeAsync(Guid idEmployee, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.EmployeeBuildingAssignment>(StoredProcedures.GET_AsignacionesEdificioByEmployee, idEmployee);
-            }, "GetAsignacionesEdificioByEmployee", cancellationToken);
+                return await ExecuteQueryListAsync<Models.EmployeeBuildingAssignment>(StoredProcedures.GET_EmployeeBuildingAssignmentsByEmployee, idEmployee);
+            }, "GetEmployeeBuildingAssignmentsByEmployee", cancellationToken);
         }
 
-        public async Task<List<Models.EmployeeBuildingAssignment>> GetAsignacionesEdificioByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<Models.EmployeeBuildingAssignment>> GetEmployeeBuildingAssignmentsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.EmployeeBuildingAssignment>(StoredProcedures.GET_AsignacionesEdificioByBuilding, idBuilding);
-            }, "GetAsignacionesEdificioByBuilding", cancellationToken);
+                return await ExecuteQueryListAsync<Models.EmployeeBuildingAssignment>(StoredProcedures.GET_EmployeeBuildingAssignmentsByBuilding, idBuilding);
+            }, "GetEmployeeBuildingAssignmentsByBuilding", cancellationToken);
         }
 
         public async Task<List<Models.TimeEntry>> GetTimeEntryByEmployeeAsync(Guid idEmployee, DateTime fechaDesde, DateTime fechaHasta, CancellationToken cancellationToken = default)

@@ -89,14 +89,14 @@
                         </button>
                     </div>
                     <div class="card-body">
-                        @if (_asignacionesEdificio.Count == 0)
+                        @if (_employeeBuildingAssignments.Count == 0)
                         {
                             <p class="text-muted mb-0">Sin edificio asignado.</p>
                         }
                         else
                         {
                             <ul class="list-group list-group-flush">
-                                @foreach (var a in _asignacionesEdificio)
+                                @foreach (var a in _employeeBuildingAssignments)
                                 {
                                     <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
                                         <div>
@@ -120,12 +120,12 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-stopwatch me-2"></i>Registro de horas</span>
-                        <button class="btn btn-sm btn-primary" @onclick="AbrirRegistrarHoras" disabled="@(_asignacionesEdificioVigentes.Count == 0)">
+                        <button class="btn btn-sm btn-primary" @onclick="AbrirRegistrarHoras" disabled="@(_activeEmployeeBuildingAssignments.Count == 0)">
                             <i class="bi bi-plus-lg"></i> Registrar horas
                         </button>
                     </div>
                     <div class="card-body">
-                        @if (_asignacionesEdificioVigentes.Count == 0)
+                        @if (_activeEmployeeBuildingAssignments.Count == 0)
                         {
                             <p class="text-muted small">Asigna primero un edificio (rotación) para poder registrar horas.</p>
                         }
@@ -304,8 +304,8 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Edificio</label>
-                        <select class="form-select" @bind="_idAsignacionEdificioSeleccionada">
-                            @foreach (var a in _asignacionesEdificioVigentes)
+                        <select class="form-select" @bind="_idEmployeeBuildingAssignmentSelected">
+                            @foreach (var a in _activeEmployeeBuildingAssignments)
                             {
                                 <option value="@a.IdEmployeeBuildingAssignment">@a.BuildingName</option>
                             }
@@ -362,8 +362,8 @@
     private List<Models.Shift> _turnosDisponibles = new();
     private List<Models.EmployeeShiftAssignment> _asignacionesShift = new();
     private List<Models.Building> _edificiosDisponibles = new();
-    private List<Models.EmployeeBuildingAssignment> _asignacionesEdificio = new();
-    private List<Models.EmployeeBuildingAssignment> _asignacionesEdificioVigentes => _asignacionesEdificio.Where(a => a.FechaHasta == null).ToList();
+    private List<Models.EmployeeBuildingAssignment> _employeeBuildingAssignments = new();
+    private List<Models.EmployeeBuildingAssignment> _activeEmployeeBuildingAssignments => _employeeBuildingAssignments.Where(a => a.FechaHasta == null).ToList();
     private List<Models.TimeEntry> _registros = new();
     private Models.VacationBalance? _saldoVacation;
     private List<Models.Payslip> _boletas = new();
@@ -378,7 +378,7 @@
     private decimal _porcentajeDedicacion = 100;
 
     private bool _showRegistrarHoras;
-    private Guid _idAsignacionEdificioSeleccionada;
+    private Guid _idEmployeeBuildingAssignmentSelected;
     private Models.TimeEntry _registroForm = new();
     private string? _errorRegistro;
 
@@ -419,7 +419,7 @@
         if (_personal == null) return;
 
         _asignacionesShift = await EmployeeService.GetAsignacionesShiftByEmployeeAsync(_personal.IdEmployee);
-        _asignacionesEdificio = await EmployeeService.GetAsignacionesEdificioByEmployeeAsync(_personal.IdEmployee);
+        _employeeBuildingAssignments = await EmployeeService.GetEmployeeBuildingAssignmentsByEmployeeAsync(_personal.IdEmployee);
         _registros = await EmployeeService.GetTimeEntryByEmployeeAsync(_personal.IdEmployee, DateTime.Today.AddDays(-30), DateTime.Today);
         _saldoVacation = await PayrollService.GetVacationBalanceAsync(_personal.IdEmployee, _personal.IdAccount, DateTime.Today.Year);
         _boletas = await PayrollService.GetPayslipsByEmployeeAsync(_personal.IdEmployee);
@@ -468,7 +468,7 @@
 
     private void AbrirRegistrarHoras()
     {
-        _idAsignacionEdificioSeleccionada = _asignacionesEdificioVigentes.FirstOrDefault()?.IdEmployeeBuildingAssignment ?? Guid.Empty;
+        _idEmployeeBuildingAssignmentSelected = _activeEmployeeBuildingAssignments.FirstOrDefault()?.IdEmployeeBuildingAssignment ?? Guid.Empty;
         _registroForm = new Models.TimeEntry { Fecha = DateTime.Today };
         _errorRegistro = null;
         _showRegistrarHoras = true;
@@ -476,10 +476,10 @@
 
     private async Task ConfirmarRegistrarHoras()
     {
-        if (_personal == null || _idAsignacionEdificioSeleccionada == Guid.Empty) return;
+        if (_personal == null || _idEmployeeBuildingAssignmentSelected == Guid.Empty) return;
 
         _registroForm.IdEmployee = _personal.IdEmployee;
-        _registroForm.IdAsignacionEdificio = _idAsignacionEdificioSeleccionada;
+        _registroForm.IdEmployeeBuildingAssignment = _idEmployeeBuildingAssignmentSelected;
         _registroForm.IdUsuarioRegistro = _currentUser.IdUser;
 
         var result = await EmployeeService.RegistrarHorasAsync(_registroForm);

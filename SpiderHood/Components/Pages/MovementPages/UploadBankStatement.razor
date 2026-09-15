@@ -1,4 +1,4 @@
-﻿@page "/movement/cargar"
+﻿@page "/movement/upload"
 @rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
 @using SpiderHood.Models
@@ -709,9 +709,9 @@
 
             // Traer claves existentes en BD
             var Movements = await BankAccountService.GetTransactionsDetailsAsync(IdBankAccount, minValue, maxValue);
-            var clavesBD = Movements.Select(md => $"{md.StatementDate:yyyyMMdd}|{md.Description}|{md.Amount}"); // Para búsqueda rápida
+            var DbKey = Movements.Select(md => $"{md.StatementDate:yyyyMMdd}|{md.Description}|{md.Amount}"); // Para búsqueda rápida
 
-            foreach (TransactionBankDetail item in datos.Where(d => clavesBD.Contains(d.KeyDuplicate)).ToList())
+            foreach (TransactionBankDetail item in datos.Where(d => DbKey.Contains(d.KeyDuplicate)).ToList())
             {
                 item.Validation = "Duplicado";
             }
@@ -828,7 +828,7 @@
                 Currency = CuentaSeleccionadaMoneda,
                 Amount = monto,
                 Validation = strCheck,
-                Origen = TransactionOrigen.BankAccountState
+                Origin = TransactionOrigin.BankAccountState
             });
 
             fila++;

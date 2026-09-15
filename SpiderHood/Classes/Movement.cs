@@ -100,7 +100,7 @@ namespace SpiderHood.Models
         [NotMapped]
         public Guid IdEntityRef { get; set; }
 
-        public TransactionOrigen Origen { get; set; }
+        public TransactionOrigin Origin { get; set; }
         public ConcilationType ReconciliationStatus { get; set; }
         public DateTime? ReconciliationDate { get; set; }
 
@@ -109,8 +109,8 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal Balance { get; set; }
 
-        public List<ViewExpense> PosiblesMatches { get; set; } = [];
-        public List<Installment> IPosiblesMatches { get; set; } = [];
+        public List<ViewExpense> PossibleExpenseMatches { get; set; } = [];
+        public List<Installment> PossibleInstallmentMatches { get; set; } = [];
 
         // Docs/Pendientes-Negocio-Conciliacion.md #1 -- antes era [NotMapped] y
         // GET_BankTransactionsNoConcilied lo devolvía como literal @FALSE: "Ignorar"
@@ -126,27 +126,27 @@ namespace SpiderHood.Models
         public string Notes => (Amount < 0 ? "Gasto #" : "Ingreso #") + SequenceNumber.ToString("D4");
         public string Tipo => Amount < 0 ? "Gasto" : "Ingreso";
         [NotMapped]
-        public ViewExpense? GastoConciliado { get; set; }
+        public ViewExpense? ReconciledExpense { get; set; }
         [NotMapped]
-        public Installment? CuotaConciliada { get; set; }
+        public Installment? ReconciledInstallment { get; set; }
         // Conciliación en dos pasos (Fase B): un match (automático o manual) queda
         // "propuesto" acá -- en memoria, ReconciliationStatus SIN TOCAR -- hasta que el
         // usuario confirma el lote completo con "Enviar a Conciliar". Antes de esto,
         // cualquier match (incluso el automático por monto exacto) escribía en BD al
         // toque, sin poder revisarlo ni deshacerlo gratis antes de confirmar.
         [NotMapped]
-        public bool PropuestaPendiente { get; set; } = false;
+        public bool PendingProposal { get; set; } = false;
         [NotMapped]
-        public bool PropuestaAutomatica { get; set; } = false;
-        // Distingue, dentro de una propuesta de Gasto, si GastoConciliado ya existe en BD
+        public bool AutomaticProposal { get; set; } = false;
+        // Distingue, dentro de una propuesta de Gasto, si ReconciledExpense ya existe en BD
         // (viene de un match con un gasto previamente guardado) o si todavía es un
         // ViewExpense armado en memoria desde CreateExpenseFromTransactionModal que aún no
         // se insertó -- EnviarAConciliar usa esto para saber si tiene que crear el gasto
         // recién al confirmar (Docs/Pendientes-Negocio-Conciliacion.md #6).
         [NotMapped]
-        public bool PropuestaGastoNuevo { get; set; } = false;
+        public bool NewExpenseProposal { get; set; } = false;
         [NotMapped]
-        public List<Installment> CuotasPropuestas { get; set; } = new();
+        public List<Installment> ProposedInstallments { get; set; } = new();
         [NotMapped]
         public string Validation { get; set; } = string.Empty;
         public string KeyDuplicate
@@ -161,7 +161,7 @@ namespace SpiderHood.Models
 
     // Forma liviana para listar el detalle de una carga de estado de cuenta (solo lectura).
     // A propósito NO reutiliza TransactionBankDetail: esa entidad trae columnas (Balance,
-    // AmountPaid, IdGroupUnit, PosiblesMatches, etc.) que no aplican a esta vista de solo
+    // AmountPaid, IdGroupUnit, PossibleExpenseMatches, etc.) que no aplican a esta vista de solo
     // lectura. ReconciliationStatus/ReconciliationDate sí se incluyen porque el usuario
     // necesita ver desde acá si cada movimiento ya fue conciliado.
     public class AccountStatementDetailView
@@ -188,7 +188,7 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal Amount { get; set; } = decimal.Zero;
 
-        public string clavesBD
+        public string DbKey
         {
             get
             {

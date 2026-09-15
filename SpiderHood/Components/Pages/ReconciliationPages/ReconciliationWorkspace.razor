@@ -38,7 +38,7 @@
                 </div>
 
                 <div class="page-header-actions">
-                    @{ var totalPropuestas = TransaccionesDelModo.Count(t => t.PropuestaPendiente); }
+                    @{ var totalPropuestas = TransaccionesDelModo.Count(t => t.PendingProposal); }
                     @if (totalPropuestas > 0)
                     {
                         <button class="btn btn-success" @onclick="EnviarAConciliar">
@@ -52,7 +52,7 @@
                          parsear el archivo real -- generaba transacciones de ejemplo al azar
                          (GenerarDatosEjemplo) y las agregaba solo en memoria, sin guardar nada
                          en la BD. La carga real (parseo de Excel + guardado) ya existe y
-                         funciona en /movement/cargar (CargarEstadoCuentaConciliacion.razor) --
+                         funciona en /movement/upload (UploadBankStatement.razor) --
                          se enlaza ahí en vez de duplicar esa lógica acá. -->
                     <a href="@EnlaceCargarEstado" class="btn btn-primary">
                         <i class="bi bi-upload me-1"></i> Cargar Estado
@@ -237,7 +237,7 @@
                                         @onclick="() => CambiarTab(noConciliados)">
                                     <i class="bi bi-question-circle me-2"></i>
                                     No Conciliados
-                                    <span class="badge bg-warning ms-2">@TransaccionesDelModo.Count(t => !t.PropuestaPendiente && (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial))</span>
+                                    <span class="badge bg-warning ms-2">@TransaccionesDelModo.Count(t => !t.PendingProposal && (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial))</span>
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -245,7 +245,7 @@
                                         @onclick="() => CambiarTab(propuestosAuto)">
                                     <i class="bi bi-robot me-2"></i>
                                     Auto
-                                    <span class="badge bg-primary ms-2">@TransaccionesDelModo.Count(t => t.PropuestaPendiente && t.PropuestaAutomatica)</span>
+                                    <span class="badge bg-primary ms-2">@TransaccionesDelModo.Count(t => t.PendingProposal && t.AutomaticProposal)</span>
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -253,7 +253,7 @@
                                         @onclick="() => CambiarTab(propuestosManual)">
                                     <i class="bi bi-person me-2"></i>
                                     Manual
-                                    <span class="badge bg-primary ms-2">@TransaccionesDelModo.Count(t => t.PropuestaPendiente && !t.PropuestaAutomatica)</span>
+                                    <span class="badge bg-primary ms-2">@TransaccionesDelModo.Count(t => t.PendingProposal && !t.AutomaticProposal)</span>
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -372,7 +372,7 @@
                                                 </td>
                                                 <td>
                                                     @if( transaccion.Tipo == "Gasto") {
-                                                        @if (transaccion.PropuestaPendiente && transaccion.GastoConciliado != null)
+                                                        @if (transaccion.PendingProposal && transaccion.ReconciledExpense != null)
                                                     {
                                                         // Propuesta todavía sin confirmar -- antes esta rama solo se activaba
                                                         // con ReconciliationStatus == Conciliada, que ya no cambia hasta
@@ -381,8 +381,8 @@
                                                         <div class="d-flex align-items-center">
                                                             <i class="bi bi-link-45deg text-primary me-2"></i>
                                                             <div>
-                                                                <div class="small">@transaccion.GastoConciliado.Category</div>
-                                                                <div class="text-muted small">@transaccion.GastoConciliado.Description</div>
+                                                                <div class="small">@transaccion.ReconciledExpense.Category</div>
+                                                                <div class="text-muted small">@transaccion.ReconciledExpense.Description</div>
                                                             </div>
                                                         </div>
                                                     }
@@ -391,25 +391,25 @@
                                                         <div class="d-flex align-items-center">
                                                             <i class="bi bi-link-45deg text-primary me-2"></i>
                                                             <div>
-                                                                <div class="small">@transaccion.GastoConciliado?.Category</div>
-                                                                <div class="text-muted small">@transaccion.GastoConciliado?.Description</div>
+                                                                <div class="small">@transaccion.ReconciledExpense?.Category</div>
+                                                                <div class="text-muted small">@transaccion.ReconciledExpense?.Description</div>
                                                             </div>
                                                         </div>
                                                     }
-                                                    else if (transaccion.PosiblesMatches.Any())
+                                                    else if (transaccion.PossibleExpenseMatches.Any())
                                                     {
                                                         var gastosIds = new HashSet<Guid>(gastosPendientes.Select(g => g.IdExpense));
 
-                                                        @if(transaccion.PosiblesMatches.Where(c => gastosIds.Contains(c.IdExpense)).Count() > 0 ){
+                                                        @if(transaccion.PossibleExpenseMatches.Where(c => gastosIds.Contains(c.IdExpense)).Count() > 0 ){
                                                             
                                                             <div class="dropdown">
                                                                 <button class="btn btn-sm btn-outline-primary dropdown-toggle" 
                                                                         type="button" 
                                                                         data-bs-toggle="dropdown">
-                                                                    @transaccion.PosiblesMatches.Where(c => gastosIds.Contains(c.IdExpense)).Count() posibles matches
+                                                                    @transaccion.PossibleExpenseMatches.Where(c => gastosIds.Contains(c.IdExpense)).Count() posibles matches
                                                                 </button>
                                                                 <ul class="dropdown-menu">
-                                                                @foreach (var match in transaccion.PosiblesMatches.Where(c => gastosIds.Contains(c.IdExpense)))
+                                                                @foreach (var match in transaccion.PossibleExpenseMatches.Where(c => gastosIds.Contains(c.IdExpense)))
                                                                 {
                                                                     <li>
                                                                         <a class="dropdown-item" 
@@ -437,7 +437,7 @@
                                                     }
                                                     else
                                                     {
-                                                        @if (transaccion.PropuestaPendiente && transaccion.CuotasPropuestas.Any())
+                                                        @if (transaccion.PendingProposal && transaccion.ProposedInstallments.Any())
                                                         {
                                                             // Mismo problema que en Gasto de arriba: sin este chequeo, la
                                                             // columna seguía mostrando el dropdown de "posibles matches" aunque
@@ -447,14 +447,14 @@
                                                             <div class="d-flex align-items-center">
                                                                 <i class="bi bi-link-45deg text-primary me-2"></i>
                                                                 <div>
-                                                                    <div class="small">Unidad @string.Join(", ", transaccion.CuotasPropuestas.Select(c => c.UnitName).Distinct())</div>
-                                                                    <div class="text-muted small">@transaccion.CuotasPropuestas.Count cuota@(transaccion.CuotasPropuestas.Count != 1 ? "s" : "")</div>
+                                                                    <div class="small">Unidad @string.Join(", ", transaccion.ProposedInstallments.Select(c => c.UnitName).Distinct())</div>
+                                                                    <div class="text-muted small">@transaccion.ProposedInstallments.Count cuota@(transaccion.ProposedInstallments.Count != 1 ? "s" : "")</div>
                                                                 </div>
                                                             </div>
                                                         }
                                                         else if (transaccion.ReconciliationStatus == ConcilationType.Conciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial)
                                                         {
-                                                            // Ingreso conciliado con cuota(s), NO con un Gasto -- GastoConciliado
+                                                            // Ingreso conciliado con cuota(s), NO con un Gasto -- ReconciledExpense
                                                             // siempre es null acá (ese campo es para Gastos), así que esto se
                                                             // apoyaba en un valor que nunca existe y la columna quedaba vacía.
                                                             // pagosCuotas ya trae OwnerName/UnitName por transacción.
@@ -474,20 +474,20 @@
                                                                 }
                                                             </div>
                                                         }
-                                                        else if (transaccion.IPosiblesMatches.Any())
+                                                        else if (transaccion.PossibleInstallmentMatches.Any())
                                                         {
                                                             var cuotasIds = new HashSet<Guid>(cuotaspendientes.Select(g => g.IdInstallment));
 
-                                                            @if (transaccion.IPosiblesMatches.Where(c => cuotasIds.Contains(c.IdInstallment)).Count() > 0)
+                                                            @if (transaccion.PossibleInstallmentMatches.Where(c => cuotasIds.Contains(c.IdInstallment)).Count() > 0)
                                                             {
                                                                 <div class="dropdown">
                                                                     <button class="btn btn-sm btn-outline-primary dropdown-toggle"
                                                                             type="button"
                                                                             data-bs-toggle="dropdown">
-                                                                        @transaccion.IPosiblesMatches.Where(c => cuotasIds.Contains(c.IdInstallment)).Count() posibles matches
+                                                                        @transaccion.PossibleInstallmentMatches.Where(c => cuotasIds.Contains(c.IdInstallment)).Count() posibles matches
                                                                     </button>
                                                                     <ul class="dropdown-menu">
-                                                                        @foreach (var match in transaccion.IPosiblesMatches.Where(c => cuotasIds.Contains(c.IdInstallment)))
+                                                                        @foreach (var match in transaccion.PossibleInstallmentMatches.Where(c => cuotasIds.Contains(c.IdInstallment)))
                                                                         {
                                                                             <li>
                                                                                 <a class="dropdown-item"
@@ -522,13 +522,13 @@
                                                             <i class="bi bi-eye-slash me-1"></i> Ignorado@(transaccion.IgnoredType.HasValue ? $" ({DescribirTipoIgnorado(transaccion.IgnoredType.Value)})" : "")
                                                         </span>
                                                     }
-                                                    else if (transaccion.PropuestaPendiente)
+                                                    else if (transaccion.PendingProposal)
                                                     {
                                                         <span class="badge bg-primary" title="Todavía no se guardó en BD -- confirma con 'Enviar a Conciliar' o quítala con el botón de al lado">
                                                             <i class="bi bi-hourglass-top me-1"></i> Propuesto
                                                         </span>
                                                         <span class="badge bg-light text-dark border ms-1">
-                                                            <i class="bi @(transaccion.PropuestaAutomatica ? "bi-robot" : "bi-person") me-1"></i>@(transaccion.PropuestaAutomatica ? "Auto" : "Manual")
+                                                            <i class="bi @(transaccion.AutomaticProposal ? "bi-robot" : "bi-person") me-1"></i>@(transaccion.AutomaticProposal ? "Auto" : "Manual")
                                                         </span>
                                                     }
                                                     else if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
@@ -550,7 +550,7 @@
                                                         </span>
                                                     }
                                                     @{ var esAuto = EsConciliacionAutomatica(transaccion); }
-                                                    @if (!transaccion.PropuestaPendiente && esAuto.HasValue)
+                                                    @if (!transaccion.PendingProposal && esAuto.HasValue)
                                                     {
                                                         <span class="badge bg-light text-dark border ms-1" title="@(esAuto.Value ? "Se concilió automáticamente por coincidencia exacta de monto" : "Se concilió manualmente")">
                                                             <i class="bi @(esAuto.Value ? "bi-robot" : "bi-person") me-1"></i>@(esAuto.Value ? "Auto" : "Manual")
@@ -559,7 +559,7 @@
                                                 </td>
                                                 <td class="text-center">
                                                     <div class="btn-group btn-group-sm" role="group">
-                                                        @if (transaccion.PropuestaPendiente)
+                                                        @if (transaccion.PendingProposal)
                                                         {
                                                             @if ((transaccion.Tipo == "Ingreso" && _canReconcileInstallments) || (transaccion.Tipo != "Ingreso" && _canReconcileExpenses))
                                                             {
@@ -602,7 +602,7 @@
                                                                 @onclick="() => VerDetallesTransaccion(transaccion)">
                                                             <i class="bi bi-eye"></i>
                                                         </button>
-                                                        @if (!transaccion.PropuestaPendiente && (_canReconcileExpenses || _canReconcileInstallments))
+                                                        @if (!transaccion.PendingProposal && (_canReconcileExpenses || _canReconcileInstallments))
                                                         {
                                                             <!-- Docs/Pendientes-Negocio-Migracion.md #3 -- marca este movimiento como el
                                                                  saldo de apertura de la cuenta, alimentando BankAccount.InitialBalance. -->
@@ -612,7 +612,7 @@
                                                                 <i class="bi bi-flag"></i>
                                                             </button>
                                                         }
-                                                        @if (!transaccion.PropuestaPendiente && transaccion.ReconciliationStatus == ConcilationType.Conciliada && _puedeCorregir)
+                                                        @if (!transaccion.PendingProposal && transaccion.ReconciliationStatus == ConcilationType.Conciliada && _puedeCorregir)
                                                         {
                                                             <button class="btn btn-outline-danger"
                                                                     title="Corregir (requiere motivo, queda en el log de auditoría)"
@@ -1039,7 +1039,7 @@
                 <div class="modal-header">
                     <h5 class="modal-title">
                         <i class="bi bi-eye me-2"></i>
-                        @(transaccionDetalleIngreso.PropuestaPendiente ? "Cuota(s) propuesta(s) para el pago" : "Cuotas asociadas al pago")
+                        @(transaccionDetalleIngreso.PendingProposal ? "Cuota(s) propuesta(s) para el pago" : "Cuotas asociadas al pago")
                     </h5>
                     <button type="button" class="btn-close" @onclick="CerrarModalVerDetalleIngreso"></button>
                 </div>
@@ -1058,17 +1058,17 @@
                     @{
                         var pagosDeEstaTransaccion = pagosCuotas.Where(p => p.IdTransaction == transaccionDetalleIngreso.IdStatementDetail).ToList();
                     }
-                    @if (transaccionDetalleIngreso.PropuestaPendiente && transaccionDetalleIngreso.CuotasPropuestas.Any())
+                    @if (transaccionDetalleIngreso.PendingProposal && transaccionDetalleIngreso.ProposedInstallments.Any())
                     {
                         // Todavía no hay nada en pagosCuotas -- AplicarPagoAsync (lo que crea esos
                         // registros) recién se llama al confirmar con "Enviar a Conciliar". Se
-                        // muestra la propuesta desde CuotasPropuestas (en memoria) en su lugar.
+                        // muestra la propuesta desde ProposedInstallments (en memoria) en su lugar.
                         <div class="alert alert-primary">
                             <i class="bi bi-hourglass-top me-2"></i>
                             Todavía no se guardó -- usa "Enviar a Conciliar" para confirmar.
                         </div>
                         <div class="list-group">
-                            @foreach (var cuota in transaccionDetalleIngreso.CuotasPropuestas)
+                            @foreach (var cuota in transaccionDetalleIngreso.ProposedInstallments)
                             {
                                 <div class="list-group-item">
                                     <div class="d-flex justify-content-between">
@@ -1301,12 +1301,12 @@
         _ => "Conciliación Bancaria"
     };
 
-    // Antes /movement/cargar no sabía si venías de Conciliación de Pagos, de Gastos o de la
+    // Antes /movement/upload no sabía si venías de Conciliación de Pagos, de Gastos o de la
     // vista genérica -- ni tenía cómo volver, así que había que navegar a mano de nuevo. Se le
     // pasa la URL actual (con su propio querystring, ej. ?cuenta=...) para que muestre un botón
     // "Volver a Conciliación" apenas termine de cargar.
     private string EnlaceCargarEstado =>
-        $"/movement/cargar?returnTo={Uri.EscapeDataString(Navigation.Uri.Substring(Navigation.BaseUri.Length - 1))}";
+        $"/movement/upload?returnTo={Uri.EscapeDataString(Navigation.Uri.Substring(Navigation.BaseUri.Length - 1))}";
 
     [Inject]
     public ICategoryService CategoryService { get; set; } = default!;
@@ -1586,7 +1586,7 @@
                 .Take(3)
                 .ToList();
 
-            transaccion.PosiblesMatches = posiblesMatches;
+            transaccion.PossibleExpenseMatches = posiblesMatches;
 
             // Si hay coincidencia exacta, conciliar automáticamente
             //Colocar logica cuando haay mas de 2
@@ -1609,7 +1609,7 @@
                 .Take(3)
                 .ToList();
 
-            transaccion.IPosiblesMatches = posiblesMatches;
+            transaccion.PossibleInstallmentMatches = posiblesMatches;
 
             // Si hay coincidencia exacta, conciliar automáticamente
             //Colocar logica cuando haay mas de 2
@@ -1633,10 +1633,10 @@
         if (!_canReconcileExpenses) return;
         try
         {
-            transaccion.GastoConciliado = gasto;
-            transaccion.PropuestaPendiente = true;
-            transaccion.PropuestaAutomatica = automatico;
-            transaccion.PropuestaGastoNuevo = esGastoNuevo;
+            transaccion.ReconciledExpense = gasto;
+            transaccion.PendingProposal = true;
+            transaccion.AutomaticProposal = automatico;
+            transaccion.NewExpenseProposal = esGastoNuevo;
 
             // Remover de listas pendientes para que no se vuelva a proponer a otra transacción
             gastosPendientes.Remove(gasto);
@@ -1677,9 +1677,9 @@
             return false;
         }
 
-        transaccion.CuotasPropuestas = cuotas;
-        transaccion.PropuestaPendiente = true;
-        transaccion.PropuestaAutomatica = automatico;
+        transaccion.ProposedInstallments = cuotas;
+        transaccion.PendingProposal = true;
+        transaccion.AutomaticProposal = automatico;
 
         // Igual que gastosPendientes.Remove(gasto) en ConciliarConGasto -- sin esto, la misma
         // cuota seguía apareciendo como "posible match" de OTRA transacción mientras esta
@@ -1702,25 +1702,25 @@
 
     private void QuitarPropuesta(TransactionBankDetail transaccion)
     {
-        if (transaccion.GastoConciliado != null)
+        if (transaccion.ReconciledExpense != null)
         {
             // Docs/Pendientes-Negocio-Conciliacion.md #6 -- si el gasto era uno NUEVO
             // (armado en memoria, nunca insertado en BD porque la propuesta se quitó antes
             // de confirmar), no corresponde ofrecerlo como "posible match" a otra
             // transacción: ese objeto no existe en BD y nunca se le llamó AddExpenseAsync.
             // Se descarta sin más -- si hace falta, el usuario lo vuelve a crear.
-            if (!transaccion.PropuestaGastoNuevo)
+            if (!transaccion.NewExpenseProposal)
             {
-                gastosPendientes.Add(transaccion.GastoConciliado);
+                gastosPendientes.Add(transaccion.ReconciledExpense);
             }
-            transaccion.GastoConciliado = null;
+            transaccion.ReconciledExpense = null;
         }
 
-        cuotaspendientes.AddRange(transaccion.CuotasPropuestas);
-        transaccion.CuotasPropuestas = new();
-        transaccion.PropuestaPendiente = false;
-        transaccion.PropuestaAutomatica = false;
-        transaccion.PropuestaGastoNuevo = false;
+        cuotaspendientes.AddRange(transaccion.ProposedInstallments);
+        transaccion.ProposedInstallments = new();
+        transaccion.PendingProposal = false;
+        transaccion.AutomaticProposal = false;
+        transaccion.NewExpenseProposal = false;
 
         CalcularEstadisticas();
         ActualizarPaginacion();
@@ -1742,7 +1742,7 @@
     // transacciones, sin importar en qué pantalla fija estés parado).
     private async Task<bool> EnviarAConciliar()
     {
-        var propuestas = TransaccionesDelModo.Where(t => t.PropuestaPendiente).ToList();
+        var propuestas = TransaccionesDelModo.Where(t => t.PendingProposal).ToList();
         if (!propuestas.Any()) return false;
 
         if (!await ConfirmarAsync(
@@ -1759,25 +1759,25 @@
         {
             try
             {
-                if (transaccion.Tipo == "Ingreso" && transaccion.CuotasPropuestas.Any())
+                if (transaccion.Tipo == "Ingreso" && transaccion.ProposedInstallments.Any())
                 {
-                    await InstallmentService.AplicarPagoAsync(transaccion, transaccion.CuotasPropuestas, BankService, transaccion.PropuestaAutomatica);
+                    await InstallmentService.AplicarPagoAsync(transaccion, transaccion.ProposedInstallments, BankService, transaccion.AutomaticProposal);
 
-                    var detalle = $"{transaccion.CuotasPropuestas.Count} cuota(s): Unidad " +
-                        string.Join(", ", transaccion.CuotasPropuestas.Select(c => c.UnitName).Distinct());
+                    var detalle = $"{transaccion.ProposedInstallments.Count} cuota(s): Unidad " +
+                        string.Join(", ", transaccion.ProposedInstallments.Select(c => c.UnitName).Distinct());
                     await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Reconciled,
-                        performedBy, idBuilding, $"{(transaccion.PropuestaAutomatica ? "Automático" : "Manual")} -- {detalle}");
+                        performedBy, idBuilding, $"{(transaccion.AutomaticProposal ? "Automático" : "Manual")} -- {detalle}");
                 }
-                else if (transaccion.Tipo == "Gasto" && transaccion.GastoConciliado != null)
+                else if (transaccion.Tipo == "Gasto" && transaccion.ReconciledExpense != null)
                 {
                     // Docs/Pendientes-Negocio-Conciliacion.md #6 -- si el gasto se armó en
                     // memoria (CreateExpenseFromTransactionModal / generación en lote) y
                     // todavía no existe en BD, recién se inserta acá, al confirmar. Un
                     // gasto que ya venía de un match con algo existente (dropdown/auto-
                     // match) no pasa por acá de nuevo.
-                    if (transaccion.PropuestaGastoNuevo)
+                    if (transaccion.NewExpenseProposal)
                     {
-                        await ExpenseService.AddExpenseAsync(transaccion.GastoConciliado);
+                        await ExpenseService.AddExpenseAsync(transaccion.ReconciledExpense);
                     }
 
                     // ConciliarTransaccionAsync graba el ESTADO ACTUAL de `transaccion` (UPDATE
@@ -1787,10 +1787,10 @@
                     // (guardaba algo) pero al recargar la transacción volvía a "No Conciliadas".
                     transaccion.ReconciliationStatus = ConcilationType.Conciliada;
                     transaccion.ReconciliationDate = DateTime.Now;
-                    await BankService.ConciliarTransaccionAsync(transaccion, transaccion.GastoConciliado);
+                    await BankService.ConciliarTransaccionAsync(transaccion, transaccion.ReconciledExpense);
 
                     await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Reconciled,
-                        performedBy, idBuilding, $"{(transaccion.PropuestaAutomatica ? "Automático" : "Manual")} -- Gasto: {transaccion.GastoConciliado.Description}");
+                        performedBy, idBuilding, $"{(transaccion.AutomaticProposal ? "Automático" : "Manual")} -- Gasto: {transaccion.ReconciledExpense.Description}");
                 }
                 else
                 {
@@ -1799,7 +1799,7 @@
                     continue;
                 }
 
-                transaccion.PropuestaPendiente = false;
+                transaccion.PendingProposal = false;
                 confirmadas++;
             }
             catch (Exception ex)
@@ -1942,14 +1942,14 @@
     private async Task CorregirConciliacionGasto(TransactionBankDetail transaccion)
     {
         if (!_canReconcileExpenses) return;
-        if (transaccion.GastoConciliado == null)
+        if (transaccion.ReconciledExpense == null)
         {
             mensajeError = "Esta transacción no tiene un gasto conciliado asociado.";
             return;
         }
 
         var motivo = await PedirMotivoAsync(
-            $"Vas a corregir la conciliación de '{transaccion.Description}' con el gasto '{transaccion.GastoConciliado.Description}'.");
+            $"Vas a corregir la conciliación de '{transaccion.Description}' con el gasto '{transaccion.ReconciledExpense.Description}'.");
         if (string.IsNullOrWhiteSpace(motivo))
         {
             return;
@@ -1957,7 +1957,7 @@
 
         try
         {
-            var gastoAnterior = transaccion.GastoConciliado;
+            var gastoAnterior = transaccion.ReconciledExpense;
 
             await BankService.DesconciliarGastoRealAsync(transaccion.IdStatementDetail, gastoAnterior.IdExpense);
 
@@ -1967,7 +1967,7 @@
             gastoAnterior.ReconciledTransactionId = null;
             gastoAnterior.AutoReconcile = false;
             gastosPendientes.Add(gastoAnterior);
-            transaccion.GastoConciliado = null;
+            transaccion.ReconciledExpense = null;
 
             var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
             await WorkflowAuditService.LogAsync("Reconciliation", transaccion.IdStatementDetail, WorkflowAction.Corrected,
@@ -2126,8 +2126,8 @@
         mensajeExito = $"Se generaron {transaccionesSeleccionadas.Count} gastos nuevos";
     }
 
-    // Sólo cubría Gastos (transaccion.PosiblesMatches) -- en la vista de Pagos (Ingresos,
-    // ModoFijo="Ingreso") no hacía absolutamente nada, porque IPosiblesMatches (el
+    // Sólo cubría Gastos (transaccion.PossibleExpenseMatches) -- en la vista de Pagos (Ingresos,
+    // ModoFijo="Ingreso") no hacía absolutamente nada, porque PossibleInstallmentMatches (el
     // equivalente para cuotas) nunca se miraba acá. Ahora deja PROPUESTO (Fase B) con el
     // primer match disponible de cada tipo, igual que ya hace el auto-match individual.
     private async Task ConciliarSeleccionadas()
@@ -2144,19 +2144,19 @@
         var propuestas = 0;
         foreach (var transaccion in transaccionesSeleccionadas)
         {
-            if (transaccion.PropuestaPendiente) continue;
+            if (transaccion.PendingProposal) continue;
 
             // automatico: false -- es una elección manual (el usuario seleccionó las filas y
             // pidió "Conciliar seleccionadas"), aunque el match en sí se tome del primero
             // disponible; el badge debe decir "Manual", no "Auto".
-            if (transaccion.Tipo == "Gasto" && _canReconcileExpenses && transaccion.PosiblesMatches.Any())
+            if (transaccion.Tipo == "Gasto" && _canReconcileExpenses && transaccion.PossibleExpenseMatches.Any())
             {
-                await ConciliarConGasto(transaccion, transaccion.PosiblesMatches.First(), automatico: false);
+                await ConciliarConGasto(transaccion, transaccion.PossibleExpenseMatches.First(), automatico: false);
                 propuestas++;
             }
-            else if (transaccion.Tipo == "Ingreso" && _canReconcileInstallments && transaccion.IPosiblesMatches.Any())
+            else if (transaccion.Tipo == "Ingreso" && _canReconcileInstallments && transaccion.PossibleInstallmentMatches.Any())
             {
-                await ConciliarConCuota(transaccion, transaccion.IPosiblesMatches.First(), automatico: false);
+                await ConciliarConCuota(transaccion, transaccion.PossibleInstallmentMatches.First(), automatico: false);
                 propuestas++;
             }
         }
@@ -2263,7 +2263,7 @@
             return;
         }
 
-        var sinPropuesta = transaccionesNoConciliadas.Where(t => !t.PropuestaPendiente).ToList();
+        var sinPropuesta = transaccionesNoConciliadas.Where(t => !t.PendingProposal).ToList();
         if (sinPropuesta.Any())
         {
             if (!await ConfirmarAsync(
@@ -2281,14 +2281,14 @@
             // seguía dando "true" después de confirmar (porque esa propuesta ajena seguía
             // pendiente), cortando la sesión sin registrarla aunque sí se hubiera conciliado
             // todo lo de esta pantalla.
-            if (TransaccionesDelModo.Any(t => t.PropuestaPendiente))
+            if (TransaccionesDelModo.Any(t => t.PendingProposal))
             {
                 await EnviarAConciliar();
 
                 // El usuario pudo cancelar el confirm de EnviarAConciliar -- si todavía quedan
                 // propuestas pendientes DE ESTE MODO, no se llegó a confirmar nada, así que no
                 // corresponde registrar la sesión como finalizada.
-                if (TransaccionesDelModo.Any(t => t.PropuestaPendiente)) return;
+                if (TransaccionesDelModo.Any(t => t.PendingProposal)) return;
             }
 
             var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
@@ -2391,8 +2391,8 @@
         // Calcular diferencia entre transacciones conciliadas y gastos
         var totalConciliado = transaccionesConciliadas.Where(t => t.Amount < 0).Sum(t => t.Amount);
         var totalGastosConciliados = transaccionesConciliadas
-            .Where(t => t.GastoConciliado != null)
-            .Sum(t => t.GastoConciliado?.Amount ?? 0);
+            .Where(t => t.ReconciledExpense != null)
+            .Sum(t => t.ReconciledExpense?.Amount ?? 0);
 
         diferenciaConciliacion = Math.Abs(totalConciliado) - totalGastosConciliados;
 
@@ -2410,7 +2410,7 @@
     }
 
     // Null = no se pudo determinar (transacción sin conciliar, o Gasto conciliado en una
-    // sesión anterior -- GastoConciliado solo queda poblado en memoria durante la sesión que
+    // sesión anterior -- ReconciledExpense solo queda poblado en memoria durante la sesión que
     // hizo la conciliación, ObtenerTransaccionesAsync no lo trae). Para Ingresos sí es
     // confiable siempre: pagosCuotas se recarga completo desde BD en cada CargarTransacciones.
     private bool? EsConciliacionAutomatica(TransactionBankDetail transaccion)
@@ -2421,7 +2421,7 @@
             return pagos.Any() ? pagos.All(p => p.IsAutoReconcile) : null;
         }
 
-        return transaccion.GastoConciliado?.AutoReconcile;
+        return transaccion.ReconciledExpense?.AutoReconcile;
     }
 
     private List<TransactionBankDetail> GetTransaccionesFiltradas()
@@ -2433,16 +2433,16 @@
         // vive en /movement -> "Detalle" (estado real en BD).
         if (tabActiva == "noConciliados")
         {
-            resultado = resultado.Where(t => !t.Ignored && !t.PropuestaPendiente &&
+            resultado = resultado.Where(t => !t.Ignored && !t.PendingProposal &&
                 (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial));
         }
         else if (tabActiva == "propuestosAuto")
         {
-            resultado = resultado.Where(t => t.PropuestaPendiente && t.PropuestaAutomatica);
+            resultado = resultado.Where(t => t.PendingProposal && t.AutomaticProposal);
         }
         else if (tabActiva == "propuestosManual")
         {
-            resultado = resultado.Where(t => t.PropuestaPendiente && !t.PropuestaAutomatica);
+            resultado = resultado.Where(t => t.PendingProposal && !t.AutomaticProposal);
         }
         else if (tabActiva == "ignorados")
         {
@@ -2535,11 +2535,11 @@
 
     private async Task VerDetallesTransaccion(TransactionBankDetail transaccion)
     {
-        // PropuestaPendiente (Fase B) también entra acá -- antes solo se activaba con
+        // PendingProposal (Fase B) también entra acá -- antes solo se activaba con
         // ReconciliationStatus != NoConciliada, que ya no cambia hasta confirmar, así que el
         // "ojo" de una propuesta (automática o manual) caía siempre en el toast genérico de
         // abajo, sin decir con qué cuota se la estaba asociando.
-        if (transaccion.Tipo == "Ingreso" && (transaccion.ReconciliationStatus != ConcilationType.NoConciliada || transaccion.PropuestaPendiente))
+        if (transaccion.Tipo == "Ingreso" && (transaccion.ReconciliationStatus != ConcilationType.NoConciliada || transaccion.PendingProposal))
         {
             transaccionDetalleIngreso = transaccion;
             mostrarModalVerDetalleIngreso = true;
@@ -2549,8 +2549,8 @@
         // Gasto (confirmado, propuesto, o sin conciliar todavía): vista simple existente.
         // showToast vuelca el mensaje via innerHTML (ver wwwroot/js/utilidades.js), asi que
         // los saltos de línea se pasan como <br> en vez de "\n" para que se vean.
-        var estado = transaccion.PropuestaPendiente
-            ? $"Propuesto ({(transaccion.PropuestaAutomatica ? "Auto" : "Manual")})"
+        var estado = transaccion.PendingProposal
+            ? $"Propuesto ({(transaccion.AutomaticProposal ? "Auto" : "Manual")})"
             : (transaccion.ReconciliationStatus == ConcilationType.Conciliada ? "Conciliado" : "Pendiente");
 
         var detalles = $"Fecha: {transaccion.StatementDate:dd/MM/yyyy}<br>" +
@@ -2560,9 +2560,9 @@
               $"Tipo: {transaccion.Tipo}<br>" +
               $"Estado: {estado}";
 
-        if (transaccion.Tipo == "Gasto" && transaccion.GastoConciliado != null)
+        if (transaccion.Tipo == "Gasto" && transaccion.ReconciledExpense != null)
         {
-            detalles += $"<br>Gasto: {transaccion.GastoConciliado.Description} ({transaccion.GastoConciliado.Category})";
+            detalles += $"<br>Gasto: {transaccion.ReconciledExpense.Description} ({transaccion.ReconciledExpense.Category})";
         }
 
         await ShowToast("Detalle de transacción", detalles, "info");

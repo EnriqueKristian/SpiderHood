@@ -690,7 +690,7 @@ namespace SpiderHood.Data
             CancellationToken cancellationToken = default)
         {
             ValidateEntity(transaction, nameof(transaction));
-            ValidateEntity(transaction.GastoConciliado, nameof(transaction.GastoConciliado));
+            ValidateEntity(transaction.ReconciledExpense, nameof(transaction.ReconciledExpense));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
@@ -700,8 +700,8 @@ namespace SpiderHood.Data
                     transaction.IdStatementDetail,
                     transaction.ReconciliationStatus,
                     transaction.ReconciliationDate!,
-                    transaction.GastoConciliado!.IdExpense,
-                    transaction.GastoConciliado.AutoReconcile);
+                    transaction.ReconciledExpense!.IdExpense,
+                    transaction.ReconciledExpense.AutoReconcile);
                 return true;
             }, "UpdateExpenseReconciliation", cancellationToken);
         }

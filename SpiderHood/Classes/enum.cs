@@ -12,7 +12,7 @@
         Pendiente = 3
     }
 
-    public enum TransactionOrigen
+    public enum TransactionOrigin
     {
         BankAccountState = 0,
         ExcessPayment = 1,

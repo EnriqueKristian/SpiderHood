@@ -151,7 +151,7 @@ namespace SpiderHood.Services
             foreach (var installment in unreconciledInstallments)
             {
                 // Clear previous matches to avoid duplicates
-                installment.PosiblesMatches.Clear();
+                installment.PossibleExpenseMatches.Clear();
                 installment.PreviousPaid.Clear();
 
                 var montoDeuda = Math.Abs(installment.Debt);
@@ -188,7 +188,7 @@ namespace SpiderHood.Services
 
                 if (posiblesMatches.Any())
                 {
-                    installment.PosiblesMatches = posiblesMatches;
+                    installment.PossibleExpenseMatches = posiblesMatches;
 
                     // 3. Check for exact match (with tolerance for floating point)
                     var exactMatch = posiblesMatches

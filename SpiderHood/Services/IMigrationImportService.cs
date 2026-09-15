@@ -1396,7 +1396,7 @@ namespace SpiderHood.Services
                                 Amount = montoFirmado,
                                 SequenceNumber = secuencia++,
                                 Currency = f.Moneda,
-                                Origen = Models.TransactionOrigen.BankAccountState,
+                                Origin = Models.TransactionOrigin.BankAccountState,
                                 ReconciliationStatus = Models.ConcilationType.NoConciliada,
                                 ReconciliationDate = null,
                                 AmountPaid = 0,

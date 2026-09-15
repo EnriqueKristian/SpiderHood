@@ -279,17 +279,17 @@
                                                     </span>
                                                 </td>
                                                 <td class="text-center">
-                                                    @if (item.PosiblesMatches.Any())
+                                                    @if (item.PossibleExpenseMatches.Any())
                                                     {
                                                         var cuotasIds = new HashSet<Guid>(transacciones!.Select(g => g.IdStatementHeader));
 
-                                                        @if (item.PosiblesMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)).Count() > 0)
+                                                        @if (item.PossibleExpenseMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)).Count() > 0)
                                                         {
                                                             <div class="dropdown">
                                                                 <button class="btn btn-sm btn-outline-primary dropdown-toggle"
                                                                         type="button"
                                                                         data-bs-toggle="dropdown">
-                                                                    @item.PosiblesMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)).Count() posibles matches
+                                                                    @item.PossibleExpenseMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)).Count() posibles matches
                                                                 </button>
                                                                 <ul class="dropdown-menu">
                                                                     @foreach (var paid in item.PreviousPaid)
@@ -307,7 +307,7 @@
                                                                     {
                                                                         <li><hr class="dropdown-divider"></li>
                                                                     }
-                                                                    @foreach (var match in item.PosiblesMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)))
+                                                                    @foreach (var match in item.PossibleExpenseMatches.Where(c => cuotasIds.Contains(c.IdStatementHeader)))
                                                                     {
                                                                         <li>
                                                                             <a class="dropdown-item"

@@ -597,7 +597,7 @@
             var transaccion = _transaccionParaGastoBanco;
             transaccion.ReconciliationStatus = Models.ConcilationType.Conciliada;
             transaccion.ReconciliationDate = DateTime.Now;
-            transaccion.GastoConciliado = gasto;
+            transaccion.ReconciledExpense = gasto;
             await BankAccountService.ConciliarTransaccionAsync(transaccion, gasto);
 
             CerrarModalCrearGastoBanco();

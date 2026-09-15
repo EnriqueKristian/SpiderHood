@@ -495,7 +495,7 @@ namespace SpiderHood.Data
                     (int)movementdetail.ReconciliationStatus != 0,
                     movementdetail.ReconciliationDate!,
                     movementdetail.IdParent,
-                    movementdetail.Origen);
+                    movementdetail.Origin);
                 return movementdetail;
             }, "AddMovementDetail", cancellationToken);
         }

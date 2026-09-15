@@ -45,7 +45,7 @@ namespace SpiderHood.Models
         [NotMapped]
         public DateTime LastPartialPaymentDate { get; set; }
         [NotMapped]
-        public List<TransactionBankDetail> PosiblesMatches { get; set; } = [];
+        public List<TransactionBankDetail> PossibleExpenseMatches { get; set; } = [];
         [NotMapped]
         public List<InstallmentPaid> Paids { get; set; } = [];
         [NotMapped]

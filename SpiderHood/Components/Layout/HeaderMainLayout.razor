@@ -730,8 +730,8 @@
         ["conciliacionpagos"] = "Conciliación de Pagos",
         ["conciliaciongastos"] = "Conciliación de Gastos",
         ["movement"] = "Movimientos",
-        ["movement/cargar"] = "Cargar Estado de Cuenta",
-        ["movement/detalle"] = "Detalle de Movimiento",
+        ["movement/upload"] = "Cargar Estado de Cuenta",
+        ["movement/detail"] = "Detalle de Movimiento",
         ["incidents"] = "Incidencias",
         ["category"] = "Categorías",
         ["expense"] = "Gastos",
@@ -773,7 +773,7 @@
     // "Menu Items" a partir de "MenuItems" (separa PascalCase) o "Select Building" a
     // partir de "select-building" -- fallback para una ruta que no está en el
     // diccionario, en vez del ToTitleCase crudo de antes (que sobre una ruta real como
-    // "movement/cargar" no separaba nada y quedaba ilegible).
+    // "movement/upload" no separaba nada y quedaba ilegible).
     private static string Humanize(string segment)
     {
         var spaced = System.Text.RegularExpressions.Regex.Replace(segment, "(?<!^)([A-Z])", " $1")

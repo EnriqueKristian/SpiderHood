@@ -1,0 +1,238 @@
+@page "/gobernanza/reuniones/{Id:guid}/acta"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IReunionService ReunionService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Acta de Reunión</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_reunion == null)
+    {
+        <div class="alert alert-danger">No se encontró la reunión.</div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center mb-3">
+            <div class="page-header-title">
+                <button class="btn btn-sm btn-outline-secondary me-3" @onclick="Volver"><i class="bi bi-arrow-left"></i></button>
+                <div>
+                    <h1 class="h4 fw-bold mb-0">Acta -- @_reunion.Titulo</h1>
+                    <div class="text-muted small">@_reunion.FechaReunion.ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+            </div>
+            @if (_acta != null)
+            {
+                <span class="badge @(_acta.Estado == EstadoActa.Firmada ? "bg-success" : "bg-warning text-dark") fs-6">
+                    @(_acta.Estado == EstadoActa.Firmada ? "Firmada" : "Borrador")
+                </span>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(_mensaje))
+        {
+            <div class="alert @(_mensajeEsError ? "alert-danger" : "alert-success")">@_mensaje</div>
+        }
+
+        @if (_reunion.Estado != EstadoReunion.Finalizada && _reunion.Estado != EstadoReunion.QuorumNoAlcanzado)
+        {
+            <div class="alert alert-info">El Acta está disponible una vez que la reunión Finaliza o queda en Quórum No Alcanzado. Estado actual: <strong>@_reunion.Estado</strong>.</div>
+        }
+        else if (_acta == null)
+        {
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <p class="text-muted">Todavía no se generó el Acta de esta reunión.</p>
+                    @if (_puedeGestionar)
+                    {
+                        <button class="btn btn-primary" @onclick="GenerarBorrador">
+                            <i class="bi bi-file-earmark-text me-1"></i>Generar Borrador
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Contenido</span>
+                    <div class="d-flex gap-2">
+                        @if (_puedeGestionar && _acta.Estado == EstadoActa.Borrador)
+                        {
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="GenerarBorrador">
+                                <i class="bi bi-arrow-clockwise me-1"></i>Regenerar
+                            </button>
+                            <button class="btn btn-sm btn-success" @onclick="AbrirFirmar">
+                                <i class="bi bi-pen me-1"></i>Firmar Acta
+                            </button>
+                        }
+                        <button class="btn btn-sm btn-primary" @onclick="Descargar" disabled="@_descargando">
+                            @if (_descargando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-download me-1"></i>Descargar PDF
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9rem;">@_acta.ContenidoGenerado</pre>
+
+                    @if (_acta.Estado == EstadoActa.Firmada)
+                    {
+                        <div class="row mt-4 pt-3 border-top">
+                            <div class="col-6 text-center">
+                                <div class="border-top border-dark pt-1 mx-auto" style="max-width: 250px;">@_acta.NombrePresidente</div>
+                                <div class="text-muted small">Presidente -- @_acta.FirmaPresidenteEn?.ToString("dd/MM/yyyy")</div>
+                            </div>
+                            <div class="col-6 text-center">
+                                <div class="border-top border-dark pt-1 mx-auto" style="max-width: 250px;">@_acta.NombreSecretario</div>
+                                <div class="text-muted small">Secretario -- @_acta.FirmaSecretarioEn?.ToString("dd/MM/yyyy")</div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted small mt-2 mb-0"><i class="bi bi-info-circle me-1"></i>Borrador -- se puede regenerar mientras no esté firmada. Al firmar queda inmutable.</p>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@if (_showFirmarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Firmar Acta</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showFirmarModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">Una vez firmada, el Acta queda inmutable -- no se podrá regenerar ni editar.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Presidente</label>
+                        <input class="form-control" @bind="_nombrePresidente" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Secretario</label>
+                        <input class="form-control" @bind="_nombreSecretario" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(_errorFirma))
+                    {
+                        <div class="alert alert-danger py-2 px-3">@_errorFirma</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showFirmarModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-success" @onclick="ConfirmarFirma">Firmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private UserSession _currentUser = new();
+    private bool _loading = true;
+    private bool _puedeGestionar;
+    private Reunion? _reunion;
+    private Acta? _acta;
+    private string? _mensaje;
+    private bool _mensajeEsError;
+    private bool _descargando;
+
+    private bool _showFirmarModal;
+    private string _nombrePresidente = string.Empty;
+    private string _nombreSecretario = string.Empty;
+    private string? _errorFirma;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_reuniones");
+        await CargarAsync();
+        _loading = false;
+    }
+
+    private async Task CargarAsync()
+    {
+        _reunion = await ReunionService.GetReunionByIdAsync(Id);
+        if (_reunion != null)
+            _acta = await ReunionService.GetActaAsync(Id);
+    }
+
+    private void Volver() => Navigation.NavigateTo($"/gobernanza/reuniones/{Id}");
+
+    private async Task GenerarBorrador()
+    {
+        _mensaje = null;
+        try
+        {
+            _acta = await ReunionService.GenerarBorradorActaAsync(Id, _currentUser.IdUser);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensaje = ex.Message;
+            _mensajeEsError = true;
+        }
+    }
+
+    private void AbrirFirmar()
+    {
+        _nombrePresidente = string.Empty;
+        _nombreSecretario = string.Empty;
+        _errorFirma = null;
+        _showFirmarModal = true;
+    }
+
+    private async Task ConfirmarFirma()
+    {
+        _errorFirma = null;
+        if (string.IsNullOrWhiteSpace(_nombrePresidente) || string.IsNullOrWhiteSpace(_nombreSecretario))
+        {
+            _errorFirma = "Los nombres del Presidente y el Secretario son obligatorios.";
+            return;
+        }
+
+        await ReunionService.FirmarActaAsync(_acta!.IdActa, _nombrePresidente.Trim(), _nombreSecretario.Trim());
+        _showFirmarModal = false;
+        _mensaje = "Acta firmada -- queda inmutable.";
+        _mensajeEsError = false;
+        await CargarAsync();
+    }
+
+    private async Task Descargar()
+    {
+        if (_acta == null || _reunion == null) return;
+
+        _descargando = true;
+        try
+        {
+            var exportService = new ActaExportService(_acta, _reunion);
+            var pdfBytes = exportService.GeneratePdf();
+            await JSRuntime.InvokeVoidAsync("openPdfInNewTab",
+                Convert.ToBase64String(pdfBytes),
+                $"Acta_{_reunion.Titulo.Replace(" ", "_")}.pdf");
+        }
+        finally
+        {
+            _descargando = false;
+        }
+    }
+}

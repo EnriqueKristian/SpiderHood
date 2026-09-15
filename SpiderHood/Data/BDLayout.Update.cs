@@ -1141,6 +1141,25 @@ namespace SpiderHood.Data
                 return true;
             }, "UpdateVotacionCierre", cancellationToken);
         }
+
+        // Gobernanza / Actas -- Fase 3
+        public async Task UpdateActaContenidoAsync(Guid idActa, string contenidoGenerado, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.UPD_ActaContenido, cancellationToken, idActa, contenidoGenerado);
+                return true;
+            }, "UpdateActaContenido", cancellationToken);
+        }
+
+        public async Task UpdateActaFirmaAsync(Guid idActa, string nombrePresidente, string nombreSecretario, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.UPD_ActaFirma, cancellationToken, idActa, nombrePresidente, nombreSecretario);
+                return true;
+            }, "UpdateActaFirma", cancellationToken);
+        }
         #endregion
     }
 }

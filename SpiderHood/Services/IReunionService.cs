@@ -99,6 +99,21 @@ namespace SpiderHood.Services
         // operador decide si abre una nueva ronda (IniciarVotacionAsync) o
         // lo rechaza a mano (MarcarAgendaItemEstadoAsync).
         Task<CerrarVotacionResultado> CerrarVotacionAsync(Guid idVotacion);
+
+        // ===================== Actas (Fase 3) =====================
+
+        Task<Acta?> GetActaAsync(Guid idReunion);
+
+        // Compone el contenido desde Reunion+Agenda+Asistencia+Votacion y
+        // crea el Acta si no existe, o la regenera si sigue en Borrador --
+        // sólo válido con la Reunion Finalizada o QuorumNoAlcanzado (son los
+        // dos estados con un desenlace real que registrar), y rechaza
+        // regenerar un Acta ya Firmada (inmutable).
+        Task<Acta> GenerarBorradorActaAsync(Guid idReunion, Guid generadoPor);
+
+        // Marca el Acta Firmada -- desde ahí en adelante es inmutable
+        // (GenerarBorradorActaAsync la rechaza).
+        Task FirmarActaAsync(Guid idActa, string nombrePresidente, string nombreSecretario);
     }
 
     public class ReunionService : IReunionService
@@ -521,5 +536,112 @@ namespace SpiderHood.Services
                 _ => aFavor > enContra // Simple
             };
         }
+
+        // ===================== Actas (Fase 3) =====================
+
+        public async Task<Acta?> GetActaAsync(Guid idReunion)
+            => await ec.GetActaByReunionAsync(idReunion);
+
+        public async Task<Acta> GenerarBorradorActaAsync(Guid idReunion, Guid generadoPor)
+        {
+            var reunion = await ec.GetReunionByIdAsync(idReunion);
+            if (reunion.Estado != EstadoReunion.Finalizada && reunion.Estado != EstadoReunion.QuorumNoAlcanzado)
+                throw new InvalidOperationException("Sólo se puede generar el Acta de una reunión Finalizada o con Quórum No Alcanzado.");
+
+            var existente = await ec.GetActaByReunionAsync(idReunion);
+            if (existente != null && existente.Estado == EstadoActa.Firmada)
+                throw new InvalidOperationException("El Acta ya está firmada y es inmutable.");
+
+            var reunionCompleta = await GetReunionByIdAsync(idReunion)
+                ?? throw new InvalidOperationException("Reunión no encontrada.");
+            var contenido = await ComponerContenidoActaAsync(reunionCompleta);
+
+            if (existente == null)
+            {
+                var acta = new Acta
+                {
+                    IdActa = Guid.NewGuid(),
+                    IdReunion = idReunion,
+                    ContenidoGenerado = contenido,
+                    Estado = EstadoActa.Borrador,
+                    CreatedBy = generadoPor
+                };
+                await ec.AddNewRecordAsync(acta);
+                return acta;
+            }
+
+            await ec.UpdateActaContenidoAsync(existente.IdActa, contenido);
+            existente.ContenidoGenerado = contenido;
+            return existente;
+        }
+
+        public async Task FirmarActaAsync(Guid idActa, string nombrePresidente, string nombreSecretario)
+            => await ec.UpdateActaFirmaAsync(idActa, nombrePresidente, nombreSecretario);
+
+        // Texto plano estructurado (no HTML) -- se muestra tal cual en pantalla
+        // (white-space: pre-wrap) y alimenta directo el PDF (ActaExportService),
+        // sin necesidad de parsear marcado. Una vez la Reunion pasó a
+        // Finalizada/QuorumNoAlcanzado sus datos ya no cambian (no hay ningún
+        // flujo que reabra una Reunion cerrada), así que "inmutable tras
+        // firmar" es coherente: el contenido compuesto acá para una Reunion en
+        // ese estado no puede quedar desactualizado por un cambio posterior.
+        private async Task<string> ComponerContenidoActaAsync(Reunion reunion)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine(reunion.Tipo == TipoReunion.Ordinaria ? "ACTA DE REUNIÓN ORDINARIA" : "ACTA DE REUNIÓN EXTRAORDINARIA");
+            sb.AppendLine(reunion.Titulo);
+            sb.AppendLine();
+            sb.AppendLine($"Fecha: {reunion.FechaReunion:dd/MM/yyyy HH:mm}");
+            sb.AppendLine($"Modalidad: {reunion.Modalidad}");
+            if (!string.IsNullOrEmpty(reunion.LugarOVinculo))
+                sb.AppendLine($"Lugar / Enlace: {reunion.LugarOVinculo}");
+            if (reunion.IdReunionOrigen != null)
+                sb.AppendLine("Esta reunión corresponde a una Segunda Convocatoria.");
+            sb.AppendLine();
+
+            sb.AppendLine("QUÓRUM");
+            sb.AppendLine($"Requerido: {reunion.QuorumRequerido:0.##}%");
+            sb.AppendLine($"Alcanzado: {(reunion.QuorumAlcanzado?.ToString("0.##") ?? "0")}%");
+            sb.AppendLine(reunion.Estado == EstadoReunion.QuorumNoAlcanzado
+                ? "Resultado: Quórum NO alcanzado. La reunión no pudo instalarse."
+                : "Resultado: Quórum alcanzado. La reunión quedó válidamente instalada.");
+            sb.AppendLine();
+
+            sb.AppendLine($"ASISTENTES ({reunion.Asistentes.Count} unidades, {reunion.Asistentes.Sum(a => a.Alicuota):0.##}% de alícuota)");
+            foreach (var a in reunion.Asistentes.OrderBy(a => a.NombreUnidad))
+                sb.AppendLine($"- {a.NombreUnidad} ({a.Alicuota:0.####}%)");
+            sb.AppendLine();
+
+            sb.AppendLine("AGENDA Y ACUERDOS");
+            foreach (var item in reunion.Agenda.OrderBy(a => a.Orden))
+            {
+                sb.AppendLine($"{item.Orden}. {item.Titulo} [{(item.Tipo == TipoAgendaItem.Informativo ? "Informativo" : "Sujeto a Votación")}]");
+                if (!string.IsNullOrEmpty(item.Descripcion))
+                    sb.AppendLine($"   {item.Descripcion}");
+
+                if (item.Tipo == TipoAgendaItem.SujetoAVotacion)
+                {
+                    var votaciones = await GetVotacionesAsync(item.IdAgendaItem);
+                    foreach (var v in votaciones.Where(v => v.Estado == EstadoVotacion.Cerrada).OrderBy(v => v.NroRonda))
+                    {
+                        sb.AppendLine($"   Ronda {v.NroRonda}: a favor {v.AlicuotaAFavor:0.##}% -- en contra {v.AlicuotaEnContra:0.##}% -- abstención {v.AlicuotaAbstencion:0.##}% -- {(v.MayoriaAlcanzada == true ? "mayoría alcanzada" : "mayoría no alcanzada")}");
+                    }
+                }
+                sb.AppendLine($"   Resultado: {TraducirEstadoAgendaParaActa(item.Estado)}");
+                sb.AppendLine();
+            }
+
+            sb.AppendLine("Documento generado automáticamente por el sistema a partir de los datos registrados en la Reunión.");
+            return sb.ToString();
+        }
+
+        private static string TraducirEstadoAgendaParaActa(EstadoAgendaItem estado) => estado switch
+        {
+            EstadoAgendaItem.Pendiente => "Pendiente (sin resolver)",
+            EstadoAgendaItem.Informado => "Informado",
+            EstadoAgendaItem.Aprobado => "Aprobado",
+            EstadoAgendaItem.Rechazado => "Rechazado",
+            _ => estado.ToString()
+        };
     }
 }

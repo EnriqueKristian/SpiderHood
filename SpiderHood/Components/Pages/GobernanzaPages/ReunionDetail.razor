@@ -30,7 +30,15 @@
                     <div class="text-muted small">@(_reunion.Tipo == TipoReunion.Ordinaria ? "Ordinaria" : "Extraordinaria") -- @_reunion.FechaReunion.ToString("dd/MM/yyyy HH:mm") -- @_reunion.Modalidad</div>
                 </div>
             </div>
-            <span class="badge @BadgeClase(_reunion.Estado) fs-6">@TraducirEstado(_reunion.Estado)</span>
+            <div class="d-flex align-items-center gap-2">
+                @if (_reunion.Estado == EstadoReunion.Finalizada || _reunion.Estado == EstadoReunion.QuorumNoAlcanzado)
+                {
+                    <button class="btn btn-sm btn-outline-primary" @onclick='() => Navigation.NavigateTo($"/gobernanza/reuniones/{Id}/acta")'>
+                        <i class="bi bi-file-earmark-text me-1"></i>Ver Acta
+                    </button>
+                }
+                <span class="badge @BadgeClase(_reunion.Estado) fs-6">@TraducirEstado(_reunion.Estado)</span>
+            </div>
         </div>
 
         @if (!string.IsNullOrEmpty(_mensaje))

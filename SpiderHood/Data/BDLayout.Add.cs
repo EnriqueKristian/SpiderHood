@@ -1668,6 +1668,25 @@ namespace SpiderHood.Data
                 return voto;
             }, "AddVoto", cancellationToken);
         }
+
+        // Gobernanza / Actas -- Fase 3
+        public async Task<Models.Acta> AddNewRecordAsync(Models.Acta acta, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(acta, nameof(acta));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Acta,
+                    cancellationToken,
+                    acta.IdActa,
+                    acta.IdReunion,
+                    acta.ContenidoGenerado,
+                    (int)acta.Estado,
+                    acta.CreatedBy);
+                return acta;
+            }, "AddActa", cancellationToken);
+        }
         #endregion
     }
 }

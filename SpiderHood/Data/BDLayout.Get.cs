@@ -1561,6 +1561,17 @@ namespace SpiderHood.Data
                 return await ExecuteQueryListAsync<Models.Voto>(StoredProcedures.GET_VotosByVotacion, idVotacion);
             }, "GetVotosByVotacion", cancellationToken);
         }
+
+        // Gobernanza / Actas -- Fase 3. Devuelve null si la Reunion todavía no
+        // tiene Acta generada (no se trata como EntityNotFoundException -- es
+        // un estado válido y esperado, no un error).
+        public async Task<Models.Acta?> GetActaByReunionAsync(Guid idReunion, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQuerySingleAsync<Models.Acta>(StoredProcedures.GET_ActaByReunion, idReunion);
+            }, "GetActaByReunion", cancellationToken);
+        }
         #endregion
     }
 }

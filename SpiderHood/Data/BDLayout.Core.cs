@@ -356,6 +356,12 @@ namespace SpiderHood.Data
             public const string DEL_Voto = "DEL_Voto";
             public const string GET_VotosByVotacion = "GET_VotosByVotacion";
 
+            // Gobernanza / Actas Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21, Fase 3
+            public const string INS_Acta = "INS_Acta";
+            public const string UPD_ActaContenido = "UPD_ActaContenido";
+            public const string UPD_ActaFirma = "UPD_ActaFirma";
+            public const string GET_ActaByReunion = "GET_ActaByReunion";
+
             // Calendar Procedures
             public const string INS_CalendarItem = "INS_CalendarItem";
             public const string UPD_CalendarItem = "UPD_CalendarItem";

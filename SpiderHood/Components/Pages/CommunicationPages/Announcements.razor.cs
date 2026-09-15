@@ -8,22 +8,22 @@ using SpiderHood.Utilities;
 
 namespace SpiderHood.Components.Pages.CommunicationPages
 {
-    public partial class Comunicados
+    public partial class Announcements
     {
         private bool _loading = true;
         private bool _canPublicar;
         private UserSession currentUser = new();
 
-        private ComunicadoPagination _pagination = new();
+        private AnnouncementPagination _pagination = new();
         private string _searchTerm = string.Empty;
         private int _pageSize = 25;
 
-        private int _idCategoriaComunicado;
+        private int _idCategoriaAnnouncement;
         private List<Parameter> _categorias = new();
         private List<UnitView> _unidades = new();
         private HashSet<Guid> _unidadesSeleccionadas = new();
 
-        private Comunicado _form = new();
+        private Announcement _form = new();
         private bool _publicando;
         private string? _resultado;
         private bool _resultadoOk;
@@ -34,8 +34,8 @@ namespace SpiderHood.Components.Pages.CommunicationPages
         // que ocurren CON el modal todavía abierto se muestran acá adentro en su lugar.
         private string? _errorModal;
 
-        private List<ComunicadoDestinatario> _destinatarios = new();
-        private Comunicado? _comunicadoSeleccionado;
+        private List<AnnouncementRecipient> _destinatarios = new();
+        private Announcement? _comunicadoSeleccionado;
 
         private Modal _nuevoModal = null!;
         private Modal _detalleModal = null!;
@@ -56,28 +56,28 @@ namespace SpiderHood.Components.Pages.CommunicationPages
                 // se resuelve acá por ShortDescription en vez de asumir un número fijo
                 // (a diferencia de grupos viejos como "Tipo Edificio", que sí quedaron
                 // hardcodeados en otras pantallas porque ya existían de antes).
-                _idCategoriaComunicado = ParameterService.ListParameters
+                _idCategoriaAnnouncement = ParameterService.ListParameters
                     .FirstOrDefault(p => p.IdParent == 0 && p.ShortDescription == "Categoría Comunicado")?.IdTabla ?? 0;
                 _categorias = ParameterService.ListParameters
-                    .Where(p => p.IdParent == _idCategoriaComunicado)
+                    .Where(p => p.IdParent == _idCategoriaAnnouncement)
                     .OrderBy(p => p.Sort)
                     .ToList();
 
                 // Una unidad sin propietario/grupo asignado (IdGroupUnit null) no tiene a
-                // quién notificarle un Comunicado Privado -- se excluye del selector.
+                // quién notificarle un Announcement Privado -- se excluye del selector.
                 _unidades = (await BuildingService.GetGroupUnitsByTypeAsync(currentUser.CurrentBuildingId, 1))
                     .Where(u => u.IdGroupUnit.HasValue)
                     .ToList();
 
-                await CargarComunicadosAsync();
+                await CargarAnnouncementsAsync();
             }
 
             _loading = false;
         }
 
-        private async Task CargarComunicadosAsync()
+        private async Task CargarAnnouncementsAsync()
         {
-            var comunicados = await ComunicadoService.GetComunicadosAsync(currentUser.CurrentBuildingId);
+            var comunicados = await AnnouncementService.GetAnnouncementsAsync(currentUser.CurrentBuildingId);
             _pagination.Initialize(comunicados);
         }
 
@@ -95,11 +95,11 @@ namespace SpiderHood.Components.Pages.CommunicationPages
 
         private async Task AbrirNuevo()
         {
-            _form = new Comunicado
+            _form = new Announcement
             {
                 IdBuilding = currentUser.CurrentBuildingId,
                 CreatedBy = currentUser.IdUser,
-                Alcance = AlcanceComunicado.Publico,
+                Alcance = AnnouncementScope.Publico,
                 IdCategoria = _categorias.FirstOrDefault()?.Value ?? 0
             };
             _unidadesSeleccionadas.Clear();
@@ -145,16 +145,16 @@ namespace SpiderHood.Components.Pages.CommunicationPages
 
             try
             {
-                var resultado = await ComunicadoService.PublicarComunicadoAsync(_form, _unidadesSeleccionadas.ToList());
+                var resultado = await AnnouncementService.PublicarAnnouncementAsync(_form, _unidadesSeleccionadas.ToList());
 
                 if (resultado.Exito)
                 {
                     _resultadoOk = true;
-                    _resultado = $"Comunicado publicado a {resultado.TotalDestinatarios} destinatario(s) -- " +
+                    _resultado = $"Comunicado publicado a {resultado.TotalRecipients} destinatario(s) -- " +
                         $"WhatsApp: {resultado.EnviadosWhatsApp} enviados, {resultado.SimuladosWhatsApp} simulados, {resultado.FallidosWhatsApp} fallidos" +
                         (_form.EnviarPorCorreo ? $"; Correo: {resultado.EnviadosCorreo} enviados, {resultado.FallidosCorreo} fallidos." : ".");
                     await _nuevoModal.HideAsync();
-                    await CargarComunicadosAsync();
+                    await CargarAnnouncementsAsync();
                 }
                 else
                 {
@@ -168,33 +168,33 @@ namespace SpiderHood.Components.Pages.CommunicationPages
             }
         }
 
-        private async Task VerDetalle(Comunicado comunicado)
+        private async Task VerDetalle(Announcement comunicado)
         {
             _comunicadoSeleccionado = comunicado;
-            _destinatarios = await ComunicadoService.GetDestinatariosAsync(comunicado.IdComunicado);
+            _destinatarios = await AnnouncementService.GetRecipientsAsync(comunicado.IdAnnouncement);
             await _detalleModal.ShowAsync();
         }
 
-        private string DescripcionAlcance(Comunicado comunicado) => comunicado.Alcance switch
+        private string DescripcionAlcance(Announcement comunicado) => comunicado.Alcance switch
         {
-            AlcanceComunicado.Publico => "Público",
-            AlcanceComunicado.Reservado => $"Reservado ({comunicado.RolReservado})",
-            AlcanceComunicado.Privado => "Privado",
+            AnnouncementScope.Publico => "Público",
+            AnnouncementScope.Reservado => $"Reservado ({comunicado.RolReservado})",
+            AnnouncementScope.Privado => "Privado",
             _ => comunicado.Alcance.ToString()
         };
 
-        private static string EtiquetaEstadoWhatsApp(EstadoEnvioWhatsApp estado) => estado switch
+        private static string EtiquetaEstadoWhatsApp(WhatsAppDeliveryStatus estado) => estado switch
         {
-            EstadoEnvioWhatsApp.Enviado => "✅ Enviado",
-            EstadoEnvioWhatsApp.Simulado => "🧪 Simulado",
-            EstadoEnvioWhatsApp.Fallido => "❌ Falló",
+            WhatsAppDeliveryStatus.Enviado => "✅ Enviado",
+            WhatsAppDeliveryStatus.Simulado => "🧪 Simulado",
+            WhatsAppDeliveryStatus.Fallido => "❌ Falló",
             _ => "-- No aplica --"
         };
 
-        private static string EtiquetaEstadoCorreo(EstadoEnvioCorreo estado) => estado switch
+        private static string EtiquetaEstadoCorreo(EmailDeliveryStatus estado) => estado switch
         {
-            EstadoEnvioCorreo.Enviado => "✅ Enviado",
-            EstadoEnvioCorreo.Fallido => "❌ Falló",
+            EmailDeliveryStatus.Enviado => "✅ Enviado",
+            EmailDeliveryStatus.Fallido => "❌ Falló",
             _ => "-- No aplica --"
         };
     }

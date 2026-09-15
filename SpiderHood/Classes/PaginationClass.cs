@@ -717,12 +717,12 @@ namespace SpiderHood.Utilities
         }
     }
 
-    // Paginación/búsqueda para /comunicados (Docs/Pendientes-Negocio-Consolidado.md #17).
-    public class ComunicadoPagination : PaginationClass<Comunicado>
+    // Paginación/búsqueda para /announcements (Docs/Pendientes-Negocio-Consolidado.md #17).
+    public class AnnouncementPagination : PaginationClass<Announcement>
     {
-        public ComunicadoPagination() : base()
+        public AnnouncementPagination() : base()
         {
-            var sortExpressions = new Dictionary<string, Func<Comunicado, object>>
+            var sortExpressions = new Dictionary<string, Func<Announcement, object>>
             {
                 { "Titulo", x => x.Titulo },
                 { "CreatedOn", x => x.CreatedOn }
@@ -731,7 +731,7 @@ namespace SpiderHood.Utilities
             InitializeConfiguration(new Dictionary<string, string>(), sortExpressions, "CreatedOn", defaultSortAscending: false);
         }
 
-        protected override List<Comunicado> ApplySearch(List<Comunicado> data, string searchTerm)
+        protected override List<Announcement> ApplySearch(List<Announcement> data, string searchTerm)
         {
             var term = searchTerm.ToLower();
 

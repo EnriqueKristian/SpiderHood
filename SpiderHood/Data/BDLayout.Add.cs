@@ -1020,16 +1020,16 @@ namespace SpiderHood.Data
             }, "AddIncidentAttachment", cancellationToken);
         }
 
-        public async Task<Models.Comunicado> AddNewRecordAsync(Models.Comunicado comunicado, CancellationToken cancellationToken = default)
+        public async Task<Models.Announcement> AddNewRecordAsync(Models.Announcement comunicado, CancellationToken cancellationToken = default)
         {
             ValidateEntity(comunicado, nameof(comunicado));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_Comunicado,
+                    StoredProcedures.INS_Announcement,
                     cancellationToken,
-                    comunicado.IdComunicado,
+                    comunicado.IdAnnouncement,
                     comunicado.IdBuilding,
                     comunicado.Titulo,
                     comunicado.Cuerpo,
@@ -1039,28 +1039,28 @@ namespace SpiderHood.Data
                     comunicado.EnviarPorCorreo,
                     comunicado.CreatedBy);
                 return comunicado;
-            }, "AddComunicado", cancellationToken);
+            }, "AddAnnouncement", cancellationToken);
         }
 
-        public async Task<Models.ComunicadoDestinatario> AddNewRecordAsync(Models.ComunicadoDestinatario destinatario, CancellationToken cancellationToken = default)
+        public async Task<Models.AnnouncementRecipient> AddNewRecordAsync(Models.AnnouncementRecipient destinatario, CancellationToken cancellationToken = default)
         {
             ValidateEntity(destinatario, nameof(destinatario));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_ComunicadoDestinatario,
+                    StoredProcedures.INS_AnnouncementRecipient,
                     cancellationToken,
-                    destinatario.IdComunicadoDestinatario,
-                    destinatario.IdComunicado,
+                    destinatario.IdAnnouncementRecipient,
+                    destinatario.IdAnnouncement,
                     (object?)destinatario.IdGroupUnit ?? DBNull.Value,
-                    destinatario.NombreDestinatario,
+                    destinatario.NombreRecipient,
                     (object?)destinatario.Telefono ?? DBNull.Value,
                     (object?)destinatario.Email ?? DBNull.Value,
                     (int)destinatario.EstadoWhatsApp,
                     (int)destinatario.EstadoCorreo);
                 return destinatario;
-            }, "AddComunicadoDestinatario", cancellationToken);
+            }, "AddAnnouncementRecipient", cancellationToken);
         }
 
         public async Task<Models.AreaComun> AddNewRecordAsync(Models.AreaComun areaComun, CancellationToken cancellationToken = default)

@@ -6,8 +6,8 @@ namespace SpiderHood.Components.Pages.ResidentPages
     public partial class MyAnnouncements
     {
         private bool _loading = true;
-        private List<Comunicado> _comunicados = new();
-        private int _idCategoriaComunicado;
+        private List<Announcement> _comunicados = new();
+        private int _idCategoriaAnnouncement;
 
         protected override async Task OnInitializedAsync()
         {
@@ -15,11 +15,11 @@ namespace SpiderHood.Components.Pages.ResidentPages
             if (currentUser != null && currentUser.CurrentBuildingId != Guid.Empty)
             {
                 await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId);
-                _idCategoriaComunicado = ParameterService.ListParameters
+                _idCategoriaAnnouncement = ParameterService.ListParameters
                     .FirstOrDefault(p => p.IdParent == 0 && p.ShortDescription == "Categoría Comunicado")?.IdTabla ?? 0;
 
                 var idGroupUnit = await AuthService.GetCurrentUnitIdAsync();
-                _comunicados = await ComunicadoService.GetComunicadosParaUsuarioAsync(
+                _comunicados = await AnnouncementService.GetAnnouncementsParaUsuarioAsync(
                     currentUser.CurrentBuildingId, currentUser.Role, idGroupUnit);
             }
 

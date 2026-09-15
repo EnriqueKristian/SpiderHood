@@ -303,12 +303,12 @@ namespace SpiderHood.Data
             public const string INS_IncidentAttachment = "INS_IncidentAttachment";
             public const string GET_IncidentAttachmentsByIncident = "GET_IncidentAttachmentsByIncident";
 
-            // Comunicado Procedures -- Docs/Pendientes-Negocio-Consolidado.md #17
-            public const string INS_Comunicado = "INS_Comunicado";
-            public const string GET_ComunicadosByBuilding = "GET_ComunicadosByBuilding";
-            public const string INS_ComunicadoDestinatario = "INS_ComunicadoDestinatario";
-            public const string GET_ComunicadoDestinatariosByComunicado = "GET_ComunicadoDestinatariosByComunicado";
-            public const string GET_ComunicadosParaUsuario = "GET_ComunicadosParaUsuario";
+            // Announcement Procedures -- Docs/Pendientes-Negocio-Consolidado.md #17
+            public const string INS_Announcement = "INS_Announcement";
+            public const string GET_AnnouncementsByBuilding = "GET_AnnouncementsByBuilding";
+            public const string INS_AnnouncementRecipient = "INS_AnnouncementRecipient";
+            public const string GET_AnnouncementRecipientsByAnnouncement = "GET_AnnouncementRecipientsByAnnouncement";
+            public const string GET_AnnouncementsParaUsuario = "GET_AnnouncementsParaUsuario";
 
             // Reserva / Área Común Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21
             public const string INS_AreaComun = "INS_AreaComun";

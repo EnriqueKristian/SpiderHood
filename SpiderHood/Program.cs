@@ -232,7 +232,7 @@ builder.Services.AddHostedService<SystemLogPurgeService>();
 builder.Services.AddScoped<ISystemLogAdminService, SystemLogAdminService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IWhatsAppService, WhatsAppService>();
-builder.Services.AddScoped<IComunicadoService, ComunicadoService>();
+builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
 builder.Services.AddScoped<IAreaComunService, AreaComunService>();
 builder.Services.AddScoped<IReservaService, ReservaService>();
 builder.Services.AddScoped<IMeetingService, MeetingService>();

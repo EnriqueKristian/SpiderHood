@@ -7,37 +7,37 @@ namespace SpiderHood.Services
     // Docs/Pendientes-Negocio-Consolidado.md #17 -- diseño cerrado 2026-09-11.
     // Módulo chico a propósito: 3 alcances (Público/Reservado/Privado), sin
     // mensajería vecino-a-vecino ni "Público Global" de SysAdmin.
-    public interface IComunicadoService
+    public interface IAnnouncementService
     {
-        Task<List<Comunicado>> GetComunicadosAsync(Guid idBuilding);
+        Task<List<Announcement>> GetAnnouncementsAsync(Guid idBuilding);
 
-        Task<List<ComunicadoDestinatario>> GetDestinatariosAsync(Guid idComunicado);
+        Task<List<AnnouncementRecipient>> GetRecipientsAsync(Guid idAnnouncement);
 
-        // Comunicados visibles para un residente/rol puntual dentro de un edificio --
+        // Announcements visibles para un residente/rol puntual dentro de un edificio --
         // Públicos siempre, Reservados si el rol matchea, Privados si su unidad
         // aparece como destinatario.
-        Task<List<Comunicado>> GetComunicadosParaUsuarioAsync(Guid idBuilding, string rolUsuario, Guid? idGroupUnit);
+        Task<List<Announcement>> GetAnnouncementsParaUsuarioAsync(Guid idBuilding, string rolUsuario, Guid? idGroupUnit);
 
-        // Resuelve destinatarios según el Alcance, crea el Comunicado + sus
-        // ComunicadoDestinatario, y manda por WhatsApp (siempre, en modo Simulado si
+        // Resuelve destinatarios según el Alcance, crea el Announcement + sus
+        // AnnouncementRecipient, y manda por WhatsApp (siempre, en modo Simulado si
         // no hay credenciales reales de Twilio) y por correo (sólo si
         // comunicado.EnviarPorCorreo está marcado). idGroupUnitsPrivado sólo se usa
         // cuando Alcance == Privado.
-        Task<PublicarComunicadoResultado> PublicarComunicadoAsync(Comunicado comunicado, List<Guid>? idGroupUnitsPrivado);
+        Task<PublishAnnouncementResult> PublicarAnnouncementAsync(Announcement comunicado, List<Guid>? idGroupUnitsPrivado);
     }
 
-    public class ComunicadoService : IComunicadoService
+    public class AnnouncementService : IAnnouncementService
     {
         private readonly IWhatsAppService _whatsAppService;
         private readonly IEmailService _emailService;
-        private readonly ILogger<ComunicadoService> _logger;
+        private readonly ILogger<AnnouncementService> _logger;
         private BDLayout ec { get; set; }
 
-        public ComunicadoService(
+        public AnnouncementService(
             IDbContextFactory<SpiderHoodContext> contextFactory,
             IWhatsAppService whatsAppService,
             IEmailService emailService,
-            ILogger<ComunicadoService> logger)
+            ILogger<AnnouncementService> logger)
         {
             _whatsAppService = whatsAppService;
             _emailService = emailService;
@@ -45,18 +45,18 @@ namespace SpiderHood.Services
             ec = new BDLayout(contextFactory);
         }
 
-        public async Task<List<Comunicado>> GetComunicadosAsync(Guid idBuilding)
-            => await ec.GetComunicadosByBuildingAsync(idBuilding);
+        public async Task<List<Announcement>> GetAnnouncementsAsync(Guid idBuilding)
+            => await ec.GetAnnouncementsByBuildingAsync(idBuilding);
 
-        public async Task<List<ComunicadoDestinatario>> GetDestinatariosAsync(Guid idComunicado)
-            => await ec.GetComunicadoDestinatariosAsync(idComunicado);
+        public async Task<List<AnnouncementRecipient>> GetRecipientsAsync(Guid idAnnouncement)
+            => await ec.GetAnnouncementRecipientsAsync(idAnnouncement);
 
-        public async Task<List<Comunicado>> GetComunicadosParaUsuarioAsync(Guid idBuilding, string rolUsuario, Guid? idGroupUnit)
-            => await ec.GetComunicadosParaUsuarioAsync(idBuilding, rolUsuario, idGroupUnit);
+        public async Task<List<Announcement>> GetAnnouncementsParaUsuarioAsync(Guid idBuilding, string rolUsuario, Guid? idGroupUnit)
+            => await ec.GetAnnouncementsParaUsuarioAsync(idBuilding, rolUsuario, idGroupUnit);
 
-        public async Task<PublicarComunicadoResultado> PublicarComunicadoAsync(Comunicado comunicado, List<Guid>? idGroupUnitsPrivado)
+        public async Task<PublishAnnouncementResult> PublicarAnnouncementAsync(Announcement comunicado, List<Guid>? idGroupUnitsPrivado)
         {
-            var resultado = new PublicarComunicadoResultado();
+            var resultado = new PublishAnnouncementResult();
 
             if (string.IsNullOrWhiteSpace(comunicado.Titulo) || string.IsNullOrWhiteSpace(comunicado.Cuerpo))
             {
@@ -64,13 +64,13 @@ namespace SpiderHood.Services
                 return resultado;
             }
 
-            if (comunicado.Alcance == AlcanceComunicado.Reservado && string.IsNullOrWhiteSpace(comunicado.RolReservado))
+            if (comunicado.Alcance == AnnouncementScope.Reservado && string.IsNullOrWhiteSpace(comunicado.RolReservado))
             {
                 resultado.Mensaje = "Seleccione a qué rol le llega el comunicado.";
                 return resultado;
             }
 
-            if (comunicado.Alcance == AlcanceComunicado.Privado && (idGroupUnitsPrivado == null || !idGroupUnitsPrivado.Any()))
+            if (comunicado.Alcance == AnnouncementScope.Privado && (idGroupUnitsPrivado == null || !idGroupUnitsPrivado.Any()))
             {
                 resultado.Mensaje = "Seleccione al menos una unidad para un comunicado Privado.";
                 return resultado;
@@ -78,28 +78,28 @@ namespace SpiderHood.Services
 
             try
             {
-                var destinatarios = await ResolverDestinatariosAsync(comunicado, idGroupUnitsPrivado);
+                var destinatarios = await ResolverRecipientsAsync(comunicado, idGroupUnitsPrivado);
                 if (!destinatarios.Any())
                 {
                     resultado.Mensaje = "No se encontró ningún destinatario para el alcance seleccionado.";
                     return resultado;
                 }
 
-                comunicado.IdComunicado = Guid.NewGuid();
+                comunicado.IdAnnouncement = Guid.NewGuid();
                 await ec.AddNewRecordAsync(comunicado);
 
                 foreach (var destinatario in destinatarios)
                 {
-                    destinatario.IdComunicadoDestinatario = Guid.NewGuid();
-                    destinatario.IdComunicado = comunicado.IdComunicado;
+                    destinatario.IdAnnouncementRecipient = Guid.NewGuid();
+                    destinatario.IdAnnouncement = comunicado.IdAnnouncement;
 
                     await EnviarPorWhatsAppAsync(destinatario, comunicado);
-                    resultado.TotalDestinatarios++;
+                    resultado.TotalRecipients++;
                     switch (destinatario.EstadoWhatsApp)
                     {
-                        case EstadoEnvioWhatsApp.Enviado: resultado.EnviadosWhatsApp++; break;
-                        case EstadoEnvioWhatsApp.Simulado: resultado.SimuladosWhatsApp++; break;
-                        case EstadoEnvioWhatsApp.Fallido: resultado.FallidosWhatsApp++; break;
+                        case WhatsAppDeliveryStatus.Enviado: resultado.EnviadosWhatsApp++; break;
+                        case WhatsAppDeliveryStatus.Simulado: resultado.SimuladosWhatsApp++; break;
+                        case WhatsAppDeliveryStatus.Fallido: resultado.FallidosWhatsApp++; break;
                     }
 
                     if (comunicado.EnviarPorCorreo)
@@ -107,8 +107,8 @@ namespace SpiderHood.Services
                         await EnviarPorCorreoAsync(destinatario, comunicado);
                         switch (destinatario.EstadoCorreo)
                         {
-                            case EstadoEnvioCorreo.Enviado: resultado.EnviadosCorreo++; break;
-                            case EstadoEnvioCorreo.Fallido: resultado.FallidosCorreo++; break;
+                            case EmailDeliveryStatus.Enviado: resultado.EnviadosCorreo++; break;
+                            case EmailDeliveryStatus.Fallido: resultado.FallidosCorreo++; break;
                         }
                     }
 
@@ -116,7 +116,7 @@ namespace SpiderHood.Services
                 }
 
                 resultado.Exito = true;
-                resultado.IdComunicado = comunicado.IdComunicado;
+                resultado.IdAnnouncement = comunicado.IdAnnouncement;
                 resultado.Mensaje = "Comunicado publicado.";
             }
             catch (Exception ex)
@@ -135,30 +135,30 @@ namespace SpiderHood.Services
         // UserBuildingAssociation (rol de portal, no el rol de propietario dentro de
         // la unidad) y pide el teléfono aparte por usuario (aceptable: la audiencia de
         // un Reservado suele ser chica, ej. sólo la Junta).
-        private async Task<List<ComunicadoDestinatario>> ResolverDestinatariosAsync(Comunicado comunicado, List<Guid>? idGroupUnitsPrivado)
+        private async Task<List<AnnouncementRecipient>> ResolverRecipientsAsync(Announcement comunicado, List<Guid>? idGroupUnitsPrivado)
         {
-            var destinatarios = new List<ComunicadoDestinatario>();
+            var destinatarios = new List<AnnouncementRecipient>();
 
-            if (comunicado.Alcance == AlcanceComunicado.Publico || comunicado.Alcance == AlcanceComunicado.Privado)
+            if (comunicado.Alcance == AnnouncementScope.Publico || comunicado.Alcance == AnnouncementScope.Privado)
             {
                 var unidades = (await ec.GetOwnersByBuildingAsync(comunicado.IdBuilding))
                     .Where(u => u.Role == 1 && u.TypeUnit == 1);
 
-                if (comunicado.Alcance == AlcanceComunicado.Privado)
+                if (comunicado.Alcance == AnnouncementScope.Privado)
                 {
                     var idsSeleccionados = idGroupUnitsPrivado!.ToHashSet();
                     unidades = unidades.Where(u => idsSeleccionados.Contains(u.IdGroupUnit));
                 }
 
-                destinatarios.AddRange(unidades.Select(u => new ComunicadoDestinatario
+                destinatarios.AddRange(unidades.Select(u => new AnnouncementRecipient
                 {
                     IdGroupUnit = u.IdGroupUnit,
-                    NombreDestinatario = $"{u.FirstName} {u.LastName}".Trim(),
+                    NombreRecipient = $"{u.FirstName} {u.LastName}".Trim(),
                     Telefono = u.PhoneNumber,
                     Email = u.Email
                 }));
             }
-            else if (comunicado.Alcance == AlcanceComunicado.Reservado)
+            else if (comunicado.Alcance == AnnouncementScope.Reservado)
             {
                 var asignaciones = (await ec.GetAllUserBuildingRolesAsync())
                     .Where(a => a.IdBuilding == comunicado.IdBuilding && a.IsApproved
@@ -167,10 +167,10 @@ namespace SpiderHood.Services
                 foreach (var asignacion in asignaciones)
                 {
                     var usuario = await ec.GetUserByIdAsync(asignacion.IdUser);
-                    destinatarios.Add(new ComunicadoDestinatario
+                    destinatarios.Add(new AnnouncementRecipient
                     {
                         IdGroupUnit = asignacion.IdGroupUnit,
-                        NombreDestinatario = $"{usuario.FirstName} {usuario.LastName}".Trim(),
+                        NombreRecipient = $"{usuario.FirstName} {usuario.LastName}".Trim(),
                         Telefono = usuario.PhoneNumber,
                         Email = usuario.Email
                     });
@@ -180,11 +180,11 @@ namespace SpiderHood.Services
             return destinatarios;
         }
 
-        private async Task EnviarPorWhatsAppAsync(ComunicadoDestinatario destinatario, Comunicado comunicado)
+        private async Task EnviarPorWhatsAppAsync(AnnouncementRecipient destinatario, Announcement comunicado)
         {
             if (string.IsNullOrWhiteSpace(destinatario.Telefono))
             {
-                destinatario.EstadoWhatsApp = EstadoEnvioWhatsApp.NoAplica;
+                destinatario.EstadoWhatsApp = WhatsAppDeliveryStatus.NoAplica;
                 return;
             }
 
@@ -198,38 +198,38 @@ namespace SpiderHood.Services
                 var ok = await _whatsAppService.SendMessageAsync(destinatario.Telefono, mensaje);
 
                 destinatario.EstadoWhatsApp = !ok
-                    ? EstadoEnvioWhatsApp.Fallido
-                    : _whatsAppService.IsSimulate ? EstadoEnvioWhatsApp.Simulado : EstadoEnvioWhatsApp.Enviado;
+                    ? WhatsAppDeliveryStatus.Fallido
+                    : _whatsAppService.IsSimulate ? WhatsAppDeliveryStatus.Simulado : WhatsAppDeliveryStatus.Enviado;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error mandando WhatsApp del comunicado {IdComunicado} a {Telefono}",
-                    comunicado.IdComunicado, destinatario.Telefono);
-                destinatario.EstadoWhatsApp = EstadoEnvioWhatsApp.Fallido;
+                _logger.LogError(ex, "Error mandando WhatsApp del comunicado {IdAnnouncement} a {Telefono}",
+                    comunicado.IdAnnouncement, destinatario.Telefono);
+                destinatario.EstadoWhatsApp = WhatsAppDeliveryStatus.Fallido;
             }
         }
 
         // Mismo patrón "best effort" que el resto de la app (IAuthService.
         // SendWelcomeEmailAsync, ICalendarService.NotifyBuildingAsync, etc.): un
         // fallo de correo nunca debe tirar abajo la publicación del comunicado.
-        private async Task EnviarPorCorreoAsync(ComunicadoDestinatario destinatario, Comunicado comunicado)
+        private async Task EnviarPorCorreoAsync(AnnouncementRecipient destinatario, Announcement comunicado)
         {
             if (string.IsNullOrWhiteSpace(destinatario.Email))
             {
-                destinatario.EstadoCorreo = EstadoEnvioCorreo.NoAplica;
+                destinatario.EstadoCorreo = EmailDeliveryStatus.NoAplica;
                 return;
             }
 
             try
             {
                 await _emailService.SendEmailAsync(destinatario.Email, comunicado.Titulo, comunicado.Cuerpo);
-                destinatario.EstadoCorreo = EstadoEnvioCorreo.Enviado;
+                destinatario.EstadoCorreo = EmailDeliveryStatus.Enviado;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error mandando correo del comunicado {IdComunicado} a {Email}",
-                    comunicado.IdComunicado, destinatario.Email);
-                destinatario.EstadoCorreo = EstadoEnvioCorreo.Fallido;
+                _logger.LogError(ex, "Error mandando correo del comunicado {IdAnnouncement} a {Email}",
+                    comunicado.IdAnnouncement, destinatario.Email);
+                destinatario.EstadoCorreo = EmailDeliveryStatus.Fallido;
             }
         }
     }

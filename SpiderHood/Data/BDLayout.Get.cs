@@ -1165,29 +1165,29 @@ namespace SpiderHood.Data
             }, "GetIncidentAttachments", cancellationToken);
         }
 
-        public async Task<List<Models.Comunicado>> GetComunicadosByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Announcement>> GetAnnouncementsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Comunicado>(StoredProcedures.GET_ComunicadosByBuilding, idBuilding);
-            }, "GetComunicadosByBuilding", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Announcement>(StoredProcedures.GET_AnnouncementsByBuilding, idBuilding);
+            }, "GetAnnouncementsByBuilding", cancellationToken);
         }
 
-        public async Task<List<Models.ComunicadoDestinatario>> GetComunicadoDestinatariosAsync(Guid idComunicado, CancellationToken cancellationToken = default)
+        public async Task<List<Models.AnnouncementRecipient>> GetAnnouncementRecipientsAsync(Guid idAnnouncement, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.ComunicadoDestinatario>(StoredProcedures.GET_ComunicadoDestinatariosByComunicado, idComunicado);
-            }, "GetComunicadoDestinatarios", cancellationToken);
+                return await ExecuteQueryListAsync<Models.AnnouncementRecipient>(StoredProcedures.GET_AnnouncementRecipientsByAnnouncement, idAnnouncement);
+            }, "GetAnnouncementRecipients", cancellationToken);
         }
 
-        public async Task<List<Models.Comunicado>> GetComunicadosParaUsuarioAsync(Guid idBuilding, string rolUsuario, Guid? idGroupUnit, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Announcement>> GetAnnouncementsParaUsuarioAsync(Guid idBuilding, string rolUsuario, Guid? idGroupUnit, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Comunicado>(
-                    StoredProcedures.GET_ComunicadosParaUsuario, idBuilding, rolUsuario, (object?)idGroupUnit ?? DBNull.Value);
-            }, "GetComunicadosParaUsuario", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Announcement>(
+                    StoredProcedures.GET_AnnouncementsParaUsuario, idBuilding, rolUsuario, (object?)idGroupUnit ?? DBNull.Value);
+            }, "GetAnnouncementsParaUsuario", cancellationToken);
         }
 
         public async Task<List<Models.AreaComun>> GetAreaComunesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)

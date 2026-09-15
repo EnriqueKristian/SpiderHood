@@ -1,9 +1,9 @@
-@page "/comunicados"
+@page "/announcements"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Components.Pages.Components
 @inject Services.AuthService AuthService
-@inject Services.IComunicadoService ComunicadoService
+@inject Services.IAnnouncementService AnnouncementService
 @inject Services.IPermissionService PermissionService
 @inject Services.ParameterService ParameterService
 @inject Services.IBuildingService BuildingService
@@ -105,11 +105,11 @@ else
                         {
                             <tr>
                                 <td>@comunicado.Titulo</td>
-                                <td>@ParameterService.GetChildParameterDescription(_idCategoriaComunicado, comunicado.IdCategoria)</td>
+                                <td>@ParameterService.GetChildParameterDescription(_idCategoriaAnnouncement, comunicado.IdCategoria)</td>
                                 <td>@DescripcionAlcance(comunicado)</td>
                                 <td>@comunicado.CreatedByName</td>
                                 <td>@comunicado.CreatedOn.ToString("dd/MM/yyyy HH:mm")</td>
-                                <td class="text-center">@comunicado.TotalDestinatarios</td>
+                                <td class="text-center">@comunicado.TotalRecipients</td>
                                 <td class="text-center">
                                     <button class="btn btn-sm btn-outline-primary" title="Ver destinatarios"
                                             @onclick="() => VerDetalle(comunicado)">
@@ -175,14 +175,14 @@ else
                 <div class="col-md-6">
                     <label class="form-label">Alcance *</label>
                     <select @bind-value="_form.Alcance" @bind-value:event="onchange" class="form-select">
-                        <option value="@AlcanceComunicado.Publico">Público (todo el edificio)</option>
-                        <option value="@AlcanceComunicado.Reservado">Reservado (un rol)</option>
-                        <option value="@AlcanceComunicado.Privado">Privado (unidad o grupo)</option>
+                        <option value="@AnnouncementScope.Publico">Público (todo el edificio)</option>
+                        <option value="@AnnouncementScope.Reservado">Reservado (un rol)</option>
+                        <option value="@AnnouncementScope.Privado">Privado (unidad o grupo)</option>
                     </select>
                 </div>
             </div>
 
-            @if (_form.Alcance == AlcanceComunicado.Reservado)
+            @if (_form.Alcance == AnnouncementScope.Reservado)
             {
                 <div class="mb-3">
                     <label class="form-label">¿A qué rol le llega? *</label>
@@ -195,7 +195,7 @@ else
                 </div>
             }
 
-            @if (_form.Alcance == AlcanceComunicado.Privado)
+            @if (_form.Alcance == AnnouncementScope.Privado)
             {
                 <div class="mb-3">
                     <label class="form-label">¿A qué unidad(es) le llega? *</label>
@@ -238,7 +238,7 @@ else
         {
             <div class="mb-3">
                 <div class="d-flex flex-wrap gap-2 mb-2">
-                    <span class="badge bg-secondary">@ParameterService.GetChildParameterDescription(_idCategoriaComunicado, _comunicadoSeleccionado.IdCategoria)</span>
+                    <span class="badge bg-secondary">@ParameterService.GetChildParameterDescription(_idCategoriaAnnouncement, _comunicadoSeleccionado.IdCategoria)</span>
                     <span class="badge bg-light text-dark border">@DescripcionAlcance(_comunicadoSeleccionado)</span>
                 </div>
                 <p style="white-space: pre-wrap;">@_comunicadoSeleccionado.Cuerpo</p>
@@ -262,7 +262,7 @@ else
                     @foreach (var destinatario in _destinatarios)
                     {
                         <tr>
-                            <td>@destinatario.NombreDestinatario</td>
+                            <td>@destinatario.NombreRecipient</td>
                             <td>@EtiquetaEstadoWhatsApp(destinatario.EstadoWhatsApp)</td>
                             <td>@EtiquetaEstadoCorreo(destinatario.EstadoCorreo)</td>
                         </tr>

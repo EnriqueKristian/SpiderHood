@@ -106,11 +106,11 @@ namespace SpiderHood.Data
             // EstadoCorreo son columnas INT en la BD (no NVARCHAR como Incident.Status
             // arriba), así que no hace falta HasConversion<string>() -- EF mapea el
             // enum de C# (int por default) directo contra la columna INT.
-            modelBuilder.Entity<Models.Comunicado>().HasNoKey();
-            modelBuilder.Entity<Models.ComunicadoDestinatario>().HasNoKey();
+            modelBuilder.Entity<Models.Announcement>().HasNoKey();
+            modelBuilder.Entity<Models.AnnouncementRecipient>().HasNoKey();
 
             // Docs/Pendientes-Negocio-Consolidado.md #21 -- Estado/Etapa/Estado(checklist)
-            // son columnas INT en la BD, igual que Comunicado arriba.
+            // son columnas INT en la BD, igual que Announcement arriba.
             modelBuilder.Entity<Models.AreaComun>().HasNoKey();
             modelBuilder.Entity<Models.Reserva>().HasNoKey();
             modelBuilder.Entity<Models.ReservaChecklistItem>().HasNoKey();

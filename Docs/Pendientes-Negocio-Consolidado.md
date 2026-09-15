@@ -58,8 +58,11 @@ secas, es la secuencia en la que conviene tocarlos.
 10. **#4** Borrado de edificio: FKs sin confirmar -- sólo urge si se va a
     usar el botón sobre algo más que un edificio de prueba vacío.
 11. **#9** `GET_UnitsByType` no tolera unidades sin grupo -- **resuelto de raíz (2026-09-12)**.
-12. **#5** Soporte real de multimoneda -- no urge si el piloto es una sola
-    moneda.
+12. **#5** Soporte real de multimoneda -- **fundación implementada
+    (2026-09-15)**: moneda por Cuenta Bancaria + tipo de cambio por lote de
+    carga, verificado en vivo. Falta correr el script contra la BD real y,
+    si algún edificio real llega a usar una cuenta en otra moneda con
+    volumen, currency-aware el matching automático de cuotas (ver 5b).
 13. **#7** Garantía de reserva de área común.
 14. **#8** Historial de propietarios por periodo.
 15. **#10** Estado de Cuenta migrado no crea Gastos categorizados.
@@ -137,12 +140,40 @@ este botón para algo más que eso**, alguien con acceso a la BD real debe
 confirmar `sys.foreign_keys` sobre esas tablas.
 
 ### 5. Soporte real de multimoneda
-*(Conciliación #10 — pendiente, sin empezar)*
+*(Conciliación #10 — **fundación implementada (2026-09-15)**, ver el
+detalle completo ahí)*
 
-Hoy `BuildingConfiguration.Currency` es una sola moneda por edificio (solo
-etiqueta) y la carga de Estado de Cuenta valida hardcodeado PEN/USD. No hay
-tipo de cambio ni definición de qué pasa si conviven montos en más de una
-moneda (cuotas, gastos, reportes, conciliación). Falta todo el diseño.
+Alcance acordado con el usuario: moneda de reporte fija por edificio (como
+siempre) + cada Cuenta Bancaria puede estar en otra moneda, con un tipo de
+cambio por lote de carga (no por fila, no catálogo aparte) para convertir a
+la moneda de reporte -- "lo más estándar posible", sin diseñar para un caso
+que hoy es raro. `BankAccount.Currency`, `AccountStatementHeader.ExchangeRate`
+y `AccountStatementDetail.AmountInReportingCurrency` (nuevas columnas,
+`Database/Scripts/2026-09-15_105_Multimoneda_Foundation.sql`); Conciliación
+y el saldo calculado ya suman en moneda de reporte. Para un edificio que
+sigue en una sola moneda, cero cambio de comportamiento. Verificado en vivo
+contra la BD de test: cuenta USD, carga con tipo de cambio, saldo correcto
+en soles.
+
+**Falta:** correr el script contra la BD real. Ver 5b para el límite
+conocido que quedó fuera de esta vuelta.
+
+### 5b. Multimoneda -- matching automático de cuotas no es currency-aware
+*(Nuevo 2026-09-15, encontrado probando el punto 5)*
+
+El motor de matching automático de Conciliación de Pagos
+(`ReconciliationWorkspace.razor`, `posiblesMatches`/
+`InstallmentConciliationAsync`) compara `transaccion.Amount` (nativo, en la
+moneda de la cuenta) contra `Installment.Amount` (siempre en la moneda de
+reporte del edificio, las cuotas nunca cambian de moneda) -- para una
+cuenta en otra moneda, el emparejamiento automático por monto exacto no
+convierte antes de comparar. La columna "Pendiente" de esa misma pantalla
+tiene el mismo problema de origen (`Balance = Amount - AmountPaid`, mezcla
+nativo con un `AmountPaid` en moneda de reporte). No bloquea nada mientras
+el matching se haga manual -- que sí funciona bien, ya verificado -- pero
+si algún edificio real usa una cuenta en moneda extranjera con volumen
+suficiente para depender del matching automático, hay que rehacer ese
+motor para comparar `AmountInReportingCurrency` contra `Installment.Amount`.
 
 ---
 
@@ -1570,7 +1601,8 @@ que confirme si mejoró y en qué medida.
 | 2 | Reportes suman transacciones Ignoradas | Alta | Código (requiere ver SP) |
 | 3 | Tolerancia de redondeo en conciliación | Alta | Decisión + código |
 | 4 | Borrado de edificio: FKs sin confirmar | Alta | Verificación de BD |
-| 5 | Soporte real de multimoneda | Alta | Diseño + código |
+| 5 | Soporte real de multimoneda | Alta | **Fundación resuelta** (2026-09-15), falta correr script en BD real |
+| 5b | Multimoneda: matching automático de cuotas no es currency-aware | Baja | Código (sólo si hay uso real con volumen) |
 | 6 | Bug `ConfirmationUtil` (4+ pantallas) | Media | **Resuelto** (2026-09-11) |
 | 6b | Lectura de agua incompleta bloquea publicar (antes era advertencia) | Alta | **Resuelto** (2026-09-11) |
 | 7 | Garantía de reserva de área común | Media | Diseño + código |

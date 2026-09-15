@@ -433,29 +433,73 @@ con el resto de filas válidas.
 
 ## 10. Soporte real de multimoneda (hoy es una sola moneda por edificio, sin tipo de cambio)
 
-**Estado: pendiente, sin empezar -- solo la mención del caso.**
+**Estado: fundación implementada (2026-09-15).** Alcance acordado con el
+usuario -- lo más estándar posible, sin sobre-diseñar para un caso que hoy
+es raro ("la mayoría seguro que solo será moneda local, solo necesito que
+el sistema esté preparado"): moneda de reporte fija por edificio (como
+siempre) + cada Cuenta Bancaria puede estar en otra moneda, con UN tipo de
+cambio por lote de carga (no por fila del Excel, no tabla de catálogo
+aparte con pantalla de administración propia) para convertir a la moneda
+de reporte.
 
-Encontrado de paso en el punto 9: `LeerExcel()` sólo acepta `PEN` o `USD` al
-validar la columna Moneda del Excel de estado de cuenta, hardcodeado.
-Revisando el resto del sistema, ese hardcodeo es sólo un síntoma de algo más
-grande -- hoy no hay multimoneda de verdad en ningún lado:
+Encontrado de paso en el punto 9 de este documento: `LeerExcel()` sólo
+aceptaba `PEN` o `USD` al validar la columna Moneda del Excel de estado de
+cuenta, hardcodeado y sin relación real con la Cuenta Bancaria elegida --
+ese hardcodeo quedó eliminado junto con el resto del diseño de abajo.
 
-- `BuildingConfiguration.Currency` (`Classes/Building.cs`) es **una sola
-  moneda por edificio** (default `"PEN"`), elegida en "Configuración
-  Rápida" (`BuildingPage.razor.cs`) de una lista fija de 3 opciones (`PEN`,
-  `USD`, `EUR`) -- es solo una etiqueta para mostrar el símbolo, no cambia
-  ninguna lógica de cálculo.
-- `Movement.Currency` sí existe como campo por transacción, pero nada en el
-  sistema define qué pasa si conviven transacciones en más de una moneda
-  dentro del mismo edificio: cuotas, gastos, reportes (Ingresos y Egresos,
-  Dashboard) y la propia conciliación bancaria suman montos asumiendo que
-  todo está en la misma moneda, sin tipo de cambio ni conversión.
-- No existe ningún catálogo/tabla de tipo de cambio (histórico ni del día),
-  ni un lugar donde definirlo.
+**Qué se construyó:**
+- `BankAccount.Currency` (nueva columna) -- moneda de ESA cuenta, default =
+  moneda de reporte del edificio al crearla, **inmutable después de creada**
+  (mismo criterio que `InitialBalance` -- `UPD_BankAccount` no la toca).
+  Selector nuevo en el modal de alta de Cuenta Bancaria
+  (`BuildingConfig.razor`), con badge de moneda en el listado.
+- `AccountStatementHeader.ExchangeRate` (nueva columna, nullable) -- tipo de
+  cambio real aplicado a TODO el lote cargado (un estado de cuenta = una
+  carga = un valor, no por fila). Se pide en
+  `CargarEstadoCuentaConciliacion.razor` **sólo si** la cuenta elegida es de
+  otra moneda que el edificio, sugiriendo como default el último valor
+  usado en una carga anterior de esa misma cuenta (consulta simple, sin
+  tabla de catálogo aparte).
+- `AccountStatementDetail.AmountInReportingCurrency` (nueva columna) --
+  calculada server-side en `INS_AccountStatementDetail`
+  (`= Amount * ISNULL(ExchangeRate, 1)`). Conciliación y el saldo
+  (`saldoFinalCalculado`/`totalGastos`/`totalIngresos` en
+  `ReconciliationWorkspace.razor`) suman esta columna en vez de `Amount`
+  crudo. `Amount` se sigue mostrando tal cual (nativo) al lado del
+  convertido en la vista previa de carga y en Conciliación, para que
+  cuadre contra el estado de cuenta real del banco.
+- Columna "Moneda" sacada del Excel de carga (era libre, nunca se
+  validaba contra la cuenta real) -- la moneda ahora se hereda de la
+  Cuenta Bancaria seleccionada.
+- Script: `Database/Scripts/2026-09-15_105_Multimoneda_Foundation.sql`
+  (columnas + backfill + SPs: `INS_BankAccount`,
+  `GET_BankAccountsByBuilding`, `INS_MovementHeader`, `GET_MovementHeaders`,
+  `INS_AccountStatementDetail`, `GET_BankTransactionsNoConcilied`,
+  `GET_TransactionBankDetailById`, `GET_AccountStatementDetailByHeader`).
 
-**Lo que falta (todo por diseñar, nada implementado):** si un edificio puede
-operar en más de una moneda a la vez o sigue siendo una sola moneda fija por
-edificio (caso más simple); si hace falta tipo de cambio y de dónde sale
-(manual, tabla, servicio externo); y cómo se muestran/suman montos mixtos en
-reportes y en esta misma pantalla de conciliación cuando el estado de cuenta
-trae filas en más de una moneda.
+**Para el caso común (todo en la misma moneda) es 100% transparente:**
+`ExchangeRate` queda `NULL`, `AmountInReportingCurrency` es un espejo
+exacto de `Amount` -- cero cambio de comportamiento para cualquier edificio
+que siga en una sola moneda.
+
+**Verificado en vivo contra la BD de test (2026-09-15):** cuenta USD nueva
+en Gastos Tower, carga de un estado de cuenta de 3 filas con tipo de cambio
+3.78, vista previa mostrando nativo+convertido fila por fila
+(ej. "$80.00 → S/ 302.40"), y Conciliación de Pagos con
+"Saldo Final (Calculado)" correcto en soles (`S/ 1,738.80`) sumando una
+cuenta en dólares y otra en soles.
+
+**Pendiente, encontrado en la misma prueba (10b):** el motor de matching
+automático de cuotas en Conciliación (`ReconciliationWorkspace.razor`,
+`posiblesMatches`/`InstallmentConciliationAsync`) sigue comparando
+`transaccion.Amount` (nativo) contra `Installment.Amount` (siempre en
+moneda de reporte, las cuotas nunca cambian de moneda) -- para una cuenta
+en otra moneda, el emparejamiento automático por monto exacto NO es
+currency-aware todavía. La columna "Pendiente" de esa pantalla también
+queda con el número nativo pero formateada con el símbolo de la moneda de
+reporte (mismo origen: `Balance = Amount - AmountPaid`, mezclando nativo
+con un `AmountPaid` que sí está en moneda de reporte). No bloquea nada
+mientras el matching se haga manual (que sigue funcionando bien); si en el
+futuro hay uso real de cuentas en moneda extranjera con volumen, hay que
+rehacer ese motor para comparar `AmountInReportingCurrency` contra
+`Installment.Amount`, incluyendo la columna Pendiente.

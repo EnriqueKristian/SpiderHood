@@ -27,6 +27,7 @@ namespace SpiderHood.Services
         Task<List<BudgetDetail>> GetBudgetDetailAsync(Guid presupuestoId);
 
         // Categorías
+        Task<List<ViewBudgetDetail>> GetLastBudgetItemsByParentCategoryAsync(Guid idBuilding, Guid idParentCategory);
         Task<List<Category>> GetCategoriasAsync(Guid IdBuilding, bool? activas = true);
         Task<Category?> GetCategoriaByIdAsync(Guid id);
         Task<Category> CreateCategoriaAsync(Category categoria);
@@ -279,7 +280,12 @@ namespace SpiderHood.Services
         {
             state.ExpensesList = await ec.GetPendingConciliationExpensesAsync(state.Budget.IdBuilding, state.Budget.BudgetDate, state.Budget.BudgetDate);
             state.Owners = await ec.GetOwnersByBuildingAsync(state.Budget.IdBuilding);
-            state.Owners = state.Owners.Where(c => c.Role == 1 && c.TypeUnit == 1).ToList();
+            // TypeUnit == 1 (Depto) excluía por completo a las Oficinas (TypeUnit == 4) del
+            // cálculo de cuotas -- un edificio con oficinas no les generaba Installment a
+            // ninguna, sin importar si tenían dueño. Depto y Oficina son los únicos tipos que
+            // se facturan como unidad propia (Estacionamiento/Depósito van dentro del área de
+            // un grupo, no tienen cuota independiente).
+            state.Owners = state.Owners.Where(c => c.Role == 1 && (c.TypeUnit == 1 || c.TypeUnit == 4)).ToList();
 
             // BudgetState.TotalApartments nunca se asignaba desde datos reales -- se quedaba
             // siempre en el default de la clase (30). BudgetCalculator.CalculateQuota() usa
@@ -288,9 +294,23 @@ namespace SpiderHood.Services
             // de 30 cobraba de más o de menos en esos items sin que nada lo avisara
             // (verificado en vivo: un edificio de 6 deptos, 5 items Tipo 1 de S/150 c/u,
             // terminaba cobrando sólo S/5/depto/item en vez de S/25 -- 1/5 de lo
-            // presupuestado). Se usa Distinct() por IdGroupUnit porque un mismo depto puede
-            // traer más de una fila de Owners (copropietarios).
-            state.TotalApartments = state.Owners.Select(o => o.IdGroupUnit).Distinct().Count();
+            // presupuestado). Distinct() por IdUnit (no por IdGroupUnit) -- un mismo Depto/
+            // Oficina puede traer más de una fila acá por dos motivos distintos: copropietarios
+            // (2 filas, mismo IdUnit, mismo IdGroupUnit) y un grupo con más de un Depto/Oficina
+            // adentro (2 filas, distinto IdUnit, mismo IdGroupUnit -- ej. el grupo Inmobiliaria
+            // con varias unidades sin vender). Contar por IdGroupUnit distinto subcontaba el
+            // segundo caso; contar filas crudas sobrecontaba el primero. IdUnit distinto es lo
+            // único que corresponde 1:1 con "una unidad real".
+            state.TotalApartments = state.Owners.Select(o => o.IdUnit).Distinct().Count();
+        }
+
+        // Items reales de la última vez que se usó esta categoría en un presupuesto real
+        // del edificio -- usado por BudgetGenerator para sugerir contenido al crear una
+        // sección que matchea una categoría existente, o al agregar el primer item de una
+        // sección vacía, en vez de partir siempre de un item en blanco ("Nuevo Item").
+        public async Task<List<ViewBudgetDetail>> GetLastBudgetItemsByParentCategoryAsync(Guid idBuilding, Guid idParentCategory)
+        {
+            return await ec.GetLastBudgetItemsByParentCategoryAsync(idBuilding, idParentCategory);
         }
 
         public async Task LoadDefaultBudgetDetailsAsync(BudgetState state)

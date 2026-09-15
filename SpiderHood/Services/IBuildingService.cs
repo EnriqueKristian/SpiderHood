@@ -19,6 +19,7 @@ namespace SpiderHood.Services
         Task<OperationResult> CreateBuildingAsync(Models.Building building, Guid createdByUserId, string createdByRole);
         Task<OperationResult> UpdateBuildingAsync(Models.Building building);
         Task<OperationResult> DeleteBuildingAsync(Models.Building building);
+        Task<OperationResult> SyncUnsoldUnitsToRealEstateCompanyAsync(Guid idBuilding);
         /*Task<List<Models.BuildingConfiguration>> GetBuildingConfigurationAsync(Guid IdBuilding);
         Task<List<Models.BankAccount>> GetBankAccountsByBuildingAsync(Guid IdBuilding);
         Task<List<Models.Contact>> GetAllContactsAsync(Guid IdBuildingConfiguration);
@@ -353,6 +354,25 @@ namespace SpiderHood.Services
 
                 Console.WriteLine($"Error al eliminar el edificio: {ex.Message}");
                 return OperationResult.Failure($"No se pudo eliminar el edificio: {DescribeError(ex)}");
+            }
+        }
+
+        // Docs/Pendientes-Negocio-Consolidado.md #1 -- crea/actualiza el Grupo
+        // "Inmobiliaria" y le enlaza toda unidad sin vender del edificio (cualquier
+        // tipo). El Failure más esperable es "no hay datos de Inmobiliaria cargados
+        // todavía" (RAISERROR del SP, ver UPD_SyncUnsoldUnitsToRealEstateCompany) --
+        // no es un error real, es una guía para que el Administrador complete
+        // Edificios > Inmobiliaria antes de sincronizar.
+        public async Task<OperationResult> SyncUnsoldUnitsToRealEstateCompanyAsync(Guid idBuilding)
+        {
+            try
+            {
+                await ec.SyncUnsoldUnitsToRealEstateCompanyAsync(idBuilding);
+                return OperationResult.Success();
+            }
+            catch (Exception ex)
+            {
+                return OperationResult.Failure(DescribeError(ex));
             }
         }
 

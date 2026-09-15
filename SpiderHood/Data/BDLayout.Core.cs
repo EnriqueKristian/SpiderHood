@@ -117,6 +117,9 @@ namespace SpiderHood.Data
             public const string UPD_BankAccount_InitialBalance = "UPD_BankAccount_InitialBalance";
             public const string UPD_BuildingConfiguration = "UPD_BuildingConfiguration";
             public const string UPD_BuildingConfiguration_ExpenseThreshold = "UPD_BuildingConfiguration_ExpenseThreshold";
+            public const string UPD_BuildingConfiguration_DistributionMode = "UPD_BuildingConfiguration_DistributionMode";
+            public const string UPD_SyncUnsoldUnitsToRealEstateCompany = "UPD_SyncUnsoldUnitsToRealEstateCompany";
+            public const string UPD_Category_BulkDistribution = "UPD_Category_BulkDistribution";
             public const string UPD_BudgetHeader = "UPD_BudgetHeader";
             public const string UPD_ClosePastBudgets = "UPD_ClosePastBudgets";
             public const string UPD_Category = "UPD_Category";
@@ -197,6 +200,7 @@ namespace SpiderHood.Data
             public const string GET_ServiceReadingDetailList = "GET_ServiceReadingDetailList";
             public const string GET_FirstWaterReadingDetailList = "GET_FirstWaterReadingDetailList";
             public const string GET_BudgetDetailDefault = "GET_BudgetDetailDefault";
+            public const string GET_LastBudgetItemsByParentCategory = "GET_LastBudgetItemsByParentCategory";
             public const string GET_List_BudgetDetail = "GET_List_BudgetDetail";
             public const string GET_AllContacts = "GET_AllContacts";
             public const string GET_PendingConciliationExpenses = "GET_PendingConciliationExpenses";

@@ -1053,41 +1053,41 @@ namespace SpiderHood.Data
             }, "UpdateLeaveRequestEstado", cancellationToken);
         }
 
-        // Gobernanza / Reuniones -- Fase 1
-        public async Task UpdateReunionAsync(Models.Reunion reunion, CancellationToken cancellationToken = default)
+        // Gobernanza / Meetings -- Fase 1
+        public async Task UpdateMeetingAsync(Models.Meeting reunion, CancellationToken cancellationToken = default)
         {
             ValidateEntity(reunion, nameof(reunion));
 
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_Reunion,
+                    StoredProcedures.UPD_Meeting,
                     cancellationToken,
-                    reunion.IdReunion,
+                    reunion.IdMeeting,
                     (int)reunion.Tipo,
                     reunion.Titulo,
                     reunion.FechaConvocatoria,
-                    reunion.FechaReunion,
+                    reunion.FechaMeeting,
                     (int)reunion.Modalidad,
                     (object?)reunion.LugarOVinculo ?? DBNull.Value,
                     reunion.QuorumRequerido);
                 return true;
-            }, "UpdateReunion", cancellationToken);
+            }, "UpdateMeeting", cancellationToken);
         }
 
-        public async Task UpdateReunionEstadoAsync(Guid idReunion, Models.EstadoReunion estado, decimal? quorumAlcanzado = null, Guid? idCalendarItem = null, CancellationToken cancellationToken = default)
+        public async Task UpdateMeetingEstadoAsync(Guid idMeeting, Models.MeetingStatus estado, decimal? quorumAlcanzado = null, Guid? idCalendarItem = null, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_ReunionEstado,
+                    StoredProcedures.UPD_MeetingEstado,
                     cancellationToken,
-                    idReunion,
+                    idMeeting,
                     (int)estado,
                     (object?)quorumAlcanzado ?? DBNull.Value,
                     (object?)idCalendarItem ?? DBNull.Value);
                 return true;
-            }, "UpdateReunionEstado", cancellationToken);
+            }, "UpdateMeetingEstado", cancellationToken);
         }
 
         public async Task UpdateAgendaItemAsync(Models.AgendaItem item, CancellationToken cancellationToken = default)
@@ -1104,15 +1104,15 @@ namespace SpiderHood.Data
                     item.Titulo,
                     (object?)item.Descripcion ?? DBNull.Value,
                     (int)item.Tipo,
-                    (object?)(item.TipoVotacion.HasValue ? (int)item.TipoVotacion.Value : null) ?? DBNull.Value,
-                    (object?)(item.TipoMayoria.HasValue ? (int)item.TipoMayoria.Value : null) ?? DBNull.Value,
+                    (object?)(item.VotingType.HasValue ? (int)item.VotingType.Value : null) ?? DBNull.Value,
+                    (object?)(item.MajorityType.HasValue ? (int)item.MajorityType.Value : null) ?? DBNull.Value,
                     (object?)item.PorcentajeMayoriaCalificada ?? DBNull.Value,
                     item.PermiteRevotacion);
                 return true;
             }, "UpdateAgendaItem", cancellationToken);
         }
 
-        public async Task UpdateAgendaItemEstadoAsync(Guid idAgendaItem, Models.EstadoAgendaItem estado, CancellationToken cancellationToken = default)
+        public async Task UpdateAgendaItemEstadoAsync(Guid idAgendaItem, Models.AgendaItemStatus estado, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
@@ -1126,39 +1126,39 @@ namespace SpiderHood.Data
         }
 
         // Gobernanza / Votación -- Fase 2
-        public async Task UpdateVotacionCierreAsync(Guid idVotacion, decimal alicuotaAFavor, decimal alicuotaEnContra, decimal alicuotaAbstencion, bool mayoriaAlcanzada, CancellationToken cancellationToken = default)
+        public async Task UpdateVotingRoundCierreAsync(Guid idVotingRound, decimal alicuotaAFavor, decimal alicuotaEnContra, decimal alicuotaAbstencion, bool mayoriaAlcanzada, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_VotacionCierre,
+                    StoredProcedures.UPD_VotingRoundCierre,
                     cancellationToken,
-                    idVotacion,
+                    idVotingRound,
                     alicuotaAFavor,
                     alicuotaEnContra,
                     alicuotaAbstencion,
                     mayoriaAlcanzada);
                 return true;
-            }, "UpdateVotacionCierre", cancellationToken);
+            }, "UpdateVotingRoundCierre", cancellationToken);
         }
 
-        // Gobernanza / Actas -- Fase 3
-        public async Task UpdateActaContenidoAsync(Guid idActa, string contenidoGenerado, CancellationToken cancellationToken = default)
+        // Gobernanza / MeetingMinutes -- Fase 3
+        public async Task UpdateMeetingMinutesContenidoAsync(Guid idMeetingMinutes, string contenidoGenerado, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
-                await ExecuteStoredProcedureAsync(StoredProcedures.UPD_ActaContenido, cancellationToken, idActa, contenidoGenerado);
+                await ExecuteStoredProcedureAsync(StoredProcedures.UPD_MeetingMinutesContenido, cancellationToken, idMeetingMinutes, contenidoGenerado);
                 return true;
-            }, "UpdateActaContenido", cancellationToken);
+            }, "UpdateMeetingMinutesContenido", cancellationToken);
         }
 
-        public async Task UpdateActaFirmaAsync(Guid idActa, string nombrePresidente, string nombreSecretario, CancellationToken cancellationToken = default)
+        public async Task UpdateMeetingMinutesFirmaAsync(Guid idMeetingMinutes, string nombrePresidente, string nombreSecretario, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
-                await ExecuteStoredProcedureAsync(StoredProcedures.UPD_ActaFirma, cancellationToken, idActa, nombrePresidente, nombreSecretario);
+                await ExecuteStoredProcedureAsync(StoredProcedures.UPD_MeetingMinutesFirma, cancellationToken, idMeetingMinutes, nombrePresidente, nombreSecretario);
                 return true;
-            }, "UpdateActaFirma", cancellationToken);
+            }, "UpdateMeetingMinutesFirma", cancellationToken);
         }
         #endregion
     }

@@ -6,17 +6,17 @@ using IContainer = QuestPDF.Infrastructure.IContainer;
 
 namespace SpiderHood.Services
 {
-    // Genera el PDF descargable de un Acta de Reunión (Docs/Pendientes-Negocio-
+    // Genera el PDF descargable de un MeetingMinutes de Reunión (Docs/Pendientes-Negocio-
     // Consolidado.md #21, Fase 3). Mismo patrón stateless que
     // BoletaPagoExportService -- se instancia, se llama GeneratePdf() una vez y
     // se descarta. El cuerpo del acta es el texto plano ya compuesto por
-    // IReunionService.ComponerContenidoActaAsync (una línea = un párrafo).
-    public class ActaExportService
+    // IMeetingService.ComponerContenidoMeetingMinutesAsync (una línea = un párrafo).
+    public class MeetingMinutesExportService
     {
-        private readonly Acta _acta;
-        private readonly Reunion _reunion;
+        private readonly MeetingMinutes _acta;
+        private readonly Meeting _reunion;
 
-        public ActaExportService(Acta acta, Reunion reunion)
+        public MeetingMinutesExportService(MeetingMinutes acta, Meeting reunion)
         {
             _acta = acta;
             _reunion = reunion;
@@ -53,11 +53,11 @@ namespace SpiderHood.Services
         {
             container.BorderBottom(2).BorderColor(Colors.Blue.Darken2).PaddingBottom(8).Column(col =>
             {
-                col.Item().Text(_reunion.Tipo == TipoReunion.Ordinaria ? "ACTA DE REUNIÓN ORDINARIA" : "ACTA DE REUNIÓN EXTRAORDINARIA")
+                col.Item().Text(_reunion.Tipo == MeetingType.Ordinaria ? "ACTA DE REUNIÓN ORDINARIA" : "ACTA DE REUNIÓN EXTRAORDINARIA")
                     .FontSize(14).Bold().FontColor(Colors.Blue.Darken2);
                 col.Item().Text(_reunion.Titulo).FontSize(11);
-                col.Item().Text(_acta.Estado == EstadoActa.Firmada ? "FIRMADA" : "BORRADOR")
-                    .FontSize(8).Bold().FontColor(_acta.Estado == EstadoActa.Firmada ? Colors.Green.Darken2 : Colors.Orange.Darken2);
+                col.Item().Text(_acta.Estado == MeetingMinutesStatus.Firmada ? "FIRMADA" : "BORRADOR")
+                    .FontSize(8).Bold().FontColor(_acta.Estado == MeetingMinutesStatus.Firmada ? Colors.Green.Darken2 : Colors.Orange.Darken2);
             });
         }
 
@@ -83,7 +83,7 @@ namespace SpiderHood.Services
 
         private void ComposeFirmas(IContainer container)
         {
-            if (_acta.Estado != EstadoActa.Firmada)
+            if (_acta.Estado != MeetingMinutesStatus.Firmada)
             {
                 container.Text("Documento sin firmar -- borrador generado automáticamente por el sistema.")
                     .FontSize(8).Italic().FontColor(Colors.Grey.Darken1);

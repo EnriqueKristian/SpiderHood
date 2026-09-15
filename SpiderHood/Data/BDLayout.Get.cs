@@ -1493,30 +1493,30 @@ namespace SpiderHood.Data
             }, "GetLeaveRequestSinGoceDiasByEmployeeMes", cancellationToken);
         }
 
-        // Gobernanza / Reuniones -- Fase 1
-        public async Task<List<Models.Reunion>> GetReunionesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        // Gobernanza / Meetings -- Fase 1
+        public async Task<List<Models.Meeting>> GetMeetingsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Reunion>(StoredProcedures.GET_ReunionesByBuilding, idBuilding);
-            }, "GetReunionesByBuilding", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Meeting>(StoredProcedures.GET_MeetingsByBuilding, idBuilding);
+            }, "GetMeetingsByBuilding", cancellationToken);
         }
 
-        public async Task<Models.Reunion> GetReunionByIdAsync(Guid idReunion, CancellationToken cancellationToken = default)
+        public async Task<Models.Meeting> GetMeetingByIdAsync(Guid idMeeting, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = await ExecuteQuerySingleAsync<Models.Reunion>(StoredProcedures.GET_ReunionById, idReunion);
-                return result ?? throw new EntityNotFoundException($"Reunion with ID {idReunion} not found");
-            }, "GetReunionById", cancellationToken);
+                var result = await ExecuteQuerySingleAsync<Models.Meeting>(StoredProcedures.GET_MeetingById, idMeeting);
+                return result ?? throw new EntityNotFoundException($"Meeting with ID {idMeeting} not found");
+            }, "GetMeetingById", cancellationToken);
         }
 
-        public async Task<List<Models.AgendaItem>> GetAgendaItemsByReunionAsync(Guid idReunion, CancellationToken cancellationToken = default)
+        public async Task<List<Models.AgendaItem>> GetAgendaItemsByMeetingAsync(Guid idMeeting, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.AgendaItem>(StoredProcedures.GET_AgendaItemsByReunion, idReunion);
-            }, "GetAgendaItemsByReunion", cancellationToken);
+                return await ExecuteQueryListAsync<Models.AgendaItem>(StoredProcedures.GET_AgendaItemsByMeeting, idMeeting);
+            }, "GetAgendaItemsByMeeting", cancellationToken);
         }
 
         public async Task<Models.AgendaItem> GetAgendaItemByIdAsync(Guid idAgendaItem, CancellationToken cancellationToken = default)
@@ -1528,49 +1528,49 @@ namespace SpiderHood.Data
             }, "GetAgendaItemById", cancellationToken);
         }
 
-        public async Task<List<Models.Asistencia>> GetAsistenciasByReunionAsync(Guid idReunion, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Attendance>> GetAttendancesByMeetingAsync(Guid idMeeting, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Asistencia>(StoredProcedures.GET_AsistenciasByReunion, idReunion);
-            }, "GetAsistenciasByReunion", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Attendance>(StoredProcedures.GET_AttendancesByMeeting, idMeeting);
+            }, "GetAttendancesByMeeting", cancellationToken);
         }
 
         // Gobernanza / Votación -- Fase 2
-        public async Task<List<Models.Votacion>> GetVotacionesByAgendaItemAsync(Guid idAgendaItem, CancellationToken cancellationToken = default)
+        public async Task<List<Models.VotingRound>> GetVotingRoundsByAgendaItemAsync(Guid idAgendaItem, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Votacion>(StoredProcedures.GET_VotacionesByAgendaItem, idAgendaItem);
-            }, "GetVotacionesByAgendaItem", cancellationToken);
+                return await ExecuteQueryListAsync<Models.VotingRound>(StoredProcedures.GET_VotingRoundsByAgendaItem, idAgendaItem);
+            }, "GetVotingRoundsByAgendaItem", cancellationToken);
         }
 
-        public async Task<Models.Votacion> GetVotacionByIdAsync(Guid idVotacion, CancellationToken cancellationToken = default)
+        public async Task<Models.VotingRound> GetVotingRoundByIdAsync(Guid idVotingRound, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = await ExecuteQuerySingleAsync<Models.Votacion>(StoredProcedures.GET_VotacionById, idVotacion);
-                return result ?? throw new EntityNotFoundException($"Votacion with ID {idVotacion} not found");
-            }, "GetVotacionById", cancellationToken);
+                var result = await ExecuteQuerySingleAsync<Models.VotingRound>(StoredProcedures.GET_VotingRoundById, idVotingRound);
+                return result ?? throw new EntityNotFoundException($"VotingRound with ID {idVotingRound} not found");
+            }, "GetVotingRoundById", cancellationToken);
         }
 
-        public async Task<List<Models.Voto>> GetVotosByVotacionAsync(Guid idVotacion, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Vote>> GetVotesByVotingRoundAsync(Guid idVotingRound, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Voto>(StoredProcedures.GET_VotosByVotacion, idVotacion);
-            }, "GetVotosByVotacion", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Vote>(StoredProcedures.GET_VotesByVotingRound, idVotingRound);
+            }, "GetVotesByVotingRound", cancellationToken);
         }
 
-        // Gobernanza / Actas -- Fase 3. Devuelve null si la Reunion todavía no
-        // tiene Acta generada (no se trata como EntityNotFoundException -- es
+        // Gobernanza / MeetingMinutes -- Fase 3. Devuelve null si la Meeting todavía no
+        // tiene MeetingMinutes generada (no se trata como EntityNotFoundException -- es
         // un estado válido y esperado, no un error).
-        public async Task<Models.Acta?> GetActaByReunionAsync(Guid idReunion, CancellationToken cancellationToken = default)
+        public async Task<Models.MeetingMinutes?> GetMeetingMinutesByMeetingAsync(Guid idMeeting, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQuerySingleAsync<Models.Acta>(StoredProcedures.GET_ActaByReunion, idReunion);
-            }, "GetActaByReunion", cancellationToken);
+                return await ExecuteQuerySingleAsync<Models.MeetingMinutes>(StoredProcedures.GET_MeetingMinutesByMeeting, idMeeting);
+            }, "GetMeetingMinutesByMeeting", cancellationToken);
         }
         #endregion
     }

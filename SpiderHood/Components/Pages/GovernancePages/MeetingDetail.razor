@@ -1,8 +1,8 @@
-@page "/gobernanza/reuniones/{Id:guid}"
+@page "/governance/meetings/{Id:guid}"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IReunionService ReunionService
+@inject IMeetingService MeetingService
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
 @inject NavigationManager Navigation
@@ -27,13 +27,13 @@
                 <button class="btn btn-sm btn-outline-secondary me-3" @onclick="Volver"><i class="bi bi-arrow-left"></i></button>
                 <div>
                     <h1 class="h4 fw-bold mb-0">@_reunion.Titulo</h1>
-                    <div class="text-muted small">@(_reunion.Tipo == TipoReunion.Ordinaria ? "Ordinaria" : "Extraordinaria") -- @_reunion.FechaReunion.ToString("dd/MM/yyyy HH:mm") -- @_reunion.Modalidad</div>
+                    <div class="text-muted small">@(_reunion.Tipo == MeetingType.Ordinaria ? "Ordinaria" : "Extraordinaria") -- @_reunion.FechaMeeting.ToString("dd/MM/yyyy HH:mm") -- @_reunion.Modalidad</div>
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                @if (_reunion.Estado == EstadoReunion.Finalizada || _reunion.Estado == EstadoReunion.QuorumNoAlcanzado)
+                @if (_reunion.Estado == MeetingStatus.Finalizada || _reunion.Estado == MeetingStatus.QuorumNoAlcanzado)
                 {
-                    <button class="btn btn-sm btn-outline-primary" @onclick='() => Navigation.NavigateTo($"/gobernanza/reuniones/{Id}/acta")'>
+                    <button class="btn btn-sm btn-outline-primary" @onclick='() => Navigation.NavigateTo($"/governance/meetings/{Id}/minutes")'>
                         <i class="bi bi-file-earmark-text me-1"></i>Ver Acta
                     </button>
                 }
@@ -59,20 +59,20 @@
                         }
                         <p class="mb-0 text-muted small">Convocada el @_reunion.FechaConvocatoria.ToString("dd/MM/yyyy") por @_reunion.CreatedByName</p>
                     </div>
-                    @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                    @if (_puedeGestionar && _reunion.Estado == MeetingStatus.Convocada)
                     {
                         <div class="card-footer d-flex gap-2">
                             <button class="btn btn-sm btn-success" @onclick="Iniciar"><i class="bi bi-play-fill me-1"></i>Iniciar Reunión</button>
                             <button class="btn btn-sm btn-outline-danger" @onclick="Cancelar"><i class="bi bi-x-lg me-1"></i>Cancelar</button>
                         </div>
                     }
-                    @if (_puedeGestionar && _reunion.Estado == EstadoReunion.EnCurso)
+                    @if (_puedeGestionar && _reunion.Estado == MeetingStatus.EnCurso)
                     {
                         <div class="card-footer">
                             <button class="btn btn-sm btn-primary" @onclick="Finalizar"><i class="bi bi-check2-circle me-1"></i>Finalizar Reunión</button>
                         </div>
                     }
-                    @if (_puedeGestionar && _reunion.Estado == EstadoReunion.QuorumNoAlcanzado)
+                    @if (_puedeGestionar && _reunion.Estado == MeetingStatus.QuorumNoAlcanzado)
                     {
                         <div class="card-footer">
                             <button class="btn btn-sm btn-warning" @onclick="AbrirSegundaConvocatoria"><i class="bi bi-arrow-repeat me-1"></i>Crear Segunda Convocatoria</button>
@@ -83,9 +83,9 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span>Asistencia (@_reunion.Asistentes.Count unidades, @_reunion.Asistentes.Sum(a => a.Alicuota).ToString("0.##")% de alícuota)</span>
-                        @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                        @if (_puedeGestionar && _reunion.Estado == MeetingStatus.Convocada)
                         {
-                            <button class="btn btn-sm btn-outline-primary" @onclick="AbrirRegistrarAsistencia"><i class="bi bi-person-plus me-1"></i>Registrar</button>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="AbrirRegistrarAttendance"><i class="bi bi-person-plus me-1"></i>Registrar</button>
                         }
                     </div>
                     <div class="card-body">
@@ -104,9 +104,9 @@
                                             <td>@a.NombreUnidad</td>
                                             <td class="text-end">@a.Alicuota.ToString("0.####")%</td>
                                             <td class="text-end">
-                                                @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                                                @if (_puedeGestionar && _reunion.Estado == MeetingStatus.Convocada)
                                                 {
-                                                    <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => QuitarAsistencia(a.IdGroupUnit)" title="Quitar">
+                                                    <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => QuitarAttendance(a.IdGroupUnit)" title="Quitar">
                                                         <i class="bi bi-x-lg"></i>
                                                     </button>
                                                 }
@@ -124,7 +124,7 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span>Agenda</span>
-                        @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                        @if (_puedeGestionar && _reunion.Estado == MeetingStatus.Convocada)
                         {
                             <button class="btn btn-sm btn-outline-primary" @onclick="AbrirAgregarPunto"><i class="bi bi-plus-lg"></i></button>
                         }
@@ -147,17 +147,17 @@
                                                 <div class="text-muted small">@item.Descripcion</div>
                                             }
                                             <div class="mt-1">
-                                                <span class="badge bg-light text-dark border me-1">@(item.Tipo == TipoAgendaItem.Informativo ? "Informativo" : "Sujeto a Votación")</span>
-                                                @if (item.Tipo == TipoAgendaItem.SujetoAVotacion)
+                                                <span class="badge bg-light text-dark border me-1">@(item.Tipo == AgendaItemType.Informativo ? "Informativo" : "Sujeto a Votación")</span>
+                                                @if (item.Tipo == AgendaItemType.SujetoAVotacion)
                                                 {
-                                                    <span class="badge bg-light text-dark border me-1">@item.TipoVotacion</span>
-                                                    <span class="badge bg-light text-dark border">@TraducirMayoria(item.TipoMayoria)</span>
+                                                    <span class="badge bg-light text-dark border me-1">@item.VotingType</span>
+                                                    <span class="badge bg-light text-dark border">@TraducirMayoria(item.MajorityType)</span>
                                                 }
                                             </div>
                                         </div>
                                         <div class="text-end">
                                             <span class="badge @BadgeAgendaClase(item.Estado)">@TraducirEstadoAgenda(item.Estado)</span>
-                                            @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                                            @if (_puedeGestionar && _reunion.Estado == MeetingStatus.Convocada)
                                             {
                                                 <div class="mt-1">
                                                     <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => EliminarPunto(item.IdAgendaItem)" title="Eliminar">
@@ -165,17 +165,17 @@
                                                     </button>
                                                 </div>
                                             }
-                                            @if (_puedeGestionar && _reunion.Estado == EstadoReunion.EnCurso && item.Tipo == TipoAgendaItem.Informativo && item.Estado == EstadoAgendaItem.Pendiente)
+                                            @if (_puedeGestionar && _reunion.Estado == MeetingStatus.EnCurso && item.Tipo == AgendaItemType.Informativo && item.Estado == AgendaItemStatus.Pendiente)
                                             {
                                                 <div class="mt-1">
                                                     <button class="btn btn-sm btn-outline-secondary" @onclick="() => MarcarInformado(item.IdAgendaItem)">Marcar informado</button>
                                                 </div>
                                             }
-                                            @if (_reunion.Estado == EstadoReunion.EnCurso && item.Tipo == TipoAgendaItem.SujetoAVotacion)
+                                            @if (_reunion.Estado == MeetingStatus.EnCurso && item.Tipo == AgendaItemType.SujetoAVotacion)
                                             {
                                                 <div class="mt-1">
-                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirVotacion(item)">
-                                                        <i class="bi bi-check2-square me-1"></i>@(item.Estado == EstadoAgendaItem.Pendiente ? "Votar" : "Ver votación")
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirVotingRound(item)">
+                                                        <i class="bi bi-check2-square me-1"></i>@(item.Estado == AgendaItemStatus.Pendiente ? "Votar" : "Ver votación")
                                                     </button>
                                                 </div>
                                             }
@@ -191,14 +191,14 @@
     }
 </div>
 
-@if (_showAsistenciaModal)
+@if (_showAttendanceModal)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content shadow-lg">
                 <div class="modal-header">
                     <h5 class="modal-title">Registrar asistencia</h5>
-                    <button type="button" class="btn-close" @onclick="() => _showAsistenciaModal = false"></button>
+                    <button type="button" class="btn-close" @onclick="() => _showAttendanceModal = false"></button>
                 </div>
                 <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
                     @if (_roster.Count == 0)
@@ -218,13 +218,13 @@
                             </div>
                         }
                     }
-                    @if (!string.IsNullOrEmpty(_errorAsistencia))
+                    @if (!string.IsNullOrEmpty(_errorAttendance))
                     {
-                        <div class="alert alert-danger py-2 px-3 mt-2">@_errorAsistencia</div>
+                        <div class="alert alert-danger py-2 px-3 mt-2">@_errorAttendance</div>
                     }
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" @onclick="CerrarRegistrarAsistencia">Listo</button>
+                    <button type="button" class="btn btn-primary" @onclick="CerrarRegistrarAttendance">Listo</button>
                 </div>
             </div>
         </div>
@@ -252,26 +252,26 @@
                     <div class="mb-3">
                         <label class="form-label">Tipo</label>
                         <select class="form-select" @bind="_nuevoPunto.Tipo">
-                            <option value="@TipoAgendaItem.Informativo">Informativo</option>
-                            <option value="@TipoAgendaItem.SujetoAVotacion">Sujeto a Votación</option>
+                            <option value="@AgendaItemType.Informativo">Informativo</option>
+                            <option value="@AgendaItemType.SujetoAVotacion">Sujeto a Votación</option>
                         </select>
                     </div>
-                    @if (_nuevoPunto.Tipo == TipoAgendaItem.SujetoAVotacion)
+                    @if (_nuevoPunto.Tipo == AgendaItemType.SujetoAVotacion)
                     {
                         <div class="row">
                             <div class="col-6 mb-3">
                                 <label class="form-label">Tipo de votación</label>
-                                <select class="form-select" @bind="_nuevoPunto.TipoVotacion">
-                                    <option value="@TipoVotacionAgenda.Nominal">Nominal</option>
-                                    <option value="@TipoVotacionAgenda.Secreta">Secreta</option>
+                                <select class="form-select" @bind="_nuevoPunto.VotingType">
+                                    <option value="@AgendaVotingType.Nominal">Nominal</option>
+                                    <option value="@AgendaVotingType.Secreta">Secreta</option>
                                 </select>
                             </div>
                             <div class="col-6 mb-3">
                                 <label class="form-label">Mayoría requerida</label>
-                                <select class="form-select" @bind="_nuevoPunto.TipoMayoria">
-                                    <option value="@TipoMayoria.Simple">Simple</option>
-                                    <option value="@TipoMayoria.Calificada">Calificada</option>
-                                    <option value="@TipoMayoria.Legal75">75% legal</option>
+                                <select class="form-select" @bind="_nuevoPunto.MajorityType">
+                                    <option value="@MajorityType.Simple">Simple</option>
+                                    <option value="@MajorityType.Calificada">Calificada</option>
+                                    <option value="@MajorityType.Legal75">75% legal</option>
                                 </select>
                             </div>
                         </div>
@@ -331,36 +331,36 @@
     </div>
 }
 
-@if (_showVotacionModal && _votacionItem != null)
+@if (_showVotingRoundModal && _votacionItem != null)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content shadow-lg">
                 <div class="modal-header">
                     <h5 class="modal-title">Votación -- @_votacionItem.Titulo</h5>
-                    <button type="button" class="btn-close" @onclick="() => _showVotacionModal = false"></button>
+                    <button type="button" class="btn-close" @onclick="() => _showVotingRoundModal = false"></button>
                 </div>
                 <div class="modal-body" style="max-height: 65vh; overflow-y: auto;">
                     <div class="mb-2">
-                        <span class="badge bg-light text-dark border me-1">@_votacionItem.TipoVotacion</span>
-                        <span class="badge bg-light text-dark border">@TraducirMayoria(_votacionItem.TipoMayoria)</span>
+                        <span class="badge bg-light text-dark border me-1">@_votacionItem.VotingType</span>
+                        <span class="badge bg-light text-dark border">@TraducirMayoria(_votacionItem.MajorityType)</span>
                         @if (_votacionItem.PermiteRevotacion)
                         {
                             <span class="badge bg-light text-dark border">Permite revotación</span>
                         }
                     </div>
 
-                    @if (!string.IsNullOrEmpty(_mensajeVotacion))
+                    @if (!string.IsNullOrEmpty(_mensajeVotingRound))
                     {
-                        <div class="alert @(_mensajeVotacionEsError ? "alert-danger" : "alert-success") py-2 px-3">@_mensajeVotacion</div>
+                        <div class="alert @(_mensajeVotingRoundEsError ? "alert-danger" : "alert-success") py-2 px-3">@_mensajeVotingRound</div>
                     }
 
-                    @{ var rondaAbierta = _votaciones.FirstOrDefault(v => v.Estado == EstadoVotacion.Abierta); }
+                    @{ var rondaAbierta = _votaciones.FirstOrDefault(v => v.Estado == VotingRoundStatus.Abierta); }
 
-                    @if (rondaAbierta == null && _votacionItem.Estado == EstadoAgendaItem.Pendiente)
+                    @if (rondaAbierta == null && _votacionItem.Estado == AgendaItemStatus.Pendiente)
                     {
                         <div class="text-center py-3 d-flex justify-content-center gap-2">
-                            <button class="btn btn-primary" @onclick="IniciarVotacion">
+                            <button class="btn btn-primary" @onclick="IniciarVotingRound">
                                 <i class="bi bi-play-fill me-1"></i>Iniciar Votación @(_votaciones.Count > 0 ? $"(Ronda {_votaciones.Count + 1})" : "")
                             </button>
                             @if (_votaciones.Count > 0)
@@ -382,7 +382,7 @@
                                     <tbody>
                                         @foreach (var asistente in _reunion!.Asistentes)
                                         {
-                                            var votoActual = rondaAbierta.Votos.FirstOrDefault(v => v.IdGroupUnit == asistente.IdGroupUnit);
+                                            var votoActual = rondaAbierta.Votes.FirstOrDefault(v => v.IdGroupUnit == asistente.IdGroupUnit);
                                             <tr>
                                                 <td>@asistente.NombreUnidad</td>
                                                 <td class="text-end">@asistente.Alicuota.ToString("0.####")%</td>
@@ -391,11 +391,11 @@
                                                     {
                                                         <select class="form-select form-select-sm" style="width:auto"
                                                                 value="@(votoActual?.Opcion.ToString() ?? "")"
-                                                                @onchange="(e) => RegistrarVoto(rondaAbierta.IdVotacion, asistente.IdGroupUnit, e.Value?.ToString())">
+                                                                @onchange="(e) => RegistrarVote(rondaAbierta.IdVotingRound, asistente.IdGroupUnit, e.Value?.ToString())">
                                                             <option value="">-- sin votar --</option>
-                                                            <option value="@OpcionVoto.AFavor">A favor</option>
-                                                            <option value="@OpcionVoto.EnContra">En contra</option>
-                                                            <option value="@OpcionVoto.Abstencion">Abstención</option>
+                                                            <option value="@VoteOption.AFavor">A favor</option>
+                                                            <option value="@VoteOption.EnContra">En contra</option>
+                                                            <option value="@VoteOption.Abstencion">Abstención</option>
                                                         </select>
                                                     }
                                                     else
@@ -411,7 +411,7 @@
                             @if (_puedeGestionar)
                             {
                                 <div class="card-footer">
-                                    <button class="btn btn-sm btn-primary" @onclick="() => CerrarVotacion(rondaAbierta.IdVotacion)">
+                                    <button class="btn btn-sm btn-primary" @onclick="() => CerrarVotingRound(rondaAbierta.IdVotingRound)">
                                         <i class="bi bi-check2-circle me-1"></i>Cerrar Votación
                                     </button>
                                 </div>
@@ -419,10 +419,10 @@
                         </div>
                     }
 
-                    @if (_votaciones.Any(v => v.Estado == EstadoVotacion.Cerrada))
+                    @if (_votaciones.Any(v => v.Estado == VotingRoundStatus.Cerrada))
                     {
                         <h6>Historial de rondas</h6>
-                        @foreach (var v in _votaciones.Where(v => v.Estado == EstadoVotacion.Cerrada).OrderByDescending(v => v.NroRonda))
+                        @foreach (var v in _votaciones.Where(v => v.Estado == VotingRoundStatus.Cerrada).OrderByDescending(v => v.NroRonda))
                         {
                             <div class="border rounded p-2 mb-2">
                                 <div class="d-flex justify-content-between">
@@ -432,10 +432,10 @@
                                 <div class="small text-muted mt-1">
                                     A favor: @v.AlicuotaAFavor?.ToString("0.##")% -- En contra: @v.AlicuotaEnContra?.ToString("0.##")% -- Abstención: @v.AlicuotaAbstencion?.ToString("0.##")%
                                 </div>
-                                @if (_votacionItem.TipoVotacion == TipoVotacionAgenda.Nominal)
+                                @if (_votacionItem.VotingType == AgendaVotingType.Nominal)
                                 {
                                     <ul class="small mb-0 mt-1">
-                                        @foreach (var voto in v.Votos)
+                                        @foreach (var voto in v.Votes)
                                         {
                                             <li>@voto.NombreUnidad: @TraducirOpcion(voto.Opcion)</li>
                                         }
@@ -446,7 +446,7 @@
                     }
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showVotacionModal = false">Cerrar</button>
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showVotingRoundModal = false">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -459,13 +459,13 @@
     private UserSession _currentUser = new();
     private bool _loading = true;
     private bool _puedeGestionar;
-    private Reunion? _reunion;
+    private Meeting? _reunion;
     private string? _mensaje;
     private bool _mensajeEsError;
 
-    private bool _showAsistenciaModal;
-    private List<UnidadConAlicuota> _roster = new();
-    private string? _errorAsistencia;
+    private bool _showAttendanceModal;
+    private List<UnitWithShare> _roster = new();
+    private string? _errorAttendance;
 
     private bool _showAgendaModal;
     private AgendaItem _nuevoPunto = new();
@@ -477,32 +477,32 @@
     private string? _segundaLugar;
     private string? _errorSegunda;
 
-    private bool _showVotacionModal;
+    private bool _showVotingRoundModal;
     private AgendaItem? _votacionItem;
-    private List<Votacion> _votaciones = new();
-    private string? _mensajeVotacion;
-    private bool _mensajeVotacionEsError;
+    private List<VotingRound> _votaciones = new();
+    private string? _mensajeVotingRound;
+    private bool _mensajeVotingRoundEsError;
 
     protected override async Task OnInitializedAsync()
     {
         _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
-        _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_reuniones");
+        _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_meetings");
         await CargarAsync();
         _loading = false;
     }
 
     private async Task CargarAsync()
     {
-        _reunion = await ReunionService.GetReunionByIdAsync(Id);
+        _reunion = await MeetingService.GetMeetingByIdAsync(Id);
     }
 
-    private void Volver() => Navigation.NavigateTo("/gobernanza/reuniones");
+    private void Volver() => Navigation.NavigateTo("/governance/meetings");
 
     private async Task Iniciar()
     {
         try
         {
-            var resultado = await ReunionService.IniciarReunionAsync(Id);
+            var resultado = await MeetingService.IniciarMeetingAsync(Id);
             _mensaje = resultado.Mensaje;
             _mensajeEsError = !resultado.Exito;
             await CargarAsync();
@@ -518,7 +518,7 @@
     {
         try
         {
-            await ReunionService.FinalizarReunionAsync(Id);
+            await MeetingService.FinalizarMeetingAsync(Id);
             await CargarAsync();
         }
         catch (InvalidOperationException ex)
@@ -532,7 +532,7 @@
     {
         try
         {
-            await ReunionService.CancelarReunionAsync(Id);
+            await MeetingService.CancelarMeetingAsync(Id);
             await CargarAsync();
         }
         catch (InvalidOperationException ex)
@@ -542,16 +542,16 @@
         }
     }
 
-    private async Task AbrirRegistrarAsistencia()
+    private async Task AbrirRegistrarAttendance()
     {
-        _roster = await ReunionService.GetRosterAlicuotasAsync(_reunion!.IdBuilding, Id);
-        _errorAsistencia = null;
-        _showAsistenciaModal = true;
+        _roster = await MeetingService.GetRosterAlicuotasAsync(_reunion!.IdBuilding, Id);
+        _errorAttendance = null;
+        _showAttendanceModal = true;
     }
 
-    // Puede fallar si el estado de la Reunion cambió por fuera de esta pestaña
+    // Puede fallar si el estado de la Meeting cambió por fuera de esta pestaña
     // (otro operador ya inició/finalizó/canceló la reunión mientras este modal
-    // seguía abierto con la lista vieja) -- IReunionService.RegistrarAsistenciaAsync
+    // seguía abierto con la lista vieja) -- IMeetingService.RegistrarAttendanceAsync
     // valida Estado=Convocada del lado del servidor, no sólo ocultando el botón acá.
     // Sin este try/catch, la excepción no atrapada terminaba todo el circuito de
     // Blazor (mismo patrón de bug ya visto y corregido en Administrar Menú).
@@ -559,28 +559,28 @@
     {
         try
         {
-            await ReunionService.RegistrarAsistenciaAsync(Id, idGroupUnit, _currentUser.IdUser);
+            await MeetingService.RegistrarAttendanceAsync(Id, idGroupUnit, _currentUser.IdUser);
             var unidad = _roster.FirstOrDefault(u => u.IdGroupUnit == idGroupUnit);
             if (unidad != null) unidad.Presente = true;
-            _errorAsistencia = null;
+            _errorAttendance = null;
         }
         catch (InvalidOperationException ex)
         {
-            _errorAsistencia = ex.Message;
+            _errorAttendance = ex.Message;
         }
     }
 
-    private async Task CerrarRegistrarAsistencia()
+    private async Task CerrarRegistrarAttendance()
     {
-        _showAsistenciaModal = false;
+        _showAttendanceModal = false;
         await CargarAsync();
     }
 
-    private async Task QuitarAsistencia(Guid idGroupUnit)
+    private async Task QuitarAttendance(Guid idGroupUnit)
     {
         try
         {
-            await ReunionService.QuitarAsistenciaAsync(Id, idGroupUnit);
+            await MeetingService.QuitarAttendanceAsync(Id, idGroupUnit);
             await CargarAsync();
         }
         catch (InvalidOperationException ex)
@@ -592,14 +592,14 @@
 
     private void AbrirAgregarPunto()
     {
-        // TipoVotacion/TipoMayoria arrancan en el primer valor de cada <select>
-        // (no null) -- ver la misma nota en Reuniones.razor.NuevoPuntoAgenda.
+        // VotingType/MajorityType arrancan en el primer valor de cada <select>
+        // (no null) -- ver la misma nota en Meetings.razor.NuevoPuntoAgenda.
         _nuevoPunto = new AgendaItem
         {
-            IdReunion = Id,
-            Tipo = TipoAgendaItem.Informativo,
-            TipoVotacion = TipoVotacionAgenda.Nominal,
-            TipoMayoria = TipoMayoria.Simple
+            IdMeeting = Id,
+            Tipo = AgendaItemType.Informativo,
+            VotingType = AgendaVotingType.Nominal,
+            MajorityType = MajorityType.Simple
         };
         _errorAgenda = null;
         _showAgendaModal = true;
@@ -616,7 +616,7 @@
 
         try
         {
-            await ReunionService.AgregarAgendaItemAsync(_nuevoPunto);
+            await MeetingService.AgregarAgendaItemAsync(_nuevoPunto);
             _showAgendaModal = false;
             await CargarAsync();
         }
@@ -630,7 +630,7 @@
     {
         try
         {
-            await ReunionService.EliminarAgendaItemAsync(idAgendaItem);
+            await MeetingService.EliminarAgendaItemAsync(idAgendaItem);
             await CargarAsync();
         }
         catch (InvalidOperationException ex)
@@ -644,7 +644,7 @@
     {
         try
         {
-            await ReunionService.MarcarAgendaItemEstadoAsync(idAgendaItem, EstadoAgendaItem.Informado);
+            await MeetingService.MarcarAgendaItemEstadoAsync(idAgendaItem, AgendaItemStatus.Informado);
             await CargarAsync();
         }
         catch (InvalidOperationException ex)
@@ -666,7 +666,7 @@
     private async Task ConfirmarSegundaConvocatoria()
     {
         _errorSegunda = null;
-        var resultado = await ReunionService.CrearSegundaConvocatoriaAsync(Id, _segundaFecha, _segundaQuorum, _segundaLugar);
+        var resultado = await MeetingService.CrearSegundaConvocatoriaAsync(Id, _segundaFecha, _segundaQuorum, _segundaLugar);
         if (!resultado.Exito)
         {
             _errorSegunda = resultado.Mensaje;
@@ -674,29 +674,29 @@
         }
 
         _showSegundaModal = false;
-        Navigation.NavigateTo($"/gobernanza/reuniones/{resultado.IdReunion}");
+        Navigation.NavigateTo($"/governance/meetings/{resultado.IdMeeting}");
     }
 
-    private async Task AbrirVotacion(AgendaItem item)
+    private async Task AbrirVotingRound(AgendaItem item)
     {
         _votacionItem = item;
-        _mensajeVotacion = null;
-        _votaciones = await ReunionService.GetVotacionesAsync(item.IdAgendaItem);
-        _showVotacionModal = true;
+        _mensajeVotingRound = null;
+        _votaciones = await MeetingService.GetVotingRoundsAsync(item.IdAgendaItem);
+        _showVotingRoundModal = true;
     }
 
-    private async Task IniciarVotacion()
+    private async Task IniciarVotingRound()
     {
         if (_votacionItem == null) return;
         try
         {
-            await ReunionService.IniciarVotacionAsync(_votacionItem.IdAgendaItem, _currentUser.IdUser);
-            _votaciones = await ReunionService.GetVotacionesAsync(_votacionItem.IdAgendaItem);
+            await MeetingService.IniciarVotingRoundAsync(_votacionItem.IdAgendaItem, _currentUser.IdUser);
+            _votaciones = await MeetingService.GetVotingRoundsAsync(_votacionItem.IdAgendaItem);
         }
         catch (InvalidOperationException ex)
         {
-            _mensajeVotacion = ex.Message;
-            _mensajeVotacionEsError = true;
+            _mensajeVotingRound = ex.Message;
+            _mensajeVotingRoundEsError = true;
         }
     }
 
@@ -705,97 +705,97 @@
         if (_votacionItem == null) return;
         try
         {
-            await ReunionService.MarcarAgendaItemEstadoAsync(_votacionItem.IdAgendaItem, EstadoAgendaItem.Rechazado);
-            _mensajeVotacion = "Punto rechazado -- no se abrirán más rondas.";
-            _mensajeVotacionEsError = false;
+            await MeetingService.MarcarAgendaItemEstadoAsync(_votacionItem.IdAgendaItem, AgendaItemStatus.Rechazado);
+            _mensajeVotingRound = "Punto rechazado -- no se abrirán más rondas.";
+            _mensajeVotingRoundEsError = false;
             await CargarAsync();
             _votacionItem = _reunion?.Agenda.FirstOrDefault(a => a.IdAgendaItem == _votacionItem.IdAgendaItem) ?? _votacionItem;
         }
         catch (InvalidOperationException ex)
         {
-            _mensajeVotacion = ex.Message;
-            _mensajeVotacionEsError = true;
+            _mensajeVotingRound = ex.Message;
+            _mensajeVotingRoundEsError = true;
         }
     }
 
-    private async Task RegistrarVoto(Guid idVotacion, Guid idGroupUnit, string? opcionTexto)
+    private async Task RegistrarVote(Guid idVotingRound, Guid idGroupUnit, string? opcionTexto)
     {
         if (_votacionItem == null || string.IsNullOrEmpty(opcionTexto)) return;
-        var opcion = Enum.Parse<OpcionVoto>(opcionTexto);
+        var opcion = Enum.Parse<VoteOption>(opcionTexto);
         try
         {
-            await ReunionService.RegistrarVotoAsync(idVotacion, idGroupUnit, opcion, _currentUser.IdUser);
-            _votaciones = await ReunionService.GetVotacionesAsync(_votacionItem.IdAgendaItem);
+            await MeetingService.RegistrarVoteAsync(idVotingRound, idGroupUnit, opcion, _currentUser.IdUser);
+            _votaciones = await MeetingService.GetVotingRoundsAsync(_votacionItem.IdAgendaItem);
         }
         catch (InvalidOperationException ex)
         {
-            _mensajeVotacion = ex.Message;
-            _mensajeVotacionEsError = true;
+            _mensajeVotingRound = ex.Message;
+            _mensajeVotingRoundEsError = true;
         }
     }
 
-    private async Task CerrarVotacion(Guid idVotacion)
+    private async Task CerrarVotingRound(Guid idVotingRound)
     {
         if (_votacionItem == null) return;
-        var resultado = await ReunionService.CerrarVotacionAsync(idVotacion);
-        _mensajeVotacion = resultado.Mensaje;
-        _mensajeVotacionEsError = !resultado.Exito;
-        _votaciones = await ReunionService.GetVotacionesAsync(_votacionItem.IdAgendaItem);
+        var resultado = await MeetingService.CerrarVotingRoundAsync(idVotingRound);
+        _mensajeVotingRound = resultado.Mensaje;
+        _mensajeVotingRoundEsError = !resultado.Exito;
+        _votaciones = await MeetingService.GetVotingRoundsAsync(_votacionItem.IdAgendaItem);
         await CargarAsync();
         _votacionItem = _reunion?.Agenda.FirstOrDefault(a => a.IdAgendaItem == _votacionItem.IdAgendaItem) ?? _votacionItem;
     }
 
-    private static string TraducirOpcion(OpcionVoto opcion) => opcion switch
+    private static string TraducirOpcion(VoteOption opcion) => opcion switch
     {
-        OpcionVoto.AFavor => "A favor",
-        OpcionVoto.EnContra => "En contra",
-        OpcionVoto.Abstencion => "Abstención",
+        VoteOption.AFavor => "A favor",
+        VoteOption.EnContra => "En contra",
+        VoteOption.Abstencion => "Abstención",
         _ => opcion.ToString()
     };
 
-    private static string TraducirEstado(EstadoReunion estado) => estado switch
+    private static string TraducirEstado(MeetingStatus estado) => estado switch
     {
-        EstadoReunion.Convocada => "Convocada",
-        EstadoReunion.EnCurso => "En Curso",
-        EstadoReunion.QuorumNoAlcanzado => "Quórum No Alcanzado",
-        EstadoReunion.Finalizada => "Finalizada",
-        EstadoReunion.Cancelada => "Cancelada",
+        MeetingStatus.Convocada => "Convocada",
+        MeetingStatus.EnCurso => "En Curso",
+        MeetingStatus.QuorumNoAlcanzado => "Quórum No Alcanzado",
+        MeetingStatus.Finalizada => "Finalizada",
+        MeetingStatus.Cancelada => "Cancelada",
         _ => estado.ToString()
     };
 
-    private static string BadgeClase(EstadoReunion estado) => estado switch
+    private static string BadgeClase(MeetingStatus estado) => estado switch
     {
-        EstadoReunion.Convocada => "bg-primary",
-        EstadoReunion.EnCurso => "bg-success",
-        EstadoReunion.QuorumNoAlcanzado => "bg-warning text-dark",
-        EstadoReunion.Finalizada => "bg-secondary",
-        EstadoReunion.Cancelada => "bg-danger",
+        MeetingStatus.Convocada => "bg-primary",
+        MeetingStatus.EnCurso => "bg-success",
+        MeetingStatus.QuorumNoAlcanzado => "bg-warning text-dark",
+        MeetingStatus.Finalizada => "bg-secondary",
+        MeetingStatus.Cancelada => "bg-danger",
         _ => "bg-secondary"
     };
 
-    private static string TraducirEstadoAgenda(EstadoAgendaItem estado) => estado switch
+    private static string TraducirEstadoAgenda(AgendaItemStatus estado) => estado switch
     {
-        EstadoAgendaItem.Pendiente => "Pendiente",
-        EstadoAgendaItem.Informado => "Informado",
-        EstadoAgendaItem.Aprobado => "Aprobado",
-        EstadoAgendaItem.Rechazado => "Rechazado",
+        AgendaItemStatus.Pendiente => "Pendiente",
+        AgendaItemStatus.Informado => "Informado",
+        AgendaItemStatus.Aprobado => "Aprobado",
+        AgendaItemStatus.Rechazado => "Rechazado",
         _ => estado.ToString()
     };
 
-    private static string BadgeAgendaClase(EstadoAgendaItem estado) => estado switch
+    private static string BadgeAgendaClase(AgendaItemStatus estado) => estado switch
     {
-        EstadoAgendaItem.Pendiente => "bg-light text-dark border",
-        EstadoAgendaItem.Informado => "bg-info text-dark",
-        EstadoAgendaItem.Aprobado => "bg-success",
-        EstadoAgendaItem.Rechazado => "bg-danger",
+        AgendaItemStatus.Pendiente => "bg-light text-dark border",
+        AgendaItemStatus.Informado => "bg-info text-dark",
+        AgendaItemStatus.Aprobado => "bg-success",
+        AgendaItemStatus.Rechazado => "bg-danger",
         _ => "bg-secondary"
     };
 
-    private static string TraducirMayoria(TipoMayoria? tipo) => tipo switch
+    private static string TraducirMayoria(MajorityType? tipo) => tipo switch
     {
-        TipoMayoria.Simple => "Mayoría simple",
-        TipoMayoria.Calificada => "Mayoría calificada",
-        TipoMayoria.Legal75 => "75% legal",
+        MajorityType.Simple => "Mayoría simple",
+        MajorityType.Calificada => "Mayoría calificada",
+        MajorityType.Legal75 => "75% legal",
         _ => "--"
     };
 }

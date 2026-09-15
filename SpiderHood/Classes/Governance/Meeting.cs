@@ -3,13 +3,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SpiderHood.Models
 {
-    // Docs/Pendientes-Negocio-Consolidado.md #21, "Gobernanza -- Reuniones,
-    // Votación y Actas como un solo flujo" -- diseño cerrado 2026-09-11.
-    // Fase 1 (esta): Convocatoria + Agenda + Asistencia + Quórum + Segunda
-    // Convocatoria. Votación (Fase 2) y Actas (Fase 3) se construyen sobre
+    // Docs/Pendientes-Negocio-Consolidado.md #21, "Gobernanza -- Meetings,
+    // Votación y MeetingMinutes como un solo flujo" -- diseño cerrado 2026-09-11.
+    // Fase 1 (esta): Convocatoria + Agenda + Attendance + Quórum + Segunda
+    // Convocatoria. Votación (Fase 2) y MeetingMinutes (Fase 3) se construyen sobre
     // esta base -- por eso los puntos "Sujeto a Votación" quedan en
     // Estado=Pendiente hasta que exista la mecánica de voto.
-    public enum EstadoReunion
+    public enum MeetingStatus
     {
         Convocada = 1,
         EnCurso = 2,
@@ -18,26 +18,26 @@ namespace SpiderHood.Models
         Cancelada = 5
     }
 
-    public enum TipoReunion
+    public enum MeetingType
     {
         Ordinaria = 1,
         Extraordinaria = 2
     }
 
-    public enum ModalidadReunion
+    public enum MeetingModality
     {
         Presencial = 1,
         Virtual = 2,
         Hibrida = 3
     }
 
-    public enum TipoAgendaItem
+    public enum AgendaItemType
     {
         Informativo = 1,
         SujetoAVotacion = 2
     }
 
-    public enum TipoVotacionAgenda
+    public enum AgendaVotingType
     {
         Nominal = 1,
         Secreta = 2
@@ -46,14 +46,14 @@ namespace SpiderHood.Models
     // Legal75 = el 75% fijado por el Art. 14.1 del D.L. 1568 para
     // desafectar bienes comunes -- no configurable. Simple/Calificada
     // quedan delegados al Reglamento Interno de cada edificio.
-    public enum TipoMayoria
+    public enum MajorityType
     {
         Simple = 1,
         Calificada = 2,
         Legal75 = 3
     }
 
-    public enum EstadoAgendaItem
+    public enum AgendaItemStatus
     {
         Pendiente = 1,
         Informado = 2,
@@ -61,71 +61,71 @@ namespace SpiderHood.Models
         Rechazado = 4
     }
 
-    public class Reunion
+    public class Meeting
     {
-        public Guid IdReunion { get; set; }
+        public Guid IdMeeting { get; set; }
         public Guid IdBuilding { get; set; }
-        public TipoReunion Tipo { get; set; }
+        public MeetingType Tipo { get; set; }
         public string Titulo { get; set; } = string.Empty;
         public DateTime FechaConvocatoria { get; set; }
-        public DateTime FechaReunion { get; set; }
-        public ModalidadReunion Modalidad { get; set; }
+        public DateTime FechaMeeting { get; set; }
+        public MeetingModality Modalidad { get; set; }
         public string? LugarOVinculo { get; set; }
 
         [Precision(9, 6)] public decimal QuorumRequerido { get; set; }
         [Precision(9, 6)] public decimal? QuorumAlcanzado { get; set; }
 
-        public EstadoReunion Estado { get; set; }
-        public Guid? IdReunionOrigen { get; set; }
+        public MeetingStatus Estado { get; set; }
+        public Guid? IdMeetingOrigen { get; set; }
         public Guid? IdCalendarItem { get; set; }
 
         public Guid CreatedBy { get; set; }
         public DateTime CreatedOn { get; set; }
         public DateTime? UpdatedOn { get; set; }
 
-        // Resuelto por el JOIN de GET_Reuniones* -- sólo lectura.
+        // Resuelto por el JOIN de GET_Meetings* -- sólo lectura.
         public string CreatedByName { get; set; } = string.Empty;
 
-        // Poblados del lado C# al componer una Reunion completa (ver
-        // IReunionService.GetReunionByIdAsync) -- no vienen de GET_ReunionById.
+        // Poblados del lado C# al componer una Meeting completa (ver
+        // IMeetingService.GetMeetingByIdAsync) -- no vienen de GET_MeetingById.
         [NotMapped] public List<AgendaItem> Agenda { get; set; } = new();
-        [NotMapped] public List<Asistencia> Asistentes { get; set; } = new();
+        [NotMapped] public List<Attendance> Asistentes { get; set; } = new();
     }
 
     public class AgendaItem
     {
         public Guid IdAgendaItem { get; set; }
-        public Guid IdReunion { get; set; }
+        public Guid IdMeeting { get; set; }
         public int Orden { get; set; }
         public string Titulo { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
-        public TipoAgendaItem Tipo { get; set; }
-        public TipoVotacionAgenda? TipoVotacion { get; set; }
-        public TipoMayoria? TipoMayoria { get; set; }
+        public AgendaItemType Tipo { get; set; }
+        public AgendaVotingType? VotingType { get; set; }
+        public MajorityType? MajorityType { get; set; }
         [Precision(9, 6)] public decimal? PorcentajeMayoriaCalificada { get; set; }
         public bool PermiteRevotacion { get; set; }
-        public EstadoAgendaItem Estado { get; set; }
+        public AgendaItemStatus Estado { get; set; }
         public DateTime CreatedOn { get; set; }
     }
 
-    public class Asistencia
+    public class Attendance
     {
-        public Guid IdAsistencia { get; set; }
-        public Guid IdReunion { get; set; }
+        public Guid IdAttendance { get; set; }
+        public Guid IdMeeting { get; set; }
         public Guid IdGroupUnit { get; set; }
         [Precision(9, 6)] public decimal Alicuota { get; set; }
         public Guid RegistradoPor { get; set; }
         public DateTime FechaRegistro { get; set; }
 
         // Resuelto del lado C# (roster de OwnerUnitView) -- sólo lectura, no
-        // viene de GET_AsistenciasByReunion.
+        // viene de GET_AttendancesByMeeting.
         [NotMapped] public string NombreUnidad { get; set; } = string.Empty;
     }
 
     // Roster de unidades de un edificio con su alícuota ya calculada -- lo
-    // que consume la pantalla de "Registrar Asistencia" para elegir a
+    // que consume la pantalla de "Registrar Attendance" para elegir a
     // quién marcar presente.
-    public class UnidadConAlicuota
+    public class UnitWithShare
     {
         public Guid IdGroupUnit { get; set; }
         public string NombreUnidad { get; set; } = string.Empty;
@@ -133,14 +133,14 @@ namespace SpiderHood.Models
         public bool Presente { get; set; }
     }
 
-    public class ConvocarReunionResultado
+    public class ConvokeMeetingResult
     {
         public bool Exito { get; set; }
         public string Mensaje { get; set; } = string.Empty;
-        public Guid IdReunion { get; set; }
+        public Guid IdMeeting { get; set; }
     }
 
-    public class IniciarReunionResultado
+    public class StartMeetingResult
     {
         public bool Exito { get; set; }
         public string Mensaje { get; set; } = string.Empty;

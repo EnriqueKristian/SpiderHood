@@ -298,7 +298,7 @@ namespace SpiderHood.Data
             }, "DeleteHolidayConfiguration", cancellationToken);
         }
 
-        // Gobernanza / Reuniones -- Fase 1
+        // Gobernanza / Meetings -- Fase 1
         public async Task<bool> DeleteAgendaItemAsync(Guid idAgendaItem, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
@@ -308,23 +308,23 @@ namespace SpiderHood.Data
             }, "DeleteAgendaItem", cancellationToken);
         }
 
-        public async Task<bool> DeleteAsistenciaAsync(Guid idReunion, Guid idGroupUnit, CancellationToken cancellationToken = default)
+        public async Task<bool> DeleteAttendanceAsync(Guid idMeeting, Guid idGroupUnit, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Asistencia, cancellationToken, idReunion, idGroupUnit);
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Attendance, cancellationToken, idMeeting, idGroupUnit);
                 return true;
-            }, "DeleteAsistencia", cancellationToken);
+            }, "DeleteAttendance", cancellationToken);
         }
 
         // Gobernanza / Votación -- Fase 2
-        public async Task<bool> DeleteVotoAsync(Guid idVotacion, Guid idGroupUnit, CancellationToken cancellationToken = default)
+        public async Task<bool> DeleteVoteAsync(Guid idVotingRound, Guid idGroupUnit, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Voto, cancellationToken, idVotacion, idGroupUnit);
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Vote, cancellationToken, idVotingRound, idGroupUnit);
                 return true;
-            }, "DeleteVoto", cancellationToken);
+            }, "DeleteVote", cancellationToken);
         }
         #endregion
     }

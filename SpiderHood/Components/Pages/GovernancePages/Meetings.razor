@@ -1,8 +1,8 @@
-@page "/gobernanza/reuniones"
+@page "/governance/meetings"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IReunionService ReunionService
+@inject IMeetingService MeetingService
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
 @inject NavigationManager Navigation
@@ -53,10 +53,10 @@
                     <tbody>
                         @foreach (var r in _reuniones)
                         {
-                            <tr style="cursor:pointer" @onclick="() => VerDetalle(r.IdReunion)">
-                                <td>@r.Titulo @if (r.IdReunionOrigen != null) { <span class="badge bg-secondary ms-1">2da Convocatoria</span> }</td>
-                                <td>@(r.Tipo == TipoReunion.Ordinaria ? "Ordinaria" : "Extraordinaria")</td>
-                                <td>@r.FechaReunion.ToString("dd/MM/yyyy HH:mm")</td>
+                            <tr style="cursor:pointer" @onclick="() => VerDetalle(r.IdMeeting)">
+                                <td>@r.Titulo @if (r.IdMeetingOrigen != null) { <span class="badge bg-secondary ms-1">2da Convocatoria</span> }</td>
+                                <td>@(r.Tipo == MeetingType.Ordinaria ? "Ordinaria" : "Extraordinaria")</td>
+                                <td>@r.FechaMeeting.ToString("dd/MM/yyyy HH:mm")</td>
                                 <td>@r.Modalidad</td>
                                 <td>@r.QuorumRequerido.ToString("0.##")% @if (r.QuorumAlcanzado != null) { <span class="text-muted">(@r.QuorumAlcanzado.Value.ToString("0.##")% asistió)</span> }</td>
                                 <td><span class="badge @BadgeClase(r.Estado)">@TraducirEstado(r.Estado)</span></td>
@@ -88,22 +88,22 @@
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Tipo</label>
                             <select class="form-select" @bind="_form.Tipo">
-                                <option value="@TipoReunion.Ordinaria">Ordinaria</option>
-                                <option value="@TipoReunion.Extraordinaria">Extraordinaria</option>
+                                <option value="@MeetingType.Ordinaria">Ordinaria</option>
+                                <option value="@MeetingType.Extraordinaria">Extraordinaria</option>
                             </select>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Fecha y hora de la reunión</label>
-                            <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="_form.FechaReunion" />
+                            <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="_form.FechaMeeting" />
                         </div>
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Modalidad</label>
                             <select class="form-select" @bind="_form.Modalidad">
-                                <option value="@ModalidadReunion.Presencial">Presencial</option>
-                                <option value="@ModalidadReunion.Virtual">Virtual</option>
-                                <option value="@ModalidadReunion.Hibrida">Híbrida</option>
+                                <option value="@MeetingModality.Presencial">Presencial</option>
+                                <option value="@MeetingModality.Virtual">Virtual</option>
+                                <option value="@MeetingModality.Hibrida">Híbrida</option>
                             </select>
                         </div>
                     </div>
@@ -136,19 +136,19 @@
                                         <textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Descripción (opcional)" @bind="_agenda[idx].Descripcion"></textarea>
                                         <div class="d-flex gap-2 align-items-center flex-wrap">
                                             <select class="form-select form-select-sm" style="width:auto" @bind="_agenda[idx].Tipo">
-                                                <option value="@TipoAgendaItem.Informativo">Informativo</option>
-                                                <option value="@TipoAgendaItem.SujetoAVotacion">Sujeto a Votación</option>
+                                                <option value="@AgendaItemType.Informativo">Informativo</option>
+                                                <option value="@AgendaItemType.SujetoAVotacion">Sujeto a Votación</option>
                                             </select>
-                                            @if (_agenda[idx].Tipo == TipoAgendaItem.SujetoAVotacion)
+                                            @if (_agenda[idx].Tipo == AgendaItemType.SujetoAVotacion)
                                             {
-                                                <select class="form-select form-select-sm" style="width:auto" @bind="_agenda[idx].TipoVotacion">
-                                                    <option value="@TipoVotacionAgenda.Nominal">Nominal</option>
-                                                    <option value="@TipoVotacionAgenda.Secreta">Secreta</option>
+                                                <select class="form-select form-select-sm" style="width:auto" @bind="_agenda[idx].VotingType">
+                                                    <option value="@AgendaVotingType.Nominal">Nominal</option>
+                                                    <option value="@AgendaVotingType.Secreta">Secreta</option>
                                                 </select>
-                                                <select class="form-select form-select-sm" style="width:auto" @bind="_agenda[idx].TipoMayoria">
-                                                    <option value="@TipoMayoria.Simple">Mayoría simple</option>
-                                                    <option value="@TipoMayoria.Calificada">Mayoría calificada</option>
-                                                    <option value="@TipoMayoria.Legal75">75% legal</option>
+                                                <select class="form-select form-select-sm" style="width:auto" @bind="_agenda[idx].MajorityType">
+                                                    <option value="@MajorityType.Simple">Mayoría simple</option>
+                                                    <option value="@MajorityType.Calificada">Mayoría calificada</option>
+                                                    <option value="@MajorityType.Legal75">75% legal</option>
                                                 </select>
                                                 <div class="form-check form-switch mb-0">
                                                     <input class="form-check-input" type="checkbox" @bind="_agenda[idx].PermiteRevotacion" id="chkRevotacion@(idx)" />
@@ -188,32 +188,32 @@
     private bool _loading = true;
     private bool _puedeGestionar;
 
-    private List<Reunion> _reuniones = new();
+    private List<Meeting> _reuniones = new();
 
     private bool _showModal;
-    private Reunion _form = new();
+    private Meeting _form = new();
     private List<AgendaItem> _agenda = new();
     private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
         _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
-        _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_reuniones");
+        _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_meetings");
 
         if (_currentUser.CurrentBuildingId != Guid.Empty)
-            _reuniones = await ReunionService.GetReunionesAsync(_currentUser.CurrentBuildingId);
+            _reuniones = await MeetingService.GetMeetingsAsync(_currentUser.CurrentBuildingId);
 
         _loading = false;
     }
 
     private void AbrirConvocatoria()
     {
-        _form = new Reunion
+        _form = new Meeting
         {
             IdBuilding = _currentUser.CurrentBuildingId,
-            Tipo = TipoReunion.Ordinaria,
-            FechaReunion = DateTime.Today.AddDays(15).AddHours(19),
-            Modalidad = ModalidadReunion.Presencial,
+            Tipo = MeetingType.Ordinaria,
+            FechaMeeting = DateTime.Today.AddDays(15).AddHours(19),
+            Modalidad = MeetingModality.Presencial,
             QuorumRequerido = 50m,
             CreatedBy = _currentUser.IdUser
         };
@@ -224,7 +224,7 @@
 
     private void AgregarPuntoAgenda() => _agenda.Add(NuevoPuntoAgenda());
 
-    // TipoVotacion/TipoMayoria arrancan en el primer valor de cada <select>
+    // VotingType/MajorityType arrancan en el primer valor de cada <select>
     // (Nominal / Mayoría simple) en vez de null -- si se dejan en null y el
     // usuario cambia el Tipo a "Sujeto a Votación" sin tocar esos otros dos
     // combos, el <select> se ve mostrando "Nominal"/"Mayoría simple" (así
@@ -233,9 +233,9 @@
     // votación ni mayoría real, aunque la UI decía otra cosa.
     private static AgendaItem NuevoPuntoAgenda() => new()
     {
-        Tipo = TipoAgendaItem.Informativo,
-        TipoVotacion = TipoVotacionAgenda.Nominal,
-        TipoMayoria = TipoMayoria.Simple
+        Tipo = AgendaItemType.Informativo,
+        VotingType = AgendaVotingType.Nominal,
+        MajorityType = MajorityType.Simple
     };
 
     private async Task Convocar()
@@ -254,7 +254,7 @@
         }
 
         _form.FechaConvocatoria = DateTime.UtcNow;
-        var resultado = await ReunionService.ConvocarAsync(_form, _agenda);
+        var resultado = await MeetingService.ConvocarAsync(_form, _agenda);
         if (!resultado.Exito)
         {
             _error = resultado.Mensaje;
@@ -262,28 +262,28 @@
         }
 
         _showModal = false;
-        Navigation.NavigateTo($"/gobernanza/reuniones/{resultado.IdReunion}");
+        Navigation.NavigateTo($"/governance/meetings/{resultado.IdMeeting}");
     }
 
-    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/gobernanza/reuniones/{id}");
+    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/governance/meetings/{id}");
 
-    private static string TraducirEstado(EstadoReunion estado) => estado switch
+    private static string TraducirEstado(MeetingStatus estado) => estado switch
     {
-        EstadoReunion.Convocada => "Convocada",
-        EstadoReunion.EnCurso => "En Curso",
-        EstadoReunion.QuorumNoAlcanzado => "Quórum No Alcanzado",
-        EstadoReunion.Finalizada => "Finalizada",
-        EstadoReunion.Cancelada => "Cancelada",
+        MeetingStatus.Convocada => "Convocada",
+        MeetingStatus.EnCurso => "En Curso",
+        MeetingStatus.QuorumNoAlcanzado => "Quórum No Alcanzado",
+        MeetingStatus.Finalizada => "Finalizada",
+        MeetingStatus.Cancelada => "Cancelada",
         _ => estado.ToString()
     };
 
-    private static string BadgeClase(EstadoReunion estado) => estado switch
+    private static string BadgeClase(MeetingStatus estado) => estado switch
     {
-        EstadoReunion.Convocada => "bg-primary",
-        EstadoReunion.EnCurso => "bg-success",
-        EstadoReunion.QuorumNoAlcanzado => "bg-warning text-dark",
-        EstadoReunion.Finalizada => "bg-secondary",
-        EstadoReunion.Cancelada => "bg-danger",
+        MeetingStatus.Convocada => "bg-primary",
+        MeetingStatus.EnCurso => "bg-success",
+        MeetingStatus.QuorumNoAlcanzado => "bg-warning text-dark",
+        MeetingStatus.Finalizada => "bg-secondary",
+        MeetingStatus.Cancelada => "bg-danger",
         _ => "bg-secondary"
     };
 }

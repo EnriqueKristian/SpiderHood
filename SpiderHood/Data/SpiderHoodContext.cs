@@ -119,12 +119,12 @@ namespace SpiderHood.Data
 
             // Docs/Pendientes-Negocio-Consolidado.md #21, Gobernanza Fase 1 --
             // mismo motivo: Tipo/Modalidad/Estado son columnas INT en la BD.
-            modelBuilder.Entity<Models.Reunion>().HasNoKey();
+            modelBuilder.Entity<Models.Meeting>().HasNoKey();
             modelBuilder.Entity<Models.AgendaItem>().HasNoKey();
-            modelBuilder.Entity<Models.Asistencia>().HasNoKey();
-            modelBuilder.Entity<Models.Votacion>().HasNoKey();
-            modelBuilder.Entity<Models.Voto>().HasNoKey();
-            modelBuilder.Entity<Models.Acta>().HasNoKey();
+            modelBuilder.Entity<Models.Attendance>().HasNoKey();
+            modelBuilder.Entity<Models.VotingRound>().HasNoKey();
+            modelBuilder.Entity<Models.Vote>().HasNoKey();
+            modelBuilder.Entity<Models.MeetingMinutes>().HasNoKey();
 
             // Type/Category/Status/Recurrence son enums de C# pero se guardan como texto
             // en la BD -- mismo motivo que Incident arriba.

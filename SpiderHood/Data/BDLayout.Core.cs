@@ -331,36 +331,36 @@ namespace SpiderHood.Data
             public const string INS_IngresoComunidad = "INS_IngresoComunidad";
             public const string GET_IngresosComunidadByBuilding = "GET_IngresosComunidadByBuilding";
 
-            // Gobernanza / Reuniones Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21, Fase 1
-            public const string INS_Reunion = "INS_Reunion";
-            public const string UPD_Reunion = "UPD_Reunion";
-            public const string UPD_ReunionEstado = "UPD_ReunionEstado";
-            public const string GET_ReunionesByBuilding = "GET_ReunionesByBuilding";
-            public const string GET_ReunionById = "GET_ReunionById";
+            // Gobernanza / Meetings Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21, Fase 1
+            public const string INS_Meeting = "INS_Meeting";
+            public const string UPD_Meeting = "UPD_Meeting";
+            public const string UPD_MeetingEstado = "UPD_MeetingEstado";
+            public const string GET_MeetingsByBuilding = "GET_MeetingsByBuilding";
+            public const string GET_MeetingById = "GET_MeetingById";
             public const string INS_AgendaItem = "INS_AgendaItem";
             public const string UPD_AgendaItem = "UPD_AgendaItem";
             public const string UPD_AgendaItemEstado = "UPD_AgendaItemEstado";
-            public const string GET_AgendaItemsByReunion = "GET_AgendaItemsByReunion";
+            public const string GET_AgendaItemsByMeeting = "GET_AgendaItemsByMeeting";
             public const string GET_AgendaItemById = "GET_AgendaItemById";
             public const string DEL_AgendaItem = "DEL_AgendaItem";
-            public const string INS_Asistencia = "INS_Asistencia";
-            public const string GET_AsistenciasByReunion = "GET_AsistenciasByReunion";
-            public const string DEL_Asistencia = "DEL_Asistencia";
+            public const string INS_Attendance = "INS_Attendance";
+            public const string GET_AttendancesByMeeting = "GET_AttendancesByMeeting";
+            public const string DEL_Attendance = "DEL_Attendance";
 
             // Gobernanza / Votación Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21, Fase 2
-            public const string INS_Votacion = "INS_Votacion";
-            public const string UPD_VotacionCierre = "UPD_VotacionCierre";
-            public const string GET_VotacionesByAgendaItem = "GET_VotacionesByAgendaItem";
-            public const string GET_VotacionById = "GET_VotacionById";
-            public const string INS_Voto = "INS_Voto";
-            public const string DEL_Voto = "DEL_Voto";
-            public const string GET_VotosByVotacion = "GET_VotosByVotacion";
+            public const string INS_VotingRound = "INS_VotingRound";
+            public const string UPD_VotingRoundCierre = "UPD_VotingRoundCierre";
+            public const string GET_VotingRoundsByAgendaItem = "GET_VotingRoundsByAgendaItem";
+            public const string GET_VotingRoundById = "GET_VotingRoundById";
+            public const string INS_Vote = "INS_Vote";
+            public const string DEL_Vote = "DEL_Vote";
+            public const string GET_VotesByVotingRound = "GET_VotesByVotingRound";
 
-            // Gobernanza / Actas Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21, Fase 3
-            public const string INS_Acta = "INS_Acta";
-            public const string UPD_ActaContenido = "UPD_ActaContenido";
-            public const string UPD_ActaFirma = "UPD_ActaFirma";
-            public const string GET_ActaByReunion = "GET_ActaByReunion";
+            // Gobernanza / MeetingMinutes Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21, Fase 3
+            public const string INS_MeetingMinutes = "INS_MeetingMinutes";
+            public const string UPD_MeetingMinutesContenido = "UPD_MeetingMinutesContenido";
+            public const string UPD_MeetingMinutesFirma = "UPD_MeetingMinutesFirma";
+            public const string GET_MeetingMinutesByMeeting = "GET_MeetingMinutesByMeeting";
 
             // Calendar Procedures
             public const string INS_CalendarItem = "INS_CalendarItem";

@@ -1,8 +1,8 @@
-@page "/gobernanza/reuniones/{Id:guid}/acta"
+@page "/governance/meetings/{Id:guid}/minutes"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
-@inject IReunionService ReunionService
+@inject IMeetingService MeetingService
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
 @inject NavigationManager Navigation
@@ -28,13 +28,13 @@
                 <button class="btn btn-sm btn-outline-secondary me-3" @onclick="Volver"><i class="bi bi-arrow-left"></i></button>
                 <div>
                     <h1 class="h4 fw-bold mb-0">Acta -- @_reunion.Titulo</h1>
-                    <div class="text-muted small">@_reunion.FechaReunion.ToString("dd/MM/yyyy HH:mm")</div>
+                    <div class="text-muted small">@_reunion.FechaMeeting.ToString("dd/MM/yyyy HH:mm")</div>
                 </div>
             </div>
             @if (_acta != null)
             {
-                <span class="badge @(_acta.Estado == EstadoActa.Firmada ? "bg-success" : "bg-warning text-dark") fs-6">
-                    @(_acta.Estado == EstadoActa.Firmada ? "Firmada" : "Borrador")
+                <span class="badge @(_acta.Estado == MeetingMinutesStatus.Firmada ? "bg-success" : "bg-warning text-dark") fs-6">
+                    @(_acta.Estado == MeetingMinutesStatus.Firmada ? "Firmada" : "Borrador")
                 </span>
             }
         </div>
@@ -44,7 +44,7 @@
             <div class="alert @(_mensajeEsError ? "alert-danger" : "alert-success")">@_mensaje</div>
         }
 
-        @if (_reunion.Estado != EstadoReunion.Finalizada && _reunion.Estado != EstadoReunion.QuorumNoAlcanzado)
+        @if (_reunion.Estado != MeetingStatus.Finalizada && _reunion.Estado != MeetingStatus.QuorumNoAlcanzado)
         {
             <div class="alert alert-info">El Acta está disponible una vez que la reunión Finaliza o queda en Quórum No Alcanzado. Estado actual: <strong>@_reunion.Estado</strong>.</div>
         }
@@ -68,7 +68,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span>Contenido</span>
                     <div class="d-flex gap-2">
-                        @if (_puedeGestionar && _acta.Estado == EstadoActa.Borrador)
+                        @if (_puedeGestionar && _acta.Estado == MeetingMinutesStatus.Borrador)
                         {
                             <button class="btn btn-sm btn-outline-secondary" @onclick="GenerarBorrador">
                                 <i class="bi bi-arrow-clockwise me-1"></i>Regenerar
@@ -89,7 +89,7 @@
                 <div class="card-body">
                     <pre style="white-space: pre-wrap; font-family: inherit; font-size: 0.9rem;">@_acta.ContenidoGenerado</pre>
 
-                    @if (_acta.Estado == EstadoActa.Firmada)
+                    @if (_acta.Estado == MeetingMinutesStatus.Firmada)
                     {
                         <div class="row mt-4 pt-3 border-top">
                             <div class="col-6 text-center">
@@ -151,8 +151,8 @@
     private UserSession _currentUser = new();
     private bool _loading = true;
     private bool _puedeGestionar;
-    private Reunion? _reunion;
-    private Acta? _acta;
+    private Meeting? _reunion;
+    private MeetingMinutes? _acta;
     private string? _mensaje;
     private bool _mensajeEsError;
     private bool _descargando;
@@ -165,26 +165,26 @@
     protected override async Task OnInitializedAsync()
     {
         _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
-        _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_reuniones");
+        _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_meetings");
         await CargarAsync();
         _loading = false;
     }
 
     private async Task CargarAsync()
     {
-        _reunion = await ReunionService.GetReunionByIdAsync(Id);
+        _reunion = await MeetingService.GetMeetingByIdAsync(Id);
         if (_reunion != null)
-            _acta = await ReunionService.GetActaAsync(Id);
+            _acta = await MeetingService.GetMeetingMinutesAsync(Id);
     }
 
-    private void Volver() => Navigation.NavigateTo($"/gobernanza/reuniones/{Id}");
+    private void Volver() => Navigation.NavigateTo($"/governance/meetings/{Id}");
 
     private async Task GenerarBorrador()
     {
         _mensaje = null;
         try
         {
-            _acta = await ReunionService.GenerarBorradorActaAsync(Id, _currentUser.IdUser);
+            _acta = await MeetingService.GenerarBorradorMeetingMinutesAsync(Id, _currentUser.IdUser);
         }
         catch (InvalidOperationException ex)
         {
@@ -212,7 +212,7 @@
 
         try
         {
-            await ReunionService.FirmarActaAsync(Id, _nombrePresidente.Trim(), _nombreSecretario.Trim());
+            await MeetingService.FirmarMeetingMinutesAsync(Id, _nombrePresidente.Trim(), _nombreSecretario.Trim());
             _showFirmarModal = false;
             _mensaje = "Acta firmada -- queda inmutable.";
             _mensajeEsError = false;
@@ -231,11 +231,11 @@
         _descargando = true;
         try
         {
-            var exportService = new ActaExportService(_acta, _reunion);
+            var exportService = new MeetingMinutesExportService(_acta, _reunion);
             var pdfBytes = exportService.GeneratePdf();
             await JSRuntime.InvokeVoidAsync("openPdfInNewTab",
                 Convert.ToBase64String(pdfBytes),
-                $"Acta_{_reunion.Titulo.Replace(" ", "_")}.pdf");
+                $"MeetingMinutes_{_reunion.Titulo.Replace(" ", "_")}.pdf");
         }
         finally
         {

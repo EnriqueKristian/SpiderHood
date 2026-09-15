@@ -210,11 +210,18 @@
             return;
         }
 
-        await ReunionService.FirmarActaAsync(_acta!.IdActa, _nombrePresidente.Trim(), _nombreSecretario.Trim());
-        _showFirmarModal = false;
-        _mensaje = "Acta firmada -- queda inmutable.";
-        _mensajeEsError = false;
-        await CargarAsync();
+        try
+        {
+            await ReunionService.FirmarActaAsync(Id, _nombrePresidente.Trim(), _nombreSecretario.Trim());
+            _showFirmarModal = false;
+            _mensaje = "Acta firmada -- queda inmutable.";
+            _mensajeEsError = false;
+            await CargarAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _errorFirma = ex.Message;
+        }
     }
 
     private async Task Descargar()

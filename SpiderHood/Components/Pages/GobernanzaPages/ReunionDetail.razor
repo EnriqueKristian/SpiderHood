@@ -218,6 +218,10 @@
                             </div>
                         }
                     }
+                    @if (!string.IsNullOrEmpty(_errorAsistencia))
+                    {
+                        <div class="alert alert-danger py-2 px-3 mt-2">@_errorAsistencia</div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" @onclick="CerrarRegistrarAsistencia">Listo</button>
@@ -355,10 +359,16 @@
 
                     @if (rondaAbierta == null && _votacionItem.Estado == EstadoAgendaItem.Pendiente)
                     {
-                        <div class="text-center py-3">
+                        <div class="text-center py-3 d-flex justify-content-center gap-2">
                             <button class="btn btn-primary" @onclick="IniciarVotacion">
                                 <i class="bi bi-play-fill me-1"></i>Iniciar Votación @(_votaciones.Count > 0 ? $"(Ronda {_votaciones.Count + 1})" : "")
                             </button>
+                            @if (_votaciones.Count > 0)
+                            {
+                                <button class="btn btn-outline-danger" @onclick="RechazarSinMasRondas">
+                                    <i class="bi bi-x-lg me-1"></i>Rechazar sin más rondas
+                                </button>
+                            }
                         </div>
                     }
 
@@ -455,6 +465,7 @@
 
     private bool _showAsistenciaModal;
     private List<UnidadConAlicuota> _roster = new();
+    private string? _errorAsistencia;
 
     private bool _showAgendaModal;
     private AgendaItem _nuevoPunto = new();
@@ -489,35 +500,74 @@
 
     private async Task Iniciar()
     {
-        var resultado = await ReunionService.IniciarReunionAsync(Id);
-        _mensaje = resultado.Mensaje;
-        _mensajeEsError = !resultado.Exito;
-        await CargarAsync();
+        try
+        {
+            var resultado = await ReunionService.IniciarReunionAsync(Id);
+            _mensaje = resultado.Mensaje;
+            _mensajeEsError = !resultado.Exito;
+            await CargarAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensaje = ex.Message;
+            _mensajeEsError = true;
+        }
     }
 
     private async Task Finalizar()
     {
-        await ReunionService.FinalizarReunionAsync(Id);
-        await CargarAsync();
+        try
+        {
+            await ReunionService.FinalizarReunionAsync(Id);
+            await CargarAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensaje = ex.Message;
+            _mensajeEsError = true;
+        }
     }
 
     private async Task Cancelar()
     {
-        await ReunionService.CancelarReunionAsync(Id);
-        await CargarAsync();
+        try
+        {
+            await ReunionService.CancelarReunionAsync(Id);
+            await CargarAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensaje = ex.Message;
+            _mensajeEsError = true;
+        }
     }
 
     private async Task AbrirRegistrarAsistencia()
     {
         _roster = await ReunionService.GetRosterAlicuotasAsync(_reunion!.IdBuilding, Id);
+        _errorAsistencia = null;
         _showAsistenciaModal = true;
     }
 
+    // Puede fallar si el estado de la Reunion cambió por fuera de esta pestaña
+    // (otro operador ya inició/finalizó/canceló la reunión mientras este modal
+    // seguía abierto con la lista vieja) -- IReunionService.RegistrarAsistenciaAsync
+    // valida Estado=Convocada del lado del servidor, no sólo ocultando el botón acá.
+    // Sin este try/catch, la excepción no atrapada terminaba todo el circuito de
+    // Blazor (mismo patrón de bug ya visto y corregido en Administrar Menú).
     private async Task MarcarPresente(Guid idGroupUnit)
     {
-        await ReunionService.RegistrarAsistenciaAsync(Id, idGroupUnit, _currentUser.IdUser);
-        var unidad = _roster.FirstOrDefault(u => u.IdGroupUnit == idGroupUnit);
-        if (unidad != null) unidad.Presente = true;
+        try
+        {
+            await ReunionService.RegistrarAsistenciaAsync(Id, idGroupUnit, _currentUser.IdUser);
+            var unidad = _roster.FirstOrDefault(u => u.IdGroupUnit == idGroupUnit);
+            if (unidad != null) unidad.Presente = true;
+            _errorAsistencia = null;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _errorAsistencia = ex.Message;
+        }
     }
 
     private async Task CerrarRegistrarAsistencia()
@@ -528,8 +578,16 @@
 
     private async Task QuitarAsistencia(Guid idGroupUnit)
     {
-        await ReunionService.QuitarAsistenciaAsync(Id, idGroupUnit);
-        await CargarAsync();
+        try
+        {
+            await ReunionService.QuitarAsistenciaAsync(Id, idGroupUnit);
+            await CargarAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensaje = ex.Message;
+            _mensajeEsError = true;
+        }
     }
 
     private void AbrirAgregarPunto()
@@ -556,21 +614,44 @@
             return;
         }
 
-        await ReunionService.AgregarAgendaItemAsync(_nuevoPunto);
-        _showAgendaModal = false;
-        await CargarAsync();
+        try
+        {
+            await ReunionService.AgregarAgendaItemAsync(_nuevoPunto);
+            _showAgendaModal = false;
+            await CargarAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _errorAgenda = ex.Message;
+        }
     }
 
     private async Task EliminarPunto(Guid idAgendaItem)
     {
-        await ReunionService.EliminarAgendaItemAsync(idAgendaItem);
-        await CargarAsync();
+        try
+        {
+            await ReunionService.EliminarAgendaItemAsync(idAgendaItem);
+            await CargarAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensaje = ex.Message;
+            _mensajeEsError = true;
+        }
     }
 
     private async Task MarcarInformado(Guid idAgendaItem)
     {
-        await ReunionService.MarcarAgendaItemEstadoAsync(idAgendaItem, EstadoAgendaItem.Informado);
-        await CargarAsync();
+        try
+        {
+            await ReunionService.MarcarAgendaItemEstadoAsync(idAgendaItem, EstadoAgendaItem.Informado);
+            await CargarAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensaje = ex.Message;
+            _mensajeEsError = true;
+        }
     }
 
     private void AbrirSegundaConvocatoria()
@@ -619,12 +700,38 @@
         }
     }
 
+    private async Task RechazarSinMasRondas()
+    {
+        if (_votacionItem == null) return;
+        try
+        {
+            await ReunionService.MarcarAgendaItemEstadoAsync(_votacionItem.IdAgendaItem, EstadoAgendaItem.Rechazado);
+            _mensajeVotacion = "Punto rechazado -- no se abrirán más rondas.";
+            _mensajeVotacionEsError = false;
+            await CargarAsync();
+            _votacionItem = _reunion?.Agenda.FirstOrDefault(a => a.IdAgendaItem == _votacionItem.IdAgendaItem) ?? _votacionItem;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensajeVotacion = ex.Message;
+            _mensajeVotacionEsError = true;
+        }
+    }
+
     private async Task RegistrarVoto(Guid idVotacion, Guid idGroupUnit, string? opcionTexto)
     {
         if (_votacionItem == null || string.IsNullOrEmpty(opcionTexto)) return;
         var opcion = Enum.Parse<OpcionVoto>(opcionTexto);
-        await ReunionService.RegistrarVotoAsync(idVotacion, idGroupUnit, opcion, _currentUser.IdUser);
-        _votaciones = await ReunionService.GetVotacionesAsync(_votacionItem.IdAgendaItem);
+        try
+        {
+            await ReunionService.RegistrarVotoAsync(idVotacion, idGroupUnit, opcion, _currentUser.IdUser);
+            _votaciones = await ReunionService.GetVotacionesAsync(_votacionItem.IdAgendaItem);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensajeVotacion = ex.Message;
+            _mensajeVotacionEsError = true;
+        }
     }
 
     private async Task CerrarVotacion(Guid idVotacion)

@@ -112,8 +112,11 @@ namespace SpiderHood.Services
         Task<Acta> GenerarBorradorActaAsync(Guid idReunion, Guid generadoPor);
 
         // Marca el Acta Firmada -- desde ahí en adelante es inmutable
-        // (GenerarBorradorActaAsync la rechaza).
-        Task FirmarActaAsync(Guid idActa, string nombrePresidente, string nombreSecretario);
+        // (GenerarBorradorActaAsync la rechaza). Recibe idReunion (no
+        // idActa) porque valida contra el Acta actual de esa Reunion --
+        // evita firmar dos veces por una carrera entre dos operadores con la
+        // misma pantalla abierta (rechaza si ya está Firmada).
+        Task FirmarActaAsync(Guid idReunion, string nombrePresidente, string nombreSecretario);
     }
 
     public class ReunionService : IReunionService
@@ -197,8 +200,14 @@ namespace SpiderHood.Services
 
         public async Task<ConvocarReunionResultado> ConvocarAsync(Reunion reunion, List<AgendaItem> agenda)
         {
+            if (string.IsNullOrWhiteSpace(reunion.Titulo))
+                return new ConvocarReunionResultado { Exito = false, Mensaje = "El título es obligatorio." };
+            if (reunion.QuorumRequerido < 0 || reunion.QuorumRequerido > 100)
+                return new ConvocarReunionResultado { Exito = false, Mensaje = "El quórum requerido debe estar entre 0% y 100%." };
             if (agenda.Count == 0)
                 return new ConvocarReunionResultado { Exito = false, Mensaje = "La agenda debe tener al menos un punto." };
+            if (agenda.Any(a => string.IsNullOrWhiteSpace(a.Titulo)))
+                return new ConvocarReunionResultado { Exito = false, Mensaje = "Todos los puntos de agenda necesitan un título." };
 
             reunion.IdReunion = Guid.NewGuid();
             reunion.Estado = EstadoReunion.Convocada;
@@ -239,6 +248,9 @@ namespace SpiderHood.Services
 
         public async Task<AgendaItem> AgregarAgendaItemAsync(AgendaItem item)
         {
+            if (string.IsNullOrWhiteSpace(item.Titulo))
+                throw new InvalidOperationException("El título del punto de agenda es obligatorio.");
+
             var reunion = await ec.GetReunionByIdAsync(item.IdReunion);
             if (reunion.Estado != EstadoReunion.Convocada)
                 throw new InvalidOperationException("Sólo se pueden agregar puntos de agenda mientras la reunión está Convocada.");
@@ -251,15 +263,49 @@ namespace SpiderHood.Services
             return item;
         }
 
+        // Igual que Agregar -- sólo tiene sentido mientras no arrancó ningún
+        // tratamiento real de la agenda (ni asistencia ni votación pudieron
+        // haber pasado todavía si la Reunion sigue Convocada).
         public async Task EditarAgendaItemAsync(AgendaItem item)
-            => await ec.UpdateAgendaItemAsync(item);
+        {
+            if (string.IsNullOrWhiteSpace(item.Titulo))
+                throw new InvalidOperationException("El título del punto de agenda es obligatorio.");
 
+            var existente = await ec.GetAgendaItemByIdAsync(item.IdAgendaItem);
+            var reunion = await ec.GetReunionByIdAsync(existente.IdReunion);
+            if (reunion.Estado != EstadoReunion.Convocada)
+                throw new InvalidOperationException("Sólo se puede editar un punto de agenda mientras la reunión está Convocada.");
+
+            await ec.UpdateAgendaItemAsync(item);
+        }
+
+        // Mismo motivo -- borrar un punto que ya tiene Votacion asociada
+        // (FK_Votacion_AgendaItem) rompería con un error SQL crudo en vez de
+        // un mensaje claro; restringir a Convocada lo evita de raíz, porque
+        // en ese estado todavía no pudo abrirse ninguna Votacion.
         public async Task EliminarAgendaItemAsync(Guid idAgendaItem)
-            => await ec.DeleteAgendaItemAsync(idAgendaItem);
+        {
+            var existente = await ec.GetAgendaItemByIdAsync(idAgendaItem);
+            var reunion = await ec.GetReunionByIdAsync(existente.IdReunion);
+            if (reunion.Estado != EstadoReunion.Convocada)
+                throw new InvalidOperationException("Sólo se puede eliminar un punto de agenda mientras la reunión está Convocada.");
 
+            await ec.DeleteAgendaItemAsync(idAgendaItem);
+        }
+
+        // Restringido a Convocada -- registrar/quitar asistencia después de
+        // Iniciar (que ya sumó las alícuotas presentes para decidir el
+        // quórum) desincroniza la lista de asistentes del cálculo que ya se
+        // usó: el Acta (Fase 3) lee Asistencia en vivo al generarse, así que
+        // un registro tardío mostraría una lista distinta a la que realmente
+        // decidió el quórum -- y si ya hubo Votación, la unidad pudo haber
+        // votado con una alícuota que luego "desaparece" al quitarla acá.
         public async Task RegistrarAsistenciaAsync(Guid idReunion, Guid idGroupUnit, Guid registradoPor)
         {
             var reunion = await ec.GetReunionByIdAsync(idReunion);
+            if (reunion.Estado != EstadoReunion.Convocada)
+                throw new InvalidOperationException("Sólo se puede registrar asistencia mientras la reunión está Convocada (antes de Iniciar).");
+
             var roster = await GetRosterAlicuotasAsync(reunion.IdBuilding);
             var unidad = roster.FirstOrDefault(u => u.IdGroupUnit == idGroupUnit)
                 ?? throw new InvalidOperationException("La unidad no pertenece a este edificio.");
@@ -275,7 +321,13 @@ namespace SpiderHood.Services
         }
 
         public async Task QuitarAsistenciaAsync(Guid idReunion, Guid idGroupUnit)
-            => await ec.DeleteAsistenciaAsync(idReunion, idGroupUnit);
+        {
+            var reunion = await ec.GetReunionByIdAsync(idReunion);
+            if (reunion.Estado != EstadoReunion.Convocada)
+                throw new InvalidOperationException("Sólo se puede quitar asistencia mientras la reunión está Convocada (antes de Iniciar).");
+
+            await ec.DeleteAsistenciaAsync(idReunion, idGroupUnit);
+        }
 
         public async Task<IniciarReunionResultado> IniciarReunionAsync(Guid idReunion)
         {
@@ -369,8 +421,41 @@ namespace SpiderHood.Services
                 await _calendarService.DeleteAsync(reunion.IdCalendarItem.Value, deleteSeries: false, reunion.CreatedBy.ToString());
         }
 
+        // Guardas explícitas por transición -- sin esto, este método genérico
+        // podía usarse para forzar Aprobado en un punto Sujeto a Votación sin
+        // ningún voto real detrás (saltándose por completo el cálculo de
+        // mayoría de CerrarVotacionAsync, que es el único lugar legítimo que
+        // debe decidir un Aprobado). Sólo quedan habilitadas las dos
+        // transiciones manuales que de verdad tienen sentido: marcar
+        // Informado un punto Informativo, y rechazar a mano un punto Sujeto a
+        // Votación cuando el operador decide no abrir más rondas (y sólo si
+        // no hay ninguna ronda abierta en ese momento).
         public async Task MarcarAgendaItemEstadoAsync(Guid idAgendaItem, EstadoAgendaItem nuevoEstado)
-            => await ec.UpdateAgendaItemEstadoAsync(idAgendaItem, nuevoEstado);
+        {
+            var item = await ec.GetAgendaItemByIdAsync(idAgendaItem);
+            var reunion = await ec.GetReunionByIdAsync(item.IdReunion);
+            if (reunion.Estado != EstadoReunion.EnCurso)
+                throw new InvalidOperationException("Sólo se puede cambiar el estado de un punto mientras la reunión está En Curso.");
+            if (item.Estado != EstadoAgendaItem.Pendiente)
+                throw new InvalidOperationException("Este punto ya fue resuelto.");
+
+            if (item.Tipo == TipoAgendaItem.Informativo && nuevoEstado == EstadoAgendaItem.Informado)
+            {
+                await ec.UpdateAgendaItemEstadoAsync(idAgendaItem, nuevoEstado);
+                return;
+            }
+
+            if (item.Tipo == TipoAgendaItem.SujetoAVotacion && nuevoEstado == EstadoAgendaItem.Rechazado)
+            {
+                var rondas = await ec.GetVotacionesByAgendaItemAsync(idAgendaItem);
+                if (rondas.Any(v => v.Estado == EstadoVotacion.Abierta))
+                    throw new InvalidOperationException("Hay una votación abierta para este punto -- ciérrala antes de rechazarlo a mano.");
+                await ec.UpdateAgendaItemEstadoAsync(idAgendaItem, nuevoEstado);
+                return;
+            }
+
+            throw new InvalidOperationException("Esa transición de estado no está permitida para este punto de agenda.");
+        }
 
         // Se inserta directo por BDLayout, sin pasar por ICalendarService.CreateAsync --
         // mismo motivo que Reserva (Docs/Pendientes-Negocio-Consolidado.md #21): ese
@@ -575,8 +660,18 @@ namespace SpiderHood.Services
             return existente;
         }
 
-        public async Task FirmarActaAsync(Guid idActa, string nombrePresidente, string nombreSecretario)
-            => await ec.UpdateActaFirmaAsync(idActa, nombrePresidente, nombreSecretario);
+        public async Task FirmarActaAsync(Guid idReunion, string nombrePresidente, string nombreSecretario)
+        {
+            if (string.IsNullOrWhiteSpace(nombrePresidente) || string.IsNullOrWhiteSpace(nombreSecretario))
+                throw new InvalidOperationException("Los nombres del Presidente y el Secretario son obligatorios.");
+
+            var acta = await ec.GetActaByReunionAsync(idReunion)
+                ?? throw new InvalidOperationException("Todavía no se generó el borrador del Acta.");
+            if (acta.Estado == EstadoActa.Firmada)
+                throw new InvalidOperationException("El Acta ya está firmada.");
+
+            await ec.UpdateActaFirmaAsync(acta.IdActa, nombrePresidente.Trim(), nombreSecretario.Trim());
+        }
 
         // Texto plano estructurado (no HTML) -- se muestra tal cual en pantalla
         // (white-space: pre-wrap) y alimenta directo el PDF (ActaExportService),

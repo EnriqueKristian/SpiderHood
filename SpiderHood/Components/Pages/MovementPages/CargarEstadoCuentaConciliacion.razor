@@ -39,11 +39,11 @@
                         <!-- Selección de cuenta bancaria -->
                         <div class="mb-4">
                             <label class="form-label">Cuenta Bancaria *</label>
-                            <select class="form-select" @bind="selectedBankAccountId">
+                            <select class="form-select" @bind="selectedBankAccountId" @bind:after="OnCuentaBancariaChanged">
                                 <option value="@Guid.Empty">Seleccionar cuenta...</option>
                                 @foreach (var cuenta in cuentasBancarias)
                                 {
-                                    <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber)</option>
+                                    <option value="@cuenta.IdBankAccount">@cuenta.BankName (@cuenta.AccountNumber) -- @cuenta.Currency</option>
                                 }
                             </select>
                             @if (!cuentasBancarias.Any() && _totalCuentasBancarias == 0)
@@ -59,6 +59,26 @@
                                 <small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Selecciona una cuenta bancaria para habilitar la carga del archivo.</small>
                             }
                         </div>
+
+                        <!-- Tipo de cambio del lote -- sólo cuando la cuenta elegida es de otra
+                             moneda que el edificio (ver Docs/Pendientes-Negocio-Consolidado.md #5).
+                             Un solo valor para TODO el archivo cargado, no por fila. -->
+                        @if (RequiereTipoCambio)
+                        {
+                            <div class="mb-4">
+                                <label class="form-label">Tipo de cambio aplicado (@CuentaSeleccionadaMoneda &rarr; @(ParameterService.CurrentBuilding?.Configuration.Currency)) *</label>
+                                <input type="number" step="0.000001" min="0.000001" class="form-control" style="max-width: 260px;"
+                                       @bind="exchangeRate" @bind:event="oninput" />
+                                <small class="text-muted">
+                                    El tipo de cambio real que aplicó el banco a este estado de cuenta -- se usa para convertir
+                                    todas las filas de este archivo a @(ParameterService.CurrentBuilding?.Configuration.Currency)
+                                    en Conciliación y Reportes. @if (ultimoTipoCambioUsado.HasValue)
+                                    {
+                                        <a href="javascript:void(0)" @onclick="() => exchangeRate = ultimoTipoCambioUsado">Usar el último aplicado (@ultimoTipoCambioUsado?.ToString("N6"))</a>
+                                    }
+                                </small>
+                            </div>
+                        }
 
                         <!-- Sección de carga de archivo -->
                         <div class="mb-5">
@@ -107,9 +127,9 @@
                                             <li><strong>Fecha:</strong> Fecha del movimiento (formato fecha)</li>
                                             <li><strong>Descripción:</strong> Descripción del movimiento</li>
                                             <li><strong>ITF:</strong> Impuesto a las Transacciones Financieras</li>
-                                            <li><strong>Moneda:</strong> Tipo de moneda (PEN, USD)</li>
                                             <li><strong>Monto:</strong> Importe de la transacción</li>
                                         </ol>
+                                        <p class="mb-0 mt-2"><small class="text-muted">La moneda ya no se tipea por fila -- es la de la Cuenta Bancaria seleccionada arriba.</small></p>
                                     </div>
                                 </div>
                             </div>
@@ -210,7 +230,7 @@
                                         @if (!pagination.FilteredData.Any())
                                         {
                                             <tr>
-                                                <td colspan="6" class="text-center py-4 text-muted">
+                                                <td colspan="5" class="text-center py-4 text-muted">
                                                     <i class="bi bi-inbox display-4 d-block mb-2"></i>
                                                     No hay registros que coincidan con el filtro seleccionado
                                                 </td>
@@ -231,15 +251,12 @@
                                                         </div>
                                                     </td>
                                                     <td>@item.ITF.ToString("N2")</td>
-                                                    <td>
-                                                        <span class="badge @(item.Currency == "PEN" ? "bg-success" : "bg-info")">
-                                                            @item.Currency
-                                                        </span>
-                                                    </td>
                                                     <td class="fw-semibold @(item.Amount >= 0 ? "text-success" : "text-danger")">
-                                                        @item.Amount.ToString("C",
-                                                        System.Globalization.CultureInfo.CreateSpecificCulture(
-                                                        item.Currency == "USD" ? "en-US" : "es-PE"))
+                                                        @item.Amount.FormatoMoneda(item.Currency)
+                                                        @if (RequiereTipoCambio && exchangeRate.HasValue)
+                                                        {
+                                                            <div class="text-muted small fw-normal">&rarr; @((item.Amount * exchangeRate.Value).FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency))</div>
+                                                        }
                                                     </td>
                                                     <td class="text-center">
                                                         @if (item.Validation == "Ok")
@@ -482,6 +499,34 @@
     private int _totalCuentasBancarias = 0;
     private Guid selectedBankAccountId = Guid.Empty;
 
+    // Tipo de cambio real aplicado a TODO el lote que se está por cargar -- sólo
+    // aplica cuando la cuenta elegida es de otra moneda que la de reporte del
+    // edificio (ver Docs/Pendientes-Negocio-Consolidado.md #5). Se sugiere el
+    // último valor usado en una carga anterior de la MISMA cuenta, sin necesidad
+    // de un catálogo aparte.
+    private decimal? exchangeRate;
+    private decimal? ultimoTipoCambioUsado;
+
+    private string CuentaSeleccionadaMoneda =>
+        cuentasBancarias.FirstOrDefault(c => c.IdBankAccount == selectedBankAccountId)?.Currency ?? "";
+
+    private bool RequiereTipoCambio =>
+        selectedBankAccountId != Guid.Empty
+        && !string.IsNullOrEmpty(CuentaSeleccionadaMoneda)
+        && CuentaSeleccionadaMoneda != ParameterService.CurrentBuilding?.Configuration.Currency;
+
+    private async Task OnCuentaBancariaChanged()
+    {
+        exchangeRate = null;
+        ultimoTipoCambioUsado = null;
+
+        if (!RequiereTipoCambio) return;
+
+        var cargasPrevias = await BankAccountService.GetMovementHeadersAsync(
+            ParameterService.CurrentBuilding!.IdBuilding, selectedBankAccountId);
+        ultimoTipoCambioUsado = cargasPrevias.FirstOrDefault(h => h.ExchangeRate.HasValue)?.ExchangeRate;
+    }
+
     // Ruta a la que volver tras guardar (ej. /ConciliacionPagos?cuenta=...), pasada por
     // ReconciliationWorkspace.razor en su link "Cargar Estado" -- antes no había forma de
     // volver a Conciliación de Pagos/Gastos, solo a "Estados de Cuenta" en general. Se valida
@@ -514,7 +559,7 @@
     private TransactionBankDetailPagination pagination = new();
     private int jumpToPage = 1;
     private string selectedFilter = "all";
-    private List<string> columns = new() { "StatementDate", "Description", "ITF", "Currency", "Amount" };
+    private List<string> columns = new() { "StatementDate", "Description", "ITF", "Amount" };
 
     private bool _canUploadStatements;
 
@@ -557,11 +602,23 @@
     private async Task SaveData()
     {
         if (!_canUploadStatements) return;
+
+        // Bloqueo duro, mismo criterio que otras validaciones de la app (ej. lectura
+        // de agua incompleta en BudgetGenerator) -- sin tipo de cambio no hay forma
+        // de convertir estas filas a la moneda de reporte del edificio.
+        if (RequiereTipoCambio && (!exchangeRate.HasValue || exchangeRate.Value <= 0))
+        {
+            mensaje = "Error: ingresa el tipo de cambio aplicado a este estado de cuenta antes de guardar.";
+            return;
+        }
+
         isLoading = true;
         StateHasChanged();
 
         try
         {
+            movement.ExchangeRate = RequiereTipoCambio ? exchangeRate : null;
+
             // Tu lógica de guardado aquí
             await SaveItemAsync(movement);
             mensaje = "Datos guardados exitosamente en la base de datos";
@@ -713,8 +770,7 @@
         {
             var descripcion = row.Cell(2).GetValue<string>()?.Trim();
             var itfStr = row.Cell(3).GetValue<string>()?.Trim();
-            var moneda = row.Cell(4).GetValue<string>()?.Trim();
-            var montoStr = row.Cell(5).GetValue<string>();
+            var montoStr = row.Cell(4).GetValue<string>();
             decimal itf = 0;
             string strCheck = "Ok";
 
@@ -753,9 +809,6 @@
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(moneda) || !new[] { "S/", "PEN", "USD" }.Contains(moneda))
-                errores.Add($"Fila {fila}: Moneda inválida (solo PEN o USD)");
-
             if (!decimal.TryParse(montoStr, out decimal monto))
                 errores.Add($"Fila {fila}: Monto inválido");
 
@@ -772,7 +825,7 @@
                 StatementDate = fecha,
                 Description = descripcion!,
                 ITF = itf,
-                Currency = moneda!,
+                Currency = CuentaSeleccionadaMoneda,
                 Amount = monto,
                 Validation = strCheck,
                 Origen = TransactionOrigen.BankAccountState

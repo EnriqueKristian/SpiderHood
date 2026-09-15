@@ -28,6 +28,14 @@ namespace SpiderHood.Models
         public int UploadState { get; set; }
         public Guid IdBankAccount { get; set; }
 
+        // Tipo de cambio real aplicado a TODO este lote (un estado de cuenta = una
+        // carga = un valor) -- sólo tiene sentido cuando la Cuenta Bancaria es de
+        // otra moneda que la de reporte del edificio; si son la misma, queda NULL.
+        // Ver INS_AccountStatementDetail: se usa para calcular
+        // AmountInReportingCurrency de cada fila al guardar.
+        [Precision(18, 6)]
+        public decimal? ExchangeRate { get; set; }
+
         public required List<TransactionBankDetail> Details { get; set; }
     }
 
@@ -67,6 +75,15 @@ namespace SpiderHood.Models
         [Range(0.01, double.MaxValue, ErrorMessage = "El monto debe ser mayor a 0")]
         [Precision(18, 2)]
         public decimal Amount { get; set; }
+
+        // = Amount cuando la cuenta está en la moneda de reporte del edificio (caso
+        // normal, siempre). Cuando la cuenta es de otra moneda, = Amount * el
+        // ExchangeRate del lote (TransactionBankHeader.ExchangeRate) -- se calcula
+        // server-side en INS_AccountStatementDetail, no acá. Conciliación y Reportes
+        // suman ESTA columna, nunca Amount crudo -- Amount se sigue mostrando tal
+        // cual para que cuadre contra el estado de cuenta real del banco.
+        [Precision(18, 2)]
+        public decimal AmountInReportingCurrency { get; set; }
         public int SequenceNumber { get; set; }
 
         // Solo para migración de datos históricos (Services/IMigrationImportService.cs) --
@@ -156,6 +173,8 @@ namespace SpiderHood.Models
         public string Currency { get; set; } = string.Empty;
         [Precision(18, 2)]
         public decimal Amount { get; set; }
+        [Precision(18, 2)]
+        public decimal AmountInReportingCurrency { get; set; }
         public int SequenceNumber { get; set; }
         public ConcilationType ReconciliationStatus { get; set; }
         public DateTime? ReconciliationDate { get; set; }

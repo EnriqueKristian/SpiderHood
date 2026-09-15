@@ -4,7 +4,7 @@
     {
     }
 
-    public enum ConcilationType
+    public enum ReconciliationType
     {
         NoConciliada = 0,
         Conciliada = 1,
@@ -18,12 +18,12 @@
         ExcessPayment = 1,
     }
 
-    public enum TipoDistribucion
+    public enum DistributionKind
     {
         Fija,       // División igualitaria
         Porcentual  // Según porcentaje de área
     }
-    public enum EstadoCuota
+    public enum InstallmentStatus
     {
         Pendiente,
         Generada,
@@ -32,7 +32,7 @@
         PagadaParcialmente
     }
 
-    public enum EstadoPago
+    public enum PaymentStatus
     {
         Pendiente,
         Pagado,
@@ -40,7 +40,7 @@
         Anulado
     }
 
-    public enum TipoCategoriaGasto
+    public enum ExpenseCategoryType
     {
         Ordinario,
         Extraordinario,

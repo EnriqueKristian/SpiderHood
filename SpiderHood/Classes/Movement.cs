@@ -101,7 +101,7 @@ namespace SpiderHood.Models
         public Guid IdEntityRef { get; set; }
 
         public TransactionOrigin Origin { get; set; }
-        public ConcilationType ReconciliationStatus { get; set; }
+        public ReconciliationType ReconciliationStatus { get; set; }
         public DateTime? ReconciliationDate { get; set; }
 
         [Precision(18, 2)]
@@ -176,7 +176,7 @@ namespace SpiderHood.Models
         [Precision(18, 2)]
         public decimal AmountInReportingCurrency { get; set; }
         public int SequenceNumber { get; set; }
-        public ConcilationType ReconciliationStatus { get; set; }
+        public ReconciliationType ReconciliationStatus { get; set; }
         public DateTime? ReconciliationDate { get; set; }
     }
 

@@ -717,7 +717,7 @@ namespace SpiderHood.Data
                     StoredProcedures.UPD_ExpenseDeReconcilied,
                     cancellationToken,
                     idStatementDetail,
-                    (int)ConcilationType.NoConciliada,
+                    (int)ReconciliationType.NoConciliada,
                     idExpense,
                     false);
                 return true;

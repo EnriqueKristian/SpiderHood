@@ -1118,8 +1118,8 @@ namespace SpiderHood.Services
                         var totalPagado = grupo.Sum(f => f.MontoPagado);
                         var deuda = Math.Max(0, primera.Monto - totalPagado);
                         var status = totalPagado <= 0
-                            ? Models.ConcilationType.NoConciliada
-                            : (deuda > 0 ? Models.ConcilationType.Parcial : Models.ConcilationType.Conciliada);
+                            ? Models.ReconciliationType.NoConciliada
+                            : (deuda > 0 ? Models.ReconciliationType.Parcial : Models.ReconciliationType.Conciliada);
 
                         var percent = areaTotalEdificio > 0 ? (unidadResuelta.AreaTotal / areaTotalEdificio) * 100 : 0;
 
@@ -1198,7 +1198,7 @@ namespace SpiderHood.Services
                                 IdTransaction = idTransaction,
                                 Amount = f.MontoPagado,
                                 CreatedBy = performedBy,
-                                Status = esParcial ? Models.ConcilationType.Parcial : Models.ConcilationType.Conciliada,
+                                Status = esParcial ? Models.ReconciliationType.Parcial : Models.ReconciliationType.Conciliada,
                                 IsAutoReconcile = false,
                                 IsPartialPayment = esParcial
                             });
@@ -1397,7 +1397,7 @@ namespace SpiderHood.Services
                                 SequenceNumber = secuencia++,
                                 Currency = f.Moneda,
                                 Origin = Models.TransactionOrigin.BankAccountState,
-                                ReconciliationStatus = Models.ConcilationType.NoConciliada,
+                                ReconciliationStatus = Models.ReconciliationType.NoConciliada,
                                 ReconciliationDate = null,
                                 AmountPaid = 0,
                                 Balance = montoFirmado

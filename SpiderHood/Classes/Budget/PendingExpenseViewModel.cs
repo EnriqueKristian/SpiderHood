@@ -12,7 +12,7 @@ namespace SpiderHood.Models
         public decimal Monto { get; set; }
         public DateTime FechaGasto { get; set; }
         public DateTime FechaVencimiento { get; set; }
-        public TipoDistribucion TipoDistribucion { get; set; }
+        public DistributionKind DistributionKind { get; set; }
         public bool Seleccionado { get; set; }
         public bool Pagado { get; set; }
         public bool ConsideradoEnCuota { get; set; }
@@ -21,7 +21,7 @@ namespace SpiderHood.Models
         // Propiedades calculadas
         public string DisplayFecha => FechaGasto.ToString("dd/MM/yyyy");
         public string DisplayMonto => Monto.ToString("C");
-        public string DisplayTipoDistribucion => TipoDistribucion.ToString();
+        public string DisplayDistributionKind => DistributionKind.ToString();
         public string EstadoColor => Pagado ? "success" : ConsideradoEnCuota ? "warning" : "danger";
         public string EstadoTexto => Pagado ? "Pagado" : ConsideradoEnCuota ? "En Cuota" : "Pendiente";
     }

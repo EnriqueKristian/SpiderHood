@@ -257,14 +257,14 @@ namespace SpiderHood.Services
             };
 
             // Actualizar estado de la transacción
-            transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+            transaccion.ReconciliationStatus = ReconciliationType.Conciliada;
             transaccion.ReconciliationDate = DateTime.Now;
 
             // Actualizar estado de la cuota
             cuota.Reconciled = true;
             cuota.ReconciledTransactionId = transaccion.IdStatementDetail;
             cuota.AutoReconcile = automatico;
-            cuota.Status = ConcilationType.Conciliada;
+            cuota.Status = ReconciliationType.Conciliada;
 
             // Guardar en base de datos
             await AgregarPagoAsync(pago);
@@ -292,17 +292,17 @@ namespace SpiderHood.Services
                 IdTransaction = transaccion.IdStatementDetail,
                 IsAutoReconcile = automatico,
                 IsPartialPayment = true,
-                Status = ConcilationType.Conciliada
+                Status = ReconciliationType.Conciliada
             };
 
             // Actualizar estado de la transacción (totalmente conciliada)
-            transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+            transaccion.ReconciliationStatus = ReconciliationType.Conciliada;
             transaccion.ReconciliationDate = DateTime.Now;
 
             // Cuota queda parcialmente pagada (no marcamos como Reconciled = true)
             cuota.LastPartialPaymentDate = DateTime.Now;
             cuota.AutoReconcile = automatico;
-            cuota.Status = ConcilationType.Parcial;
+            cuota.Status = ReconciliationType.Parcial;
 
             // Guardar en base de datos
             await AgregarPagoAsync(pagoParcial);
@@ -329,17 +329,17 @@ namespace SpiderHood.Services
                 PaymentDate = DateTime.Now,
                 IdTransaction = transaccion.IdStatementDetail,
                 IsAutoReconcile = automatico,
-                Status = ConcilationType.Conciliada
+                Status = ReconciliationType.Conciliada
             };
 
             // 2. Actualizar cuota como totalmente conciliada
-            transaccion.ReconciliationStatus = ConcilationType.Parcial;
+            transaccion.ReconciliationStatus = ReconciliationType.Parcial;
             transaccion.ReconciliationDate = DateTime.Now;
 
             cuota.Reconciled = true;
             cuota.ReconciledTransactionId = transaccion.IdStatementDetail;
             cuota.AutoReconcile = automatico;
-            cuota.Status = ConcilationType.Conciliada;
+            cuota.Status = ReconciliationType.Conciliada;
 
             // 3. Guardar en base de datos
             await AgregarPagoAsync(pagoCompleto);
@@ -390,11 +390,11 @@ namespace SpiderHood.Services
                     IdTransaction = pago.IdStatementDetail,
                     IsAutoReconcile = automatico,
                     IsPartialPayment = esPagoParcialDeCuota,
-                    Status = ConcilationType.Conciliada
+                    Status = ReconciliationType.Conciliada
                 };
 
                 // Cuota: Conciliada si el pago cubrió toda su deuda, Parcial si quedó un resto.
-                cuota.Status = esPagoParcialDeCuota ? ConcilationType.Parcial : ConcilationType.Conciliada;
+                cuota.Status = esPagoParcialDeCuota ? ReconciliationType.Parcial : ReconciliationType.Conciliada;
                 cuota.Debt -= montoAplicado;
                 cuota.AmountPaid += montoAplicado;
                 cuota.Reconciled = !esPagoParcialDeCuota;
@@ -413,7 +413,7 @@ namespace SpiderHood.Services
                 // como Pendiente aunque en memoria ya se viera bien.
                 pago.IdGroupUnit = idGroupUnit;
                 pago.Balance = saldoRestante;
-                pago.ReconciliationStatus = saldoRestante <= 0 ? ConcilationType.Conciliada : ConcilationType.Parcial;
+                pago.ReconciliationStatus = saldoRestante <= 0 ? ReconciliationType.Conciliada : ReconciliationType.Parcial;
                 pago.ReconciliationDate = DateTime.Now;
 
                 await AgregarPagoAsync(pagoCuota);
@@ -428,14 +428,14 @@ namespace SpiderHood.Services
 
             await ec.DeleteInstallmentPaidByTransactionAsync(pago.IdStatementDetail);
 
-            pago.ReconciliationStatus = ConcilationType.NoConciliada;
+            pago.ReconciliationStatus = ReconciliationType.NoConciliada;
             pago.ReconciliationDate = null;
             pago.Balance = 0;
             pago.IdGroupUnit = Guid.Empty;
 
             foreach (var idInstallment in pagosDeEstaTransaccion.Select(p => p.IdInstallment).Distinct())
             {
-                var cuotaLiberada = new Installment { IdInstallment = idInstallment, Status = ConcilationType.NoConciliada };
+                var cuotaLiberada = new Installment { IdInstallment = idInstallment, Status = ReconciliationType.NoConciliada };
                 await BankService.InstallmentConciliationAsync(pago, cuotaLiberada);
             }
         }

@@ -16,7 +16,7 @@ namespace SpiderHood.Models
         [Precision(18, 2)] public decimal TotalArea { get; set; }
         public DateTime Period { get; set; }
         public string CreatedBy { get; set; } = string.Empty;
-        public ConcilationType Status { get; set; }
+        public ReconciliationType Status { get; set; }
         [Precision(18, 2)] public decimal AmountPaid { get; set; }
         [Precision(18, 2)] public decimal Debt { get; set; }
         public Guid IdGroupUnit { get; set; }

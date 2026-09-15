@@ -97,8 +97,8 @@ else
                                     <td>@gasto.Descripcion</td>
                                     <td>@Moneda(gasto.Monto)</td>
                                     <td>
-                                        <span class="badge @(gasto.TipoDistribucion == Models.TipoDistribucion.Fija ? "bg-info" : "bg-warning")">
-                                            @gasto.TipoDistribucion
+                                        <span class="badge @(gasto.DistributionKind == Models.DistributionKind.Fija ? "bg-info" : "bg-warning")">
+                                            @gasto.DistributionKind
                                         </span>
                                     </td>
                                 </tr>

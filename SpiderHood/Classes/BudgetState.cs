@@ -168,7 +168,7 @@ namespace SpiderHood.Models
                     IdGroupUnit = primero.IdGroupUnit,
                     CreatedBy = _state.Budget.CreatedBy,
                     DueDate = DateTime.Now.AddDays(_state.Configuration.DueDay),//DateTime.Now.AddDays(ParameterService.DueDay);
-                    Status = ConcilationType.NoConciliada //Created
+                    Status = ReconciliationType.NoConciliada //Created
                 };
 
                 decimal _total = 0;

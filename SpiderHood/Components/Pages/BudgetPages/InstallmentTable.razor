@@ -331,7 +331,7 @@
                                                 </td>
                                                 <td class="text-center">
                                                     <div class="btn-group btn-group-sm" role="group">
-                                                        @if (item.Status == ConcilationType.NoConciliada)
+                                                        @if (item.Status == ReconciliationType.NoConciliada)
                                                         {
                                                             <button class="btn btn-outline-primary"
                                                                     title="Conciliar manualmente"
@@ -346,7 +346,7 @@
                                                                 @onclick="() => InstallmentViewDetails(item)">
                                                             <i class="bi bi-eye"></i>
                                                         </button>
-                                                        @if (item.Status == ConcilationType.Parcial)
+                                                        @if (item.Status == ReconciliationType.Parcial)
                                                         {
                                                             <button class="btn btn-outline-danger"
                                                                     title="Desconciliar"
@@ -627,7 +627,7 @@
     {
         // Remover transacción conciliada de pendientes
         var cuotaConciliada = filteredInstallments!
-                    .FirstOrDefault(t => t.Status == ConcilationType.Conciliada);
+                    .FirstOrDefault(t => t.Status == ReconciliationType.Conciliada);
 
         if (cuotaConciliada != null)
         {
@@ -635,7 +635,7 @@
         }
 
         var transacionConciliada = transacciones!
-            .FirstOrDefault(t => t.ReconciliationStatus == ConcilationType.Conciliada);
+            .FirstOrDefault(t => t.ReconciliationStatus == ReconciliationType.Conciliada);
 
         if (transacionConciliada != null)
         {

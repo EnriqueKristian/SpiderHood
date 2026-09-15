@@ -486,7 +486,7 @@ namespace SpiderHood.Data
                     movementdetail.Amount,
                     movementdetail.SequenceNumber,
                     // INS_AccountStatementDetail.@ReconciliationStatus es BIT -- pasar el
-                    // enum ConcilationType directo (un objeto boxeado de un tipo que
+                    // enum ReconciliationType directo (un objeto boxeado de un tipo que
                     // ADO.NET no reconoce) hacía que SIEMPRE se guardara 1/Conciliada, sin
                     // importar el valor real (confirmado: 27 filas recién insertadas con
                     // ReconciliationStatus = 0/NoConciliada en C# terminaron las 27 en BD

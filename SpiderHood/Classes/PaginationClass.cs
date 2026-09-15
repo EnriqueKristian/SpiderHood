@@ -571,15 +571,15 @@ namespace SpiderHood.Utilities
 
         public static string EstadoTexto(Installment x) => x.Status switch
         {
-            ConcilationType.Conciliada => "pagado",
-            ConcilationType.Parcial => "parcial",
+            ReconciliationType.Conciliada => "pagado",
+            ReconciliationType.Parcial => "parcial",
             _ => x.DueDate.Date < DateTime.Today ? "vencida" : "pendiente de pago"
         };
 
         private static int EstadoOrden(Installment x) => x.Status switch
         {
-            ConcilationType.Conciliada => 0,
-            ConcilationType.Parcial => 1,
+            ReconciliationType.Conciliada => 0,
+            ReconciliationType.Parcial => 1,
             _ => x.DueDate.Date < DateTime.Today ? 3 : 2
         };
     }

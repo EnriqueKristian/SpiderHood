@@ -237,7 +237,7 @@
                                         @onclick="() => CambiarTab(noConciliados)">
                                     <i class="bi bi-question-circle me-2"></i>
                                     No Conciliados
-                                    <span class="badge bg-warning ms-2">@TransaccionesDelModo.Count(t => !t.PendingProposal && (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial))</span>
+                                    <span class="badge bg-warning ms-2">@TransaccionesDelModo.Count(t => !t.PendingProposal && (t.ReconciliationStatus == ReconciliationType.NoConciliada || t.ReconciliationStatus == ReconciliationType.Parcial))</span>
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -338,7 +338,7 @@
                                                 </td>
                                                 <td>
                                                     <div class="d-flex align-items-center">
-                                                        @if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                        @if (transaccion.ReconciliationStatus == ReconciliationType.Conciliada)
                                                         {
                                                             <i class="bi bi-check-circle text-success me-2"></i>
                                                         }
@@ -386,7 +386,7 @@
                                                             </div>
                                                         </div>
                                                     }
-                                                    else if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                    else if (transaccion.ReconciliationStatus == ReconciliationType.Conciliada)
                                                     {
                                                         <div class="d-flex align-items-center">
                                                             <i class="bi bi-link-45deg text-primary me-2"></i>
@@ -452,7 +452,7 @@
                                                                 </div>
                                                             </div>
                                                         }
-                                                        else if (transaccion.ReconciliationStatus == ConcilationType.Conciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial)
+                                                        else if (transaccion.ReconciliationStatus == ReconciliationType.Conciliada || transaccion.ReconciliationStatus == ReconciliationType.Parcial)
                                                         {
                                                             // Ingreso conciliado con cuota(s), NO con un Gasto -- ReconciledExpense
                                                             // siempre es null acá (ese campo es para Gastos), así que esto se
@@ -531,13 +531,13 @@
                                                             <i class="bi @(transaccion.AutomaticProposal ? "bi-robot" : "bi-person") me-1"></i>@(transaccion.AutomaticProposal ? "Auto" : "Manual")
                                                         </span>
                                                     }
-                                                    else if (transaccion.ReconciliationStatus == ConcilationType.Conciliada)
+                                                    else if (transaccion.ReconciliationStatus == ReconciliationType.Conciliada)
                                                     {
                                                         <span class="badge bg-success">
                                                             <i class="bi bi-check me-1"></i> Conciliado
                                                         </span>
                                                     }
-                                                    else if (transaccion.ReconciliationStatus == ConcilationType.Parcial)
+                                                    else if (transaccion.ReconciliationStatus == ReconciliationType.Parcial)
                                                     {
                                                         <span class="badge bg-info text-dark">
                                                             <i class="bi bi-hourglass-split me-1"></i> Conciliado Parcialmente
@@ -574,7 +574,7 @@
                                                         {
                                                             @if (transaccion.Tipo == "Ingreso")
                                                             {
-                                                                @if (_canReconcileInstallments && (transaccion.ReconciliationStatus == ConcilationType.NoConciliada || transaccion.ReconciliationStatus == ConcilationType.Parcial))
+                                                                @if (_canReconcileInstallments && (transaccion.ReconciliationStatus == ReconciliationType.NoConciliada || transaccion.ReconciliationStatus == ReconciliationType.Parcial))
                                                                 {
                                                                     <button class="btn btn-outline-primary"
                                                                             title="Conciliar manualmente"
@@ -583,7 +583,7 @@
                                                                     </button>
                                                                 }
                                                             }
-                                                            else if (_canReconcileExpenses && transaccion.ReconciliationStatus == ConcilationType.NoConciliada)
+                                                            else if (_canReconcileExpenses && transaccion.ReconciliationStatus == ReconciliationType.NoConciliada)
                                                             {
                                                                 <button class="btn btn-outline-primary"
                                                                         title="Conciliar manualmente"
@@ -612,7 +612,7 @@
                                                                 <i class="bi bi-flag"></i>
                                                             </button>
                                                         }
-                                                        @if (!transaccion.PendingProposal && transaccion.ReconciliationStatus == ConcilationType.Conciliada && _puedeCorregir)
+                                                        @if (!transaccion.PendingProposal && transaccion.ReconciliationStatus == ReconciliationType.Conciliada && _puedeCorregir)
                                                         {
                                                             <button class="btn btn-outline-danger"
                                                                     title="Corregir (requiere motivo, queda en el log de auditoría)"
@@ -1397,7 +1397,7 @@
     private IEnumerable<TransactionBankDetail> TransaccionesDelModo =>
         FixedMode == null ? transacciones : transacciones.Where(t => t.Tipo == FixedMode);
     private List<TransactionBankDetail> transaccionesConciliadas =>
-        TransaccionesDelModo.Where(t => t.ReconciliationStatus == ConcilationType.Conciliada).ToList();
+        TransaccionesDelModo.Where(t => t.ReconciliationStatus == ReconciliationType.Conciliada).ToList();
     // "No Conciliados" agrupa Pendientes (NoConciliada) y Parciales -- una transacción
     // Parcial todavía tiene saldo por conciliar, así que antes se perdía de este tab
     // (y del de "Conciliados", que exige == Conciliada) y sólo aparecía en "Todas".
@@ -1406,7 +1406,7 @@
     // ningún efecto visible.
     private List<TransactionBankDetail> transaccionesNoConciliadas =>
         TransaccionesDelModo.Where(t => !t.Ignored &&
-            (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial)).ToList();
+            (t.ReconciliationStatus == ReconciliationType.NoConciliada || t.ReconciliationStatus == ReconciliationType.Parcial)).ToList();
     private List<TransactionBankDetail> transaccionesIgnoradas =>
         TransaccionesDelModo.Where(t => t.Ignored).ToList();
 
@@ -1576,7 +1576,7 @@
         totalCoincidencias = 0;
         totalCoincidenciasI = 0;
 
-        foreach (var transaccion in transacciones.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada && t.Amount < 0))
+        foreach (var transaccion in transacciones.Where(t => t.ReconciliationStatus == ReconciliationType.NoConciliada && t.Amount < 0))
         {
             // Buscar gastos con monto similar (±10%)
             var montoTransaccion = Math.Abs(transaccion.Amount);
@@ -1599,7 +1599,7 @@
             totalCoincidencias += posiblesMatches.Count;
         }
 
-        foreach (var transaccion in transacciones.Where(t => t.ReconciliationStatus == ConcilationType.NoConciliada && t.Amount > 0))
+        foreach (var transaccion in transacciones.Where(t => t.ReconciliationStatus == ReconciliationType.NoConciliada && t.Amount > 0))
         {
             // Buscar gastos con monto similar (±10%)
             var montoTransaccion = Math.Abs(transaccion.Amount);
@@ -1785,7 +1785,7 @@
                     // ReconciliationStatus = Conciliada, lo que queda grabado en BD es el
                     // NoConciliada viejo. Por eso "Finalizar Conciliación" parecía funcionar
                     // (guardaba algo) pero al recargar la transacción volvía a "No Conciliadas".
-                    transaccion.ReconciliationStatus = ConcilationType.Conciliada;
+                    transaccion.ReconciliationStatus = ReconciliationType.Conciliada;
                     transaccion.ReconciliationDate = DateTime.Now;
                     await BankService.ReconcileTransactionAsync(transaccion, transaccion.ReconciledExpense);
 
@@ -1961,7 +1961,7 @@
 
             await BankService.UnreconcileExpenseAsync(transaccion.IdStatementDetail, gastoAnterior.IdExpense);
 
-            transaccion.ReconciliationStatus = ConcilationType.NoConciliada;
+            transaccion.ReconciliationStatus = ReconciliationType.NoConciliada;
             transaccion.ReconciliationDate = null;
             gastoAnterior.Reconciled = false;
             gastoAnterior.ReconciledTransactionId = null;
@@ -2434,7 +2434,7 @@
         if (tabActiva == "noConciliados")
         {
             resultado = resultado.Where(t => !t.Ignored && !t.PendingProposal &&
-                (t.ReconciliationStatus == ConcilationType.NoConciliada || t.ReconciliationStatus == ConcilationType.Parcial));
+                (t.ReconciliationStatus == ReconciliationType.NoConciliada || t.ReconciliationStatus == ReconciliationType.Parcial));
         }
         else if (tabActiva == "propuestosAuto")
         {
@@ -2539,7 +2539,7 @@
         // ReconciliationStatus != NoConciliada, que ya no cambia hasta confirmar, así que el
         // "ojo" de una propuesta (automática o manual) caía siempre en el toast genérico de
         // abajo, sin decir con qué cuota se la estaba asociando.
-        if (transaccion.Tipo == "Ingreso" && (transaccion.ReconciliationStatus != ConcilationType.NoConciliada || transaccion.PendingProposal))
+        if (transaccion.Tipo == "Ingreso" && (transaccion.ReconciliationStatus != ReconciliationType.NoConciliada || transaccion.PendingProposal))
         {
             transaccionDetalleIngreso = transaccion;
             mostrarModalVerDetalleIngreso = true;
@@ -2551,7 +2551,7 @@
         // los saltos de línea se pasan como <br> en vez de "\n" para que se vean.
         var estado = transaccion.PendingProposal
             ? $"Propuesto ({(transaccion.AutomaticProposal ? "Auto" : "Manual")})"
-            : (transaccion.ReconciliationStatus == ConcilationType.Conciliada ? "Conciliado" : "Pendiente");
+            : (transaccion.ReconciliationStatus == ReconciliationType.Conciliada ? "Conciliado" : "Pendiente");
 
         var detalles = $"Fecha: {transaccion.StatementDate:dd/MM/yyyy}<br>" +
               $"Descripción: {transaccion.Description}<br>" +

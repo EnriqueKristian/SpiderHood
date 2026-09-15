@@ -144,7 +144,7 @@ namespace SpiderHood.Services
             List<Departamento> departamentos,
             DateTime fechaVencimiento)
         {
-            /*if (gasto.Category == TipoDistribucion.Fija.ToString())
+            /*if (gasto.Category == DistributionKind.Fija.ToString())
             {
                 // Distribución igualitaria
                 var montoPorDepto = Math.Round(gasto.Amount / departamentos.Count, 2);
@@ -267,7 +267,7 @@ namespace SpiderHood.Services
                     GastoId = d.GastoId,
                     CategoriaNombre = d.Gasto.Categoria.Nombre,
                     DescripcionGasto = d.Gasto.Descripcion,
-                    TipoDistribucion = d.Gasto.Categoria.TipoDistribucion,
+                    DistributionKind = d.Gasto.Categoria.DistributionKind,
                     Monto = d.Monto,
                     FechaVencimiento = d.FechaVencimiento,
                     Pagado = d.Pagado
@@ -293,7 +293,7 @@ namespace SpiderHood.Services
                     Monto = g.Monto,
                     FechaGasto = g.FechaGasto,
                     FechaVencimiento = g.FechaVencimiento,
-                    TipoDistribucion = g.Categoria.TipoDistribucion,
+                    DistributionKind = g.Categoria.DistributionKind,
                     Pagado = g.Pagado
                 })
                 .ToListAsync();*/

@@ -102,11 +102,11 @@
                                                     System.Globalization.CultureInfo.CreateSpecificCulture(item.Currency == "USD" ? "en-US" : "es-PE"))
                                             </td>
                                             <td>
-                                                @if (item.ReconciliationStatus == ConcilationType.Conciliada)
+                                                @if (item.ReconciliationStatus == ReconciliationType.Conciliada)
                                                 {
                                                     <span class="badge bg-success"><i class="bi bi-check me-1"></i>Conciliado</span>
                                                 }
-                                                else if (item.ReconciliationStatus == ConcilationType.Parcial)
+                                                else if (item.ReconciliationStatus == ReconciliationType.Parcial)
                                                 {
                                                     <span class="badge bg-info text-dark"><i class="bi bi-hourglass-split me-1"></i>Parcial</span>
                                                 }

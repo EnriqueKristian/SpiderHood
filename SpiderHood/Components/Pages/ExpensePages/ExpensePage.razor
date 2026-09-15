@@ -595,7 +595,7 @@
             await ExpenseService.AddExpenseAsync(gasto);
 
             var transaccion = _transaccionParaGastoBanco;
-            transaccion.ReconciliationStatus = Models.ConcilationType.Conciliada;
+            transaccion.ReconciliationStatus = Models.ReconciliationType.Conciliada;
             transaccion.ReconciliationDate = DateTime.Now;
             transaccion.ReconciledExpense = gasto;
             await BankAccountService.ReconcileTransactionAsync(transaccion, gasto);

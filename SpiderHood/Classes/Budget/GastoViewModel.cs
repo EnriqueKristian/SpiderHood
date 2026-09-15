@@ -12,7 +12,7 @@ namespace SpiderHood.Models
         public decimal Monto { get; set; }
         public DateTime FechaGasto { get; set; }
         public DateTime FechaVencimiento { get; set; }
-        public TipoDistribucion TipoDistribucion { get; set; }
+        public DistributionKind DistributionKind { get; set; }
         public bool Pagado { get; set; }
     }
 }

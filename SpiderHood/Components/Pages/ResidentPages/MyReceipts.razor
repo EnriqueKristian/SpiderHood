@@ -352,10 +352,10 @@
             (_filtroPeriodo == null || item.Period.Date == _filtroPeriodo.Value.Date)
             && _filtroEstado switch
             {
-                "pendiente" => item.Status == ConcilationType.NoConciliada && item.DueDate.Date >= DateTime.Today,
-                "vencida" => item.Status == ConcilationType.NoConciliada && item.DueDate.Date < DateTime.Today,
-                "parcial" => item.Status == ConcilationType.Parcial,
-                "pagado" => item.Status == ConcilationType.Conciliada,
+                "pendiente" => item.Status == ReconciliationType.NoConciliada && item.DueDate.Date >= DateTime.Today,
+                "vencida" => item.Status == ReconciliationType.NoConciliada && item.DueDate.Date < DateTime.Today,
+                "parcial" => item.Status == ReconciliationType.Parcial,
+                "pagado" => item.Status == ReconciliationType.Conciliada,
                 _ => true
             });
     }
@@ -364,15 +364,15 @@
 
     private string EstadoBadgeClass(Installment item) => item.Status switch
     {
-        ConcilationType.Conciliada => "bg-success",
-        ConcilationType.Parcial => "bg-info text-dark",
+        ReconciliationType.Conciliada => "bg-success",
+        ReconciliationType.Parcial => "bg-info text-dark",
         _ => item.DueDate.Date < DateTime.Today ? "bg-danger" : "bg-warning text-dark"
     };
 
     private string EstadoBadgeText(Installment item) => item.Status switch
     {
-        ConcilationType.Conciliada => "Pagado",
-        ConcilationType.Parcial => "Parcial",
+        ReconciliationType.Conciliada => "Pagado",
+        ReconciliationType.Parcial => "Parcial",
         _ => item.DueDate.Date < DateTime.Today ? "Vencida" : "Pendiente de Pago"
     };
 

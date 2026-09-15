@@ -340,11 +340,11 @@
                                                         System.Globalization.CultureInfo.CreateSpecificCulture(item.Currency == "USD" ? "en-US" : "es-PE"))
                                                 </td>
                                                 <td>
-                                                    @if (item.ReconciliationStatus == ConcilationType.Conciliada)
+                                                    @if (item.ReconciliationStatus == ReconciliationType.Conciliada)
                                                     {
                                                         <span class="badge bg-success"><i class="bi bi-check me-1"></i>Conciliado</span>
                                                     }
-                                                    else if (item.ReconciliationStatus == ConcilationType.Parcial)
+                                                    else if (item.ReconciliationStatus == ReconciliationType.Parcial)
                                                     {
                                                         <span class="badge bg-info text-dark"><i class="bi bi-hourglass-split me-1"></i>Parcial</span>
                                                     }
@@ -360,7 +360,7 @@
                                                        necesita antes limpiar la inconsistencia entre Expense.IdMovDetail
                                                        (que lee GET_ExpensesByBuilding) y Expense.IdStatementDetail (el que
                                                        realmente actualiza la conciliación, ver UPD_ExpenseReconcilied). *@
-                                                    @if (item.Amount >= 0 && (item.ReconciliationStatus == ConcilationType.Conciliada || item.ReconciliationStatus == ConcilationType.Parcial))
+                                                    @if (item.Amount >= 0 && (item.ReconciliationStatus == ReconciliationType.Conciliada || item.ReconciliationStatus == ReconciliationType.Parcial))
                                                     {
                                                         <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetallePago(item)">
                                                             <i class="bi bi-eye"></i>
@@ -680,7 +680,7 @@
                 "egresos" => item.Amount < 0,
                 _ => true
             }
-            && (!soloNoConciliadosDetalle || item.ReconciliationStatus != ConcilationType.Conciliada));
+            && (!soloNoConciliadosDetalle || item.ReconciliationStatus != ReconciliationType.Conciliada));
     }
 
     private void LimpiarFiltrosDetalle()

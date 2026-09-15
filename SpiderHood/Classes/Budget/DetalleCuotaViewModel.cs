@@ -16,7 +16,7 @@ namespace SpiderHood.Models
         public int GastoId { get; set; }
         public string CategoriaNombre { get; set; } = string.Empty;
         public string DescripcionGasto { get; set; } = string.Empty;
-        public TipoDistribucion TipoDistribucion { get; set; }
+        public DistributionKind DistributionKind { get; set; }
         [Precision(18, 2)]
         public decimal Monto { get; set; }
         public DateTime FechaVencimiento { get; set; }

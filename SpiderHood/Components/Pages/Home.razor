@@ -325,8 +325,8 @@
                                             <td class="fw-bold text-success">@Moneda(payment.Amount)</td>
                                             <td>@(payment.IsPartialPayment ? "Pago parcial" : "Pago completo")</td>
                                             <td>
-                                                <span class="badge @(payment.Status == ConcilationType.Parcial ? "bg-warning" : "bg-success")">
-                                                    @(payment.Status == ConcilationType.Parcial ? "Parcial" : "Conciliado")
+                                                <span class="badge @(payment.Status == ReconciliationType.Parcial ? "bg-warning" : "bg-success")">
+                                                    @(payment.Status == ReconciliationType.Parcial ? "Parcial" : "Conciliado")
                                                 </span>
                                             </td>
                                         </tr>

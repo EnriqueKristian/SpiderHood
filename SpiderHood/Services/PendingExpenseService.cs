@@ -25,7 +25,7 @@ namespace SpiderHood.Services
                     Monto = g.Monto,
                     FechaGasto = g.FechaGasto,
                     FechaVencimiento = g.FechaVencimiento,
-                    TipoDistribucion = g.Categoria.TipoDistribucion,
+                    DistributionKind = g.Categoria.DistributionKind,
                     Seleccionado = false
                 })
                 .OrderByDescending(g => g.FechaGasto)

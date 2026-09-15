@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
+@using SpiderHood.Components.Pages.Components
 @inject IMeetingService MeetingService
 @inject SpiderHood.Services.AuthService AuthService
 @inject SpiderHood.Services.IPermissionService PermissionService
@@ -62,7 +63,7 @@
                     @if (_puedeGestionar && _reunion.Estado == MeetingStatus.Convocada)
                     {
                         <div class="card-footer d-flex gap-2">
-                            <button class="btn btn-sm btn-success" @onclick="Iniciar"><i class="bi bi-play-fill me-1"></i>Iniciar Reunión</button>
+                            <button class="btn btn-sm btn-success" @onclick="IniciarClick"><i class="bi bi-play-fill me-1"></i>Iniciar Reunión</button>
                             <button class="btn btn-sm btn-outline-danger" @onclick="Cancelar"><i class="bi bi-x-lg me-1"></i>Cancelar</button>
                         </div>
                     }
@@ -357,7 +358,7 @@
 
                     @{ var rondaAbierta = _votaciones.FirstOrDefault(v => v.Estado == VotingRoundStatus.Abierta); }
 
-                    @if (rondaAbierta == null && _votacionItem.Estado == AgendaItemStatus.Pendiente)
+                    @if (_puedeGestionar && rondaAbierta == null && _votacionItem.Estado == AgendaItemStatus.Pendiente)
                     {
                         <div class="text-center py-3 d-flex justify-content-center gap-2">
                             <button class="btn btn-primary" @onclick="IniciarVotingRound">
@@ -370,6 +371,10 @@
                                 </button>
                             }
                         </div>
+                    }
+                    else if (rondaAbierta == null && _votacionItem.Estado == AgendaItemStatus.Pendiente)
+                    {
+                        <p class="text-muted text-center py-3 mb-0">Todavía no se abrió una ronda de votación para este punto.</p>
                     }
 
                     @if (rondaAbierta != null)
@@ -453,6 +458,8 @@
     </div>
 }
 
+<ConfirmationModal @ref="_confirmationModal" OnClose="OnConfirmationResult" />
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -462,6 +469,11 @@
     private Meeting? _reunion;
     private string? _mensaje;
     private bool _mensajeEsError;
+
+    private ConfirmationModal? _confirmationModal;
+    private ConfirmationUtil util = new ConfirmationUtil();
+
+    private async Task OnConfirmationResult(bool confirmed) => await util.OnConfirmationResult(confirmed);
 
     private bool _showAttendanceModal;
     private List<UnitWithShare> _roster = new();
@@ -497,6 +509,29 @@
     }
 
     private void Volver() => Navigation.NavigateTo("/governance/meetings");
+
+    // Antes "Iniciar Reunión" llamaba directo a IniciarMeetingAsync -- si la alícuota
+    // registrada todavía no alcanza el quórum, el servicio pasa la reunión a
+    // QuorumNoAlcanzado en el mismo click, sin ningún aviso previo (ver comentario en
+    // IMeetingService.IniciarMeetingAsync). Se avisa acá antes de arrancar cuando la
+    // asistencia registrada no alcanza el quórum, para que quien dirige la reunión no
+    // se entere recién después de hacer click.
+    private async Task IniciarClick()
+    {
+        if (_reunion == null) return;
+
+        var alicuotaRegistrada = _reunion.Asistentes.Sum(a => a.Alicuota);
+        if (alicuotaRegistrada < _reunion.QuorumRequerido)
+        {
+            var mensaje = _reunion.Asistentes.Count == 0
+                ? "Todavía no registraste ninguna asistencia. Si iniciás la reunión ahora, no se alcanzará el quórum y pasará directo a Segunda Convocatoria. ¿Continuar?"
+                : $"La asistencia registrada ({alicuotaRegistrada.ToString("0.##")}%) no alcanza el quórum requerido ({_reunion.QuorumRequerido.ToString("0.##")}%). Si iniciás la reunión ahora, pasará directo a Segunda Convocatoria. ¿Continuar?";
+            await util.ExecuteWithConfirmation(Iniciar, "Iniciar Reunión", _confirmationModal, mensaje, "warning", false);
+            return;
+        }
+
+        await Iniciar();
+    }
 
     private async Task Iniciar()
     {
@@ -687,7 +722,7 @@
 
     private async Task IniciarVotingRound()
     {
-        if (_votacionItem == null) return;
+        if (_votacionItem == null || !_puedeGestionar) return;
         try
         {
             await MeetingService.IniciarVotingRoundAsync(_votacionItem.IdAgendaItem, _currentUser.IdUser);
@@ -702,7 +737,7 @@
 
     private async Task RechazarSinMasRondas()
     {
-        if (_votacionItem == null) return;
+        if (_votacionItem == null || !_puedeGestionar) return;
         try
         {
             await MeetingService.MarcarAgendaItemEstadoAsync(_votacionItem.IdAgendaItem, AgendaItemStatus.Rechazado);

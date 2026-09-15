@@ -1534,7 +1534,7 @@
             transacciones = await BankService.GetTransactionsAsync(cuentaSeleccionadaId, fechaInicio, fechaFin);
 
             // Cargar gastos pendientes del mismo período
-            gastosPendientes = await ExpenseService.ObtenerGastosPendientesConciliacionAsync( ParameterService.CurrentBuilding.IdBuilding, fechaInicio, fechaFin);
+            gastosPendientes = await ExpenseService.GetExpensesPendingReconciliationAsync( ParameterService.CurrentBuilding.IdBuilding, fechaInicio, fechaFin);
 
             // Cargar Cuotas pendientes del mismo período
             cuotaspendientes = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
@@ -2247,7 +2247,7 @@
     }
 
     // Antes duplicaba la lógica de EnviarAConciliar con métodos que ya no eran reales
-    // (ExpenseService.MarcarGastoComoConciliadoAsync/BankService.UnreconcileTransactionAsync
+    // (ExpenseService.MarkExpenseAsReconciledAsync/BankService.UnreconcileTransactionAsync
     // -- ambos en memoria, nunca tocaban la BD) y buscaba
     // ReconciliationStatus == Conciliada, que con la Fase B ya no se setea hasta confirmar --
     // este botón nunca encontraba nada que guardar. Ahora es la misma acción que "Enviar a

@@ -182,9 +182,9 @@
                 var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
 
                 await ParameterService.LoadParametersAsync(idBuilding);
-                _categorias = await BudgetService.GetCategoriasAsync(idBuilding, true);
+                _categorias = await BudgetService.GetCategoriesAsync(idBuilding, true);
 
-                var todos = await BudgetService.GetPresupuestosAsync(idBuilding);
+                var todos = await BudgetService.GetBudgetsAsync(idBuilding);
                 _presupuestos = todos.Where(p => EstadosVisibles.Contains(p.Status)).ToList();
             }
         }
@@ -212,14 +212,14 @@
     {
         try
         {
-            var detalle = await BudgetService.GetPresupuestoByIdAsync(presupuesto.IdBudgetHeader);
+            var detalle = await BudgetService.GetBudgetByIdAsync(presupuesto.IdBudgetHeader);
             if (detalle == null)
             {
                 await ShowToast("Error", "No se encontró el detalle de este presupuesto.", "danger");
                 return;
             }
 
-            // GetPresupuestoByIdAsync no garantiza Details no-nulo en todos los casos --
+            // GetBudgetByIdAsync no garantiza Details no-nulo en todos los casos --
             // BudgetDetailModal asume que sí (Presupuesto!.Details!.Where(...)) y
             // tira NullReferenceException si viene null, lo que en un evento de UI se ve
             // exactamente como "no pasa nada" (la excepción corta el render a mitad de

@@ -288,7 +288,7 @@ namespace SpiderHood.Services
 
         public async Task UnreconcileExpenseAsync(Guid idStatementDetail, Guid idExpense)
         {
-            await ec.DesconciliarGastoAsync(idStatementDetail, idExpense);
+            await ec.UnreconcileExpenseAsync(idStatementDetail, idExpense);
         }
 
         // Docs/Pendientes-Negocio-Conciliacion.md #1 -- antes era un stub que no tocaba la

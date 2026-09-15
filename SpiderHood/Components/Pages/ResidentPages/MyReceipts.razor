@@ -388,7 +388,7 @@
         _generandoPdf = item.IdInstallment;
         try
         {
-            var budget = await BudgetService.GetPresupuestoByIdAsync(item.IdBudgetHeader);
+            var budget = await BudgetService.GetBudgetByIdAsync(item.IdBudgetHeader);
             var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period, ParameterService.CurrentBuilding.IdBuilding);
             var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(item.IdBudgetHeader);
 
@@ -397,7 +397,7 @@
             ParameterService.CurrentBuilding.Configuration =
                 await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
 
-            var categorias = await BudgetService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            var categorias = await BudgetService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             var cargosAdicionales = item.Type == InstallmentType.Ordinaria
                 ? await ExtraChargeService.GetAdditionalChargesAsync(ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { item })

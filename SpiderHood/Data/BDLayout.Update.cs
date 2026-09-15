@@ -709,7 +709,7 @@ namespace SpiderHood.Data
         // Contraparte de UpdateRecordAsync(TransactionBankDetail) de arriba -- "Corregir"
         // (Fase B) para Gastos: revierte tanto AccountStatementDetail.ReconciliationStatus/
         // ReconciliationDate como Expense.IdStatementDetail/AutoReconcile en un solo golpe.
-        public async Task<bool> DesconciliarGastoAsync(Guid idStatementDetail, Guid idExpense, CancellationToken cancellationToken = default)
+        public async Task<bool> UnreconcileExpenseAsync(Guid idStatementDetail, Guid idExpense, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {

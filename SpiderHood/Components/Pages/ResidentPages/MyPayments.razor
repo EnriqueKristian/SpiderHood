@@ -460,7 +460,7 @@
         var cuota = _misCuotas.FirstOrDefault(c => c.IdInstallment == pago.IdInstallment);
         if (cuota == null || ParameterService.CurrentBuilding == null) return;
 
-        var budget = await BudgetService.GetPresupuestoByIdAsync(cuota.IdBudgetHeader);
+        var budget = await BudgetService.GetBudgetByIdAsync(cuota.IdBudgetHeader);
         var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(cuota.Period, ParameterService.CurrentBuilding!.IdBuilding);
         var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(cuota.IdBudgetHeader);
 

@@ -278,7 +278,7 @@ else
 
             if (_canApproveBudgets)
             {
-                _presupuestosPendientes = await BudgetService.GetPresupuestosAsync(_idBuilding, estado: BudgetStatus.Check);
+                _presupuestosPendientes = await BudgetService.GetBudgetsAsync(_idBuilding, estado: BudgetStatus.Check);
             }
 
             if (_canApproveExpenses)

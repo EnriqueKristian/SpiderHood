@@ -12,12 +12,12 @@ namespace SpiderHood.Services
         public List<BudgetHeader> _Budgets { get; set; }
         public BudgetHeader _SelectedBudget { get; set; }
 
-        Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null, string? mes = null, BudgetStatus? estado = null);
-        Task<List<BudgetSumCategory>> GetPresupuestosSumAsync(Guid IdBuilding);
-        Task<BudgetHeader?> GetPresupuestoByIdAsync(Guid id);
-        Task<BudgetHeader> CreatePresupuestoAsync(BudgetHeader presupuesto);
-        Task UpdatePresupuestoAsync(BudgetHeader presupuesto);
-        Task DeletePresupuestoAsync(Guid id);
+        Task<List<BudgetHeader>> GetBudgetsAsync(Guid IdBuilding, string? search = null, string? mes = null, BudgetStatus? estado = null);
+        Task<List<BudgetSumCategory>> GetBudgetsSumAsync(Guid IdBuilding);
+        Task<BudgetHeader?> GetBudgetByIdAsync(Guid id);
+        Task<BudgetHeader> CreateBudgetAsync(BudgetHeader presupuesto);
+        Task UpdateBudgetAsync(BudgetHeader presupuesto);
+        Task DeleteBudgetAsync(Guid id);
         Task<BudgetState> InitializeBudgetStateAsync(BudgetHeader selectedBudget);
         Task LoadDefaultBudgetDetailsAsync(BudgetState state);
         Task LoadDataDefaultAsync(BudgetState state);
@@ -28,16 +28,16 @@ namespace SpiderHood.Services
 
         // Categorías
         Task<List<ViewBudgetDetail>> GetLastBudgetItemsByParentCategoryAsync(Guid idBuilding, Guid idParentCategory);
-        Task<List<Category>> GetCategoriasAsync(Guid IdBuilding, bool? activas = true);
-        Task<Category?> GetCategoriaByIdAsync(Guid id);
-        Task<Category> CreateCategoriaAsync(Category categoria);
-        Task UpdateCategoriaAsync(Category categoria);
+        Task<List<Category>> GetCategoriesAsync(Guid IdBuilding, bool? activas = true);
+        Task<Category?> GetCategoryByIdAsync(Guid id);
+        Task<Category> CreateCategoryAsync(Category categoria);
+        Task UpdateCategoryAsync(Category categoria);
 
         // Detalles
         //Task<List<BudgetDetail>> GetDetallesByPresupuestoAsync(Guid presupuestoId);
-        Task AddDetalleToPresupuestoAsync(BudgetDetail detalle);
-        Task UpdateDetalleAsync(BudgetDetail detalle);
-        Task DeleteDetalleAsync(Guid detalleId);
+        Task AddDetailToBudgetAsync(BudgetDetail detalle);
+        Task UpdateDetailAsync(BudgetDetail detalle);
+        Task DeleteDetailAsync(Guid detalleId);
     }
 
     public class BudgetService : IBudgetService
@@ -70,7 +70,7 @@ namespace SpiderHood.Services
 
         #region Presupuestos
 
-        public async Task<List<BudgetHeader>> GetPresupuestosAsync(Guid IdBuilding, string? search = null, string? mes = null, BudgetStatus? estado = null)
+        public async Task<List<BudgetHeader>> GetBudgetsAsync(Guid IdBuilding, string? search = null, string? mes = null, BudgetStatus? estado = null)
         {
             try
             {
@@ -122,7 +122,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<List<BudgetSumCategory>> GetPresupuestosSumAsync(Guid IdBuilding)
+        public async Task<List<BudgetSumCategory>> GetBudgetsSumAsync(Guid IdBuilding)
         {
             try
             {
@@ -135,7 +135,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<BudgetHeader?> GetPresupuestoByIdAsync(Guid id)
+        public async Task<BudgetHeader?> GetBudgetByIdAsync(Guid id)
         {
             try
             {
@@ -161,7 +161,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<BudgetHeader> CreatePresupuestoAsync(BudgetHeader presupuesto)
+        public async Task<BudgetHeader> CreateBudgetAsync(BudgetHeader presupuesto)
         {
             try
             {
@@ -184,7 +184,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task UpdatePresupuestoAsync(BudgetHeader presupuesto)
+        public async Task UpdateBudgetAsync(BudgetHeader presupuesto)
         {
             // La implementación original de este método (comentada más abajo en el
             // historial de git) usaba _context.Presupuestos como DbSet<T> rastreado por
@@ -208,7 +208,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task DeletePresupuestoAsync(Guid id)
+        public async Task DeleteBudgetAsync(Guid id)
         {
             // BDLayout normalmente crea su propio SpiderHoodContext por operación (ver
             // BDLayout.Core.cs), pero eso rompería una transacción como esta: cada llamada
@@ -355,7 +355,7 @@ namespace SpiderHood.Services
 
         public async Task SaveBudgetAsync(BudgetState state, List<Models.Period> _periods)
         {
-            // Igual que en DeletePresupuestoAsync: todas las llamadas de abajo (directas y
+            // Igual que en DeleteBudgetAsync: todas las llamadas de abajo (directas y
             // de los métodos privados que llaman) tienen que compartir el mismo contexto/
             // conexión que esta transacción, así que se pasa un BDLayout local en modo
             // "fijo" a través de toda la cadena en vez de usar el campo `ec` (que crea un
@@ -527,7 +527,7 @@ namespace SpiderHood.Services
 
         #region Categorías
 
-        public async Task<List<Category>> GetCategoriasAsync(Guid IdBuilding, bool? activas = true)
+        public async Task<List<Category>> GetCategoriesAsync(Guid IdBuilding, bool? activas = true)
         {
             try
             {
@@ -549,7 +549,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<Category?> GetCategoriaByIdAsync(Guid id)
+        public async Task<Category?> GetCategoryByIdAsync(Guid id)
         {
             try
             {
@@ -564,7 +564,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<Category> CreateCategoriaAsync(Category categoria)
+        public async Task<Category> CreateCategoryAsync(Category categoria)
         {
             /*
             try
@@ -615,7 +615,7 @@ namespace SpiderHood.Services
             return categoria;
         }
 
-        public async Task UpdateCategoriaAsync(Category categoria)
+        public async Task UpdateCategoryAsync(Category categoria)
         {
             /*
             try
@@ -719,7 +719,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task AddDetalleToPresupuestoAsync(BudgetDetail detalle)
+        public async Task AddDetailToBudgetAsync(BudgetDetail detalle)
         {
             try
             {
@@ -735,7 +735,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task UpdateDetalleAsync(BudgetDetail detalle)
+        public async Task UpdateDetailAsync(BudgetDetail detalle)
         {
             /*
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -810,7 +810,7 @@ namespace SpiderHood.Services
             }*/
         }
 
-        public async Task DeleteDetalleAsync(Guid detalleId)
+        public async Task DeleteDetailAsync(Guid detalleId)
         {
             /*
             using var transaction = await _context.Database.BeginTransactionAsync();

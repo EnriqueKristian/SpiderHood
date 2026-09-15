@@ -553,7 +553,7 @@
         // excepciones del periodo de ESTA cuota puntual (cargados on-demand: a diferencia
         // de esa pantalla, aquí no hay un único presupuesto "activo", cada fila puede ser
         // de un periodo distinto).
-        var budget = await BudgetService.GetPresupuestoByIdAsync(item.IdBudgetHeader);
+        var budget = await BudgetService.GetBudgetByIdAsync(item.IdBudgetHeader);
         var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period, ParameterService.CurrentBuilding!.IdBuilding);
         var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(item.IdBudgetHeader);
 
@@ -610,7 +610,7 @@
 
             // Categorías raíz (secciones) del edificio — el generador de recibos las usa
             // para saber si una sección se imprime con detalle o colapsada (ShowDetailInReceipt).
-            var categorias = await BudgetService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding);
+            var categorias = await BudgetService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // Cuotas Extraordinarias/Multas/Mora de esta unidad, para que el recibo
             // muestre lo mismo que "Ver Detalle" (solo aplica sobre cuotas Ordinarias).

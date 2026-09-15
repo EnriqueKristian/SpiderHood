@@ -344,7 +344,7 @@
             // Active mostraba nada más el mes vigente, aunque los meses ya cerrados también
             // tienen cuotas reales y recaudación real para reportar. Created/Check/Approved/
             // Rejected sí quedan afuera -- esos todavía no generaron ninguna cuota.
-            var presupuestos = await BudgetService.GetPresupuestosAsync(idBuilding);
+            var presupuestos = await BudgetService.GetBudgetsAsync(idBuilding);
             var ordinarios = presupuestos
                 .Where(p => string.IsNullOrEmpty(p.BudgetType) &&
                     (p.Status == BudgetStatus.Active || p.Status == BudgetStatus.Closed) &&

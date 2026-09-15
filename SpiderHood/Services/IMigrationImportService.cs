@@ -53,7 +53,7 @@ namespace SpiderHood.Services
     // excepción real de SQL en .InnerException) -- por eso se usa directo acá, y se
     // captura por fila/periodo para no abortar todo el lote por un solo error.
     // AddOwnerAsync/AddInstallmentAsync/AddPaymentAsync/AddTransactionBankHeaderAsync/
-    // AddTransactionFromEECCAsync/CreatePresupuestoAsync/AddDetalleToPresupuestoAsync
+    // AddTransactionFromEECCAsync/CreateBudgetAsync/AddDetailToBudgetAsync
     // sí relanzan correctamente -- esos importadores no tenían este problema.
     //
     // Mismo antipatrón encontrado después en una LECTURA:
@@ -716,7 +716,7 @@ namespace SpiderHood.Services
         }
 
         // Importador de la plantilla "Presupuesto Histórico por Periodo". Un
-        // BudgetHeader por periodo distinto del archivo (CreatePresupuestoAsync, sin
+        // BudgetHeader por periodo distinto del archivo (CreateBudgetAsync, sin
         // efectos secundarios) con un BudgetDetail 'header' de sección por cada
         // categoría usada y un BudgetDetail de línea por cada fila -- mismo criterio
         // de IsHeader/IdSection que usa InstallmentExportService.GetSections() para
@@ -731,7 +731,7 @@ namespace SpiderHood.Services
         // 'Type' de cada línea queda en 1 (Por Unidad) por defecto -- la plantilla no
         // captura el tipo de distribución real de cada ítem histórico.
         //
-        // CreatePresupuestoAsync/AddDetalleToPresupuestoAsync sí relanzan (no atrapan
+        // CreateBudgetAsync/AddDetailToBudgetAsync sí relanzan (no atrapan
         // en silencio, ver comentario al inicio del archivo), pero antes nada acá los
         // envolvía en try/catch -- una falla real (encontrada en producción: BudgetHeader
         // .CreatedBy en la BD es más angosto que el email de algunos usuarios, ver
@@ -820,7 +820,7 @@ namespace SpiderHood.Services
 
                     try
                     {
-                        await _budgetService.CreatePresupuestoAsync(new Models.BudgetHeader
+                        await _budgetService.CreateBudgetAsync(new Models.BudgetHeader
                         {
                             IdBudgetHeader = idBudgetHeader,
                             BudgetName = $"Presupuesto histórico {periodo:MMMM yyyy}",
@@ -839,7 +839,7 @@ namespace SpiderHood.Services
                             var categoria = categoriaPorNombre[grupoCategoria.Key];
                             var idSection = siguienteIdSection++;
 
-                            await _budgetService.AddDetalleToPresupuestoAsync(new Models.BudgetDetail
+                            await _budgetService.AddDetailToBudgetAsync(new Models.BudgetDetail
                             {
                                 IdBudgetDetail = Guid.NewGuid(),
                                 IdCategory = categoria.IdCategory,
@@ -858,7 +858,7 @@ namespace SpiderHood.Services
                             var secuencia = 1;
                             foreach (var f in grupoCategoria)
                             {
-                                await _budgetService.AddDetalleToPresupuestoAsync(new Models.BudgetDetail
+                                await _budgetService.AddDetailToBudgetAsync(new Models.BudgetDetail
                                 {
                                     IdBudgetDetail = Guid.NewGuid(),
                                     IdCategory = categoria.IdCategory,
@@ -959,7 +959,7 @@ namespace SpiderHood.Services
             List<Models.BudgetHeader> presupuestosExistentes;
             try
             {
-                presupuestosExistentes = await _budgetService.GetPresupuestosAsync(idBuilding);
+                presupuestosExistentes = await _budgetService.GetBudgetsAsync(idBuilding);
             }
             catch (Exception)
             {
@@ -1098,7 +1098,7 @@ namespace SpiderHood.Services
                             }
                             else
                             {
-                                var nuevo = await _budgetService.CreatePresupuestoAsync(new Models.BudgetHeader
+                                var nuevo = await _budgetService.CreateBudgetAsync(new Models.BudgetHeader
                                 {
                                     BudgetName = $"Cuota histórica migrada {periodo:MMMM yyyy}",
                                     BudgetDate = periodo,

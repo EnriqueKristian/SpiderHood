@@ -387,7 +387,7 @@
         var count = 0;
         if (await PermissionService.HasPermissionAsync(usuario, "approve_budget"))
         {
-            var presupuestos = await BudgetService.GetPresupuestosAsync(usuario.CurrentBuildingId, estado: Models.BudgetStatus.Check);
+            var presupuestos = await BudgetService.GetBudgetsAsync(usuario.CurrentBuildingId, estado: Models.BudgetStatus.Check);
             count += presupuestos.Count;
         }
 

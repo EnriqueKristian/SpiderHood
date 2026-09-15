@@ -532,14 +532,14 @@
             budgetService._SelectedBudget = new();
 
             // Cargar categorías activas
-            categoriasActivas = await budgetService.GetCategoriasAsync(ParameterService.CurrentBuilding.IdBuilding, true);
+            categoriasActivas = await budgetService.GetCategoriesAsync(ParameterService.CurrentBuilding.IdBuilding, true);
 
             // Cargar presupuestos
-            budgetService._Budgets = await budgetService.GetPresupuestosAsync(ParameterService.CurrentBuilding.IdBuilding);
+            budgetService._Budgets = await budgetService.GetBudgetsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             
             // Calcular totales por categoría para cada presupuesto
-            SumCategory = await budgetService.GetPresupuestosSumAsync(ParameterService.CurrentBuilding.IdBuilding);
+            SumCategory = await budgetService.GetBudgetsSumAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             //Aplicar Filtros
             await FiltrarPresupuestos();
@@ -739,7 +739,7 @@
         try
         {
             // Cargar presupuesto completo con detalles
-            budgetDetail = await budgetService.GetPresupuestoByIdAsync(_budget.IdBudgetHeader);
+            budgetDetail = await budgetService.GetBudgetByIdAsync(_budget.IdBudgetHeader);
             //if (presupuestoDetalle != null)
             //{
             mostrarModalDetalle = true;
@@ -766,7 +766,7 @@
         // Lógica adicional después de cerrar el modal, si es necesario
         try
         {
-            await budgetService.DeletePresupuestoAsync(selectedBudget!.IdBudgetHeader);
+            await budgetService.DeleteBudgetAsync(selectedBudget!.IdBudgetHeader);
             //await toastService.ShowSuccessAsync("Presupuesto eliminado correctamente");
             await CargarDatos();
         }
@@ -803,7 +803,7 @@
                 CreatedBy = "UsuarioActual" // Obtener del sistema de autenticación
             };
 
-            var creado = await budgetService.CreatePresupuestoAsync(nuevoPresupuesto);
+            var creado = await budgetService.CreateBudgetAsync(nuevoPresupuesto);
 
             // La fila viene de la lista paginada, que no trae los detalles cargados;
             // hay que pedirlos aparte para poder clonarlos.
@@ -827,7 +827,7 @@
                     Type = detalle.Type,
                     IsHeader = detalle.IsHeader
                 };
-                await budgetService.AddDetalleToPresupuestoAsync(nuevoDetalle);
+                await budgetService.AddDetailToBudgetAsync(nuevoDetalle);
             }
 
             //await toastService.ShowSuccessAsync("Presupuesto clonado correctamente");
@@ -859,7 +859,7 @@
         {
             try
             {
-                await budgetService.UpdatePresupuestoAsync(budgetDetail);
+                await budgetService.UpdateBudgetAsync(budgetDetail);
                 //await toastService.ShowSuccessAsync("Cambios guardados correctamente");
                 await CargarDatos();
             }

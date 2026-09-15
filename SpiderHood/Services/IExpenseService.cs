@@ -8,11 +8,11 @@ namespace SpiderHood.Services
 {
     public interface IExpenseService
     {
-        Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync(Guid IdBuilding, DateTime desde, DateTime hasta);
+        Task<List<ViewExpense>> GetExpensesPendingReconciliationAsync(Guid IdBuilding, DateTime desde, DateTime hasta);
         //Task<List<CategoriaGasto>> ObtenerCategoriasAsync();
         Task<ViewExpense> CreateExpenseAsync(ViewExpense gasto);
-        Task MarcarGastoComoConciliadoAsync(Guid gastoId, Guid transaccionId);
-        Task DesconciliarGastoAsync(Guid gastoId);
+        Task MarkExpenseAsReconciledAsync(Guid gastoId, Guid transaccionId);
+        Task UnreconcileExpenseAsync(Guid gastoId);
         Task AddExpenseAsync(ViewExpense expense);
         Task AddExpenseAsync(Expense expense);
         Task UpdateExpenseAsync(Expense expense);
@@ -122,7 +122,7 @@ namespace SpiderHood.Services
             };
         }
 
-        public async Task<List<ViewExpense>> ObtenerGastosPendientesConciliacionAsync(Guid IdBuilding, DateTime desde, DateTime hasta)
+        public async Task<List<ViewExpense>> GetExpensesPendingReconciliationAsync(Guid IdBuilding, DateTime desde, DateTime hasta)
         {
             return await ec.GetPendingConciliationExpensesAsync(IdBuilding, desde, hasta);
         }
@@ -242,7 +242,7 @@ namespace SpiderHood.Services
             return gasto;
         }
 
-        public async Task MarcarGastoComoConciliadoAsync(Guid gastoId, Guid transaccionId)
+        public async Task MarkExpenseAsReconciledAsync(Guid gastoId, Guid transaccionId)
         {
             var gasto = gastos.FirstOrDefault(g => g.IdExpense == gastoId);
             if (gasto != null)
@@ -252,7 +252,7 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task DesconciliarGastoAsync(Guid gastoId)
+        public async Task UnreconcileExpenseAsync(Guid gastoId)
         {
             var gasto = gastos.FirstOrDefault(g => g.IdExpense == gastoId);
             if (gasto != null)

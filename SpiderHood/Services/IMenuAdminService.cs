@@ -59,11 +59,36 @@ namespace SpiderHood.Services
             BuildHierarchy();
         }
 
+        // Un item raíz puede tener IdParent en NULL (todos los INS_MenuItem del
+        // repo lo pasan así por default, ej. Database/Scripts/2026-09-02_05_Incidents.sql
+        // y los del módulo Personal y Planillas) o en Guid.Empty (lo que graba
+        // MenuItemForm.razor cuando el usuario elige "--- Raíz del menú ---" del
+        // combo, ver GetAvailableParentsAsync). Antes de este fix, cada método de
+        // este archivo comparaba sólo contra UNA de las dos convenciones -- según
+        // cuál, un item raíz sembrado por script (IdParent NULL) directamente no
+        // aparecía en "Administrar Menú" (ni como raíz ni como opción de padre
+        // para crearle hijos), mientras que uno creado desde la propia UI
+        // (IdParent Guid.Empty) sí. Centralizado acá para que las dos
+        // convenciones se traten siempre igual.
+        private static bool IsRootMenuItem(Guid? idParent) => idParent == null || idParent == Guid.Empty;
+
+        // FK_MenuItems_Parent (IdParent -> MenuItems.IdMenu, self-referencing) sólo
+        // deja pasar NULL para "sin padre" -- Guid.Empty no matchea ninguna fila y
+        // SIEMPRE revienta con "The UPDATE/INSERT statement conflicted with the
+        // FOREIGN KEY... column 'IdMenu'" (SQL Error 547), que termina el circuito
+        // de Blazor sin ningún mensaje útil para el usuario. GetAvailableParentsAsync
+        // arriba ofrece Guid.Empty como el value del combo "--- Raíz del menú ---"
+        // (ver MenuItemForm.razor), así que cualquier alta/edición que se deje ese
+        // combo en su default llega acá con IdParent = Guid.Empty. Se normaliza a
+        // null justo antes de persistir -- IsRootMenuItem ya trata ambos por igual,
+        // así que esto no cambia ninguna lógica en memoria.
+        private static Guid? NormalizeIdParent(Guid? idParent) => idParent == Guid.Empty ? null : idParent;
+
         private void BuildHierarchy()
         {
             foreach (var item in _menuItems)
             {
-                if (!string.IsNullOrEmpty(item.IdParent.ToString()))
+                if (!IsRootMenuItem(item.IdParent))
                 {
                     item.Parent = _menuItems.FirstOrDefault(p => p.IdMenu == item.IdParent);
                 }
@@ -78,7 +103,7 @@ namespace SpiderHood.Services
         public Task<List<MenuItemWithRoles>> GetRootMenuItemsAsync()
         {
             var roots = _menuItems
-                .Where(i => i.IdParent == Guid.Empty)
+                .Where(i => IsRootMenuItem(i.IdParent))
                 .OrderBy(i => i.DisplayOrder)
                 .ToList();
 
@@ -106,81 +131,84 @@ namespace SpiderHood.Services
             return Task.FromResult(item);
         }
 
-        public Task<MenuItemWithRoles> CreateMenuItemAsync(MenuItemWithRoles item)
+        // Antes era un método "sync" que envolvía cada llamada a BDLayout en `_ =
+        // ec.XxxAsync(...)` (fire-and-forget) en vez de awaitearla -- el método
+        // devolvía el item ya "guardado" al caller (y la UI mostraba éxito) sin
+        // esperar a que ninguna de esas escrituras hubiera terminado siquiera, ni
+        // observar si alguna fallaba (una excepción en una Task no observada se
+        // pierde en silencio). Eso es lo que hacía que "a veces" el guardado no
+        // se reflejara en SQL Server -- una simple condición de carrera, no algo
+        // determinístico, por eso era intermitente.
+        public async Task<MenuItemWithRoles> CreateMenuItemAsync(MenuItemWithRoles item)
         {
             item.IdMenu = Guid.NewGuid();
             item.CreatedAt = DateTime.UtcNow;
+            item.IdParent = NormalizeIdParent(item.IdParent);
 
-            // Generar Target para items con hijos
-            if (string.IsNullOrEmpty(item.IdParent.ToString()))
+            // Generar Target para items raíz (con hijos) -- ver IsRootMenuItem.
+            if (IsRootMenuItem(item.IdParent))
             {
                 item.Target = $"menu-{item.IdMenu.ToString().ToLower()}";
             }
 
             _menuItems.Add(item);
 
-            _ = ec.AddNewRecordAsync(item);
+            await ec.AddNewRecordAsync(item);
 
-            MenuPermissions mperm = new MenuPermissions();
-
-            mperm.IdMenu = item.IdMenu;
-            _ = ec.DeleteRecordAsync(mperm);
+            // Antes de insertar los permisos nuevos, se limpia cualquier fila vieja
+            // para este IdMenu (no debería haber ninguna en un alta, pero por las
+            // dudas si se reintentó tras un error parcial) -- ver
+            // DEL_MenuItemPermissionsByMenu.
+            await ec.DeleteMenuItemPermissionsByMenuAsync(item.IdMenu);
 
             foreach (var perm in item.RequiredPermissions)
             {
-                mperm = new();
-                mperm.IdMenu = item.IdMenu;
-                mperm.IdRole = perm;
-
-                _ = ec.AddNewRecordAsync(mperm);
+                await ec.AddNewRecordAsync(new MenuPermissions { IdMenu = item.IdMenu, IdRole = perm });
             }
 
-            return Task.FromResult(item);
+            return item;
         }
 
-        public Task UpdateMenuItemAsync(MenuItemWithRoles item)
+        // Mismo fix que CreateMenuItemAsync arriba. El bug más serio acá era el
+        // borrado de permisos "viejos" antes de re-insertar los nuevos: se armaba
+        // un MenuPermissions con sólo IdMenu seteado (IdRole quedaba en
+        // Guid.Empty, el default de C#) y DEL_MenuItemPermission borra por
+        // (IdMenu, IdRole) EXACTO -- esa fila nunca existía, así que el borrado
+        // nunca borraba nada de verdad. Resultado: destildar un rol y guardar
+        // nunca le sacaba el acceso a ese rol (sólo se podían AGREGAR roles
+        // nuevos, nunca quitar uno existente), sin ningún error visible.
+        public async Task UpdateMenuItemAsync(MenuItemWithRoles item)
         {
             var existing = _menuItems.FirstOrDefault(i => i.IdMenu == item.IdMenu);
-            if (existing != null)
+            if (existing == null)
+                return;
+
+            item.IdParent = NormalizeIdParent(item.IdParent);
+
+            existing.Title = item.Title;
+            existing.Icon = item.Icon;
+            existing.Url = item.Url;
+            existing.DisplayOrder = item.DisplayOrder;
+            existing.IdParent = item.IdParent;
+            existing.RequiredPermissions = item.RequiredPermissions;
+            existing.IsVisible = item.IsVisible;
+            existing.BadgeText = item.BadgeText;
+            existing.BadgeColor = item.BadgeColor;
+            existing.UpdatedAt = DateTime.UtcNow;
+
+            // Actualizar Target si es necesario -- ver IsRootMenuItem.
+            existing.Target = IsRootMenuItem(existing.IdParent)
+                ? $"menu-{existing.IdMenu.ToString().ToLower()}"
+                : null;
+
+            await ec.UpdateRecordAsync(item);
+
+            await ec.DeleteMenuItemPermissionsByMenuAsync(item.IdMenu);
+
+            foreach (var perm in item.RequiredPermissions)
             {
-                existing.Title = item.Title;
-                existing.Icon = item.Icon;
-                existing.Url = item.Url;
-                existing.DisplayOrder = item.DisplayOrder;
-                existing.IdParent = item.IdParent;
-                existing.RequiredPermissions = item.RequiredPermissions;
-                existing.IsVisible = item.IsVisible;
-                existing.BadgeText = item.BadgeText;
-                existing.BadgeColor = item.BadgeColor;
-                existing.UpdatedAt = DateTime.UtcNow;
-
-                // Actualizar Target si es necesario
-                if (string.IsNullOrEmpty(existing.IdParent.ToString()))
-                {
-                    existing.Target = $"menu-{existing.IdMenu.ToString().ToLower()}";
-                }
-                else
-                {
-                    existing.Target = null;
-                }
-
-                _ = ec.UpdateRecordAsync(item);
-
-                MenuPermissions mperm = new MenuPermissions();
-
-                mperm.IdMenu = item.IdMenu;
-                _ = ec.DeleteRecordAsync(mperm);
-
-                foreach (var perm in item.RequiredPermissions)
-                {
-                    mperm = new();
-                    mperm.IdMenu = item.IdMenu;
-                    mperm.IdRole = perm;
-
-                    _ = ec.AddNewRecordAsync(mperm);
-                }
+                await ec.AddNewRecordAsync(new MenuPermissions { IdMenu = item.IdMenu, IdRole = perm });
             }
-            return Task.CompletedTask;
         }
 
         public async Task DeleteMenuItemAsync(Guid id)
@@ -208,7 +236,7 @@ namespace SpiderHood.Services
         public Task<List<MenuItemWithRoles>> GetAvailableParentsAsync(Guid? currentItemId = null)
         {
             var parents = _menuItems
-                .Where(i => i.IdParent == Guid.Empty && i.IdMenu != currentItemId)
+                .Where(i => IsRootMenuItem(i.IdParent) && i.IdMenu != currentItemId)
                 .OrderBy(i => i.Title)
                 .ToList();
 
@@ -222,17 +250,36 @@ namespace SpiderHood.Services
             return Task.FromResult(parents);
         }
 
-        public Task ReorderMenuAsync(List<MenuItemWithRoles> items)
+        // Bug encontrado 2026-09-15: esto sólo tocaba el DisplayOrder en memoria
+        // (_menuItems) -- nunca llamaba a BDLayout, así que "Guardar orden" en
+        // Administrar Menú mostraba éxito pero el reordenamiento se perdía apenas
+        // terminaba el circuito (nuevo login/F5). Ahora persiste cada item vía
+        // UPD_MenuItem -- que es un UPDATE de fila completa, así que hay que
+        // mandar el objeto ENTERO tal como está en _menuItems (con su Title/Url/
+        // Icon/etc. reales), no el objeto sparse que manda la página (que sólo
+        // trae IdMenu + DisplayOrder) -- mandar ese de acá directo habría
+        // vaciado esas columnas en SQL Server.
+        //
+        // Segundo bug encontrado el mismo día: esto usaba "i + 1" (la posición del
+        // item dentro de la lista) en vez de items[i].DisplayOrder (el valor que el
+        // usuario efectivamente escribió en el campo "Orden" y que MenuItems.razor
+        // manda acá) -- como editar el número no cambia la posición del row en la
+        // lista, el valor tecleado se descartaba en silencio y siempre quedaba
+        // renumerado 1..N según el orden en pantalla. Este era exactamente el
+        // síntoma reportado: "no hace caso a lo que se envía".
+        public async Task ReorderMenuAsync(List<MenuItemWithRoles> items)
         {
-            for (int i = 0; i < items.Count; i++)
+            foreach (var incoming in items)
             {
-                var item = _menuItems.FirstOrDefault(x => x.IdMenu == items[i].IdMenu);
-                if (item != null)
-                {
-                    item.DisplayOrder = i + 1;
-                }
+                var item = _menuItems.FirstOrDefault(x => x.IdMenu == incoming.IdMenu);
+                if (item == null)
+                    continue;
+
+                item.DisplayOrder = incoming.DisplayOrder;
+                item.UpdatedAt = DateTime.UtcNow;
+                item.IdParent = NormalizeIdParent(item.IdParent);
+                await ec.UpdateRecordAsync(item);
             }
-            return Task.CompletedTask;
         }
 
         public async Task<List<PermissionSelection>> GetAllPermissionsForMenuAsync()
@@ -334,85 +381,46 @@ namespace SpiderHood.Services
             }
         }
 
+        // Antes, "agregar" un permiso era un INSERT con un try/catch que asumía
+        // que cualquier excepción significaba "ya existe, ignorar" -- pero
+        // dbo.MenuPermissions no tenía ninguna restricción UNIQUE (arreglado en
+        // Database/Scripts/2026-09-15_112_Fix_MenuAdmin_Permissions.sql), así que
+        // un INSERT repetido nunca fallaba: creaba una fila duplicada en
+        // silencio. Y si el INSERT fallaba por un motivo real (timeout, conexión
+        // caída), ese catch lo tragaba igual, la UI mostraba "guardado" y el
+        // cambio real nunca había llegado a SQL Server. Acá se borra primero
+        // (idempotente: no falla si no existía) y recién después se inserta si
+        // corresponde -- sin depender de que una excepción signifique lo que uno
+        // cree que significa, y sin tragarse errores reales.
         public async Task UpdateMenuItemPermissionsAsync(Guid menuItemId, List<Guid> roleIds, List<bool> action)
         {
-            try
+            var menuItem = _menuItems.FirstOrDefault(m => m.IdMenu == menuItemId);
+            if (menuItem == null)
+                throw new KeyNotFoundException($"MenuItem {menuItemId} no encontrado");
+
+            menuItem.RequiredPermissions ??= new List<Guid>();
+
+            for (int i = 0; i < roleIds.Count; i++)
             {
-                var menuItem = _menuItems.FirstOrDefault(m => m.IdMenu == menuItemId);
+                var roleId = roleIds[i];
+                var hasPermission = action[i];
 
-                if (menuItem == null)
-                    throw new KeyNotFoundException($"MenuItem {menuItemId} no encontrado");
+                await ec.DeleteRecordAsync(new MenuPermissions { IdMenu = menuItemId, IdRole = roleId });
 
-                // Actualizar RequiredPermissions en memoria
-                menuItem.RequiredPermissions ??= new List<Guid>();
-
-                for (int i = 0; i < roleIds.Count; i++)
+                if (hasPermission)
                 {
-                    var roleId = roleIds[i];
-                    var hasPermission = action[i];
+                    await ec.AddNewRecordAsync(new MenuPermissions { IdMenu = menuItemId, IdRole = roleId });
 
-                    if (hasPermission)
-                    {
-                        // Agregar permiso si no existe
-                        if (!menuItem.RequiredPermissions.Contains(roleId))
-                            menuItem.RequiredPermissions.Add(roleId);
-                    }
-                    else
-                    {
-                        // Remover permiso si existe
-                        if (menuItem.RequiredPermissions.Contains(roleId))
-                            menuItem.RequiredPermissions.Remove(roleId);
-                    }
+                    if (!menuItem.RequiredPermissions.Contains(roleId))
+                        menuItem.RequiredPermissions.Add(roleId);
                 }
-
-                menuItem.UpdatedAt = DateTime.UtcNow;
-
-                // Actualizar en Base de Datos
-                for (int i = 0; i < roleIds.Count; i++)
+                else
                 {
-                    var roleId = roleIds[i];
-                    var hasPermission = action[i];
-
-                    var menuPerm = new MenuPermissions
-                    {
-                        IdMenu = menuItemId,
-                        IdRole = roleId
-                    };
-
-                    if (hasPermission)
-                    {
-                        // Intentar agregar el permiso (manejar si ya existe)
-                        try
-                        {
-                            await ec.AddNewRecordAsync(menuPerm);
-                        }
-                        catch (Exception ex)
-                        {
-                            // Posiblemente el permiso ya existe, ignorar el error
-                            Console.WriteLine($"Permiso ya existe o error al agregar: {ex.Message}");
-                        }
-                    }
-                    else
-                    {
-                        // Eliminar el permiso
-                        try
-                        {
-                            await ec.DeleteRecordAsync(menuPerm);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Error al eliminar permiso: {ex.Message}");
-                        }
-                    }
+                    menuItem.RequiredPermissions.Remove(roleId);
                 }
+            }
 
-                Console.WriteLine($"Permisos actualizados para menu item {menuItemId}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error al actualizar permisos para {menuItemId}: {ex.Message}");
-                throw;
-            }
+            menuItem.UpdatedAt = DateTime.UtcNow;
         }
 
         // Método adicional útil: Obtener permisos por rol

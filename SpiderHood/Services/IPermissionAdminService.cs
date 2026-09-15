@@ -152,6 +152,15 @@ namespace SpiderHood.Services
                     IdPermission = permissionId
                 });
             }
+
+            // PermissionService (IPermissionService.GetUserPermissionsAsync) cachea los
+            // permisos de un rol por el resto del circuito -- sin esto, un SysAdmin que
+            // guarda acá y sigue navegando en la MISMA sesión seguía viendo el permiso
+            // viejo hasta hacer F5 o volver a entrar (la caché no tiene forma de saber
+            // que se invalidó, salvo que se lo digan explícitamente). No soluciona el
+            // caso de OTRO usuario ya logueado bajo ese rol en OTRO circuito -- ese sigue
+            // necesitando F5/relogin, ver PermissionService._permissionsCacheByRole.
+            await _permissionService.RefreshMenu();
         }
 
         public async Task<List<RoleAssignment>> GetUserRoleAssignmentsAsync()

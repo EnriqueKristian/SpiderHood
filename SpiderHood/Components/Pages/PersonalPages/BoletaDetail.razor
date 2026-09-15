@@ -51,7 +51,7 @@
                         <p class="mb-1"><strong>@_boleta.NombrePersonal</strong></p>
                         <p class="mb-1 text-muted small">DNI @_boleta.DNI -- @_boleta.Cargo</p>
                         <p class="mb-1 text-muted small">Ingreso: @_boleta.FechaIngreso?.ToString("dd/MM/yyyy")</p>
-                        <p class="mb-0 text-muted small">Sistema pensionario: @_boleta.SistemaPensionario -- Régimen: @_boleta.TipoRegimen</p>
+                        <p class="mb-0 text-muted small">Sistema pensionario: @_boleta.SistemaPensionario -- Régimen: @TraducirRegimen(_boleta.TipoRegimen)</p>
                     </div>
                 </div>
             </div>
@@ -144,6 +144,14 @@
             _descargando = false;
         }
     }
+
+    private static string TraducirRegimen(string tipoRegimen) => tipoRegimen switch
+    {
+        nameof(TipoRegimenLaboral.Microempresa) => "Microempresa",
+        nameof(TipoRegimenLaboral.PequenaEmpresa) => "Pequeña Empresa",
+        nameof(TipoRegimenLaboral.RegimenGeneral) => "Régimen General",
+        _ => tipoRegimen
+    };
 
     private static string TraducirTipo(string tipoConcepto) => tipoConcepto switch
     {

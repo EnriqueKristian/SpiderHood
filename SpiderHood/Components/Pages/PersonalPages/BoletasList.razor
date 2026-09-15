@@ -94,7 +94,7 @@
                             <tr style="cursor:pointer" @onclick="() => VerDetalle(b.IdBoletaPago)">
                                 <td>@b.Nombres @b.Apellidos</td>
                                 <td>@b.Cargo</td>
-                                <td>@b.TipoRegimen</td>
+                                <td>@TraducirRegimen(b.TipoRegimen)</td>
                                 <td class="text-end">S/ @b.TotalIngresos.ToString("N2")</td>
                                 <td class="text-end">S/ @b.TotalDescuentos.ToString("N2")</td>
                                 <td class="text-end fw-bold">S/ @b.NetoAPagar.ToString("N2")</td>
@@ -125,6 +125,14 @@
     private bool _generando;
     private string? _mensajeGeneracion;
     private List<string> _erroresGeneracion = new();
+
+    private static string TraducirRegimen(string tipoRegimen) => tipoRegimen switch
+    {
+        nameof(TipoRegimenLaboral.Microempresa) => "Microempresa",
+        nameof(TipoRegimenLaboral.PequenaEmpresa) => "Pequeña Empresa",
+        nameof(TipoRegimenLaboral.RegimenGeneral) => "Régimen General",
+        _ => tipoRegimen
+    };
 
     protected override async Task OnInitializedAsync()
     {

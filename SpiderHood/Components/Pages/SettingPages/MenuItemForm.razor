@@ -214,9 +214,17 @@ else
             {
                 await LoadItemAsync();
             }
-            else if (!string.IsNullOrEmpty(parentId.ToString()))
+            else
             {
-                _item.IdParent = parentId;
+                // El input de Orden tiene min="1" (validación nativa del navegador); un
+                // DisplayOrder inicial en 0 (default de int) hace que "Crear Item" no
+                // dispare submit y el navegador lo bloquee en silencio sin ningún mensaje
+                // visible -- parecía que el formulario "no hacía caso" al click.
+                _item.DisplayOrder = 1;
+                if (!string.IsNullOrEmpty(parentId.ToString()))
+                {
+                    _item.IdParent = parentId;
+                }
             }
         }
         catch (Exception ex)
@@ -288,6 +296,7 @@ else
                 await ShowToast("Éxito", "Item creado exitosamente", "success");
             }
 
+            await PermissionService.RefreshMenu();
             Navigation.NavigateTo("/Settings/MenuItems");
         }
         catch (Exception ex)

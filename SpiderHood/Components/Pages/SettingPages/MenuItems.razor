@@ -385,6 +385,7 @@ else
             }
 
             _pendingChanges.Clear();
+            await PermissionService.RefreshMenu();
             await LoadDataAsync();
             await ShowToast("Éxito", "Permisos guardados exitosamente", "success");
         }
@@ -438,6 +439,7 @@ else
             try
             {
                 await MenuAdminService.DeleteMenuItemAsync(id);
+                await PermissionService.RefreshMenu();
                 await LoadDataAsync();
                 await ShowToast("Éxito", "Item eliminado exitosamente", "success");
                 StateHasChanged();
@@ -469,6 +471,7 @@ else
         }).Cast<MenuItemWithRoles>().ToList();
 
         await MenuAdminService.ReorderMenuAsync(itemsToUpdate);
+        await PermissionService.RefreshMenu();
         await LoadDataAsync();
         await ShowToast("Éxito", "Orden guardado exitosamente", "success");
     }

@@ -69,6 +69,19 @@ namespace SpiderHood.Data
             }, "DeleteMenuPermission", cancellationToken);
         }
 
+        // Borra TODOS los permisos de un item de menú (cualquier rol) -- ver
+        // Database/Scripts/2026-09-15_112_Fix_MenuAdmin_Permissions.sql. Distinto de
+        // DeleteRecordAsync(MenuPermissions), que exige saber de antemano el rol
+        // exacto a borrar.
+        public async Task<bool> DeleteMenuItemPermissionsByMenuAsync(Guid idMenu, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_MenuItemPermissionsByMenu, cancellationToken, idMenu);
+                return true;
+            }, "DeleteMenuItemPermissionsByMenu", cancellationToken);
+        }
+
         // Borra el item de menú en sí (y sus permisos + hijos directos, ver
         // DEL_MenuItem) -- distinto de DeleteRecordAsync(MenuPermissions), que sólo
         // borra una fila puntual de permisos.

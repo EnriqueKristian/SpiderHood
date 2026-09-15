@@ -133,6 +133,12 @@ namespace SpiderHood.Data
 
             // Delete Procedures
             public const string DEL_MenuItemPermission = "DEL_MenuItemPermission";
+            // Fix (Database/Scripts/2026-09-15_112_Fix_MenuAdmin_Permissions.sql): borra
+            // TODAS las filas de un IdMenu sin importar el rol -- DEL_MenuItemPermission
+            // exige (IdMenu, IdRole) exacto, así que no sirve para "limpiar antes de
+            // re-insertar el set nuevo" cuando no se sabe de antemano qué roles tenían
+            // acceso.
+            public const string DEL_MenuItemPermissionsByMenu = "DEL_MenuItemPermissionsByMenu";
             public const string DEL_MenuItem = "DEL_MenuItem";
             public const string DEL_Category = "DEL_Category";
             public const string DEL_Expense = "DEL_Expense";

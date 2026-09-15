@@ -18,7 +18,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
         [Inject]
         public Services.IBankAccountService BankAccountService { get; set; } = default!;
         [Inject]
-        public Services.IAreaComunService AreaComunService { get; set; } = default!;
+        public Services.ICommonAreaService CommonAreaService { get; set; } = default!;
 
         private List<Building> Buildings = new();
         private Building SelectedBuilding = null;
@@ -56,16 +56,16 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private Modal _exoneration = null!;
         private Modal _areaComunModal = null!;
 
-        private List<AreaComun> _areasComunes = new();
+        private List<CommonArea> _areasComunes = new();
         private bool _loadingAreasComunes = true;
-        private AreaComun _editingAreaComun = new();
+        private CommonArea _editingCommonArea = new();
 
         // Se muestra DENTRO del modal (no en el cuerpo de la página, que queda tapado
         // por el backdrop mientras el modal está abierto -- feedback del usuario
         // 2026-09-12: "el mensaje sale por atrás, no se ve"). string.Empty = sin error --
         // este archivo no tiene #nullable enable (es grande y preexistente, no vale la
         // pena habilitarlo sólo por este campo), así que se evita "string?" acá.
-        private string _errorAreaComun = string.Empty;
+        private string _errorCommonArea = string.Empty;
 
         private string Moneda(decimal valor) => valor.FormatoMoneda(SelectedBuilding?.Configuration.Currency);
 
@@ -140,47 +140,47 @@ namespace SpiderHood.Components.Pages.BuildingPages
             ActiveTab = "currency";
 
             _loadingAreasComunes = true;
-            _areasComunes = await AreaComunService.GetAreaComunesAsync(idBuilding);
+            _areasComunes = await CommonAreaService.GetCommonAreasAsync(idBuilding);
             _loadingAreasComunes = false;
         }
 
-        private void ShowAddAreaComunModal()
+        private void ShowAddCommonAreaModal()
         {
             if (!_canEditBuilding) return;
-            _editingAreaComun = new AreaComun { IdBuilding = SelectedBuilding!.IdBuilding, Activo = true };
-            _errorAreaComun = string.Empty;
+            _editingCommonArea = new CommonArea { IdBuilding = SelectedBuilding!.IdBuilding, Activo = true };
+            _errorCommonArea = string.Empty;
             _areaComunModal.ShowAsync();
         }
 
-        private void ShowEditAreaComunModal(AreaComun area)
+        private void ShowEditCommonAreaModal(CommonArea area)
         {
             if (!_canEditBuilding) return;
-            _editingAreaComun = area.Clone();
-            _errorAreaComun = string.Empty;
+            _editingCommonArea = area.Clone();
+            _errorCommonArea = string.Empty;
             _areaComunModal.ShowAsync();
         }
 
-        private async Task SaveAreaComun()
+        private async Task SaveCommonArea()
         {
             if (!_canEditBuilding || SelectedBuilding == null) return;
 
-            if (string.IsNullOrWhiteSpace(_editingAreaComun.Nombre))
+            if (string.IsNullOrWhiteSpace(_editingCommonArea.Nombre))
             {
-                _errorAreaComun = "El nombre es obligatorio.";
+                _errorCommonArea = "El nombre es obligatorio.";
                 return;
             }
 
-            if (_editingAreaComun.IdAreaComun == Guid.Empty)
+            if (_editingCommonArea.IdCommonArea == Guid.Empty)
             {
-                _editingAreaComun.CreatedBy = currentUser.IdUser;
-                var creada = await AreaComunService.CrearAsync(_editingAreaComun);
+                _editingCommonArea.CreatedBy = currentUser.IdUser;
+                var creada = await CommonAreaService.CrearAsync(_editingCommonArea);
                 _areasComunes.Add(creada);
             }
             else
             {
-                await AreaComunService.ActualizarAsync(_editingAreaComun);
-                var index = _areasComunes.FindIndex(a => a.IdAreaComun == _editingAreaComun.IdAreaComun);
-                if (index >= 0) _areasComunes[index] = _editingAreaComun;
+                await CommonAreaService.ActualizarAsync(_editingCommonArea);
+                var index = _areasComunes.FindIndex(a => a.IdCommonArea == _editingCommonArea.IdCommonArea);
+                if (index >= 0) _areasComunes[index] = _editingCommonArea;
             }
 
             await _areaComunModal.HideAsync();
@@ -451,7 +451,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 // otro caso donde IdGroupUnit/IdCategory queden en Guid.Empty) agregaba la
                 // Exoneration igual a la lista en memoria, y recién al Guardar el edificio
                 // completo reventaba con FK_Exception_GroupUnit -- acá se corta antes, con el
-                // mismo mensaje visible que ya usa AreaComun para "El nombre es obligatorio.".
+                // mismo mensaje visible que ya usa CommonArea para "El nombre es obligatorio.".
                 if (_Exoneration.IdGroupUnit == Guid.Empty)
                 {
                     _errorExoneracion = "Debe seleccionar un departamento.";

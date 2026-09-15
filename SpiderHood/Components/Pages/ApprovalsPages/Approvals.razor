@@ -8,7 +8,7 @@
 @inject Services.IExpenseService ExpenseService
 @inject Services.IWorkflowAuditService WorkflowAuditService
 @inject Services.ParameterService ParameterService
-@inject Services.IReservaService ReservaService
+@inject Services.IReservationService ReservationService
 @inject Services.IBuildingService BuildingService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
@@ -161,14 +161,14 @@ else
 
             @if (_canApproveReservations)
             {
-                <!-- Reservas pendientes -- Docs/Pendientes-Negocio-Consolidado.md #21.
+                <!-- Reservations pendientes -- Docs/Pendientes-Negocio-Consolidado.md #21.
                      La aprueba la Junta (no el Administrador): el criterio es que la
                      fecha/horario no incumpla las normas del edificio, no el monto. -->
                 <div class="card mt-4">
                     <div class="card-header">
                         <h5 class="mb-0">
                             <i class="bi bi-calendar-check me-2"></i>
-                            Reservas Pendientes de Aprobación
+                            Reservations Pendientes de Aprobación
                             @if (_reservasPendientes.Any())
                             {
                                 <span class="badge bg-warning text-dark ms-2">@_reservasPendientes.Count</span>
@@ -197,15 +197,15 @@ else
                                         @foreach (var reserva in _reservasPendientes)
                                         {
                                             <tr>
-                                                <td>@reserva.NombreAreaComun</td>
+                                                <td>@reserva.NombreCommonArea</td>
                                                 <td>@GetGroupUnitName(reserva.IdGroupUnit)</td>
                                                 <td>@reserva.FechaInicio.ToString("dd/MM/yyyy HH:mm") - @reserva.FechaFin.ToString("HH:mm")</td>
                                                 <td>@Moneda(reserva.MontoGarantia)</td>
                                                 <td>
-                                                    <button class="btn btn-sm btn-success me-1" @onclick="() => PedirAprobarReserva(reserva)">
+                                                    <button class="btn btn-sm btn-success me-1" @onclick="() => PedirAprobarReservation(reserva)">
                                                         <i class="bi bi-check-lg me-1"></i>Aprobar
                                                     </button>
-                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => PedirRechazarReserva(reserva)">
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => PedirRechazarReservation(reserva)">
                                                         <i class="bi bi-x-lg me-1"></i>Rechazar
                                                     </button>
                                                 </td>
@@ -227,11 +227,11 @@ else
                     Message="El gasto queda registrado como rechazado -- el Administrador puede corregirlo y volver a guardarlo."
                     OnClose="OnRechazarGastoConfirmado" />
 
-    <ConfirmationModal @ref="_confirmationModalReserva" OnClose="OnAprobarReservaConfirmado" />
-    <RejectionModal @ref="_rejectionModalReserva"
+    <ConfirmationModal @ref="_confirmationModalReservation" OnClose="OnAprobarReservationConfirmado" />
+    <RejectionModal @ref="_rejectionModalReservation"
                     Title="Rechazar Reserva"
                     Message="El propietario ve la reserva como Rechazada, con el motivo indicado."
-                    OnClose="OnRechazarReservaConfirmado" />
+                    OnClose="OnRechazarReservationConfirmado" />
 }
 
 @code {
@@ -243,7 +243,7 @@ else
     private bool _canApproveReservations;
     private List<BudgetHeader> _presupuestosPendientes = new();
     private List<ViewExpense> _gastosPendientes = new();
-    private List<Reserva> _reservasPendientes = new();
+    private List<Reservation> _reservasPendientes = new();
     private List<UnitView> _unidades = new();
 
     private Guid _idBuilding;
@@ -254,9 +254,9 @@ else
     private RejectionModal? _rejectionModal;
     private ViewExpense? _gastoSeleccionado;
 
-    private ConfirmationModal? _confirmationModalReserva;
-    private RejectionModal? _rejectionModalReserva;
-    private Reserva? _reservaSeleccionada;
+    private ConfirmationModal? _confirmationModalReservation;
+    private RejectionModal? _rejectionModalReservation;
+    private Reservation? _reservaSeleccionada;
 
     protected override async Task OnInitializedAsync()
     {
@@ -290,7 +290,7 @@ else
             if (_canApproveReservations)
             {
                 _unidades = await BuildingService.GetGroupUnitsByTypeAsync(_idBuilding, 1);
-                _reservasPendientes = await ReservaService.GetReservasPendientesAsync(_idBuilding);
+                _reservasPendientes = await ReservationService.GetReservationsPendientesAsync(_idBuilding);
             }
         }
 
@@ -354,41 +354,41 @@ else
         StateHasChanged();
     }
 
-    private void PedirAprobarReserva(Reserva reserva)
+    private void PedirAprobarReservation(Reservation reserva)
     {
-        if (!_canApproveReservations || _confirmationModalReserva == null) return;
+        if (!_canApproveReservations || _confirmationModalReservation == null) return;
         _reservaSeleccionada = reserva;
-        _confirmationModalReserva.Title = "Aprobar Reserva";
-        _confirmationModalReserva.Message = $"¿Aprobar la reserva de {reserva.NombreAreaComun} del {reserva.FechaInicio:dd/MM/yyyy HH:mm}?";
-        _confirmationModalReserva.ConfirmText = "Aprobar";
-        _confirmationModalReserva.Show("info");
+        _confirmationModalReservation.Title = "Aprobar Reserva";
+        _confirmationModalReservation.Message = $"¿Aprobar la reserva de {reserva.NombreCommonArea} del {reserva.FechaInicio:dd/MM/yyyy HH:mm}?";
+        _confirmationModalReservation.ConfirmText = "Aprobar";
+        _confirmationModalReservation.Show("info");
     }
 
-    private async Task OnAprobarReservaConfirmado(bool confirmado)
+    private async Task OnAprobarReservationConfirmado(bool confirmado)
     {
         var reserva = _reservaSeleccionada;
         _reservaSeleccionada = null;
         if (!confirmado || reserva == null || !_canApproveReservations) return;
 
-        await ReservaService.AprobarAsync(reserva.IdReserva, _idUser);
+        await ReservationService.AprobarAsync(reserva.IdReservation, _idUser);
         _reservasPendientes.Remove(reserva);
         StateHasChanged();
     }
 
-    private void PedirRechazarReserva(Reserva reserva)
+    private void PedirRechazarReservation(Reservation reserva)
     {
-        if (!_canApproveReservations || _rejectionModalReserva == null) return;
+        if (!_canApproveReservations || _rejectionModalReservation == null) return;
         _reservaSeleccionada = reserva;
-        _rejectionModalReserva.Show();
+        _rejectionModalReservation.Show();
     }
 
-    private async Task OnRechazarReservaConfirmado(string? motivo)
+    private async Task OnRechazarReservationConfirmado(string? motivo)
     {
         var reserva = _reservaSeleccionada;
         _reservaSeleccionada = null;
         if (motivo == null || reserva == null || !_canApproveReservations) return; // cancelado
 
-        await ReservaService.RechazarAsync(reserva.IdReserva, _idUser, motivo);
+        await ReservationService.RechazarAsync(reserva.IdReservation, _idUser, motivo);
         _reservasPendientes.Remove(reserva);
         StateHasChanged();
     }

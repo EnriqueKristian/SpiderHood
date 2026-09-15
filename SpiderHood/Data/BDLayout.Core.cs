@@ -310,26 +310,26 @@ namespace SpiderHood.Data
             public const string GET_AnnouncementRecipientsByAnnouncement = "GET_AnnouncementRecipientsByAnnouncement";
             public const string GET_AnnouncementsParaUsuario = "GET_AnnouncementsParaUsuario";
 
-            // Reserva / Área Común Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21
-            public const string INS_AreaComun = "INS_AreaComun";
-            public const string UPD_AreaComun = "UPD_AreaComun";
-            public const string GET_AreaComunesByBuilding = "GET_AreaComunesByBuilding";
-            public const string INS_Reserva = "INS_Reserva";
-            public const string UPD_ReservaEstado = "UPD_ReservaEstado";
-            public const string UPD_ReservaPago = "UPD_ReservaPago";
-            public const string UPD_ReservaFechas = "UPD_ReservaFechas";
-            public const string GET_ReservasByBuilding = "GET_ReservasByBuilding";
-            public const string GET_ReservaById = "GET_ReservaById";
-            public const string GET_ReservasPendientesByBuilding = "GET_ReservasPendientesByBuilding";
-            public const string GET_ReservasByGroupUnit = "GET_ReservasByGroupUnit";
-            public const string GET_ReservasConflicto = "GET_ReservasConflicto";
-            public const string GET_ReservasProximasByAreaComun = "GET_ReservasProximasByAreaComun";
-            public const string INS_ReservaChecklistItem = "INS_ReservaChecklistItem";
-            public const string GET_ReservaChecklistItemsByReserva = "GET_ReservaChecklistItemsByReserva";
-            public const string INS_ReservaAttachment = "INS_ReservaAttachment";
-            public const string GET_ReservaAttachmentsByReserva = "GET_ReservaAttachmentsByReserva";
-            public const string INS_IngresoComunidad = "INS_IngresoComunidad";
-            public const string GET_IngresosComunidadByBuilding = "GET_IngresosComunidadByBuilding";
+            // Reservation / Área Común Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21
+            public const string INS_CommonArea = "INS_CommonArea";
+            public const string UPD_CommonArea = "UPD_CommonArea";
+            public const string GET_CommonAreasByBuilding = "GET_CommonAreasByBuilding";
+            public const string INS_Reservation = "INS_Reservation";
+            public const string UPD_ReservationStatus = "UPD_ReservationStatus";
+            public const string UPD_ReservationPago = "UPD_ReservationPago";
+            public const string UPD_ReservationFechas = "UPD_ReservationFechas";
+            public const string GET_ReservationsByBuilding = "GET_ReservationsByBuilding";
+            public const string GET_ReservationById = "GET_ReservationById";
+            public const string GET_ReservationsPendientesByBuilding = "GET_ReservationsPendientesByBuilding";
+            public const string GET_ReservationsByGroupUnit = "GET_ReservationsByGroupUnit";
+            public const string GET_ReservationsConflicto = "GET_ReservationsConflicto";
+            public const string GET_ReservationsProximasByCommonArea = "GET_ReservationsProximasByCommonArea";
+            public const string INS_ReservationChecklistItem = "INS_ReservationChecklistItem";
+            public const string GET_ReservationChecklistItemsByReservation = "GET_ReservationChecklistItemsByReservation";
+            public const string INS_ReservationAttachment = "INS_ReservationAttachment";
+            public const string GET_ReservationAttachmentsByReservation = "GET_ReservationAttachmentsByReservation";
+            public const string INS_CommunityIncome = "INS_CommunityIncome";
+            public const string GET_CommunityIncomesByBuilding = "GET_CommunityIncomesByBuilding";
 
             // Gobernanza / Meetings Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21, Fase 1
             public const string INS_Meeting = "INS_Meeting";
@@ -501,7 +501,7 @@ namespace SpiderHood.Data
             // DBNull.Value "pelado" dentro del object[] directo a ExecuteSqlRawAsync
             // hace que EF intente inferirle un store type mapping y tire
             // "no store type mapping for properties of type 'DBNull'" (visto en vivo
-            // con AreaComun -- Docs/Pendientes-Negocio-Consolidado.md #21). Un
+            // con CommonArea -- Docs/Pendientes-Negocio-Consolidado.md #21). Un
             // SqlParameter ya trae su propio tipo ADO.NET, así que EF no necesita
             // inferir nada.
             var paramNames = new List<string>();

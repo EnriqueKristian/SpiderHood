@@ -8,20 +8,20 @@ using SpiderHood.Utilities;
 
 namespace SpiderHood.Components.Pages.ReservationPages
 {
-    public partial class Reservas
+    public partial class Reservations
     {
         private bool _loading = true;
         private UserSession currentUser = new();
         private Guid? _idGroupUnit;
 
-        private List<AreaComun> _areasComunes = new();
-        private AreaComun? _areaSeleccionada;
-        private List<Reserva> _proximasReservas = new();
+        private List<CommonArea> _areasComunes = new();
+        private CommonArea? _areaSeleccionada;
+        private List<Reservation> _proximasReservations = new();
 
-        private ReservaPagination _pagination = new();
+        private ReservationPagination _pagination = new();
         private string _searchTerm = string.Empty;
 
-        private Reserva _form = new();
+        private Reservation _form = new();
         private bool _solicitando;
         private string? _resultado;
         private bool _resultadoOk;
@@ -36,15 +36,15 @@ namespace SpiderHood.Components.Pages.ReservationPages
         private Modal _nuevaModal = null!;
         private ConfirmationModal? _confirmationModal;
         private readonly ConfirmationUtil _util = new();
-        private Reserva? _reservaACancelar;
+        private Reservation? _reservaACancelar;
 
         private Modal _detalleModal = null!;
-        private Reserva? _reservaDetalle;
-        private List<ReservaChecklistItem> _checklistDetalle = new();
-        private List<ReservaAttachment> _adjuntosDetalle = new();
+        private Reservation? _reservaDetalle;
+        private List<ReservationChecklistItem> _checklistDetalle = new();
+        private List<ReservationAttachment> _adjuntosDetalle = new();
 
         private Modal _reprogramarModal = null!;
-        private Reserva? _reservaAReprogramar;
+        private Reservation? _reservaAReprogramar;
         private DateTime _nuevaFechaInicio;
         private DateTime _nuevaFechaFin;
         private bool _reprogramando;
@@ -67,7 +67,7 @@ namespace SpiderHood.Components.Pages.ReservationPages
             if (_idGroupUnit == null && currentUser.CurrentBuildingId != Guid.Empty
                 && await PermissionService.HasPermissionAsync(currentUser, "manage_reservations"))
             {
-                Navigation.NavigateTo("/reservas-admin");
+                Navigation.NavigateTo("/reservations-admin");
                 return;
             }
 
@@ -78,19 +78,19 @@ namespace SpiderHood.Components.Pages.ReservationPages
                     await ParameterService.LoadParametersAsync(currentUser.CurrentBuildingId);
                 }
 
-                _areasComunes = (await AreaComunService.GetAreaComunesAsync(currentUser.CurrentBuildingId))
+                _areasComunes = (await CommonAreaService.GetCommonAreasAsync(currentUser.CurrentBuildingId))
                     .Where(a => a.Activo)
                     .ToList();
 
-                await CargarReservasAsync();
+                await CargarReservationsAsync();
             }
 
             _loading = false;
         }
 
-        private async Task CargarReservasAsync()
+        private async Task CargarReservationsAsync()
         {
-            var reservas = await ReservaService.GetReservasByGroupUnitAsync(_idGroupUnit!.Value);
+            var reservas = await ReservationService.GetReservationsByGroupUnitAsync(_idGroupUnit!.Value);
             _pagination.Initialize(reservas);
         }
 
@@ -105,7 +105,7 @@ namespace SpiderHood.Components.Pages.ReservationPages
             _resultado = null;
             _errorModal = null;
             _areaSeleccionada = _areasComunes.FirstOrDefault();
-            _form = new Reserva
+            _form = new Reservation
             {
                 IdBuilding = currentUser.CurrentBuildingId,
                 IdGroupUnit = _idGroupUnit!.Value,
@@ -116,7 +116,7 @@ namespace SpiderHood.Components.Pages.ReservationPages
 
             if (_areaSeleccionada != null)
             {
-                _proximasReservas = await ReservaService.GetProximasAsync(_areaSeleccionada.IdAreaComun);
+                _proximasReservations = await ReservationService.GetProximasAsync(_areaSeleccionada.IdCommonArea);
             }
 
             await _nuevaModal.ShowAsync();
@@ -124,12 +124,12 @@ namespace SpiderHood.Components.Pages.ReservationPages
 
         private async Task OnAreaChanged(ChangeEventArgs e)
         {
-            if (Guid.TryParse(e.Value?.ToString(), out var idAreaComun))
+            if (Guid.TryParse(e.Value?.ToString(), out var idCommonArea))
             {
-                _areaSeleccionada = _areasComunes.FirstOrDefault(a => a.IdAreaComun == idAreaComun);
-                _proximasReservas = _areaSeleccionada != null
-                    ? await ReservaService.GetProximasAsync(_areaSeleccionada.IdAreaComun)
-                    : new List<Reserva>();
+                _areaSeleccionada = _areasComunes.FirstOrDefault(a => a.IdCommonArea == idCommonArea);
+                _proximasReservations = _areaSeleccionada != null
+                    ? await ReservationService.GetProximasAsync(_areaSeleccionada.IdCommonArea)
+                    : new List<Reservation>();
             }
         }
 
@@ -142,14 +142,14 @@ namespace SpiderHood.Components.Pages.ReservationPages
 
             try
             {
-                var resultado = await ReservaService.SolicitarAsync(_form, _areaSeleccionada);
+                var resultado = await ReservationService.SolicitarAsync(_form, _areaSeleccionada);
 
                 if (resultado.Exito)
                 {
                     _resultadoOk = true;
                     _resultado = resultado.Mensaje;
                     await _nuevaModal.HideAsync();
-                    await CargarReservasAsync();
+                    await CargarReservationsAsync();
                 }
                 else
                 {
@@ -165,15 +165,15 @@ namespace SpiderHood.Components.Pages.ReservationPages
             }
         }
 
-        private async Task VerDetalle(Reserva reserva)
+        private async Task VerDetalle(Reservation reserva)
         {
             _reservaDetalle = reserva;
-            _checklistDetalle = await ReservaService.GetChecklistAsync(reserva.IdReserva);
-            _adjuntosDetalle = await ReservaService.GetAdjuntosAsync(reserva.IdReserva);
+            _checklistDetalle = await ReservationService.GetChecklistAsync(reserva.IdReservation);
+            _adjuntosDetalle = await ReservationService.GetAdjuntosAsync(reserva.IdReservation);
             await _detalleModal.ShowAsync();
         }
 
-        private async Task AbrirReprogramar(Reserva reserva)
+        private async Task AbrirReprogramar(Reservation reserva)
         {
             _reservaAReprogramar = reserva;
             _nuevaFechaInicio = reserva.FechaInicio;
@@ -186,7 +186,7 @@ namespace SpiderHood.Components.Pages.ReservationPages
         {
             if (_reservaAReprogramar == null) return;
 
-            var areaComun = _areasComunes.FirstOrDefault(a => a.IdAreaComun == _reservaAReprogramar.IdAreaComun);
+            var areaComun = _areasComunes.FirstOrDefault(a => a.IdCommonArea == _reservaAReprogramar.IdCommonArea);
             if (areaComun == null)
             {
                 _errorReprogramar = "No se encontró la configuración del área común.";
@@ -198,13 +198,13 @@ namespace SpiderHood.Components.Pages.ReservationPages
 
             try
             {
-                var resultado = await ReservaService.ReprogramarAsync(_reservaAReprogramar.IdReserva, _nuevaFechaInicio, _nuevaFechaFin, areaComun);
+                var resultado = await ReservationService.ReprogramarAsync(_reservaAReprogramar.IdReservation, _nuevaFechaInicio, _nuevaFechaFin, areaComun);
                 if (resultado.Exito)
                 {
                     _resultadoOk = true;
                     _resultado = resultado.Mensaje;
                     await _reprogramarModal.HideAsync();
-                    await CargarReservasAsync();
+                    await CargarReservationsAsync();
                 }
                 else
                 {
@@ -218,12 +218,12 @@ namespace SpiderHood.Components.Pages.ReservationPages
             }
         }
 
-        private void PedirCancelar(Reserva reserva)
+        private void PedirCancelar(Reservation reserva)
         {
             if (_confirmationModal == null) return;
             _reservaACancelar = reserva;
             _confirmationModal.Title = "Cancelar Reserva";
-            _confirmationModal.Message = $"¿Cancelar la reserva de {reserva.NombreAreaComun} del {reserva.FechaInicio:dd/MM/yyyy HH:mm}? " +
+            _confirmationModal.Message = $"¿Cancelar la reserva de {reserva.NombreCommonArea} del {reserva.FechaInicio:dd/MM/yyyy HH:mm}? " +
                 "Según la configuración del área, esto puede retener la garantía si faltan pocos días para el evento.";
             _confirmationModal.ConfirmText = "Cancelar Reserva";
             _confirmationModal.Show("danger");
@@ -235,23 +235,23 @@ namespace SpiderHood.Components.Pages.ReservationPages
             _reservaACancelar = null;
             if (!confirmado || reserva == null) return;
 
-            var area = _areasComunes.FirstOrDefault(a => a.IdAreaComun == reserva.IdAreaComun)
-                ?? (await AreaComunService.GetAreaComunesAsync(currentUser.CurrentBuildingId)).First(a => a.IdAreaComun == reserva.IdAreaComun);
+            var area = _areasComunes.FirstOrDefault(a => a.IdCommonArea == reserva.IdCommonArea)
+                ?? (await CommonAreaService.GetCommonAreasAsync(currentUser.CurrentBuildingId)).First(a => a.IdCommonArea == reserva.IdCommonArea);
 
-            await ReservaService.CancelarAsync(reserva.IdReserva, area);
-            await CargarReservasAsync();
+            await ReservationService.CancelarAsync(reserva.IdReservation, area);
+            await CargarReservationsAsync();
         }
 
-        private static string EtiquetaEstado(Reserva reserva) => reserva.Estado switch
+        private static string EtiquetaEstado(Reservation reserva) => reserva.Estado switch
         {
-            ReservaEstado.PendienteDeAprobacion => "🕒 Pendiente de Aprobación",
-            ReservaEstado.Aprobada => "✅ Aprobada",
-            ReservaEstado.Rechazada => "❌ Rechazada",
-            ReservaEstado.Cancelada => "🚫 Cancelada",
-            ReservaEstado.NoPresentado => "⚠️ No Presentado",
-            ReservaEstado.Entregada => "🔑 Entregada",
-            ReservaEstado.Finalizada => "🏁 Finalizada",
-            ReservaEstado.Cerrada => "🔒 Cerrada",
+            ReservationStatus.PendienteDeAprobacion => "🕒 Pendiente de Aprobación",
+            ReservationStatus.Aprobada => "✅ Aprobada",
+            ReservationStatus.Rechazada => "❌ Rechazada",
+            ReservationStatus.Cancelada => "🚫 Cancelada",
+            ReservationStatus.NoPresentado => "⚠️ No Presentado",
+            ReservationStatus.Entregada => "🔑 Entregada",
+            ReservationStatus.Finalizada => "🏁 Finalizada",
+            ReservationStatus.Cerrada => "🔒 Cerrada",
             _ => reserva.Estado.ToString()
         };
     }

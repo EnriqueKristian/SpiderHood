@@ -6,7 +6,7 @@
 @inject Services.IPermissionAdminService PermissionAdminService
 @inject Services.IBudgetService BudgetService
 @inject Services.IExpenseService ExpenseService
-@inject Services.IReservaService ReservaService
+@inject Services.IReservationService ReservationService
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
 
@@ -399,7 +399,7 @@
 
         if (await PermissionService.HasPermissionAsync(usuario, "approve_reservations"))
         {
-            var reservas = await ReservaService.GetReservasPendientesAsync(usuario.CurrentBuildingId);
+            var reservas = await ReservationService.GetReservationsPendientesAsync(usuario.CurrentBuildingId);
             count += reservas.Count;
         }
 

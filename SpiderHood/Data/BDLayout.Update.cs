@@ -792,16 +792,16 @@ namespace SpiderHood.Data
             }, "UpdateSystemLogSettings", cancellationToken);
         }
 
-        public async Task UpdateAreaComunAsync(Models.AreaComun areaComun, CancellationToken cancellationToken = default)
+        public async Task UpdateCommonAreaAsync(Models.CommonArea areaComun, CancellationToken cancellationToken = default)
         {
             ValidateEntity(areaComun, nameof(areaComun));
 
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_AreaComun,
+                    StoredProcedures.UPD_CommonArea,
                     cancellationToken,
-                    areaComun.IdAreaComun,
+                    areaComun.IdCommonArea,
                     areaComun.Nombre,
                     (object?)areaComun.Descripcion ?? DBNull.Value,
                     (object?)areaComun.AforoMaximo ?? DBNull.Value,
@@ -810,7 +810,7 @@ namespace SpiderHood.Data
                     areaComun.BufferMinutos,
                     areaComun.AnticipacionMinHoras,
                     (object?)areaComun.AnticipacionMaxDias ?? DBNull.Value,
-                    (object?)areaComun.TopeReservasActivasPorUnidad ?? DBNull.Value,
+                    (object?)areaComun.TopeReservationsActivasPorUnidad ?? DBNull.Value,
                     areaComun.GarantiaInternos,
                     areaComun.GarantiaExternos,
                     areaComun.AlquilerInternos,
@@ -821,53 +821,53 @@ namespace SpiderHood.Data
                     areaComun.PenalidadNoPresentadoHabilitada,
                     areaComun.Activo);
                 return true;
-            }, "UpdateAreaComun", cancellationToken);
+            }, "UpdateCommonArea", cancellationToken);
         }
 
-        public async Task UpdateReservaEstadoAsync(Guid idReserva, Models.ReservaEstado estado, string? motivoRechazo = null, Guid? aprobadoPor = null, decimal? montoRetenido = null, Guid? idCalendarItem = null, CancellationToken cancellationToken = default)
+        public async Task UpdateReservationStatusAsync(Guid idReservation, Models.ReservationStatus estado, string? motivoRechazo = null, Guid? aprobadoPor = null, decimal? montoRetenido = null, Guid? idCalendarItem = null, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_ReservaEstado,
+                    StoredProcedures.UPD_ReservationStatus,
                     cancellationToken,
-                    idReserva,
+                    idReservation,
                     (int)estado,
                     (object?)motivoRechazo ?? DBNull.Value,
                     (object?)aprobadoPor ?? DBNull.Value,
                     (object?)montoRetenido ?? DBNull.Value,
                     (object?)idCalendarItem ?? DBNull.Value);
                 return true;
-            }, "UpdateReservaEstado", cancellationToken);
+            }, "UpdateReservationStatus", cancellationToken);
         }
 
-        public async Task ConfirmarPagoReservaAsync(Guid idReserva, decimal? montoPagoConfirmado, DateTime? fechaPagoConfirmado, Guid pagoConfirmadoPor, CancellationToken cancellationToken = default)
+        public async Task ConfirmarPagoReservationAsync(Guid idReservation, decimal? montoPagoConfirmado, DateTime? fechaPagoConfirmado, Guid pagoConfirmadoPor, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_ReservaPago,
+                    StoredProcedures.UPD_ReservationPago,
                     cancellationToken,
-                    idReserva,
+                    idReservation,
                     (object?)montoPagoConfirmado ?? DBNull.Value,
                     (object?)fechaPagoConfirmado ?? DBNull.Value,
                     pagoConfirmadoPor);
                 return true;
-            }, "ConfirmarPagoReserva", cancellationToken);
+            }, "ConfirmarPagoReservation", cancellationToken);
         }
 
-        public async Task UpdateReservaFechasAsync(Guid idReserva, DateTime fechaInicio, DateTime fechaFin, CancellationToken cancellationToken = default)
+        public async Task UpdateReservationFechasAsync(Guid idReservation, DateTime fechaInicio, DateTime fechaFin, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.UPD_ReservaFechas,
+                    StoredProcedures.UPD_ReservationFechas,
                     cancellationToken,
-                    idReserva,
+                    idReservation,
                     fechaInicio,
                     fechaFin);
                 return true;
-            }, "UpdateReservaFechas", cancellationToken);
+            }, "UpdateReservationFechas", cancellationToken);
         }
 
         public async Task UpdateCalendarItemAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)

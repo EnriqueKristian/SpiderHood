@@ -1,11 +1,11 @@
-@page "/reservas-admin"
+@page "/reservations-admin"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Components.Pages.Components
 @inject Services.AuthService AuthService
 @inject Services.IPermissionService PermissionService
-@inject Services.IAreaComunService AreaComunService
-@inject Services.IReservaService ReservaService
+@inject Services.ICommonAreaService CommonAreaService
+@inject Services.IReservationService ReservationService
 @inject Services.IBuildingService BuildingService
 @inject Services.ParameterService ParameterService
 
@@ -42,7 +42,7 @@ else
             @if (_canGestionar && _areasComunes.Any())
             {
                 <div class="page-header-actions">
-                    <button class="btn btn-primary" @onclick="AbrirNuevaReserva">
+                    <button class="btn btn-primary" @onclick="AbrirNuevaReservation">
                         <i class="bi bi-plus-lg me-1"></i>Nueva Reserva
                     </button>
                 </div>
@@ -90,18 +90,18 @@ else
                         @foreach (var reserva in _pagination.CurrentPageData)
                         {
                             <tr>
-                                <td>@reserva.NombreAreaComun</td>
+                                <td>@reserva.NombreCommonArea</td>
                                 <td>@GetGroupUnitName(reserva.IdGroupUnit)</td>
                                 <td>@reserva.FechaInicio.ToString("dd/MM/yyyy HH:mm") - @reserva.FechaFin.ToString("HH:mm")</td>
                                 <td>
                                     @EtiquetaEstado(reserva)
-                                    @if (reserva.Estado is ReservaEstado.Aprobada or ReservaEstado.Entregada or ReservaEstado.Finalizada && reserva.PagoConfirmado)
+                                    @if (reserva.Estado is ReservationStatus.Aprobada or ReservationStatus.Entregada or ReservationStatus.Finalizada && reserva.PagoConfirmado)
                                     {
                                         <span class="badge bg-success ms-1" title="Pago confirmado">💰</span>
                                     }
                                 </td>
                                 <td>
-                                    @if (_canAprobar && reserva.Estado == ReservaEstado.PendienteDeAprobacion)
+                                    @if (_canAprobar && reserva.Estado == ReservationStatus.PendienteDeAprobacion)
                                     {
                                         <button class="btn btn-sm btn-success me-1" @onclick="() => PedirAprobar(reserva)">
                                             <i class="bi bi-check-lg me-1"></i>Aprobar
@@ -110,31 +110,31 @@ else
                                             <i class="bi bi-x-lg me-1"></i>Rechazar
                                         </button>
                                     }
-                                    @if (_canGestionar && reserva.Estado == ReservaEstado.Aprobada && !reserva.PagoConfirmado)
+                                    @if (_canGestionar && reserva.Estado == ReservationStatus.Aprobada && !reserva.PagoConfirmado)
                                     {
                                         <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirConfirmarPago(reserva)">
                                             <i class="bi bi-cash-coin me-1"></i>Confirmar Pago
                                         </button>
                                     }
-                                    else if (_canGestionar && reserva.Estado == ReservaEstado.Aprobada)
+                                    else if (_canGestionar && reserva.Estado == ReservationStatus.Aprobada)
                                     {
                                         <button class="btn btn-sm btn-outline-primary" @onclick="() => AbrirCheckIn(reserva)">
                                             <i class="bi bi-box-arrow-in-right me-1"></i>Check-in
                                         </button>
                                     }
-                                    else if (_canGestionar && reserva.Estado == ReservaEstado.Entregada)
+                                    else if (_canGestionar && reserva.Estado == ReservationStatus.Entregada)
                                     {
                                         <button class="btn btn-sm btn-outline-warning" @onclick="() => AbrirCheckOut(reserva)">
                                             <i class="bi bi-box-arrow-left me-1"></i>Check-out
                                         </button>
                                     }
-                                    else if (_canGestionar && (reserva.Estado == ReservaEstado.Finalizada || reserva.Estado is ReservaEstado.Cancelada or ReservaEstado.NoPresentado))
+                                    else if (_canGestionar && (reserva.Estado == ReservationStatus.Finalizada || reserva.Estado is ReservationStatus.Cancelada or ReservationStatus.NoPresentado))
                                     {
                                         <button class="btn btn-sm btn-outline-success" @onclick="() => AbrirCerrar(reserva)">
                                             <i class="bi bi-shield-check me-1"></i>Cerrar
                                         </button>
                                     }
-                                    @if (_canGestionar && reserva.IdCalendarItem == null && reserva.Estado is ReservaEstado.PendienteDeAprobacion or ReservaEstado.Aprobada or ReservaEstado.Entregada or ReservaEstado.Finalizada)
+                                    @if (_canGestionar && reserva.IdCalendarItem == null && reserva.Estado is ReservationStatus.PendienteDeAprobacion or ReservationStatus.Aprobada or ReservationStatus.Entregada or ReservationStatus.Finalizada)
                                     {
                                         <button class="btn btn-sm btn-outline-secondary ms-1" title="No aparece en el Calendario -- sincronizar" @onclick="() => SincronizarCalendario(reserva)">
                                             <i class="bi bi-calendar-plus"></i>
@@ -170,7 +170,7 @@ else
                     OnClose="OnRechazarConfirmado" />
 
     <!-- Modal: Check-in / Check-out -->
-    <Modal @ref="_checklistModal" Title="@(_etapaChecklist == ChecklistEtapa.Entrega ? "Check-in" : "Check-out")" Size="ModalSize.Large"
+    <Modal @ref="_checklistModal" Title="@(_etapaChecklist == ChecklistStage.Entrega ? "Check-in" : "Check-out")" Size="ModalSize.Large"
            UseStaticBackdrop="true" CloseOnEscape="false">
         <BodyTemplate>
             @if (_errorModal is not null)
@@ -183,7 +183,7 @@ else
             @if (_reservaSeleccionada != null)
             {
                 <p class="text-muted small">
-                    @_reservaSeleccionada.NombreAreaComun -- @_reservaSeleccionada.FechaInicio.ToString("dd/MM/yyyy HH:mm")
+                    @_reservaSeleccionada.NombreCommonArea -- @_reservaSeleccionada.FechaInicio.ToString("dd/MM/yyyy HH:mm")
                 </p>
 
                 <div class="row g-2 align-items-end mb-2">
@@ -194,9 +194,9 @@ else
                     <div class="col-md-3">
                         <label class="form-label small">Estado</label>
                         <select class="form-select form-select-sm" @bind="_nuevoItemEstado">
-                            <option value="@ChecklistEstado.Ok">OK</option>
-                            <option value="@ChecklistEstado.Danado">Dañado</option>
-                            <option value="@ChecklistEstado.Falta">Falta</option>
+                            <option value="@ChecklistStatus.Ok">OK</option>
+                            <option value="@ChecklistStatus.Danado">Dañado</option>
+                            <option value="@ChecklistStatus.Falta">Falta</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -217,7 +217,7 @@ else
                         {
                             <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-1">
                                 <span>
-                                    <strong>@item.Descripcion</strong> -- @EtiquetaChecklistEstado(item.Estado)
+                                    <strong>@item.Descripcion</strong> -- @EtiquetaChecklistStatus(item.Estado)
                                     @if (!string.IsNullOrWhiteSpace(item.Observacion))
                                     {
                                         <span class="text-muted small"> (@item.Observacion)</span>
@@ -252,7 +252,7 @@ else
                 {
                     <span class="spinner-border spinner-border-sm me-1"></span>
                 }
-                Confirmar @(_etapaChecklist == ChecklistEtapa.Entrega ? "Check-in" : "Check-out")
+                Confirmar @(_etapaChecklist == ChecklistStage.Entrega ? "Check-in" : "Check-out")
             </button>
             <button class="btn btn-secondary" @onclick="() => _checklistModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
@@ -271,11 +271,11 @@ else
             @if (_reservaSeleccionada != null)
             {
                 <p class="text-muted small">
-                    @_reservaSeleccionada.NombreAreaComun -- @_reservaSeleccionada.FechaInicio.ToString("dd/MM/yyyy HH:mm")
+                    @_reservaSeleccionada.NombreCommonArea -- @_reservaSeleccionada.FechaInicio.ToString("dd/MM/yyyy HH:mm")
                 </p>
                 <p>Garantía: @Moneda(_reservaSeleccionada.MontoGarantia)</p>
 
-                @if (_reservaSeleccionada.Estado == ReservaEstado.Finalizada)
+                @if (_reservaSeleccionada.Estado == ReservationStatus.Finalizada)
                 {
                     <div class="mb-3">
                         <label class="form-label">Monto de daño encontrado en el check-out (si hubo)</label>
@@ -286,7 +286,7 @@ else
                 else
                 {
                     <div class="alert alert-warning small mb-0">
-                        Esta reserva quedó @(_reservaSeleccionada.Estado == ReservaEstado.Cancelada ? "Cancelada" : "como No Presentada") -- se liquida la garantía según la penalidad ya aplicada, sin cobrar Alquiler/Limpieza.
+                        Esta reserva quedó @(_reservaSeleccionada.Estado == ReservationStatus.Cancelada ? "Cancelada" : "como No Presentada") -- se liquida la garantía según la penalidad ya aplicada, sin cobrar Alquiler/Limpieza.
                     </div>
                 }
             }
@@ -305,9 +305,9 @@ else
 
     <!-- Modal: Nueva Reserva -- el Administrador la carga en nombre de una unidad (ej.
          alguien llamó a pedir el área para un evento externo) -- misma lógica de
-         SolicitarAsync que /reservas, pero acá se elige la unidad responsable en vez de
+         SolicitarAsync que /reservations, pero acá se elige la unidad responsable en vez de
          resolverla del usuario actual. -->
-    <Modal @ref="_nuevaReservaModal" Title="Nueva Reserva" Size="ModalSize.Large" UseStaticBackdrop="true" CloseOnEscape="false">
+    <Modal @ref="_nuevaReservationModal" Title="Nueva Reserva" Size="ModalSize.Large" UseStaticBackdrop="true" CloseOnEscape="false">
         <BodyTemplate>
             @if (_errorModal is not null)
             {
@@ -319,16 +319,16 @@ else
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <label class="form-label">Área Común *</label>
-                    <select class="form-select" value="@_areaSeleccionada?.IdAreaComun" @onchange="OnAreaChanged">
+                    <select class="form-select" value="@_areaSeleccionada?.IdCommonArea" @onchange="OnAreaChanged">
                         @foreach (var area in _areasComunes)
                         {
-                            <option value="@area.IdAreaComun">@area.Nombre</option>
+                            <option value="@area.IdCommonArea">@area.Nombre</option>
                         }
                     </select>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Unidad Responsable *</label>
-                    <select class="form-select" @bind="_nuevaReserva.IdGroupUnit">
+                    <select class="form-select" @bind="_nuevaReservation.IdGroupUnit">
                         <option value="@Guid.Empty">Seleccionar unidad...</option>
                         @foreach (var unidad in _unidades)
                         {
@@ -345,12 +345,12 @@ else
                     <div>Alquiler: @Moneda(_areaSeleccionada.AlquilerInternos) (propietario) / @Moneda(_areaSeleccionada.AlquilerExternos) (externo)</div>
                 </div>
 
-                @if (_proximasReservas.Any())
+                @if (_proximasReservations.Any())
                 {
                     <div class="mb-3">
                         <label class="form-label small text-muted">Próximas reservas de esta área (referencia)</label>
                         <ul class="list-group list-group-flush small">
-                            @foreach (var proxima in _proximasReservas)
+                            @foreach (var proxima in _proximasReservations)
                             {
                                 <li class="list-group-item px-0 py-1">@proxima.FechaInicio.ToString("dd/MM HH:mm") - @proxima.FechaFin.ToString("dd/MM HH:mm")</li>
                             }
@@ -362,46 +362,46 @@ else
             <div class="row g-3 mb-3">
                 <div class="col-md-6">
                     <label class="form-label">Fecha/Hora de Inicio *</label>
-                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_nuevaReserva.FechaInicio" class="form-control" />
+                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_nuevaReservation.FechaInicio" class="form-control" />
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Fecha/Hora de Fin *</label>
-                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_nuevaReserva.FechaFin" class="form-control" />
+                    <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="_nuevaReservation.FechaFin" class="form-control" />
                 </div>
             </div>
 
             <div class="form-check mb-3">
-                <InputCheckbox @bind-Value="_nuevaReserva.EsExterno" class="form-check-input" id="esExternoAdmin" />
+                <InputCheckbox @bind-Value="_nuevaReservation.EsExterno" class="form-check-input" id="esExternoAdmin" />
                 <label class="form-check-label" for="esExternoAdmin">Es para un evento con organizador externo (no propietario)</label>
             </div>
 
-            @if (_nuevaReserva.EsExterno)
+            @if (_nuevaReservation.EsExterno)
             {
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label">Nombre del Organizador</label>
-                        <InputText @bind-Value="_nuevaReserva.OrganizadorNombre" class="form-control" />
+                        <InputText @bind-Value="_nuevaReservation.OrganizadorNombre" class="form-control" />
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Documento</label>
-                        <InputText @bind-Value="_nuevaReserva.OrganizadorDocumento" class="form-control" />
+                        <InputText @bind-Value="_nuevaReservation.OrganizadorDocumento" class="form-control" />
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Teléfono</label>
-                        <InputText @bind-Value="_nuevaReserva.OrganizadorTelefono" class="form-control" />
+                        <InputText @bind-Value="_nuevaReservation.OrganizadorTelefono" class="form-control" />
                     </div>
                 </div>
             }
         </BodyTemplate>
         <FooterTemplate>
-            <button class="btn btn-primary" @onclick="ConfirmarNuevaReserva" disabled="@(_procesando || _areaSeleccionada == null || _nuevaReserva.IdGroupUnit == Guid.Empty)">
+            <button class="btn btn-primary" @onclick="ConfirmarNuevaReservation" disabled="@(_procesando || _areaSeleccionada == null || _nuevaReservation.IdGroupUnit == Guid.Empty)">
                 @if (_procesando)
                 {
                     <span class="spinner-border spinner-border-sm me-1"></span>
                 }
                 <i class="bi bi-send me-1"></i>Registrar Reserva
             </button>
-            <button class="btn btn-secondary" @onclick="() => _nuevaReservaModal.HideAsync()">Cancelar</button>
+            <button class="btn btn-secondary" @onclick="() => _nuevaReservationModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
     </Modal>
 
@@ -420,7 +420,7 @@ else
             @if (_reservaSeleccionada != null)
             {
                 <p class="text-muted small">
-                    @_reservaSeleccionada.NombreAreaComun -- @_reservaSeleccionada.FechaInicio.ToString("dd/MM/yyyy HH:mm")
+                    @_reservaSeleccionada.NombreCommonArea -- @_reservaSeleccionada.FechaInicio.ToString("dd/MM/yyyy HH:mm")
                 </p>
                 <p class="text-muted small">
                     Garantía + Alquiler + Limpieza: <strong>@Moneda(_reservaSeleccionada.MontoGarantia + _reservaSeleccionada.MontoAlquiler + _reservaSeleccionada.MontoLimpieza)</strong>

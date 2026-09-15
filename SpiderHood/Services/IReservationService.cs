@@ -6,22 +6,22 @@ namespace SpiderHood.Services
 {
     // Docs/Pendientes-Negocio-Consolidado.md #21 -- diseño cerrado 2026-09-11.
     // Estado: PendienteDeAprobacion -> (Junta) Aprobada/Rechazada -> Cancelada/
-    // NoPresentado (penalidad según AreaComun) -> Entregada (check-in) ->
+    // NoPresentado (penalidad según CommonArea) -> Entregada (check-in) ->
     // Finalizada (check-out) -> Cerrada (garantía liquidada). El Administrador
     // hace el check-in/check-out; la Junta aprueba/rechaza.
-    public interface IReservaService
+    public interface IReservationService
     {
-        Task<List<Reserva>> GetReservasAsync(Guid idBuilding);
+        Task<List<Reservation>> GetReservationsAsync(Guid idBuilding);
 
-        Task<List<Reserva>> GetReservasPendientesAsync(Guid idBuilding);
+        Task<List<Reservation>> GetReservationsPendientesAsync(Guid idBuilding);
 
-        Task<List<Reserva>> GetReservasByGroupUnitAsync(Guid idGroupUnit);
+        Task<List<Reservation>> GetReservationsByGroupUnitAsync(Guid idGroupUnit);
 
-        Task<List<Reserva>> GetProximasAsync(Guid idAreaComun);
+        Task<List<Reservation>> GetProximasAsync(Guid idCommonArea);
 
-        Task<List<ReservaChecklistItem>> GetChecklistAsync(Guid idReserva);
+        Task<List<ReservationChecklistItem>> GetChecklistAsync(Guid idReservation);
 
-        Task<List<ReservaAttachment>> GetAdjuntosAsync(Guid idReserva);
+        Task<List<ReservationAttachment>> GetAdjuntosAsync(Guid idReservation);
 
         // Autocuración manual para una reserva que quedó sin CalendarItem (ej. una
         // solicitada/aprobada antes de que existiera esta integración, o cualquier otra
@@ -29,12 +29,12 @@ namespace SpiderHood.Services
         // YA está Aprobada (no hay botón "Aprobar" para volver a disparar el fix). Devuelve
         // false sin hacer nada si ya tenía CalendarItem o si el estado ya no lo necesita
         // (Rechazada/Cancelada/NoPresentado/Cerrada).
-        Task<bool> AsegurarCalendarItemAsync(Guid idReserva);
+        Task<bool> AsegurarCalendarItemAsync(Guid idReservation);
 
         // Valida ventanas de anticipación/duración del Área Común, chequea
-        // solapamiento con GET_ReservasConflicto, calcula Garantía/Alquiler/
+        // solapamiento con GET_ReservationsConflicto, calcula Garantía/Alquiler/
         // Limpieza según EsExterno, y guarda en PendienteDeAprobacion.
-        Task<SolicitarReservaResultado> SolicitarAsync(Reserva reserva, AreaComun areaComun);
+        Task<RequestReservationResult> SolicitarAsync(Reservation reserva, CommonArea areaComun);
 
         // Decisión cerrada con el usuario 2026-09-12: sólo se puede reprogramar una
         // reserva PendienteDeAprobacion o Aprobada -- si estaba Aprobada, vuelve a
@@ -42,60 +42,60 @@ namespace SpiderHood.Services
         // violar la ventana de anticipación o generar un conflicto distinto, así que
         // la Junta tiene que volver a mirarla). Revalida las mismas reglas que
         // SolicitarAsync y el conflicto de horario (excluyéndose a sí misma).
-        Task<SolicitarReservaResultado> ReprogramarAsync(Guid idReserva, DateTime nuevaFechaInicio, DateTime nuevaFechaFin, AreaComun areaComun);
+        Task<RequestReservationResult> ReprogramarAsync(Guid idReservation, DateTime nuevaFechaInicio, DateTime nuevaFechaFin, CommonArea areaComun);
 
-        Task AprobarAsync(Guid idReserva, Guid aprobadoPor);
+        Task AprobarAsync(Guid idReservation, Guid aprobadoPor);
 
-        Task RechazarAsync(Guid idReserva, Guid aprobadoPor, string motivo);
+        Task RechazarAsync(Guid idReservation, Guid aprobadoPor, string motivo);
 
-        // Penalidad según AreaComun.PenalidadCancelacionHabilitada +
+        // Penalidad según CommonArea.PenalidadCancelacionHabilitada +
         // DiasMinimosSinPenalidad -- retiene el 100% de la garantía si cancela
         // con menos anticipación que ese número de días.
-        Task CancelarAsync(Guid idReserva, AreaComun areaComun);
+        Task CancelarAsync(Guid idReservation, CommonArea areaComun);
 
-        // Penalidad según AreaComun.PenalidadNoPresentadoHabilitada -- retiene
+        // Penalidad según CommonArea.PenalidadNoPresentadoHabilitada -- retiene
         // el 100% de la garantía, sin campo de días (es binario).
-        Task MarcarNoPresentadoAsync(Guid idReserva, AreaComun areaComun);
+        Task MarcarNoPresentadoAsync(Guid idReservation, CommonArea areaComun);
 
         // No hay pasarela de pago ni conciliación bancaria conectada (Docs/
         // Pendientes-Negocio-Consolidado.md #21, "Cobro") -- esto es un check
         // manual del Administrador confirmando que recibió la Garantía/Alquiler/
         // Limpieza, sin validar nada contra una cuenta real.
-        Task ConfirmarPagoAsync(Guid idReserva, decimal? montoConfirmado, DateTime? fechaPago, Guid confirmadoPor);
+        Task ConfirmarPagoAsync(Guid idReservation, decimal? montoConfirmado, DateTime? fechaPago, Guid confirmadoPor);
 
         // Falla (Exito=false) si la reserva todavía no tiene el pago confirmado --
         // feedback del usuario 2026-09-12: no había ninguna verificación de pago
         // antes de entregar el área.
-        Task<CheckInResultado> HacerCheckInAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos);
+        Task<CheckInResult> HacerCheckInAsync(Guid idReservation, Guid usuario, List<(string Descripcion, ChecklistStatus Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos);
 
-        Task HacerCheckOutAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos);
+        Task HacerCheckOutAsync(Guid idReservation, Guid usuario, List<(string Descripcion, ChecklistStatus Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos);
 
         // Liquida la garantía. Dos caminos:
-        // - Reserva Finalizada (check-out ya hecho): montoDanio es la evaluación del
+        // - Reservation Finalizada (check-out ya hecho): montoDanio es la evaluación del
         //   Administrador sobre el checklist final; genera Ingreso por Alquiler +
         //   Limpieza (el servicio sí se prestó) y liquida la Garantía (devuelve /
         //   retiene / genera cuota extraordinaria si el daño la supera).
-        // - Reserva Cancelada/NoPresentado (la penalidad ya quedó decidida al
+        // - Reservation Cancelada/NoPresentado (la penalidad ya quedó decidida al
         //   cancelar/marcar no-presentado): sólo liquida la Garantía ya retenida,
         //   sin cobrar Alquiler/Limpieza (el servicio no se prestó). montoDanio se
         //   ignora en este camino.
-        Task<CerrarReservaResultado> CerrarAsync(Guid idReserva, Guid usuario, decimal montoDanio = 0);
+        Task<CloseReservationResult> CerrarAsync(Guid idReservation, Guid usuario, decimal montoDanio = 0);
     }
 
-    public class ReservaService : IReservaService
+    public class ReservationService : IReservationService
     {
         private readonly IFileStorageService _fileStorageService;
         private readonly IExtraChargeService _extraChargeService;
         private readonly ICalendarService _calendarService;
-        private readonly ILogger<ReservaService> _logger;
+        private readonly ILogger<ReservationService> _logger;
         private BDLayout ec { get; set; }
 
-        public ReservaService(
+        public ReservationService(
             IDbContextFactory<SpiderHoodContext> contextFactory,
             IFileStorageService fileStorageService,
             IExtraChargeService extraChargeService,
             ICalendarService calendarService,
-            ILogger<ReservaService> logger)
+            ILogger<ReservationService> logger)
         {
             _fileStorageService = fileStorageService;
             _extraChargeService = extraChargeService;
@@ -104,29 +104,29 @@ namespace SpiderHood.Services
             ec = new BDLayout(contextFactory);
         }
 
-        public async Task<List<Reserva>> GetReservasAsync(Guid idBuilding)
-            => await ec.GetReservasByBuildingAsync(idBuilding);
+        public async Task<List<Reservation>> GetReservationsAsync(Guid idBuilding)
+            => await ec.GetReservationsByBuildingAsync(idBuilding);
 
-        public async Task<List<Reserva>> GetReservasPendientesAsync(Guid idBuilding)
-            => await ec.GetReservasPendientesByBuildingAsync(idBuilding);
+        public async Task<List<Reservation>> GetReservationsPendientesAsync(Guid idBuilding)
+            => await ec.GetReservationsPendientesByBuildingAsync(idBuilding);
 
-        public async Task<List<Reserva>> GetReservasByGroupUnitAsync(Guid idGroupUnit)
-            => await ec.GetReservasByGroupUnitAsync(idGroupUnit);
+        public async Task<List<Reservation>> GetReservationsByGroupUnitAsync(Guid idGroupUnit)
+            => await ec.GetReservationsByGroupUnitAsync(idGroupUnit);
 
-        public async Task<List<Reserva>> GetProximasAsync(Guid idAreaComun)
-            => await ec.GetReservasProximasByAreaComunAsync(idAreaComun);
+        public async Task<List<Reservation>> GetProximasAsync(Guid idCommonArea)
+            => await ec.GetReservationsProximasByCommonAreaAsync(idCommonArea);
 
-        public async Task<List<ReservaChecklistItem>> GetChecklistAsync(Guid idReserva)
-            => await ec.GetReservaChecklistItemsByReservaAsync(idReserva);
+        public async Task<List<ReservationChecklistItem>> GetChecklistAsync(Guid idReservation)
+            => await ec.GetReservationChecklistItemsByReservationAsync(idReservation);
 
-        public async Task<List<ReservaAttachment>> GetAdjuntosAsync(Guid idReserva)
-            => await ec.GetReservaAttachmentsByReservaAsync(idReserva);
+        public async Task<List<ReservationAttachment>> GetAdjuntosAsync(Guid idReservation)
+            => await ec.GetReservationAttachmentsByReservationAsync(idReservation);
 
         // Compartida entre SolicitarAsync y ReprogramarAsync -- las reglas de ventana
         // (anticipación/duración) son las mismas para las dos; el tope de reservas
         // activas y el chequeo de conflicto NO se comparten (reprogramar no suma una
         // reserva nueva, y el conflicto tiene que excluirse a sí misma).
-        private static string? ValidarVentana(DateTime fechaInicio, DateTime fechaFin, AreaComun areaComun)
+        private static string? ValidarVentana(DateTime fechaInicio, DateTime fechaFin, CommonArea areaComun)
         {
             if (fechaInicio >= fechaFin)
                 return "La fecha de inicio debe ser anterior a la fecha de fin.";
@@ -147,9 +147,9 @@ namespace SpiderHood.Services
             return null;
         }
 
-        public async Task<SolicitarReservaResultado> SolicitarAsync(Reserva reserva, AreaComun areaComun)
+        public async Task<RequestReservationResult> SolicitarAsync(Reservation reserva, CommonArea areaComun)
         {
-            var resultado = new SolicitarReservaResultado();
+            var resultado = new RequestReservationResult();
 
             var errorVentana = ValidarVentana(reserva.FechaInicio, reserva.FechaFin, areaComun);
             if (errorVentana != null)
@@ -158,56 +158,56 @@ namespace SpiderHood.Services
                 return resultado;
             }
 
-            if (areaComun.TopeReservasActivasPorUnidad.HasValue)
+            if (areaComun.TopeReservationsActivasPorUnidad.HasValue)
             {
-                var reservasUnidad = await ec.GetReservasByGroupUnitAsync(reserva.IdGroupUnit);
-                var activas = reservasUnidad.Count(r => r.IdAreaComun == areaComun.IdAreaComun
-                    && r.Estado is ReservaEstado.PendienteDeAprobacion or ReservaEstado.Aprobada or ReservaEstado.Entregada);
+                var reservasUnidad = await ec.GetReservationsByGroupUnitAsync(reserva.IdGroupUnit);
+                var activas = reservasUnidad.Count(r => r.IdCommonArea == areaComun.IdCommonArea
+                    && r.Estado is ReservationStatus.PendienteDeAprobacion or ReservationStatus.Aprobada or ReservationStatus.Entregada);
 
-                if (activas >= areaComun.TopeReservasActivasPorUnidad.Value)
+                if (activas >= areaComun.TopeReservationsActivasPorUnidad.Value)
                 {
-                    resultado.Mensaje = $"Ya alcanzaste el tope de {areaComun.TopeReservasActivasPorUnidad} reserva(s) activa(s) para esta área.";
+                    resultado.Mensaje = $"Ya alcanzaste el tope de {areaComun.TopeReservationsActivasPorUnidad} reserva(s) activa(s) para esta área.";
                     return resultado;
                 }
             }
 
             var buffer = TimeSpan.FromMinutes(areaComun.BufferMinutos);
-            var conflictos = await ec.GetReservasConflictoAsync(areaComun.IdAreaComun, reserva.FechaInicio - buffer, reserva.FechaFin + buffer);
+            var conflictos = await ec.GetReservationsConflictoAsync(areaComun.IdCommonArea, reserva.FechaInicio - buffer, reserva.FechaFin + buffer);
             if (conflictos.Any())
             {
                 resultado.Mensaje = "El área ya está reservada (o no hay suficiente buffer de limpieza) en ese horario.";
                 return resultado;
             }
 
-            reserva.IdReserva = Guid.NewGuid();
-            reserva.IdAreaComun = areaComun.IdAreaComun;
-            reserva.Estado = ReservaEstado.PendienteDeAprobacion;
+            reserva.IdReservation = Guid.NewGuid();
+            reserva.IdCommonArea = areaComun.IdCommonArea;
+            reserva.Estado = ReservationStatus.PendienteDeAprobacion;
             reserva.MontoGarantia = reserva.EsExterno ? areaComun.GarantiaExternos : areaComun.GarantiaInternos;
             reserva.MontoAlquiler = reserva.EsExterno ? areaComun.AlquilerExternos : areaComun.AlquilerInternos;
             reserva.MontoLimpieza = areaComun.Limpieza;
             reserva.CreatedOn = DateTime.Now;
 
             // Feedback del usuario tras probar en vivo (2026-09-11): sin un CalendarItem,
-            // una Reserva Pendiente/Aprobada no se veía en el Calendario general, así que
+            // una Reservation Pendiente/Aprobada no se veía en el Calendario general, así que
             // otro propietario no tenía forma visual de saber que el área ya estaba
             // comprometida en ese horario (más allá del chequeo de conflicto de arriba).
-            var calendarItem = await CrearCalendarItemDeReservaAsync(reserva, areaComun.Nombre, areaComun.IdBuilding, "Pendiente de aprobación de la Junta.");
+            var calendarItem = await CrearCalendarItemDeReservationAsync(reserva, areaComun.Nombre, areaComun.IdBuilding, "Pendiente de aprobación de la Junta.");
             reserva.IdCalendarItem = calendarItem.IdCalendarItem;
 
             await ec.AddNewRecordAsync(reserva);
 
             resultado.Exito = true;
-            resultado.IdReserva = reserva.IdReserva;
+            resultado.IdReservation = reserva.IdReservation;
             resultado.Mensaje = "Reserva solicitada -- queda pendiente de aprobación de la Junta.";
             return resultado;
         }
 
-        public async Task<SolicitarReservaResultado> ReprogramarAsync(Guid idReserva, DateTime nuevaFechaInicio, DateTime nuevaFechaFin, AreaComun areaComun)
+        public async Task<RequestReservationResult> ReprogramarAsync(Guid idReservation, DateTime nuevaFechaInicio, DateTime nuevaFechaFin, CommonArea areaComun)
         {
-            var resultado = new SolicitarReservaResultado { IdReserva = idReserva };
+            var resultado = new RequestReservationResult { IdReservation = idReservation };
 
-            var reserva = await ec.GetReservaByIdAsync(idReserva);
-            if (reserva.Estado is not (ReservaEstado.PendienteDeAprobacion or ReservaEstado.Aprobada))
+            var reserva = await ec.GetReservationByIdAsync(idReservation);
+            if (reserva.Estado is not (ReservationStatus.PendienteDeAprobacion or ReservationStatus.Aprobada))
             {
                 resultado.Mensaje = "Sólo se puede reprogramar una reserva Pendiente de Aprobación o Aprobada.";
                 return resultado;
@@ -221,14 +221,14 @@ namespace SpiderHood.Services
             }
 
             var buffer = TimeSpan.FromMinutes(areaComun.BufferMinutos);
-            var conflictos = await ec.GetReservasConflictoAsync(areaComun.IdAreaComun, nuevaFechaInicio - buffer, nuevaFechaFin + buffer, idReserva);
+            var conflictos = await ec.GetReservationsConflictoAsync(areaComun.IdCommonArea, nuevaFechaInicio - buffer, nuevaFechaFin + buffer, idReservation);
             if (conflictos.Any())
             {
                 resultado.Mensaje = "El área ya está reservada (o no hay suficiente buffer de limpieza) en ese horario.";
                 return resultado;
             }
 
-            await ec.UpdateReservaFechasAsync(idReserva, nuevaFechaInicio, nuevaFechaFin);
+            await ec.UpdateReservationFechasAsync(idReservation, nuevaFechaInicio, nuevaFechaFin);
 
             if (reserva.IdCalendarItem.HasValue)
             {
@@ -246,9 +246,9 @@ namespace SpiderHood.Services
             return resultado;
         }
 
-        public async Task AprobarAsync(Guid idReserva, Guid aprobadoPor)
+        public async Task AprobarAsync(Guid idReservation, Guid aprobadoPor)
         {
-            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            var reserva = await ec.GetReservationByIdAsync(idReservation);
 
             if (reserva.IdCalendarItem.HasValue)
             {
@@ -258,7 +258,7 @@ namespace SpiderHood.Services
                 calendarItem.ModifiedOn = DateTime.Now;
                 await _calendarService.UpdateAsync(calendarItem);
 
-                await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Aprobada, aprobadoPor: aprobadoPor);
+                await ec.UpdateReservationStatusAsync(idReservation, ReservationStatus.Aprobada, aprobadoPor: aprobadoPor);
             }
             else
             {
@@ -268,34 +268,34 @@ namespace SpiderHood.Services
                 // les crea uno recién ahora en vez de dejarlas invisibles para
                 // siempre. Visto en vivo (2026-09-12): una reserva ya Aprobada de una
                 // ronda de pruebas anterior a este fix no aparecía en el Calendario.
-                var nuevoCalendarItem = await CrearCalendarItemDeReservaAsync(reserva, reserva.NombreAreaComun, reserva.IdBuilding, "Aprobada por la Junta.");
-                await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Aprobada, aprobadoPor: aprobadoPor, idCalendarItem: nuevoCalendarItem.IdCalendarItem);
+                var nuevoCalendarItem = await CrearCalendarItemDeReservationAsync(reserva, reserva.NombreCommonArea, reserva.IdBuilding, "Aprobada por la Junta.");
+                await ec.UpdateReservationStatusAsync(idReservation, ReservationStatus.Aprobada, aprobadoPor: aprobadoPor, idCalendarItem: nuevoCalendarItem.IdCalendarItem);
             }
         }
 
-        public async Task<bool> AsegurarCalendarItemAsync(Guid idReserva)
+        public async Task<bool> AsegurarCalendarItemAsync(Guid idReservation)
         {
-            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            var reserva = await ec.GetReservationByIdAsync(idReservation);
 
             if (reserva.IdCalendarItem.HasValue
-                || reserva.Estado is ReservaEstado.Rechazada or ReservaEstado.Cancelada or ReservaEstado.NoPresentado or ReservaEstado.Cerrada)
+                || reserva.Estado is ReservationStatus.Rechazada or ReservationStatus.Cancelada or ReservationStatus.NoPresentado or ReservationStatus.Cerrada)
             {
                 return false;
             }
 
-            var descripcion = reserva.Estado == ReservaEstado.PendienteDeAprobacion
+            var descripcion = reserva.Estado == ReservationStatus.PendienteDeAprobacion
                 ? "Pendiente de aprobación de la Junta."
                 : "Aprobada por la Junta.";
-            var calendarItem = await CrearCalendarItemDeReservaAsync(reserva, reserva.NombreAreaComun, reserva.IdBuilding, descripcion);
-            await ec.UpdateReservaEstadoAsync(idReserva, reserva.Estado, idCalendarItem: calendarItem.IdCalendarItem);
+            var calendarItem = await CrearCalendarItemDeReservationAsync(reserva, reserva.NombreCommonArea, reserva.IdBuilding, descripcion);
+            await ec.UpdateReservationStatusAsync(idReservation, reserva.Estado, idCalendarItem: calendarItem.IdCalendarItem);
             return true;
         }
 
-        public async Task RechazarAsync(Guid idReserva, Guid aprobadoPor, string motivo)
+        public async Task RechazarAsync(Guid idReservation, Guid aprobadoPor, string motivo)
         {
-            await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Rechazada, motivoRechazo: motivo, aprobadoPor: aprobadoPor);
+            await ec.UpdateReservationStatusAsync(idReservation, ReservationStatus.Rechazada, motivoRechazo: motivo, aprobadoPor: aprobadoPor);
 
-            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            var reserva = await ec.GetReservationByIdAsync(idReservation);
             if (reserva.IdCalendarItem.HasValue)
             {
                 // Rechazada libera el horario -- se borra el CalendarItem para que el área
@@ -304,9 +304,9 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task CancelarAsync(Guid idReserva, AreaComun areaComun)
+        public async Task CancelarAsync(Guid idReservation, CommonArea areaComun)
         {
-            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            var reserva = await ec.GetReservationByIdAsync(idReservation);
 
             var diasParaEvento = (reserva.FechaInicio - DateTime.Now).TotalDays;
             var aplicaPenalidad = areaComun.PenalidadCancelacionHabilitada
@@ -314,7 +314,7 @@ namespace SpiderHood.Services
                 && diasParaEvento < areaComun.DiasMinimosSinPenalidad.Value;
 
             var montoRetenido = aplicaPenalidad ? reserva.MontoGarantia : 0;
-            await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Cancelada, montoRetenido: montoRetenido);
+            await ec.UpdateReservationStatusAsync(idReservation, ReservationStatus.Cancelada, montoRetenido: montoRetenido);
 
             if (reserva.IdCalendarItem.HasValue)
             {
@@ -323,12 +323,12 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task MarcarNoPresentadoAsync(Guid idReserva, AreaComun areaComun)
+        public async Task MarcarNoPresentadoAsync(Guid idReservation, CommonArea areaComun)
         {
-            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            var reserva = await ec.GetReservationByIdAsync(idReservation);
             var montoRetenido = areaComun.PenalidadNoPresentadoHabilitada ? reserva.MontoGarantia : 0;
 
-            await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.NoPresentado, montoRetenido: montoRetenido);
+            await ec.UpdateReservationStatusAsync(idReservation, ReservationStatus.NoPresentado, montoRetenido: montoRetenido);
 
             if (reserva.IdCalendarItem.HasValue)
             {
@@ -355,19 +355,19 @@ namespace SpiderHood.Services
         // vínculo), incluso antes de que la Junta la apruebe. Este CalendarItem es sólo un
         // marcador visual de "horario ocupado", no un anuncio -- si en el futuro se quiere
         // avisar de una reserva Aprobada, debería salir del módulo de Comunicados, no de acá.
-        private async Task<CalendarItem> CrearCalendarItemDeReservaAsync(Reserva reserva, string nombreAreaComun, Guid idBuilding, string descripcion)
+        private async Task<CalendarItem> CrearCalendarItemDeReservationAsync(Reservation reserva, string nombreCommonArea, Guid idBuilding, string descripcion)
         {
             var nombreUnidad = await ResolverNombreUnidadAsync(idBuilding, reserva.IdGroupUnit);
             var calendarItem = new CalendarItem
             {
                 IdCalendarItem = Guid.NewGuid(),
                 IdBuilding = idBuilding,
-                Title = $"Reserva: {nombreAreaComun} ({nombreUnidad})",
+                Title = $"Reserva: {nombreCommonArea} ({nombreUnidad})",
                 Description = descripcion,
                 Type = CalendarItemType.Event,
                 StartDate = reserva.FechaInicio,
                 EndDate = reserva.FechaFin,
-                Location = nombreAreaComun,
+                Location = nombreCommonArea,
                 Status = CalendarItemStatus.Scheduled,
                 CreatedBy = reserva.CreatedBy.ToString(),
                 CreatedOn = DateTime.Now
@@ -376,36 +376,36 @@ namespace SpiderHood.Services
             return calendarItem;
         }
 
-        public async Task ConfirmarPagoAsync(Guid idReserva, decimal? montoConfirmado, DateTime? fechaPago, Guid confirmadoPor)
-            => await ec.ConfirmarPagoReservaAsync(idReserva, montoConfirmado, fechaPago, confirmadoPor);
+        public async Task ConfirmarPagoAsync(Guid idReservation, decimal? montoConfirmado, DateTime? fechaPago, Guid confirmadoPor)
+            => await ec.ConfirmarPagoReservationAsync(idReservation, montoConfirmado, fechaPago, confirmadoPor);
 
-        public async Task<CheckInResultado> HacerCheckInAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)
+        public async Task<CheckInResult> HacerCheckInAsync(Guid idReservation, Guid usuario, List<(string Descripcion, ChecklistStatus Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)
         {
-            var reserva = await ec.GetReservaByIdAsync(idReserva);
+            var reserva = await ec.GetReservationByIdAsync(idReservation);
             if (!reserva.PagoConfirmado)
             {
-                return new CheckInResultado { Mensaje = "Falta confirmar el pago de la Garantía/Alquiler/Limpieza antes de hacer el check-in." };
+                return new CheckInResult { Mensaje = "Falta confirmar el pago de la Garantía/Alquiler/Limpieza antes de hacer el check-in." };
             }
 
-            await GuardarChecklistYFotosAsync(idReserva, usuario, ChecklistEtapa.Entrega, checklist, fotos);
-            await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Entregada);
-            return new CheckInResultado { Exito = true, Mensaje = "Check-in registrado." };
+            await GuardarChecklistYFotosAsync(idReservation, usuario, ChecklistStage.Entrega, checklist, fotos);
+            await ec.UpdateReservationStatusAsync(idReservation, ReservationStatus.Entregada);
+            return new CheckInResult { Exito = true, Mensaje = "Check-in registrado." };
         }
 
-        public async Task HacerCheckOutAsync(Guid idReserva, Guid usuario, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)
+        public async Task HacerCheckOutAsync(Guid idReservation, Guid usuario, List<(string Descripcion, ChecklistStatus Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)
         {
-            await GuardarChecklistYFotosAsync(idReserva, usuario, ChecklistEtapa.Devolucion, checklist, fotos);
-            await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Finalizada);
+            await GuardarChecklistYFotosAsync(idReservation, usuario, ChecklistStage.Devolucion, checklist, fotos);
+            await ec.UpdateReservationStatusAsync(idReservation, ReservationStatus.Finalizada);
         }
 
-        private async Task GuardarChecklistYFotosAsync(Guid idReserva, Guid usuario, ChecklistEtapa etapa, List<(string Descripcion, ChecklistEstado Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)
+        private async Task GuardarChecklistYFotosAsync(Guid idReservation, Guid usuario, ChecklistStage etapa, List<(string Descripcion, ChecklistStatus Estado, string? Observacion)> checklist, List<(byte[] Contenido, string FileName, string ContentType)> fotos)
         {
             foreach (var item in checklist)
             {
-                await ec.AddNewRecordAsync(new ReservaChecklistItem
+                await ec.AddNewRecordAsync(new ReservationChecklistItem
                 {
                     IdChecklistItem = Guid.NewGuid(),
-                    IdReserva = idReserva,
+                    IdReservation = idReservation,
                     Etapa = etapa,
                     Descripcion = item.Descripcion,
                     Estado = item.Estado,
@@ -418,12 +418,12 @@ namespace SpiderHood.Services
             foreach (var foto in fotos)
             {
                 var filePath = await _fileStorageService.SaveAsync(
-                    new[] { "reservas", idReserva.ToString() }, foto.FileName, foto.Contenido);
+                    new[] { "reservas", idReservation.ToString() }, foto.FileName, foto.Contenido);
 
-                await ec.AddNewRecordAsync(new ReservaAttachment
+                await ec.AddNewRecordAsync(new ReservationAttachment
                 {
                     IdAttachment = Guid.NewGuid(),
-                    IdReserva = idReserva,
+                    IdReservation = idReservation,
                     Etapa = etapa,
                     FileName = foto.FileName,
                     ContentType = foto.ContentType,
@@ -435,14 +435,14 @@ namespace SpiderHood.Services
             }
         }
 
-        public async Task<CerrarReservaResultado> CerrarAsync(Guid idReserva, Guid usuario, decimal montoDanio = 0)
+        public async Task<CloseReservationResult> CerrarAsync(Guid idReservation, Guid usuario, decimal montoDanio = 0)
         {
-            var resultado = new CerrarReservaResultado();
+            var resultado = new CloseReservationResult();
 
-            Reserva todas;
+            Reservation todas;
             try
             {
-                todas = await ec.GetReservaByIdAsync(idReserva);
+                todas = await ec.GetReservationByIdAsync(idReservation);
             }
             catch (EntityNotFoundException)
             {
@@ -450,26 +450,26 @@ namespace SpiderHood.Services
                 return resultado;
             }
 
-            if (todas.Estado is ReservaEstado.Cancelada or ReservaEstado.NoPresentado)
+            if (todas.Estado is ReservationStatus.Cancelada or ReservationStatus.NoPresentado)
             {
                 var retenido = todas.MontoRetenido.GetValueOrDefault();
                 if (retenido > 0)
                 {
-                    await ec.AddNewRecordAsync(new IngresoComunidad
+                    await ec.AddNewRecordAsync(new CommunityIncome
                     {
-                        IdIngreso = Guid.NewGuid(),
+                        IdIncome = Guid.NewGuid(),
                         IdBuilding = todas.IdBuilding,
-                        Concepto = todas.Estado == ReservaEstado.Cancelada
+                        Concepto = todas.Estado == ReservationStatus.Cancelada
                             ? "Penalidad por Cancelación - Reserva"
                             : "Penalidad por No Presentarse - Reserva",
                         Monto = retenido,
-                        IdReserva = idReserva,
+                        IdReservation = idReservation,
                         CreatedBy = usuario,
                         CreatedOn = DateTime.Now
                     });
                 }
 
-                await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Cerrada, montoRetenido: retenido);
+                await ec.UpdateReservationStatusAsync(idReservation, ReservationStatus.Cerrada, montoRetenido: retenido);
 
                 resultado.Exito = true;
                 resultado.MontoRetenido = retenido;
@@ -478,7 +478,7 @@ namespace SpiderHood.Services
                 return resultado;
             }
 
-            if (todas.Estado != ReservaEstado.Finalizada)
+            if (todas.Estado != ReservationStatus.Finalizada)
             {
                 resultado.Mensaje = "Sólo se puede cerrar una reserva Finalizada, Cancelada o No Presentada.";
                 return resultado;
@@ -486,13 +486,13 @@ namespace SpiderHood.Services
 
             if (todas.MontoAlquiler > 0)
             {
-                await ec.AddNewRecordAsync(new IngresoComunidad
+                await ec.AddNewRecordAsync(new CommunityIncome
                 {
-                    IdIngreso = Guid.NewGuid(),
+                    IdIncome = Guid.NewGuid(),
                     IdBuilding = todas.IdBuilding,
-                    Concepto = $"Alquiler {todas.NombreAreaComun}",
+                    Concepto = $"Alquiler {todas.NombreCommonArea}",
                     Monto = todas.MontoAlquiler,
-                    IdReserva = idReserva,
+                    IdReservation = idReservation,
                     CreatedBy = usuario,
                     CreatedOn = DateTime.Now
                 });
@@ -500,13 +500,13 @@ namespace SpiderHood.Services
 
             if (todas.MontoLimpieza > 0)
             {
-                await ec.AddNewRecordAsync(new IngresoComunidad
+                await ec.AddNewRecordAsync(new CommunityIncome
                 {
-                    IdIngreso = Guid.NewGuid(),
+                    IdIncome = Guid.NewGuid(),
                     IdBuilding = todas.IdBuilding,
-                    Concepto = $"Limpieza {todas.NombreAreaComun}",
+                    Concepto = $"Limpieza {todas.NombreCommonArea}",
                     Monto = todas.MontoLimpieza,
-                    IdReserva = idReserva,
+                    IdReservation = idReservation,
                     CreatedBy = usuario,
                     CreatedOn = DateTime.Now
                 });
@@ -518,13 +518,13 @@ namespace SpiderHood.Services
 
             if (montoRetenidoGarantia > 0)
             {
-                await ec.AddNewRecordAsync(new IngresoComunidad
+                await ec.AddNewRecordAsync(new CommunityIncome
                 {
-                    IdIngreso = Guid.NewGuid(),
+                    IdIncome = Guid.NewGuid(),
                     IdBuilding = todas.IdBuilding,
                     Concepto = "Reposición de Daños - Reserva",
                     Monto = montoRetenidoGarantia,
-                    IdReserva = idReserva,
+                    IdReservation = idReservation,
                     CreatedBy = usuario,
                     CreatedOn = DateTime.Now
                 });
@@ -535,7 +535,7 @@ namespace SpiderHood.Services
                 var excedente = danio - todas.MontoGarantia;
                 var cuota = await _extraChargeService.GenerarCuotaExtraordinariaAsync(
                     todas.IdBuilding,
-                    $"Daño en {todas.NombreAreaComun} (excede garantía) - Reserva del {todas.FechaInicio:dd/MM/yyyy}",
+                    $"Daño en {todas.NombreCommonArea} (excede garantía) - Reserva del {todas.FechaInicio:dd/MM/yyyy}",
                     DateTime.Today.AddDays(15),
                     new Dictionary<Guid, decimal> { [todas.IdGroupUnit] = excedente },
                     usuario.ToString());
@@ -545,11 +545,11 @@ namespace SpiderHood.Services
 
                 if (!cuota.Exito)
                 {
-                    _logger.LogWarning("No se pudo generar la cuota extraordinaria por daño de la reserva {IdReserva}: {Mensaje}", idReserva, cuota.Mensaje);
+                    _logger.LogWarning("No se pudo generar la cuota extraordinaria por daño de la reserva {IdReservation}: {Mensaje}", idReservation, cuota.Mensaje);
                 }
             }
 
-            await ec.UpdateReservaEstadoAsync(idReserva, ReservaEstado.Cerrada, montoRetenido: montoRetenidoGarantia);
+            await ec.UpdateReservationStatusAsync(idReservation, ReservationStatus.Cerrada, montoRetenido: montoRetenidoGarantia);
 
             resultado.Exito = true;
             resultado.MontoDevuelto = montoDevuelto;

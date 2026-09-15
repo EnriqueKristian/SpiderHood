@@ -111,11 +111,11 @@ namespace SpiderHood.Data
 
             // Docs/Pendientes-Negocio-Consolidado.md #21 -- Estado/Etapa/Estado(checklist)
             // son columnas INT en la BD, igual que Announcement arriba.
-            modelBuilder.Entity<Models.AreaComun>().HasNoKey();
-            modelBuilder.Entity<Models.Reserva>().HasNoKey();
-            modelBuilder.Entity<Models.ReservaChecklistItem>().HasNoKey();
-            modelBuilder.Entity<Models.ReservaAttachment>().HasNoKey();
-            modelBuilder.Entity<Models.IngresoComunidad>().HasNoKey();
+            modelBuilder.Entity<Models.CommonArea>().HasNoKey();
+            modelBuilder.Entity<Models.Reservation>().HasNoKey();
+            modelBuilder.Entity<Models.ReservationChecklistItem>().HasNoKey();
+            modelBuilder.Entity<Models.ReservationAttachment>().HasNoKey();
+            modelBuilder.Entity<Models.CommunityIncome>().HasNoKey();
 
             // Docs/Pendientes-Negocio-Consolidado.md #21, Gobernanza Fase 1 --
             // mismo motivo: Tipo/Modalidad/Estado son columnas INT en la BD.

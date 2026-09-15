@@ -1190,85 +1190,85 @@ namespace SpiderHood.Data
             }, "GetAnnouncementsParaUsuario", cancellationToken);
         }
 
-        public async Task<List<Models.AreaComun>> GetAreaComunesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<Models.CommonArea>> GetCommonAreasByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.AreaComun>(StoredProcedures.GET_AreaComunesByBuilding, idBuilding);
-            }, "GetAreaComunesByBuilding", cancellationToken);
+                return await ExecuteQueryListAsync<Models.CommonArea>(StoredProcedures.GET_CommonAreasByBuilding, idBuilding);
+            }, "GetCommonAreasByBuilding", cancellationToken);
         }
 
-        public async Task<List<Models.Reserva>> GetReservasByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Reservation>> GetReservationsByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Reserva>(StoredProcedures.GET_ReservasByBuilding, idBuilding);
-            }, "GetReservasByBuilding", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Reservation>(StoredProcedures.GET_ReservationsByBuilding, idBuilding);
+            }, "GetReservationsByBuilding", cancellationToken);
         }
 
-        public async Task<Models.Reserva> GetReservaByIdAsync(Guid idReserva, CancellationToken cancellationToken = default)
+        public async Task<Models.Reservation> GetReservationByIdAsync(Guid idReservation, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                var result = await ExecuteQuerySingleAsync<Models.Reserva>(StoredProcedures.GET_ReservaById, idReserva);
-                return result ?? throw new EntityNotFoundException($"Reserva with ID {idReserva} not found");
-            }, "GetReservaById", cancellationToken);
+                var result = await ExecuteQuerySingleAsync<Models.Reservation>(StoredProcedures.GET_ReservationById, idReservation);
+                return result ?? throw new EntityNotFoundException($"Reservation with ID {idReservation} not found");
+            }, "GetReservationById", cancellationToken);
         }
 
-        public async Task<List<Models.Reserva>> GetReservasPendientesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Reservation>> GetReservationsPendientesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Reserva>(StoredProcedures.GET_ReservasPendientesByBuilding, idBuilding);
-            }, "GetReservasPendientesByBuilding", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Reservation>(StoredProcedures.GET_ReservationsPendientesByBuilding, idBuilding);
+            }, "GetReservationsPendientesByBuilding", cancellationToken);
         }
 
-        public async Task<List<Models.Reserva>> GetReservasByGroupUnitAsync(Guid idGroupUnit, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Reservation>> GetReservationsByGroupUnitAsync(Guid idGroupUnit, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Reserva>(StoredProcedures.GET_ReservasByGroupUnit, idGroupUnit);
-            }, "GetReservasByGroupUnit", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Reservation>(StoredProcedures.GET_ReservationsByGroupUnit, idGroupUnit);
+            }, "GetReservationsByGroupUnit", cancellationToken);
         }
 
-        public async Task<List<Models.Reserva>> GetReservasConflictoAsync(Guid idAreaComun, DateTime fechaInicio, DateTime fechaFin, Guid? excluirIdReserva = null, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Reservation>> GetReservationsConflictoAsync(Guid idCommonArea, DateTime fechaInicio, DateTime fechaFin, Guid? excluirIdReservation = null, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Reserva>(StoredProcedures.GET_ReservasConflicto, idAreaComun, fechaInicio, fechaFin, (object?)excluirIdReserva ?? DBNull.Value);
-            }, "GetReservasConflicto", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Reservation>(StoredProcedures.GET_ReservationsConflicto, idCommonArea, fechaInicio, fechaFin, (object?)excluirIdReservation ?? DBNull.Value);
+            }, "GetReservationsConflicto", cancellationToken);
         }
 
-        public async Task<List<Models.Reserva>> GetReservasProximasByAreaComunAsync(Guid idAreaComun, CancellationToken cancellationToken = default)
+        public async Task<List<Models.Reservation>> GetReservationsProximasByCommonAreaAsync(Guid idCommonArea, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.Reserva>(StoredProcedures.GET_ReservasProximasByAreaComun, idAreaComun);
-            }, "GetReservasProximasByAreaComun", cancellationToken);
+                return await ExecuteQueryListAsync<Models.Reservation>(StoredProcedures.GET_ReservationsProximasByCommonArea, idCommonArea);
+            }, "GetReservationsProximasByCommonArea", cancellationToken);
         }
 
-        public async Task<List<Models.ReservaChecklistItem>> GetReservaChecklistItemsByReservaAsync(Guid idReserva, CancellationToken cancellationToken = default)
+        public async Task<List<Models.ReservationChecklistItem>> GetReservationChecklistItemsByReservationAsync(Guid idReservation, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.ReservaChecklistItem>(StoredProcedures.GET_ReservaChecklistItemsByReserva, idReserva);
-            }, "GetReservaChecklistItemsByReserva", cancellationToken);
+                return await ExecuteQueryListAsync<Models.ReservationChecklistItem>(StoredProcedures.GET_ReservationChecklistItemsByReservation, idReservation);
+            }, "GetReservationChecklistItemsByReservation", cancellationToken);
         }
 
-        public async Task<List<Models.ReservaAttachment>> GetReservaAttachmentsByReservaAsync(Guid idReserva, CancellationToken cancellationToken = default)
+        public async Task<List<Models.ReservationAttachment>> GetReservationAttachmentsByReservationAsync(Guid idReservation, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.ReservaAttachment>(StoredProcedures.GET_ReservaAttachmentsByReserva, idReserva);
-            }, "GetReservaAttachmentsByReserva", cancellationToken);
+                return await ExecuteQueryListAsync<Models.ReservationAttachment>(StoredProcedures.GET_ReservationAttachmentsByReservation, idReservation);
+            }, "GetReservationAttachmentsByReservation", cancellationToken);
         }
 
-        public async Task<List<Models.IngresoComunidad>> GetIngresosComunidadByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        public async Task<List<Models.CommunityIncome>> GetCommunityIncomesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
-                return await ExecuteQueryListAsync<Models.IngresoComunidad>(StoredProcedures.GET_IngresosComunidadByBuilding, idBuilding);
-            }, "GetIngresosComunidadByBuilding", cancellationToken);
+                return await ExecuteQueryListAsync<Models.CommunityIncome>(StoredProcedures.GET_CommunityIncomesByBuilding, idBuilding);
+            }, "GetCommunityIncomesByBuilding", cancellationToken);
         }
 
         public async Task<List<Models.CalendarItem>> GetCalendarItemsByBuildingAsync(Guid idBuilding, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)

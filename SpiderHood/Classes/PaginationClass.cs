@@ -743,26 +743,26 @@ namespace SpiderHood.Utilities
         }
     }
 
-    public class ReservaPagination : PaginationClass<Reserva>
+    public class ReservationPagination : PaginationClass<Reservation>
     {
-        public ReservaPagination() : base()
+        public ReservationPagination() : base()
         {
-            var sortExpressions = new Dictionary<string, Func<Reserva, object>>
+            var sortExpressions = new Dictionary<string, Func<Reservation, object>>
             {
                 { "FechaInicio", x => x.FechaInicio },
-                { "NombreAreaComun", x => x.NombreAreaComun },
+                { "NombreCommonArea", x => x.NombreCommonArea },
                 { "Estado", x => x.Estado }
             };
 
             InitializeConfiguration(new Dictionary<string, string>(), sortExpressions, "FechaInicio", defaultSortAscending: false);
         }
 
-        protected override List<Reserva> ApplySearch(List<Reserva> data, string searchTerm)
+        protected override List<Reservation> ApplySearch(List<Reservation> data, string searchTerm)
         {
             var term = searchTerm.ToLower();
 
             return data.Where(x =>
-                x.NombreAreaComun.ToLower().Contains(term) ||
+                x.NombreCommonArea.ToLower().Contains(term) ||
                 x.CreatedByName.ToLower().Contains(term) ||
                 (x.OrganizadorNombre ?? string.Empty).ToLower().Contains(term)
             ).ToList();

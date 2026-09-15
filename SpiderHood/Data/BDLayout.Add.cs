@@ -1063,16 +1063,16 @@ namespace SpiderHood.Data
             }, "AddAnnouncementRecipient", cancellationToken);
         }
 
-        public async Task<Models.AreaComun> AddNewRecordAsync(Models.AreaComun areaComun, CancellationToken cancellationToken = default)
+        public async Task<Models.CommonArea> AddNewRecordAsync(Models.CommonArea areaComun, CancellationToken cancellationToken = default)
         {
             ValidateEntity(areaComun, nameof(areaComun));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_AreaComun,
+                    StoredProcedures.INS_CommonArea,
                     cancellationToken,
-                    areaComun.IdAreaComun,
+                    areaComun.IdCommonArea,
                     areaComun.IdBuilding,
                     areaComun.Nombre,
                     (object?)areaComun.Descripcion ?? DBNull.Value,
@@ -1082,7 +1082,7 @@ namespace SpiderHood.Data
                     areaComun.BufferMinutos,
                     areaComun.AnticipacionMinHoras,
                     (object?)areaComun.AnticipacionMaxDias ?? DBNull.Value,
-                    (object?)areaComun.TopeReservasActivasPorUnidad ?? DBNull.Value,
+                    (object?)areaComun.TopeReservationsActivasPorUnidad ?? DBNull.Value,
                     areaComun.GarantiaInternos,
                     areaComun.GarantiaExternos,
                     areaComun.AlquilerInternos,
@@ -1093,21 +1093,21 @@ namespace SpiderHood.Data
                     areaComun.PenalidadNoPresentadoHabilitada,
                     areaComun.CreatedBy);
                 return areaComun;
-            }, "AddAreaComun", cancellationToken);
+            }, "AddCommonArea", cancellationToken);
         }
 
-        public async Task<Models.Reserva> AddNewRecordAsync(Models.Reserva reserva, CancellationToken cancellationToken = default)
+        public async Task<Models.Reservation> AddNewRecordAsync(Models.Reservation reserva, CancellationToken cancellationToken = default)
         {
             ValidateEntity(reserva, nameof(reserva));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_Reserva,
+                    StoredProcedures.INS_Reservation,
                     cancellationToken,
-                    reserva.IdReserva,
+                    reserva.IdReservation,
                     reserva.IdBuilding,
-                    reserva.IdAreaComun,
+                    reserva.IdCommonArea,
                     reserva.IdGroupUnit,
                     reserva.FechaInicio,
                     reserva.FechaFin,
@@ -1122,40 +1122,40 @@ namespace SpiderHood.Data
                     (object?)reserva.IdCalendarItem ?? DBNull.Value,
                     reserva.CreatedBy);
                 return reserva;
-            }, "AddReserva", cancellationToken);
+            }, "AddReservation", cancellationToken);
         }
 
-        public async Task<Models.ReservaChecklistItem> AddNewRecordAsync(Models.ReservaChecklistItem item, CancellationToken cancellationToken = default)
+        public async Task<Models.ReservationChecklistItem> AddNewRecordAsync(Models.ReservationChecklistItem item, CancellationToken cancellationToken = default)
         {
             ValidateEntity(item, nameof(item));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_ReservaChecklistItem,
+                    StoredProcedures.INS_ReservationChecklistItem,
                     cancellationToken,
                     item.IdChecklistItem,
-                    item.IdReserva,
+                    item.IdReservation,
                     (int)item.Etapa,
                     item.Descripcion,
                     (int)item.Estado,
                     (object?)item.Observacion ?? DBNull.Value,
                     item.CreatedBy);
                 return item;
-            }, "AddReservaChecklistItem", cancellationToken);
+            }, "AddReservationChecklistItem", cancellationToken);
         }
 
-        public async Task<Models.ReservaAttachment> AddNewRecordAsync(Models.ReservaAttachment attachment, CancellationToken cancellationToken = default)
+        public async Task<Models.ReservationAttachment> AddNewRecordAsync(Models.ReservationAttachment attachment, CancellationToken cancellationToken = default)
         {
             ValidateEntity(attachment, nameof(attachment));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_ReservaAttachment,
+                    StoredProcedures.INS_ReservationAttachment,
                     cancellationToken,
                     attachment.IdAttachment,
-                    attachment.IdReserva,
+                    attachment.IdReservation,
                     (int)attachment.Etapa,
                     attachment.FileName,
                     attachment.ContentType,
@@ -1163,26 +1163,26 @@ namespace SpiderHood.Data
                     attachment.FilePath,
                     attachment.UploadedBy);
                 return attachment;
-            }, "AddReservaAttachment", cancellationToken);
+            }, "AddReservationAttachment", cancellationToken);
         }
 
-        public async Task<Models.IngresoComunidad> AddNewRecordAsync(Models.IngresoComunidad ingreso, CancellationToken cancellationToken = default)
+        public async Task<Models.CommunityIncome> AddNewRecordAsync(Models.CommunityIncome ingreso, CancellationToken cancellationToken = default)
         {
             ValidateEntity(ingreso, nameof(ingreso));
 
             return await ExecuteWithErrorHandlingAsync(async () =>
             {
                 await ExecuteStoredProcedureAsync(
-                    StoredProcedures.INS_IngresoComunidad,
+                    StoredProcedures.INS_CommunityIncome,
                     cancellationToken,
-                    ingreso.IdIngreso,
+                    ingreso.IdIncome,
                     ingreso.IdBuilding,
                     ingreso.Concepto,
                     ingreso.Monto,
-                    (object?)ingreso.IdReserva ?? DBNull.Value,
+                    (object?)ingreso.IdReservation ?? DBNull.Value,
                     ingreso.CreatedBy);
                 return ingreso;
-            }, "AddIngresoComunidad", cancellationToken);
+            }, "AddCommunityIncome", cancellationToken);
         }
 
         public async Task<Models.CalendarItem> AddNewRecordAsync(Models.CalendarItem item, CancellationToken cancellationToken = default)

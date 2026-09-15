@@ -108,13 +108,17 @@
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-8 mb-3">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">Lugar / Enlace</label>
                             <input class="form-control" @bind="_form.LugarOVinculo" placeholder="Salón de eventos / link de videollamada" />
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <label class="form-label">Quórum requerido (%)</label>
                             <input type="number" step="0.01" class="form-control" @bind="_form.QuorumRequerido" />
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Asistencia tardía (min.)</label>
+                            <input type="number" step="1" min="0" class="form-control" @bind="_form.MinutosLimiteAsistenciaTardia" title="Minutos desde que arranca la reunión durante los que todavía se puede registrar a alguien que llega tarde." />
                         </div>
                     </div>
 

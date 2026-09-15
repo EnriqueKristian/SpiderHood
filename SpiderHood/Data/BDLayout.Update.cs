@@ -1070,12 +1070,13 @@ namespace SpiderHood.Data
                     reunion.FechaMeeting,
                     (int)reunion.Modalidad,
                     (object?)reunion.LugarOVinculo ?? DBNull.Value,
-                    reunion.QuorumRequerido);
+                    reunion.QuorumRequerido,
+                    reunion.MinutosLimiteAsistenciaTardia);
                 return true;
             }, "UpdateMeeting", cancellationToken);
         }
 
-        public async Task UpdateMeetingEstadoAsync(Guid idMeeting, Models.MeetingStatus estado, decimal? quorumAlcanzado = null, Guid? idCalendarItem = null, CancellationToken cancellationToken = default)
+        public async Task UpdateMeetingEstadoAsync(Guid idMeeting, Models.MeetingStatus estado, decimal? quorumAlcanzado = null, Guid? idCalendarItem = null, DateTime? fechaInicioReal = null, CancellationToken cancellationToken = default)
         {
             await ExecuteWithErrorHandlingAsync(async () =>
             {
@@ -1085,7 +1086,8 @@ namespace SpiderHood.Data
                     idMeeting,
                     (int)estado,
                     (object?)quorumAlcanzado ?? DBNull.Value,
-                    (object?)idCalendarItem ?? DBNull.Value);
+                    (object?)idCalendarItem ?? DBNull.Value,
+                    (object?)fechaInicioReal ?? DBNull.Value);
                 return true;
             }, "UpdateMeetingEstado", cancellationToken);
         }

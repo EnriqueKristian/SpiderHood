@@ -75,6 +75,16 @@ namespace SpiderHood.Models
         [Precision(9, 6)] public decimal QuorumRequerido { get; set; }
         [Precision(9, 6)] public decimal? QuorumAlcanzado { get; set; }
 
+        // Fijada una sola vez por IniciarMeetingAsync al pasar a EnCurso -- distinta de
+        // FechaMeeting (la hora programada) porque la reunión puede arrancar antes o
+        // después. Se usa para calcular la ventana de asistencia tardía.
+        public DateTime? FechaInicioReal { get; set; }
+
+        // Minutos desde FechaInicioReal durante los que todavía se puede registrar
+        // asistencia con la reunión En Curso (a criterio de quien la dirige) -- pasado
+        // ese límite, RegistrarAttendanceAsync la rechaza igual que antes.
+        public int MinutosLimiteAsistenciaTardia { get; set; } = 20;
+
         public MeetingStatus Estado { get; set; }
         public Guid? IdMeetingOrigen { get; set; }
         public Guid? IdCalendarItem { get; set; }

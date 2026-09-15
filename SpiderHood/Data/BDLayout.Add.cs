@@ -1584,7 +1584,8 @@ namespace SpiderHood.Data
                     (int)reunion.Estado,
                     (object?)reunion.IdMeetingOrigen ?? DBNull.Value,
                     (object?)reunion.IdCalendarItem ?? DBNull.Value,
-                    reunion.CreatedBy);
+                    reunion.CreatedBy,
+                    reunion.MinutosLimiteAsistenciaTardia);
                 return reunion;
             }, "AddMeeting", cancellationToken);
         }

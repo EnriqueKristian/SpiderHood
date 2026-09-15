@@ -316,11 +316,29 @@ namespace SpiderHood.Services
         // un registro tardío mostraría una lista distinta a la que realmente
         // decidió el quórum -- y si ya hubo Votación, la unidad pudo haber
         // votado con una alícuota que luego "desaparece" al quitarla acá.
+        // Feedback del usuario tras probar la reunión en vivo: antes esto sólo valía
+        // mientras Convocada -- alguien que llegaba tarde (con la reunión ya En Curso)
+        // no se podía registrar. Ahora se permite, a criterio de quien dirige la
+        // reunión, dentro de una ventana de MinutosLimiteAsistenciaTardia desde que
+        // arrancó realmente (FechaInicioReal) -- pasada esa ventana, sigue rechazando
+        // como antes. El % de Quórum Alcanzado se recalcula cada vez (decisión
+        // confirmada: sí se recalcula, no queda fijado al momento de Iniciar); el
+        // recién llegado puede votar en cualquier ronda que siga Abierta porque
+        // RegistrarVoteAsync vuelve a traer Attendance en cada llamada, no necesita
+        // ningún cambio aparte.
         public async Task RegistrarAttendanceAsync(Guid idMeeting, Guid idGroupUnit, Guid registradoPor)
         {
             var reunion = await ec.GetMeetingByIdAsync(idMeeting);
-            if (reunion.Estado != MeetingStatus.Convocada)
-                throw new InvalidOperationException("Sólo se puede registrar asistencia mientras la reunión está Convocada (antes de Iniciar).");
+            var puedeRegistrarTardio = reunion.Estado == MeetingStatus.EnCurso
+                && reunion.FechaInicioReal != null
+                && DateTime.UtcNow <= reunion.FechaInicioReal.Value.AddMinutes(reunion.MinutosLimiteAsistenciaTardia);
+
+            if (reunion.Estado != MeetingStatus.Convocada && !puedeRegistrarTardio)
+            {
+                if (reunion.Estado == MeetingStatus.EnCurso)
+                    throw new InvalidOperationException($"Ya pasaron los {reunion.MinutosLimiteAsistenciaTardia} minutos permitidos para registrar asistencia tardía.");
+                throw new InvalidOperationException("Sólo se puede registrar asistencia mientras la reunión está Convocada, o En Curso dentro de la ventana de asistencia tardía.");
+            }
 
             var roster = await GetRosterAlicuotasAsync(reunion.IdBuilding);
             var unidad = roster.FirstOrDefault(u => u.IdGroupUnit == idGroupUnit)
@@ -334,6 +352,12 @@ namespace SpiderHood.Services
                 Alicuota = unidad.Alicuota,
                 RegistradoPor = registradoPor
             });
+
+            if (reunion.Estado == MeetingStatus.EnCurso)
+            {
+                var asistentes = await ec.GetAttendancesByMeetingAsync(idMeeting);
+                await ec.UpdateMeetingEstadoAsync(idMeeting, reunion.Estado, quorumAlcanzado: asistentes.Sum(a => a.Alicuota));
+            }
         }
 
         public async Task QuitarAttendanceAsync(Guid idMeeting, Guid idGroupUnit)
@@ -358,7 +382,8 @@ namespace SpiderHood.Services
             await ec.UpdateMeetingEstadoAsync(
                 idMeeting,
                 alcanzaQuorum ? MeetingStatus.EnCurso : MeetingStatus.QuorumNoAlcanzado,
-                quorumAlcanzado: porcentajeAlcanzado);
+                quorumAlcanzado: porcentajeAlcanzado,
+                fechaInicioReal: alcanzaQuorum ? DateTime.UtcNow : null);
 
             return new StartMeetingResult
             {

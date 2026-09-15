@@ -297,6 +297,25 @@ namespace SpiderHood.Data
                 return true;
             }, "DeleteConfiguracionFeriado", cancellationToken);
         }
+
+        // Gobernanza / Reuniones -- Fase 1
+        public async Task<bool> DeleteAgendaItemAsync(Guid idAgendaItem, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_AgendaItem, cancellationToken, idAgendaItem);
+                return true;
+            }, "DeleteAgendaItem", cancellationToken);
+        }
+
+        public async Task<bool> DeleteAsistenciaAsync(Guid idReunion, Guid idGroupUnit, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_Asistencia, cancellationToken, idReunion, idGroupUnit);
+                return true;
+            }, "DeleteAsistencia", cancellationToken);
+        }
         #endregion
     }
 }

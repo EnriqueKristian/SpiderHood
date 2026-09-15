@@ -117,6 +117,12 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.ReservaAttachment>().HasNoKey();
             modelBuilder.Entity<Models.IngresoComunidad>().HasNoKey();
 
+            // Docs/Pendientes-Negocio-Consolidado.md #21, Gobernanza Fase 1 --
+            // mismo motivo: Tipo/Modalidad/Estado son columnas INT en la BD.
+            modelBuilder.Entity<Models.Reunion>().HasNoKey();
+            modelBuilder.Entity<Models.AgendaItem>().HasNoKey();
+            modelBuilder.Entity<Models.Asistencia>().HasNoKey();
+
             // Type/Category/Status/Recurrence son enums de C# pero se guardan como texto
             // en la BD -- mismo motivo que Incident arriba.
             modelBuilder.Entity<Models.CalendarItem>(entity =>

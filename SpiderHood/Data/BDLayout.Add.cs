@@ -1561,6 +1561,75 @@ namespace SpiderHood.Data
                 return permiso;
             }, "AddPermisoLicencia", cancellationToken);
         }
+
+        // Gobernanza / Reuniones -- Fase 1
+        public async Task<Models.Reunion> AddNewRecordAsync(Models.Reunion reunion, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(reunion, nameof(reunion));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Reunion,
+                    cancellationToken,
+                    reunion.IdReunion,
+                    reunion.IdBuilding,
+                    (int)reunion.Tipo,
+                    reunion.Titulo,
+                    reunion.FechaConvocatoria,
+                    reunion.FechaReunion,
+                    (int)reunion.Modalidad,
+                    (object?)reunion.LugarOVinculo ?? DBNull.Value,
+                    reunion.QuorumRequerido,
+                    (int)reunion.Estado,
+                    (object?)reunion.IdReunionOrigen ?? DBNull.Value,
+                    (object?)reunion.IdCalendarItem ?? DBNull.Value,
+                    reunion.CreatedBy);
+                return reunion;
+            }, "AddReunion", cancellationToken);
+        }
+
+        public async Task<Models.AgendaItem> AddNewRecordAsync(Models.AgendaItem item, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(item, nameof(item));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_AgendaItem,
+                    cancellationToken,
+                    item.IdAgendaItem,
+                    item.IdReunion,
+                    item.Orden,
+                    item.Titulo,
+                    (object?)item.Descripcion ?? DBNull.Value,
+                    (int)item.Tipo,
+                    (object?)(item.TipoVotacion.HasValue ? (int)item.TipoVotacion.Value : null) ?? DBNull.Value,
+                    (object?)(item.TipoMayoria.HasValue ? (int)item.TipoMayoria.Value : null) ?? DBNull.Value,
+                    (object?)item.PorcentajeMayoriaCalificada ?? DBNull.Value,
+                    item.PermiteRevotacion,
+                    (int)item.Estado);
+                return item;
+            }, "AddAgendaItem", cancellationToken);
+        }
+
+        public async Task<Models.Asistencia> AddNewRecordAsync(Models.Asistencia asistencia, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(asistencia, nameof(asistencia));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_Asistencia,
+                    cancellationToken,
+                    asistencia.IdAsistencia,
+                    asistencia.IdReunion,
+                    asistencia.IdGroupUnit,
+                    asistencia.Alicuota,
+                    asistencia.RegistradoPor);
+                return asistencia;
+            }, "AddAsistencia", cancellationToken);
+        }
         #endregion
     }
 }

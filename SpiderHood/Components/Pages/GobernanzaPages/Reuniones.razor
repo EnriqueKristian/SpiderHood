@@ -1,0 +1,275 @@
+@page "/gobernanza/reuniones"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IReunionService ReunionService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
+@inject NavigationManager Navigation
+
+<PageTitle>Reuniones</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <div class="page-header-title">
+                <div class="icon-badge"><i class="bi bi-people-fill"></i></div>
+                <h1 class="h3 fw-bold mb-0">Reuniones</h1>
+            </div>
+            @if (_puedeGestionar)
+            {
+                <button class="btn btn-primary" @onclick="AbrirConvocatoria">
+                    <i class="bi bi-plus-lg me-1"></i>Convocar reunión
+                </button>
+            }
+        </div>
+
+        @if (_reuniones.Count == 0)
+        {
+            <p class="text-muted">No hay reuniones convocadas todavía.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Título</th>
+                            <th>Tipo</th>
+                            <th>Fecha</th>
+                            <th>Modalidad</th>
+                            <th>Quórum</th>
+                            <th>Estado</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _reuniones)
+                        {
+                            <tr style="cursor:pointer" @onclick="() => VerDetalle(r.IdReunion)">
+                                <td>@r.Titulo @if (r.IdReunionOrigen != null) { <span class="badge bg-secondary ms-1">2da Convocatoria</span> }</td>
+                                <td>@(r.Tipo == TipoReunion.Ordinaria ? "Ordinaria" : "Extraordinaria")</td>
+                                <td>@r.FechaReunion.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@r.Modalidad</td>
+                                <td>@r.QuorumRequerido.ToString("0.##")% @if (r.QuorumAlcanzado != null) { <span class="text-muted">(@r.QuorumAlcanzado.Value.ToString("0.##")% asistió)</span> }</td>
+                                <td><span class="badge @BadgeClase(r.Estado)">@TraducirEstado(r.Estado)</span></td>
+                                <td><i class="bi bi-chevron-right"></i></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+</div>
+
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Convocar reunión</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Título</label>
+                            <input class="form-control" @bind="_form.Titulo" placeholder="Ej: Asamblea Ordinaria 2026" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Tipo</label>
+                            <select class="form-select" @bind="_form.Tipo">
+                                <option value="@TipoReunion.Ordinaria">Ordinaria</option>
+                                <option value="@TipoReunion.Extraordinaria">Extraordinaria</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fecha y hora de la reunión</label>
+                            <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="_form.FechaReunion" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Modalidad</label>
+                            <select class="form-select" @bind="_form.Modalidad">
+                                <option value="@ModalidadReunion.Presencial">Presencial</option>
+                                <option value="@ModalidadReunion.Virtual">Virtual</option>
+                                <option value="@ModalidadReunion.Hibrida">Híbrida</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Lugar / Enlace</label>
+                            <input class="form-control" @bind="_form.LugarOVinculo" placeholder="Salón de eventos / link de videollamada" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Quórum requerido (%)</label>
+                            <input type="number" step="0.01" class="form-control" @bind="_form.QuorumRequerido" />
+                        </div>
+                    </div>
+
+                    <hr />
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label mb-0">Agenda</label>
+                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AgregarPuntoAgenda">
+                            <i class="bi bi-plus-lg me-1"></i>Agregar punto
+                        </button>
+                    </div>
+                    @for (var i = 0; i < _agenda.Count; i++)
+                    {
+                        var idx = i;
+                        <div class="card mb-2">
+                            <div class="card-body py-2">
+                                <div class="d-flex gap-2">
+                                    <div class="flex-grow-1">
+                                        <input class="form-control form-control-sm mb-1" placeholder="Título del punto" @bind="_agenda[idx].Titulo" />
+                                        <textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Descripción (opcional)" @bind="_agenda[idx].Descripcion"></textarea>
+                                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                                            <select class="form-select form-select-sm" style="width:auto" @bind="_agenda[idx].Tipo">
+                                                <option value="@TipoAgendaItem.Informativo">Informativo</option>
+                                                <option value="@TipoAgendaItem.SujetoAVotacion">Sujeto a Votación</option>
+                                            </select>
+                                            @if (_agenda[idx].Tipo == TipoAgendaItem.SujetoAVotacion)
+                                            {
+                                                <select class="form-select form-select-sm" style="width:auto" @bind="_agenda[idx].TipoVotacion">
+                                                    <option value="@TipoVotacionAgenda.Nominal">Nominal</option>
+                                                    <option value="@TipoVotacionAgenda.Secreta">Secreta</option>
+                                                </select>
+                                                <select class="form-select form-select-sm" style="width:auto" @bind="_agenda[idx].TipoMayoria">
+                                                    <option value="@TipoMayoria.Simple">Mayoría simple</option>
+                                                    <option value="@TipoMayoria.Calificada">Mayoría calificada</option>
+                                                    <option value="@TipoMayoria.Legal75">75% legal</option>
+                                                </select>
+                                                <div class="form-check form-switch mb-0">
+                                                    <input class="form-check-input" type="checkbox" @bind="_agenda[idx].PermiteRevotacion" id="chkRevotacion@(idx)" />
+                                                    <label class="form-check-label small" for="chkRevotacion@(idx)">Permite revotación</label>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger align-self-start" @onclick="() => _agenda.RemoveAt(idx)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    @if (_agenda.Count == 0)
+                    {
+                        <p class="text-muted small">Agregá al menos un punto de agenda.</p>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_error))
+                    {
+                        <div class="alert alert-danger py-2 px-3 mt-2">@_error</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="Convocar">Convocar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserSession _currentUser = new();
+    private bool _loading = true;
+    private bool _puedeGestionar;
+
+    private List<Reunion> _reuniones = new();
+
+    private bool _showModal;
+    private Reunion _form = new();
+    private List<AgendaItem> _agenda = new();
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_reuniones");
+
+        if (_currentUser.CurrentBuildingId != Guid.Empty)
+            _reuniones = await ReunionService.GetReunionesAsync(_currentUser.CurrentBuildingId);
+
+        _loading = false;
+    }
+
+    private void AbrirConvocatoria()
+    {
+        _form = new Reunion
+        {
+            IdBuilding = _currentUser.CurrentBuildingId,
+            Tipo = TipoReunion.Ordinaria,
+            FechaReunion = DateTime.Today.AddDays(15).AddHours(19),
+            Modalidad = ModalidadReunion.Presencial,
+            QuorumRequerido = 50m,
+            CreatedBy = _currentUser.IdUser
+        };
+        _agenda = new List<AgendaItem> { new() { Tipo = TipoAgendaItem.Informativo } };
+        _error = null;
+        _showModal = true;
+    }
+
+    private void AgregarPuntoAgenda() => _agenda.Add(new AgendaItem { Tipo = TipoAgendaItem.Informativo });
+
+    private async Task Convocar()
+    {
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_form.Titulo))
+        {
+            _error = "El título es obligatorio.";
+            return;
+        }
+        if (_agenda.Any(a => string.IsNullOrWhiteSpace(a.Titulo)))
+        {
+            _error = "Todos los puntos de agenda necesitan un título.";
+            return;
+        }
+
+        _form.FechaConvocatoria = DateTime.UtcNow;
+        var resultado = await ReunionService.ConvocarAsync(_form, _agenda);
+        if (!resultado.Exito)
+        {
+            _error = resultado.Mensaje;
+            return;
+        }
+
+        _showModal = false;
+        Navigation.NavigateTo($"/gobernanza/reuniones/{resultado.IdReunion}");
+    }
+
+    private void VerDetalle(Guid id) => Navigation.NavigateTo($"/gobernanza/reuniones/{id}");
+
+    private static string TraducirEstado(EstadoReunion estado) => estado switch
+    {
+        EstadoReunion.Convocada => "Convocada",
+        EstadoReunion.EnCurso => "En Curso",
+        EstadoReunion.QuorumNoAlcanzado => "Quórum No Alcanzado",
+        EstadoReunion.Finalizada => "Finalizada",
+        EstadoReunion.Cancelada => "Cancelada",
+        _ => estado.ToString()
+    };
+
+    private static string BadgeClase(EstadoReunion estado) => estado switch
+    {
+        EstadoReunion.Convocada => "bg-primary",
+        EstadoReunion.EnCurso => "bg-success",
+        EstadoReunion.QuorumNoAlcanzado => "bg-warning text-dark",
+        EstadoReunion.Finalizada => "bg-secondary",
+        EstadoReunion.Cancelada => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

@@ -331,6 +331,21 @@ namespace SpiderHood.Data
             public const string INS_IngresoComunidad = "INS_IngresoComunidad";
             public const string GET_IngresosComunidadByBuilding = "GET_IngresosComunidadByBuilding";
 
+            // Gobernanza / Reuniones Procedures -- Docs/Pendientes-Negocio-Consolidado.md #21, Fase 1
+            public const string INS_Reunion = "INS_Reunion";
+            public const string UPD_Reunion = "UPD_Reunion";
+            public const string UPD_ReunionEstado = "UPD_ReunionEstado";
+            public const string GET_ReunionesByBuilding = "GET_ReunionesByBuilding";
+            public const string GET_ReunionById = "GET_ReunionById";
+            public const string INS_AgendaItem = "INS_AgendaItem";
+            public const string UPD_AgendaItem = "UPD_AgendaItem";
+            public const string UPD_AgendaItemEstado = "UPD_AgendaItemEstado";
+            public const string GET_AgendaItemsByReunion = "GET_AgendaItemsByReunion";
+            public const string DEL_AgendaItem = "DEL_AgendaItem";
+            public const string INS_Asistencia = "INS_Asistencia";
+            public const string GET_AsistenciasByReunion = "GET_AsistenciasByReunion";
+            public const string DEL_Asistencia = "DEL_Asistencia";
+
             // Calendar Procedures
             public const string INS_CalendarItem = "INS_CalendarItem";
             public const string UPD_CalendarItem = "UPD_CalendarItem";

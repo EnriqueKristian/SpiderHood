@@ -1492,6 +1492,40 @@ namespace SpiderHood.Data
                 }
             }, "GetPermisoLicenciaSinGoceDiasByPersonalMes", cancellationToken);
         }
+
+        // Gobernanza / Reuniones -- Fase 1
+        public async Task<List<Models.Reunion>> GetReunionesByBuildingAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Reunion>(StoredProcedures.GET_ReunionesByBuilding, idBuilding);
+            }, "GetReunionesByBuilding", cancellationToken);
+        }
+
+        public async Task<Models.Reunion> GetReunionByIdAsync(Guid idReunion, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var result = await ExecuteQuerySingleAsync<Models.Reunion>(StoredProcedures.GET_ReunionById, idReunion);
+                return result ?? throw new EntityNotFoundException($"Reunion with ID {idReunion} not found");
+            }, "GetReunionById", cancellationToken);
+        }
+
+        public async Task<List<Models.AgendaItem>> GetAgendaItemsByReunionAsync(Guid idReunion, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.AgendaItem>(StoredProcedures.GET_AgendaItemsByReunion, idReunion);
+            }, "GetAgendaItemsByReunion", cancellationToken);
+        }
+
+        public async Task<List<Models.Asistencia>> GetAsistenciasByReunionAsync(Guid idReunion, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.Asistencia>(StoredProcedures.GET_AsistenciasByReunion, idReunion);
+            }, "GetAsistenciasByReunion", cancellationToken);
+        }
         #endregion
     }
 }

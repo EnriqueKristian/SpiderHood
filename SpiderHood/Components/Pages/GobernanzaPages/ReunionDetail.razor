@@ -1,0 +1,502 @@
+@page "/gobernanza/reuniones/{Id:guid}"
+@rendermode InteractiveServer
+@using SpiderHood.Models
+@using SpiderHood.Services
+@inject IReunionService ReunionService
+@inject SpiderHood.Services.AuthService AuthService
+@inject SpiderHood.Services.IPermissionService PermissionService
+@inject NavigationManager Navigation
+
+<PageTitle>Reunión</PageTitle>
+
+<div class="container-fluid px-4 py-3">
+    @if (_loading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_reunion == null)
+    {
+        <div class="alert alert-danger">No se encontró la reunión.</div>
+    }
+    else
+    {
+        <div class="page-header d-flex justify-content-between align-items-center mb-3">
+            <div class="page-header-title">
+                <button class="btn btn-sm btn-outline-secondary me-3" @onclick="Volver"><i class="bi bi-arrow-left"></i></button>
+                <div>
+                    <h1 class="h4 fw-bold mb-0">@_reunion.Titulo</h1>
+                    <div class="text-muted small">@(_reunion.Tipo == TipoReunion.Ordinaria ? "Ordinaria" : "Extraordinaria") -- @_reunion.FechaReunion.ToString("dd/MM/yyyy HH:mm") -- @_reunion.Modalidad</div>
+                </div>
+            </div>
+            <span class="badge @BadgeClase(_reunion.Estado) fs-6">@TraducirEstado(_reunion.Estado)</span>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_mensaje))
+        {
+            <div class="alert @(_mensajeEsError ? "alert-danger" : "alert-success")">@_mensaje</div>
+        }
+
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="card mb-3">
+                    <div class="card-header">Convocatoria</div>
+                    <div class="card-body">
+                        <p class="mb-1"><strong>Lugar / Enlace:</strong> @(_reunion.LugarOVinculo ?? "--")</p>
+                        <p class="mb-1"><strong>Quórum requerido:</strong> @_reunion.QuorumRequerido.ToString("0.##")%</p>
+                        @if (_reunion.QuorumAlcanzado != null)
+                        {
+                            <p class="mb-1"><strong>Quórum alcanzado:</strong> @_reunion.QuorumAlcanzado.Value.ToString("0.##")%</p>
+                        }
+                        <p class="mb-0 text-muted small">Convocada el @_reunion.FechaConvocatoria.ToString("dd/MM/yyyy") por @_reunion.CreatedByName</p>
+                    </div>
+                    @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                    {
+                        <div class="card-footer d-flex gap-2">
+                            <button class="btn btn-sm btn-success" @onclick="Iniciar"><i class="bi bi-play-fill me-1"></i>Iniciar Reunión</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="Cancelar"><i class="bi bi-x-lg me-1"></i>Cancelar</button>
+                        </div>
+                    }
+                    @if (_puedeGestionar && _reunion.Estado == EstadoReunion.EnCurso)
+                    {
+                        <div class="card-footer">
+                            <button class="btn btn-sm btn-primary" @onclick="Finalizar"><i class="bi bi-check2-circle me-1"></i>Finalizar Reunión</button>
+                        </div>
+                    }
+                    @if (_puedeGestionar && _reunion.Estado == EstadoReunion.QuorumNoAlcanzado)
+                    {
+                        <div class="card-footer">
+                            <button class="btn btn-sm btn-warning" @onclick="AbrirSegundaConvocatoria"><i class="bi bi-arrow-repeat me-1"></i>Crear Segunda Convocatoria</button>
+                        </div>
+                    }
+                </div>
+
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Asistencia (@_reunion.Asistentes.Count unidades, @_reunion.Asistentes.Sum(a => a.Alicuota).ToString("0.##")% de alícuota)</span>
+                        @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                        {
+                            <button class="btn btn-sm btn-outline-primary" @onclick="AbrirRegistrarAsistencia"><i class="bi bi-person-plus me-1"></i>Registrar</button>
+                        }
+                    </div>
+                    <div class="card-body">
+                        @if (_reunion.Asistentes.Count == 0)
+                        {
+                            <p class="text-muted mb-0">Todavía no se registró ninguna asistencia.</p>
+                        }
+                        else
+                        {
+                            <table class="table table-sm mb-0">
+                                <thead><tr><th>Unidad</th><th class="text-end">Alícuota</th><th></th></tr></thead>
+                                <tbody>
+                                    @foreach (var a in _reunion.Asistentes)
+                                    {
+                                        <tr>
+                                            <td>@a.NombreUnidad</td>
+                                            <td class="text-end">@a.Alicuota.ToString("0.####")%</td>
+                                            <td class="text-end">
+                                                @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                                                {
+                                                    <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => QuitarAsistencia(a.IdGroupUnit)" title="Quitar">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Agenda</span>
+                        @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                        {
+                            <button class="btn btn-sm btn-outline-primary" @onclick="AbrirAgregarPunto"><i class="bi bi-plus-lg"></i></button>
+                        }
+                    </div>
+                    <div class="card-body">
+                        @if (_reunion.Agenda.Count == 0)
+                        {
+                            <p class="text-muted mb-0">Sin puntos de agenda.</p>
+                        }
+                        else
+                        {
+                            @foreach (var item in _reunion.Agenda.OrderBy(a => a.Orden))
+                            {
+                                <div class="border rounded p-2 mb-2">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <strong>@item.Orden. @item.Titulo</strong>
+                                            @if (!string.IsNullOrEmpty(item.Descripcion))
+                                            {
+                                                <div class="text-muted small">@item.Descripcion</div>
+                                            }
+                                            <div class="mt-1">
+                                                <span class="badge bg-light text-dark border me-1">@(item.Tipo == TipoAgendaItem.Informativo ? "Informativo" : "Sujeto a Votación")</span>
+                                                @if (item.Tipo == TipoAgendaItem.SujetoAVotacion)
+                                                {
+                                                    <span class="badge bg-light text-dark border me-1">@item.TipoVotacion</span>
+                                                    <span class="badge bg-light text-dark border">@TraducirMayoria(item.TipoMayoria)</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge @BadgeAgendaClase(item.Estado)">@TraducirEstadoAgenda(item.Estado)</span>
+                                            @if (_puedeGestionar && _reunion.Estado == EstadoReunion.Convocada)
+                                            {
+                                                <div class="mt-1">
+                                                    <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => EliminarPunto(item.IdAgendaItem)" title="Eliminar">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            }
+                                            @if (_puedeGestionar && _reunion.Estado == EstadoReunion.EnCurso && item.Tipo == TipoAgendaItem.Informativo && item.Estado == EstadoAgendaItem.Pendiente)
+                                            {
+                                                <div class="mt-1">
+                                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => MarcarInformado(item.IdAgendaItem)">Marcar informado</button>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            @if (_reunion.Agenda.Any(a => a.Tipo == TipoAgendaItem.SujetoAVotacion))
+                            {
+                                <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>La votación en vivo de los puntos sujetos a votación está disponible en la próxima fase de este módulo.</p>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (_showAsistenciaModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Registrar asistencia</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showAsistenciaModal = false"></button>
+                </div>
+                <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                    @if (_roster.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No hay unidades registradas en este edificio.</p>
+                    }
+                    else
+                    {
+                        @foreach (var u in _roster)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" checked="@u.Presente" disabled="@u.Presente"
+                                       @onchange="() => MarcarPresente(u.IdGroupUnit)" id="chk_@u.IdGroupUnit" />
+                                <label class="form-check-label" for="chk_@u.IdGroupUnit">
+                                    @u.NombreUnidad <span class="text-muted small">(@u.Alicuota.ToString("0.####")%)</span>
+                                </label>
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="CerrarRegistrarAsistencia">Listo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showAgendaModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Agregar punto de agenda</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showAgendaModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Título</label>
+                        <input class="form-control" @bind="_nuevoPunto.Titulo" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" rows="2" @bind="_nuevoPunto.Descripcion"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" @bind="_nuevoPunto.Tipo">
+                            <option value="@TipoAgendaItem.Informativo">Informativo</option>
+                            <option value="@TipoAgendaItem.SujetoAVotacion">Sujeto a Votación</option>
+                        </select>
+                    </div>
+                    @if (_nuevoPunto.Tipo == TipoAgendaItem.SujetoAVotacion)
+                    {
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Tipo de votación</label>
+                                <select class="form-select" @bind="_nuevoPunto.TipoVotacion">
+                                    <option value="@TipoVotacionAgenda.Nominal">Nominal</option>
+                                    <option value="@TipoVotacionAgenda.Secreta">Secreta</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Mayoría requerida</label>
+                                <select class="form-select" @bind="_nuevoPunto.TipoMayoria">
+                                    <option value="@TipoMayoria.Simple">Simple</option>
+                                    <option value="@TipoMayoria.Calificada">Calificada</option>
+                                    <option value="@TipoMayoria.Legal75">75% legal</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" @bind="_nuevoPunto.PermiteRevotacion" id="chkRevotacionNuevo" />
+                            <label class="form-check-label" for="chkRevotacionNuevo">Permite revotación</label>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(_errorAgenda))
+                    {
+                        <div class="alert alert-danger py-2 px-3 mt-2">@_errorAgenda</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showAgendaModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="GuardarPunto">Agregar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showSegundaModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header">
+                    <h5 class="modal-title">Crear Segunda Convocatoria</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showSegundaModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">Se clona la misma agenda en una reunión nueva, con la fecha y el quórum que definas acá (según lo que permita el Reglamento Interno del edificio).</p>
+                    <div class="mb-3">
+                        <label class="form-label">Nueva fecha y hora</label>
+                        <InputDate Type="InputDateType.DateTimeLocal" class="form-control" @bind-Value="_segundaFecha" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nuevo quórum requerido (%)</label>
+                        <input type="number" step="0.01" class="form-control" @bind="_segundaQuorum" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lugar / Enlace</label>
+                        <input class="form-control" @bind="_segundaLugar" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(_errorSegunda))
+                    {
+                        <div class="alert alert-danger py-2 px-3">@_errorSegunda</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="() => _showSegundaModal = false">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="ConfirmarSegundaConvocatoria">Convocar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private UserSession _currentUser = new();
+    private bool _loading = true;
+    private bool _puedeGestionar;
+    private Reunion? _reunion;
+    private string? _mensaje;
+    private bool _mensajeEsError;
+
+    private bool _showAsistenciaModal;
+    private List<UnidadConAlicuota> _roster = new();
+
+    private bool _showAgendaModal;
+    private AgendaItem _nuevoPunto = new();
+    private string? _errorAgenda;
+
+    private bool _showSegundaModal;
+    private DateTime _segundaFecha = DateTime.Today.AddDays(7).AddHours(19);
+    private decimal _segundaQuorum = 25m;
+    private string? _segundaLugar;
+    private string? _errorSegunda;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+        _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_reuniones");
+        await CargarAsync();
+        _loading = false;
+    }
+
+    private async Task CargarAsync()
+    {
+        _reunion = await ReunionService.GetReunionByIdAsync(Id);
+    }
+
+    private void Volver() => Navigation.NavigateTo("/gobernanza/reuniones");
+
+    private async Task Iniciar()
+    {
+        var resultado = await ReunionService.IniciarReunionAsync(Id);
+        _mensaje = resultado.Mensaje;
+        _mensajeEsError = !resultado.Exito;
+        await CargarAsync();
+    }
+
+    private async Task Finalizar()
+    {
+        await ReunionService.FinalizarReunionAsync(Id);
+        await CargarAsync();
+    }
+
+    private async Task Cancelar()
+    {
+        await ReunionService.CancelarReunionAsync(Id);
+        await CargarAsync();
+    }
+
+    private async Task AbrirRegistrarAsistencia()
+    {
+        _roster = await ReunionService.GetRosterAlicuotasAsync(_reunion!.IdBuilding, Id);
+        _showAsistenciaModal = true;
+    }
+
+    private async Task MarcarPresente(Guid idGroupUnit)
+    {
+        await ReunionService.RegistrarAsistenciaAsync(Id, idGroupUnit, _currentUser.IdUser);
+        var unidad = _roster.FirstOrDefault(u => u.IdGroupUnit == idGroupUnit);
+        if (unidad != null) unidad.Presente = true;
+    }
+
+    private async Task CerrarRegistrarAsistencia()
+    {
+        _showAsistenciaModal = false;
+        await CargarAsync();
+    }
+
+    private async Task QuitarAsistencia(Guid idGroupUnit)
+    {
+        await ReunionService.QuitarAsistenciaAsync(Id, idGroupUnit);
+        await CargarAsync();
+    }
+
+    private void AbrirAgregarPunto()
+    {
+        _nuevoPunto = new AgendaItem { IdReunion = Id, Tipo = TipoAgendaItem.Informativo };
+        _errorAgenda = null;
+        _showAgendaModal = true;
+    }
+
+    private async Task GuardarPunto()
+    {
+        _errorAgenda = null;
+        if (string.IsNullOrWhiteSpace(_nuevoPunto.Titulo))
+        {
+            _errorAgenda = "El título es obligatorio.";
+            return;
+        }
+
+        await ReunionService.AgregarAgendaItemAsync(_nuevoPunto);
+        _showAgendaModal = false;
+        await CargarAsync();
+    }
+
+    private async Task EliminarPunto(Guid idAgendaItem)
+    {
+        await ReunionService.EliminarAgendaItemAsync(idAgendaItem);
+        await CargarAsync();
+    }
+
+    private async Task MarcarInformado(Guid idAgendaItem)
+    {
+        await ReunionService.MarcarAgendaItemEstadoAsync(idAgendaItem, EstadoAgendaItem.Informado);
+        await CargarAsync();
+    }
+
+    private void AbrirSegundaConvocatoria()
+    {
+        _segundaFecha = DateTime.Today.AddDays(7).AddHours(19);
+        _segundaQuorum = 25m;
+        _segundaLugar = _reunion?.LugarOVinculo;
+        _errorSegunda = null;
+        _showSegundaModal = true;
+    }
+
+    private async Task ConfirmarSegundaConvocatoria()
+    {
+        _errorSegunda = null;
+        var resultado = await ReunionService.CrearSegundaConvocatoriaAsync(Id, _segundaFecha, _segundaQuorum, _segundaLugar);
+        if (!resultado.Exito)
+        {
+            _errorSegunda = resultado.Mensaje;
+            return;
+        }
+
+        _showSegundaModal = false;
+        Navigation.NavigateTo($"/gobernanza/reuniones/{resultado.IdReunion}");
+    }
+
+    private static string TraducirEstado(EstadoReunion estado) => estado switch
+    {
+        EstadoReunion.Convocada => "Convocada",
+        EstadoReunion.EnCurso => "En Curso",
+        EstadoReunion.QuorumNoAlcanzado => "Quórum No Alcanzado",
+        EstadoReunion.Finalizada => "Finalizada",
+        EstadoReunion.Cancelada => "Cancelada",
+        _ => estado.ToString()
+    };
+
+    private static string BadgeClase(EstadoReunion estado) => estado switch
+    {
+        EstadoReunion.Convocada => "bg-primary",
+        EstadoReunion.EnCurso => "bg-success",
+        EstadoReunion.QuorumNoAlcanzado => "bg-warning text-dark",
+        EstadoReunion.Finalizada => "bg-secondary",
+        EstadoReunion.Cancelada => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private static string TraducirEstadoAgenda(EstadoAgendaItem estado) => estado switch
+    {
+        EstadoAgendaItem.Pendiente => "Pendiente",
+        EstadoAgendaItem.Informado => "Informado",
+        EstadoAgendaItem.Aprobado => "Aprobado",
+        EstadoAgendaItem.Rechazado => "Rechazado",
+        _ => estado.ToString()
+    };
+
+    private static string BadgeAgendaClase(EstadoAgendaItem estado) => estado switch
+    {
+        EstadoAgendaItem.Pendiente => "bg-light text-dark border",
+        EstadoAgendaItem.Informado => "bg-info text-dark",
+        EstadoAgendaItem.Aprobado => "bg-success",
+        EstadoAgendaItem.Rechazado => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private static string TraducirMayoria(TipoMayoria? tipo) => tipo switch
+    {
+        TipoMayoria.Simple => "Mayoría simple",
+        TipoMayoria.Calificada => "Mayoría calificada",
+        TipoMayoria.Legal75 => "75% legal",
+        _ => "--"
+    };
+}

@@ -1052,6 +1052,78 @@ namespace SpiderHood.Data
                 return true;
             }, "UpdatePermisoLicenciaEstado", cancellationToken);
         }
+
+        // Gobernanza / Reuniones -- Fase 1
+        public async Task UpdateReunionAsync(Models.Reunion reunion, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(reunion, nameof(reunion));
+
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Reunion,
+                    cancellationToken,
+                    reunion.IdReunion,
+                    (int)reunion.Tipo,
+                    reunion.Titulo,
+                    reunion.FechaConvocatoria,
+                    reunion.FechaReunion,
+                    (int)reunion.Modalidad,
+                    (object?)reunion.LugarOVinculo ?? DBNull.Value,
+                    reunion.QuorumRequerido);
+                return true;
+            }, "UpdateReunion", cancellationToken);
+        }
+
+        public async Task UpdateReunionEstadoAsync(Guid idReunion, Models.EstadoReunion estado, decimal? quorumAlcanzado = null, Guid? idCalendarItem = null, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_ReunionEstado,
+                    cancellationToken,
+                    idReunion,
+                    (int)estado,
+                    (object?)quorumAlcanzado ?? DBNull.Value,
+                    (object?)idCalendarItem ?? DBNull.Value);
+                return true;
+            }, "UpdateReunionEstado", cancellationToken);
+        }
+
+        public async Task UpdateAgendaItemAsync(Models.AgendaItem item, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(item, nameof(item));
+
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_AgendaItem,
+                    cancellationToken,
+                    item.IdAgendaItem,
+                    item.Orden,
+                    item.Titulo,
+                    (object?)item.Descripcion ?? DBNull.Value,
+                    (int)item.Tipo,
+                    (object?)(item.TipoVotacion.HasValue ? (int)item.TipoVotacion.Value : null) ?? DBNull.Value,
+                    (object?)(item.TipoMayoria.HasValue ? (int)item.TipoMayoria.Value : null) ?? DBNull.Value,
+                    (object?)item.PorcentajeMayoriaCalificada ?? DBNull.Value,
+                    item.PermiteRevotacion);
+                return true;
+            }, "UpdateAgendaItem", cancellationToken);
+        }
+
+        public async Task UpdateAgendaItemEstadoAsync(Guid idAgendaItem, Models.EstadoAgendaItem estado, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_AgendaItemEstado,
+                    cancellationToken,
+                    idAgendaItem,
+                    (int)estado);
+                return true;
+            }, "UpdateAgendaItemEstado", cancellationToken);
+        }
         #endregion
     }
 }

@@ -414,6 +414,21 @@ app.MapWhen(
     ctx => ctx.Request.Path == "/" && ctx.User.Identity?.IsAuthenticated != true,
     branch => branch.Run(async ctx =>
     {
+        // Piloto Móvil (Docs/Pendientes-Negocio-Consolidado.md #22) -- reportado por el
+        // usuario abriendo el APK: el ícono instalado abría la landing de marketing
+        // (precios, módulos, "Probar gratis") en vez de ir directo al login, algo raro
+        // para un ícono de app ya instalada -- ese texto tiene sentido para alguien
+        // navegando spiderhoodapp.com desde el browser, no para quien ya decidió instalar
+        // la app y le da tap al ícono. manifest.json apunta start_url a "/?source=pwa" --
+        // sólo un TWA/PWA instalada llega con ese query param (un visitante normal del
+        // browser entra a "/" sin él), así que se lo puede usar acá para mandar al login
+        // directo sin afectar la landing pública para el resto de las visitas.
+        if (ctx.Request.Query["source"] == "pwa")
+        {
+            ctx.Response.Redirect("/login");
+            return;
+        }
+
         ctx.Response.ContentType = "text/html";
         await ctx.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath, "index.html"));
     }));

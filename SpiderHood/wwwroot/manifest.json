@@ -2,7 +2,7 @@
   "name": "SpiderHood",
   "short_name": "SpiderHood",
   "description": "Portal de residentes y junta de SpiderHood: cuotas, presupuesto, incidencias y calendario del edificio.",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

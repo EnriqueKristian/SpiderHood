@@ -1790,13 +1790,55 @@ circuito (login, F5, reconexión) -- todos corregidos:**
    vida vía `IDbContextFactory`, confirmado en el comentario del propio
    constructor de `BDLayout.Core.cs`).
 
+**2026-09-16 -- 4to problema encontrado y confirmado en vivo, éste sí
+reproducido y medido con evidencia antes/después:**
+
+El usuario reportó el patrón exacto: la demora en el menú/dashboard pasaba
+"a veces" (3 de cada 5), específicamente al desloguearse y loguearse con
+OTRO usuario -- no en una carga fría normal. Se confirmó que tenía el
+logging a BD activado (`/Settings/SystemLogs`) con `MinLevel = Information`.
+
+**Causa:** `DatabaseLoggerProvider.Enqueue` (el sink que persiste logs en
+`SystemLog`) abría un `DbContext` nuevo y hacía un `INSERT` por cada línea
+de log, cada uno en su propio `Task.Run` sin ninguna coordinación entre
+ellos. Una sola carga de dashboard genera ~20-30 líneas de log a nivel
+Information (una por cada "Executed DbCommand" de EF Core, más los logs
+propios de la app) -- con dos circuitos solapados (el que se está cerrando
+al hacer logout todavía terminando su propia ráfaga de logs, el que arranca
+al loguearse de nuevo generando la suya), se disparaban 50+ INSERTs
+concurrentes contra la misma tabla al mismo tiempo: contención real de
+locks/página en `SystemLog` y del pool de conexiones. Explica por qué era
+intermitente (depende de que las dos ráfagas coincidan en el tiempo) y por
+qué sólo con logging en `Information` (con `Error`, casi no hay líneas que
+loguear, así que no hay ráfaga que choque).
+
+**Fix:** se reemplaza el `Task.Run` por línea por una cola en memoria
+(`Channel`) con UN solo consumidor en background que escribe
+secuencialmente -- se sigue guardando cada línea de log, pero sin la
+estampida de conexiones concurrentes. Acotada a 1000 entradas (descarta lo
+más viejo si se llena) para no crecer sin límite si la BD queda
+inalcanzable un rato largo.
+
+**Verificado con 30 ciclos de login/logout alternando 3 usuarios, timing
+real, `MinLevel = Information` (para forzar el volumen de logs del
+reporte):**
+
+| | Antes (bug) | Después (fix) |
+|---|---|---|
+| Primeros 5 ciclos | 3.75s promedio | 1.37s promedio |
+| Últimos 5 ciclos (de 30) | 7.87s promedio | 1.11s promedio |
+| Tendencia | Sube sin parar (3.17s → 9.19s) | Plana (0.69s → 1.63s) |
+
+Sin el fix, cada cambio de usuario deja más contención acumulada
+(degradación progresiva, no un tope fijo); con el fix, no importa cuántos
+cambios de usuario seguidos se hagan.
+
 **Lo que esto NO explica:** si la demora persiste incluso después de este
 fix, lo más probable es el costo de arranque normal de .NET en modo
 Development (JIT de un montón de componentes Blazor la primera vez que se
 piden, más LocalDB arrancando si no estaba corriendo) -- eso no se arregla
 con cambios de código, sólo se nota la primera vez que se corre la app
-después de compilar/reiniciar, no en cada F5 normal. Pedirle al usuario
-que confirme si mejoró y en qué medida.
+después de compilar/reiniciar, no en cada F5 normal.
 
 ---
 
@@ -1830,7 +1872,7 @@ que confirme si mejoró y en qué medida.
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
 | 24 | Configuración de Edificio: página propia con Tabs -- estructura **HECHA**, falta **rediseño visual** (usuario esperaba más que mover cards a pestañas) | Media | Diseño UI |
 | 25 | Email y WhatsApp: **funcionando de verdad** (Brevo, confirmado 2026-09-16); quedan 2 flujos que no mandan nada por código (independiente del proveedor) | Alta | **Resuelto**, decisión pendiente sólo sobre esos 2 flujos |
-| 26 | Perf: menú izquierdo demoraba hasta 1 min en la primera carga -- **HECHO**, falta confirmar en vivo | Alta | Código (bug de caché + paralelizar consultas) |
+| 26 | Perf: menú izquierdo demoraba hasta 1 min en la primera carga; confirmado en vivo -- 4to bug encontrado y medido (contención en SystemLog al cambiar de usuario con logging en Information) | Alta | **Resuelto** (2026-09-16), verificado con medición antes/después |
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 

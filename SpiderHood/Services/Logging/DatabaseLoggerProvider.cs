@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SpiderHood.Data;
 using SpiderHood.Models;
+using System.Threading.Channels;
 
 namespace SpiderHood.Services.Logging
 {
@@ -24,9 +25,29 @@ namespace SpiderHood.Services.Logging
         private DateTime _lastRefreshUtc = DateTime.MinValue;
         private int _refreshInFlight;
 
+        // Docs/Pendientes-Negocio-Consolidado.md -- reportado por el usuario con el
+        // logging a BD activado: cambiar de usuario (logout + login) a veces disparaba
+        // una carga muy lenta del menú/dashboard (3 de cada 5 veces). Causa: Enqueue()
+        // antes abría un DbContext nuevo y hacía un INSERT por cada línea de log, cada
+        // uno en su propio Task.Run -- una sola carga de dashboard genera ~20-30 líneas
+        // (una por cada "Executed DbCommand" de EF Core más los logs propios de la app),
+        // así que dos circuitos solapados (el viejo terminando de cerrar, el nuevo recién
+        // arrancando) podían disparar 50+ inserts concurrentes contra la misma tabla al
+        // mismo tiempo -- contención real de locks/página en SystemLog y del pool de
+        // conexiones, intermitente porque depende de que las dos ráfagas coincidan. Se
+        // reemplaza por una cola en memoria con UN solo consumidor en background que
+        // escribe secuencialmente -- se sigue guardando cada línea, sin la estampida de
+        // conexiones concurrentes. Acotada (no ilimitada) y descarta lo más viejo si se
+        // llena, para no crecer sin límite si la BD queda inalcanzable un rato largo --
+        // mismo espíritu "best effort" que el resto de esta clase.
+        private readonly Channel<SystemLogEntry> _queue = Channel.CreateBounded<SystemLogEntry>(
+            new BoundedChannelOptions(1000) { FullMode = BoundedChannelFullMode.DropOldest });
+        private readonly CancellationTokenSource _cts = new();
+
         public DatabaseLoggerProvider(IDbContextFactory<SpiderHoodContext> contextFactory)
         {
             _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
+            _ = ProcessQueueAsync(_cts.Token);
         }
 
         public ILogger CreateLogger(string categoryName) => new DatabaseLogger(categoryName, this);
@@ -67,35 +88,49 @@ namespace SpiderHood.Services.Logging
             });
         }
 
-        // Fire-and-forget: ILogger.Log es síncrono y se llama en el hot path de toda la
-        // app, así que escribir a BD no puede bloquearlo. Cualquier falla se traga acá
-        // mismo -- nunca debe volver a pasar por ILogger (evita loops).
+        // ILogger.Log es síncrono y se llama en el hot path de toda la app -- encolar es
+        // instantáneo (TryWrite nunca espera a la BD), el trabajo real lo hace
+        // ProcessQueueAsync en background, uno a la vez.
         internal void Enqueue(string category, LogLevel level, string message, Exception? exception)
         {
-            _ = Task.Run(async () =>
+            _queue.Writer.TryWrite(new SystemLogEntry
+            {
+                Timestamp = DateTime.UtcNow,
+                Level = level.ToString(),
+                Category = category,
+                Message = message,
+                Exception = exception?.ToString()
+            });
+        }
+
+        // Único consumidor de la cola -- procesa una entrada a la vez, así que nunca hay
+        // más de un INSERT a SystemLog en vuelo por esta vía, sin importar cuántas líneas
+        // se loguearon de golpe ni cuántos circuitos estén activos al mismo tiempo.
+        private async Task ProcessQueueAsync(CancellationToken cancellationToken)
+        {
+            await foreach (var entry in _queue.Reader.ReadAllAsync(cancellationToken))
             {
                 try
                 {
                     var ec = new BDLayout(_contextFactory);
-                    await ec.AddNewRecordAsync(new SystemLogEntry
-                    {
-                        Timestamp = DateTime.UtcNow,
-                        Level = level.ToString(),
-                        Category = category,
-                        Message = message,
-                        Exception = exception?.ToString()
-                    });
+                    await ec.AddNewRecordAsync(entry);
                 }
                 catch
                 {
-                    // Ídem: nunca propagar ni volver a loguear un fallo de logging.
+                    // Silencioso a propósito, igual que antes: un fallo de logging no
+                    // puede tumbar nada ni volver a pasar por ILogger (evita loops).
                 }
-            });
+            }
         }
 
         private static LogLevel ParseLevel(string level) =>
             Enum.TryParse<LogLevel>(level, ignoreCase: true, out var parsed) ? parsed : LogLevel.Error;
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+            _queue.Writer.TryComplete();
+            _cts.Cancel();
+            _cts.Dispose();
+        }
     }
 }

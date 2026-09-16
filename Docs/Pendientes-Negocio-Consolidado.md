@@ -40,12 +40,10 @@ secas, es la secuencia en la que conviene tocarlos.
    24hs). Queda para después, no bloquea el piloto.
 4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
    (solo lectura: presupuesto, incidencias, calendario).
-5. **#18** Storage de archivos -- **18b (Recibos PDF) y 18a (fotos/video en
-   Incidencias) ambos implementados (2026-09-11)**. Los dos scripts
-   (`Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
-   `_96_IncidentAttachment.sql`) ya se le entregaron al usuario
-   (2026-09-16) para correr contra la BD real -- falta que los corra y se
-   pruebe con datos reales.
+5. **#18** Storage de archivos -- **RESUELTO**: 18b (Recibos PDF) y 18a
+   (fotos/video en Incidencias) implementados (2026-09-11) y con los
+   scripts ya corridos en la BD real (2026-09-16) -- falta sólo probar
+   cada flujo con datos reales en el uso normal de la app.
 6. **#25** Email -- **funcionando de verdad (confirmado por el usuario
    2026-09-16)**, con Brevo (no Gmail como se había planeado
    originalmente) y credenciales de `*@spiderhoodapp.com` cargadas fuera
@@ -91,8 +89,7 @@ secas, es la secuencia en la que conviene tocarlos.
 18. **#13** Causa raíz del timeout en Conciliación de Pagos.
 19. **#14** Confirmar upsert de `ServiceReadingDetail`.
 20. **#15** Borrar un permiso (fuera de alcance).
-21. **#12** Caso sin match en el Excel de Nova Alzamora (manual).
-22. **#21** Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas,
+21. **#21** Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas,
     Encuestas) -- rediseñado 2026-09-11. **Reservas IMPLEMENTADO
     (2026-09-11) y Gobernanza (Reuniones + Votación + Actas) COMPLETO
     (2026-09-15), probado end-to-end con Playwright** (Fase 1 22/22,
@@ -383,13 +380,6 @@ hay forma de llegar ahí desde el menú -- hay que crear el ítem desde
 
 ## Prioridad Baja -- deuda técnica menor, casos puntuales o decisiones ya tomadas de dejar afuera
 
-### 12. Un caso sin match en el Excel de Nova Alzamora
-*(Migración #4 — a resolver a mano, no requiere código)*
-
-1 de 1,602 `InstallmentPaid` sin match verificado contra `Consolidado.ID`.
-El usuario ya decidió corregirlo directamente en el Excel al momento de la
-migración real -- sólo queda anotado para no perderlo de vista.
-
 ### 13. Causa raíz del timeout en "Conciliación de Pagos" con rangos amplios
 *(Migración #6.6 — mitigado subiendo el `CommandTimeout` a 120s)*
 
@@ -619,11 +609,11 @@ apruebe estas 4 plantillas -- corre en paralelo a la construcción de la
 pantalla, no la frena.
 
 ### 18. Storage de archivos -- fotos/video en Incidencias Y PDFs de Recibos
-**Estado: 18a y 18b IMPLEMENTADOS (2026-09-11). Scripts entregados al
-usuario 2026-09-16** (`Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
-`_96_IncidentAttachment.sql`, independientes entre sí e idempotentes) --
-falta que los corra contra la BD real y se pruebe cada flujo con datos
-reales.
+**Estado: RESUELTO. 18a y 18b IMPLEMENTADOS (2026-09-11), scripts
+ejecutados en la BD real por el usuario (2026-09-16)**
+(`Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
+`_96_IncidentAttachment.sql`) -- falta sólo probar cada flujo con datos
+reales cuando se use la app.
 
 #### 18a. Fotos/video en Incidencias
 
@@ -1740,13 +1730,12 @@ que confirme si mejoró y en qué medida.
 | 9 | `GET_UnitsByType` sin manejar unidades sin grupo | Media | Código |
 | 10 | Estado de Cuenta no crea Gastos categorizados | Media | Diseño + código |
 | 11 | Falta ítem de menú "Permisos" | Media | Configuración |
-| 12 | Caso sin match Excel Nova Alzamora | Baja | Manual (Excel) |
 | 13 | Causa raíz timeout Conciliación de Pagos | Baja | Investigación |
 | 14 | Confirmar upsert de `ServiceReadingDetail` | Baja | Investigación |
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
 | 17 | Comunicados vía WhatsApp -- **IMPLEMENTADO y PROBADO EN VIVO** (2026-09-16); plantillas de Meta quedan para después (no se compra el paquete todavía) | Alta* | **Resuelto**, validación de Meta pausada a propósito |
-| 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados** | Alta* | **Resuelto** (2026-09-11), scripts entregados al usuario (2026-09-16), falta correrlos y probar con BD real |
+| 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados, scripts corridos en BD real** | Alta* | **Resuelto** (2026-09-16), falta sólo probar cada flujo en el uso normal |
 | 19 | Login social Google/Microsoft/Facebook/Apple | Media* | **Resuelto** (2026-09-16) |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
 | 21 | Reservas **IMPLEMENTADO**; Gobernanza (Reuniones/Votación/Actas) **COMPLETO y probado end-to-end** (2026-09-15); Encuestas y "Citas" quedan afuera (decisión del usuario) | Baja-Media* | **Resuelto**, falta correr scripts en BD real y probar con datos reales |

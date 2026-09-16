@@ -85,6 +85,38 @@ Este archivo **no** se sobreescribe con datos de producción ni de tu
 grabado en el `web.config` generado. No hace falta tocar nada en IIS Manager
 para esto.
 
+## 4b. Digital Asset Links (`assetlinks.json`) -- Piloto Móvil (TWA)
+
+*(Sólo aplica si hay un APK/AAB de TWA -- Docs/Pendientes-Negocio-Consolidado.md
+#22 -- verificando esta app. Si todavía no armaste el TWA, saltá este paso.)*
+
+Igual que `appsettings.Production.json` (paso 4): `assetlinks.json` tiene la
+huella SHA-256 del keystore con el que firmaste el APK/AAB -- **no va al
+repo de GitHub** (está en `.gitignore`, el repo es público), pero SÍ tiene
+que viajar en cada Publish, porque `dotnet publish`/el Publish de Visual
+Studio arma el paquete a partir de lo que encuentra en el disco de tu
+máquina en ese momento, sin mirar git -- si el archivo está ahí, viaja;
+si no, no.
+
+- [ ] Antes de publicar: confirmá que el archivo existe en
+      `SpiderHood/wwwroot/.well-known/assetlinks.json` en tu máquina local.
+      Si lo perdiste o cambiaste de keystore, hay que regenerarlo con la
+      huella SHA-256 correcta -- una huella de otro keystore invalida la
+      verificación (Android vuelve a mostrar la barra de Chrome encima en
+      vez de pantalla completa, como al principio).
+- [ ] Después de publicar: abrí
+      `https://spiderhoodapp.com/.well-known/assetlinks.json` directo en el
+      navegador y confirmá que devuelve el JSON (no un 404). Probado en
+      local que `MapStaticAssets()` (Program.cs) sirve sin problema una
+      carpeta con punto adelante (`.well-known`, HTTP 200,
+      `Content-Type: application/json`) -- si en QA/producción igual diera
+      404 pese a que el archivo está en el `Target location` publicado, es
+      más probable que sea IIS bloqueándolo antes de llegar a la app
+      (`<hiddenSegments>` de `requestFiltering`) que un problema del código.
+- [ ] Si cambia el dominio, el nombre del paquete Android, o te re-firmás
+      con otro keystore, hay que regenerar `assetlinks.json` y publicar de
+      nuevo.
+
 ## 5. Publicar
 
 1. En Visual Studio: click derecho sobre el proyecto **SpiderHood** > **Publish**

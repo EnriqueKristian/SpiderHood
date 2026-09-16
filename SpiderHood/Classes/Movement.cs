@@ -178,6 +178,10 @@ namespace SpiderHood.Models
         public int SequenceNumber { get; set; }
         public ReconciliationType ReconciliationStatus { get; set; }
         public DateTime? ReconciliationDate { get; set; }
+        // Docs/Pendientes-Negocio-Consolidado.md #2 -- un movimiento marcado "Ignorado"
+        // en Conciliación (ej. un error bancario revertido) no es un ingreso/egreso real
+        // del edificio; los reportes financieros y el gráfico del Dashboard lo excluyen.
+        public bool Ignored { get; set; }
     }
 
     public class MovDetKey

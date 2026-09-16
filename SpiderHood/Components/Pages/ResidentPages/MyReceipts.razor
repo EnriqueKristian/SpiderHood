@@ -250,6 +250,24 @@
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
+    // Nombre del PDF descargado -- reportado por el usuario probando el APK real: el
+    // fix de wwwroot/js/fileDownload.js ya evita que Android le ponga un GUID random,
+    // pero ReceiptPagination.NombreRecibo por sí sola ("Recibo Marzo-2026 902") no
+    // alcanza para distinguir edificios una vez que el PDF quedó suelto en el celular
+    // (Descargas) -- un propietario con unidades en más de un edificio no puede saber
+    // de cuál es solo mirando el nombre. Se antepone el edificio acá (en el archivo
+    // descargado), no en NombreRecibo (que sigue usándose para la columna de la tabla
+    // y el buscador, donde el edificio ya es obvio por el selector del header).
+    private string NombreArchivoRecibo(Installment item)
+    {
+        var nombre = $"{ParameterService.CurrentBuilding?.Name} - {ReceiptPagination.NombreRecibo(item)}";
+        foreach (var c in System.IO.Path.GetInvalidFileNameChars())
+        {
+            nombre = nombre.Replace(c, '-');
+        }
+        return nombre;
+    }
+
     private bool _loading = true;
     private Guid? _unitId;
     private List<Installment> _misCuotas = new();
@@ -426,7 +444,7 @@
 
             await JSRuntime.InvokeVoidAsync("openPdfInNewTab",
                 Convert.ToBase64String(pdfBytes),
-                $"{ReceiptPagination.NombreRecibo(item)}.pdf");
+                $"{NombreArchivoRecibo(item)}.pdf");
         }
         catch (Exception ex)
         {

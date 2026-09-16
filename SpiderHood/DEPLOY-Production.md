@@ -85,6 +85,34 @@ Este archivo **no** se sobreescribe con datos de producción ni de tu
 grabado en el `web.config` generado. No hace falta tocar nada en IIS Manager
 para esto.
 
+## 4a. Cloudflare Turnstile (antispam del formulario de contacto)
+
+*(Pedido del usuario 2026-09-16 -- seguía llegando spam al formulario de
+`/` #contacto pese al honeypot + chequeo de timing que ya tenía.)*
+
+Igual que la connection string de arriba, `Turnstile:SecretKey` viene
+**vacío a propósito** en `appsettings.json` -- si no lo completás, el
+formulario sigue funcionando (queda sólo con las otras dos capas
+antispam, con un warning en el log), pero sin la protección de Turnstile.
+
+- [ ] En el dashboard de Cloudflare (la misma cuenta del Tunnel que ya usan
+      para el correo): **Turnstile > Add site**, dominio `spiderhoodapp.com`
+      (y el dominio de QA si es distinto).
+- [ ] Copiá el **Site Key** (público) y reemplazá el placeholder
+      `0x0000000000000000000000` en `SpiderHood/wwwroot/index.html`
+      (`data-sitekey` del `<div class="cf-turnstile">`, dentro del
+      formulario de contacto) -- este archivo SÍ va al repo, el Site Key
+      no es secreto.
+- [ ] Copiá el **Secret Key** (privado) y completá
+      `Turnstile:SecretKey` en tu `appsettings.Production.json` local (o
+      como variable de entorno `Turnstile__SecretKey`, igual que la
+      connection string) -- **nunca** lo pongas en `appsettings.json` ni en
+      `index.html`, ese archivo/valor si es secreto y viaja al repo público.
+- [ ] Después de publicar: abrí `/` en el navegador, confirmá que aparece
+      el widget de Turnstile en el formulario de contacto (normalmente
+      invisible o un check discreto, no el desafío de fotos clásico) y que
+      enviar el formulario sigue funcionando.
+
 ## 4b. Digital Asset Links (`assetlinks.json`) -- Piloto Móvil (TWA)
 
 *(Sólo aplica si hay un APK/AAB de TWA -- Docs/Pendientes-Negocio-Consolidado.md

@@ -318,11 +318,18 @@
     private decimal _distr;
     private int _waterReadingsCount;
     private decimal _inverseNroGroupUnit;
+    private int _totalApartments;
     private decimal _totalWaterConsumption => _waterReadings?.Sum(w => w.CalculatedAmount) ?? 0;
 
     // Unidades que componen el grupo (DPTO + cochera + depósito, etc.) — el Área Total de
     // arriba es la suma de todas, así que se listan para que sea informativo de dónde sale.
     private List<OwnerUnitView> _unidadesGrupo = new();
+
+    // Docs/Pendientes-Negocio-Consolidado.md #28 -- cantidad real de Depto/Oficina que
+    // agrupa esta cuota (Inmobiliaria, etc.) -- sin pesar los ítems Fijos/Agua por esto,
+    // el desglose se veía subestimado aunque _installment.Amount (calculado por
+    // BudgetCalculator.CalculateQuota, misma fórmula) fuera correcto.
+    private int _pesoFija = 1;
 
     // Modal (BlazorBootstrap) solo pinta el header a partir de Title — un HeaderTemplate
     // custom se ignora — así que el DPTO va acá.
@@ -343,11 +350,10 @@
 
         _distr = installment.Percent / 100;
         _waterReadingsCount = waterReadings?.Count ?? 0;
-        _inverseNroGroupUnit = ParameterService.CurrentBuilding!.Apartments > 0
-            ? 1m / ParameterService.CurrentBuilding.Apartments
-            : 0;
 
         _unidadesGrupo = new();
+        _pesoFija = 1;
+        _inverseNroGroupUnit = 0;
         _cargosAdicionales = new();
         if (ParameterService.CurrentBuilding != null)
         {
@@ -358,6 +364,19 @@
                 .Where(u => u.IdGroupUnit == installment.IdGroupUnit && u.Role == 1)
                 .OrderBy(u => u.TypeUnit)
                 .ToList();
+            _pesoFija = Math.Max(1, _unidadesGrupo.Select(u => u.IdUnit).Distinct().Count());
+
+            // Mismo filtro (Role==1, Depto/Oficina) y misma cuenta que
+            // BudgetService.LoadDataDefaultAsync usa para BudgetState.TotalApartments --
+            // así el divisor de acá cuadra con el que de verdad se usó para calcular
+            // _installment.Amount, en vez de Building.Apartments (un conteo declarado a
+            // mano que puede no coincidir con la cantidad real de unidades facturables).
+            _totalApartments = unidadesDelEdificio
+                .Where(u => u.Role == 1 && (u.TypeUnit == 1 || u.TypeUnit == 4))
+                .Select(u => u.IdUnit)
+                .Distinct()
+                .Count();
+            _inverseNroGroupUnit = _totalApartments > 0 ? 1m / _totalApartments : 0;
 
             if (installment.Type == InstallmentType.Ordinaria)
             {
@@ -404,7 +423,7 @@
 
         if (item.IdCategory == ParameterService.CurrentBuilding!.Configuration.WaterReadingDefault && _waterReadingsCount > 0)
         {
-            return Math.Round(Math.Abs(item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit, 2);
+            return Math.Round(Math.Abs(item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit * _pesoFija, 2);
         }
 
         var idGroupUnitExonerado = _exonerations
@@ -419,7 +438,7 @@
 
         var nroExcepciones = _exonerations.Count(c => c.IdCategory == item.IdCategory);
         var total = item.Type == 1
-            ? item.MonthlyAmount / (ParameterService.CurrentBuilding.Apartments - nroExcepciones)
+            ? item.MonthlyAmount / (_totalApartments - nroExcepciones) * _pesoFija
             : item.MonthlyAmount * _distr;
 
         return Math.Round(total, 2);

@@ -291,10 +291,13 @@
             // movimientos bancarios reales tal como se cargaron (Ingresos = Amount > 0,
             // Egresos = Amount < 0), no una reconstrucción a partir de Cuotas/Gastos. Un
             // Ingreso o Gasto todavía sin conciliar sigue siendo un movimiento real de la
-            // cuenta -- por eso este reporte no filtra por ReconciliationStatus.
+            // cuenta -- por eso este reporte no filtra por ReconciliationStatus. Lo que sí
+            // se excluye es Ignored (Docs/Pendientes-Negocio-Consolidado.md #2): un
+            // movimiento marcado "Ignorado" en Conciliación (ej. un error bancario
+            // revertido) no es un ingreso/egreso real, nunca debería sumar acá.
             var detalles = await BankAccountService.GetStatementDetailsByBuildingAsync(idBuilding, filtroCuenta);
             var enRango = detalles
-                .Where(d => d.StatementDate.Date >= fechaDesde.Date && d.StatementDate.Date <= fechaHasta.Date)
+                .Where(d => !d.Ignored && d.StatementDate.Date >= fechaDesde.Date && d.StatementDate.Date <= fechaHasta.Date)
                 .ToList();
 
             var filas = enRango

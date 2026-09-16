@@ -453,8 +453,11 @@ namespace SpiderHood.Components.Pages
                 _ => new DateTime(hoy.Year, 1, 1)
             };
 
+            // Ignored (Docs/Pendientes-Negocio-Consolidado.md #2): un movimiento marcado
+            // "Ignorado" en Conciliación (ej. un error bancario revertido) no es un
+            // ingreso/egreso real, no debería sumar en el gráfico.
             var porMes = _movimientosBancarios
-                .Where(d => d.StatementDate.Date >= desde.Date && d.StatementDate.Date <= hoy.Date)
+                .Where(d => !d.Ignored && d.StatementDate.Date >= desde.Date && d.StatementDate.Date <= hoy.Date)
                 .GroupBy(d => new { d.StatementDate.Year, d.StatementDate.Month })
                 .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
                 .Select(g => new

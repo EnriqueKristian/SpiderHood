@@ -16,7 +16,7 @@ decisión tomada -- avisame si el orden real de negocio es otro.
 
 ---
 
-## Orden de ataque (lista única, actualizada 2026-09-11)
+## Orden de ataque (lista única, actualizada 2026-09-16)
 
 Los números remiten al detalle de cada punto más abajo en este mismo
 documento. Un solo orden, pensado para el objetivo actual (lanzar el piloto
@@ -27,30 +27,38 @@ secas, es la secuencia en la que conviene tocarlos.
 **Grupo 1 -- lo que toca antes/durante el lanzamiento del piloto:**
 1. **#3** Tolerancia de redondeo en conciliación (< S/ 0.05) -- si el
    edificio piloto tiene cuotas migradas, hoy se ven "Parcial" sin serlo.
-2. **#1** Unidades sin propietario no facturan a la inmobiliaria -- si el
-   edificio piloto tiene unidades sin vender.
-3. **#17** Comunicados vía WhatsApp -- **IMPLEMENTADO** (2026-09-11):
-   3 alcances (Público/Reservado/Privado) + 4 categorías, pantalla admin y
-   de residente construidas y compilando. Falta probar contra BD real,
-   asignar el permiso `create_announcements` vía `/Settings/Roles`, y
-   arrancar la verificación de negocio en Meta + aprobación de las 4
-   plantillas (no es instantáneo -- mientras tanto todo sale como texto
-   libre, que puede fallar fuera de la ventana de 24hs).
+2. **#1** Unidades sin propietario no facturan a la inmobiliaria --
+   **implementado (2026-09-15/16), el monto cobrado verificado correcto**
+   (ver detalle del punto 1) -- **pero encontró un bug nuevo (#28) en el
+   desglose que se muestra/imprime**, no en el monto que se cobra de
+   verdad.
+3. **#17** Comunicados vía WhatsApp -- **IMPLEMENTADO y probado en vivo
+   (confirmado por el usuario 2026-09-16), la integración funciona.**
+   Falta solamente la verificación de negocio en Meta + aprobación de las
+   4 plantillas -- no se va a comprar el paquete todavía, mientras tanto
+   sigue saliendo como texto libre (puede fallar fuera de la ventana de
+   24hs). Queda para después, no bloquea el piloto.
 4. **#22** Piloto Móvil -- wrapper PWA/TWA + sumar alcance de Junta
    (solo lectura: presupuesto, incidencias, calendario).
-5. **#18** Storage de archivos -- **18b (Recibos PDF) y 18a (fotos/video en
-   Incidencias) ambos implementados (2026-09-11)**. Falta correr los dos
-   scripts (`Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
-   `_96_IncidentAttachment.sql`) y probar los dos flujos con datos reales
-   -- ver el detalle de cada uno en el punto 18.
-6. **#25** Email -- generar la Contraseña de Aplicación de Gmail y cargarla
-   en `Email:SmtpPassword` (sin eso, ningún correo sale de verdad hoy,
-   aunque ningún flujo se rompe por eso -- son todos "best effort"). Probar
-   desde `/Settings/TestNotificaciones` (nuevo). Es lo que destraba
-   notificaciones/links de confirmación/invitaciones para todo lo demás.
+5. **#18** Storage de archivos -- **RESUELTO**: 18b (Recibos PDF) y 18a
+   (fotos/video en Incidencias) implementados (2026-09-11) y con los
+   scripts ya corridos en la BD real (2026-09-16) -- falta sólo probar
+   cada flujo con datos reales en el uso normal de la app.
+6. **#25** Email -- **funcionando de verdad (confirmado por el usuario
+   2026-09-16)**, con Brevo (no Gmail como se había planeado
+   originalmente) y credenciales de `*@spiderhoodapp.com` cargadas fuera
+   del repo. Recepción vía Cloudflare Email Routing (redirige a un correo
+   personal) + respuesta manual desde un cliente SMTP con las cuentas
+   ventas/soporte/security@spiderhoodapp.com -- infraestructura externa al
+   repo, nada que tocar en código para eso. **Ojo:** esto no arregla los
+   2 flujos que siguen sin mandar nada por código (no por credenciales) --
+   `ResendConfirmationEmailAsync` (comentado) y
+   `BudgetGenerator.NotifyOwners()` (`ShouldNotifyOwners()` hardcodeado en
+   `false`) -- ver detalle del punto 25.
 
 **Grupo 2 -- importante, no bloquea el lanzamiento:**
-6. **#2** Reportes financieros suman transacciones Ignoradas.
+6. **#2** Reportes financieros suman transacciones Ignoradas -- **resuelto
+   (2026-09-16)**, script entregado al usuario para correr en BD real.
 7. **#6** Bug compartido en modales de confirmación (`ConfirmationUtil`) --
    **resuelto (2026-09-11)**, ver detalle del punto 6.
 8. **#11** Falta el ítem de menú "Permisos" -- 5 minutos de configuración.
@@ -66,57 +74,79 @@ secas, es la secuencia en la que conviene tocarlos.
 13. **#7** Garantía de reserva de área común.
 14. **#8** Historial de propietarios por periodo.
 15. **#10** Estado de Cuenta migrado no crea Gastos categorizados.
-16. **#19** Login social Google/Facebook/Apple -- no crítico si el alta de
-    usuarios en el piloto sigue siendo manual/por Administrador.
+16. **#19** Login social Google/Facebook/Apple -- **implementado
+    (2026-09-16)**, ver detalle del punto 19.
 17. **#24** Configuración de Edificio: página propia con Tabs -- **HECHO**
     (2026-09-11), falta probar en vivo y conversar con el usuario qué
     campos le faltan agregar (ahora es más fácil, hay una página por tab).
+18. **#28** Recibo/Detalle de Cuota subestima el monto cuando la cuota
+    agrupa más de una unidad (Inmobiliaria, copropietarios con >1
+    depto/oficina) -- **resuelto (2026-09-16)**.
 
 **Grupo 3 -- baja urgencia, manual, o investigación sin bloqueo real:**
 17. **#16** Verificar URL del menú "Ingresos y Egresos".
 18. **#13** Causa raíz del timeout en Conciliación de Pagos.
 19. **#14** Confirmar upsert de `ServiceReadingDetail`.
 20. **#15** Borrar un permiso (fuera de alcance).
-21. **#12** Caso sin match en el Excel de Nova Alzamora (manual).
-22. **#21** Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas,
-    Encuestas) -- rediseñado 2026-09-11. **Reservas -- IMPLEMENTADO
-    (2026-09-11)**: Áreas Comunes (nueva pestaña en BuildingConfig), estado
-    completo (Pendiente -> Aprobada/Rechazada -> Cancelada/NoPresentado ->
-    Entregada -> Finalizada -> Cerrada), aprobación por la Junta integrada
-    al badge de Aprobaciones, check-in/check-out con checklist + fotos por
-    el Administrador, liquidación de garantía (devuelta/retenida/cuota
-    extraordinaria vía `IExtraChargeService` si el daño la supera) y
-    páginas `/reservas` (residente) + `/reservas-admin` (administrador) --
-    `dotnet build` en 0 errores, mismo baseline de warnings. Falta correr
-    el script SQL contra la BD real, asignar `approve_reservations` /
-    `manage_reservations` vía `/Settings/Roles`, y probar el flujo
-    completo con datos reales. **Gobernanza (Reuniones/Votación/Actas/
-    Encuestas) sigue sin construir** -- es el siguiente módulo de la cola,
-    con la arquitectura ya definida (ver detalle abajo).
+21. **#21** Módulo de Reservas y Gobernanza (Reuniones, Votación, Actas,
+    Encuestas) -- rediseñado 2026-09-11. **Reservas IMPLEMENTADO
+    (2026-09-11) y Gobernanza (Reuniones + Votación + Actas) COMPLETO
+    (2026-09-15), probado end-to-end con Playwright** (Fase 1 22/22,
+    Fase 2 15/15, Fase 3 22/22) -- ver detalle abajo, ya está corregido
+    respecto de versiones anteriores de esta lista que decían "sigue sin
+    construir". Sólo falta correr los scripts SQL contra la BD real y
+    asignar los permisos nuevos vía `/Settings/Roles`. **Encuestas** (sin
+    peso legal) queda para una entrega aparte, decisión del usuario
+    2026-09-15.
 
 ---
 
 ## Prioridad Alta -- afectan dinero/datos reales hoy, en producción
 
 ### 1. Unidades sin propietario no le facturan a nadie
-*(Migración #1 — pendiente, sin empezar)*
+**Estado: IMPLEMENTADO (2026-09-15/16), monto cobrado verificado correcto
+-- ver "Bug nuevo encontrado" abajo.**
 
 Mientras un Depto/Oficina no tiene comprador, su cuota (por %) debería
 cobrársele a la inmobiliaria (`BuildingConfiguration.RealEstateCompany`) --
-hoy simplemente no se genera ningún `Installment` para esa unidad. Es
-dinero que se deja de facturar activamente en cualquier edificio con
-unidades sin dueño. Decisión de negocio ya tomada (usar `RealEstateCompany`
-como pagador, no un `Owner` ficticio); falta el diseño de cómo esas
-unidades entran al pipeline de generación (`IdGroupUnit` sintético, etc.).
+antes simplemente no se generaba ningún `Installment` para esa unidad.
+Decisión de negocio ya tomada y construida (usar `RealEstateCompany` como
+pagador, no un `Owner` ficticio):
+- `UPD_SyncUnsoldUnitsToRealEstateCompany` (`Database/Scripts/2026-09-15_106_
+  Presupuesto_UnidadesSinPropietario_Foundation.sql`) crea (si no existe) un
+  `GroupUnit` + `ApartmentOwner` "Inmobiliaria" por edificio y enlaza ahí
+  TODAS las `RealEstateUnit` sin grupo, recalculando el área total. Se
+  dispara manualmente desde el botón "Actualizar unidades sin vender" en
+  Generar Presupuesto (`IBuildingService.SyncUnsoldUnitsToRealEstateCompanyAsync`)
+  -- no automático al abrir un presupuesto, mismo criterio que "Cal. Agua".
+- `BudgetCalculator.CalculateQuota` agrupa por `IdGroupUnit` (no por fila) y
+  pesa los ítems Fijos por la cantidad real de unidades del grupo
+  (`pesoFija`) -- necesario porque el grupo Inmobiliaria puede traer varias
+  unidades sin vender bajo un solo `Installment`.
+- `LoadDataDefaultAsync` cuenta `TotalApartments` por `IdUnit` distinto (no
+  por fila ni por `IdGroupUnit`), así que el divisor de los ítems Fijos
+  incluye correctamente las unidades de la Inmobiliaria.
+
+**Verificado 2026-09-16 (a pedido del usuario) que el monto que se cobra
+de verdad es correcto** -- trazado el flujo completo SQL -> `BudgetCalculator`
+-> `Installment.Amount`, cubierto además por tests (`BudgetCalculatorTests.cs`,
+casos con grupos de >1 unidad). **Pero se encontró un bug nuevo, separado,
+en lo que se MUESTRA/IMPRIME** (no en lo que se cobra) -- ver punto 28.
 
 ### 2. Reportes financieros suman transacciones "Ignoradas"
 *(Reportes #1, cruza con Conciliación #1)*
 
-El reporte "Ingresos y Egresos" y el gráfico del Dashboard NO excluyen
-transacciones marcadas como "Ignorado" en Conciliación (ej. un error
-bancario revertido) -- siguen sumando en los totales. Requiere exponer
-`Ignored` en `AccountStatementDetailView`/`GET_AccountStatementDetailByHeader`
-(SP no versionado en el repo, hay que pedir su texto real antes de tocarlo).
+**Estado: RESUELTO (2026-09-16).** El reporte "Ingresos y Egresos" y el
+gráfico del Dashboard sumaban transacciones marcadas como "Ignorado" en
+Conciliación (ej. un error bancario revertido) en sus totales. Se agregó
+`Ignored` a `AccountStatementDetailView` y a
+`GET_AccountStatementDetailByHeader` (el SP no estaba versionado en el
+repo -- se tomó su texto real de la BD con `sp_helptext` como punto de
+partida, `Database/Scripts/2026-09-16_130_Fix_GET_
+AccountStatementDetailByHeader_Ignored.sql`), y se filtró `!d.Ignored` en
+`IncomeExpenseReport.razor` y `Home.razor.cs` (gráfico del Dashboard).
+Verificado con test de integración contra un backup real. Script entregado
+al usuario para correr en la BD real.
 
 ### 3. Tolerancia de redondeo en conciliación de cuotas (< S/ 0.05)
 *(Migración #8 — pendiente, sin empezar, "a confirmar si aplica")*
@@ -174,6 +204,55 @@ el matching se haga manual -- que sí funciona bien, ya verificado -- pero
 si algún edificio real usa una cuenta en moneda extranjera con volumen
 suficiente para depender del matching automático, hay que rehacer ese
 motor para comparar `AmountInReportingCurrency` contra `Installment.Amount`.
+
+### 27. `GET_ExpensesByBuilding` no traía `RequiresExpenseCreation` -- /expense rota
+*(Encontrado y RESUELTO 2026-09-16, escribiendo tests de integración contra
+un backup real)*
+
+**Estado: RESUELTO (2026-09-16).** `ViewExpense` mapea `RequiresExpenseCreation`
+(agregada en `Database/Scripts/2026-09-14_100_...sql`), pero
+`GET_ExpensesByBuilding` nunca la sumó a su `SELECT` -- a diferencia de
+`GET_PendingConciliationExpenses`, arreglado el mismo día
+(`..._101_Fix_GET_PendingConciliationExpenses_RequiresExpenseCreation.sql`).
+`FromSqlRaw<ViewExpense>` exige todas las columnas mapeadas, así que
+`ExpensePage.razor` (la pantalla `/expense`) tiraba excepción para
+cualquier edificio. Corregido en `Database/Scripts/2026-09-16_129_Fix_
+GET_ExpensesByBuilding_RequiresExpenseCreation.sql` (mismo criterio: esta
+SP sólo lee `dbo.Expense`, nunca la fila "virtual" de un egreso bancario
+sin categorizar, así que la columna es siempre `0`/`false`). Script
+entregado al usuario para correr contra la BD real -- el fix ya está
+verificado en un backup restaurado, con test de regresión
+(`BDLayoutBuildingScopedReadOnlyTests.GetExpensesByBuildingAsync_DoesNotThrow`).
+
+### 28. Recibo/Detalle de Cuota subestima el monto en cuotas de más de una unidad
+**Estado: RESUELTO (2026-09-16).**
+
+El monto que se **cobra de verdad** (`Installment.Amount`, calculado por
+`BudgetCalculator.CalculateQuota`) ya era correcto incluso para el grupo
+Inmobiliaria (ver punto 1) -- pesa los ítems Fijos y el diferencial de Agua
+por `pesoFija` (cantidad de unidades distintas del grupo). Lo que se
+**mostraba en pantalla y se imprimía** usaba una fórmula distinta,
+duplicada en 2 lugares (`InstallmentDetailModal.CalculateQuote` -- modal
+"Ver Detalle de Cuota" -- e `InstallmentExportService.CalculateItemAmount`
+-- PDF del recibo), que no multiplicaba por `pesoFija` en los ítems Fijos
+ni en el diferencial de Agua, y usaba `Building.Apartments` (un conteo
+declarado a mano) como divisor en vez de la cantidad real de unidades
+facturables.
+
+**Fix aplicado:** en vez de un cambio de esquema (que hubiera obligado a
+tocar todos los SPs `GET_Installment*` para no romper `FromSqlRaw`), las
+dos copias de display ahora reciben la lista de propietarios del edificio
+(`List<OwnerUnitView>`, ya se cargaba en `InstallmentDetailModal`; se
+agregó como parámetro nuevo -- `owners` -- al constructor de
+`InstallmentExportService`, con los 4 sitios que lo instancian
+actualizados: `BudgetGenerator.razor`, `InstallmentTable.razor`,
+`InstallmentList.razor`, `MyReceipts.razor`) y calculan `pesoFija` y el
+total de apartamentos con el mismo filtro exacto (`Role==1`, Depto/Oficina,
+`IdUnit` distinto) que usa `BudgetService.LoadDataDefaultAsync` para
+calcular el monto real -- así el desglose siempre cuadra con
+`Installment.Amount`. Cubierto con tests
+(`InstallmentExportServiceTests.cs`, invocando `CalculateItemAmount` por
+reflection ya que es privado).
 
 ---
 
@@ -306,13 +385,6 @@ hay forma de llegar ahí desde el menú -- hay que crear el ítem desde
 
 ## Prioridad Baja -- deuda técnica menor, casos puntuales o decisiones ya tomadas de dejar afuera
 
-### 12. Un caso sin match en el Excel de Nova Alzamora
-*(Migración #4 — a resolver a mano, no requiere código)*
-
-1 de 1,602 `InstallmentPaid` sin match verificado contra `Consolidado.ID`.
-El usuario ya decidió corregirlo directamente en el Excel al momento de la
-migración real -- sólo queda anotado para no perderlo de vista.
-
 ### 13. Causa raíz del timeout en "Conciliación de Pagos" con rangos amplios
 *(Migración #6.6 — mitigado subiendo el `CommandTimeout` a 120s)*
 
@@ -350,10 +422,12 @@ que ya existía), esto es funcionalidad que **no está construida en absoluto**
 -- verificado buscando en todo el repo, no por sospecha.
 
 ### 17. Comunicados / Anuncios
-**Estado: IMPLEMENTADO (2026-09-11) -- `dotnet build` en 0 errores, mismo
-baseline de warnings (139). Falta probar contra una BD real (correr
-`Database/Scripts/2026-09-11_97_Comunicado.sql`) y asignar el permiso
-`create_announcements` a Administrador/Junta desde `/Settings/Roles`.**
+**Estado: IMPLEMENTADO y PROBADO EN VIVO (confirmado por el usuario
+2026-09-16) -- la integración de WhatsApp funciona contra BD real.** Falta
+solamente la verificación de negocio en Meta + aprobación de las 4
+plantillas -- decisión del usuario: no se va a comprar el paquete todavía,
+esa prueba queda para después. Mientras tanto sigue saliendo como texto
+libre (puede fallar fuera de la ventana de 24hs), sin bloquear el resto.
 
 **Qué se construyó:**
 - `Database/Scripts/2026-09-11_97_Comunicado.sql` -- tablas `Comunicado`
@@ -540,10 +614,11 @@ apruebe estas 4 plantillas -- corre en paralelo a la construcción de la
 pantalla, no la frena.
 
 ### 18. Storage de archivos -- fotos/video en Incidencias Y PDFs de Recibos
-**Estado: pregunta técnica -- respuesta recomendada abajo. Ampliado
-2026-09-11: sumado el caso de los recibos PDF (pedido del usuario), que
-termina necesitando el mismo storage pero con un problema más urgente que
-Incidencias -- ver evaluación al final de este punto.**
+**Estado: RESUELTO. 18a y 18b IMPLEMENTADOS (2026-09-11), scripts
+ejecutados en la BD real por el usuario (2026-09-16)**
+(`Database/Scripts/2026-09-11_95_ReceiptFile.sql` y
+`_96_IncidentAttachment.sql`) -- falta sólo probar cada flujo con datos
+reales cuando se use la app.
 
 #### 18a. Fotos/video en Incidencias
 
@@ -844,9 +919,11 @@ todavía. Es la misma infraestructura para las dos -- no es trabajo
 duplicado, es sólo invertir qué se conecta primero.
 
 ### 19. Alta de usuarios con Google / Facebook / Apple -- qué se necesita
-**Estado: no existe -- hoy sólo hay autenticación por cookie/usuario y
-contraseña propios (`Program.cs:55`, `AddAuthentication(CookieAuthenticationDefaults...)`,
-sin ningún paquete ni configuración de proveedor externo).**
+**Estado: IMPLEMENTADO (2026-09-16, commit "Login social: Google,
+Microsoft/Office, Facebook y Apple") -- también se sumó Microsoft/Office,
+que no estaba en el alcance original de este punto.** El detalle de abajo
+(decisiones de producto, registro por proveedor, etc.) queda como
+referencia histórica de lo que se decidió al construirlo.
 
 Lo que hace falta, en orden:
 1. **Decisión de producto:** ¿reemplaza o se suma al login actual
@@ -1517,8 +1594,21 @@ con otros puntos del backlog.
 *(Nuevo 2026-09-11, a raíz de la pregunta del usuario -- diagnóstico +
 herramienta de prueba, sin tocar la lógica de negocio)*
 
-**Diagnóstico de Email -- verificado revisando TODOS los lugares que
-llaman a `IEmailService.SendEmailAsync` en el repo:**
+**Estado de Email: FUNCIONANDO DE VERDAD (confirmado por el usuario
+2026-09-16)** -- terminó usando **Brevo, no Gmail** (plan original más
+abajo, ya no aplica), con credenciales de `*@spiderhoodapp.com` cargadas
+fuera del repo (nunca en `appsettings.json`). Recepción vía Cloudflare
+Email Routing (redirige a un correo personal) + respuesta manual desde un
+cliente SMTP configurado con las cuentas ventas/soporte/security@spiderhoodapp.com
+-- infraestructura externa al repo, `EmailService` no necesitó ningún
+cambio de código para Brevo (ya era un cliente SMTP genérico con STARTTLS,
+verificado 2026-09-16). **Esto NO arregla los 2 flujos que siguen sin
+mandar nada por código** (ver bullet más abajo, sigue vigente sin importar
+el proveedor SMTP) -- son gaps de código, no de credenciales.
+
+**Diagnóstico original de Email (contexto histórico, cuando el plan era
+Gmail) -- verificado revisando TODOS los lugares que llaman a
+`IEmailService.SendEmailAsync` en el repo:**
 
 - `appsettings.json` tiene `Email:SmtpPassword` **vacío** -- sin eso, Gmail
   rechaza la autenticación y cualquier envío falla. Además, desde ~2022
@@ -1528,7 +1618,8 @@ llaman a `IEmailService.SendEmailAsync` en el repo:**
   16 caracteres) específica para esto, y poner ESA en
   `Email:SmtpPassword` -- nunca la contraseña real de la cuenta, y nunca
   commiteada al repo (`dotnet user-secrets` o `appsettings.Development.json`,
-  que ya está en `.gitignore`).
+  que ya está en `.gitignore`). **Superado -- se terminó usando Brevo en
+  vez de Gmail, ver banner de estado arriba.**
 - `EmailService` (`Services/IEmailService.cs`) **no tiene modo Simulate**
   (a diferencia de WhatsApp/MercadoPago) -- sin la Contraseña de Aplicación
   configurada, cualquier intento de mandar un correo **falla de verdad**
@@ -1557,10 +1648,12 @@ llaman a `IEmailService.SendEmailAsync` en el repo:**
     `ShouldNotifyOwners()` devuelve `false` siempre (línea 1727) -- esta
     función nunca se ejecuta, quedó como esqueleto sin terminar.
 
-**Diagnóstico de WhatsApp:** el servicio (`IWhatsAppService`, punto #17)
-está construido y probado en modo simulado, pero **no hay ningún botón en
-la app que lo dispare todavía** -- se construyó como infraestructura para
-el futuro módulo de Comunicados, sin ninguna pantalla conectada aún.
+**Diagnóstico de WhatsApp (superado -- ver punto 17):** cuando se escribió
+este diagnóstico (2026-09-11) el servicio (`IWhatsAppService`) estaba
+construido y probado sólo en modo simulado, sin pantalla conectada. Ya no
+es así: el módulo de Comunicados quedó implementado y **probado en vivo
+contra WhatsApp real** (confirmado por el usuario 2026-09-16) -- ver
+detalle en el punto 17.
 
 **Herramienta agregada para poder probar los dos (2026-09-11):**
 `Components/Pages/SettingPages/TestNotificaciones.razor`
@@ -1572,17 +1665,14 @@ el mensaje de error real de Gmail si el SMTP falla) en pantalla, sin tener
 que ir a mirar los logs del servidor. Es una herramienta de diagnóstico,
 no queda registrada en ningún lado de la BD.
 
-**Para dejar Email funcionando de verdad:** generar la Contraseña de
-Aplicación en la cuenta de Gmail configurada (`enriquek@gmail.com`) y
-cargarla en `Email:SmtpPassword` (nunca en `appsettings.json` commiteado).
-Con eso puesto, probar desde `/Settings/TestNotificaciones` antes de
-confiar en que los correos de bienvenida/invitación/notificaciones ya
-están saliendo de verdad.
+**Email -- HECHO** (ver banner de estado arriba). Lo único que sigue
+pendiente, y es independiente del proveedor SMTP: arreglar (o decidir
+dejar así) los 2 flujos comentados (`ResendConfirmationEmailAsync`,
+`BudgetGenerator.NotifyOwners`).
 
-**Para dejar WhatsApp funcionando de verdad:** los pasos ya quedaron
-descritos en el punto #17 (cuenta de Twilio, Sandbox, `AccountSid`/
-`AuthToken` en `Twilio:*`) -- una vez cargados, probar desde la misma
-pantalla nueva.
+**WhatsApp -- HECHO** (ver punto 17). Sólo falta la verificación de negocio
+en Meta + aprobación de plantillas, que queda para después (decisión del
+usuario, no se compra el paquete todavía).
 
 ### 26. Perf: menú izquierdo demoraba hasta un minuto en la primera carga
 *(Nuevo 2026-09-11, reportado por el usuario -- **IMPLEMENTADO**, falta
@@ -1632,8 +1722,8 @@ que confirme si mejoró y en qué medida.
 
 | # | Tema | Prioridad | Tipo |
 |---|------|-----------|------|
-| 1 | Unidades sin propietario no facturan | Alta | Diseño + código |
-| 2 | Reportes suman transacciones Ignoradas | Alta | Código (requiere ver SP) |
+| 1 | Unidades sin propietario no facturan | Alta | **Implementado (2026-09-15/16), monto verificado correcto** -- ver bug nuevo #28 |
+| 2 | Reportes suman transacciones Ignoradas | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 3 | Tolerancia de redondeo en conciliación | Alta | Decisión + código |
 | 4 | Borrado de edificio: FKs sin confirmar | Alta | Verificación de BD |
 | 5 | Soporte real de multimoneda | Alta | **Fundación resuelta** (2026-09-15), falta correr script en BD real |
@@ -1642,24 +1732,25 @@ que confirme si mejoró y en qué medida.
 | 6b | Lectura de agua incompleta bloquea publicar (antes era advertencia) | Alta | **Resuelto** (2026-09-11) |
 | 7 | Garantía de reserva de área común | Media | Diseño + código |
 | 8 | Historial de propietarios por periodo | Media | Diseño + código |
-| 9 | `GET_UnitsByType` sin manejar unidades sin grupo | Media | Código |
+| 9 | `GET_UnitsByType` sin manejar unidades sin grupo | Media | **Resuelto** (2026-09-12) |
 | 10 | Estado de Cuenta no crea Gastos categorizados | Media | Diseño + código |
 | 11 | Falta ítem de menú "Permisos" | Media | Configuración |
-| 12 | Caso sin match Excel Nova Alzamora | Baja | Manual (Excel) |
 | 13 | Causa raíz timeout Conciliación de Pagos | Baja | Investigación |
 | 14 | Confirmar upsert de `ServiceReadingDetail` | Baja | Investigación |
 | 15 | Borrar un permiso | Baja | Fuera de alcance |
 | 16 | Verificar URL de menú "Ingresos y Egresos" | Baja | Configuración |
-| 17 | Comunicados vía WhatsApp -- **IMPLEMENTADO**, falta probar en vivo + plantillas de Meta | Alta* | Implementado, falta validar |
-| 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados** | Alta* | **Resuelto** (2026-09-11), falta probar con BD real |
-| 19 | Login social Google/Facebook/Apple | Media* | Producto + código |
+| 17 | Comunicados vía WhatsApp -- **IMPLEMENTADO y PROBADO EN VIVO** (2026-09-16); plantillas de Meta quedan para después (no se compra el paquete todavía) | Alta* | **Resuelto**, validación de Meta pausada a propósito |
+| 18 | Storage de archivos: 18a (Incidencias) y 18b (Recibos PDF) **ambos implementados, scripts corridos en BD real** | Alta* | **Resuelto** (2026-09-16), falta sólo probar cada flujo en el uso normal |
+| 19 | Login social Google/Microsoft/Facebook/Apple | Media* | **Resuelto** (2026-09-16) |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
-| 21 | Módulo de Reservas -- **IMPLEMENTADO**, falta probar en vivo; Gobernanza (Reuniones/Votación/Actas/Encuestas) sigue en diseño, "Citas" descartado | Baja-Media* | Reservas implementado; Gobernanza diseño + código (grande) |
+| 21 | Reservas **IMPLEMENTADO**; Gobernanza (Reuniones/Votación/Actas) **COMPLETO y probado end-to-end** (2026-09-15); Encuestas y "Citas" quedan afuera (decisión del usuario) | Baja-Media* | **Resuelto**, falta correr scripts en BD real y probar con datos reales |
 | 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
 | 24 | Configuración de Edificio: página propia con Tabs -- estructura **HECHA**, falta **rediseño visual** (usuario esperaba más que mover cards a pestañas) | Media | Diseño UI |
-| 25 | Email: falta Contraseña de Aplicación de Gmail + 2 flujos comentados | Alta | Configuración + decisión |
+| 25 | Email y WhatsApp: **funcionando de verdad** (Brevo, confirmado 2026-09-16); quedan 2 flujos que no mandan nada por código (independiente del proveedor) | Alta | **Resuelto**, decisión pendiente sólo sobre esos 2 flujos |
 | 26 | Perf: menú izquierdo demoraba hasta 1 min en la primera carga -- **HECHO**, falta confirmar en vivo | Alta | Código (bug de caché + paralelizar consultas) |
+| 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
+| 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.
@@ -1679,11 +1770,12 @@ presupuestos, cuotas, conciliación bancaria, gastos, reportes, permisos,
 incidencias, lecturas de agua). Ningún punto de los 1-16 de arriba es un
 bloqueante técnico para encender el piloto -- son riesgos/deuda a atender en
 paralelo, no un "no funciona". Antes de lanzar, priorizar sólo lo que puede
-afectar la confianza del Administrador piloto desde el día 1 (los ✅ ya
-listados como Alta 1-5): sobre todo **#3 tolerancia de redondeo** (si el
-edificio piloto tiene cuotas migradas, van a verse "Parcial" sin serlo de
-verdad) y **#1 unidades sin propietario** (si el edificio piloto tiene
-unidades sin vender, hoy no se les factura a la inmobiliaria). El resto
+afectar la confianza del Administrador piloto desde el día 1: sobre todo
+**#3 tolerancia de redondeo** (si el edificio piloto tiene cuotas migradas,
+van a verse "Parcial" sin serlo de verdad). **#1 unidades sin propietario**
+ya está resuelto (el monto que se cobra a la Inmobiliaria es correcto),
+aunque dejó un bug nuevo en el desglose mostrado/impreso (#28) que conviene
+mirar si el edificio piloto tiene unidades sin vender. El resto
 (multimoneda, Ignoradas en reportes, FKs de borrado) es menor si el piloto
 es un solo edificio, una sola moneda, y nadie va a borrar el edificio.
 

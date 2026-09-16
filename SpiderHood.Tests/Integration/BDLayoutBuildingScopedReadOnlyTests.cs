@@ -251,4 +251,24 @@ public class BDLayoutBuildingScopedReadOnlyTests
 
         Assert.All(assignments, a => Assert.Equal(buildingId, a.IdBuilding));
     }
+
+    // Regresión de Docs/Pendientes-Negocio-Consolidado.md #2: GET_AccountStatementDetailByHeader
+    // no traía la columna Ignored -- los reportes financieros no podían excluir
+    // movimientos marcados como "Ignorado" en Conciliación. Corregido en
+    // Database/Scripts/2026-09-16_130_Fix_GET_AccountStatementDetailByHeader_Ignored.sql.
+    [SkippableFact]
+    public async Task GetAccountStatementDetailByHeaderAsync_ReturnsIgnoredColumnWithoutThrowing()
+    {
+        Skip.IfNot(_fixture.IsAvailable, _fixture.SkipReason);
+        var buildingId = await _fixture.GetAnyBuildingIdAsync();
+        var bdLayout = _fixture.CreateBDLayout();
+
+        var headers = await bdLayout.GetMovementHeadersAsync(buildingId, idBankAccount: null);
+        Skip.If(headers.Count == 0, "El edificio de prueba no tiene cargas de estado de cuenta.");
+
+        var details = await bdLayout.GetAccountStatementDetailByHeaderAsync(headers[0].IdStatementHeader);
+
+        Assert.NotNull(details);
+        Assert.All(details, d => Assert.Equal(headers[0].IdStatementHeader, d.IdStatementHeader));
+    }
 }

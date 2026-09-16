@@ -172,9 +172,9 @@
                     <thead class="table-light">
                         <tr>
                             <th>Fecha</th>
-                            <th>Descripción</th>
+                            <th class="d-none d-md-table-cell">Descripción</th>
                             <th class="text-end">Monto del Depósito</th>
-                            <th>Aplicado a</th>
+                            <th class="d-none d-md-table-cell">Aplicado a</th>
                             <th class="text-end">Saldo a Favor</th>
                             <th></th>
                         </tr>
@@ -184,9 +184,9 @@
                         {
                             <tr>
                                 <td>@pago.Fecha.ToString("dd/MM/yyyy")</td>
-                                <td>@pago.Descripcion</td>
+                                <td class="d-none d-md-table-cell">@pago.Descripcion</td>
                                 <td class="text-end fw-bold text-success">@Moneda(pago.MontoDeposito)</td>
-                                <td>
+                                <td class="d-none d-md-table-cell">
                                     @foreach (var aplicacion in pago.Aplicaciones)
                                     {
                                         <span class="badge bg-light text-dark border me-1 mb-1">

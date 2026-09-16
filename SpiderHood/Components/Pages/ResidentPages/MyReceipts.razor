@@ -184,16 +184,16 @@
                             <th role="button" @onclick='() => _pagination.SortByColumn("Name")'>
                                 Recibo @_pagination.GetSortIndicator("Name")
                             </th>
-                            <th role="button" @onclick='() => _pagination.SortByColumn("Period")'>
+                            <th class="d-none d-md-table-cell" role="button" @onclick='() => _pagination.SortByColumn("Period")'>
                                 Período @_pagination.GetSortIndicator("Period")
                             </th>
                             <th role="button" @onclick='() => _pagination.SortByColumn("DueDate")'>
                                 Vencimiento @_pagination.GetSortIndicator("DueDate")
                             </th>
-                            <th class="text-end" role="button" @onclick='() => _pagination.SortByColumn("Amount")'>
+                            <th class="text-end d-none d-md-table-cell" role="button" @onclick='() => _pagination.SortByColumn("Amount")'>
                                 Monto @_pagination.GetSortIndicator("Amount")
                             </th>
-                            <th class="text-end" role="button" @onclick='() => _pagination.SortByColumn("AmountPaid")'>
+                            <th class="text-end d-none d-md-table-cell" role="button" @onclick='() => _pagination.SortByColumn("AmountPaid")'>
                                 Pagado @_pagination.GetSortIndicator("AmountPaid")
                             </th>
                             <th class="text-end" role="button" @onclick='() => _pagination.SortByColumn("Debt")'>
@@ -210,10 +210,10 @@
                         {
                             <tr>
                                 <td>@ReceiptPagination.NombreRecibo(item)</td>
-                                <td>@item.Period.ToString("MMM-yy")</td>
+                                <td class="d-none d-md-table-cell">@item.Period.ToString("MMM-yy")</td>
                                 <td>@item.DueDate.ToString("dd/MM/yyyy")</td>
-                                <td class="text-end">@Moneda(item.Amount)</td>
-                                <td class="text-end">@Moneda(item.AmountPaid)</td>
+                                <td class="text-end d-none d-md-table-cell">@Moneda(item.Amount)</td>
+                                <td class="text-end d-none d-md-table-cell">@Moneda(item.AmountPaid)</td>
                                 <td class="text-end">
                                     <span class="@GetDeudaClass(item)">@Moneda(item.Debt)</span>
                                 </td>

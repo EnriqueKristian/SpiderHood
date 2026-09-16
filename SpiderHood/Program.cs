@@ -14,6 +14,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContextFactory<SpiderHoodContext>(options =>
@@ -253,6 +254,33 @@ builder.Services.AddScoped<IMigrationTemplateService, MigrationTemplateService>(
 builder.Services.AddScoped<IMigrationImportService, MigrationImportService>();
 builder.Services.AddHttpClient();
 
+// Segunda capa contra el spam del formulario de contacto (ver el comentario grande
+// junto a /api/contacto más abajo sobre el honeypot _empresa) -- llegó spam real
+// (venta de "indexación en Google") a pesar del honeypot: algunos bots llenan
+// TODOS los campos del form, ocultos incluidos. Un límite por IP no depende de que
+// el bot respete ninguna convención de formulario, y sigue sin requerir CAPTCHA
+// (la razón original para no usarlo -- no pelear con bots de formulario -- sigue
+// aplicando). Particionado por IP para que una sola IP abusiva no le consuma la
+// cuota a el resto de los visitantes.
+builder.Services.AddRateLimiter(options =>
+{
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.Response.Redirect("/?contacto=error");
+        return ValueTask.CompletedTask;
+    };
+
+    options.AddPolicy("contact-form", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
+                Window = TimeSpan.FromMinutes(10),
+                QueueLimit = 0
+            }));
+});
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -290,6 +318,7 @@ app.MapWhen(
 
 app.UseAuthorization();
 app.UseAntiforgery();
+app.UseRateLimiter();
 
 // Webhook de MercadoPago (Docs/Design-Subscripcion-Administrador.md): confirma
 // la suscripción del lado del servidor y recién ahí la activa -- nunca desde
@@ -351,13 +380,25 @@ app.MapPost("/api/mercadopago/webhook", async (HttpRequest request, ISubscriptio
 // acción sobre datos de un usuario autenticado detrás de este endpoint.
 // El campo "_empresa" es un honeypot (input oculto vía CSS, invisible para una
 // persona real) -- si viene lleno, se responde OK sin enviar nada, para no
-// pelear con captchas por unos bots de formulario.
+// pelear con captchas por unos bots de formulario. "_ts" es la segunda pata
+// (ver wwwroot/index.html): un timestamp que sólo se completa si el navegador
+// ejecutó el JS de la página, y que además delata un envío completado en menos
+// de lo que tarda una persona real en llenar el formulario -- un bot que llena
+// TODOS los inputs (honeypot incluido) generalmente no ejecuta JS ni tarda
+// segundos en enviar. Mismo trato silencioso que el honeypot en ambos casos
+// (responder OK sin mandar nada), para no delatar el chequeo.
 app.MapPost("/api/contacto", async (HttpRequest request, IEmailService emailService, IConfiguration configuration, ILogger<Program> logger) =>
 {
     var form = await request.ReadFormAsync();
     string Campo(string nombre) => form[nombre].ToString().Trim();
 
     if (!string.IsNullOrEmpty(Campo("_empresa")))
+    {
+        return Results.Redirect("/?contacto=ok");
+    }
+
+    if (!long.TryParse(Campo("_ts"), out var tsEnvioMs)
+        || DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - tsEnvioMs < 2500)
     {
         return Results.Redirect("/?contacto=ok");
     }
@@ -408,7 +449,7 @@ app.MapPost("/api/contacto", async (HttpRequest request, IEmailService emailServ
         logger.LogError(ex, "Error enviando el formulario de contacto de la landing.");
         return Results.Redirect("/?contacto=error");
     }
-}).AllowAnonymous().DisableAntiforgery();
+}).AllowAnonymous().DisableAntiforgery().RequireRateLimiting("contact-form");
 
 // Completa el autologin de /register-admin, /accept-invitation (email nuevo) e
 // /invitation/{code} -- las tres crean la cuenta y "loguean" al usuario desde un

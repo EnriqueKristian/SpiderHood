@@ -500,6 +500,7 @@
           <label for="_empresa">No completar este campo</label>
           <input type="text" id="_empresa" name="_empresa" tabindex="-1" autocomplete="off">
         </div>
+        <input type="hidden" id="_ts" name="_ts" value="">
         <input type="text" name="nombre" placeholder="Nombre y apellidos" required>
         <input type="email" name="email" placeholder="Correo electrónico" required>
         <input type="tel" name="telefono" placeholder="Teléfono de contacto">
@@ -540,6 +541,19 @@
 </footer>
 
 <script>
+  // Segunda pata del anti-spam del formulario de contacto, junto con el honeypot
+  // _empresa (ver Program.cs) -- un bot que llena TODOS los inputs (ocultos
+  // incluidos, honeypot incluido) igual no ejecuta este JS antes de enviar, así
+  // que _ts le queda vacío -- y aunque lo ejecute, envía en milisegundos, muy
+  // por debajo de lo que tarda una persona real en completar el formulario. El
+  // servidor rechaza silenciosamente (mismo trato que el honeypot, sin tipear
+  // nada distinto que delate el chequeo) si _ts falta o el envío fue demasiado
+  // rápido.
+  (function () {
+    var campoTs = document.getElementById('_ts');
+    if (campoTs) campoTs.value = Date.now().toString();
+  })();
+
   // El formulario de #contacto es un <form method="post"> plano (sin fetch/JS) --
   // el navegador recarga la página con ?contacto=ok|error después de que
   // /api/contacto procesa el envío. Esto sólo muestra ese resultado.

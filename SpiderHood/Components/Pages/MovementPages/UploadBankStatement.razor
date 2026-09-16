@@ -34,6 +34,33 @@
             <!-- Card principal -->
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
+                    @* Tipo de cambio del lote -- sólo cuando la cuenta elegida es de otra
+                       moneda que el edificio (ver Docs/Pendientes-Negocio-Consolidado.md #5).
+                       Un solo valor para TODO el archivo cargado, no por fila. Vive FUERA del
+                       bloque isLoaded de abajo a propósito: antes, si guardabas sin completar
+                       este campo, SaveData rechazaba con un mensaje pidiendo completarlo, pero
+                       el campo mismo ya estaba oculto (isLoaded pasa a false apenas se procesa
+                       un archivo, ocultando junto con él TODA la sección de arriba) -- no había
+                       forma de corregirlo sin adivinar que había que tocar "Limpiar datos"
+                       primero. Al vivir afuera, sigue visible/editable en todo momento mientras
+                       haya una cuenta de otra moneda elegida. *@
+                    @if (RequiereTipoCambio)
+                    {
+                        <div class="mb-4">
+                            <label class="form-label">Tipo de cambio aplicado (@CuentaSeleccionadaMoneda &rarr; @(ParameterService.CurrentBuilding?.Configuration.Currency)) *</label>
+                            <input type="number" step="0.000001" min="0.000001" class="form-control" style="max-width: 260px;"
+                                   @bind="exchangeRate" @bind:event="oninput" />
+                            <small class="text-muted">
+                                El tipo de cambio real que aplicó el banco a este estado de cuenta -- se usa para convertir
+                                todas las filas de este archivo a @(ParameterService.CurrentBuilding?.Configuration.Currency)
+                                en Conciliación y Reportes. @if (ultimoTipoCambioUsado.HasValue)
+                                {
+                                    <a href="javascript:void(0)" @onclick="() => exchangeRate = ultimoTipoCambioUsado">Usar el último aplicado (@ultimoTipoCambioUsado?.ToString("N6"))</a>
+                                }
+                            </small>
+                        </div>
+                    }
+
                     @if (isLoaded)
                     {
                         <!-- Selección de cuenta bancaria -->
@@ -59,26 +86,6 @@
                                 <small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Selecciona una cuenta bancaria para habilitar la carga del archivo.</small>
                             }
                         </div>
-
-                        <!-- Tipo de cambio del lote -- sólo cuando la cuenta elegida es de otra
-                             moneda que el edificio (ver Docs/Pendientes-Negocio-Consolidado.md #5).
-                             Un solo valor para TODO el archivo cargado, no por fila. -->
-                        @if (RequiereTipoCambio)
-                        {
-                            <div class="mb-4">
-                                <label class="form-label">Tipo de cambio aplicado (@CuentaSeleccionadaMoneda &rarr; @(ParameterService.CurrentBuilding?.Configuration.Currency)) *</label>
-                                <input type="number" step="0.000001" min="0.000001" class="form-control" style="max-width: 260px;"
-                                       @bind="exchangeRate" @bind:event="oninput" />
-                                <small class="text-muted">
-                                    El tipo de cambio real que aplicó el banco a este estado de cuenta -- se usa para convertir
-                                    todas las filas de este archivo a @(ParameterService.CurrentBuilding?.Configuration.Currency)
-                                    en Conciliación y Reportes. @if (ultimoTipoCambioUsado.HasValue)
-                                    {
-                                        <a href="javascript:void(0)" @onclick="() => exchangeRate = ultimoTipoCambioUsado">Usar el último aplicado (@ultimoTipoCambioUsado?.ToString("N6"))</a>
-                                    }
-                                </small>
-                            </div>
-                        }
 
                         <!-- Sección de carga de archivo -->
                         <div class="mb-5">

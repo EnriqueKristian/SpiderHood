@@ -1578,8 +1578,14 @@
 
         foreach (var transaccion in transacciones.Where(t => t.ReconciliationStatus == ReconciliationType.NoConciliada && t.Amount < 0))
         {
-            // Buscar gastos con monto similar (±10%)
-            var montoTransaccion = Math.Abs(transaccion.Amount);
+            // Buscar gastos con monto similar (±10%) -- AmountInReportingCurrency, no Amount:
+            // gastosPendientes/cuotaspendientes siempre están en la moneda de reporte del
+            // edificio, así que comparar contra el monto nativo de una transacción en otra
+            // moneda (ej. USD) los hacía casi nunca calzar, o peor, calzar por coincidencia
+            // numérica con algo que en realidad no tiene nada que ver (100 USD vs S/ 100).
+            // Para una cuenta en la misma moneda que el edificio, AmountInReportingCurrency
+            // es un espejo exacto de Amount, sin cambio de comportamiento.
+            var montoTransaccion = Math.Abs(transaccion.AmountInReportingCurrency);
             var posiblesMatches = gastosPendientes
                 .Where(g => Math.Abs(g.Amount - montoTransaccion) / montoTransaccion <= 0.1m)
                 .OrderBy(g => Math.Abs(g.Amount - montoTransaccion))
@@ -1601,8 +1607,9 @@
 
         foreach (var transaccion in transacciones.Where(t => t.ReconciliationStatus == ReconciliationType.NoConciliada && t.Amount > 0))
         {
-            // Buscar gastos con monto similar (±10%)
-            var montoTransaccion = Math.Abs(transaccion.Amount);
+            // Buscar cuotas con monto similar (±10%) -- ver el mismo comentario de
+            // AmountInReportingCurrency en el bloque de Gastos, arriba.
+            var montoTransaccion = Math.Abs(transaccion.AmountInReportingCurrency);
             var posiblesMatches = cuotaspendientes
                 .Where(g => Math.Abs(g.Amount - montoTransaccion) / montoTransaccion <= 0.1m)
                 .OrderBy(g => Math.Abs(g.Amount - montoTransaccion))
@@ -1991,10 +1998,15 @@
         if (!_canReconcileExpenses) return;
         transaccionSeleccionada = transaccion;
 
-        // Filtrar gastos pendientes para esta transacción
+        // Filtrar gastos pendientes para esta transacción -- AmountInReportingCurrency,
+        // mismo motivo que en FindMatches: gastosPendientes siempre está en la moneda de
+        // reporte del edificio, comparar contra el monto nativo de una transacción en otra
+        // moneda no tiene sentido (para una cuenta en la misma moneda es un espejo exacto
+        // de Amount, sin cambio de comportamiento).
+        var montoReferencia = Math.Abs(transaccion.AmountInReportingCurrency);
         gastosParaConciliar = gastosPendientes
-            .Where(g => Math.Abs(g.Amount - Math.Abs(transaccion.Amount)) / Math.Abs(transaccion.Amount) <= 0.2m)
-            .OrderBy(g => Math.Abs(g.Amount - Math.Abs(transaccion.Amount)))
+            .Where(g => Math.Abs(g.Amount - montoReferencia) / montoReferencia <= 0.2m)
+            .OrderBy(g => Math.Abs(g.Amount - montoReferencia))
             .ToList();
 
         //gastosParaConciliar = gastosPendientes;
@@ -2108,7 +2120,12 @@
             {
                 IdExpense = Guid.NewGuid(),
                 Description = transaccion.Description,
-                Amount = Math.Abs(transaccion.Amount),
+                // AmountInReportingCurrency, no Amount: Expense.Amount siempre se asume en
+                // la moneda de reporte del edificio en todo el resto de la app (Budget,
+                // Reportes) -- un gasto generado desde una transacción en otra moneda tiene
+                // que nacer ya convertido, si no el monto queda mudo de moneda (100 USD
+                // pasaba a ser "100" a secas, interpretado como S/ 100 en todos lados).
+                Amount = Math.Abs(transaccion.AmountInReportingCurrency),
                 ExpenseDate = transaccion.StatementDate,
                 IdCategory = ParameterService.CurrentBuilding.Configuration.DefaultCategory.GetValueOrDefault(),
                 IdBuilding = ParameterService.CurrentBuilding.IdBuilding,

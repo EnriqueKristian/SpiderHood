@@ -374,3 +374,14 @@ FodyWeavers.xsd
 **/appsettings.Local.json
 **/appsettings.*.local.json
 **/appsettings.*.json
+
+# Piloto Móvil (Docs/Pendientes-Negocio-Consolidado.md #22) -- Digital Asset
+# Links con la huella SHA-256 del keystore usado para firmar el APK/AAB del
+# TWA. Igual que las credenciales de arriba: es específico del build/firma
+# de cada persona (o cambia si se re-firma con otro keystore), así que no
+# va al repo compartido. OJO: este archivo SÍ tiene que terminar publicado
+# en https://spiderhoodapp.com/.well-known/assetlinks.json (Android lo
+# busca ahí para verificar la app) -- al no trackearlo acá, hace falta
+# subirlo al servidor por fuera de este repo (deploy manual, o el proceso
+# que se use para publicar wwwroot).
+**/.well-known/assetlinks.json

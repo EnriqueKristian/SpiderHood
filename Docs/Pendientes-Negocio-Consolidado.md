@@ -1435,17 +1435,55 @@ flujo) ya está confirmada en el texto vigente del decreto y no debería
 cambiar.
 
 ### 22. Piloto para Móvil
-**Estado: ya diagnosticado en detalle en `Docs/Design-Piloto-Mobile-Android.md`
--- no hace falta repetirlo acá, sólo lo que cambió con el pedido de hoy.**
+**Estado: Fase 1 (PWA/TWA, Opción A) implementada 2026-09-16 -- manifest,
+iconos, service worker, menú de Junta y auditoría responsive, todo hecho.**
 
-Ese documento ya cubre arquitectura (Opción A PWA/TWA ahora → Opción B MAUI
-Blazor Hybrid después), qué pantallas de Residente reusar, y deja abierta la
-pregunta de storage de fotos (ver punto 18 de acá arriba, ya resuelta con la
-recomendación de este documento). Lo que ese documento **no** cubre todavía,
-a raíz de lo pedido ahora (ver sección "Plan de lanzamiento" más abajo): el
-rol **Junta** no estaba en su alcance (sólo evaluó Residente) -- falta sumar
-qué pantallas/acciones de Junta entran al piloto mobile y con qué nivel de
-madurez (sólo lectura vs. acciones como aprobar gastos).
+Ese documento (`Docs/Design-Piloto-Mobile-Android.md`) ya cubre arquitectura
+(Opción A PWA/TWA ahora → Opción B MAUI Blazor Hybrid después) y qué
+pantallas de Residente reusar. Lo agregado en esta sesión:
+
+- **Instalabilidad PWA**: `manifest.json` + `sw.js` (passthrough, sin cache
+  -- Blazor Server no tiene modo offline real, ver comentario en el archivo)
+  + iconos (192/512 + maskable + apple-touch-icon, recortados del logo
+  existente) + meta tags, wireados tanto en `App.razor` (app autenticada)
+  como en `wwwroot/index.html` (landing pública).
+- **Junta sumado al alcance**: `Portal del Residente → Calendario` e
+  `Incidencias` ya tenían lógica Junta-aware. `Ver presupuesto` no existía
+  para NADIE en el menú (ni Residente) -- olvido al agregar la pantalla, no
+  una decisión (script `2026-09-16_131`). Ahora Junta y Residente lo ven,
+  mismo camino de solo-lectura (`ViewBudget.razor`, no el
+  `/budgetlist` de administración).
+- **Auditoría responsive** (las 4 pantallas del piloto: Ver Presupuesto,
+  Calendario, Mis Pagos, Mis Recibos), renderizadas con Playwright a 390px
+  de ancho con datos reales (usuario Residente y Junta de prueba en la BD
+  local), no solo lectura de código:
+  - Sin scroll horizontal de página en ninguna (`scrollWidth == clientWidth`
+    en las 4, para ambos roles).
+  - Las tablas (`.table-responsive` de Bootstrap) sí desbordan su propio
+    contenedor a este ancho -- columnas como "Estado" o "Aplicado a" quedan
+    fuera de la vista inicial, pero son alcanzables deslizando el dedo
+    (`overflow-x: auto` funciona, confirmado). Punto débil real: no hay
+    ninguna señal visual (sombra/flecha) de que hay más columnas a la
+    derecha -- un usuario nuevo puede no darse cuenta. Pulido menor, no
+    bloqueante para el piloto.
+  - Los 2 modales probados (`BudgetDetailModal` en Ver Presupuesto,
+    "Programar Item" en Calendario) encajan bien en 390px -- sin overflow,
+    scrollean su contenido correctamente, botones de acción con tamaño de
+    toque razonable.
+  - El menú hamburguesa (`navbar-toggler` / `LeftMenu.razor`) abre limpio,
+    sin overflow, y confirma en vivo que Junta ya ve "Ver presupuesto".
+  - "Ver Detalle" en Mis Recibos / Ver Presupuesto no es un modal -- genera
+    y abre un PDF en pestaña nueva (mismo flujo que el punto #28 de arriba),
+    comportamiento esperado.
+
+  **Pendiente, no bloqueante**: agregar alguna señal visual de scroll
+  horizontal en las tablas (sombra en el borde derecho es el patrón más
+  simple) si en el piloto real se ve que la gente no descubre las columnas
+  ocultas.
+
+Lo que sigue sin cubrir este documento: empaquetado TWA (Bubblewrap/Android
+Studio) y publicación en Play Store -- fuera de lo que se puede ejecutar
+desde este entorno, queda para cuando se llegue a esa etapa.
 
 ### 23. Auditar otras pantallas por el mismo bug de "no recarga al cambiar de Id en la URL"
 *(Nuevo 2026-09-11 -- sospecha sin confirmar, sólo se corrigió el caso
@@ -1744,7 +1782,7 @@ que confirme si mejoró y en qué medida.
 | 19 | Login social Google/Microsoft/Facebook/Apple | Media* | **Resuelto** (2026-09-16) |
 | 20 | Reportes de Incidencias | Media* | Código (patrón ya existe) |
 | 21 | Reservas **IMPLEMENTADO**; Gobernanza (Reuniones/Votación/Actas) **COMPLETO y probado end-to-end** (2026-09-15); Encuestas y "Citas" quedan afuera (decisión del usuario) | Baja-Media* | **Resuelto**, falta correr scripts en BD real y probar con datos reales |
-| 22 | Piloto Móvil (sumar alcance de Junta) | Alta* | Diseño + código |
+| 22 | Piloto Móvil (PWA/TWA Fase 1 + alcance de Junta + auditoría responsive) | Alta* | **Resuelto** (2026-09-16); falta empaquetar TWA y publicar en Play Store cuando se llegue a esa etapa |
 | 23 | Auditar otras pantallas por el bug "no recarga al cambiar Id en URL" | Baja | Investigación |
 | 24 | Configuración de Edificio: página propia con Tabs -- estructura **HECHA**, falta **rediseño visual** (usuario esperaba más que mover cards a pestañas) | Media | Diseño UI |
 | 25 | Email y WhatsApp: **funcionando de verdad** (Brevo, confirmado 2026-09-16); quedan 2 flujos que no mandan nada por código (independiente del proveedor) | Alta | **Resuelto**, decisión pendiente sólo sobre esos 2 flujos |

@@ -664,6 +664,20 @@ namespace SpiderHood.Models
         // filtran por IdGroupUnit al armar cada recibo, igual que _waterReadings.
         private readonly List<Installment> _cargosAdicionales;
 
+        // Docs/Pendientes-Negocio-Consolidado.md #28 -- antes CalculateItemAmount usaba
+        // _building.Apartments como divisor (un conteo declarado a mano, no
+        // necesariamente igual a la cantidad real de unidades facturables) y no pesaba
+        // los ítems Fijos/Agua por la cantidad de unidades del grupo (pesoFija) -- así
+        // que una cuota como la de "Inmobiliaria" (que agrupa varias unidades sin
+        // vender) se veía subestimada en el PDF/modal aunque el monto real cobrado
+        // (Installment.Amount, calculado por BudgetCalculator.CalculateQuota) fuera
+        // correcto. Mismo filtro (Role==1, Depto/Oficina) y misma fuente
+        // (GetOwnersByBuildingAsync) que usa BudgetService.LoadDataDefaultAsync, para
+        // que _totalApartments y _unitCountByGroup salgan iguales a los que se usaron
+        // quota calculando el monto real.
+        private readonly int _totalApartments;
+        private readonly Dictionary<Guid, int> _unitCountByGroup;
+
         public InstallmentExportService(
             List<Installment> installments,
             BudgetHeader budget,
@@ -671,6 +685,7 @@ namespace SpiderHood.Models
             List<Exoneration> exonerations,
             Building building,
             List<Category> categories,
+            List<OwnerUnitView> owners,
             List<Installment>? cargosAdicionales = null)
         {
             _installments = installments;
@@ -680,6 +695,15 @@ namespace SpiderHood.Models
             _building = building;
             _categories = categories;
             _cargosAdicionales = cargosAdicionales ?? new();
+
+            var unidadesFacturables = owners
+                .Where(o => o.Role == 1 && (o.TypeUnit == 1 || o.TypeUnit == 4))
+                .ToList();
+            _totalApartments = unidadesFacturables.Select(o => o.IdUnit).Distinct().Count();
+            _unitCountByGroup = unidadesFacturables
+                .GroupBy(o => o.IdGroupUnit)
+                .ToDictionary(g => g.Key, g => g.Select(o => o.IdUnit).Distinct().Count());
+
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
@@ -1145,14 +1169,21 @@ namespace SpiderHood.Models
         }
 
         // Misma fórmula que InstallmentDetailModal.CalculateQuote, para que el PDF cuadre
-        // exactamente con lo que ya se ve en pantalla en el detalle de cuota.
+        // exactamente con lo que ya se ve en pantalla en el detalle de cuota. Y la misma
+        // que BudgetCalculator.CalculateQuota (la que de verdad calculó
+        // _installment.Amount) -- ver comentario de _totalApartments/_unitCountByGroup
+        // arriba: sin pesar por pesoFija, una cuota que agrupa más de 1 unidad (ej. el
+        // grupo Inmobiliaria) salía subestimada acá aunque el monto real cobrado fuera
+        // correcto (Docs/Pendientes-Negocio-Consolidado.md #28).
         private decimal CalculateItemAmount(BudgetDetail item)
         {
+            var pesoFija = GetUnitCount(_installment.IdGroupUnit);
+
             if (item.IdCategory == _building.Configuration.WaterReadingDefault && _waterReadings.Any())
             {
                 var totalWaterConsumption = _waterReadings.Sum(w => w.CalculatedAmount);
                 var inverseNroGroupUnit = GetTotalUnits() > 0 ? 1m / GetTotalUnits() : 0;
-                return Math.Round(Math.Abs(item.MonthlyAmount - totalWaterConsumption) * inverseNroGroupUnit, 2);
+                return Math.Round(Math.Abs(item.MonthlyAmount - totalWaterConsumption) * inverseNroGroupUnit * pesoFija, 2);
             }
 
             var idGroupUnitExonerado = _exonerations
@@ -1167,13 +1198,21 @@ namespace SpiderHood.Models
 
             var nroExcepciones = _exonerations.Count(c => c.IdCategory == item.IdCategory);
             var total = item.Type == 1
-                ? item.MonthlyAmount / (GetTotalUnits() - nroExcepciones)
+                ? item.MonthlyAmount / (GetTotalUnits() - nroExcepciones) * pesoFija
                 : item.MonthlyAmount * (_installment.Percent / 100);
 
             return Math.Round(total, 2);
         }
 
-        private int GetTotalUnits() => _building.Apartments;
+        private int GetTotalUnits() => _totalApartments;
+
+        // Cantidad de unidades reales (Depto/Oficina) que agrupa este Installment --
+        // 1 para el caso normal (un propietario, una unidad); >1 para grupos como
+        // Inmobiliaria (varias unidades sin vender) o un propietario con más de un
+        // Depto/Oficina bajo el mismo IdGroupUnit. Default a 1 si el grupo no aparece
+        // en los datos de propietarios cargados (no debería pasar con owners real).
+        private int GetUnitCount(Guid idGroupUnit) =>
+            _unitCountByGroup.TryGetValue(idGroupUnit, out var count) && count > 0 ? count : 1;
 
         private string TipoDescripcion(InstallmentType tipo) => tipo switch
         {

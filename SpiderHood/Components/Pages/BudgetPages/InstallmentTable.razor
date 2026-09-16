@@ -488,6 +488,13 @@
                 ? await ExtraChargeService.GetAdditionalChargesAsync(ParameterService.CurrentBuilding.IdBuilding, Installments ?? new())
                 : new List<Installment>();
 
+            // Docs/Pendientes-Negocio-Consolidado.md #28 -- InstallmentExportService
+            // necesita saber cuántas unidades reales agrupa cada cuota (Inmobiliaria,
+            // etc.) para no subestimar el desglose Fijo/Agua del recibo.
+            var owners = ParameterService.CurrentBuilding != null
+                ? await BuildingService.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding)
+                : new List<OwnerUnitView>();
+
             // Inicializar servicio de exportación
             _exportService = new InstallmentExportService(
             Installments!,
@@ -496,6 +503,7 @@
             Exonerations!,
             ParameterService.CurrentBuilding!,
             categorias,
+            owners,
             cargosAdicionales
         );
 

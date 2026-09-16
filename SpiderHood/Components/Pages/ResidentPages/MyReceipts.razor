@@ -403,6 +403,10 @@
                 ? await ExtraChargeService.GetAdditionalChargesAsync(ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { item })
                 : new List<Installment>();
 
+            // Docs/Pendientes-Negocio-Consolidado.md #28 -- necesario para no
+            // subestimar el desglose Fijo/Agua de cuotas que agrupan más de 1 unidad.
+            var owners = await BuildingService.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+
             var exportService = new InstallmentExportService(
                 new List<Installment> { item },
                 budget,
@@ -410,6 +414,7 @@
                 exonerations,
                 ParameterService.CurrentBuilding,
                 categorias,
+                owners,
                 cargosAdicionales);
 
             // Docs/Pendientes-Negocio-Consolidado.md #18b -- si ya se generó antes,

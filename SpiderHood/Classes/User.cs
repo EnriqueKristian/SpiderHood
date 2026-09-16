@@ -17,6 +17,11 @@ namespace SpiderHood.Models
         public bool EmailConfirmed { get; set; }
         public List<Building> Buildings { get; set; } = [];
         public string Token { get; set; } = string.Empty;
+
+        // "¿Olvidaste tu contraseña?" (IPasswordResetService) -- columnas propias,
+        // separadas de Token (que usa el confirm-email), para poder expirar el link.
+        public string? PasswordResetToken { get; set; }
+        public DateTime? PasswordResetTokenExpiresAt { get; set; }
     }
 
     public class LoginModel
@@ -245,5 +250,30 @@ namespace SpiderHood.Models
     public class ResendConfirmationModel
     {
         public string Email { get; set; } = string.Empty;
+    }
+
+    public class ForgotPasswordModel
+    {
+        [Required(ErrorMessage = "El email es requerido")]
+        [EmailAddress(ErrorMessage = "Formato de email inválido")]
+        public string Email { get; set; } = string.Empty;
+    }
+
+    public class ResetPasswordModel
+    {
+        [Required(ErrorMessage = "La nueva contraseña es requerida")]
+        [StringLength(100, MinimumLength = 6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres")]
+        [DataType(DataType.Password)]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [DataType(DataType.Password)]
+        [Compare("NewPassword", ErrorMessage = "Las contraseñas no coinciden")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
+    public class PasswordResetResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

@@ -99,6 +99,7 @@ namespace SpiderHood.Data
             public const string UPD_MenuItem = "UPD_MenuItem";
             public const string UPD_UserToken = "UPD_UserToken";
             public const string UPD_UserPassword = "UPD_UserPassword";
+            public const string UPD_UserPasswordResetToken = "UPD_UserPasswordResetToken";
             public const string UPD_UserBuildingUnit = "UPD_UserBuildingUnit";
             public const string UPD_Building = "UPD_Building";
             public const string UPD_BudgetDetail = "UPD_BudgetDetail";

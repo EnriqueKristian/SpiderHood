@@ -96,6 +96,23 @@ namespace SpiderHood.Data
             }, "UpdateTokenUser", cancellationToken);
         }
 
+        // "¿Olvidaste tu contraseña?" (IPasswordResetService) -- token+expiración en
+        // columnas propias, no en Token (esa la usa el confirm-email). token/expiresAt
+        // en null borra el link (se usa así apenas se consume, para que no sea reusable).
+        public async Task<bool> UpdateUserPasswordResetTokenAsync(Guid idUser, string? token, DateTime? expiresAt, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_UserPasswordResetToken,
+                    cancellationToken,
+                    idUser,
+                    token,
+                    expiresAt);
+                return true;
+            }, "UpdateUserPasswordResetToken", cancellationToken);
+        }
+
         // Persiste un password hash nuevo (usado para migrar transparentemente
         // usuarios con hash legado SHA-256 al formato PasswordHasher/PBKDF2
         // cuando hacen login exitosamente).

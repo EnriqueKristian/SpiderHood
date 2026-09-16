@@ -239,6 +239,7 @@ builder.Services.AddScoped<IMeetingService, MeetingService>();
 builder.Services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<IReceiptStorageService, ReceiptStorageService>();
 builder.Services.AddScoped<IEmailConfirmationService, EmailConfirmationService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IPermissionAdminService, PermissionAdminService>();
 builder.Services.AddScoped<IMenuAdminService, MenuAdminService>();

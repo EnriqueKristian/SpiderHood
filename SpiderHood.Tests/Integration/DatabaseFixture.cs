@@ -18,6 +18,13 @@ public sealed class DatabaseFixture
 
     private readonly IDbContextFactory<SpiderHoodContext>? _contextFactory;
 
+    // Cachea, la primera vez que se pide, el IdBuilding de un edificio activo real de la
+    // base restaurada -- así los tests que necesitan un Guid de edificio no lo hardcodean
+    // (cualquier instalación/backup que se restaure sirve) ni disparan una consulta nueva
+    // cada vez. Lazy<T> es thread-safe por default: si dos tests lo piden a la vez, sólo
+    // una llamada real corre y las demás esperan la misma Task.
+    private readonly Lazy<Task<Guid>>? _anyBuildingId;
+
     public DatabaseFixture()
     {
         var connectionString = TryReadConnectionString();
@@ -44,6 +51,7 @@ public sealed class DatabaseFixture
 
             _contextFactory = factory;
             IsAvailable = true;
+            _anyBuildingId = new Lazy<Task<Guid>>(FetchAnyBuildingIdAsync);
         }
         catch (Exception ex)
         {
@@ -57,6 +65,21 @@ public sealed class DatabaseFixture
             throw new InvalidOperationException("La base de datos de pruebas no está disponible -- revisar IsAvailable/SkipReason antes de llamar esto.");
 
         return new BDLayout(_contextFactory);
+    }
+
+    // Para tests de módulos "por edificio" (Owners, Categorías, Presupuestos, etc.) que
+    // necesitan CUALQUIER edificio real, no uno específico -- evita tener que sembrar
+    // datos propios o conocer de antemano el Guid de un edificio del backup restaurado.
+    public Task<Guid> GetAnyBuildingIdAsync() =>
+        _anyBuildingId?.Value ?? throw new InvalidOperationException("La base de datos de pruebas no está disponible.");
+
+    private async Task<Guid> FetchAnyBuildingIdAsync()
+    {
+        var buildings = await CreateBDLayout().GetAllBuildingsPublicAsync();
+        if (buildings.Count == 0)
+            throw new InvalidOperationException("No hay edificios activos en la base de datos de pruebas -- GetAnyBuildingIdAsync necesita al menos uno.");
+
+        return buildings[0].IdBuilding;
     }
 
     private static string? TryReadConnectionString()

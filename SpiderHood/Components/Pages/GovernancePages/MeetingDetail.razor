@@ -381,6 +381,22 @@
 
                     @{ var rondaAbierta = _votaciones.FirstOrDefault(v => v.Estado == VotingRoundStatus.Abierta); }
 
+                    @if (!_puedeGestionar && rondaAbierta != null)
+                    {
+                        @if (_miUnidadId != null && _reunion!.Asistentes.Any(a => a.IdGroupUnit == _miUnidadId))
+                        {
+                            <div class="alert alert-info py-2 px-3">
+                                <i class="bi bi-check2-square me-1"></i>Podés votar en la fila resaltada de la tabla mientras la ronda siga abierta.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-secondary py-2 px-3">
+                                <i class="bi bi-info-circle me-1"></i>Tu unidad no está registrada como asistente de esta reunión, así que no podés votar en esta ronda.
+                            </div>
+                        }
+                    }
+
                     @if (_puedeGestionar && rondaAbierta == null && _votacionItem.Estado == AgendaItemStatus.Pendiente)
                     {
                         <div class="text-center py-3 d-flex justify-content-center gap-2">
@@ -411,8 +427,9 @@
                                         @foreach (var asistente in _reunion!.Asistentes)
                                         {
                                             var votoActual = rondaAbierta.Votes.FirstOrDefault(v => v.IdGroupUnit == asistente.IdGroupUnit);
-                                            <tr>
-                                                <td>@asistente.NombreUnidad</td>
+                                            var esMiUnidad = !_puedeGestionar && _miUnidadId != null && asistente.IdGroupUnit == _miUnidadId;
+                                            <tr class="@(esMiUnidad ? "table-primary" : "")">
+                                                <td>@asistente.NombreUnidad @(esMiUnidad ? "(vos)" : "")</td>
                                                 <td class="text-end">@asistente.Alicuota.ToString("0.####")%</td>
                                                 <td>
                                                     @if (_puedeGestionar)
@@ -420,6 +437,17 @@
                                                         <select class="form-select form-select-sm" style="width:auto"
                                                                 value="@(votoActual?.Opcion.ToString() ?? "")"
                                                                 @onchange="(e) => RegistrarVote(rondaAbierta.IdVotingRound, asistente.IdGroupUnit, e.Value?.ToString())">
+                                                            <option value="">-- sin votar --</option>
+                                                            <option value="@VoteOption.AFavor">A favor</option>
+                                                            <option value="@VoteOption.EnContra">En contra</option>
+                                                            <option value="@VoteOption.Abstencion">Abstención</option>
+                                                        </select>
+                                                    }
+                                                    else if (esMiUnidad)
+                                                    {
+                                                        <select class="form-select form-select-sm" style="width:auto"
+                                                                value="@(votoActual?.Opcion.ToString() ?? "")"
+                                                                @onchange="(e) => RegistrarVotoPropio(rondaAbierta.IdVotingRound, e.Value?.ToString())">
                                                             <option value="">-- sin votar --</option>
                                                             <option value="@VoteOption.AFavor">A favor</option>
                                                             <option value="@VoteOption.EnContra">En contra</option>
@@ -518,10 +546,17 @@
     private string? _mensajeVotingRound;
     private bool _mensajeVotingRoundEsError;
 
+    // Resuelto server-side (mismo mecanismo que Mis Recibos/Mis Deudas, ver
+    // AuthService.GetCurrentUnitIdAsync) -- nunca viene de un valor que el cliente
+    // pueda manipular, así que sirve como identidad confiable de "mi unidad" para
+    // habilitar el voto self-service sin depender de nada que mande el navegador.
+    private Guid? _miUnidadId;
+
     protected override async Task OnInitializedAsync()
     {
         _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
         _puedeGestionar = await PermissionService.HasPermissionAsync(_currentUser, "manage_meetings");
+        _miUnidadId = await AuthService.GetCurrentUnitIdAsync();
         await CargarAsync();
         _loading = false;
     }
@@ -805,6 +840,29 @@
         try
         {
             await MeetingService.RegistrarVoteAsync(idVotingRound, idGroupUnit, opcion, _currentUser.IdUser);
+            _votaciones = await MeetingService.GetVotingRoundsAsync(_votacionItem.IdAgendaItem);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _mensajeVotingRound = ex.Message;
+            _mensajeVotingRoundEsError = true;
+        }
+    }
+
+    // Feedback del usuario: hoy solo quien dirige la reunión carga los votos --
+    // se habilita que cada residente vote por su propia unidad mientras la ronda
+    // siga Abierta. _miUnidadId se resuelve server-side (AuthService.GetCurrentUnitIdAsync,
+    // nunca un valor que mande el cliente), así que no hace falta un método de
+    // servicio aparte: RegistrarVoteAsync ya valida que la unidad esté registrada
+    // como Attendance, y la Junta sigue pudiendo corregir cualquier voto después
+    // (mismo upsert de siempre -- decisión confirmada con el usuario).
+    private async Task RegistrarVotoPropio(Guid idVotingRound, string? opcionTexto)
+    {
+        if (_votacionItem == null || string.IsNullOrEmpty(opcionTexto) || _miUnidadId == null) return;
+        var opcion = Enum.Parse<VoteOption>(opcionTexto);
+        try
+        {
+            await MeetingService.RegistrarVoteAsync(idVotingRound, _miUnidadId.Value, opcion, _currentUser.IdUser);
             _votaciones = await MeetingService.GetVotingRoundsAsync(_votacionItem.IdAgendaItem);
         }
         catch (InvalidOperationException ex)

@@ -1,5 +1,3 @@
-using SpiderHood.Data;
-
 namespace SpiderHood.Tests.Integration;
 
 // Métodos GET_* "por edificio" de BDLayout, cubriendo el resto de los módulos de
@@ -168,28 +166,24 @@ public class BDLayoutBuildingScopedReadOnlyTests
         Assert.All(periods, p => Assert.Equal(buildingId, p.IdBuilding));
     }
 
-    // BUG REAL encontrado al escribir este test (no arreglado acá a propósito -- el
-    // pedido era ampliar cobertura de tests, no tocar Stored Procedures de producción):
-    // GET_ExpensesByBuilding no selecciona la columna RequiresExpenseCreation que
-    // ViewExpense sí mapea (a diferencia de GET_PendingConciliationExpenses, que sí la
-    // trae desde Database/Scripts/2026-09-14_101_Fix_GET_PendingConciliationExpenses_
-    // RequiresExpenseCreation.sql -- ver el comentario en ViewExpense.cs). Como
-    // ExpensePage.razor llama exactamente este método para cargar /expense
-    // (ExpenseService.GetExpensesByBuildingAsync, línea ~434), HOY esa página tira
-    // excepción para cualquier edificio con este esquema. Este test documenta el bug
-    // en vez de esconderlo: si alguien arregla el SP (agregando la columna, ej.
-    // `CAST(0 AS BIT) AS RequiresExpenseCreation`), este test se pondrá en rojo -- esa
-    // es la señal de que hay que actualizarlo para volver a esperar éxito.
+    // Regresión del bug real encontrado al escribir este test: GET_ExpensesByBuilding
+    // no seleccionaba la columna RequiresExpenseCreation que ViewExpense mapea (a
+    // diferencia de GET_PendingConciliationExpenses, arreglado antes en
+    // Database/Scripts/2026-09-14_101_..._RequiresExpenseCreation.sql) -- rompía
+    // ExpensePage.razor (/expense) para cualquier edificio. Corregido en
+    // Database/Scripts/2026-09-16_129_Fix_GET_ExpensesByBuilding_
+    // RequiresExpenseCreation.sql -- este test se queda como regresión: si alguien
+    // vuelve a romper la columna, esto falla antes de que lo note un usuario real.
     [SkippableFact]
-    public async Task GetExpensesByBuildingAsync_CurrentlyFailsBecauseTheStoredProcedureIsMissingAColumn()
+    public async Task GetExpensesByBuildingAsync_DoesNotThrow()
     {
         Skip.IfNot(_fixture.IsAvailable, _fixture.SkipReason);
         var buildingId = await _fixture.GetAnyBuildingIdAsync();
 
-        var ex = await Assert.ThrowsAsync<RepositoryException>(
-            () => _fixture.CreateBDLayout().GetExpensesByBuildingAsync(buildingId));
+        var expenses = await _fixture.CreateBDLayout().GetExpensesByBuildingAsync(buildingId);
 
-        Assert.Contains("RequiresExpenseCreation", ex.InnerException?.Message ?? ex.Message);
+        Assert.NotNull(expenses);
+        Assert.All(expenses, e => Assert.False(e.RequiresExpenseCreation));
     }
 
     [SkippableFact]

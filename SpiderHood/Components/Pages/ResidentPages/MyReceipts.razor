@@ -184,16 +184,16 @@
                             <th role="button" @onclick='() => _pagination.SortByColumn("Name")'>
                                 Recibo @_pagination.GetSortIndicator("Name")
                             </th>
-                            <th role="button" @onclick='() => _pagination.SortByColumn("Period")'>
+                            <th class="d-none d-md-table-cell" role="button" @onclick='() => _pagination.SortByColumn("Period")'>
                                 Período @_pagination.GetSortIndicator("Period")
                             </th>
                             <th role="button" @onclick='() => _pagination.SortByColumn("DueDate")'>
                                 Vencimiento @_pagination.GetSortIndicator("DueDate")
                             </th>
-                            <th class="text-end" role="button" @onclick='() => _pagination.SortByColumn("Amount")'>
+                            <th class="text-end d-none d-md-table-cell" role="button" @onclick='() => _pagination.SortByColumn("Amount")'>
                                 Monto @_pagination.GetSortIndicator("Amount")
                             </th>
-                            <th class="text-end" role="button" @onclick='() => _pagination.SortByColumn("AmountPaid")'>
+                            <th class="text-end d-none d-md-table-cell" role="button" @onclick='() => _pagination.SortByColumn("AmountPaid")'>
                                 Pagado @_pagination.GetSortIndicator("AmountPaid")
                             </th>
                             <th class="text-end" role="button" @onclick='() => _pagination.SortByColumn("Debt")'>
@@ -210,10 +210,10 @@
                         {
                             <tr>
                                 <td>@ReceiptPagination.NombreRecibo(item)</td>
-                                <td>@item.Period.ToString("MMM-yy")</td>
+                                <td class="d-none d-md-table-cell">@item.Period.ToString("MMM-yy")</td>
                                 <td>@item.DueDate.ToString("dd/MM/yyyy")</td>
-                                <td class="text-end">@Moneda(item.Amount)</td>
-                                <td class="text-end">@Moneda(item.AmountPaid)</td>
+                                <td class="text-end d-none d-md-table-cell">@Moneda(item.Amount)</td>
+                                <td class="text-end d-none d-md-table-cell">@Moneda(item.AmountPaid)</td>
                                 <td class="text-end">
                                     <span class="@GetDeudaClass(item)">@Moneda(item.Debt)</span>
                                 </td>
@@ -249,6 +249,24 @@
 
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
+
+    // Nombre del PDF descargado -- reportado por el usuario probando el APK real: el
+    // fix de wwwroot/js/fileDownload.js ya evita que Android le ponga un GUID random,
+    // pero ReceiptPagination.NombreRecibo por sí sola ("Recibo Marzo-2026 902") no
+    // alcanza para distinguir edificios una vez que el PDF quedó suelto en el celular
+    // (Descargas) -- un propietario con unidades en más de un edificio no puede saber
+    // de cuál es solo mirando el nombre. Se antepone el edificio acá (en el archivo
+    // descargado), no en NombreRecibo (que sigue usándose para la columna de la tabla
+    // y el buscador, donde el edificio ya es obvio por el selector del header).
+    private string NombreArchivoRecibo(Installment item)
+    {
+        var nombre = $"{ParameterService.CurrentBuilding?.Name} - {ReceiptPagination.NombreRecibo(item)}";
+        foreach (var c in System.IO.Path.GetInvalidFileNameChars())
+        {
+            nombre = nombre.Replace(c, '-');
+        }
+        return nombre;
+    }
 
     private bool _loading = true;
     private Guid? _unitId;
@@ -426,7 +444,7 @@
 
             await JSRuntime.InvokeVoidAsync("openPdfInNewTab",
                 Convert.ToBase64String(pdfBytes),
-                $"{ReceiptPagination.NombreRecibo(item)}.pdf");
+                $"{NombreArchivoRecibo(item)}.pdf");
         }
         catch (Exception ex)
         {

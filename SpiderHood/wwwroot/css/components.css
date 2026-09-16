@@ -272,6 +272,30 @@
 .table-responsive {
     border: 1px solid var(--sh-border);
     border-radius: var(--sh-radius-md);
+    position: relative;
+}
+
+/* Señal de "hay más columnas, deslizá" -- en mobile las tablas angostas
+   (Docs/Pendientes-Negocio-Consolidado.md #22) desbordan su contenedor y se
+   pueden deslizar, pero sin esto no había ninguna pista visual de que había
+   más a la derecha: se veía cortado, no "deslizable". La clase .has-hscroll
+   la agrega/saca wwwroot/js/tableScrollHint.js sólo cuando el contenido
+   realmente desborda, y .at-scroll-end cuando ya se llegó al final. */
+.table-responsive.has-hscroll::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 28px;
+    background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.12));
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.15s ease;
+}
+
+.table-responsive.has-hscroll.at-scroll-end::after {
+    opacity: 0;
 }
 
 /* Alterna filas suavemente en tablas planas (fuera de .table-striped) */

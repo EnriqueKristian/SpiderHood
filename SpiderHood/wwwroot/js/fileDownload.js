@@ -24,6 +24,21 @@ window.openPdfInNewTab = (base64String, fileName) => {
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
+
+    // Piloto Móvil (Docs/Pendientes-Negocio-Consolidado.md #22) -- reportado en el
+    // APK real: instalada como PWA/TWA (manifest.json, display: "standalone") no hay
+    // "pestaña nueva" donde mostrar el blob -- window.open no tiene dónde renderizarlo,
+    // así que Android termina descargándolo él mismo, SIN pasar por este código, con un
+    // nombre random tipo GUID (ignora fileName por completo) y a veces la descarga queda
+    // incompleta ("no se puede abrir"). En standalone forzamos directamente la descarga
+    // CON el nombre correcto en vez de intentar abrir una pestaña que no existe.
+    const isStandalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone) {
+        window.downloadFile(base64String, fileName, 'application/pdf');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        return;
+    }
+
     const opened = window.open(url, '_blank');
     if (!opened) {
         // Bloqueado por el navegador (popup blocker) -- como fallback, al menos

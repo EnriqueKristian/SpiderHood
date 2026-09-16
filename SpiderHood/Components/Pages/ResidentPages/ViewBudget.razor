@@ -58,7 +58,7 @@
                         <tr>
                             <th>Mes</th>
                             <th>Descripción</th>
-                            <th>Tipo</th>
+                            <th class="d-none d-md-table-cell">Tipo</th>
                             <th class="text-end">Total</th>
                             <th>Estado</th>
                             <th></th>
@@ -70,7 +70,7 @@
                             <tr>
                                 <td>@presupuesto.Mes</td>
                                 <td>@presupuesto.BudgetName</td>
-                                <td><span class="@TipoBadgeClass(presupuesto)">@TipoBadgeText(presupuesto)</span></td>
+                                <td class="d-none d-md-table-cell"><span class="@TipoBadgeClass(presupuesto)">@TipoBadgeText(presupuesto)</span></td>
                                 <td class="text-end">@Moneda(presupuesto.Amount)</td>
                                 <td>
                                     <span class="badge bg-secondary">

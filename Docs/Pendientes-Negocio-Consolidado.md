@@ -1727,7 +1727,7 @@ que confirme si mejoró y en qué medida.
 | 6b | Lectura de agua incompleta bloquea publicar (antes era advertencia) | Alta | **Resuelto** (2026-09-11) |
 | 7 | Garantía de reserva de área común | Media | Diseño + código |
 | 8 | Historial de propietarios por periodo | Media | Diseño + código |
-| 9 | `GET_UnitsByType` sin manejar unidades sin grupo | Media | Código |
+| 9 | `GET_UnitsByType` sin manejar unidades sin grupo | Media | **Resuelto** (2026-09-12) |
 | 10 | Estado de Cuenta no crea Gastos categorizados | Media | Diseño + código |
 | 11 | Falta ítem de menú "Permisos" | Media | Configuración |
 | 13 | Causa raíz timeout Conciliación de Pagos | Baja | Investigación |

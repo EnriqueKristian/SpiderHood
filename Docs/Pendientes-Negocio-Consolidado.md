@@ -57,7 +57,8 @@ secas, es la secuencia en la que conviene tocarlos.
    `false`) -- ver detalle del punto 25.
 
 **Grupo 2 -- importante, no bloquea el lanzamiento:**
-6. **#2** Reportes financieros suman transacciones Ignoradas.
+6. **#2** Reportes financieros suman transacciones Ignoradas -- **resuelto
+   (2026-09-16)**, script entregado al usuario para correr en BD real.
 7. **#6** Bug compartido en modales de confirmación (`ConfirmationUtil`) --
    **resuelto (2026-09-11)**, ver detalle del punto 6.
 8. **#11** Falta el ítem de menú "Permisos" -- 5 minutos de configuración.
@@ -80,9 +81,7 @@ secas, es la secuencia en la que conviene tocarlos.
     campos le faltan agregar (ahora es más fácil, hay una página por tab).
 18. **#28** Recibo/Detalle de Cuota subestima el monto cuando la cuota
     agrupa más de una unidad (Inmobiliaria, copropietarios con >1
-    depto/oficina) -- encontrado 2026-09-16 al verificar el punto 1. El
-    monto realmente cobrado (`Installment.Amount`) es correcto; lo que
-    está mal es sólo el PDF y el modal "Ver Detalle".
+    depto/oficina) -- **resuelto (2026-09-16)**.
 
 **Grupo 3 -- baja urgencia, manual, o investigación sin bloqueo real:**
 17. **#16** Verificar URL del menú "Ingresos y Egresos".
@@ -137,11 +136,17 @@ en lo que se MUESTRA/IMPRIME** (no en lo que se cobra) -- ver punto 28.
 ### 2. Reportes financieros suman transacciones "Ignoradas"
 *(Reportes #1, cruza con Conciliación #1)*
 
-El reporte "Ingresos y Egresos" y el gráfico del Dashboard NO excluyen
-transacciones marcadas como "Ignorado" en Conciliación (ej. un error
-bancario revertido) -- siguen sumando en los totales. Requiere exponer
-`Ignored` en `AccountStatementDetailView`/`GET_AccountStatementDetailByHeader`
-(SP no versionado en el repo, hay que pedir su texto real antes de tocarlo).
+**Estado: RESUELTO (2026-09-16).** El reporte "Ingresos y Egresos" y el
+gráfico del Dashboard sumaban transacciones marcadas como "Ignorado" en
+Conciliación (ej. un error bancario revertido) en sus totales. Se agregó
+`Ignored` a `AccountStatementDetailView` y a
+`GET_AccountStatementDetailByHeader` (el SP no estaba versionado en el
+repo -- se tomó su texto real de la BD con `sp_helptext` como punto de
+partida, `Database/Scripts/2026-09-16_130_Fix_GET_
+AccountStatementDetailByHeader_Ignored.sql`), y se filtró `!d.Ignored` en
+`IncomeExpenseReport.razor` y `Home.razor.cs` (gráfico del Dashboard).
+Verificado con test de integración contra un backup real. Script entregado
+al usuario para correr en la BD real.
 
 ### 3. Tolerancia de redondeo en conciliación de cuotas (< S/ 0.05)
 *(Migración #8 — pendiente, sin empezar, "a confirmar si aplica")*
@@ -220,34 +225,34 @@ verificado en un backup restaurado, con test de regresión
 (`BDLayoutBuildingScopedReadOnlyTests.GetExpensesByBuildingAsync_DoesNotThrow`).
 
 ### 28. Recibo/Detalle de Cuota subestima el monto en cuotas de más de una unidad
-*(Encontrado 2026-09-16, verificando el punto 1 a pedido del usuario --
-pendiente, sin empezar)*
+**Estado: RESUELTO (2026-09-16).**
 
 El monto que se **cobra de verdad** (`Installment.Amount`, calculado por
-`BudgetCalculator.CalculateQuota`) es correcto incluso para el grupo
+`BudgetCalculator.CalculateQuota`) ya era correcto incluso para el grupo
 Inmobiliaria (ver punto 1) -- pesa los ítems Fijos y el diferencial de Agua
-por `pesoFija` (cantidad de unidades distintas del grupo). Pero lo que se
-**muestra en pantalla y se imprime** usa una fórmula distinta, duplicada en
-2 lugares (`InstallmentDetailModal.CalculateQuote` -- modal "Ver Detalle de
-Cuota" -- e `InstallmentExportService.CalculateItemAmount` -- PDF del
-recibo, con el mismo comentario "misma fórmula que..." en ambos), y esa
-fórmula **no multiplica por `pesoFija`** en los ítems Fijos ni en el
-diferencial de Agua (el ítem Proporcional sí está bien, porque lee
-`Installment.Percent` ya calculado en vez de recalcular).
+por `pesoFija` (cantidad de unidades distintas del grupo). Lo que se
+**mostraba en pantalla y se imprimía** usaba una fórmula distinta,
+duplicada en 2 lugares (`InstallmentDetailModal.CalculateQuote` -- modal
+"Ver Detalle de Cuota" -- e `InstallmentExportService.CalculateItemAmount`
+-- PDF del recibo), que no multiplicaba por `pesoFija` en los ítems Fijos
+ni en el diferencial de Agua, y usaba `Building.Apartments` (un conteo
+declarado a mano) como divisor en vez de la cantidad real de unidades
+facturables.
 
-**Impacto concreto:** para cualquier `Installment` cuyo `GroupUnit` tenga
-más de 1 unidad real (el caso típico es la Inmobiliaria con varias
-unidades sin vender; copropietarios NO están afectados porque comparten
-el mismo `IdUnit`), si el presupuesto tiene alguna categoría Fija o Agua,
-el modal "Ver Detalle" y el PDF del recibo van a mostrar un total **por
-debajo** del monto real cobrado -- el desglose no cuadra con el total real
-del `Installment`, aunque ese total real sí sea correcto.
-
-**Fix sugerido:** centralizar la fórmula (las 3 copias -- `BudgetCalculator`,
-`InstallmentDetailModal`, `InstallmentExportService` -- deberían ser una
-sola) o, más simple, pasarle `pesoFija` (o el `Installment` completo, del
-que ya se puede derivar) a las dos copias de display en vez de recalcular
-con `Building.Apartments` a secas.
+**Fix aplicado:** en vez de un cambio de esquema (que hubiera obligado a
+tocar todos los SPs `GET_Installment*` para no romper `FromSqlRaw`), las
+dos copias de display ahora reciben la lista de propietarios del edificio
+(`List<OwnerUnitView>`, ya se cargaba en `InstallmentDetailModal`; se
+agregó como parámetro nuevo -- `owners` -- al constructor de
+`InstallmentExportService`, con los 4 sitios que lo instancian
+actualizados: `BudgetGenerator.razor`, `InstallmentTable.razor`,
+`InstallmentList.razor`, `MyReceipts.razor`) y calculan `pesoFija` y el
+total de apartamentos con el mismo filtro exacto (`Role==1`, Depto/Oficina,
+`IdUnit` distinto) que usa `BudgetService.LoadDataDefaultAsync` para
+calcular el monto real -- así el desglose siempre cuadra con
+`Installment.Amount`. Cubierto con tests
+(`InstallmentExportServiceTests.cs`, invocando `CalculateItemAmount` por
+reflection ya que es privado).
 
 ---
 
@@ -1718,7 +1723,7 @@ que confirme si mejoró y en qué medida.
 | # | Tema | Prioridad | Tipo |
 |---|------|-----------|------|
 | 1 | Unidades sin propietario no facturan | Alta | **Implementado (2026-09-15/16), monto verificado correcto** -- ver bug nuevo #28 |
-| 2 | Reportes suman transacciones Ignoradas | Alta | Código (requiere ver SP) |
+| 2 | Reportes suman transacciones Ignoradas | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 3 | Tolerancia de redondeo en conciliación | Alta | Decisión + código |
 | 4 | Borrado de edificio: FKs sin confirmar | Alta | Verificación de BD |
 | 5 | Soporte real de multimoneda | Alta | **Fundación resuelta** (2026-09-15), falta correr script en BD real |
@@ -1745,7 +1750,7 @@ que confirme si mejoró y en qué medida.
 | 25 | Email y WhatsApp: **funcionando de verdad** (Brevo, confirmado 2026-09-16); quedan 2 flujos que no mandan nada por código (independiente del proveedor) | Alta | **Resuelto**, decisión pendiente sólo sobre esos 2 flujos |
 | 26 | Perf: menú izquierdo demoraba hasta 1 min en la primera carga -- **HECHO**, falta confirmar en vivo | Alta | Código (bug de caché + paralelizar consultas) |
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
-| 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | Código (centralizar 3 copias de la misma fórmula) |
+| 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

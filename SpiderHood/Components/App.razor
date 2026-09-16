@@ -46,6 +46,18 @@
 
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
+
+    <!-- PWA (Docs/Design-Piloto-Mobile-Android.md, Fase 1 -- Opción A, PWA/TWA para
+         el piloto móvil): manifest + theme-color + apple-touch-icon son lo que Chrome
+         (instalar como app / envoltorio TWA en Android) y Safari (Agregar a Inicio en
+         iOS) necesitan para tratar esto como una app instalable, no una página más. -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#1a2a3a" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SpiderHood" />
+
     <HeadOutlet />
 
 </head>
@@ -96,6 +108,7 @@
     <script src="@Assets["js/theme.js"]"></script>
     <script src="@Assets["js/idleTimeout.js"]"></script>
     <script src="@Assets["js/reportCharts.js"]"></script>
+    <script src="@Assets["js/pwa.js"]"></script>
 </body>
 
 </html>

@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SpiderHood · Software de Administración de Edificios</title>
+    <!-- PWA -- ver el mismo bloque en Components/App.razor. Esta página estática
+         (no la app Blazor) es la que se sirve en "/" para visitantes sin sesión
+         (Program.cs), así que también necesita el manifest para que instalar la app
+         (o el criterio de instalabilidad del TWA) funcione sin depender de haber
+         iniciado sesión primero. -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#1a2a3a" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" href="favicon.png" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }

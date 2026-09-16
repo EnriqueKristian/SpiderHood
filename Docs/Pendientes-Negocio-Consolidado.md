@@ -1476,10 +1476,41 @@ pantallas de Residente reusar. Lo agregado en esta sesión:
     y abre un PDF en pestaña nueva (mismo flujo que el punto #28 de arriba),
     comportamiento esperado.
 
-  **Pendiente, no bloqueante**: agregar alguna señal visual de scroll
-  horizontal en las tablas (sombra en el borde derecho es el patrón más
-  simple) si en el piloto real se ve que la gente no descubre las columnas
-  ocultas.
+**2026-09-16 (misma noche) -- feedback del usuario probando el APK real
+generado con PWABuilder, dos bugs que el emulador no mostraba:**
+
+- **Menú lateral no se cerraba al navegar.** El sidebar es un `collapse` de
+  Bootstrap controlado solo por el botón hamburguesa (`data-bs-toggle`) --
+  nunca se cerraba solo al tocar un link de adentro, tapando la pantalla
+  hasta volver a tocar las rayas. **Resuelto**: `wwwroot/js/navMenu.js`
+  cierra el collapse al detectar clic en un link de navegación real (no en
+  los headers de submenú, que sólo abren/cierran el acordeón).
+- **Tablas "se ven mal" en dispositivo real** -- confirmó lo que la
+  auditoría con emulador ya había marcado como punto débil (arriba). Se
+  hizo el **arreglo rápido** que se había dejado pendiente, en vez de un
+  rediseño completo (decisión del usuario: arreglo rápido ahora + rediseño
+  a tarjetas como tarea aparte, sin bloquear el piloto):
+  - Se ocultan en mobile (`d-none d-md-table-cell`) las columnas de menor
+    prioridad, ya disponibles en el detalle de cada fila: Tipo (Ver
+    Presupuesto), Descripción/Aplicado a (Mis Pagos), Período/Monto/Pagado
+    (Mis Recibos). Mis Pagos ahora entra sin ningún scroll horizontal;
+    Ver Presupuesto y Mis Recibos muestran Estado/Deuda sin scrollear, sólo
+    el botón "Ver Detalle" queda fuera de la vista inicial.
+  - Se agrega una sombra en el borde derecho de cualquier tabla que
+    realmente desborde (`.has-hscroll`/`.at-scroll-end` en
+    `components.css` + `wwwroot/js/tableScrollHint.js`) que desaparece al
+    llegar al final del scroll -- aplica genéricamente a toda la app, no
+    sólo a estas 3 pantallas.
+  - **Pendiente, no bloqueante**: rediseño a tarjetas apiladas en mobile
+    (cada fila → una card con lo clave arriba y el resto expandible) --
+    patrón mobile-first más pulido que ocultar columnas, pero toca las 4
+    pantallas. Queda agendado, el arreglo rápido ya cubre el piloto.
+  - **Falta `assetlinks.json`** (Digital Asset Links) -- por eso el APK de
+    PWABuilder se ve con la barra de Chrome encima (X, compartir, ⋮, URL)
+    en vez de pantalla completa como una app nativa: sin ese archivo
+    Android no puede verificar que la app y el dominio son del mismo dueño
+    y cae a mostrarla como Custom Tab en vez de Trusted Web Activity.
+    Pendiente, necesita la huella SHA-256 del APK firmado.
 
 Lo que sigue sin cubrir este documento: empaquetado TWA (Bubblewrap/Android
 Studio) y publicación en Play Store -- fuera de lo que se puede ejecutar

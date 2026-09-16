@@ -1511,6 +1511,19 @@ generado con PWABuilder, dos bugs que el emulador no mostraba:**
     Android no puede verificar que la app y el dominio son del mismo dueño
     y cae a mostrarla como Custom Tab en vez de Trusted Web Activity.
     Pendiente, necesita la huella SHA-256 del APK firmado.
+  - **PDF de recibo descargaba con nombre GUID y a veces no abría --
+    Resuelto.** `openPdfInNewTab` usa `window.open(blobUrl)` para mostrar
+    el PDF en pestaña nueva, pero la app instalada corre en
+    `display: standalone` (sin barra de pestañas) -- no hay dónde abrirla,
+    así que Android terminaba descargando el blob por su cuenta, sin pasar
+    por nuestro código, con nombre random y a veces incompleto. Se detecta
+    `(display-mode: standalone)` y en ese caso se fuerza la descarga
+    nosotros mismos con el nombre correcto (`wwwroot/js/fileDownload.js`);
+    en navegador normal sigue abriendo en pestaña nueva sin cambios. De
+    paso, el nombre del archivo ahora antepone el edificio (ej. "NOVA
+    Alzamora - DEMO - Recibo Marzo-2026 902.pdf") -- el mes-año y la unidad
+    ya estaban, pero faltaba el edificio para poder distinguir PDFs sueltos
+    en el celular si el propietario tiene unidades en más de un edificio.
 
 Lo que sigue sin cubrir este documento: empaquetado TWA (Bubblewrap/Android
 Studio) y publicación en Play Store -- fuera de lo que se puede ejecutar

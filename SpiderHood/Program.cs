@@ -19,9 +19,11 @@ using MercadoPago.Config;
 using SpiderHood.Services;
 using SpiderHood.Services.Logging;
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -412,6 +414,21 @@ app.MapWhen(
     ctx => ctx.Request.Path == "/" && ctx.User.Identity?.IsAuthenticated != true,
     branch => branch.Run(async ctx =>
     {
+        // Piloto Móvil (Docs/Pendientes-Negocio-Consolidado.md #22) -- reportado por el
+        // usuario abriendo el APK: el ícono instalado abría la landing de marketing
+        // (precios, módulos, "Probar gratis") en vez de ir directo al login, algo raro
+        // para un ícono de app ya instalada -- ese texto tiene sentido para alguien
+        // navegando spiderhoodapp.com desde el browser, no para quien ya decidió instalar
+        // la app y le da tap al ícono. manifest.json apunta start_url a "/?source=pwa" --
+        // sólo un TWA/PWA instalada llega con ese query param (un visitante normal del
+        // browser entra a "/" sin él), así que se lo puede usar acá para mandar al login
+        // directo sin afectar la landing pública para el resto de las visitas.
+        if (ctx.Request.Query["source"] == "pwa")
+        {
+            ctx.Response.Redirect("/login");
+            return;
+        }
+
         ctx.Response.ContentType = "text/html";
         await ctx.Response.SendFileAsync(Path.Combine(app.Environment.WebRootPath, "index.html"));
     }));
@@ -487,7 +504,7 @@ app.MapPost("/api/mercadopago/webhook", async (HttpRequest request, ISubscriptio
 // TODOS los inputs (honeypot incluido) generalmente no ejecuta JS ni tarda
 // segundos en enviar. Mismo trato silencioso que el honeypot en ambos casos
 // (responder OK sin mandar nada), para no delatar el chequeo.
-app.MapPost("/api/contacto", async (HttpRequest request, IEmailService emailService, IConfiguration configuration, ILogger<Program> logger) =>
+app.MapPost("/api/contacto", async (HttpRequest request, IEmailService emailService, IConfiguration configuration, IHttpClientFactory httpClientFactory, ILogger<Program> logger) =>
 {
     var form = await request.ReadFormAsync();
     string Campo(string nombre) => form[nombre].ToString().Trim();
@@ -501,6 +518,31 @@ app.MapPost("/api/contacto", async (HttpRequest request, IEmailService emailServ
         || DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - tsEnvioMs < 2500)
     {
         return Results.Redirect("/?contacto=ok");
+    }
+
+    // Tercera capa (Cloudflare Turnstile, pedida por el usuario 2026-09-16 --
+    // seguía llegando spam pese al honeypot + _ts de arriba, de bots más
+    // sofisticados que sí simulan un navegador real). Turnstile:SecretKey vive
+    // en appsettings.Development.json/appsettings.Production.json (gitignorados,
+    // igual que Twilio/MercadoPago más arriba) -- si no está configurado todavía
+    // (ej. antes de crear el sitio en el dashboard de Cloudflare), se omite el
+    // chequeo en vez de romper el formulario, y sólo quedan las otras dos capas.
+    var turnstileSecret = configuration["Turnstile:SecretKey"];
+    if (!string.IsNullOrEmpty(turnstileSecret))
+    {
+        var turnstileToken = Campo("cf-turnstile-response");
+        var remoteIp = request.HttpContext.Connection.RemoteIpAddress?.ToString();
+        if (string.IsNullOrEmpty(turnstileToken)
+            || !await VerifyTurnstileAsync(httpClientFactory, turnstileSecret, turnstileToken, remoteIp))
+        {
+            // Mismo trato silencioso que el honeypot y el chequeo de _ts arriba --
+            // no delatar el motivo del rechazo a quien (o lo que) está enviando.
+            return Results.Redirect("/?contacto=ok");
+        }
+    }
+    else
+    {
+        logger.LogWarning("Formulario de contacto: Turnstile:SecretKey no configurado -- se omite esa verificación.");
     }
 
     var nombre = Campo("nombre");
@@ -815,6 +857,46 @@ app.MapRazorComponents<App>()
     });
 
 app.Run();
+
+// Verifica un token de Cloudflare Turnstile (widget "cf-turnstile-response" del
+// formulario de contacto, wwwroot/index.html) contra la API de siteverify de
+// Cloudflare. remoteIp es opcional para Cloudflare (mejora la señal antispam de
+// su lado) pero no afecta el resultado si no se puede resolver. Cualquier fallo
+// de red/parseo se trata como verificación fallida (fail-closed) -- más seguro
+// dejar pasar por las otras dos capas (honeypot + _ts) que confiar en un
+// Turnstile que no pudo confirmarse.
+static async Task<bool> VerifyTurnstileAsync(IHttpClientFactory httpClientFactory, string secretKey, string token, string? remoteIp)
+{
+    try
+    {
+        var client = httpClientFactory.CreateClient();
+        var campos = new Dictionary<string, string>
+        {
+            ["secret"] = secretKey,
+            ["response"] = token
+        };
+        if (!string.IsNullOrEmpty(remoteIp))
+        {
+            campos["remoteip"] = remoteIp;
+        }
+
+        using var response = await client.PostAsync(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            new FormUrlEncodedContent(campos));
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return false;
+        }
+
+        var resultado = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return resultado.TryGetProperty("success", out var success) && success.ValueKind == JsonValueKind.True;
+    }
+    catch
+    {
+        return false;
+    }
+}
 
 // Valida el header x-signature de un webhook de MercadoPago. Formato del
 // header: "ts=<epoch-ms>,v1=<hmac-hex>". El manifest se arma como

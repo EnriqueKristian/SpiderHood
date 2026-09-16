@@ -22,6 +22,12 @@ namespace SpiderHood.Models
         // separadas de Token (que usa el confirm-email), para poder expirar el link.
         public string? PasswordResetToken { get; set; }
         public DateTime? PasswordResetTokenExpiresAt { get; set; }
+
+        // Login social (Google/Microsoft/Facebook/Apple) -- un usuario tiene a lo
+        // sumo un proveedor vinculado (el último usado), ver el comentario en el
+        // script SQL 2026-09-16_128 sobre por qué no hace falta una tabla aparte.
+        public string? ExternalProvider { get; set; }
+        public string? ExternalProviderId { get; set; }
     }
 
     public class LoginModel

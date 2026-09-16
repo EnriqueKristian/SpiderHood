@@ -1,11 +1,19 @@
-﻿using Blazored.LocalStorage;
+﻿using AspNet.Security.OAuth.Apple;
+using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Facebook;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authentication.MicrosoftAccount;
+using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.FileProviders.Physical;
 using SpiderHood.Components;
 using SpiderHood.Data;
+using SpiderHood.Models;
 using MercadoPago.Client.Preapproval;
 using MercadoPago.Config;
 using SpiderHood.Services;
@@ -58,7 +66,7 @@ builder.Services.AddSingleton<ISessionRevocationService, SessionRevocationServic
 // registro/invitación desde un circuito InteractiveServer ya conectado.
 builder.Services.AddSingleton<IAutoLoginTokenService, AutoLoginTokenService>();
 
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+var authenticationBuilder = builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
         options.LoginPath = "/login";
@@ -130,6 +138,98 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             }
         };
     });
+
+// Login social (Google/Microsoft/Facebook/Apple) -- pedido explícito del usuario.
+// Cada proveedor se registra SÓLO si su configuración está completa (ver
+// appsettings.json > Authentication, vacío por defecto) -- así la app arranca
+// limpia sin ninguna credencial real todavía (nada que romper en Build()) y cada
+// proveedor se activa solo, sin tocar código, apenas alguien carga sus
+// credenciales reales (User Secrets en desarrollo, variables de entorno en
+// producción -- nunca en appsettings.json, que sí va a git).
+//
+// Todos comparten el mismo tratamiento: OnTicketReceived intercepta el resultado
+// (HandleExternalLoginTicketReceivedAsync, más abajo) ANTES de que el handler
+// intente firmar los claims crudos del proveedor directo en la cookie de la
+// app -- ahí se resuelve/crea la fila real en Users y se firma con los MISMOS
+// claims que arma Login.razor (mismo mecanismo, sólo cambia cómo se llega hasta
+// ahí). Nunca pasa por UserManager<IdentityUser> -- ver el comentario grande más
+// abajo sobre AddIdentity para el porqué.
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientSecret))
+{
+    authenticationBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+        options.Scope.Add("email");
+        options.Scope.Add("profile");
+        options.Events.OnTicketReceived = context => HandleExternalLoginTicketReceivedAsync(context, "Google");
+    });
+}
+
+var microsoftClientId = builder.Configuration["Authentication:Microsoft:ClientId"];
+var microsoftClientSecret = builder.Configuration["Authentication:Microsoft:ClientSecret"];
+if (!string.IsNullOrEmpty(microsoftClientId) && !string.IsNullOrEmpty(microsoftClientSecret))
+{
+    authenticationBuilder.AddMicrosoftAccount(options =>
+    {
+        options.ClientId = microsoftClientId;
+        options.ClientSecret = microsoftClientSecret;
+        // "common" (no un TenantId fijo) porque acepta tanto cuentas personales
+        // (outlook.com/hotmail) como de trabajo/escuela (Office 365) -- el pedido
+        // fue explícitamente "Office", que son cuentas de este segundo tipo.
+        options.AuthorizationEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
+        options.TokenEndpoint = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+        options.Scope.Add("email");
+        options.Scope.Add("profile");
+        options.Events.OnTicketReceived = context => HandleExternalLoginTicketReceivedAsync(context, "Microsoft");
+    });
+}
+
+var facebookAppId = builder.Configuration["Authentication:Facebook:AppId"];
+var facebookAppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
+if (!string.IsNullOrEmpty(facebookAppId) && !string.IsNullOrEmpty(facebookAppSecret))
+{
+    authenticationBuilder.AddFacebook(options =>
+    {
+        options.AppId = facebookAppId;
+        options.AppSecret = facebookAppSecret;
+        // A diferencia de Google/Microsoft, Facebook NO manda el email salvo que
+        // se pida explícito el permiso Y el campo -- las dos líneas de abajo son
+        // ambas necesarias, no alcanza con una sola.
+        options.Scope.Add("email");
+        options.Fields.Add("email");
+        options.Events.OnTicketReceived = context => HandleExternalLoginTicketReceivedAsync(context, "Facebook");
+    });
+}
+
+// Sign in with Apple: a diferencia de los otros tres, no alcanza con un
+// Client Id/Secret fijo -- Apple exige un JWT firmado con una clave privada
+// (.p8, se descarga UNA sola vez del Apple Developer Portal al crearla) que este
+// paquete regenera solo en cada request. AppleTeamId/AppleKeyId/AppleClientId
+// (el "Services ID", ej. "app.spiderhoodapp.web") y la ruta al .p8 se leen todos
+// de configuración -- el archivo .p8 en sí NUNCA va a git (mismo criterio que
+// cualquier secreto real de este proyecto).
+var appleClientId = builder.Configuration["Authentication:Apple:ClientId"];
+var appleTeamId = builder.Configuration["Authentication:Apple:TeamId"];
+var appleKeyId = builder.Configuration["Authentication:Apple:KeyId"];
+var applePrivateKeyPath = builder.Configuration["Authentication:Apple:PrivateKeyPath"];
+if (!string.IsNullOrEmpty(appleClientId) && !string.IsNullOrEmpty(appleTeamId)
+    && !string.IsNullOrEmpty(appleKeyId) && !string.IsNullOrEmpty(applePrivateKeyPath)
+    && File.Exists(applePrivateKeyPath))
+{
+    authenticationBuilder.AddApple(options =>
+    {
+        options.ClientId = appleClientId;
+        options.TeamId = appleTeamId;
+        options.KeyId = appleKeyId;
+        options.UsePrivateKey(_ => new PhysicalFileInfo(new FileInfo(applePrivateKeyPath)));
+        options.Scope.Add("email");
+        options.Scope.Add("name");
+        options.Events.OnTicketReceived = context => HandleExternalLoginTicketReceivedAsync(context, "Apple");
+    });
+}
 
 builder.Services.AddScoped<IUserSessionLoader, UserSessionLoader>();
 builder.Services.AddScoped<CustomAuthenticationStateProvider>();
@@ -508,6 +608,180 @@ app.MapGet("/auto-login/{token}", async (
         : "/dashboard";
     return Results.Redirect(safeReturnUrl);
 }).AllowAnonymous();
+
+// Dispara el login social: un <a href="/external-login/google?returnUrl=..."> plano
+// desde Login.razor (sin fetch/JS) alcanza -- redirige al proveedor elegido, que a
+// su vez vuelve a su propio CallbackPath (/signin-google, /signin-microsoft, etc,
+// registrado automáticamente por cada .AddXxx(...) de arriba). El proveedor
+// desconocido o no configurado (ninguna credencial real todavía) cae a /login sin
+// romper nada.
+app.MapGet("/external-login/{provider}", (string provider, string? returnUrl, HttpContext httpContext) =>
+{
+    var scheme = provider.ToLowerInvariant() switch
+    {
+        "google" => GoogleDefaults.AuthenticationScheme,
+        "microsoft" => MicrosoftAccountDefaults.AuthenticationScheme,
+        "facebook" => FacebookDefaults.AuthenticationScheme,
+        "apple" => AppleAuthenticationDefaults.AuthenticationScheme,
+        _ => null
+    };
+
+    if (scheme == null || !httpContext.RequestServices.GetRequiredService<IAuthenticationSchemeProvider>()
+            .GetAllSchemesAsync().GetAwaiter().GetResult().Any(s => s.Name == scheme))
+    {
+        return Results.Redirect("/login");
+    }
+
+    var safeReturnUrl = !string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/') && !returnUrl.StartsWith("//")
+        ? returnUrl
+        : null;
+
+    return Results.Challenge(new AuthenticationProperties
+    {
+        RedirectUri = safeReturnUrl ?? "/dashboard"
+    }, [scheme]);
+}).AllowAnonymous();
+
+// Handler compartido por los 4 proveedores (ver OnTicketReceived en cada
+// .AddXxx(...) de arriba) -- intercepta el resultado del proveedor ANTES de que
+// intente firmar sus claims crudos directo en la cookie de la app. Resuelve o
+// crea la fila real en Users (nunca AspNetUsers/UserManager) y firma la cookie
+// con los MISMOS claims que arma Login.razor -- una vez acá, el resto de la app
+// no distingue si el login fue con contraseña o con un proveedor externo.
+async Task HandleExternalLoginTicketReceivedAsync(TicketReceivedContext context, string provider)
+{
+    context.HandleResponse();
+
+    var fallo = () =>
+    {
+        context.Response.Redirect("/login?externalLoginError=1");
+    };
+
+    var principal = context.Principal;
+    var providerId = principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var email = principal?.FindFirst(ClaimTypes.Email)?.Value?.Trim().ToLowerInvariant();
+
+    // Facebook a veces no manda email (cuenta sin email verificado, o sin el
+    // permiso otorgado pese a haberlo pedido) -- sin email no hay con qué
+    // vincular ni crear la cuenta local, así que no hay forma de continuar.
+    if (string.IsNullOrEmpty(providerId) || string.IsNullOrEmpty(email))
+    {
+        fallo();
+        return;
+    }
+
+    var services = context.HttpContext.RequestServices;
+    var contextFactory = services.GetRequiredService<IDbContextFactory<SpiderHoodContext>>();
+    var ec = new BDLayout(contextFactory);
+    var sessionLoader = services.GetRequiredService<IUserSessionLoader>();
+    var authService = services.GetRequiredService<AuthService>();
+    var logger = services.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        Guid idUser;
+
+        // 1. Ya inició sesión antes con este mismo proveedor -- usuario directo.
+        var yaVinculado = await ec.GetUserByExternalLoginAsync(provider, providerId);
+        if (yaVinculado != null)
+        {
+            idUser = yaVinculado.IdUser;
+        }
+        else
+        {
+            // 2. Existe una cuenta con este email (se registró antes con
+            //    contraseña) -- se vincula el proveedor a esa cuenta.
+            var porEmail = (await ec.GetUsersByEmailAsync(email))
+                .FirstOrDefault(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
+
+            if (porEmail != null)
+            {
+                idUser = porEmail.IdUser;
+            }
+            else
+            {
+                // 3. Usuario nuevo -- se crea sin ningún edificio todavía (como
+                //    cualquier alta nueva) y se lo manda a /building-request.
+                var givenName = principal!.FindFirst(ClaimTypes.GivenName)?.Value;
+                var surname = principal!.FindFirst(ClaimTypes.Surname)?.Value;
+                var nombreCompleto = principal!.FindFirst(ClaimTypes.Name)?.Value;
+                var (firstName, lastName) = (givenName, surname) switch
+                {
+                    (not null, _) => (givenName, surname ?? string.Empty),
+                    (null, _) when !string.IsNullOrWhiteSpace(nombreCompleto) =>
+                        SplitNombreCompleto(nombreCompleto!),
+                    _ => (email.Split('@')[0], string.Empty)
+                };
+
+                idUser = Guid.NewGuid();
+                var nuevoUsuario = new UserModel
+                {
+                    IdUser = idUser,
+                    Email = email,
+                    FirstName = firstName!,
+                    LastName = lastName,
+                    PhoneNumber = string.Empty,
+                    IsActive = true,
+                };
+                // PasswordHash con un valor aleatorio que nadie conoce -- esta
+                // cuenta nace sin contraseña usable (inicia sesión sólo por este
+                // proveedor), pero la columna no admite NULL.
+                var hasher = new PasswordHasher<UserModel>();
+                nuevoUsuario.PasswordHash = hasher.HashPassword(nuevoUsuario, Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+                await ec.AddNewRecordAsync(nuevoUsuario);
+            }
+
+            await ec.UpdateUserExternalLoginAsync(idUser, provider, providerId);
+        }
+
+        var session = await sessionLoader.LoadAsync(idUser);
+        if (session == null)
+        {
+            fallo();
+            return;
+        }
+
+        var securityStamp = await authService.GetSecurityStampAsync(session.IdUser);
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, session.IdUser.ToString()),
+            new(ClaimTypes.Email, session.Email),
+            new(ClaimTypes.Name, session.FullName),
+            new("security_stamp", securityStamp ?? string.Empty),
+        };
+        claims.AddRange(session.Roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var nuevoPrincipal = new ClaimsPrincipal(identity);
+
+        await context.HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, nuevoPrincipal, new AuthenticationProperties
+        {
+            IsPersistent = false,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8),
+        });
+
+        // Sin ningún edificio asociado (cuenta recién creada en el paso 3 de
+        // arriba): a /building-request en vez del destino pedido, que de otra
+        // forma caería en el flujo normal de "elegí edificio" sin ninguno para
+        // elegir. session.Buildings ya viene resuelto por sessionLoader.LoadAsync.
+        var destino = session.Buildings.Count == 0
+            ? "/building-request"
+            : (context.Properties?.RedirectUri is { } r && r.StartsWith('/') && !r.StartsWith("//") ? r : "/dashboard");
+
+        context.Response.Redirect(destino);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error procesando login externo con {Provider}", provider);
+        fallo();
+    }
+}
+
+static (string, string) SplitNombreCompleto(string nombreCompleto)
+{
+    var partes = nombreCompleto.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+    return partes.Length == 2 ? (partes[0], partes[1]) : (partes.ElementAtOrDefault(0) ?? string.Empty, string.Empty);
+}
 
 // AllowAnonymous explícito: sin esto, el FallbackPolicy de arriba (RequireAuthenticatedUser)
 // también alcanzaría a CSS/JS/imágenes -- incluido _framework/blazor.web.js, sin el

@@ -91,6 +91,19 @@ namespace SpiderHood.Data
             }, "GetUsersByEmail", cancellationToken);
         }
 
+        // Login social (Google/Microsoft/Facebook/Apple) -- null si nadie vinculó
+        // todavía este (proveedor, id de usuario en ese proveedor).
+        public async Task<Models.UserModel?> GetUserByExternalLoginAsync(string provider, string providerId, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQuerySingleAsync<Models.UserModel>(
+                    StoredProcedures.GET_UserByExternalLogin,
+                    provider,
+                    providerId);
+            }, "GetUserByExternalLogin", cancellationToken);
+        }
+
         public async Task<List<BudgetSumCategory>> GetBudgetSumAsync(Guid idBuilding, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

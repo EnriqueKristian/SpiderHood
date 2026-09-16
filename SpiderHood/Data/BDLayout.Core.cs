@@ -100,6 +100,7 @@ namespace SpiderHood.Data
             public const string UPD_UserToken = "UPD_UserToken";
             public const string UPD_UserPassword = "UPD_UserPassword";
             public const string UPD_UserPasswordResetToken = "UPD_UserPasswordResetToken";
+            public const string UPD_UserExternalLogin = "UPD_UserExternalLogin";
             public const string UPD_UserBuildingUnit = "UPD_UserBuildingUnit";
             public const string UPD_Building = "UPD_Building";
             public const string UPD_BudgetDetail = "UPD_BudgetDetail";
@@ -216,6 +217,7 @@ namespace SpiderHood.Data
             // usa ninguna pantalla ni flujo de uso diario.
             public const string GET_TransactionBankDetail_ByOriginalReference = "GET_TransactionBankDetail_ByOriginalReference";
             public const string GET_UsersByEmail = "GET_UsersByEmail";
+            public const string GET_UserByExternalLogin = "GET_UserByExternalLogin";
             public const string GET_UserBuildingAssociation = "GET_UserBuildingAssociation";
             public const string GET_AllBuildingsConfig = "GET_AllBuildingsConfig";
             public const string GET_AllUsersWithRoles = "GET_AllUsersWithRoles";

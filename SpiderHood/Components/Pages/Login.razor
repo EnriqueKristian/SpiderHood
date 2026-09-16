@@ -9,6 +9,7 @@
 @inject Services.AuthService AuthService
 @inject Services.ISessionRevocationService SessionRevocationService
 @inject NavigationManager Navigation
+@inject IConfiguration Configuration
 @* Sin @rendermode: esta página se renderiza en modo estático (SSR), no interactivo.
    Es lo que permite que el submit sea una request HTTP real (no un evento de SignalR)
    y que HttpContext esté disponible como cascading parameter para poder hacer
@@ -98,6 +99,44 @@
                 </button>
             </EditForm>
 
+            @if (hayProveedoresExternos)
+            {
+                <!-- Login social -- cada botón sólo se muestra si ese proveedor tiene
+                     credenciales reales configuradas (ver Program.cs > Authentication);
+                     nunca un botón que lleve a un login roto. -->
+                <div class="d-flex align-items-center my-4" aria-hidden="true">
+                    <hr class="flex-grow-1" />
+                    <span class="text-muted small px-2">o continuá con</span>
+                    <hr class="flex-grow-1" />
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    @if (mostrarGoogle)
+                    {
+                        <a class="btn btn-outline-secondary w-100 py-2" href="@EnlaceExterno("google")">
+                            <i class="bi bi-google me-2"></i>Continuar con Google
+                        </a>
+                    }
+                    @if (mostrarMicrosoft)
+                    {
+                        <a class="btn btn-outline-secondary w-100 py-2" href="@EnlaceExterno("microsoft")">
+                            <i class="bi bi-microsoft me-2"></i>Continuar con Microsoft
+                        </a>
+                    }
+                    @if (mostrarFacebook)
+                    {
+                        <a class="btn btn-outline-secondary w-100 py-2" href="@EnlaceExterno("facebook")">
+                            <i class="bi bi-facebook me-2"></i>Continuar con Facebook
+                        </a>
+                    }
+                    @if (mostrarApple)
+                    {
+                        <a class="btn btn-outline-secondary w-100 py-2" href="@EnlaceExterno("apple")">
+                            <i class="bi bi-apple me-2"></i>Continuar con Apple
+                        </a>
+                    }
+                </div>
+            }
+
             <!-- Enlaces adicionales -->
             <div class="login-footer mt-4">
                 <p class="mb-2">
@@ -128,6 +167,24 @@
 
     private string errorMessage = string.Empty;
 
+    // Sólo se muestra el botón de cada proveedor si tiene credenciales reales
+    // cargadas (mismo criterio que Program.cs para registrar el handler) -- ver
+    // appsettings.json > Authentication, vacío por defecto.
+    private bool mostrarGoogle => !string.IsNullOrEmpty(Configuration["Authentication:Google:ClientId"]);
+    private bool mostrarMicrosoft => !string.IsNullOrEmpty(Configuration["Authentication:Microsoft:ClientId"]);
+    private bool mostrarFacebook => !string.IsNullOrEmpty(Configuration["Authentication:Facebook:AppId"]);
+    private bool mostrarApple => !string.IsNullOrEmpty(Configuration["Authentication:Apple:ClientId"]);
+    private bool hayProveedoresExternos => mostrarGoogle || mostrarMicrosoft || mostrarFacebook || mostrarApple;
+
+    private string EnlaceExterno(string proveedor)
+    {
+        var returnUrl = HttpContext.Request.Query["returnUrl"].ToString();
+        var query = !string.IsNullOrEmpty(returnUrl) && returnUrl.StartsWith('/') && !returnUrl.StartsWith("//")
+            ? $"?returnUrl={Uri.EscapeDataString(returnUrl)}"
+            : "";
+        return $"/external-login/{proveedor}{query}";
+    }
+
     // Flags para validación visual
     private bool isEmailValid => string.IsNullOrEmpty(loginModel?.Email) ||
                                  new EmailAddressAttribute().IsValid(loginModel.Email);
@@ -148,6 +205,14 @@
         if (HttpContext.User.Identity?.IsAuthenticated == true)
         {
             Navigation.NavigateTo(GetSafeReturnUrl());
+        }
+
+        // Lo manda acá HandleExternalLoginTicketReceivedAsync (Program.cs) cuando el
+        // proveedor no devolvió un email utilizable (pasa con Facebook si no se
+        // otorgó el permiso, o con cualquiera si la cuenta no tiene email verificado).
+        if (HttpContext.Request.Query["externalLoginError"] == "1")
+        {
+            errorMessage = "No pudimos completar el inicio de sesión con ese proveedor -- probá iniciar sesión con tu contraseña, o con otra cuenta.";
         }
     }
 

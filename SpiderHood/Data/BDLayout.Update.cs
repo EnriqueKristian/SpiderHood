@@ -96,6 +96,23 @@ namespace SpiderHood.Data
             }, "UpdateTokenUser", cancellationToken);
         }
 
+        // Login social (Google/Microsoft/Facebook/Apple) -- vincula (o revincula, si
+        // el usuario ya tenía otro proveedor guardado) esta cuenta con el proveedor
+        // usado para iniciar sesión.
+        public async Task<bool> UpdateUserExternalLoginAsync(Guid idUser, string provider, string providerId, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_UserExternalLogin,
+                    cancellationToken,
+                    idUser,
+                    provider,
+                    providerId);
+                return true;
+            }, "UpdateUserExternalLogin", cancellationToken);
+        }
+
         // "¿Olvidaste tu contraseña?" (IPasswordResetService) -- token+expiración en
         // columnas propias, no en Token (esa la usa el confirm-email). token/expiresAt
         // en null borra el link (se usa así apenas se consume, para que no sea reusable).

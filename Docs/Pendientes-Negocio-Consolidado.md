@@ -254,6 +254,26 @@ calcular el monto real -- así el desglose siempre cuadra con
 (`InstallmentExportServiceTests.cs`, invocando `CalculateItemAmount` por
 reflection ya que es privado).
 
+### 29. MenuItems con Url rota o equivocada
+**Estado: 6 de 8 RESUELTOS (2026-09-16), 2 pendientes de construir la
+página (decisión del usuario).**
+
+El usuario pidió verificar el export `MenuItems.xlsx` contra las rutas
+reales del código. De 72 ítems, 8 tenían un problema real -- 6 con destino
+correcto identificable (script `Database/Scripts/2026-09-16_132_Fix_MenuItems_BrokenUrls.sql`,
+detalle de cada uno en el propio script) y 2 sin ninguna página construida
+detrás:
+
+- **Exportar recibos** (grupo Reportes, `Url = "ExportReceipts"`) -- no
+  existe ninguna página que exporte recibos como reporte (distinto de
+  "Emitir recibos PDF", que sí se corrigió y vive en `/budgetgenerator/`).
+- **Acerca de** (grupo Configuración, `Url = "About"`) -- no existe ninguna
+  página "About"/"Acerca de" en el código.
+
+**Decisión del usuario: quedan pendientes de construir** (no se apuntan a
+otra página como parche, no se borran del menú). Falta: diseñar y
+construir ambas pantallas cuando se priorice.
+
 ---
 
 ## Prioridad Media -- funcionalidad de negocio real, pero no sangra dinero hoy
@@ -1875,6 +1895,7 @@ después de compilar/reiniciar, no en cada F5 normal.
 | 26 | Perf: menú izquierdo demoraba hasta 1 min en la primera carga; confirmado en vivo -- 4to bug encontrado y medido (contención en SystemLog al cambiar de usuario con logging en Information) | Alta | **Resuelto** (2026-09-16), verificado con medición antes/después |
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
+| 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

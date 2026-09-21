@@ -393,21 +393,32 @@
             if (_personal != null)
             {
                 var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
-                _turnosDisponibles = account != null
-                    ? (await EmployeeService.GetShiftsByAccountAsync(account.IdAccount)).Where(t => t.IsActive).ToList()
-                    : new();
 
-                // Edificios que este administrador ve, todos los de su Cuenta --
-                // mismo criterio que BuildingPage: _currentUser.Buildings ya trae
-                // sólo los que le corresponden.
-                _edificiosDisponibles = _currentUser.Buildings
-                    .Select(b => b.Building)
-                    .Where(b => b != null)
-                    .Select(b => b!)
-                    .DistinctBy(b => b.IdBuilding)
-                    .ToList();
+                // GetEmployeeByIdAsync no filtra por Cuenta (GET_EmployeeById busca
+                // sólo por IdEmployee) -- sin este chequeo, un Administrador de otra
+                // Cuenta que conozca/adivine el IdEmployee podría administrar personal
+                // ajeno. Se trata igual que "no encontrado" para no filtrar si el Id
+                // existe en otra Cuenta.
+                if (account == null || !_personal.BelongsToAccount(account.IdAccount))
+                {
+                    _personal = null;
+                }
+                else
+                {
+                    _turnosDisponibles = (await EmployeeService.GetShiftsByAccountAsync(account.IdAccount)).Where(t => t.IsActive).ToList();
 
-                await CargarAsync();
+                    // Edificios que este administrador ve, todos los de su Cuenta --
+                    // mismo criterio que BuildingPage: _currentUser.Buildings ya trae
+                    // sólo los que le corresponden.
+                    _edificiosDisponibles = _currentUser.Buildings
+                        .Select(b => b.Building)
+                        .Where(b => b != null)
+                        .Select(b => b!)
+                        .DistinctBy(b => b.IdBuilding)
+                        .ToList();
+
+                    await CargarAsync();
+                }
             }
         }
 

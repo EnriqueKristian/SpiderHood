@@ -102,4 +102,24 @@ public class PayrollTests
         var payslip = new Payslip { Nombres = "Carlos", Apellidos = "Ruiz" };
         Assert.Equal("Carlos Ruiz", payslip.NombreEmployee);
     }
+
+    [Fact]
+    public void Payslip_BelongsToAccount_TrueOnlyForItsOwnAccount()
+    {
+        var idAccount = Guid.NewGuid();
+        var payslip = new Payslip { IdAccount = idAccount };
+
+        Assert.True(payslip.BelongsToAccount(idAccount));
+        Assert.False(payslip.BelongsToAccount(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void Payslip_BelongsToAccount_WithNullIdAccount_IsAlwaysFalse()
+    {
+        // El join contra Employee puede no traer IdAccount (dato faltante) -- en ese
+        // caso nunca debe considerarse que "pertenece" a la Cuenta del Administrador.
+        var payslip = new Payslip { IdAccount = null };
+
+        Assert.False(payslip.BelongsToAccount(Guid.NewGuid()));
+    }
 }

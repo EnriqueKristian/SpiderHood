@@ -171,6 +171,12 @@ namespace SpiderHood.Models
         public string NombreEmployee => $"{Nombres} {Apellidos}".Trim();
         public string NombrePeriodo => new DateTime(Anio, Mes, 1).ToString("MMMM yyyy", new System.Globalization.CultureInfo("es-PE"));
 
+        // Usado por PayslipDetail.razor para evitar que un Administrador de
+        // otra Cuenta abra la boleta de un Employee ajeno sólo por conocer/
+        // adivinar el IdPayslip -- IdAccount viene NULL si el join contra
+        // Employee no lo trajo (dato faltante), así que nunca "pertenece".
+        public bool BelongsToAccount(Guid idAccount) => IdAccount == idAccount;
+
         [NotMapped]
         public List<PayslipDetail> Detalle { get; set; } = new();
     }

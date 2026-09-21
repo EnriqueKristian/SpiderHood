@@ -43,4 +43,14 @@ public class EmployeeTests
         Assert.True(new HolidayConfiguration { IdAccount = null }.EsNacional);
         Assert.False(new HolidayConfiguration { IdAccount = Guid.NewGuid() }.EsNacional);
     }
+
+    [Fact]
+    public void Employee_BelongsToAccount_TrueOnlyForItsOwnAccount()
+    {
+        var idAccount = Guid.NewGuid();
+        var employee = new Employee { IdAccount = idAccount };
+
+        Assert.True(employee.BelongsToAccount(idAccount));
+        Assert.False(employee.BelongsToAccount(Guid.NewGuid()));
+    }
 }

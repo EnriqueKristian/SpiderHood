@@ -3,6 +3,7 @@
 @using SpiderHood.Models
 @using SpiderHood.Services
 @inject IPayrollService PayrollService
+@inject IAccountService AccountService
 @inject SpiderHood.Services.AuthService AuthService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
@@ -117,6 +118,19 @@
         if (_isStaff)
         {
             _boleta = await PayrollService.GetPayslipConDetalleAsync(Id);
+            if (_boleta != null)
+            {
+                var account = await AccountService.GetAccountByUserAsync(_currentUser.IdUser);
+
+                // Mismo chequeo que EmployeeDetail.razor: GetPayslipConDetalleAsync
+                // no filtra por Cuenta, así que sin esto un Administrador de otra
+                // Cuenta que conozca/adivine el IdPayslip podría ver la boleta de un
+                // Employee ajeno. Se trata igual que "no encontrada".
+                if (account == null || !_boleta.BelongsToAccount(account.IdAccount))
+                {
+                    _boleta = null;
+                }
+            }
         }
 
         _loading = false;

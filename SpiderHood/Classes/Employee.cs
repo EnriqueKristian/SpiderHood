@@ -30,6 +30,12 @@ namespace SpiderHood.Models
         public bool TieneHijos { get; set; }
 
         public string NombreCompleto => $"{Nombres} {Apellidos}".Trim();
+
+        // Usado por EmployeeDetail.razor para evitar que un Administrador de
+        // otra Cuenta administre este Employee sólo por conocer/adivinar su
+        // IdEmployee (GetEmployeeByIdAsync no filtra por Cuenta -- ver
+        // GET_EmployeeById).
+        public bool BelongsToAccount(Guid idAccount) => IdAccount == idAccount;
     }
 
     // Plantilla reutilizable de horario ("Diurno 7am-3pm") -- se define una vez

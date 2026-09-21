@@ -488,6 +488,12 @@
                 ? await ExtraChargeService.GetAdditionalChargesAsync(ParameterService.CurrentBuilding.IdBuilding, Installments ?? new())
                 : new List<Installment>();
 
+            // Deudas Anteriores: cuotas pendientes de periodos previos del edificio
+            // (se filtran por unidad/periodo al armar cada recibo, ver ComposeTable).
+            var deudasAnteriores = ParameterService.CurrentBuilding != null
+                ? await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding)
+                : new List<Installment>();
+
             // Docs/Pendientes-Negocio-Consolidado.md #28 -- InstallmentExportService
             // necesita saber cuántas unidades reales agrupa cada cuota (Inmobiliaria,
             // etc.) para no subestimar el desglose Fijo/Agua del recibo.
@@ -504,7 +510,8 @@
             ParameterService.CurrentBuilding!,
             categorias,
             owners,
-            cargosAdicionales
+            cargosAdicionales,
+            deudasAnteriores
         );
 
 

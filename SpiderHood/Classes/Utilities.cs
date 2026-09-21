@@ -1245,6 +1245,8 @@ namespace SpiderHood.Models
 
             return _budget.Details
                 .Where(x => x.IsHeader)
+                // Ver el mismo fix y comentario en BudgetGenerator.razor GetSections().
+                .DistinctBy(x => x.IdSection)
                 .Select(x => new SectionInfo { Id = x.IdSection, Name = x.Description, IdCategory = x.IdCategory })
                 .OrderBy(x => x.Id)
                 .ToList();

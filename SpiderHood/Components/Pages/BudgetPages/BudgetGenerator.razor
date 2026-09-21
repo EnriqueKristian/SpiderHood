@@ -776,6 +776,14 @@
     private List<SectionInfo> GetSections() =>
         _BudgetState.Budget.Details
             .Where(x => x.IsHeader)
+            // DistinctBy IdSection -- algunos presupuestos (migrados, o editados en
+            // sesiones antiguas) traen DOS filas de encabezado (IsHeader) para el mismo
+            // IdSection. Sin este filtro, este @foreach renderizaba esa sección (y sus
+            // ítems, que sí se filtran por IdSection) dos veces; el total general no se
+            // duplicaba porque CalculateTotals() suma directo sobre los ítems (!IsHeader),
+            // sin pasar por acá -- de ahí que la sección se viera repetida sin que el
+            // presupuesto sumara mal.
+            .DistinctBy(x => x.IdSection)
             .Select(x => new SectionInfo
             {
                 Id = x.IdSection,

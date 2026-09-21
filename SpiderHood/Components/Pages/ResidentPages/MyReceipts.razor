@@ -421,6 +421,12 @@
                 ? await ExtraChargeService.GetAdditionalChargesAsync(ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { item })
                 : new List<Installment>();
 
+            // Deudas Anteriores: cuotas de periodos previos de esta misma unidad que
+            // siguen sin conciliarse, igual que en "Ver Detalle" en pantalla.
+            var deudasAnteriores = item.Type == InstallmentType.Ordinaria
+                ? await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding)
+                : new List<Installment>();
+
             // Docs/Pendientes-Negocio-Consolidado.md #28 -- necesario para no
             // subestimar el desglose Fijo/Agua de cuotas que agrupan más de 1 unidad.
             var owners = await BuildingService.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
@@ -433,7 +439,8 @@
                 ParameterService.CurrentBuilding,
                 categorias,
                 owners,
-                cargosAdicionales);
+                cargosAdicionales,
+                deudasAnteriores);
 
             // Docs/Pendientes-Negocio-Consolidado.md #18b -- si ya se generó antes,
             // sirve el mismo PDF guardado (no lo recalcula con la configuración

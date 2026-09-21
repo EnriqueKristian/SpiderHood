@@ -5,6 +5,7 @@
 @inject SpiderHood.Services.ParameterService ParameterService
 @inject SpiderHood.Services.IBuildingService BuildingService
 @inject SpiderHood.Services.IExtraChargeService ExtraChargeService
+@inject SpiderHood.Services.IInstallmentService InstallmentService
 
 <Modal @ref="_modal" Title="@TituloModal" Size="ModalSize.ExtraLarge">
     <BodyTemplate>
@@ -254,6 +255,58 @@
                 </div>
             }
 
+            @* Deudas Anteriores: cuotas Ordinarias/Extraordinarias-Multa-Mora de PERIODOS
+               PREVIOS que siguen sin conciliarse para esta misma unidad -- igual que el
+               recibo en Excel que reemplaza este módulo. No confundir con el bloque de
+               arriba (cargos del MISMO periodo que esta cuota): acá sólo entran deudas de
+               otros periodos, ver ShowAsync. *@
+            @if (_deudasAnteriores.Any() && _installment != null && _installment.Type == InstallmentType.Ordinaria)
+            {
+                <div class="table-container px-4 pb-4">
+                    <h6 class="mb-2 text-danger"><i class="bi bi-exclamation-circle me-1"></i>Deudas Anteriores</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th style="width: 20%" class="text-end">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Lectura de Agua - Regularización</td>
+                                    <td class="text-end">@Moneda(DeudaLecturaAguaAnterior)</td>
+                                </tr>
+                                <tr>
+                                    <td>Cuotas Ordinarias</td>
+                                    <td class="text-end">@Moneda(DeudaOrdinariasAnteriores)</td>
+                                </tr>
+                                <tr>
+                                    <td>Cuotas Extraordinarias</td>
+                                    <td class="text-end">@Moneda(DeudaExtraordinariasAnteriores)</td>
+                                </tr>
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr class="table-danger">
+                                    <td class="text-end fw-bold py-2">Total Deudas Anteriores:</td>
+                                    <td class="text-end fw-bold py-2">@Moneda(DeudaAnteriorTotal)</td>
+                                </tr>
+                                <tr class="table-primary">
+                                    <td class="text-end fw-bold py-3">
+                                        <i class="bi bi-calculator me-2"></i>DEUDA TOTAL:
+                                    </td>
+                                    <td class="text-end py-3">
+                                        <span class="fs-5 fw-bold">
+                                            @Moneda(_installment.Amount + _cargosAdicionales.Sum(c => c.Amount) + DeudaAnteriorTotal)
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            }
+
             @if (ExtraContent != null)
             {
                 <div class="p-4 pt-0">
@@ -315,6 +368,17 @@
     // detalle mostrado es de una cuota Ordinaria (ver ShowAsync).
     private List<Installment> _cargosAdicionales = new();
 
+    // Deudas de PERIODOS ANTERIORES (Ordinarias/Extraordinarias/Multa/Mora) que siguen sin
+    // conciliarse para el mismo IdGroupUnit -- ver ShowAsync y la sección "Deudas
+    // Anteriores" del recibo en Excel que este módulo reemplaza.
+    private List<Installment> _deudasAnteriores = new();
+
+    private bool EsRegularizacionAgua(Installment i) => i.Concept.Contains("agua", StringComparison.OrdinalIgnoreCase);
+    private decimal DeudaLecturaAguaAnterior => _deudasAnteriores.Where(EsRegularizacionAgua).Sum(i => i.Debt);
+    private decimal DeudaOrdinariasAnteriores => _deudasAnteriores.Where(i => i.Type == InstallmentType.Ordinaria).Sum(i => i.Debt);
+    private decimal DeudaExtraordinariasAnteriores => _deudasAnteriores.Where(i => i.Type != InstallmentType.Ordinaria && !EsRegularizacionAgua(i)).Sum(i => i.Debt);
+    private decimal DeudaAnteriorTotal => DeudaLecturaAguaAnterior + DeudaOrdinariasAnteriores + DeudaExtraordinariasAnteriores;
+
     private decimal _distr;
     private int _waterReadingsCount;
     private decimal _inverseNroGroupUnit;
@@ -355,6 +419,7 @@
         _pesoFija = 1;
         _inverseNroGroupUnit = 0;
         _cargosAdicionales = new();
+        _deudasAnteriores = new();
         if (ParameterService.CurrentBuilding != null)
         {
             // Misma fuente que Owners.razor (Residentes): una fila por unidad del grupo,
@@ -394,6 +459,16 @@
             {
                 _cargosAdicionales = await ExtraChargeService.GetAdditionalChargesAsync(
                     ParameterService.CurrentBuilding.IdBuilding, new List<Installment> { installment });
+
+                // Deudas Anteriores: mismo IdGroupUnit, periodos ANTERIORES a este, que
+                // todavía no están Conciliadas -- GetPendingInstallmentsAsync ya trae sólo
+                // pendientes/parciales de todo el edificio y todos los periodos.
+                var pendientesEdificio = await InstallmentService.GetPendingInstallmentsAsync(ParameterService.CurrentBuilding.IdBuilding);
+                _deudasAnteriores = pendientesEdificio
+                    .Where(i => i.IdGroupUnit == installment.IdGroupUnit
+                        && i.IdInstallment != installment.IdInstallment
+                        && i.Period < installment.Period)
+                    .ToList();
             }
         }
 

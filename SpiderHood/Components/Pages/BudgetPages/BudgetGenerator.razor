@@ -1780,6 +1780,11 @@
                     var cargosAdicionales = await ExtraChargeService.GetAdditionalChargesAsync(
                         ParameterService.CurrentBuilding!.IdBuilding, _BudgetState.Installments);
 
+                    // Deudas Anteriores: cuotas pendientes de periodos previos del edificio
+                    // (se filtran por unidad/periodo al armar cada recibo, ver ComposeTable).
+                    var deudasAnteriores = await InstallmentService.GetPendingInstallmentsAsync(
+                        ParameterService.CurrentBuilding!.IdBuilding);
+
                     // Genera el recibo (PDF) de cada unidad y los descarga en un solo ZIP.
                     var exportService = new InstallmentExportService(
                         _BudgetState.Installments,
@@ -1789,7 +1794,8 @@
                         ParameterService.CurrentBuilding!,
                         filteredCategories,
                         _BudgetState.Owners,
-                        cargosAdicionales);
+                        cargosAdicionales,
+                        deudasAnteriores);
 
                     // Docs/Pendientes-Negocio-Consolidado.md #18b -- publicar el
                     // presupuesto es el momento natural para que cada recibo quede

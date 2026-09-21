@@ -663,6 +663,11 @@ namespace SpiderHood.Models
         // Cuotas Extraordinarias/Multas/Mora de cualquier unidad de este lote — se
         // filtran por IdGroupUnit al armar cada recibo, igual que _waterReadings.
         private readonly List<Installment> _cargosAdicionales;
+        // Cuotas pendientes de CUALQUIER periodo/unidad del edificio (building-wide,
+        // como devuelve IInstallmentService.GetPendingInstallmentsAsync) — se filtran acá
+        // por IdGroupUnit y Period < _installment.Period para armar "DEUDAS ANTERIORES",
+        // igual que InstallmentDetailModal._deudasAnteriores.
+        private readonly List<Installment> _deudasAnteriores;
 
         // Docs/Pendientes-Negocio-Consolidado.md #28 -- antes CalculateItemAmount usaba
         // _building.Apartments como divisor (un conteo declarado a mano, no
@@ -686,7 +691,8 @@ namespace SpiderHood.Models
             Building building,
             List<Category> categories,
             List<OwnerUnitView> owners,
-            List<Installment>? cargosAdicionales = null)
+            List<Installment>? cargosAdicionales = null,
+            List<Installment>? deudasAnteriores = null)
         {
             _installments = installments;
             _budget = budget;
@@ -695,6 +701,7 @@ namespace SpiderHood.Models
             _building = building;
             _categories = categories;
             _cargosAdicionales = cargosAdicionales ?? new();
+            _deudasAnteriores = deudasAnteriores ?? new();
 
             var unidadesFacturables = owners
                 .Where(o => o.Role == 1 && (o.TypeUnit == 1 || o.TypeUnit == 4))
@@ -1051,12 +1058,52 @@ namespace SpiderHood.Models
                         .Text($"S/ {(totalCuota + totalAdicionales):N2}").Bold().FontSize(12).FontColor(Colors.White);
                 }
 
-                // "DEUDAS ANTERIORES" (cuotas ordinarias/extraordinarias de periodos
-                // previos, histórico de agua) queda pendiente: hoy no existe ninguna
-                // consulta que traiga cuotas de un mismo IdGroupUnit a través de varios
-                // periodos — se retoma en una fase aparte en vez de mostrar "S/ 0.00" fijo.
+                // "DEUDAS ANTERIORES": cuotas de esta misma unidad, de periodos previos,
+                // que siguen sin conciliarse — agrupadas Lectura de Agua-Regularización /
+                // Cuotas Ordinarias / Cuotas Extraordinarias, igual que el recibo en Excel
+                // que reemplaza este generador y que InstallmentDetailModal._deudasAnteriores.
+                var deudasUnidad = _deudasAnteriores
+                    .Where(d => d.IdGroupUnit == _installment.IdGroupUnit
+                        && d.IdInstallment != _installment.IdInstallment
+                        && d.Period < _installment.Period)
+                    .ToList();
+
+                if (deudasUnidad.Any())
+                {
+                    var deudaAgua = deudasUnidad.Where(EsRegularizacionAgua).Sum(d => d.Debt);
+                    var deudaOrdinarias = deudasUnidad.Where(d => d.Type == InstallmentType.Ordinaria).Sum(d => d.Debt);
+                    var deudaExtraordinarias = deudasUnidad
+                        .Where(d => d.Type != InstallmentType.Ordinaria && !EsRegularizacionAgua(d))
+                        .Sum(d => d.Debt);
+                    var deudaAnteriorTotal = deudaAgua + deudaOrdinarias + deudaExtraordinarias;
+
+                    AddSectionHeader(table, "DEUDAS ANTERIORES");
+                    AddTableRow(table, "Lectura de Agua - Regularización", 0, deudaAgua, 0, false);
+                    AddTableRow(table, "Cuotas Ordinarias", 0, deudaOrdinarias, 0, true);
+                    AddTableRow(table, "Cuotas Extraordinarias", 0, deudaExtraordinarias, 0, false);
+
+                    table.Cell().ColumnSpan(4).PaddingTop(6);
+                    table.Cell().ColumnSpan(3).Background(Colors.Red.Darken2).Padding(6)
+                        .Text("TOTAL DEUDAS ANTERIORES").Bold().FontColor(Colors.White);
+                    table.Cell().Background(Colors.Red.Darken2).Padding(6).AlignRight()
+                        .Text($"S/ {deudaAnteriorTotal:N2}").Bold().FontSize(12).FontColor(Colors.White);
+
+                    var granTotal = totalCuota + cargosUnidad.Sum(c => c.Amount) + deudaAnteriorTotal;
+                    table.Cell().ColumnSpan(4).PaddingTop(6);
+                    table.Cell().ColumnSpan(3).Background(Colors.Black).Padding(6)
+                        .Text("DEUDA TOTAL").Bold().FontColor(Colors.White);
+                    table.Cell().Background(Colors.Black).Padding(6).AlignRight()
+                        .Text($"S/ {granTotal:N2}").Bold().FontSize(12).FontColor(Colors.White);
+                }
             });
         }
+
+        // "Lectura de Agua - Regularización" no tiene un concepto propio en el modelo:
+        // es una cuota Extraordinaria cuyo Concept incluye "Agua" (ver
+        // IMigrationTemplateService seed data) — mismo criterio que
+        // InstallmentDetailModal.EsRegularizacionAgua, para que ambas vistas agrupen igual.
+        private static bool EsRegularizacionAgua(Installment i) =>
+            i.Concept.Contains("agua", StringComparison.OrdinalIgnoreCase);
 
         private void ComposeFooter(IContainer container)
         {

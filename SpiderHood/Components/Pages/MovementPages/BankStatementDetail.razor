@@ -1,4 +1,4 @@
-﻿@page "/movement/detail/{IdStatementHeader:guid}"
+@page "/movement/detail/{IdStatementHeader:guid}"
 @rendermode InteractiveServer
 @using SpiderHood.Models
 @using SpiderHood.Services
@@ -6,6 +6,10 @@
 @inject NavigationManager Navigation
 @inject ParameterService ParameterService
 @inject IBankAccountService BankAccountService
+@inject IInstallmentService InstallmentService
+@inject IExpenseService ExpenseService
+@inject IWorkflowAuditService WorkflowAuditService
+@inject SpiderHood.Services.AuthService AuthService
 
 <PageTitle>Detalle de Estado de Cuenta</PageTitle>
 
@@ -41,6 +45,21 @@
         </div>
     </div>
 
+    @if (!string.IsNullOrEmpty(mensajeExito))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @mensajeExito
+            <button type="button" class="btn-close" @onclick="() => mensajeExito = null"></button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(mensajeError))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @mensajeError
+            <button type="button" class="btn-close" @onclick="() => mensajeError = null"></button>
+        </div>
+    }
+
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
                     @if (cargando)
@@ -58,7 +77,7 @@
                             No se encontró ese estado de cuenta para el edificio actual.
                         </div>
                     }
-                    else if (!pagination.AllData.Any())
+                    else if (!detallesCompletos.Any())
                     {
                         <div class="text-center py-5 text-muted">
                             <i class="bi bi-inbox display-4 d-block mb-3"></i>
@@ -67,6 +86,54 @@
                     }
                     else
                     {
+                        <!-- Filtros -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold mb-1">Estado</label>
+                                <select class="form-select" @bind="filtroEstado" @bind:after="AplicarFiltros">
+                                    <option value="">Todos los estados</option>
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="Parcial">Parcial</option>
+                                    <option value="Conciliado">Conciliado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold mb-1">Monto mín.</label>
+                                <input type="number" class="form-control" step="0.01"
+                                       @bind="filtroMontoMin" @bind:event="oninput" @bind:after="AplicarFiltros" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold mb-1">Monto máx.</label>
+                                <input type="number" class="form-control" step="0.01"
+                                       @bind="filtroMontoMax" @bind:event="oninput" @bind:after="AplicarFiltros" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold mb-1">Descripción</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0">
+                                        <i class="bi bi-search text-muted"></i>
+                                    </span>
+                                    <input type="text" class="form-control border-start-0"
+                                           placeholder="Buscar por descripción..."
+                                           @bind="filtroDescripcion" @bind:event="oninput" @bind:after="AplicarFiltros" />
+                                </div>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button class="btn btn-outline-secondary w-100" title="Limpiar filtros" @onclick="LimpiarFiltros">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (!pagination.AllData.Any())
+                        {
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-search display-4 d-block mb-3"></i>
+                                Ningún movimiento coincide con los filtros aplicados
+                            </div>
+                        }
+                        else
+                        {
                         <!-- Encabezado con estadísticas y selector de página -->
                         <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
                             <p class="text-muted mb-0">
@@ -93,6 +160,8 @@
                                         <th>Moneda</th>
                                         <th>Monto</th>
                                         <th>Estado</th>
+                                        <th>Aplicado a</th>
+                                        <th class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -121,6 +190,26 @@
                                                 {
                                                     <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Pendiente</span>
                                                 }
+                                            </td>
+                                            <td class="small text-muted">@ResumenAplicacion(item)</td>
+                                            <td class="text-center">
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    @if (item.ReconciliationStatus == ReconciliationType.Conciliada || item.ReconciliationStatus == ReconciliationType.Parcial)
+                                                    {
+                                                        <button class="btn btn-outline-info" title="Ver cómo se aplicó"
+                                                                @onclick="() => VerDetalleAplicacion(item)">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                    }
+                                                    @if (item.ReconciliationStatus == ReconciliationType.Conciliada && _puedeCorregir)
+                                                    {
+                                                        <button class="btn btn-outline-danger"
+                                                                title="Corregir/Revertir (requiere motivo, queda en el log de auditoría)"
+                                                                @onclick="() => RevertirConciliacion(item)">
+                                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                                        </button>
+                                                    }
+                                                </div>
                                             </td>
                                         </tr>
                                     }
@@ -195,10 +284,108 @@
                                 </div>
                             </div>
                         }
+                        }
                     }
                 </div>
             </div>
 </div>
+
+@* Detalle de cómo quedó aplicada la conciliación: a qué cuota(s)/DPTO o a qué gasto. *@
+@if (mostrarModalDetalle && transaccionDetalle != null)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-link-45deg me-2"></i>Detalle de conciliación</h5>
+                    <button type="button" class="btn-close" @onclick="() => mostrarModalDetalle = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">
+                        @transaccionDetalle.Description · @transaccionDetalle.StatementDate.ToString("dd/MM/yyyy")
+                        · @transaccionDetalle.Amount.ToString("C", System.Globalization.CultureInfo.CreateSpecificCulture(transaccionDetalle.Currency == "USD" ? "en-US" : "es-PE"))
+                    </p>
+                    @{
+                        var pagosDetalle = PagosDe(transaccionDetalle.IdStatementDetail);
+                        var gastoDetalle = GastoDe(transaccionDetalle.IdStatementDetail);
+                    }
+                    @if (pagosDetalle.Any())
+                    {
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>DPTO/Unidad</th>
+                                    <th>Propietario</th>
+                                    <th>Período</th>
+                                    <th class="text-end">Monto aplicado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var pago in pagosDetalle)
+                                {
+                                    <tr>
+                                        <td>@pago.UnitName</td>
+                                        <td>@pago.OwnerName</td>
+                                        <td>@pago.Period.ToString("MMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("es-PE"))</td>
+                                        <td class="text-end">@pago.Amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("es-PE"))</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else if (gastoDetalle != null)
+                    {
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Gasto</dt>
+                            <dd class="col-sm-8">@gastoDetalle.Description</dd>
+                            <dt class="col-sm-4">Categoría</dt>
+                            <dd class="col-sm-8">@gastoDetalle.Category</dd>
+                            <dt class="col-sm-4">Monto</dt>
+                            <dd class="col-sm-8">@gastoDetalle.Amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("es-PE"))</dd>
+                        </dl>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">No se encontró el detalle de aplicación (puede ser una carga migrada sin ese registro).</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" @onclick="() => mostrarModalDetalle = false">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* Mismo patrón de "motivo obligatorio" que Conciliación de Pagos (ReconciliationWorkspace.razor)
+   -- "Corregir" acá revierte lo mismo que ahí, sólo que esta es la única pantalla donde una
+   transacción YA conciliada es alcanzable (ver comentario en ReconciliationWorkspace.razor
+   sobre por qué esa pantalla no lista lo ya confirmado). *@
+@if (mostrarModalMotivo)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Motivo de la corrección</h5>
+                    <button type="button" class="btn-close" @onclick="() => CerrarModalMotivo(null)"></button>
+                </div>
+                <div class="modal-body">
+                    <p>@mensajeModalMotivo</p>
+                    <textarea class="form-control" rows="3" @bind="textoModalMotivo" @bind:event="oninput" placeholder="Motivo (obligatorio)"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" @onclick="() => CerrarModalMotivo(null)">Cancelar</button>
+                    <button class="btn btn-danger" disabled="@string.IsNullOrWhiteSpace(textoModalMotivo)" @onclick="() => CerrarModalMotivo(textoModalMotivo)">
+                        <i class="bi bi-check2 me-1"></i>Confirmar corrección
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter] public Guid IdStatementHeader { get; set; }
@@ -207,10 +394,39 @@
     private List<BankAccount> cuentasBancarias = new();
     private bool cargando = true;
     private bool accesoDenegado = false;
+    private string? mensajeExito;
+    private string? mensajeError;
+
+    // Datos para mostrar "a qué se aplicó" cada movimiento conciliado, y para poder
+    // revertir sin ir a buscarlos de nuevo por cada fila.
+    private List<InstallmentPaid> pagosCuotas = new();
+    private List<ViewExpense> gastosDelEdificio = new();
+    private UserSession _currentUser = new();
+    // Mismo criterio que ReconciliationWorkspace.razor: corregir una conciliación ya
+    // confirmada queda restringido a Administrador (pedido explícito del usuario), sin
+    // depender del sistema de permisos por BD.
+    private bool _puedeCorregir => _currentUser.Role == "Administrador";
+
+    // Filtros
+    private string filtroEstado = "";
+    private string filtroDescripcion = "";
+    private decimal? filtroMontoMin;
+    private decimal? filtroMontoMax;
 
     // Paginación reutilizando la clase genérica de Models/PaginationClass.cs
     private PaginationClass<AccountStatementDetailView> pagination = new();
+    private List<AccountStatementDetailView> detallesCompletos = new();
     private int jumpToPage = 1;
+
+    // Modal "Ver detalles de aplicación"
+    private bool mostrarModalDetalle = false;
+    private AccountStatementDetailView? transaccionDetalle;
+
+    // Modal "Motivo de la corrección" -- mismo patrón que ReconciliationWorkspace.razor.
+    private bool mostrarModalMotivo = false;
+    private string mensajeModalMotivo = "";
+    private string textoModalMotivo = "";
+    private TaskCompletionSource<string?>? _motivoTcs;
 
     protected override void OnInitialized()
     {
@@ -248,6 +464,7 @@
 
         if (ParameterService.CurrentBuilding != null)
         {
+            _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
             cuentasBancarias = await BankAccountService.GetBankAccountsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // IDOR: GetStatementDetailsAsync(IdStatementHeader) trae el detalle de CUALQUIER
@@ -267,16 +484,168 @@
                 return;
             }
 
-            var detalles = (await BankAccountService.GetStatementDetailsAsync(IdStatementHeader))
+            detallesCompletos = (await BankAccountService.GetStatementDetailsAsync(IdStatementHeader))
                 .OrderBy(d => d.StatementDate)
                 .ThenBy(d => d.SequenceNumber)
                 .ToList();
 
-            pagination.Initialize(detalles);
+            // Se cargan una sola vez para todo el edificio (no por transacción) -- de acá
+            // sale tanto el resumen "Aplicado a" de cada fila como el detalle completo y el
+            // Corregir/Revertir, sin ir a buscarlos de nuevo por cada fila ni por cada click.
+            pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
+            gastosDelEdificio = await ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+            pagination.Initialize(detallesCompletos);
         }
 
         cargando = false;
         StateHasChanged();
+    }
+
+    private List<InstallmentPaid> PagosDe(Guid idStatementDetail) =>
+        pagosCuotas.Where(p => p.IdTransaction == idStatementDetail).ToList();
+
+    private ViewExpense? GastoDe(Guid idStatementDetail) =>
+        gastosDelEdificio.FirstOrDefault(g => g.ReconciledTransactionId == idStatementDetail);
+
+    private string ResumenAplicacion(AccountStatementDetailView item)
+    {
+        if (item.ReconciliationStatus != ReconciliationType.Conciliada && item.ReconciliationStatus != ReconciliationType.Parcial)
+            return "—";
+
+        var pagos = PagosDe(item.IdStatementDetail);
+        if (pagos.Any())
+        {
+            var unidades = pagos.Select(p => p.UnitName).Distinct().ToList();
+            var resumen = "DPTO " + string.Join(", ", unidades.Take(2));
+            if (unidades.Count > 2) resumen += $" +{unidades.Count - 2} más";
+            return resumen;
+        }
+
+        var gasto = GastoDe(item.IdStatementDetail);
+        return gasto != null ? $"Gasto: {gasto.Description}" : "—";
+    }
+
+    private void VerDetalleAplicacion(AccountStatementDetailView item)
+    {
+        transaccionDetalle = item;
+        mostrarModalDetalle = true;
+    }
+
+    private void AplicarFiltros()
+    {
+        pagination.ApplyCustomFilter(item =>
+            EstadoCoincide(item) &&
+            (string.IsNullOrWhiteSpace(filtroDescripcion) ||
+                item.Description.Contains(filtroDescripcion, StringComparison.OrdinalIgnoreCase)) &&
+            (!filtroMontoMin.HasValue || item.Amount >= filtroMontoMin.Value) &&
+            (!filtroMontoMax.HasValue || item.Amount <= filtroMontoMax.Value));
+    }
+
+    private bool EstadoCoincide(AccountStatementDetailView item) => filtroEstado switch
+    {
+        "Conciliado" => item.ReconciliationStatus == ReconciliationType.Conciliada,
+        "Parcial" => item.ReconciliationStatus == ReconciliationType.Parcial,
+        "Pendiente" => item.ReconciliationStatus != ReconciliationType.Conciliada && item.ReconciliationStatus != ReconciliationType.Parcial,
+        _ => true
+    };
+
+    private void LimpiarFiltros()
+    {
+        filtroEstado = "";
+        filtroDescripcion = "";
+        filtroMontoMin = null;
+        filtroMontoMax = null;
+        pagination.ClearFilters();
+    }
+
+    private Task<string?> PedirMotivoAsync(string mensaje)
+    {
+        mensajeModalMotivo = mensaje;
+        textoModalMotivo = "";
+        mostrarModalMotivo = true;
+        _motivoTcs = new TaskCompletionSource<string?>();
+        return _motivoTcs.Task;
+    }
+
+    private void CerrarModalMotivo(string? motivo)
+    {
+        mostrarModalMotivo = false;
+        _motivoTcs?.TrySetResult(string.IsNullOrWhiteSpace(motivo) ? null : motivo);
+    }
+
+    // Misma lógica que CorregirConciliacionIngreso/Gasto en ReconciliationWorkspace.razor
+    // -- esta es la pantalla donde en verdad es alcanzable, porque acá sí se listan las
+    // transacciones ya Conciliadas (ver comentario en esa pantalla).
+    private async Task RevertirConciliacion(AccountStatementDetailView item)
+    {
+        if (!_puedeCorregir || ParameterService.CurrentBuilding == null) return;
+
+        var pagos = PagosDe(item.IdStatementDetail);
+        var gasto = GastoDe(item.IdStatementDetail);
+
+        if (!pagos.Any() && gasto == null)
+        {
+            mensajeError = "Esta transacción no tiene una cuota ni un gasto conciliado asociado para corregir.";
+            return;
+        }
+
+        var detalleParaMotivo = pagos.Any()
+            ? $"y liberar {pagos.Count} cuota(s) asociada(s)"
+            : $"con el gasto '{gasto!.Description}'";
+
+        var motivo = await PedirMotivoAsync($"Vas a corregir la conciliación de '{item.Description}' {detalleParaMotivo}.");
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            return;
+        }
+
+        try
+        {
+            var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
+
+            if (pagos.Any())
+            {
+                var pago = new TransactionBankDetail
+                {
+                    IdStatementDetail = item.IdStatementDetail,
+                    Description = item.Description,
+                    Currency = item.Currency,
+                    ReconciliationStatus = ReconciliationType.NoConciliada
+                };
+                await InstallmentService.RevertPaymentAsync(pago, pagos, BankAccountService);
+
+                var detalleAnterior = $"{pagos.Count} cuota(s): Unidad " + string.Join(", ", pagos.Select(p => p.UnitName).Distinct());
+                await WorkflowAuditService.LogAsync("Reconciliation", item.IdStatementDetail, WorkflowAction.Corrected,
+                    performedBy, ParameterService.CurrentBuilding.IdBuilding,
+                    $"Se liberó la conciliación con {detalleAnterior}. Motivo: {motivo}");
+
+                pagosCuotas.RemoveAll(p => p.IdTransaction == item.IdStatementDetail);
+            }
+            else
+            {
+                await BankAccountService.UnreconcileExpenseAsync(item.IdStatementDetail, gasto!.IdExpense);
+
+                await WorkflowAuditService.LogAsync("Reconciliation", item.IdStatementDetail, WorkflowAction.Corrected,
+                    performedBy, ParameterService.CurrentBuilding.IdBuilding,
+                    $"Se liberó la conciliación con gasto '{gasto.Description}'. Motivo: {motivo}");
+
+                gasto.Reconciled = false;
+                gasto.ReconciledTransactionId = null;
+                gasto.AutoReconcile = false;
+            }
+
+            item.ReconciliationStatus = ReconciliationType.NoConciliada;
+            item.ReconciliationDate = null;
+
+            AplicarFiltros();
+            mensajeExito = "Conciliación corregida y liberada.";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            mensajeError = $"Error al corregir: {ex.Message}";
+        }
     }
 
     private string GetNombreCuenta(Guid idBankAccount)

@@ -364,7 +364,19 @@
                 .Where(u => u.IdGroupUnit == installment.IdGroupUnit && u.Role == 1)
                 .OrderBy(u => u.TypeUnit)
                 .ToList();
-            _pesoFija = Math.Max(1, _unidadesGrupo.Select(u => u.IdUnit).Distinct().Count());
+            // pesoFija sólo cuenta Depto/Oficina reales -- mismo filtro (TypeUnit == 1 || 4)
+            // que _totalApartments de acá abajo, y que BudgetState.CalculateQuota/
+            // InstallmentExportService (que arman su lista de Owners ya filtrada así antes de
+            // agrupar). Sin este filtro, cualquier grupo que además incluya una Cochera o
+            // Depósito bajo el mismo IdGroupUnit (el caso más común, no sólo "Inmobiliaria")
+            // contaba esa unidad no facturable como un Depto/Oficina más, duplicando la cuota
+            // de cada item Fija/Agua en ESTE detalle -- el Total Cuota real (_installment.
+            // Amount) nunca estuvo mal, se calcula aparte con la lista ya filtrada.
+            _pesoFija = Math.Max(1, _unidadesGrupo
+                .Where(u => u.TypeUnit == 1 || u.TypeUnit == 4)
+                .Select(u => u.IdUnit)
+                .Distinct()
+                .Count());
 
             // Mismo filtro (Role==1, Depto/Oficina) y misma cuenta que
             // BudgetService.LoadDataDefaultAsync usa para BudgetState.TotalApartments --

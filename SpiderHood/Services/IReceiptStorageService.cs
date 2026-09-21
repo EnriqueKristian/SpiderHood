@@ -77,8 +77,18 @@ namespace SpiderHood.Services
             // elemento como una unidad. El nombre del archivo queda simple (sólo
             // el Guid) porque Edificio/Unidad/Año/Mes ya quedan expresados en la
             // carpeta.
+            // installment.UnitName sale de agrupar UnitNumber (BudgetState.GenerateBudget) --
+            // si esas unidades no tienen número cargado, UnitName queda "" y
+            // FileStorageService.SanitizeSegment lo rechaza ("El segmento de ruta no puede
+            // estar vacío"), que abortaba TODO el ZIP de recibos aunque el presupuesto y las
+            // cuotas ya se hubieran guardado bien. Number (correlativo, siempre > 0) es un
+            // respaldo seguro para no perder la carpeta del recibo por eso.
+            var carpetaUnidad = string.IsNullOrWhiteSpace(installment.UnitName)
+                ? $"Cuota-{installment.Number}"
+                : installment.UnitName;
+
             var relativePath = await _fileStorage.SaveAsync(
-                new[] { "receipts", idBuilding.ToString(), installment.UnitName, installment.Period.Year.ToString(), carpetaMes },
+                new[] { "receipts", idBuilding.ToString(), carpetaUnidad, installment.Period.Year.ToString(), carpetaMes },
                 $"{installment.IdInstallment}.pdf",
                 pdfBytes);
 

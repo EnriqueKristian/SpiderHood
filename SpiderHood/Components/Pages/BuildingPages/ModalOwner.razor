@@ -103,8 +103,8 @@
                         </div>
                         <div class="row g-3 mb-2">
                             <div class="col-md-4">
-                                <label for="phonenumber" class="form-label small text-muted">Teléfono</label>
-                                <InputText id="phonenumber" @bind-Value="ViewOwner.PhoneNumber" class="form-control" />
+                                <label for="phonenumber" class="form-label small text-muted"><span class="text-danger">*</span> Teléfono</label>
+                                <InputText id="phonenumber" @bind-Value="ViewOwner.PhoneNumber" class="form-control" aria-required="true" />
                                 <ValidationMessage For="() => ViewOwner.PhoneNumber" class="text-danger" />
                             </div>
                             <div class="col-md-4">

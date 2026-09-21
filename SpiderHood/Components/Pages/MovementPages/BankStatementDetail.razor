@@ -51,6 +51,13 @@
                             </div>
                         </div>
                     }
+                    else if (accesoDenegado)
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-shield-lock display-4 d-block mb-3"></i>
+                            No se encontró ese estado de cuenta para el edificio actual.
+                        </div>
+                    }
                     else if (!pagination.AllData.Any())
                     {
                         <div class="text-center py-5 text-muted">
@@ -199,24 +206,15 @@
     private TransactionBankHeader? header;
     private List<BankAccount> cuentasBancarias = new();
     private bool cargando = true;
+    private bool accesoDenegado = false;
 
     // Paginación reutilizando la clase genérica de Models/PaginationClass.cs
     private PaginationClass<AccountStatementDetailView> pagination = new();
     private int jumpToPage = 1;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         pagination.OnPaginationChanged += () => jumpToPage = pagination.CurrentPage;
-
-        // No depende de CurrentBuilding (IdStatementHeader ya viene resuelto en la ruta),
-        // así que puede cargarse acá sin correr la carrera de abajo.
-        var detalles = (await BankAccountService.GetStatementDetailsAsync(IdStatementHeader))
-            .OrderBy(d => d.StatementDate)
-            .ThenBy(d => d.SequenceNumber)
-            .ToList();
-
-        pagination.Initialize(detalles);
-        cargando = false;
     }
 
     // ParameterService.CurrentBuilding lo resuelve HeaderMainLayout en SU PROPIO
@@ -252,10 +250,32 @@
         {
             cuentasBancarias = await BankAccountService.GetBankAccountsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
+            // IDOR: GetStatementDetailsAsync(IdStatementHeader) trae el detalle de CUALQUIER
+            // estado de cuenta de CUALQUIER edificio, sin importar a quién pertenece -- antes
+            // se llamaba directo desde la ruta sin pasar por este chequeo. Ahora sólo se carga
+            // el detalle si el header aparece entre los headers del edificio actualmente
+            // seleccionado; si no aparece (de otro edificio, o no existe), se corta acá y se
+            // muestra "acceso denegado" sin traer ni una fila de la tabla de detalle.
             var headers = await BankAccountService.GetMovementHeadersAsync(ParameterService.CurrentBuilding.IdBuilding, null);
             header = headers.FirstOrDefault(h => h.IdStatementHeader == IdStatementHeader);
+
+            if (header == null)
+            {
+                accesoDenegado = true;
+                cargando = false;
+                StateHasChanged();
+                return;
+            }
+
+            var detalles = (await BankAccountService.GetStatementDetailsAsync(IdStatementHeader))
+                .OrderBy(d => d.StatementDate)
+                .ThenBy(d => d.SequenceNumber)
+                .ToList();
+
+            pagination.Initialize(detalles);
         }
 
+        cargando = false;
         StateHasChanged();
     }
 

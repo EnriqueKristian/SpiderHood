@@ -171,6 +171,31 @@ namespace SpiderHood.Services
 
             ValidationResult? readingValidation = new();
 
+            // El layout de columnas esperado depende de esPrimeraCarga (ver
+            // ExportarPlantillaVacia, que genera cada uno) y NO es intercambiable: antes,
+            // si se cargaba un archivo con el layout equivocado (p.ej. reusar la plantilla
+            // de Primera Carga -- con "Lectura Inicial" -- para una carga posterior), el
+            // importador igual leía las columnas por posición y corría los datos un
+            // casillero, sin avisar nada. Ahora se valida el encabezado contra el layout
+            // esperado y se corta con un error claro antes de leer ninguna fila.
+            var encabezadoEsperado = esPrimeraCarga
+                ? new[] { "Dpto.", "Periodo", "Lectura Inicial", "Lectura Final", "Fecha Lectura" }
+                : new[] { "Dpto.", "Periodo", "Lectura Final", "Fecha Lectura" };
+
+            var encabezadoReal = Enumerable.Range(1, encabezadoEsperado.Length)
+                .Select(i => worksheet.Cell(1, i).GetValue<string>().Trim())
+                .ToArray();
+
+            if (!encabezadoReal.SequenceEqual(encabezadoEsperado, StringComparer.OrdinalIgnoreCase))
+            {
+                readingValidation.AddError("LAYOUT_INVALIDO",
+                    $"El archivo no tiene el formato esperado ({(esPrimeraCarga ? "Primera Carga" : "carga con historial")}). " +
+                    $"Columnas esperadas: {string.Join(" / ", encabezadoEsperado)}. Descargue la plantilla nuevamente.");
+                reading.ValidationErrors = readingValidation;
+                reading.WaterReadingDetail = [];
+                return Task.FromResult(reading);
+            }
+
             int fila = 2; // Comienza después del encabezado
             foreach (var row in worksheet.RowsUsed().Skip(1))
             {
@@ -449,14 +474,17 @@ namespace SpiderHood.Services
             // fila real del archivo Excel.
             string etiqueta = $"Dpto. {(string.IsNullOrWhiteSpace(reading.Aparment) ? "(vacío)" : reading.Aparment)} (Fila {reading.row})";
 
+            // "Periodo" es el período de facturación (p.ej. "2026-10-01"), no la fecha en
+            // que se tomó la lectura -- puede ser el mes que recién empieza a operarse,
+            // que es "futuro" respecto a hoy sin que eso sea un error. Quien sí no puede
+            // ser futura es "Fecha Lectura" (la fecha real en que se leyó el medidor),
+            // validada más abajo. Antes esta validación rechazaba el período con
+            // "Periodo con Fecha Futura" incluso en la propia plantilla que genera
+            // ExportarPlantillaVacia (precarga el período actual, que normalmente es
+            // hoy o después).
             if (!DateTime.TryParse(reading.Period, out DateTime periodo))
             {
                 result!.AddError("PERIODO_INVALIDO", $"{etiqueta}: Periodo inválido");
-                reading.Procesed = false;
-            }
-            else if (periodo > DateTime.Today)
-            {
-                result!.AddError("PERIODO_INVALIDO", $"{etiqueta}: Periodo con Fecha Futura");
                 reading.Procesed = false;
             }
 

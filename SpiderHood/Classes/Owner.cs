@@ -19,6 +19,8 @@ namespace SpiderHood.Models
         public string Names { get; set; } = null!;
         public string? Surname { get; set; }
         public string Address { get; set; } = null!;
+
+        [Required(ErrorMessage = "El Teléfono es obligatorio")]
         public string PhoneNumber { get; set; } = null!;
         public int IdTypeIdNumber { get; set; }
         public Guid IdBuilding { get; set; }

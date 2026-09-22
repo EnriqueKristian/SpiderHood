@@ -137,6 +137,51 @@
         box-shadow: var(--sh-shadow-sm) !important;
     }
 
+/* Docs/Plan-Estandarizacion-UI.md #2 -- mismo problema que los badges de
+   bg-light/bg-warning/etc. (arriba), pero en card-header/card-footer: son
+   colores FIJOS de Bootstrap, no reaccionan a data-bs-theme. Mismo criterio
+   de "fondo tenue + texto en el color" que ya usan los badges, para que un
+   encabezado de tarjeta "de estado" (ej. una advertencia) se vea consistente
+   con el resto de la app y siga siendo legible en modo oscuro. */
+.card-header.bg-light,
+.card-footer.bg-light {
+    background-color: var(--sh-surface-muted) !important;
+    color: var(--sh-text) !important;
+    border-color: var(--sh-border) !important;
+}
+
+.card-header.bg-warning {
+    background-color: var(--sh-warning-light) !important;
+    color: #997404 !important;
+    border-color: var(--sh-warning-light) !important;
+}
+
+.card-header.bg-info {
+    background-color: var(--sh-info-light) !important;
+    color: #087990 !important;
+    border-color: var(--sh-info-light) !important;
+}
+
+.card-header.bg-success {
+    background-color: var(--sh-success-light) !important;
+    color: var(--sh-success) !important;
+    border-color: var(--sh-success-light) !important;
+}
+
+.card-header.bg-danger {
+    background-color: var(--sh-danger-light) !important;
+    color: var(--sh-danger) !important;
+    border-color: var(--sh-danger-light) !important;
+}
+
+[data-bs-theme="dark"] .card-header.bg-warning {
+    color: #f2d488 !important;
+}
+
+[data-bs-theme="dark"] .card-header.bg-info {
+    color: #78ccdd !important;
+}
+
 /* Tarjeta de estadística (Total X / Activos / etc.) — antes reimplementada
    página por página como .summary-card, .stat-card o markup suelto. */
 .stat-card {
@@ -250,6 +295,32 @@
 .badge.bg-secondary {
     background-color: var(--sh-surface-muted) !important;
     color: var(--sh-secondary) !important;
+}
+
+/* Docs/Plan-Estandarizacion-UI.md #2 -- "bg-light text-dark" es el badge de
+   estado más repetido en la app (Gobernanza, Incidencias, Conciliación,
+   Reportes...) para valores que no encajan en los 5 colores semánticos de
+   arriba. Bootstrap's bg-light/text-dark son colores FIJOS, no reaccionan a
+   data-bs-theme -- sin esto, ese badge se veía siempre igual (gris claro,
+   texto oscuro) sin importar el tema, en vez de suavizarse como los demás. */
+.badge.bg-light {
+    background-color: var(--sh-surface-muted) !important;
+    color: var(--sh-text) !important;
+}
+
+/* Modo oscuro -- #997404/#087990 son fijos porque son colores "de acento"
+   (marrón/verde azulado oscuro) pensados para leerse sobre un fondo CLARO
+   (--sh-warning-light/--sh-info-light en modo claro). En modo oscuro esos
+   dos tokens pasan a ser un overlay translúcido sobre un fondo casi negro
+   (--sh-body-bg) -- el mismo texto oscuro queda casi ilegible ahí. Se
+   aclaran sólo acá, sin tocar los tokens (que siguen sirviendo para otras
+   cosas en modo claro). */
+[data-bs-theme="dark"] .badge.bg-warning {
+    color: #f2d488 !important;
+}
+
+[data-bs-theme="dark"] .badge.bg-info {
+    color: #78ccdd !important;
 }
 
 /* ---------- Tablas ---------- */

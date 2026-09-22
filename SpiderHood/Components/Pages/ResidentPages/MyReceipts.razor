@@ -408,7 +408,11 @@
         {
             var budget = await BudgetService.GetBudgetByIdAsync(item.IdBudgetHeader);
             var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period, ParameterService.CurrentBuilding.IdBuilding);
-            var exonerations = await BudgetService.GetExonerationByBudgetHeaderAsync(item.IdBudgetHeader);
+            // GetExonerationByBudgetHeaderAsync lee de InstallmentExoneration, una tabla que
+            // nada en el código escribe -- siempre vacía. Las excepciones son una
+            // configuración viva del edificio (Edificio > Excepciones de Pago), no un
+            // snapshot por presupuesto, así que se leen de ahí directamente.
+            var exonerations = await BudgetService.GetExonerationsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // Igual que en /cuotas: refresca la configuración completa del edificio
             // (bancos/contactos/pie del recibo) antes de generar el PDF.

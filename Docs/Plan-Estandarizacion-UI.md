@@ -108,6 +108,20 @@ atención individual.
 1. **Fase 1:** crear las clases/badge compartidas basadas en tokens, y
    hacer un find-and-replace guiado archivo por archivo de `bg-* text-dark`
    → la clase nueva (resuelve la mayoría de los 272 hits de una).
+   **RESUELTO (2026-09-22) -- más chico de lo estimado.** Al revisar el
+   código real, `components.css` ya tenía un override centralizado para
+   `.badge.bg-success/warning/danger/info/secondary` desde antes de este
+   plan -- sólo faltaban dos huecos reales: `.badge.bg-light` (el patrón
+   más repetido, sin ningún override) y el color de texto de
+   `.badge.bg-warning`/`.badge.bg-info` en modo oscuro (pensado sólo para
+   fondo claro). Se agregó lo que faltaba, más el mismo tratamiento para
+   `.card-header`/`.card-footer` con esas mismas combinaciones (13
+   archivos, ej. `UserRoles.razor`, `Security.razor`). **Un solo cambio
+   en `components.css` -- no hizo falta tocar los ~30 archivos que usan
+   estas clases**, todos ya pasan por ellas. Verificado visualmente con
+   Playwright (luz y oscuro) antes de commitear. `bg-primary`/`bg-secondary`/
+   `bg-dark` con `text-white` quedan igual -- esos ya leen bien en
+   cualquier tema.
 2. **Fase 2:** `ExpenseNew.razor.css` y los otros CSS de página con
    estilos propios (gradientes/sombras hardcodeadas) -- uno por uno.
 3. **Fase 3:** mapas de calor de Reportes (`DelinquencyReport`,

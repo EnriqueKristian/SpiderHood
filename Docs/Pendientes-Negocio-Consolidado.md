@@ -341,6 +341,141 @@ comparar `ModifiedOn` antes de pisar la fila) en `UPD_Building`/`UPD_Unit`/`UPD_
 
 ---
 
+### 33. Posible duplicación de datos de contacto entre Edificio y Account
+**Estado: verificado contra el código real (2026-09-22), pendiente decisión
+del usuario antes de tocar nada.**
+
+El usuario notó, viendo la pestaña "Contacto" de Editar Edificio, que hay
+información ahí que podría corresponder al Account (la administradora) y
+no al Edificio en sí -- si se sigue así, el mismo dato se termina tipeando
+una vez por cada edificio que administra la misma empresa, en vez de una
+sola vez en su perfil de cuenta.
+
+Comparación campo por campo (`BuildingPage.razor` Tab 4 "Contacto" vs
+`Settings.razor` "Datos de Facturación"):
+
+| Campo Edificio | Campo Account equivalente | ¿Duplica de verdad? |
+|---|---|---|
+| `AdminName` ("Administrador Principal") | `RazonSocial` / `LegalRepresentative` | **Depende del caso.** Si el Account es Natural (una sola persona administra) o una Empresa que sólo administra este edificio, sí es el mismo dato tipeado dos veces. Si es una Empresa que administra VARIOS edificios con un encargado distinto por edificio (común en administradoras grandes), es un dato real y distinto por edificio, no duplicado. |
+| `AdminPhone` ("Teléfono Administrador") | `Telefono` | Misma ambigüedad que `AdminName` -- mismo razonamiento. |
+| `EmergencyPhone` ("Teléfono Emergencias 24h") | (no existe en Account) | **No duplica** -- es plausible que cada edificio tenga su propio contacto de emergencia físico (portería/seguridad del edificio), distinto sea cual sea la administradora. |
+| `OfficeHours` ("Horario de Atención") | (no existe en Account) | Ambiguo sin más contexto: puede ser "cuándo atiende la administradora" (sería del Account, un solo horario para todos sus edificios) o "cuándo hay personal físico en ESTE edificio" (sería del Edificio). Los dos son interpretaciones válidas del mismo label actual. |
+| `Phone`/`Email` (Tab 1, "Teléfono del Edificio"/"Email Institucional") | `Telefono` (Account) | **No duplica** -- lee como el teléfono/email propio del edificio (ej. portería), un concepto distinto al de contacto de la empresa administradora. |
+
+**Recomendación (sin implementar todavía, a la espera de confirmación):**
+no borrar ninguna columna -- `AdminName`/`AdminPhone`/`EmergencyPhone`/
+`OfficeHours` siguen teniendo valor real para una administradora con
+varios edificios y un encargado distinto por edificio. En cambio, aplicar
+el mismo patrón que ya existe para el logo (`IBuildingService.GetReceiptBrandingAsync`,
+edificio con fallback a Account si no tiene su propio logo): dejar
+`AdminName`/`AdminPhone` **vacíos por defecto** y, si el usuario no carga
+nada propio para ese edificio, usar los datos de `Account` (`RazonSocial`/
+`Telefono`) como los que efectivamente aplican -- así nadie se ve obligado
+a re-tipear el mismo dato en cada edificio, pero la opción de tener un
+encargado distinto por edificio sigue disponible para quien la necesite.
+`EmergencyPhone` y `Phone`/`Email` de Tab 1 quedan sin cambios (no
+duplican). Falta decidir con el usuario qué hacer con `OfficeHours`
+(¿fallback a un futuro "horario de atención" a nivel Account, o se deja
+como dato 100% del edificio?) -- hoy Account no tiene ningún campo de
+horario, habría que agregarlo si se decide que aplica el mismo patrón.
+
+### 34. Constitución de la Junta Directiva (Presidente / Secretario / Tesorero) -- diseño, sin implementar
+**Estado: no existe ningún modelo -- hoy "Junta" es sólo un Rol
+(`UserBuildingRoleAssignment.Role = "Junta"`), no hay noción de quién
+ocupa qué cargo dentro de la Junta ni desde cuándo.** Pedido explícito del
+usuario (2026-09-22): organizar cómo se implementaría, no construirlo
+todavía.
+
+**Por qué esto ya hacía falta, más allá del pedido puntual:** el punto
+**#21** (Reuniones/Votación/Actas, gobernanza D.L. 1568) ya asume que
+existen un Presidente y un Secretario que firman el Acta -- pero hasta hoy
+no hay ningún lugar del sistema que registre quién ocupa esos cargos. Esta
+pieza es la que le falta a #21 para poder implementarse completa.
+
+**Verificación legal -- limitada por restricción de red de este entorno:**
+la Ley 27157 (art. 47) es clara en que la **Junta de Propietarios** (la
+asamblea) "está constituida por todos los propietarios de las secciones".
+El Decreto Legislativo 1568 (que deroga y reemplaza esa parte de la Ley
+27157) mantiene esa misma lógica de fondo. Sobre la **Junta Directiva**
+(el órgano ejecutivo -- Presidente/Secretario/Tesorero, un subconjunto de
+la Junta de Propietarios que se elige para representarla) la evidencia
+encontrada (registro obligatorio de Presidente y Tesorero en SUNARP para
+tener representación legal) refuerza que sus miembros deberían ser
+propietarios, pero **no pude confirmar el artículo exacto ni si existe
+alguna excepción** (ej. un apoderado/representante legal de un propietario
+Empresa, o el cónyuge de un propietario) -- los dominios con el texto
+oficial (`busquedas.elperuano.pe`, `repositorio.cap.org.pe`, `lpderecho.pe`)
+están bloqueados por la política de red de este entorno de desarrollo.
+**Antes de convertir esto en una regla dura del sistema, confirmar el
+artículo exacto con el usuario o un abogado.**
+
+**Gap real detectado en el modelo de datos:** hoy no existe ningún vínculo
+entre un `User` (quien inicia sesión) y un `Owner` (quien está registrado
+como propietario) -- son dos tablas completamente independientes. Esto
+importa porque cualquier validación de "¿este usuario es propietario de
+este edificio?" no tiene de dónde leer la respuesta todavía; haría falta
+resolverlo por coincidencia de documento de identidad/email entre `User` y
+`Owner` (impreciso, puede haber más de un match o ninguno) o agregar un
+vínculo explícito (`Owner.IdUser` opcional, completado cuando un
+propietario se registra/vincula su cuenta -- similar a cómo ya se piensa
+resolver el auto-registro de Residentes en
+`Docs/Design-SelfService-Registro-Piloto.md`).
+
+**Propuesta de modelo de datos:**
+- `BuildingBoard` (una fila por período de Junta, no por edificio -- un
+  edificio acumula historial de Juntas a lo largo de los años, útil para
+  que las Actas de gobernanza referencien "según la Junta electa el
+  DD/MM/AAAA"): `IdBuildingBoard`, `IdBuilding`, `FechaInicio`, `FechaFin`
+  (nullable -- una Junta puede seguir vigente sin fecha de cierre todavía),
+  `IsActive` (sólo una Junta activa por edificio a la vez).
+- `BuildingBoardMember`: `IdBuildingBoard`, `IdUser`, `Cargo` (catálogo:
+  Presidente, Secretario, Tesorero, Vocal, Otro -- con texto libre si es
+  "Otro", mismo criterio que ya se usa en otros catálogos chicos de esta
+  app en vez de crear una tabla `Parameter` para esto).
+- Vínculo a Edificio directo, como pidió el usuario -- una pestaña nueva
+  "Junta Directiva" en `BuildingPage.razor` (Tab 5), no una pantalla
+  aparte, listando la Junta activa (cargos + fecha de inicio) con opción
+  de "Cerrar esta Junta y constituir una nueva" (crea el historial en vez
+  de sobrescribir).
+
+**Quién la registra -- dos caminos reales, a decidir con el usuario:**
+1. **La registra el Administrador** (más simple, consistente con que hoy
+   el Administrador ya es el único que asigna roles vía
+   `/Settings/UserRoles` -- para que alguien "sea de la Junta" primero
+   necesita que el Administrador le dé ese Rol, así que en la práctica el
+   flujo ya arranca ahí de todos modos).
+2. **La registra el primer miembro de la Junta** -- requiere que ya tenga
+   sesión y Rol "Junta" asignado (por el Administrador, ver punto 1), así
+   que no es un camino 100% independiente del Administrador, es más bien
+   "el Administrador asigna el Rol, y después cualquiera con ese Rol puede
+   constituir/actualizar la Junta sin depender de que el Administrador
+   haga cada cambio de cargo a mano" -- mismo patrón de permiso opcional
+   ya usado para `edit_account` (Administrador siempre puede, y se le
+   puede dar el mismo permiso a Junta si el negocio lo quiere).
+   **Recomendación:** combinar los dos -- Administrador puede siempre, y
+   un permiso nuevo (`manage_board` o similar) habilita a que la propia
+   Junta se autogestione sin depender de él para cada cambio de cargo.
+
+**Validación de que los miembros sean propietarios -- recomendación dado
+el gap de datos y la duda legal de arriba:** empezar con una
+**advertencia, no un bloqueo duro** (mismo criterio "fail-open" que el
+resto de esta app) -- si al agregar un miembro a la Junta no se encuentra
+ningún `Owner` de ese edificio que razonablemente coincida (por documento
+de identidad, ya que no hay vínculo `User`-`Owner` explícito todavía),
+mostrar un aviso ("no se encontró un propietario con estos datos para
+este edificio -- ¿continuar de todos modos?") en vez de impedirlo. Migrar
+a un bloqueo duro más adelante, una vez que (a) se confirme el artículo
+legal exacto y (b) exista el vínculo `User`-`Owner` real para que la
+validación sea confiable y no rechace casos legítimos por falta de datos.
+
+**No incluye todavía (fuera de este diseño, a definir después si hace
+falta):** quórum/mayoría para elegir la Junta (eso es la Asamblea, ya
+cubierto conceptualmente por #21), duración máxima de un período de Junta
+según el Reglamento Interno, ni qué pasa si renuncia un miembro a mitad de
+período.
+
+---
+
 ## Prioridad Media -- funcionalidad de negocio real, pero no sangra dinero hoy
 
 ### 6. Bug compartido en modales de confirmación (`ConfirmationUtil.ExecuteWithConfirmation`)
@@ -1530,7 +1665,11 @@ de cada edificio, así que el sistema no debe asumir un número fijo.
   participación, quórum verificado, agenda, resultado de cada punto) --
   reduce el riesgo de un acta redactada de memoria días después. Firmas de
   presidente y secretario según Reglamento Interno; una vez firmada, queda
-  inmutable y buscable en el historial del edificio.
+  inmutable y buscable en el historial del edificio. **Ver #34** --
+  hoy no existe ningún lugar del sistema que registre quién ES el
+  presidente/secretario de un edificio en un momento dado; ese modelo
+  (constitución de la Junta Directiva) es un prerrequisito real de esta
+  pieza, no un tema aparte.
 - **Flujo completo:** Convocatoria → Reunión (registra asistencia, suma
   alícuotas presentes) → ¿Quórum alcanzado? → si NO: se agenda Segunda
   Convocatoria con quórum reducido (según Reglamento Interno) como una
@@ -2265,6 +2404,8 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | **Resuelto por completo** (2026-09-22) -- Building/Unit/Owner (34 campos) + (a)-(e), incluyendo logo del Edificio con fallback al de Account y franja "Administrado por..." con mención SpiderHoodApp |
 | 31 | Modales de Edificio/Unidad/Propietario: scroll forzado para guardar + botones desalineados | Media | **Resuelto** (2026-09-22) -- scroll interno del modal activado en Edificio/Unidad, botones reagrupados en los 3, y un `form=` roto en Edificio corregido |
 | 32 | Carreras confirmadas: doble reserva de Área Común (TOCTOU) y "lost update" en Edificio/Unidad/Propietario; carga HTTP general sin problemas | Alta | **Confirmado con pruebas (2026-09-22)**, sin arreglar -- decisión pendiente del usuario sobre si corregir ahora |
+| 33 | Posible duplicación de contacto entre Edificio y Account (Administrador Principal/Teléfono/Horario) | Media | Verificado campo por campo (2026-09-22), recomendación dada (fallback a Account, mismo patrón que el logo) -- decisión pendiente del usuario |
+| 34 | Constitución de la Junta Directiva (Presidente/Secretario/Tesorero) -- no existe el modelo, prerrequisito real de las Actas de #21 | Media-Alta | Ideas organizadas (2026-09-22): modelo de datos, quién la registra, validación de propietario -- verificación legal exacta bloqueada por política de red del entorno, sin implementar |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

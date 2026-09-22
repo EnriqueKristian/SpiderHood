@@ -5,6 +5,7 @@
 @inject Services.ISubscriptionService SubscriptionService
 @inject Services.IPaymentService PaymentService
 @inject Services.IAccountService AccountService
+@inject Services.IPermissionService PermissionService
 @inject NavigationManager Navigation
 
 <section>
@@ -269,11 +270,13 @@
     private string? _inviteLink;
     private bool _inviting;
 
-    // Por defecto sólo el rol Administrador puede editar los datos de
-    // facturación (Docs/Pendientes-Negocio-Consolidado.md #30, punto b) --
-    // permisos más granulares (Junta con sólo lectura, etc.) quedan para
-    // cuando se elabore el modelo de permisos lectura/escritura/exportación
-    // por módulo; hoy el sistema de permisos no distingue esos 3 niveles.
+    // Administrador/SysAdmin siempre pueden editar (chequeo de rol, igual que
+    // antes) -- el permiso "edit_account" (Database/Scripts/
+    // 2026-09-22_137_Seed_EditAccountPermission.sql) es sólo para EXTENDER el
+    // acceso a otro rol sin volverlo Administrador global, asignable desde
+    // /roles. "view_account"/"export_account" no existen todavía -- no hay
+    // nada que gatee lectura ni ninguna función de exportación de Account
+    // (Docs/Pendientes-Negocio-Consolidado.md #30, punto b).
     private bool _canEditAccount;
     private bool _editingAccountInfo;
     private bool _savingAccount;
@@ -289,7 +292,8 @@
         _userEmail = currentUser.Email;
         _administeredBuildingsCount = currentUser.Buildings
             .Count(b => b.Role == "Administrador" && b.IsApproved);
-        _canEditAccount = currentUser.Role is "Administrador" or "SysAdmin";
+        _canEditAccount = currentUser.Role is "Administrador" or "SysAdmin"
+            || await PermissionService.HasPermissionAsync(currentUser, "edit_account");
 
         // No deja caerse toda la página de Settings si los scripts de Subscription
         // (Database/Scripts/2026-09-04_44_*.sql a _46_*.sql) todavía no corrieron

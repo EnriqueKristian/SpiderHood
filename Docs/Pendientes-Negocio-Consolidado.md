@@ -1866,8 +1866,8 @@ después de compilar/reiniciar, no en cada F5 normal.
 *(Nuevo 2026-09-22, pedido del usuario -- la parte de Building/Unit/Owner
 del punto "Relacionado" de abajo quedó **IMPLEMENTADA** el mismo día,
 `dotnet build`/`dotnet test` en 0 errores y 169/169 tests. Puntos (a)
-pantalla básica y (c) Natural/Empresa también **IMPLEMENTADOS** el mismo
-día, ver detalle en cada punto. Quedan (b) permisos granulares y (d)/(e)
+pantalla básica, (b) permisos y (c) Natural/Empresa también
+**IMPLEMENTADOS** el mismo día, ver detalle en cada punto. Quedan (d)/(e)
 logos.)*
 
 **Problema:** `Account` (Docs/Design-Account-Facturacion.md) existe como
@@ -1895,17 +1895,30 @@ a. **Pantalla de mantenimiento del Account.** **RESUELTO (2026-09-22).**
    (INSERT/UPDATE/SELECT por SP) y `dotnet build`/`dotnet test` en 0
    errores, 169/169.
 
-b. **Permisos de edición:** por defecto sólo Administrador podría editar --
-   pero se pide dejar la opción de que otro rol tenga algún permiso sobre
-   esta pantalla. Esto es más que asignar el `PermissionKey` existente: hoy
-   `PermissionDefinition` (`Classes/Permissions/PermissionDefinition.cs`) es
-   un permiso plano (una clave = una acción), sin distinguir
-   lectura/escritura/exportación como ejes separados de un mismo módulo --
-   para poder ofrecer, por ejemplo, "Junta puede LEER el Account pero no
-   editarlo" desde `/Settings/Roles`, hay que elaborar antes ese modelo de
-   permisos (3 acciones por módulo en vez de 1). Evaluar si conviene
-   generalizarlo (afectaría más pantallas, no sólo Account) o resolverlo
-   puntual sólo acá primero.
+b. **Permisos de edición.** **RESUELTO, puntual (2026-09-22) -- no se
+   generalizó el modelo de permisos.** Evaluado y descartado generalizar
+   `PermissionDefinition` a 3 ejes (lectura/escritura/exportación) por
+   módulo: hubiera afectado todas las pantallas de la app para un caso de
+   uso con un solo consumidor real hoy. Se resolvió puntual con el mismo
+   patrón plano que ya usa el resto del sistema (`edit_expenses`,
+   `approve_expenses`, etc.): un `PermissionKey edit_account` nuevo
+   (`Database/Scripts/2026-09-22_137_*.sql`, Group `settings`).
+   Administrador/SysAdmin conservan acceso por el chequeo de rol de
+   siempre (`Settings.razor`: `currentUser.Role is "Administrador" or
+   "SysAdmin" || HasPermissionAsync(currentUser, "edit_account")`) -- el
+   permiso nuevo es sólo para EXTENDER edición a otro rol sin volverlo
+   Administrador global, asignable desde `/Settings/Roles` (paso manual,
+   mismo criterio que todo el resto de permisos de esta app). No se
+   agregaron `view_account`/`export_account`: hoy nada gatea la lectura
+   (sigue visible a cualquiera que llegue a `/Settings`, sin cambios) ni
+   existe ninguna función de exportación de Account -- se agregan cuando
+   haya una razón de negocio concreta para restringir lectura o cuando
+   exista el export, no antes (evita un permiso sembrado sin nada del otro
+   lado que lo verifique, el mismo bug que ya pasó 2 veces en este backlog
+   con reportes/aprobaciones sin sembrar). Si más adelante aparecen 2-3
+   casos más que necesiten el mismo patrón lectura/escritura/exportación,
+   ahí sí conviene generalizarlo -- por ahora es prematuro con un sólo
+   caso. Verificado `dotnet build`/`dotnet test` en 0 errores, 169/169.
 
 c. **Persona Natural vs Empresa.** **RESUELTO (2026-09-22).** Se agregó
    `Models.AccountType` (`Natural = 1, Empresa = 2` -- enum propio, no
@@ -2077,7 +2090,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 | 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
-| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Building/Unit/Owner (34 campos), (a) pantalla básica y (c) Natural/Empresa **resueltos** (2026-09-22) -- quedan (b) permisos granulares, (d)/(e) logos |
+| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Building/Unit/Owner (34 campos), (a) pantalla básica, (b) permisos y (c) Natural/Empresa **resueltos** (2026-09-22) -- quedan (d)/(e) logos |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

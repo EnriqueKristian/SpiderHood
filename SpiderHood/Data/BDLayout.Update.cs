@@ -288,7 +288,9 @@ namespace SpiderHood.Data
                     (object?)owner.RucType,
                     (object?)owner.Nationality,
                     (object?)owner.CivilStatus,
-                    (object?)owner.BirthDate);
+                    (object?)owner.BirthDate,
+                    (object?)owner.Occupation,
+                    (object?)owner.Employer);
                 return owner;
             }, "UpdateOwner", cancellationToken);
         }
@@ -453,7 +455,22 @@ namespace SpiderHood.Data
                     (object?)unit.Height,
                     (object?)unit.HasVentilation,
                     (object?)unit.HasElectricity,
-                    (object?)unit.Notes);
+                    (object?)unit.Notes,
+                    (object?)unit.Status,
+                    (object?)unit.Orientation,
+                    (object?)unit.HasBalcony,
+                    (object?)unit.HasParking,
+                    (object?)unit.HasStorage,
+                    (object?)unit.HasAirConditioning,
+                    (object?)unit.IsFurnished,
+                    (object?)unit.PlateNumber,
+                    (object?)unit.HasElectricCharging,
+                    (object?)unit.HasWater,
+                    (object?)unit.HasSecurity,
+                    (object?)unit.EstimatedValue,
+                    (object?)unit.LastRenovationDate,
+                    (object?)unit.Restrictions,
+                    (object?)unit.HasElevatorAccess);
                 return unit;
             }, "Updateunit", cancellationToken);
         }
@@ -621,7 +638,24 @@ namespace SpiderHood.Data
                     building.TotalArea,
                     building.IsActive,
                     building.IsTemplate,
-                    (object?)building.IdAccount);
+                    (object?)building.IdAccount,
+                    (object?)building.ConstructionYear,
+                    (object?)building.Phone,
+                    (object?)building.Email,
+                    (object?)building.Elevators,
+                    (object?)building.AdminName,
+                    (object?)building.AdminPhone,
+                    (object?)building.EmergencyPhone,
+                    (object?)building.OfficeHours,
+                    (object?)building.HasPool,
+                    (object?)building.HasGym,
+                    (object?)building.HasBBQ,
+                    (object?)building.HasEventRoom,
+                    (object?)building.HasPetArea,
+                    (object?)building.HasGreenAreas,
+                    (object?)building.Has247Security,
+                    (object?)building.HasPorter,
+                    (object?)building.HasCameras);
                 return building;
             }, "UpdateBuilding", cancellationToken);
         }

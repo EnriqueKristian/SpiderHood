@@ -391,6 +391,21 @@ namespace SpiderHood.Data
                 var hasVentilation = row["HasVentilation"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasVentilation"]);
                 var hasElectricity = row["HasElectricity"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasElectricity"]);
                 var notes = row["Notes"] is DBNull ? null : row["Notes"].ToString();
+                var status = row["Status"] is DBNull ? null : row["Status"].ToString();
+                var orientation = row["Orientation"] is DBNull ? null : row["Orientation"].ToString();
+                var hasBalcony = row["HasBalcony"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasBalcony"]);
+                var hasParking = row["HasParking"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasParking"]);
+                var hasStorage = row["HasStorage"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasStorage"]);
+                var hasAirConditioning = row["HasAirConditioning"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasAirConditioning"]);
+                var isFurnished = row["IsFurnished"] is DBNull ? (bool?)null : Convert.ToBoolean(row["IsFurnished"]);
+                var plateNumber = row["PlateNumber"] is DBNull ? null : row["PlateNumber"].ToString();
+                var hasElectricCharging = row["HasElectricCharging"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasElectricCharging"]);
+                var hasWater = row["HasWater"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasWater"]);
+                var hasSecurity = row["HasSecurity"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasSecurity"]);
+                var estimatedValue = row["EstimatedValue"] is DBNull ? (decimal?)null : Convert.ToDecimal(row["EstimatedValue"]);
+                var lastRenovationDate = row["LastRenovationDate"] is DBNull ? (DateTime?)null : Convert.ToDateTime(row["LastRenovationDate"]);
+                var restrictions = row["Restrictions"] is DBNull ? null : row["Restrictions"].ToString();
+                var hasElevatorAccess = row["HasElevatorAccess"] is DBNull ? (bool?)null : Convert.ToBoolean(row["HasElevatorAccess"]);
 
                 foreach (var unit in byId[idUnit])
                 {
@@ -407,6 +422,21 @@ namespace SpiderHood.Data
                     unit.HasVentilation = hasVentilation;
                     unit.HasElectricity = hasElectricity;
                     unit.Notes = notes;
+                    unit.Status = status;
+                    unit.Orientation = orientation;
+                    unit.HasBalcony = hasBalcony;
+                    unit.HasParking = hasParking;
+                    unit.HasStorage = hasStorage;
+                    unit.HasAirConditioning = hasAirConditioning;
+                    unit.IsFurnished = isFurnished;
+                    unit.PlateNumber = plateNumber;
+                    unit.HasElectricCharging = hasElectricCharging;
+                    unit.HasWater = hasWater;
+                    unit.HasSecurity = hasSecurity;
+                    unit.EstimatedValue = estimatedValue;
+                    unit.LastRenovationDate = lastRenovationDate;
+                    unit.Restrictions = restrictions;
+                    unit.HasElevatorAccess = hasElevatorAccess;
                 }
             }
         }

@@ -33,23 +33,33 @@ namespace SpiderHood.Models
         // edificios creados antes de este feature quedan en NULL (fail-open).
         public Guid? IdAccount { get; set; }
 
-        [NotMapped] public int? ConstructionYear { get; set; }
-        [NotMapped] public string Phone { get; set; }
-        [NotMapped] public string Email { get; set; }
-        [NotMapped] public int Elevators { get; set; }
-        [NotMapped] public string AdminName { get; set; }
-        [NotMapped] public string AdminPhone { get; set; }
-        [NotMapped] public string EmergencyPhone { get; set; }
-        [NotMapped] public string OfficeHours { get; set; }
-        [NotMapped] public bool HasPool { get; set; }
-        [NotMapped] public bool HasGym { get; set; }
-        [NotMapped] public bool HasBBQ { get; set; }
-        [NotMapped] public bool HasEventRoom { get; set; }
-        [NotMapped] public bool HasPetArea { get; set; }
-        [NotMapped] public bool HasGreenAreas { get; set; }
-        [NotMapped] public bool Has247Security { get; set; }
-        [NotMapped] public bool HasPorter { get; set; }
-        [NotMapped] public bool HasCameras { get; set; }
+        // --- Campos propios agregados en
+        // Database/Scripts/2026-09-22_134_Building_Unit_Owner_Persist_RedesignFields.sql.
+        // Todos opcionales (fail-open, mismo criterio que Unit/Owner ExtraFields):
+        // edificios cargados antes de este feature quedan sin estos datos hasta que
+        // alguien los edite. Contacto propio del edificio (Tab 1/4 de BuildingPage.razor)
+        // -- distinto del contacto de facturación de Account (RazonSocial/RucDni/Telefono).
+        public int? ConstructionYear { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+        public int? Elevators { get; set; }
+        public string? AdminName { get; set; }
+        public string? AdminPhone { get; set; }
+        public string? EmergencyPhone { get; set; }
+        public string? OfficeHours { get; set; }
+        // bool no-nullable (no bool?): Blazor's InputCheckbox<T> (usado en
+        // BuildingPage.razor) sólo soporta bool -- por eso estas columnas son BIT
+        // NOT NULL DEFAULT(0) en vez de NULL como el resto de los campos fail-open
+        // de este mismo script.
+        public bool HasPool { get; set; }
+        public bool HasGym { get; set; }
+        public bool HasBBQ { get; set; }
+        public bool HasEventRoom { get; set; }
+        public bool HasPetArea { get; set; }
+        public bool HasGreenAreas { get; set; }
+        public bool Has247Security { get; set; }
+        public bool HasPorter { get; set; }
+        public bool HasCameras { get; set; }
 
         [NotMapped]
         public BuildingConfiguration Configuration { get; set; } = new();
@@ -72,6 +82,23 @@ namespace SpiderHood.Models
                 IsActive = this.IsActive,
                 IsTemplate = this.IsTemplate,
                 IdAccount = this.IdAccount,
+                ConstructionYear = this.ConstructionYear,
+                Phone = this.Phone,
+                Email = this.Email,
+                Elevators = this.Elevators,
+                AdminName = this.AdminName,
+                AdminPhone = this.AdminPhone,
+                EmergencyPhone = this.EmergencyPhone,
+                OfficeHours = this.OfficeHours,
+                HasPool = this.HasPool,
+                HasGym = this.HasGym,
+                HasBBQ = this.HasBBQ,
+                HasEventRoom = this.HasEventRoom,
+                HasPetArea = this.HasPetArea,
+                HasGreenAreas = this.HasGreenAreas,
+                Has247Security = this.Has247Security,
+                HasPorter = this.HasPorter,
+                HasCameras = this.HasCameras,
                 Configuration = this.Configuration.Clone()
             };
         }

@@ -1863,7 +1863,11 @@ después de compilar/reiniciar, no en cada F5 normal.
 ---
 
 ### 30. Pantalla de mantenimiento de Account (Cuenta de Facturación) + Logos para recibos/PDFs
-*(Nuevo 2026-09-22, pedido del usuario)*
+*(Nuevo 2026-09-22, pedido del usuario -- la parte de Building/Unit/Owner
+del punto "Relacionado" de abajo quedó **IMPLEMENTADA** el mismo día,
+`dotnet build`/`dotnet test` en 0 errores y 169/169 tests, ver detalle al
+final de esta sección. Los puntos a-e sobre Account en sí -- pantalla,
+permisos, Natural/Empresa, logos -- siguen pendientes.)*
 
 **Problema:** `Account` (Docs/Design-Account-Facturacion.md) existe como
 entidad de facturación (`RazonSocial`, `RucDni`, `Telefono`) desde el
@@ -1960,12 +1964,53 @@ arriba. Relevamiento hecho en el código (2026-09-22):
     `dbo.ApartmentOwner` (confirmado contra la BD restaurada) pero no está
     mapeada en `Classes/Owner.cs` -- revisar si algún flujo la necesita.
 
-**Antes de tocar código:** decidir con el usuario, campo por campo, (1) si
-se persiste o se descarta, (2) si corresponde a Building o a Account, y (3)
-si duplica algo que ya existe con otro nombre -- recién ahí escribir el
-script de columnas nuevas + actualizar los SPs de alta/edición (mismo
-patrón fail-open que `2026-09-04_49_Unit_ExtraFields.sql`/
-`2026-09-05_52_Owner_ExtraFields.sql`: todo nullable).
+**RESUELTO (2026-09-22).** Decidido campo por campo con el usuario y
+verificado contra el código/UI real antes de escribir el script -- eso
+corrigió 2 de las 4 decisiones iniciales:
+
+- **Building:** los 17 campos (contacto + amenities) se acordó separar
+  entre Account y Building, pero `BuildingPage.razor` (Tabs "Información
+  General"/"Contacto"/"Amenidades") YA tenía el formulario completo
+  tratando TODOS como datos propios de cada edificio -- se corrigió: todos
+  quedan en Building, ninguno se mueve a Account. `AddNewRecordAsync`/
+  `UpdateRecordAsync(Building)` guardaban Type/Floors/Apartments/etc. desde
+  hace rato, pero estos 17 campos se llenaban en el modal y se perdían en
+  silencio al guardar (nunca llegaron a persistir) -- ahora sí.
+- **RealEstateUnit:** se había asumido que PlateNumber/HasElectricCharging
+  y HasWater/HasSecurity duplicaban a VehicleType/IsCovered y
+  HasVentilation/HasElectricity -- pero `ModalUnit.razor` ya los usa como
+  checkboxes SEPARADOS y complementarios en la misma sección. Se corrigió:
+  se persisten todos. El único duplicado real confirmado (nunca conectado a
+  ningún formulario) fue `ConstructedArea` vs. `BuiltArea` -- ese sí se
+  descartó de `Unit.cs`. También se agregaron 4 campos que estaban en el
+  modelo pero todavía no en el formulario (EstimatedValue,
+  LastRenovationDate, Restrictions, HasElevatorAccess) a una nueva sección
+  "Información Adicional" en Tab 3 de `ModalUnit.razor`.
+- **Owner:** Occupation/Employer confirmados en uso en `ModalOwner.razor`,
+  se persisten. `IsRealEstateCompanyOwner` (columna real desde
+  2026-09-15_106, nunca conectada del lado C#) se agregó a `OwnerUnitView`
+  (no a `Owner` -- es el modelo de lectura real que usa `Owners.razor`) y a
+  `GET_OwnerByBuilding`. `Owner.UnitNumber` se dejó `[NotMapped]` como
+  estaba: resultó estar en uso en `ModalOwner.razor` ("Número de Unidad"),
+  así que no era el caso de dato-redundante-sin-UI que parecía -- pero
+  tampoco estaba en el alcance decidido para persistir, así que sigue
+  perdiéndose al guardar (bug preexistente, no introducido ni resuelto
+  acá) -- queda pendiente confirmar con el usuario si se persiste o se saca
+  del formulario.
+
+**Implementado:**
+`Database/Scripts/2026-09-22_134_Building_Unit_Owner_Persist_RedesignFields.sql`
+(columnas nuevas + `INS_Building`/`UPD_Building`/`GET_AllBuildings`/
+`GET_AllBuildingsPublic`/`GET_BuildingsByAccount`/`GET_BuildingById`
+reescritos completos -- Building es EF keyless, exige que toda columna
+mapeada esté en el SELECT de cualquier proc que lo hidrate --,
+`INS_Unit`/`UPD_Unit`/`GET_UnitExtraFieldsByBuilding` y
+`INS_Owner`/`UPD_Owner`/`GET_OwnerByBuilding` reescritos igual), clases C#
+actualizadas (`Building.cs`, `Unit.cs`, `Owner.cs`), `BDLayout.Add/Update/
+Get.cs` actualizados para pasar/leer los parámetros nuevos, y
+`ModalUnit.razor` con la sección nueva. Verificado end-to-end contra la BD
+real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
+`dotnet build`/`dotnet test` en 0 errores, 169/169.
 
 ---
 
@@ -2003,7 +2048,7 @@ patrón fail-open que `2026-09-04_49_Unit_ExtraFields.sql`/
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 | 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
-| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs -- también revisar qué campos nuevos de Building/Unit/Owner persistir y cuáles son en realidad de Account | Media | Diseño + código (16+ campos `[NotMapped]` a decidir uno por uno) |
+| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Diseño + código -- Building/Unit/Owner (34 campos `[NotMapped]`) **resuelto** (2026-09-22), sólo Account (a-e) queda pendiente |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

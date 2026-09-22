@@ -61,13 +61,23 @@ namespace SpiderHood.Models
         // Queda la columna lista para cuando se implemente ese cálculo.
         public bool IsDelinquent { get; set; }
 
+        // --- Campos propios agregados en
+        // Database/Scripts/2026-09-22_134_Building_Unit_Owner_Persist_RedesignFields.sql.
+        // Opcionales (fail-open, mismo criterio que el resto de Owner ExtraFields).
+        public string? Occupation { get; set; }
+        public string? Employer { get; set; }
+
+        // No tiene columna propia todavía -- ModalOwner.razor lo usa como campo de
+        // referencia libre ("Número de Unidad", texto suelto, no la relación real
+        // Owner-Unit, que se gestiona aparte vía GroupUnit/AssignUnits.razor) pero
+        // hoy INS_Owner/UPD_Owner no lo persisten: se pierde al guardar, igual que
+        // pasaba con el resto de estos campos antes de este script. Fuera de
+        // alcance de este pase (no estaba en la lista de campos a decidir) --
+        // queda pendiente confirmar con el usuario si hay que persistirlo o sacarlo
+        // del formulario.
+        [NotMapped] public string? UnitNumber { get; set; }
+
         public string FullName => $"{Names} {Surname ?? ""}";
-
-        // Si no existen, agrega estas propiedades a tu clase Owner:
-        [NotMapped] public string UnitNumber { get; set; }
-        [NotMapped] public string Occupation { get; set; }
-        [NotMapped] public string Employer { get; set; }
-
     }
 
     public class OwnerUnit

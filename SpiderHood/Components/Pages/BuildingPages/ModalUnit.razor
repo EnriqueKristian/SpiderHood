@@ -415,6 +415,50 @@
                                     </div>
                                 </div>
                             }
+
+                            <div class="col-md-12 mt-4">
+                                <h6 class="mb-3"><i class="bi bi-info-square me-2"></i>Información Adicional</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="estimatedValue" class="form-label fw-semibold">
+                                                <i class="bi bi-cash-coin me-1 text-primary"></i>Valor Estimado
+                                            </label>
+                                            <InputNumber id="estimatedValue" @bind-Value="View_Unit.EstimatedValue" class="form-control"
+                                                         step="0.01" min="0"
+                                                         disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="lastRenovationDate" class="form-label fw-semibold">
+                                                <i class="bi bi-hammer me-1 text-primary"></i>Última Remodelación
+                                            </label>
+                                            <InputDate id="lastRenovationDate" @bind-Value="View_Unit.LastRenovationDate" class="form-control"
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-check mt-4">
+                                            <input type="checkbox" id="hasElevatorAccess" @bind="View_Unit.HasElevatorAccess"
+                                                   class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                            <label class="form-check-label" for="hasElevatorAccess">
+                                                <i class="bi bi-arrow-up-square me-1"></i>Acceso a Ascensor
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label for="restrictions" class="form-label fw-semibold">
+                                                <i class="bi bi-exclamation-triangle me-1 text-primary"></i>Restricciones
+                                            </label>
+                                            <InputText id="restrictions" @bind-Value="View_Unit.Restrictions" class="form-control"
+                                                       placeholder="Ej: No mascotas, no sublocación"
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         }
 
                         <!-- Observaciones (visible en todos los tabs) -->

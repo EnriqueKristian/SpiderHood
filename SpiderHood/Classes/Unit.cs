@@ -101,38 +101,38 @@ namespace SpiderHood.Models
 
 
 
-        // NUEVOS CAMPOS
-        [NotMapped] public decimal? EstimatedValue { get; set; }
-        [NotMapped] public DateTime? LastRenovationDate { get; set; }
-        [NotMapped] public decimal? ConstructedArea { get; set; }
-        [NotMapped] public bool HasBalcony { get; set; }
-        [NotMapped] public bool HasParking { get; set; }
-        [NotMapped] public bool HasStorage { get; set; }
-        [NotMapped] public bool HasElevatorAccess { get; set; }
-        [NotMapped] public bool IsFurnished { get; set; }
-        [NotMapped] public bool HasAirConditioning { get; set; }
-        [NotMapped] public string Restrictions { get; set; }
+        // --- Campos propios agregados en
+        // Database/Scripts/2026-09-22_134_Building_Unit_Owner_Persist_RedesignFields.sql.
+        // Todos opcionales (fail-open, mismo criterio que la Sección 1 de arriba).
+        // NOTA: ConstructedArea (que estaba acá) se descartó -- duplicaba a BuiltArea,
+        // que ya persiste desde 2026-09-04_49_Unit_ExtraFields.sql y es la que usa
+        // ModalUnit.razor; ConstructedArea nunca se conectó a ningún formulario.
+        public decimal? EstimatedValue { get; set; }
+        public DateTime? LastRenovationDate { get; set; }
+        public bool? HasBalcony { get; set; }
+        public bool? HasParking { get; set; }
+        public bool? HasStorage { get; set; }
+        public bool? HasElevatorAccess { get; set; }
+        public bool? IsFurnished { get; set; }
+        public bool? HasAirConditioning { get; set; }
+        public string? Restrictions { get; set; }
 
-        // ==========================================
-        // NUEVAS PROPIEDADES AGREGADAS PARA EL REDISEÑO
-        // ==========================================
+        // Estado y Orientación (Status es un dato propio, independiente de IsAvailable --
+        // "Estado" con 4 valores lo carga el usuario a mano en ModalUnit.razor;
+        // IsAvailable lo sigue usando el motor de facturación para saber si una unidad
+        // tiene o no propietario asignado. No se derivan uno del otro todavía).
+        public string? Status { get; set; } = "Available"; // Available, Occupied, Maintenance, Reserved
 
-        // Estado y Orientación
-        [NotMapped] public string Status { get; set; } = "Available"; // Available, Occupied, Maintenance, Reserved
-
-        [NotMapped] public string Orientation { get; set; }
+        public string? Orientation { get; set; }
 
         // Específicas para Estacionamientos (TypeUnit == 2)
-        [NotMapped] public string PlateNumber { get; set; }
+        public string? PlateNumber { get; set; }
 
-        [NotMapped] public bool HasElectricCharging { get; set; }
+        public bool? HasElectricCharging { get; set; }
 
         // Específicas para Depósitos (TypeUnit == 3)
-        [NotMapped] public bool HasWater { get; set; }
-        [NotMapped] public bool HasSecurity { get; set; }
-
-        // Características generales para Departamentos/Oficinas (TypeUnit == 1 o 4)
-
+        public bool? HasWater { get; set; }
+        public bool? HasSecurity { get; set; }
     }
 
     public class UnitView
@@ -204,5 +204,13 @@ namespace SpiderHood.Models
         // GET_OwnerByBuilding la traiga en el SELECT (ver
         // Database/Scripts/2026-09-03_34_ApartmentOwner_IdTypeIdNumber.sql).
         public int IdTypeIdNumber { get; set; }
+
+        // Marca al Owner "Inmobiliaria" (Database/Scripts/2026-09-15_106_*.sql) --
+        // columna real en ApartmentOwner y en VW_OwnerUnit desde ese script, pero
+        // nunca se conectó del lado C# ("Fase 2" mencionada en ese mismo script) --
+        // se conecta acá (Database/Scripts/2026-09-22_134_*.sql agrega la columna a
+        // GET_OwnerByBuilding). Sirve para proteger este Owner en UI/borrado en
+        // Owners.razor, igual que Category.IsSystemCategory.
+        public bool IsRealEstateCompanyOwner { get; set; }
     }
 }

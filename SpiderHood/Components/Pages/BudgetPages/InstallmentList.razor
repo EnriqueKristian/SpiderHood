@@ -554,7 +554,18 @@
         // de esa pantalla, aquí no hay un único presupuesto "activo", cada fila puede ser
         // de un periodo distinto).
         var budget = await BudgetService.GetBudgetByIdAsync(item.IdBudgetHeader);
-        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period, ParameterService.CurrentBuilding!.IdBuilding);
+
+        // ParameterService.CurrentBuilding.Configuration se hidrata UNA SOLA VEZ al
+        // iniciar el circuito (ver comentario en IAuthService.RefreshCurrentUserBuildingsAsync)
+        // y de ahí en más solo se refresca en memoria si se visita Configuración del
+        // Edificio -- por eso "Agua áreas comunes" podía usar un WaterReadingDefault
+        // desactualizado (categoría de agua vieja o recién cambiada) hasta que el
+        // usuario entrara a Edificios en la misma sesión. Se refresca acá con la config
+        // real, igual que ya hace ImprimirCuota más abajo.
+        ParameterService.CurrentBuilding!.Configuration =
+            await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period, ParameterService.CurrentBuilding.IdBuilding);
         // Ver el mismo comentario y fix en MyReceipts.razor.VerDetalle.
         var exonerations = await BudgetService.GetExonerationsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 

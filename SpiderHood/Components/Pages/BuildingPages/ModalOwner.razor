@@ -314,10 +314,13 @@
                                         <label for="unitnumber" class="form-label fw-semibold">
                                             <i class="bi bi-hash me-1 text-primary"></i>Número de Unidad
                                         </label>
-                                        <InputText id="unitnumber" @bind-Value="ViewOwner.UnitNumber" class="form-control" 
-                                                   placeholder="Ej: 101, E5, D3"
-                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                        <small class="text-muted">Unidad asociada a este propietario</small>
+                                        <InputText id="unitnumber" @bind-Value="ViewOwner.UnitNumber" class="form-control"
+                                                   placeholder="(sin unidades asignadas)"
+                                                   readonly disabled="true" />
+                                        <small class="text-muted">
+                                            Sólo informativo -- se calcula de la asignación real. Para
+                                            cambiarla, usar "Asignar Unidades" desde el listado.
+                                        </small>
                                     </div>
                                 </div>
                             </div>

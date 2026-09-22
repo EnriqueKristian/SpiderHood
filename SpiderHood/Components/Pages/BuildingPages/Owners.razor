@@ -1052,7 +1052,13 @@
             Address = titular.Address,
             PhoneNumber = titular.PhoneNumber,
             IdBuilding = titular.IdBuilding,
-            IdTypeIdNumber = titular.IdTypeIdNumber
+            IdTypeIdNumber = titular.IdTypeIdNumber,
+            // Sólo informativo (no se persiste, no se edita acá) -- la relación
+            // real Owner-Unidad se gestiona desde /AssignUnits. Se calcula de las
+            // unidades reales del grupo para que ModalOwner.razor deje de mostrar
+            // un campo de texto libre que nunca se guardaba (ver
+            // Docs/Pendientes-Negocio-Consolidado.md #30).
+            UnitNumber = string.Join(", ", owner.Units.Select(u => u.UnitNumber))
         };
         OpenMode = Models.OpenType.Update;
         MostrarModal = true;
@@ -1062,7 +1068,13 @@
     {
         if (!_canCreateOwner) return;
         _residentGroupId = owner.IdGroupUnit;
-        _Owner = new Models.Owner { IdBuilding = currentUser?.CurrentBuildingId ?? Guid.Empty };
+        _Owner = new Models.Owner
+        {
+            IdBuilding = currentUser?.CurrentBuildingId ?? Guid.Empty,
+            // Ídem EditOwner: sólo informativo, el residente nuevo se agrega al
+            // mismo grupo/unidades que ya tiene "owner".
+            UnitNumber = string.Join(", ", owner.Units.Select(u => u.UnitNumber))
+        };
         OpenMode = Models.OpenType.Create;
         MostrarModal = true;
     }

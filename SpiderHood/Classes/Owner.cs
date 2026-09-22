@@ -67,14 +67,14 @@ namespace SpiderHood.Models
         public string? Occupation { get; set; }
         public string? Employer { get; set; }
 
-        // No tiene columna propia todavía -- ModalOwner.razor lo usa como campo de
-        // referencia libre ("Número de Unidad", texto suelto, no la relación real
-        // Owner-Unit, que se gestiona aparte vía GroupUnit/AssignUnits.razor) pero
-        // hoy INS_Owner/UPD_Owner no lo persisten: se pierde al guardar, igual que
-        // pasaba con el resto de estos campos antes de este script. Fuera de
-        // alcance de este pase (no estaba en la lista de campos a decidir) --
-        // queda pendiente confirmar con el usuario si hay que persistirlo o sacarlo
-        // del formulario.
+        // Deliberadamente [NotMapped] -- NO es un dato propio del Owner, es sólo
+        // texto informativo para ModalOwner.razor (campo readonly), calculado por
+        // Owners.razor.EditOwner/AddResident a partir de las unidades reales del
+        // grupo (GroupUnit1.Units) en el momento de abrir el modal. La relación
+        // real Owner-Unidad se sigue gestionando aparte, vía GroupUnit/
+        // AssignUnits.razor -- antes de esto el campo era editable a mano y
+        // cualquier valor tipeado se perdía en silencio al guardar (nunca
+        // persistía ni se recargaba), ver Docs/Pendientes-Negocio-Consolidado.md #30.
         [NotMapped] public string? UnitNumber { get; set; }
 
         public string FullName => $"{Names} {Surname ?? ""}";

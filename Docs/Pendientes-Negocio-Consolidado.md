@@ -1992,11 +1992,15 @@ corrigió 2 de las 4 decisiones iniciales:
   (no a `Owner` -- es el modelo de lectura real que usa `Owners.razor`) y a
   `GET_OwnerByBuilding`. `Owner.UnitNumber` se dejó `[NotMapped]` como
   estaba: resultó estar en uso en `ModalOwner.razor` ("Número de Unidad"),
-  así que no era el caso de dato-redundante-sin-UI que parecía -- pero
-  tampoco estaba en el alcance decidido para persistir, así que sigue
-  perdiéndose al guardar (bug preexistente, no introducido ni resuelto
-  acá) -- queda pendiente confirmar con el usuario si se persiste o se saca
-  del formulario.
+  así que no era el caso de dato-redundante-sin-UI que parecía. **Resuelto
+  (2026-09-22):** en vez de persistirlo como texto libre (crearía una
+  segunda fuente de verdad, inconsistente con la real -- un Owner puede
+  tener más de una unidad), se convirtió en un campo de sólo lectura que
+  `Owners.razor.EditOwner`/`AddResident` calculan en el momento de abrir el
+  modal a partir de `GroupUnit1.Units` (la asignación real). Sigue
+  `[NotMapped]` a propósito -- es derivado, no un dato a guardar. La
+  relación real se sigue gestionando desde "Asignar Unidades"
+  (`/AssignUnits`), no desde este modal.
 
 **Implementado:**
 `Database/Scripts/2026-09-22_134_Building_Unit_Owner_Persist_RedesignFields.sql`

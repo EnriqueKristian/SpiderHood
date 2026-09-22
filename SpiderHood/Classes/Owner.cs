@@ -63,6 +63,11 @@ namespace SpiderHood.Models
 
         public string FullName => $"{Names} {Surname ?? ""}";
 
+        // Si no existen, agrega estas propiedades a tu clase Owner:
+        [NotMapped] public string UnitNumber { get; set; }
+        [NotMapped] public string Occupation { get; set; }
+        [NotMapped] public string Employer { get; set; }
+
     }
 
     public class OwnerUnit

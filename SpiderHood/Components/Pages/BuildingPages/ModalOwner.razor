@@ -1,4 +1,4 @@
-﻿﻿@using System.ComponentModel.DataAnnotations
+﻿@using System.ComponentModel.DataAnnotations
 @using SpiderHood.Services
 @inherits LayoutComponentBase
 @inject ParameterService ParameterService
@@ -6,163 +6,446 @@
 @if (ShowModal)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
             <div class="modal-content shadow-lg">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-person me-2 text-primary"></i>@((OpenMode == Models.OpenType.Create) ? "Agregar Propietario" : "Actualizar Propietario")
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title mb-0">
+                        <i class="bi bi-person me-2"></i>@((OpenMode == Models.OpenType.Create) ? "Nuevo Propietario" : "Actualizar Propietario")
                     </h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal" disabled="@(OpenMode == Models.OpenType.ReadOnly)"></button>
                 </div>
+                
                 <EditForm Id="create" Model="@ViewOwner" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
                     <DataAnnotationsValidator />
-                    <ValidationSummary class="text-danger" role="alert" />
+                    
+                    @if (OpenMode != Models.OpenType.ReadOnly)
+                    {
+                        <!-- Tabs de navegación -->
+                        <div class="modal-header border-bottom bg-light">
+                            <ul class="nav nav-tabs card-header-tabs">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link @(activeTab == 1 ? "active" : "")" 
+                                            @onclick="() => activeTab = 1" 
+                                            type="button" 
+                                            disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                        <i class="bi bi-person me-1"></i>Identificación
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link @(activeTab == 2 ? "active" : "")" 
+                                            @onclick="() => activeTab = 2" 
+                                            type="button"
+                                            disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                        <i class="bi bi-geo-alt me-1"></i>Contacto
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link @(activeTab == 3 ? "active" : "")" 
+                                            @onclick="() => activeTab = 3" 
+                                            type="button"
+                                            disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                        <i class="bi bi-card-list me-1"></i>Unidad
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link @(activeTab == 4 ? "active" : "")" 
+                                            @onclick="() => activeTab = 4" 
+                                            type="button"
+                                            disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                        <i class="bi bi-file-text me-1"></i>Adicional
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    }
+                    
                     <div class="modal-body">
-
-                        <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3">Tipo de Persona</h6>
-                        <div class="d-flex gap-4 mb-3">
-                            <div class="form-check">
-                                <input type="radio" class="form-check-input" id="Natural" name="tipoPersona"
-                                       @onchange="CambiarPersona" value="Natural" checked />
-                                <label for="Natural" class="form-check-label">Natural</label>
-                            </div>
-                            <div class="form-check">
-                                <input type="radio" class="form-check-input" id="Juridica" name="tipoPersona"
-                                       @onchange="CambiarPersona" value="Juridica" />
-                                <label for="Juridica" class="form-check-label">Jurídica</label>
+                        <ValidationSummary class="alert alert-danger" role="alert" />
+                        
+                        <!-- Tipo de Persona (siempre visible) -->
+                        <div class="mb-4">
+                            <h6 class="text-uppercase text-muted small fw-bold mb-3">
+                                <i class="bi bi-people me-2"></i>Tipo de Persona
+                            </h6>
+                            <div class="d-flex gap-4">
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" id="Natural" name="tipoPersona"
+                                           @onchange="CambiarPersona" value="Natural" checked 
+                                           disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    <label for="Natural" class="form-check-label">
+                                        <i class="bi bi-person me-1"></i>Natural
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="radio" class="form-check-input" id="Juridica" name="tipoPersona"
+                                           @onchange="CambiarPersona" value="Juridica"
+                                           disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    <label for="Juridica" class="form-check-label">
+                                        <i class="bi bi-building me-1"></i>Jurídica
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
-                        <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3">Identificación</h6>
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-@((SelectedPersonType == "Natural") ? "6" : "12")">
-                                <label for="names" class="form-label small text-muted">
-                                    <span class="text-danger">*</span> @((SelectedPersonType == "Natural") ? "Nombres" : "Razón Social")
-                                </label>
-                                <InputText id="names" @bind-Value="ViewOwner.Names" class="form-control" aria-required="true" />
-                                <ValidationMessage For="() => ViewOwner.Names" class="text-danger" />
+                        <!-- TAB 1: Identificación -->
+                        @if (activeTab == 1)
+                        {
+                            <div class="alert alert-info d-flex align-items-center" role="alert">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <small>Complete la información de identificación. Los campos marcados con <span class="text-danger">*</span> son obligatorios.</small>
                             </div>
+
                             @if (SelectedPersonType == "Natural")
                             {
-                                <div class="col-md-6">
-                                    <label for="surnamem" class="form-label small text-muted">Apellidos</label>
-                                    <InputText id="surnamem" @bind-Value="ViewOwner.Surname" class="form-control" />
-                                    <ValidationMessage For="() => ViewOwner.Surname" class="text-danger" />
+                                <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3">
+                                    <i class="bi bi-person me-2"></i>Datos Personales
+                                </h6>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="names" class="form-label fw-semibold">
+                                                <i class="bi bi-person-badge me-1 text-primary"></i>Nombres <span class="text-danger">*</span>
+                                            </label>
+                                            <InputText id="names" @bind-Value="ViewOwner.Names" class="form-control" 
+                                                       placeholder="Ingrese sus nombres completos"
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                            <ValidationMessage For="() => ViewOwner.Names" class="text-danger small" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="surnamem" class="form-label fw-semibold">
+                                                <i class="bi bi-person me-1 text-primary"></i>Apellidos
+                                            </label>
+                                            <InputText id="surnamem" @bind-Value="ViewOwner.Surname" class="form-control" 
+                                                       placeholder="Ingrese sus apellidos"
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                            <ValidationMessage For="() => ViewOwner.Surname" class="text-danger small" />
+                                        </div>
+                                    </div>
                                 </div>
                             }
                             else
                             {
-                                ViewOwner.Surname = ViewOwner.Names;
-                            }
-                        </div>
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-6">
-                                <label for="typedoc" class="form-label small text-muted">Tipo Doc.</label>
-                                <InputSelect id="typedoc" @bind-Value="ViewOwner.IdTypeIdNumber" class="form-select">
-                                    @foreach (var param in ParameterService.ListParameters.Where(c => c.IdParent == Convert.ToInt32(Models.ParamParent.DocumentType)))
-                                    {
-                                        <option value="@param.Value" selected>@param.ShortDescription</option>
-                                    }
-                                </InputSelect>
-                                <ValidationMessage For="() => ViewOwner.IdTypeIdNumber" class="text-danger" />
-                            </div>
-                            <div class="col-md-6">
-                                <label for="nrodoc" class="form-label small text-muted">N° Documento</label>
-                                <InputText id="nrodoc" @bind-Value="ViewOwner.IdNumber" class="form-control" aria-required="true" />
-                                <ValidationMessage For="() => ViewOwner.IdNumber" class="text-danger" />
-                            </div>
-                        </div>
-
-                        @if (SelectedPersonType == "Juridica")
-                        {
-                            <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3 mt-4">Datos de la Empresa</h6>
-                            <div class="row g-3 mb-2">
-                                <div class="col-md-6">
-                                    <label for="legalrep" class="form-label small text-muted">Representante Legal</label>
-                                    <InputText id="legalrep" @bind-Value="ViewOwner.LegalRepresentative" class="form-control" />
+                                <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3">
+                                    <i class="bi bi-building me-2"></i>Datos de la Empresa
+                                </h6>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-12">
+                                        <div class="form-group">
+                                            <label for="names" class="form-label fw-semibold">
+                                                <i class="bi bi-building me-1 text-primary"></i>Razón Social <span class="text-danger">*</span>
+                                            </label>
+                                            <InputText id="names" @bind-Value="ViewOwner.Names" class="form-control" 
+                                                       placeholder="Nombre legal de la empresa"
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                            <ValidationMessage For="() => ViewOwner.Names" class="text-danger small" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="legalrep" class="form-label fw-semibold">
+                                                <i class="bi bi-person-check me-1 text-primary"></i>Representante Legal
+                                            </label>
+                                            <InputText id="legalrep" @bind-Value="ViewOwner.LegalRepresentative" class="form-control" 
+                                                       placeholder="Nombre completo del representante"
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="ructype" class="form-label fw-semibold">
+                                                <i class="bi bi-file-earmark-text me-1 text-primary"></i>Tipo de RUC
+                                            </label>
+                                            <InputText id="ructype" @bind-Value="ViewOwner.RucType" class="form-control" 
+                                                       placeholder="Ej: RUC Jurídico"
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
                                 </div>
+                            }
+
+                            <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3 mt-4">
+                                <i class="bi bi-card-list me-2"></i>Documento de Identidad
+                            </h6>
+                            <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label for="ructype" class="form-label small text-muted">Tipo de RUC</label>
-                                    <InputText id="ructype" @bind-Value="ViewOwner.RucType" class="form-control" />
+                                    <div class="form-group">
+                                        <label for="typedoc" class="form-label fw-semibold">
+                                            <i class="bi bi-file-earmark-text me-1 text-primary"></i>Tipo Documento
+                                        </label>
+                                        <InputSelect id="typedoc" @bind-Value="ViewOwner.IdTypeIdNumber" class="form-select"
+                                                     disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                            @foreach (var param in ParameterService.ListParameters.Where(c => c.IdParent == Convert.ToInt32(Models.ParamParent.DocumentType)))
+                                            {
+                                                <option value="@param.Value" selected>@param.ShortDescription</option>
+                                            }
+                                        </InputSelect>
+                                        <ValidationMessage For="() => ViewOwner.IdTypeIdNumber" class="text-danger small" />
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="nrodoc" class="form-label fw-semibold">
+                                            <i class="bi bi-hash me-1 text-primary"></i>N° Documento <span class="text-danger">*</span>
+                                        </label>
+                                        <InputText id="nrodoc" @bind-Value="ViewOwner.IdNumber" class="form-control" 
+                                                   placeholder="Ingrese el número de documento"
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        <ValidationMessage For="() => ViewOwner.IdNumber" class="text-danger small" />
+                                    </div>
                                 </div>
                             </div>
                         }
 
-                        <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3 mt-4">Contacto</h6>
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-6">
-                                <label for="address" class="form-label small text-muted"><span class="text-danger">*</span> Dirección</label>
-                                <InputText id="address" @bind-Value="ViewOwner.Address" class="form-control" aria-required="true" />
-                                <ValidationMessage For="() => ViewOwner.Address" class="text-danger" />
+                        <!-- TAB 2: Contacto -->
+                        @if (activeTab == 2)
+                        {
+                            <div class="alert alert-info d-flex align-items-center" role="alert">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <small>Información de contacto del propietario</small>
                             </div>
-                            <div class="col-md-6">
-                                <label for="email" class="form-label small text-muted">Email</label>
-                                <InputText id="email" @bind-Value="ViewOwner.Email" class="form-control" />
-                                <ValidationMessage For="() => ViewOwner.Email" class="text-danger" />
-                            </div>
-                        </div>
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-4">
-                                <label for="phonenumber" class="form-label small text-muted"><span class="text-danger">*</span> Teléfono</label>
-                                <InputText id="phonenumber" @bind-Value="ViewOwner.PhoneNumber" class="form-control" aria-required="true" />
-                                <ValidationMessage For="() => ViewOwner.PhoneNumber" class="text-danger" />
-                            </div>
-                            <div class="col-md-4">
-                                <label for="mobilephone" class="form-label small text-muted">Celular</label>
-                                <InputText id="mobilephone" @bind-Value="ViewOwner.MobilePhone" class="form-control" />
-                            </div>
-                            <div class="col-md-4">
-                                <label for="workphone" class="form-label small text-muted">Tel. Trabajo</label>
-                                <InputText id="workphone" @bind-Value="ViewOwner.WorkPhone" class="form-control" />
-                            </div>
-                        </div>
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-6">
-                                <label for="relationshiptype" class="form-label small text-muted">Relación con la Unidad</label>
-                                <InputSelect id="relationshiptype" @bind-Value="ViewOwner.RelationshipType" class="form-select">
-                                    <option value="">-- Seleccione --</option>
-                                    <option value="Propietario">Propietario</option>
-                                    <option value="Co-Propietario">Co-Propietario</option>
-                                    <option value="Inquilino">Inquilino</option>
-                                    <option value="Usufructuario">Usufructuario</option>
-                                </InputSelect>
-                            </div>
-                        </div>
 
-                        <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3 mt-4">Datos Adicionales</h6>
-                        <div class="row g-3 mb-2">
-                            <div class="col-md-4">
-                                <label for="nationality" class="form-label small text-muted">Nacionalidad</label>
-                                <InputText id="nationality" @bind-Value="ViewOwner.Nationality" class="form-control" />
+                            <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3">
+                                <i class="bi bi-geo-alt me-2"></i>Dirección y Email
+                            </h6>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-8">
+                                    <div class="form-group">
+                                        <label for="address" class="form-label fw-semibold">
+                                            <i class="bi bi-geo-alt me-1 text-primary"></i>Dirección <span class="text-danger">*</span>
+                                        </label>
+                                        <InputText id="address" @bind-Value="ViewOwner.Address" class="form-control" 
+                                                   placeholder="Dirección completa"
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        <ValidationMessage For="() => ViewOwner.Address" class="text-danger small" />
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="email" class="form-label fw-semibold">
+                                            <i class="bi bi-envelope me-1 text-primary"></i>Email
+                                        </label>
+                                        <InputText id="email" @bind-Value="ViewOwner.Email" class="form-control" 
+                                                   placeholder="correo@ejemplo.com"
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        <ValidationMessage For="() => ViewOwner.Email" class="text-danger small" />
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-md-4">
-                                <label for="civilstatus" class="form-label small text-muted">Estado Civil</label>
-                                <InputSelect id="civilstatus" @bind-Value="ViewOwner.CivilStatus" class="form-select">
-                                    <option value="">-- Seleccione --</option>
-                                    <option value="Soltero">Soltero</option>
-                                    <option value="Casado">Casado</option>
-                                    <option value="Divorciado">Divorciado</option>
-                                    <option value="Viudo">Viudo</option>
-                                </InputSelect>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="birthdate" class="form-label small text-muted">Fecha de Nacimiento</label>
-                                <InputDate id="birthdate" @bind-Value="ViewOwner.BirthDate" class="form-control" />
-                            </div>
-                        </div>
-                        <div class="form-check form-switch mt-2">
-                            <InputCheckbox id="isactive" @bind-Value="ViewOwner.IsActive" class="form-check-input" />
-                            <label for="isactive" class="form-check-label small text-muted">Propietario activo</label>
-                        </div>
 
+                            <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3 mt-4">
+                                <i class="bi bi-telephone me-2"></i>Teléfonos
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="phonenumber" class="form-label fw-semibold">
+                                            <i class="bi bi-telephone me-1 text-primary"></i>Teléfono <span class="text-danger">*</span>
+                                        </label>
+                                        <InputText id="phonenumber" @bind-Value="ViewOwner.PhoneNumber" class="form-control" 
+                                                   placeholder="Ej: +506 2234-5678"
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        <ValidationMessage For="() => ViewOwner.PhoneNumber" class="text-danger small" />
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="mobilephone" class="form-label fw-semibold">
+                                            <i class="bi bi-phone me-1 text-primary"></i>Celular
+                                        </label>
+                                        <InputText id="mobilephone" @bind-Value="ViewOwner.MobilePhone" class="form-control" 
+                                                   placeholder="Ej: +506 8765-4321"
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="workphone" class="form-label fw-semibold">
+                                            <i class="bi bi-briefcase me-1 text-primary"></i>Tel. Trabajo
+                                        </label>
+                                        <InputText id="workphone" @bind-Value="ViewOwner.WorkPhone" class="form-control" 
+                                                   placeholder="Ej: +506 2234-9999"
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- TAB 3: Relación con la Unidad -->
+                        @if (activeTab == 3)
+                        {
+                            <div class="alert alert-info d-flex align-items-center" role="alert">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <small>Especifique la relación del propietario con la unidad</small>
+                            </div>
+
+                            <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3">
+                                <i class="bi bi-house-door me-2"></i>Vinculación con la Propiedad
+                            </h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="relationshiptype" class="form-label fw-semibold">
+                                            <i class="bi bi-link-45deg me-1 text-primary"></i>Relación con la Unidad
+                                        </label>
+                                        <InputSelect id="relationshiptype" @bind-Value="ViewOwner.RelationshipType" class="form-select"
+                                                     disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                            <option value="">-- Seleccione --</option>
+                                            <option value="Propietario">Propietario</option>
+                                            <option value="Co-Propietario">Co-Propietario</option>
+                                            <option value="Inquilino">Inquilino</option>
+                                            <option value="Usufructuario">Usufructuario</option>
+                                            <option value="Familiar">Familiar</option>
+                                        </InputSelect>
+                                        <small class="text-muted">Tipo de vínculo con la unidad</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="unitnumber" class="form-label fw-semibold">
+                                            <i class="bi bi-hash me-1 text-primary"></i>Número de Unidad
+                                        </label>
+                                        <InputText id="unitnumber" @bind-Value="ViewOwner.UnitNumber" class="form-control" 
+                                                   placeholder="Ej: 101, E5, D3"
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        <small class="text-muted">Unidad asociada a este propietario</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- TAB 4: Datos Adicionales -->
+                        @if (activeTab == 4)
+                        {
+                            <div class="alert alert-info d-flex align-items-center" role="alert">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <small>Información adicional del propietario</small>
+                            </div>
+
+                            <h6 class="text-uppercase text-muted small fw-bold border-bottom pb-2 mb-3">
+                                <i class="bi bi-file-text me-2"></i>Información Personal
+                            </h6>
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="nationality" class="form-label fw-semibold">
+                                            <i class="bi bi-flag me-1 text-primary"></i>Nacionalidad
+                                        </label>
+                                        <InputText id="nationality" @bind-Value="ViewOwner.Nationality" class="form-control" 
+                                                   placeholder="Ej: Costarricense"
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="civilstatus" class="form-label fw-semibold">
+                                            <i class="bi bi-heart me-1 text-primary"></i>Estado Civil
+                                        </label>
+                                        <InputSelect id="civilstatus" @bind-Value="ViewOwner.CivilStatus" class="form-select"
+                                                     disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                            <option value="">-- Seleccione --</option>
+                                            <option value="Soltero">Soltero(a)</option>
+                                            <option value="Casado">Casado(a)</option>
+                                            <option value="Divorciado">Divorciado(a)</option>
+                                            <option value="Viudo">Viudo(a)</option>
+                                            <option value="Union Libre">Unión Libre</option>
+                                        </InputSelect>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="birthdate" class="form-label fw-semibold">
+                                            <i class="bi bi-calendar-event me-1 text-primary"></i>Fecha de Nacimiento
+                                        </label>
+                                        <InputDate id="birthdate" @bind-Value="ViewOwner.BirthDate" class="form-control" 
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (SelectedPersonType == "Natural")
+                            {
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="occupation" class="form-label fw-semibold">
+                                                <i class="bi bi-briefcase me-1 text-primary"></i>Ocupación/Profesión
+                                            </label>
+                                            <InputText id="occupation" @bind-Value="ViewOwner.Occupation" class="form-control" 
+                                                       placeholder="Ej: Ingeniero, Abogado"
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="employer" class="form-label fw-semibold">
+                                                <i class="bi bi-building me-1 text-primary"></i>Empleador/Empresa
+                                            </label>
+                                            <InputText id="employer" @bind-Value="ViewOwner.Employer" class="form-control" 
+                                                       placeholder="Nombre de la empresa"
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            <div class="form-check form-switch mt-4">
+                                <InputCheckbox id="isactive" @bind-Value="ViewOwner.IsActive" class="form-check-input" 
+                                               disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                <label for="isactive" class="form-check-label">
+                                    <i class="bi bi-toggle-on me-1 text-success"></i>Propietario activo
+                                </label>
+                                <small class="text-muted d-block">Los propietarios inactivos no aparecen en listados principales</small>
+                            </div>
+                        }
                     </div>
+                    
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
-                            <i class="bi bi-x-lg me-1"></i>Cancelar
-                        </button>
-                        <button type="submit" form="create" class="btn btn-primary">
-                            <i class="bi bi-check-lg me-1"></i>@((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
-                        </button>
+                        @if (OpenMode != Models.OpenType.ReadOnly && activeTab > 1)
+                        {
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => activeTab--">
+                                <i class="bi bi-arrow-left me-1"></i>Anterior
+                            </button>
+                        }
+                        
+                        @if (OpenMode != Models.OpenType.ReadOnly && activeTab < 4)
+                        {
+                            <button type="button" class="btn btn-primary" @onclick="() => activeTab++">
+                                Siguiente<i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        }
+                        
+                        @if (OpenMode == Models.OpenType.ReadOnly)
+                        {
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                                <i class="bi bi-x-lg me-1"></i>Cerrar
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
+                                <i class="bi bi-x-lg me-1"></i>Cancelar
+                            </button>
+                            
+                            @if (activeTab == 4)
+                            {
+                                <button type="submit" form="create" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i>@((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
+                                </button>
+                            }
+                        }
                     </div>
                 </EditForm>
             </div>
@@ -174,13 +457,19 @@
     [Parameter] public bool ShowModal { get; set; }
     [Parameter] public Models.OpenType OpenMode { get; set; }
     [Parameter] public Models.Owner ViewOwner { get; set; }
-    //[Parameter] public IQueryable<Models.Parameter> ListParameters { get; set; }
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
     [Parameter] public EventCallback<SpiderHood.Models.Owner> OnSaveModal { get; set; }
 
-    // Propiedad para el valor seleccionado
-    private string SelectedUnitId { get; set; } = string.Empty;
+    private int activeTab = 1;
     private string SelectedPersonType { get; set; } = "Natural";
+
+    protected override void OnParametersSet()
+    {
+        if (ShowModal)
+        {
+            activeTab = 1; // Resetear al primer tab al abrir
+        }
+    }
 
     private async Task Guardar()
     {
@@ -194,13 +483,8 @@
         await ShowModalChanged.InvokeAsync(ShowModal);
     }
 
-    private void OnClickCheck()
-    {
-        //TypeOwner = int.Parse(e.Value.ToString());
-
-    }
     private void CambiarPersona(ChangeEventArgs args)
     {
-        SelectedPersonType = args.Value.ToString();
+        SelectedPersonType = args.Value?.ToString() ?? "Natural";
     }
 }

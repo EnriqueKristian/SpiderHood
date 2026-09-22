@@ -126,6 +126,12 @@ namespace SpiderHood.Data
             modelBuilder.Entity<Models.Vote>().HasNoKey();
             modelBuilder.Entity<Models.MeetingMinutes>().HasNoKey();
 
+            // Docs/Pendientes-Negocio-Consolidado.md #34 -- Cargo es un INT en la BD
+            // (respalda Models.BoardMemberRole), mismo motivo que los enums de arriba.
+            modelBuilder.Entity<Models.BuildingBoard>().HasNoKey();
+            modelBuilder.Entity<Models.BuildingBoardMember>().HasNoKey();
+            modelBuilder.Entity<Models.BuildingBoardMemberView>().HasNoKey();
+
             // Type/Category/Status/Recurrence son enums de C# pero se guardan como texto
             // en la BD -- mismo motivo que Incident arriba.
             modelBuilder.Entity<Models.CalendarItem>(entity =>

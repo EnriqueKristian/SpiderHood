@@ -12,6 +12,9 @@ namespace SpiderHood.Components.Pages.BuildingPages
         [Inject]
         public Services.IBuildingService BuildingService { get; set; } = default!;
 
+        [Inject]
+        public Services.IBuildingBoardService BuildingBoardService { get; set; } = default!;
+
         private List<Building> Buildings = new();
         private Building SelectedBuilding = null;
         private Building _editingBuilding = new();
@@ -41,6 +44,22 @@ namespace SpiderHood.Components.Pages.BuildingPages
         // como placeholder en el Tab "Contacto", nunca se guarda solo -- el usuario sigue
         // pudiendo cargar su propio dato por edificio si lo necesita.
         private (string? AdminName, string? AdminPhone, string? OfficeHours) _effectiveContact;
+
+        // Junta Directiva (Docs/Pendientes-Negocio-Consolidado.md #34) -- Tab 5, sólo
+        // visible editando un edificio ya guardado.
+        private BuildingBoard? _activeBoard;
+        private List<BuildingBoardMemberView> _boardMembers = new();
+        private List<UserBuildingRoleAssignment> _eligibleBoardUsers = new();
+        private DateOnly _newBoardFechaInicio = DateOnly.FromDateTime(DateTime.Today);
+        private Guid? _newMemberIdUser;
+        private BoardMemberRole _newMemberCargo = BoardMemberRole.Vocal;
+        private string? _newMemberOtroDescripcion;
+        // null = todavía no se comprobó (no se seleccionó nadie) -- true = el email del
+        // usuario elegido no matchea ningún Owner activo del edificio, se muestra el
+        // aviso; false = sí matchea, no hace falta avisar. Nunca bloquea el alta.
+        private bool? _newMemberOwnerWarning;
+        private string? _boardError;
+        private bool _savingBoard;
 
         protected override async Task OnInitializedAsync()
         {
@@ -209,6 +228,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
             _editingBuilding = building.Clone();
             await CargarLogoEdificioAsync();
             _effectiveContact = await BuildingService.GetEffectiveContactAsync(_editingBuilding);
+            await CargarJuntaDirectivaAsync();
 
             // Edificios creados antes del fix del <select> "Tipo" (ver commit del bug de
             // Type) quedaron con Type=0, que no matchea ningún Parameter.Value real (1/2/3
@@ -325,6 +345,94 @@ namespace SpiderHood.Components.Pages.BuildingPages
             }
         }
 
+        private async Task CargarJuntaDirectivaAsync()
+        {
+            _boardError = null;
+            _activeBoard = await BuildingBoardService.GetActiveBoardAsync(_editingBuilding.IdBuilding);
+            _boardMembers = _activeBoard is null
+                ? new List<BuildingBoardMemberView>()
+                : await BuildingBoardService.GetMembersAsync(_activeBoard.IdBuildingBoard);
+            _eligibleBoardUsers = await BuildingBoardService.GetEligibleUsersAsync(_editingBuilding.IdBuilding);
+            _newBoardFechaInicio = DateOnly.FromDateTime(DateTime.Today);
+            _newMemberIdUser = null;
+            _newMemberOwnerWarning = null;
+        }
+
+        // "Constituir" = crear una Junta nueva -- si ya había una activa, INS_BuildingBoard
+        // la cierra sola (ver comentario en el script SQL), así que este mismo botón sirve
+        // tanto para la primera Junta de un edificio como para "Cerrar esta Junta y
+        // constituir una nueva".
+        private async Task ConstituirNuevaJuntaAsync()
+        {
+            if (!_canEditBuilding) return;
+            _boardError = null;
+            _savingBoard = true;
+            try
+            {
+                await BuildingBoardService.CreateBoardAsync(
+                    _editingBuilding.IdBuilding,
+                    _newBoardFechaInicio.ToDateTime(TimeOnly.MinValue),
+                    currentUser.IdUser);
+                await CargarJuntaDirectivaAsync();
+            }
+            catch (Exception ex)
+            {
+                _boardError = $"No se pudo constituir la Junta: {ex.Message}";
+            }
+            finally
+            {
+                _savingBoard = false;
+            }
+        }
+
+        // Dispara la advertencia blanda (Docs/Pendientes-Negocio-Consolidado.md #34) al
+        // elegir un usuario para un cargo -- nunca bloquea, sólo informa.
+        private async Task OnMemberUserSelectedAsync(ChangeEventArgs e)
+        {
+            _newMemberIdUser = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+            _newMemberOwnerWarning = _newMemberIdUser is Guid idUser
+                ? !await BuildingBoardService.CheckOwnerWarningAsync(_editingBuilding.IdBuilding, idUser)
+                : null;
+        }
+
+        private async Task AgregarMiembroJuntaAsync()
+        {
+            if (!_canEditBuilding || _activeBoard is null || _newMemberIdUser is not Guid idUser) return;
+            _boardError = null;
+            _savingBoard = true;
+            try
+            {
+                await BuildingBoardService.AddMemberAsync(_activeBoard.IdBuildingBoard, idUser, _newMemberCargo, _newMemberOtroDescripcion);
+                _newMemberIdUser = null;
+                _newMemberOtroDescripcion = null;
+                _newMemberOwnerWarning = null;
+                _boardMembers = await BuildingBoardService.GetMembersAsync(_activeBoard.IdBuildingBoard);
+            }
+            catch (Exception ex)
+            {
+                _boardError = $"No se pudo agregar el miembro: {ex.Message}";
+            }
+            finally
+            {
+                _savingBoard = false;
+            }
+        }
+
+        private async Task EliminarMiembroJuntaAsync(Guid idBuildingBoardMember)
+        {
+            if (!_canEditBuilding || _activeBoard is null) return;
+            _boardError = null;
+            try
+            {
+                await BuildingBoardService.RemoveMemberAsync(idBuildingBoardMember);
+                _boardMembers = await BuildingBoardService.GetMembersAsync(_activeBoard.IdBuildingBoard);
+            }
+            catch (Exception ex)
+            {
+                _boardError = $"No se pudo quitar el miembro: {ex.Message}";
+            }
+        }
+
         private async Task SaveBuilding()
         {
             if (_isEditingBuilding ? !_canEditBuilding : !_canCreateBuilding) return;
@@ -395,9 +503,14 @@ namespace SpiderHood.Components.Pages.BuildingPages
 
         private int activeTab = 1;
 
+        // Tab 5 "Junta Directiva" sólo aplica a un edificio ya guardado (necesita un
+        // IdBuilding real para la FK de BuildingBoard) -- un edificio nuevo se queda
+        // en 4 tabs hasta que se crea.
+        private int MaxTab => _isEditingBuilding ? 5 : 4;
+
         private void NextTab()
         {
-            if (activeTab < 4) activeTab++;
+            if (activeTab < MaxTab) activeTab++;
         }
 
         private void PreviousTab()

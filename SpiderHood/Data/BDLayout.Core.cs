@@ -252,6 +252,13 @@ namespace SpiderHood.Data
             public const string UPD_Account = "UPD_Account";
             public const string UPD_Account_Logo = "UPD_Account_Logo";
             public const string GET_AccountById = "GET_AccountById";
+
+            // Junta Directiva (Docs/Pendientes-Negocio-Consolidado.md #34)
+            public const string INS_BuildingBoard = "INS_BuildingBoard";
+            public const string GET_ActiveBuildingBoard = "GET_ActiveBuildingBoard";
+            public const string INS_BuildingBoardMember = "INS_BuildingBoardMember";
+            public const string DEL_BuildingBoardMember = "DEL_BuildingBoardMember";
+            public const string GET_BuildingBoardMembers = "GET_BuildingBoardMembers";
             public const string INS_AccountUser = "INS_AccountUser";
             public const string GET_AccountByUser = "GET_AccountByUser";
             public const string GET_AccountUsersByAccount = "GET_AccountUsersByAccount";

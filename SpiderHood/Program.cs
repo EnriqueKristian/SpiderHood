@@ -311,6 +311,7 @@ builder.Services.AddScoped<IInstallmentService, InstallmentService>();
 builder.Services.AddScoped<IMonthlyInstallmentService, MonthlyInstallmentService>();
 builder.Services.AddScoped<IPendingExpenseService, PendingExpenseService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
+builder.Services.AddScoped<IBuildingBoardService, BuildingBoardService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IAccountService, AccountService>();

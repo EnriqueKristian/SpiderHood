@@ -326,6 +326,16 @@ namespace SpiderHood.Data
                 return true;
             }, "DeleteVote", cancellationToken);
         }
+
+        // Junta Directiva (Docs/Pendientes-Negocio-Consolidado.md #34)
+        public async Task<bool> DeleteBuildingBoardMemberAsync(Guid idBuildingBoardMember, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(StoredProcedures.DEL_BuildingBoardMember, cancellationToken, idBuildingBoardMember);
+                return true;
+            }, "DeleteBuildingBoardMember", cancellationToken);
+        }
         #endregion
     }
 }

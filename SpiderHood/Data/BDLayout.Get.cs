@@ -1629,6 +1629,24 @@ namespace SpiderHood.Data
                 return await ExecuteQuerySingleAsync<Models.MeetingMinutes>(StoredProcedures.GET_MeetingMinutesByMeeting, idMeeting);
             }, "GetMeetingMinutesByMeeting", cancellationToken);
         }
+
+        // Junta Directiva (Docs/Pendientes-Negocio-Consolidado.md #34). Null si el
+        // edificio nunca constituyó una Junta -- estado válido, no un error.
+        public async Task<Models.BuildingBoard?> GetActiveBuildingBoardAsync(Guid idBuilding, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQuerySingleAsync<Models.BuildingBoard>(StoredProcedures.GET_ActiveBuildingBoard, idBuilding);
+            }, "GetActiveBuildingBoard", cancellationToken);
+        }
+
+        public async Task<List<Models.BuildingBoardMemberView>> GetBuildingBoardMembersAsync(Guid idBuildingBoard, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                return await ExecuteQueryListAsync<Models.BuildingBoardMemberView>(StoredProcedures.GET_BuildingBoardMembers, idBuildingBoard);
+            }, "GetBuildingBoardMembers", cancellationToken);
+        }
         #endregion
     }
 }

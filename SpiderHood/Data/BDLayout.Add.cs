@@ -1727,6 +1727,42 @@ namespace SpiderHood.Data
                 return acta;
             }, "AddMeetingMinutes", cancellationToken);
         }
+
+        // Junta Directiva (Docs/Pendientes-Negocio-Consolidado.md #34) -- INS_BuildingBoard
+        // cierra cualquier Junta previamente activa del mismo edificio antes de insertar
+        // (ver comentario en el script SQL), así que este método no necesita un paso
+        // aparte de "cerrar la anterior".
+        public async Task<Models.BuildingBoard> CreateBuildingBoardAsync(Models.BuildingBoard board, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_BuildingBoard,
+                    cancellationToken,
+                    board.IdBuildingBoard,
+                    board.IdBuilding,
+                    board.FechaInicio,
+                    board.CreatedBy,
+                    board.CreatedOn);
+                return board;
+            }, "CreateBuildingBoard", cancellationToken);
+        }
+
+        public async Task<Models.BuildingBoardMember> AddBuildingBoardMemberAsync(Models.BuildingBoardMember member, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.INS_BuildingBoardMember,
+                    cancellationToken,
+                    member.IdBuildingBoardMember,
+                    member.IdBuildingBoard,
+                    member.IdUser,
+                    (int)member.Cargo,
+                    (object?)member.OtroDescripcion);
+                return member;
+            }, "AddBuildingBoardMember", cancellationToken);
+        }
         #endregion
     }
 }

@@ -1893,6 +1893,18 @@ a. **Pantalla de mantenimiento del Account.** **RESUELTO (2026-09-22).**
    (INSERT/UPDATE/SELECT por SP) y `dotnet build`/`dotnet test` en 0
    errores, 169/169.
 
+   **Ítem de menú (2026-09-22, encontrado por el usuario):** la página
+   (`/Settings`) era alcanzable sólo desde el dropdown del avatar en el
+   header ("Mi Suscripción", `HeaderMainLayout.razor`, gateado a rol
+   Administrador) -- nunca tuvo fila en `MenuItems`, así que no aparecía
+   en el menú izquierdo "Configuración" junto con Mi Perfil/Seguridad/
+   Usuarios/etc. `Database/Scripts/2026-09-22_140_Seed_AccountBilling_MenuItem.sql`
+   agrega el ítem "Cuenta y Facturación" ahí (`ItemKey`
+   `account_billing`, bajo el padre `settings`), con permiso para
+   Administrador y SysAdmin -- mismos roles que ya podían llegar por el
+   header. El link del header se deja igual, éste es un segundo camino a
+   la misma página. Verificado idempotente contra la BD real.
+
 b. **Permisos de edición.** **RESUELTO, puntual (2026-09-22) -- no se
    generalizó el modelo de permisos.** Evaluado y descartado generalizar
    `PermissionDefinition` a 3 ejes (lectura/escritura/exportación) por

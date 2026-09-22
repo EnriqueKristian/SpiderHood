@@ -48,6 +48,12 @@ querer, ya tenían el orden bien.
 1. **Fase 1 -- Grupo B: sólo reordenar botones** (Cancelar antes que
    Guardar/Eliminar). Cambio mecánico, bajo riesgo, alto impacto visual --
    mismo bug que ya se vio en Junta Directiva. ~12 archivos.
+   **RESUELTO (2026-09-22)** -- 9 archivos, ~15 diálogos: `Owners.razor`,
+   `UnitGroups.razor` (2 de 3), `BuildingConfig.razor` (4),
+   `Announcements.razor` (1 de 2), `BudgetGenerator.razor` (2),
+   `BudgetList.razor`, `CategoryPage.razor`, `ReservationsAdmin.razor` (4),
+   `Reservations.razor` (2 de 3). Sólo el orden de botones -- scrollable/tabs
+   quedan para la Fase 2.
 2. **Fase 2 -- Grupo C: agregar `IsScrollable`/scroll interno + agrupar el
    footer** en los formularios largos (no todos necesitan tabs -- sólo los
    que hoy scrollean mal). Evaluar cuáles de los ~20 archivos realmente

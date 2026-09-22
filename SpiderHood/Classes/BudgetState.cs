@@ -192,8 +192,12 @@ namespace SpiderHood.Models
                     {
                         // Distribuir el consumo general menos lo ya asignado individualmente,
                         // pesado por cuántas unidades Depto/Oficina tiene este grupo (mismo
-                        // criterio que Fija más abajo).
-                        _total += Math.Abs(item.MonthlyAmount - _totalWaterConsumption ) / totalApartments * pesoFija;
+                        // criterio que Fija más abajo). Math.Max(0, ...) en vez de Math.Abs:
+                        // si el consumo medido total ya supera el presupuesto de la categoría,
+                        // no queda "común" por repartir -- Abs convertía ese excedente en un
+                        // cobro ADICIONAL positivo, cobrando dos veces el mismo excedente
+                        // (ver CalculateQuota_WhenMeteredConsumptionExceedsBudget_* test).
+                        _total += Math.Max(0, item.MonthlyAmount - _totalWaterConsumption) / totalApartments * pesoFija;
                     }
                     else
                     {

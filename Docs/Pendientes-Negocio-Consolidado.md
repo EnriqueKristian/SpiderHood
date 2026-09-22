@@ -389,12 +389,18 @@ duplican). Falta decidir con el usuario qué hacer con `OfficeHours`
 como dato 100% del edificio?) -- hoy Account no tiene ningún campo de
 horario, habría que agregarlo si se decide que aplica el mismo patrón.
 
-### 34. Constitución de la Junta Directiva (Presidente / Secretario / Tesorero) -- diseño, sin implementar
-**Estado: no existe ningún modelo -- hoy "Junta" es sólo un Rol
-(`UserBuildingRoleAssignment.Role = "Junta"`), no hay noción de quién
-ocupa qué cargo dentro de la Junta ni desde cuándo.** Pedido explícito del
-usuario (2026-09-22): organizar cómo se implementaría, no construirlo
-todavía.
+### 34. Constitución de la Junta Directiva (Presidente / Secretario / Tesorero)
+**Estado: IMPLEMENTADO (2026-09-22).** Usuario confirmó las 3 decisiones
+recomendadas: sólo el Administrador registra/edita (sin permiso nuevo),
+validación de propietario como advertencia blanda (no bloquea), y fallback
+de contacto a Account (ver #33). Implementado: tablas `BuildingBoard` +
+`BuildingBoardMember` (script `Database/Scripts/2026-09-22_142_BuildingBoard.sql`,
+con historial -- una fila por período, no por edificio, e `INS_BuildingBoard`
+cierra automáticamente cualquier Junta previamente activa), servicio
+`IBuildingBoardService`, y Tab 5 "Junta Directiva" en `BuildingPage.razor`
+(sólo visible editando un edificio ya guardado) con alta/baja de miembros y
+aviso inline (no bloqueante) si el usuario elegido no matchea el email de
+ningún Owner del edificio. Verificado extremo a extremo contra la BD real.
 
 **Por qué esto ya hacía falta, más allá del pedido puntual:** el punto
 **#21** (Reuniones/Votación/Actas, gobernanza D.L. 1568) ya asume que
@@ -2415,7 +2421,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 31 | Modales de Edificio/Unidad/Propietario: scroll forzado para guardar + botones desalineados | Media | **Resuelto** (2026-09-22) -- scroll interno del modal activado en Edificio/Unidad, botones reagrupados en los 3, y un `form=` roto en Edificio corregido |
 | 32 | Carreras confirmadas: doble reserva de Área Común (TOCTOU) y "lost update" en Edificio/Unidad/Propietario; carga HTTP general sin problemas | Alta | **Confirmado con pruebas (2026-09-22)**, sin arreglar -- decisión pendiente del usuario sobre si corregir ahora |
 | 33 | Posible duplicación de contacto entre Edificio y Account (Administrador Principal/Teléfono/Horario) | Media | **Resuelto** (2026-09-22) -- fallback a Account implementado, mismo patrón que el logo |
-| 34 | Constitución de la Junta Directiva (Presidente/Secretario/Tesorero) -- no existe el modelo, prerrequisito real de las Actas de #21 | Media-Alta | Ideas organizadas (2026-09-22): modelo de datos, quién la registra, validación de propietario -- verificación legal exacta bloqueada por política de red del entorno, sin implementar |
+| 34 | Constitución de la Junta Directiva (Presidente/Secretario/Tesorero) -- prerrequisito real de las Actas de #21 | Media-Alta | **Implementado** (2026-09-22) -- BuildingBoard/BuildingBoardMember + Tab 5 en Edificio; verificación legal exacta del art. sigue pendiente (bloqueada por política de red del entorno), validación implementada como advertencia blanda mientras tanto |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

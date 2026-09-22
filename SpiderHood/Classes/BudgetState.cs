@@ -127,9 +127,6 @@ namespace SpiderHood.Models
         {
             decimal _totalInstallments = 0;
 
-            // Calcular consumo total de agua
-            decimal _totalWaterConsumption = _state.WaterReadings.Sum(c => c.CalculatedAmount);
-
             // Obtener excepciones/exoneraciones
             List<Exoneration> exceptions = _state.Exonerations;
 
@@ -185,14 +182,21 @@ namespace SpiderHood.Models
                 }
 
                 // 2. PROCESAR DETALLES DEL PRESUPUESTO
+                //
+                // Agua Áreas Comunes (la categoría de Configuration.WaterReadingDefault) es
+                // una línea Fija más -- se reparte flat entre las unidades, igual que
+                // cualquier otro ítem Type==1 (Mant. Ascensor, Luz Suministro, etc.), SIN
+                // restarle el consumo medido individual. Antes se restaba el consumo total
+                // (primero con Math.Abs, luego con Math.Max(0,...)) asumiendo que el
+                // presupuesto de esa categoría cubría tanto áreas comunes como el consumo
+                // individual ya facturado aparte -- el negocio confirmó que son dos cargos
+                // independientes: el consumo propio del dpto (agregado arriba, punto 1) y el
+                // presupuesto de áreas comunes (acá abajo), sin relación entre sí. Con
+                // consumo medido alto, esa resta terminaba escondiendo la línea entera
+                // (mostraba/sumaba S/0.00 en vez de MonthlyAmount/unidades).
                 foreach (var item in _state.Budget.Details)
                 {
-                    bool esCategoriaAgua = item.IdCategory == _state.Configuration.WaterReadingDefault && _state.WaterReadings!.Count > 0;
-
-                    //Obtener cuantos grupos tienen exoneracion en esta categoria -- ahora
-                    //aplica también a Agua (antes Agua ignoraba las exoneraciones por
-                    //completo y siempre dividía entre el total de unidades sin restar
-                    //excepciones).
+                    //Obtener cuantos grupos tienen exoneracion en esta categoria
                     var _nroException = exceptions.Count(c => c.IdCategory == item.IdCategory);
 
                     //Verificar que el grupo tenga esta exoneración -- Any() sobre TODAS las
@@ -207,25 +211,14 @@ namespace SpiderHood.Models
                     // exoneraciones), para que Ver Detalle/el PDF de un presupuesto YA
                     // PUBLICADO lean este valor en vez de recalcular con la composición
                     // ACTUAL del edificio (que puede haber cambiado desde entonces). Solo
-                    // aplica a categorías con divisor por unidad (Agua y Fija) -- las
-                    // %-based (Type != 1) no usan "número de unidades".
-                    if (esCategoriaAgua || item.Type == 1)
+                    // aplica a categorías con divisor por unidad (Type == 1) -- las
+                    // %-based no usan "número de unidades".
+                    if (item.Type == 1)
                         item.NroApartments = totalApartments - _nroException;
 
                     if (exonerado)
                     {
                         _total += 0;
-                    }
-                    else if (esCategoriaAgua)
-                    {
-                        // Distribuir el consumo general menos lo ya asignado individualmente,
-                        // pesado por cuántas unidades Depto/Oficina tiene este grupo (mismo
-                        // criterio que Fija más abajo). Math.Max(0, ...) en vez de Math.Abs:
-                        // si el consumo medido total ya supera el presupuesto de la categoría,
-                        // no queda "común" por repartir -- Abs convertía ese excedente en un
-                        // cobro ADICIONAL positivo, cobrando dos veces el mismo excedente
-                        // (ver CalculateQuota_WhenMeteredConsumptionExceedsBudget_* test).
-                        _total += Math.Max(0, item.MonthlyAmount - _totalWaterConsumption) / (totalApartments - _nroException) * pesoFija;
                     }
                     else
                     {

@@ -398,11 +398,11 @@
         </EditForm>
     </BodyTemplate>
     <FooterTemplate>
-        <button class="btn btn-primary" @onclick="CreateNewCalculation" disabled="@(_selectedPeriod == DateTime.MinValue)">
-            <i class="bi bi-check me-1"></i>Crear
-        </button>
         <button class="btn btn-secondary" @onclick="() => _newCalcModal.HideAsync()">
             <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-primary" @onclick="CreateNewCalculation" disabled="@(_selectedPeriod == DateTime.MinValue)">
+            <i class="bi bi-check me-1"></i>Crear
         </button>
     </FooterTemplate>
 </Modal>
@@ -460,11 +460,11 @@
         </EditForm>
     </BodyTemplate>
     <FooterTemplate>
-        <button class="btn btn-primary" @onclick="AddNewSectionFromModal">
-            <i class="bi bi-check me-1"></i>Agregar
-        </button>
         <button class="btn btn-secondary" @onclick="() => _newSectionModal.HideAsync()">
             <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-primary" @onclick="AddNewSectionFromModal">
+            <i class="bi bi-check me-1"></i>Agregar
         </button>
     </FooterTemplate>
 </Modal>

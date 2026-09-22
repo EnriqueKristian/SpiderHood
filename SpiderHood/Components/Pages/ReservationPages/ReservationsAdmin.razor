@@ -247,6 +247,7 @@ else
             }
         </BodyTemplate>
         <FooterTemplate>
+            <button class="btn btn-secondary" @onclick="() => _checklistModal.HideAsync()">Cancelar</button>
             <button class="btn btn-primary" @onclick="ConfirmarChecklist" disabled="@_procesando">
                 @if (_procesando)
                 {
@@ -254,7 +255,6 @@ else
                 }
                 Confirmar @(_etapaChecklist == ChecklistStage.Entrega ? "Check-in" : "Check-out")
             </button>
-            <button class="btn btn-secondary" @onclick="() => _checklistModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
     </Modal>
 
@@ -292,6 +292,7 @@ else
             }
         </BodyTemplate>
         <FooterTemplate>
+            <button class="btn btn-secondary" @onclick="() => _cerrarModal.HideAsync()">Cancelar</button>
             <button class="btn btn-primary" @onclick="ConfirmarCerrar" disabled="@_procesando">
                 @if (_procesando)
                 {
@@ -299,7 +300,6 @@ else
                 }
                 Cerrar Reserva
             </button>
-            <button class="btn btn-secondary" @onclick="() => _cerrarModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
     </Modal>
 
@@ -394,6 +394,7 @@ else
             }
         </BodyTemplate>
         <FooterTemplate>
+            <button class="btn btn-secondary" @onclick="() => _nuevaReservationModal.HideAsync()">Cancelar</button>
             <button class="btn btn-primary" @onclick="ConfirmarNuevaReservation" disabled="@(_procesando || _areaSeleccionada == null || _nuevaReservation.IdGroupUnit == Guid.Empty)">
                 @if (_procesando)
                 {
@@ -401,7 +402,6 @@ else
                 }
                 <i class="bi bi-send me-1"></i>Registrar Reserva
             </button>
-            <button class="btn btn-secondary" @onclick="() => _nuevaReservationModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
     </Modal>
 
@@ -441,6 +441,7 @@ else
             }
         </BodyTemplate>
         <FooterTemplate>
+            <button class="btn btn-secondary" @onclick="() => _confirmarPagoModal.HideAsync()">Cancelar</button>
             <button class="btn btn-primary" @onclick="ConfirmarPago" disabled="@_procesando">
                 @if (_procesando)
                 {
@@ -448,7 +449,6 @@ else
                 }
                 <i class="bi bi-check-lg me-1"></i>Confirmar Pago
             </button>
-            <button class="btn btn-secondary" @onclick="() => _confirmarPagoModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
     </Modal>
 }

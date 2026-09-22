@@ -1185,11 +1185,11 @@
         </div>
     </BodyTemplate>
     <FooterTemplate>
-        <button class="btn btn-primary" @onclick="ApplyQuickConfig" disabled="@(_sourceBuildingId == null)">
-            <i class="bi bi-copy me-1"></i>Aplicar Configuración
-        </button>
         <button class="btn btn-secondary" @onclick="() => _quickConfigModal.HideAsync()">
             <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-primary" @onclick="ApplyQuickConfig" disabled="@(_sourceBuildingId == null)">
+            <i class="bi bi-copy me-1"></i>Aplicar Configuración
         </button>
     </FooterTemplate>
 </Modal>
@@ -1294,11 +1294,11 @@
         </EditForm>
     </BodyTemplate>
     <FooterTemplate>
-        <button class="btn btn-primary" @onclick="SaveBankAccout">
-            <i class="bi bi-check me-1"></i>@(_isEditingBanckAccount ? "Actualizar" : "Crear")
-        </button>
         <button class="btn btn-secondary" @onclick="() => CloseBankModal()">
             <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-primary" @onclick="SaveBankAccout">
+            <i class="bi bi-check me-1"></i>@(_isEditingBanckAccount ? "Actualizar" : "Crear")
         </button>
     </FooterTemplate>
 </Modal>
@@ -1362,11 +1362,11 @@
         </EditForm>
     </BodyTemplate>
     <FooterTemplate>
-        <button class="btn btn-primary" @onclick="SaveExoneration">
-            <i class="bi bi-check me-1"></i>Crear
-        </button>
         <button class="btn btn-secondary" @onclick="() => CloseExonerationModal()">
             <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-primary" @onclick="SaveExoneration">
+            <i class="bi bi-check me-1"></i>Crear
         </button>
     </FooterTemplate>
 </Modal>
@@ -1509,11 +1509,11 @@
         </EditForm>
     </BodyTemplate>
     <FooterTemplate>
-        <button class="btn btn-primary" @onclick="SaveCommonArea">
-            <i class="bi bi-check me-1"></i>Guardar
-        </button>
         <button class="btn btn-secondary" @onclick="() => _areaComunModal.HideAsync()">
             <i class="bi bi-x me-1"></i>Cancelar
+        </button>
+        <button class="btn btn-primary" @onclick="SaveCommonArea">
+            <i class="bi bi-check me-1"></i>Guardar
         </button>
     </FooterTemplate>
 </Modal>

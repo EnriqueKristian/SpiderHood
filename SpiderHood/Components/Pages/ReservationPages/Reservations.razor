@@ -239,6 +239,7 @@ else
             </EditForm>
         </BodyTemplate>
         <FooterTemplate>
+            <button class="btn btn-secondary" @onclick="() => _nuevaModal.HideAsync()">Cancelar</button>
             <button class="btn btn-primary" @onclick="ConfirmarSolicitar" disabled="@(_solicitando || _areaSeleccionada == null)">
                 @if (_solicitando)
                 {
@@ -246,7 +247,6 @@ else
                 }
                 <i class="bi bi-send me-1"></i>Solicitar
             </button>
-            <button class="btn btn-secondary" @onclick="() => _nuevaModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
     </Modal>
 
@@ -350,6 +350,7 @@ else
             }
         </BodyTemplate>
         <FooterTemplate>
+            <button class="btn btn-secondary" @onclick="() => _reprogramarModal.HideAsync()">Cancelar</button>
             <button class="btn btn-primary" @onclick="ConfirmarReprogramar" disabled="@_reprogramando">
                 @if (_reprogramando)
                 {
@@ -357,7 +358,6 @@ else
                 }
                 <i class="bi bi-calendar-event me-1"></i>Reprogramar
             </button>
-            <button class="btn btn-secondary" @onclick="() => _reprogramarModal.HideAsync()">Cancelar</button>
         </FooterTemplate>
     </Modal>
 }

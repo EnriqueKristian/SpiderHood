@@ -705,8 +705,8 @@
         </div>
     </BodyTemplate>
     <FooterTemplate>
-        <Button Color="ButtonColor.Primary" form="create" Type="ButtonType.Submit">Aceptar</Button>
         <Button Color="ButtonColor.Secondary" @onclick="OnHideModalAllClick">Cancelar</Button>
+        <Button Color="ButtonColor.Primary" form="create" Type="ButtonType.Submit">Aceptar</Button>
     </FooterTemplate>
 </Modal>
 
@@ -716,8 +716,8 @@
         ¿Esta seguro que desea eliminar la Unidad @(_Unit.UnitNumber)?.
     </BodyTemplate>
     <FooterTemplate>
-        <Button Color="ButtonColor.Primary" @onclick="DeleteItem">Aceptar</Button>
         <Button Color="ButtonColor.Secondary" @onclick="OnHideModalClick">Cancelar</Button>
+        <Button Color="ButtonColor.Primary" @onclick="DeleteItem">Aceptar</Button>
     </FooterTemplate>
 </Modal>
 

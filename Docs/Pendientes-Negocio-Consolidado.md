@@ -342,8 +342,18 @@ comparar `ModifiedOn` antes de pisar la fila) en `UPD_Building`/`UPD_Unit`/`UPD_
 ---
 
 ### 33. Posible duplicación de datos de contacto entre Edificio y Account
-**Estado: verificado contra el código real (2026-09-22), pendiente decisión
-del usuario antes de tocar nada.**
+**Estado: RESUELTO (2026-09-22).** Usuario confirmó aplicar el fallback
+recomendado. Implementado: `Account.OfficeHours` (columna nueva, script
+`Database/Scripts/2026-09-22_141_Account_OfficeHours.sql`) +
+`IBuildingService.GetEffectiveContactAsync` (mismo patrón que el logo del
+Edificio) -- si `AdminName`/`AdminPhone`/`OfficeHours` del Edificio quedan
+vacíos, se usa `RazonSocial`/`Telefono`/`OfficeHours` de la Account. El
+Tab "Contacto" de `BuildingPage.razor` muestra el valor efectivo como
+placeholder + un aviso ("Vacío = se usa el de tu Cuenta: ..."). No se borró
+ninguna columna del Edificio -- una administradora con un encargado
+distinto por edificio sigue pudiendo cargar el suyo propio, que tiene
+prioridad sobre el de la Account. `EmergencyPhone` y `Phone`/`Email` (Tab 1)
+quedaron sin cambios, confirmado que no duplican nada.
 
 El usuario notó, viendo la pestaña "Contacto" de Editar Edificio, que hay
 información ahí que podría corresponder al Account (la administradora) y
@@ -2404,7 +2414,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | **Resuelto por completo** (2026-09-22) -- Building/Unit/Owner (34 campos) + (a)-(e), incluyendo logo del Edificio con fallback al de Account y franja "Administrado por..." con mención SpiderHoodApp |
 | 31 | Modales de Edificio/Unidad/Propietario: scroll forzado para guardar + botones desalineados | Media | **Resuelto** (2026-09-22) -- scroll interno del modal activado en Edificio/Unidad, botones reagrupados en los 3, y un `form=` roto en Edificio corregido |
 | 32 | Carreras confirmadas: doble reserva de Área Común (TOCTOU) y "lost update" en Edificio/Unidad/Propietario; carga HTTP general sin problemas | Alta | **Confirmado con pruebas (2026-09-22)**, sin arreglar -- decisión pendiente del usuario sobre si corregir ahora |
-| 33 | Posible duplicación de contacto entre Edificio y Account (Administrador Principal/Teléfono/Horario) | Media | Verificado campo por campo (2026-09-22), recomendación dada (fallback a Account, mismo patrón que el logo) -- decisión pendiente del usuario |
+| 33 | Posible duplicación de contacto entre Edificio y Account (Administrador Principal/Teléfono/Horario) | Media | **Resuelto** (2026-09-22) -- fallback a Account implementado, mismo patrón que el logo |
 | 34 | Constitución de la Junta Directiva (Presidente/Secretario/Tesorero) -- no existe el modelo, prerrequisito real de las Actas de #21 | Media-Alta | Ideas organizadas (2026-09-22): modelo de datos, quién la registra, validación de propietario -- verificación legal exacta bloqueada por política de red del entorno, sin implementar |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),

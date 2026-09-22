@@ -263,3 +263,81 @@ ninguna decisión de infraestructura mobile. La Fase 4.3 (proyecto MAUI en
 sí) también puede empezar a compilarse acá una vez instalado el workload
 Android, aunque la verificación visual final va a necesitar un dispositivo
 o emulador con pantalla en algún punto.
+
+---
+
+## 7. Impacto en el día a día del piloto: observaciones, fixes y funcionalidad nueva
+
+Pregunta real del usuario (2026-09-22): si el piloto ya está corriendo y
+aparecen observaciones que exigen tocar pantallas y/o lógica, ¿cómo afecta
+eso a esta migración? La respuesta depende de en qué momento del plan y de
+qué parte de la app se trate.
+
+### Mientras se construyen las Fases 4.0-4.2 (API + RCL) -- impacto cero
+`SpiderHood.Api` y `SpiderHood.Resident.UI` son proyectos **nuevos**, al
+lado del proyecto `SpiderHood` que corre hoy en producción -- no lo tocan.
+Cualquier observación sobre cualquier pantalla (Residente o Administrador)
+se corrige exactamente como hasta ahora, sin fricción nueva, mientras este
+plan avanza en paralelo.
+
+La única excepción es la ventana corta de la **Fase 4.2** en sí misma: ahí
+las 4 pantallas de Residente del piloto se **mueven** (no se copian) del
+proyecto `SpiderHood` a la librería compartida. Si justo en esos días
+aparece una observación sobre una de esas 4 pantallas puntuales, conviene
+esperar a que termine el move (días, no semanas) antes de tocarla, para no
+corregir el mismo código dos veces a mitad de una extracción mecánica. El
+resto de la app (todo Administrador) nunca pasa por esta librería, así que
+no tiene ninguna ventana de conflicto.
+
+### Una vez que la app MAUI ya está instalada en celulares de usuarios reales
+Acá aparece una asimetría de fondo entre web y mobile que conviene tener
+clara para planificar el ritmo de publicaciones, no sólo para el día del
+lanzamiento:
+
+- **Lógica de negocio de una pantalla ya compartida** (una de las 4 del
+  piloto): se corrige **una sola vez** en `SpiderHood.Resident.UI` y queda
+  arreglada para los dos lados -- no hay versión duplicada que mantener
+  sincronizada.
+- **Pero la velocidad de entrega es distinta.** En la web el fix se
+  despliega y ya está, todos los usuarios lo ven en el próximo refresh. En
+  la app MAUI el fix vive **embebido dentro del binario** instalado en el
+  celular -- para que le llegue a un usuario que ya tiene la app, hace
+  falta compilar una versión nueva y publicarla (Play Store/App Store, o un
+  APK nuevo si se sigue distribuyendo manual) **y que el usuario la
+  actualice**. No hay forma de "empujar" un cambio a un celular sin pasar
+  por ese ciclo.
+- **Ajustes de layout/UX** (no de lógica) pueden necesitar tocarse aparte:
+  una pantalla pensada para mouse/pantalla grande a veces necesita su
+  propio ajuste de touch/pantalla chica -- acotado a diseño, nunca a la
+  lógica de negocio (esa siempre es una sola copia).
+
+### Agregar funcionalidad nueva de Administrador al Móvil, más adelante -- **mismo ciclo que un fix, confirmado**
+El usuario preguntó explícitamente si esto aplica igual cuando, en vez de
+un fix, se decida **agregar** una pantalla de Administrador nueva al
+celular (hoy fuera de alcance, sección 3). **Sí, exactamente el mismo
+mecanismo:** cualquier pantalla nueva que se agregue a `SpiderHood.Maui`
+(sea de Residente o, si algún día se decide, de Administrador) también
+queda embebida en el binario de la app -- no existe, para ningún tipo de
+pantalla, una forma de que aparezca en el celular de un usuario sin
+publicar una versión nueva de la app y que la actualice. La única
+diferencia entre "agregar algo nuevo" y "corregir algo existente" es el
+tamaño del cambio, no el mecanismo de entrega -- los dos casos requieren:
+1. Compilar y probar la nueva versión de `SpiderHood.Maui`.
+2. Publicarla (subida a la tienda con su proceso de revisión de
+   Google/Apple -- días, a veces más -- o redistribuir el APK si se sigue
+   por esa vía).
+3. Esperar a que cada usuario actualice -- en Android/iOS esto suele ser
+   automático si el usuario tiene las actualizaciones automáticas
+   activadas, pero no es instantáneo ni está garantizado para el 100% de
+   los usuarios el mismo día.
+
+**Implicancia práctica para planificar el ritmo de publicaciones:** conviene
+agrupar los cambios de pantallas compartidas o de Administrador-en-mobile en
+lanzamientos, en vez de publicar una versión nueva de la app cada vez que
+aparece una observación chica -- lo contrario a la web, donde cada fix se
+puede desplegar de inmediato sin ese costo. Esto no es un problema del plan
+en sí, es una característica inherente de cualquier app nativa/MAUI Hybrid
+(no sería distinto con la Opción C tampoco) -- es parte de lo que hay que
+aceptar como costo de tener push nativo, cámara nativa y mejor UX que la
+Opción A (PWA), que sí se actualiza sola porque nunca deja de ser,
+técnicamente, un sitio web.

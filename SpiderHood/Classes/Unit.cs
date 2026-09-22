@@ -98,6 +98,41 @@ namespace SpiderHood.Models
         // Nombre del edificio (no confundir con IdBuilding, de arriba) -- también
         // viene del JOIN, no de dbo.RealEstateUnit.
         public string Building { get; set; } = string.Empty;
+
+
+
+        // NUEVOS CAMPOS
+        [NotMapped] public decimal? EstimatedValue { get; set; }
+        [NotMapped] public DateTime? LastRenovationDate { get; set; }
+        [NotMapped] public decimal? ConstructedArea { get; set; }
+        [NotMapped] public bool HasBalcony { get; set; }
+        [NotMapped] public bool HasParking { get; set; }
+        [NotMapped] public bool HasStorage { get; set; }
+        [NotMapped] public bool HasElevatorAccess { get; set; }
+        [NotMapped] public bool IsFurnished { get; set; }
+        [NotMapped] public bool HasAirConditioning { get; set; }
+        [NotMapped] public string Restrictions { get; set; }
+
+        // ==========================================
+        // NUEVAS PROPIEDADES AGREGADAS PARA EL REDISEÑO
+        // ==========================================
+
+        // Estado y Orientación
+        [NotMapped] public string Status { get; set; } = "Available"; // Available, Occupied, Maintenance, Reserved
+
+        [NotMapped] public string Orientation { get; set; }
+
+        // Específicas para Estacionamientos (TypeUnit == 2)
+        [NotMapped] public string PlateNumber { get; set; }
+
+        [NotMapped] public bool HasElectricCharging { get; set; }
+
+        // Específicas para Depósitos (TypeUnit == 3)
+        [NotMapped] public bool HasWater { get; set; }
+        [NotMapped] public bool HasSecurity { get; set; }
+
+        // Características generales para Departamentos/Oficinas (TypeUnit == 1 o 4)
+
     }
 
     public class UnitView
@@ -119,6 +154,19 @@ namespace SpiderHood.Models
         // unidades de un edificio a mitad de configurar, no sólo el importador de migración.
         public Guid? IdGroupUnit { get; set; }
 
+        // NUEVOS CAMPOS
+        [NotMapped] public string Status { get; set; } = "Available";
+        [NotMapped] public decimal? EstimatedValue { get; set; }
+        [NotMapped] public DateTime? LastRenovationDate { get; set; }
+        [NotMapped] public string Orientation { get; set; }
+        [NotMapped] public decimal? ConstructedArea { get; set; }
+        [NotMapped] public bool HasBalcony { get; set; }
+        [NotMapped] public bool HasParking { get; set; }
+        [NotMapped] public bool HasStorage { get; set; }
+        [NotMapped] public bool HasElevatorAccess { get; set; }
+        [NotMapped] public bool IsFurnished { get; set; }
+        [NotMapped] public bool HasAirConditioning { get; set; }
+        [NotMapped] public string Restrictions { get; set; }
 
     }
     public class GroupUnit

@@ -1,137 +1,469 @@
-﻿﻿﻿﻿@using System.ComponentModel.DataAnnotations
+﻿@using System.ComponentModel.DataAnnotations
 
 @inherits LayoutComponentBase
 
 @if (ShowModal)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content shadow-lg">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-door-open me-2 text-primary"></i>@(OpenMode switch
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title mb-0">
+                        <i class="bi bi-door-open me-2"></i>@(OpenMode switch
                         {
-                            Models.OpenType.Create => "Agregar Unidad",
+                            Models.OpenType.Create => "Nueva Unidad",
                             Models.OpenType.ReadOnly => "Ver Unidad",
                             _ => "Actualizar Unidad"
                         })
                     </h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal" disabled="@(OpenMode == Models.OpenType.ReadOnly)"></button>
                 </div>
+                
                 <EditForm Model="@View_Unit" OnValidSubmit="@Guardar" method="post" FormName="create" Enhance>
                     <DataAnnotationsValidator />
-                    <ValidationSummary class="text-danger" role="alert" />
+                    
+                    @if (OpenMode != Models.OpenType.ReadOnly)
+                    {
+                        <!-- Tabs de navegación -->
+                        <div class="modal-header border-bottom">
+                            <ul class="nav nav-tabs card-header-tabs">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link @(activeTab == 1 ? "active" : "")" 
+                                            @onclick="() => activeTab = 1" 
+                                            type="button" 
+                                            disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                        <i class="bi bi-house-door me-1"></i>Básica
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link @(activeTab == 2 ? "active" : "")" 
+                                            @onclick="() => activeTab = 2" 
+                                            type="button"
+                                            disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                        <i class="bi bi-geo-alt me-1"></i>Ubicación
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link @(activeTab == 3 ? "active" : "")" 
+                                            @onclick="() => activeTab = 3" 
+                                            type="button"
+                                            disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                        <i class="bi bi-rulers me-1"></i>Características
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    }
+                    
                     <div class="modal-body">
-
-                        <div class="mb-3">
-                            <span class="text-danger">*</span>
-                            <label for="unittype_id" class="form-label">Tipo de Unidad</label>
-                            <InputSelect id="unittype_id" @bind-Value="View_Unit.TypeUnit" class="form-select" disabled="@(OpenMode == Models.OpenType.ReadOnly)">
-                                @foreach (var x in ListParameters.Where(c => c.IdParent == 4))
-                                {
-                                    <option value="@Convert.ToInt32(x.Value)">@x.Description</option>
-                                }
-                            </InputSelect>
-                        </div>
-                        <div class="mb-3">
-                            <span class="text-danger">*</span>
-                            <label for="description" class="form-label">Numero de Unidad:</label>
-                            <InputText id="description" @bind-Value="View_Unit.UnitNumber" class="form-control" aria-required="true" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                            <ValidationMessage For="() => View_Unit.UnitNumber" class="text-danger" />
-                        </div>
-                        <div class="mb-3">
-                            <label for="Area" class="form-label">Area:</label>
-                            <InputNumber id="Area" @bind-Value="View_Unit.Area" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                            <ValidationMessage For="() => View_Unit.Area" class="text-danger" />
-                        </div>
-
-                        <hr />
-
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label for="floor" class="form-label">Piso/Nivel</label>
-                                <InputNumber id="floor" @bind-Value="View_Unit.Floor" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="tower" class="form-label">Torre/Bloque</label>
-                                <InputText id="tower" @bind-Value="View_Unit.Tower" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label for="locationCode" class="form-label">Sótano/Ubicación</label>
-                                <InputText id="locationCode" @bind-Value="View_Unit.LocationCode" class="form-control" placeholder="Ej: S1, SS" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                <small class="text-muted">Ej. "S1", "SS", "Torre A-3".</small>
-                            </div>
-                        </div>
-
-                        @* Tipo de Unidad (Parameter.IdParent == 4): 1=DPTO, 2=ESTACIONAMIENTO,
-                           3=DEPOSITO, 4=OFICINA -- ver comentario del <select> de arriba. Cada
-                           bloque de abajo sólo aplica al tipo correspondiente. *@
-                        @if (View_Unit.TypeUnit == 1 || View_Unit.TypeUnit == 4)
+                        <ValidationSummary class="alert alert-danger" role="alert" />
+                        
+                        <!-- TAB 1: Información Básica -->
+                        @if (activeTab == 1)
                         {
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <label for="bedrooms" class="form-label">Dormitorios</label>
-                                    <InputNumber id="bedrooms" @bind-Value="View_Unit.Bedrooms" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="bathrooms" class="form-label">Baños</label>
-                                    <InputNumber id="bathrooms" @bind-Value="View_Unit.Bathrooms" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="builtArea" class="form-label">Área Construida</label>
-                                    <InputNumber id="builtArea" @bind-Value="View_Unit.BuiltArea" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                </div>
+                            <div class="alert alert-info d-flex align-items-center" role="alert">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <small>Complete la información básica de la unidad. Los campos marcados con <span class="text-danger">*</span> son obligatorios.</small>
                             </div>
-                        }
-                        else if (View_Unit.TypeUnit == 2)
-                        {
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <label for="vehicleType" class="form-label">Tipo de Vehículo</label>
-                                    <InputText id="vehicleType" @bind-Value="View_Unit.VehicleType" class="form-control" placeholder="Auto, Moto, Camioneta" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="unittype_id" class="form-label fw-semibold">
+                                            <i class="bi bi-tag me-1 text-primary"></i>Tipo de Unidad <span class="text-danger">*</span>
+                                        </label>
+                                        <InputSelect id="unittype_id" @bind-Value="View_Unit.TypeUnit" class="form-select" disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                            @foreach (var x in ListParameters.Where(c => c.IdParent == 4))
+                                            {
+                                                <option value="@Convert.ToInt32(x.Value)">@x.Description</option>
+                                            }
+                                        </InputSelect>
+                                        <small class="text-muted">@(View_Unit.TypeUnit switch
+                                        {
+                                            1 => "Departamento o Unidad Residencial",
+                                            2 => "Plaza de Estacionamiento",
+                                            3 => "Depósito o Bodega",
+                                            4 => "Oficina o Local Comercial",
+                                            _ => ""
+                                        })</small>
+                                    </div>
                                 </div>
-                                <div class="col-md-4 mb-3 form-check pt-4 mt-2">
-                                    <input type="checkbox" id="isCovered" @bind="View_Unit.IsCovered" class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                    <label for="isCovered" class="form-check-label">Techado</label>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="description" class="form-label fw-semibold">
+                                            <i class="bi bi-hash me-1 text-primary"></i>Número de Unidad <span class="text-danger">*</span>
+                                        </label>
+                                        <InputText id="description" @bind-Value="View_Unit.UnitNumber" class="form-control" 
+                                                   placeholder="@(View_Unit.TypeUnit switch
+                                                   {
+                                                       1 => "Ej: 101, 201A",
+                                                       2 => "Ej: E1, E2, P-15",
+                                                       3 => "Ej: D1, B-10",
+                                                       4 => "Ej: OF-1, L-5",
+                                                       _ => "Ingrese número"
+                                                   })" 
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        <ValidationMessage For="() => View_Unit.UnitNumber" class="text-danger small" />
+                                    </div>
                                 </div>
-                                <div class="col-md-4 mb-3 form-check pt-4 mt-2">
-                                    <input type="checkbox" id="isForDisabled" @bind="View_Unit.IsForDisabled" class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                    <label for="isForDisabled" class="form-check-label">Para discapacitados</label>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="Area" class="form-label fw-semibold">
+                                            <i class="bi bi-rulers me-1 text-primary"></i>Área Total (m²)
+                                        </label>
+                                        <InputNumber id="Area" @bind-Value="View_Unit.Area" class="form-control" 
+                                                     step="0.01" min="0"
+                                                     disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        <small class="text-muted">Área total de la unidad</small>
+                                    </div>
                                 </div>
-                            </div>
-                        }
-                        else if (View_Unit.TypeUnit == 3)
-                        {
-                            <div class="row">
-                                <div class="col-md-4 mb-3">
-                                    <label for="height" class="form-label">Altura (m)</label>
-                                    <InputNumber id="height" @bind-Value="View_Unit.Height" class="form-control" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                </div>
-                                <div class="col-md-4 mb-3 form-check pt-4 mt-2">
-                                    <input type="checkbox" id="hasVentilation" @bind="View_Unit.HasVentilation" class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                    <label for="hasVentilation" class="form-check-label">Ventilación</label>
-                                </div>
-                                <div class="col-md-4 mb-3 form-check pt-4 mt-2">
-                                    <input type="checkbox" id="hasElectricity" @bind="View_Unit.HasElectricity" class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
-                                    <label for="hasElectricity" class="form-check-label">Electricidad</label>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="status" class="form-label fw-semibold">
+                                            <i class="bi bi-check-circle me-1 text-primary"></i>Estado
+                                        </label>
+                                        <select id="status" @bind="View_Unit.Status" class="form-select" disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                            <option value="Available">Disponible</option>
+                                            <option value="Occupied">Ocupada</option>
+                                            <option value="Maintenance">En Mantenimiento</option>
+                                            <option value="Reserved">Reservada</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         }
 
-                        <div class="mb-3">
-                            <label for="notes" class="form-label">Observaciones</label>
-                            <InputTextArea id="notes" @bind-Value="View_Unit.Notes" class="form-control" rows="2" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                        <!-- TAB 2: Ubicación -->
+                        @if (activeTab == 2)
+                        {
+                            <div class="alert alert-info d-flex align-items-center" role="alert">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <small>Especifique la ubicación exacta de la unidad dentro del edificio</small>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="floor" class="form-label fw-semibold">
+                                            <i class="bi bi-layers me-1 text-primary"></i>Piso/Nivel
+                                        </label>
+                                        <InputNumber id="floor" @bind-Value="View_Unit.Floor" class="form-control" 
+                                                     placeholder="Ej: 1, 2, PB"
+                                                     disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="tower" class="form-label fw-semibold">
+                                            <i class="bi bi-building me-1 text-primary"></i>Torre/Bloque
+                                        </label>
+                                        <InputText id="tower" @bind-Value="View_Unit.Tower" class="form-control" 
+                                                   placeholder="Ej: A, B"
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="locationCode" class="form-label fw-semibold">
+                                            <i class="bi bi-geo-alt me-1 text-primary"></i>Sótano/Ubicación
+                                        </label>
+                                        <InputText id="locationCode" @bind-Value="View_Unit.LocationCode" class="form-control" 
+                                                   placeholder="Ej: S1, SS" 
+                                                   disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        <small class="text-muted">Sótano o ubicación especial</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="orientation" class="form-label fw-semibold">
+                                            <i class="bi bi-compass me-1 text-primary"></i>Orientación
+                                        </label>
+                                        <select id="orientation" @bind="View_Unit.Orientation" class="form-select" disabled="@(OpenMode == Models.OpenType.ReadOnly)">
+                                            <option value="">Seleccione...</option>
+                                            <option value="North">Norte</option>
+                                            <option value="South">Sur</option>
+                                            <option value="East">Este</option>
+                                            <option value="West">Oeste</option>
+                                            <option value="NorthEast">Noreste</option>
+                                            <option value="NorthWest">Noroeste</option>
+                                            <option value="SouthEast">Sureste</option>
+                                            <option value="SouthWest">Suroeste</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- TAB 3: Características (condicional por tipo) -->
+                        @if (activeTab == 3)
+                        {
+                            <div class="alert alert-info d-flex align-items-center" role="alert">
+                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <small>Características específicas según el tipo de unidad</small>
+                            </div>
+
+                            @* DEPARTAMENTO u OFICINA *@
+                            @if (View_Unit.TypeUnit == 1 || View_Unit.TypeUnit == 4)
+                            {
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="bedrooms" class="form-label fw-semibold">
+                                                <i class="bi bi-door-closed me-1 text-primary"></i>Dormitorios
+                                            </label>
+                                            <InputNumber id="bedrooms" @bind-Value="View_Unit.Bedrooms" class="form-control" 
+                                                         min="0" max="20"
+                                                         disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="bathrooms" class="form-label fw-semibold">
+                                                <i class="bi bi-droplet me-1 text-primary"></i>Baños
+                                            </label>
+                                            <InputNumber id="bathrooms" @bind-Value="View_Unit.Bathrooms" class="form-control" 
+                                                         min="0" max="10"
+                                                         disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="builtArea" class="form-label fw-semibold">
+                                                <i class="bi bi-rulers me-1 text-primary"></i>Área Construida (m²)
+                                            </label>
+                                            <InputNumber id="builtArea" @bind-Value="View_Unit.BuiltArea" class="form-control" 
+                                                         step="0.01" min="0"
+                                                         disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-12 mt-3">
+                                        <h6 class="mb-3"><i class="bi bi-stars me-2"></i>Características Especiales</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="hasBalcony" @bind="View_Unit.HasBalcony" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="hasBalcony">
+                                                        <i class="bi bi-window me-1"></i>Balcón/Terraza
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="hasParking" @bind="View_Unit.HasParking" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="hasParking">
+                                                        <i class="bi bi-car-front me-1"></i>Estacionamiento
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="hasStorage" @bind="View_Unit.HasStorage" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="hasStorage">
+                                                        <i class="bi bi-box me-1"></i>Depósito
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="hasAirConditioning" @bind="View_Unit.HasAirConditioning" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="hasAirConditioning">
+                                                        <i class="bi bi-snow me-1"></i>Aire Acondicionado
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="isFurnished" @bind="View_Unit.IsFurnished" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="isFurnished">
+                                                        <i class="bi bi-house-check me-1"></i>Amoblada
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            @* ESTACIONAMIENTO *@
+                            else if (View_Unit.TypeUnit == 2)
+                            {
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="vehicleType" class="form-label fw-semibold">
+                                                <i class="bi bi-car-front me-1 text-primary"></i>Tipo de Vehículo
+                                            </label>
+                                            <InputText id="vehicleType" @bind-Value="View_Unit.VehicleType" class="form-control" 
+                                                       placeholder="Auto, Moto, Camioneta" 
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="plateNumber" class="form-label fw-semibold">
+                                                <i class="bi bi-hash me-1 text-primary"></i>Placa/Matrícula
+                                            </label>
+                                            <InputText id="plateNumber" @bind-Value="View_Unit.PlateNumber" class="form-control" 
+                                                       placeholder="Ej: ABC123" 
+                                                       disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        <h6 class="mb-3"><i class="bi bi-gear me-2"></i>Características</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="isCovered" @bind="View_Unit.IsCovered" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="isCovered">
+                                                        <i class="bi bi-shield-check me-1"></i>Techado/Cubierto
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="isForDisabled" @bind="View_Unit.IsForDisabled" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="isForDisabled">
+                                                        <i class="bi bi-person me-1"></i>Para discapacitados
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="hasElectricCharging" @bind="View_Unit.HasElectricCharging" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="hasElectricCharging">
+                                                        <i class="bi bi-lightning me-1"></i>Cargador Eléctrico
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            @* DEPOSITO *@
+                            else if (View_Unit.TypeUnit == 3)
+                            {
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="height" class="form-label fw-semibold">
+                                                <i class="bi bi-arrows-expand-vertical me-1 text-primary"></i>Altura (m)
+                                            </label>
+                                            <InputNumber id="height" @bind-Value="View_Unit.Height" class="form-control" 
+                                                         step="0.01" min="0"
+                                                         disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        <h6 class="mb-3"><i class="bi bi-gear me-2"></i>Características</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="hasVentilation" @bind="View_Unit.HasVentilation" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="hasVentilation">
+                                                        <i class="bi bi-wind me-1"></i>Ventilación
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="hasElectricity" @bind="View_Unit.HasElectricity" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="hasElectricity">
+                                                        <i class="bi bi-lightning-charge me-1"></i>Electricidad
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="hasWater" @bind="View_Unit.HasWater" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="hasWater">
+                                                        <i class="bi bi-droplet me-1"></i>Agua
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input type="checkbox" id="hasSecurity" @bind="View_Unit.HasSecurity" 
+                                                           class="form-check-input" disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                                                    <label class="form-check-label" for="hasSecurity">
+                                                        <i class="bi bi-shield me-1"></i>Seguridad Especial
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+
+                        <!-- Observaciones (visible en todos los tabs) -->
+                        <div class="mt-4">
+                            <div class="form-group">
+                                <label for="notes" class="form-label fw-semibold">
+                                    <i class="bi bi-journal-text me-1 text-primary"></i>Observaciones
+                                </label>
+                                <InputTextArea id="notes" @bind-Value="View_Unit.Notes" class="form-control" 
+                                               rows="3" 
+                                               placeholder="Información adicional sobre la unidad..." 
+                                               disabled="@(OpenMode == Models.OpenType.ReadOnly)" />
+                            </div>
                         </div>
                     </div>
+                    
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
-                            <i class="bi bi-x-lg me-1"></i>Cancelar
-                        </button>
-                        @if (OpenMode != Models.OpenType.ReadOnly)
+                        @if (OpenMode != Models.OpenType.ReadOnly && activeTab > 1)
                         {
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-lg me-1"></i>@((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => activeTab--">
+                                <i class="bi bi-arrow-left me-1"></i>Anterior
                             </button>
+                        }
+                        
+                        @if (OpenMode != Models.OpenType.ReadOnly && activeTab < 3)
+                        {
+                            <button type="button" class="btn btn-primary" @onclick="() => activeTab++">
+                                Siguiente<i class="bi bi-arrow-right ms-1"></i>
+                            </button>
+                        }
+                        
+                        @if (OpenMode == Models.OpenType.ReadOnly)
+                        {
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                                <i class="bi bi-x-lg me-1"></i>Cerrar
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
+                                <i class="bi bi-x-lg me-1"></i>Cancelar
+                            </button>
+                            
+                            @if (activeTab == 3)
+                            {
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i>@((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
+                                </button>
+                            }
                         }
                     </div>
                 </EditForm>
@@ -142,12 +474,21 @@
 
 @code {
     [Parameter] public bool ShowModal { get; set; }
-    //[Parameter] public int TypeCategory { get; set; }
     [Parameter] public Models.OpenType OpenMode { get; set; }
     [Parameter] public Models.RealEstateUnit View_Unit { get; set; }
     [Parameter] public IReadOnlyList<Models.Parameter> ListParameters { get; set; }
     [Parameter] public EventCallback<bool> ShowModalChanged { get; set; }
     [Parameter] public EventCallback<SpiderHood.Models.RealEstateUnit> OnSaveItem { get; set; }
+
+    private int activeTab = 1;
+
+    protected override void OnParametersSet()
+    {
+        if (ShowModal)
+        {
+            activeTab = 1; // Resetear al primer tab al abrir
+        }
+    }
 
     private async Task Guardar()
     {
@@ -160,5 +501,4 @@
         ShowModal = false;
         await ShowModalChanged.InvokeAsync(ShowModal);
     }
-
 }

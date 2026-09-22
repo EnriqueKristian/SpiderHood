@@ -82,6 +82,14 @@ namespace SpiderHood.Services
 
         public async Task<BuildingBoardMember> AddMemberAsync(Guid idBuildingBoard, Guid idUser, BoardMemberRole cargo, string? otroDescripcion)
         {
+            // Una persona ocupa un solo cargo por Junta a la vez -- sin esto, nada impedía
+            // agregar al mismo usuario varias veces (visto en vivo: un usuario terminó como
+            // Presidente, Secretario Y Vocal de la misma Junta). Validado acá, no sólo en la
+            // UI, para cualquier otro caller futuro.
+            var yaEsMiembro = await Ec.GetBuildingBoardMembersAsync(idBuildingBoard);
+            if (yaEsMiembro.Any(m => m.IdUser == idUser))
+                throw new ArgumentException("Este usuario ya es miembro de la Junta activa -- una persona ocupa un solo cargo por vez.");
+
             var member = new BuildingBoardMember
             {
                 IdBuildingBoardMember = Guid.NewGuid(),

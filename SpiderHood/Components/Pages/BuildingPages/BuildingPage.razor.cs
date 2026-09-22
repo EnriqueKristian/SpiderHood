@@ -50,6 +50,12 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private BuildingBoard? _activeBoard;
         private List<BuildingBoardMemberView> _boardMembers = new();
         private List<UserBuildingRoleAssignment> _eligibleBoardUsers = new();
+        // Una persona ocupa un solo cargo por Junta a la vez (ver AddMemberAsync) -- se
+        // recalcula solo cada vez que cambian _eligibleBoardUsers o _boardMembers, así que
+        // agregar/quitar un miembro nunca deja el combo desactualizado por olvido.
+        private List<UserBuildingRoleAssignment> _availableBoardUsers =>
+            _eligibleBoardUsers.Where(u => !_boardMembers.Any(m => m.IdUser == u.IdUser)).ToList();
+
         private DateOnly _newBoardFechaInicio = DateOnly.FromDateTime(DateTime.Today);
         private Guid? _newMemberIdUser;
         private BoardMemberRole _newMemberCargo = BoardMemberRole.Vocal;

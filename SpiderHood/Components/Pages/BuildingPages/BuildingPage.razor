@@ -831,11 +831,19 @@
                                 <label class="form-label fw-semibold">Usuario (con Rol Junta)</label>
                                 <select class="form-select" @onchange="OnMemberUserSelectedAsync">
                                     <option value="">-- Seleccionar --</option>
-                                    @foreach (var u in _eligibleBoardUsers)
+                                    @foreach (var u in _availableBoardUsers)
                                     {
                                         <option value="@u.IdUser">@u.UserName (@u.UserEmail)</option>
                                     }
                                 </select>
+                                @if (_eligibleBoardUsers.Count > 0 && _availableBoardUsers.Count == 0)
+                                {
+                                    <div class="form-text">
+                                        Todos los usuarios con Rol "Junta" de este edificio ya están en la
+                                        Junta activa. Para sumar otro miembro, asigná el Rol "Junta" a más
+                                        usuarios desde Configuración &gt; Roles.
+                                    </div>
+                                }
                                 @if (_newMemberOwnerWarning == true)
                                 {
                                     <div class="form-text text-warning">

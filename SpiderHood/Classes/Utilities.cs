@@ -1230,7 +1230,9 @@ namespace SpiderHood.Models
             {
                 var totalWaterConsumption = _waterReadings.Sum(w => w.CalculatedAmount);
                 var inverseNroGroupUnit = GetTotalUnits() > 0 ? 1m / GetTotalUnits() : 0;
-                return Math.Round(Math.Abs(item.MonthlyAmount - totalWaterConsumption) * inverseNroGroupUnit * pesoFija, 2);
+                // Math.Max(0, ...) en vez de Math.Abs -- ver el mismo fix y comentario en
+                // BudgetState.cs CalculateQuota().
+                return Math.Round(Math.Max(0, item.MonthlyAmount - totalWaterConsumption) * inverseNroGroupUnit * pesoFija, 2);
             }
 
             var idGroupUnitExonerado = _exonerations

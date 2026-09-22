@@ -125,6 +125,38 @@ public class BudgetCalculatorTests
     }
 
     [Fact]
+    public void CalculateQuota_WhenMeteredConsumptionExceedsWaterBudget_NoExtraChargeIsAdded()
+    {
+        var groupA = Guid.NewGuid();
+        var groupB = Guid.NewGuid();
+        var waterCategory = Guid.NewGuid();
+
+        // Consumo medido total (150) ya supera el presupuesto de la categoría (100) --
+        // no queda "diferencia común" por repartir, cada grupo paga solo su consumo
+        // individual. Antes, Math.Abs(100-150)=50 se repartía como cobro ADICIONAL
+        // (25 c/u), cobrando dos veces el mismo excedente.
+        var state = new BudgetState
+        {
+            TotalArea = 200m,
+            Owners = [MakeOwnerUnit(groupA, 100m, "101", "Owner A"), MakeOwnerUnit(groupB, 100m, "102", "Owner B")],
+            WaterReadings =
+            [
+                new ServiceReadingDetail { IdGroupUnit = groupA, CalculatedAmount = 75m },
+                new ServiceReadingDetail { IdGroupUnit = groupB, CalculatedAmount = 75m },
+            ],
+            Configuration = new BuildingConfiguration { WaterReadingDefault = waterCategory }
+        };
+        state.Budget.Details.Add(new BudgetDetail { IsHeader = false, Type = 2, MonthlyAmount = 100m, IdCategory = waterCategory });
+
+        var total = new BudgetCalculator(state).CalculateQuota(totalApartments: 2);
+
+        var byGroup = state.Installments.ToDictionary(i => i.IdGroupUnit, i => i.Amount);
+        Assert.Equal(75m, byGroup[groupA]);
+        Assert.Equal(75m, byGroup[groupB]);
+        Assert.Equal(150m, total);
+    }
+
+    [Fact]
     public void CalculateQuota_WithZeroApartments_ThrowsDivideByZero()
     {
         var group = Guid.NewGuid();

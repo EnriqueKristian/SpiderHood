@@ -1080,7 +1080,7 @@ namespace SpiderHood.Models
                     AddSectionHeader(table, "DEUDAS ANTERIORES");
                     AddTableRow(table, "Lectura de Agua - Regularización", 0, deudaAgua, 0, false);
                     AddTableRow(table, "Cuotas Ordinarias", 0, deudaOrdinarias, 0, true);
-                    AddTableRow(table, "Cuotas Extraordinarias", 0, deudaExtraordinarias, 0, false);
+                    AddTableRow(table, "Cuotas Extraordinarias, Multas y Mora", 0, deudaExtraordinarias, 0, false);
 
                     table.Cell().ColumnSpan(4).PaddingTop(6);
                     table.Cell().ColumnSpan(3).Background(Colors.Red.Darken2).Padding(6)

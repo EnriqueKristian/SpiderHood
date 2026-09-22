@@ -145,31 +145,35 @@ segunda pieza de estandarización real de este plan, además de los
 modales) -- ver el Design canvas para cómo se vería.
 
 ### 3.1 Carga de Estado de Cuenta (`UploadBankStatement.razor`)
-Ya tiene lo más difícil resuelto (drag-and-drop, preview con paginación y
-filtro, resumen de validación) -- el problema es el **orden y la
-jerarquía visual**, no la funcionalidad:
-- Reorganizar en 3 pasos visibles: **① Cuenta bancaria** (+ tipo de
-  cambio, que hoy aparece ANTES que el selector de cuenta del que
-  depende -- orden confuso) → **② Subir archivo** → **③ Revisar y
-  confirmar**.
-- Mover el resumen de validación (Válidos/Duplicados/Errores) **antes**
-  de la tabla fila por fila, no después -- el usuario quiere el
-  vistazo rápido primero, el detalle es secundario.
-- Corregir los colores hardcodeados de la zona de drag-and-drop
-  (`border-color: #dee2e6`, `background-color: #f8f9fa`/`#f1f1f1`
-  inline) que hoy no reaccionan al tema.
+**RESUELTO (2026-09-22).** Reorganizado en 3 pasos reales con el nuevo
+componente compartido `StepIndicator` (`Components/Pages/Components/`):
+**① Cuenta Bancaria** (el tipo de cambio ahora aparece DESPUÉS de elegir
+la cuenta, ya no antes de todo sin contexto) → **② Subir Archivo** →
+**③ Revisar y Confirmar**, con el resumen de Válidos/Duplicados/Errores
+movido arriba de la tabla de detalle, y un resumen colapsado de
+Cuenta/Archivo con links "Cambiar" para corregir sin recorrer todo el
+wizard de nuevo. De paso se encontró y corrigió un bug real:
+`fileName`/`fileSize` nunca se asignaban en `HandleFileSelected` -- el
+recuadro "Archivo seleccionado" de la versión anterior nunca llegaba a
+mostrarse. Verificado con Playwright end-to-end (login real, .xlsx de
+prueba, los 3 pasos) en claro y oscuro.
 
 ### 3.2 Carga de Agua (`BlockWaterReading.razor`)
-Más urgente que Estado de Cuenta -- hoy mezcla 3 cosas distintas en una
-sola fila con tarjetas anidadas (tarjeta dentro de tarjeta): selector de
-Período+Cargo Fijo, botón de importar, contador de "Lecturas procesadas".
-Propuesta:
-- Mismo tratamiento de drag-and-drop que ya tiene Estado de Cuenta (hoy
-  sólo hay un botón que abre el selector de archivo -- menos amigable).
-- "Lecturas procesadas" como una tarjeta de estadística real (mismo
-  estilo que las tarjetas del Dashboard), no un `display-6` suelto.
-- Sacar el anidado de tarjeta-dentro-de-tarjeta -- una sola tarjeta por
-  paso, mismo indicador de pasos que Estado de Cuenta.
+**RESUELTO (2026-09-22), con un ajuste real respecto al plan original.**
+Al leer el archivo completo (1331 líneas, no las ~120 revisadas para este
+plan) se confirmó que la tabla de lecturas no es sólo una vista previa --
+también es donde se corrigen lecturas fila por fila (aplicar mínimo, otro
+valor, quitar filas con error). Forzar un wizard con Siguiente/Anterior
+propio ahí arriesgaba romper ese flujo real. Se optó por un indicador de
+pasos **pasivo** (calculado de `CurrentReadingDetail.Any()`, no un
+contador de wizard nuevo) en vez de replicar el mismo mecanismo de
+Estado de Cuenta al pie de la letra. Sí se aplicó el resto de lo
+propuesto: se sacó el anidado de tarjeta-dentro-de-tarjeta, la zona de
+importar ahora usa el mismo lenguaje visual (drop-zone punteada) que
+Estado de Cuenta, y "Lecturas procesadas" pasa a ser una tarjeta de
+estadística real. Verificado con Playwright en claro y oscuro (sin datos
+de prueba con lecturas cargadas en este edificio demo, pero la lógica de
+qué se muestra no se tocó, sólo el layout alrededor).
 
 ### 3.3 Presupuesto (`BudgetGenerator.razor`)
 **2035 líneas -- el más grande de los tres, con diferencia.** No alcanza

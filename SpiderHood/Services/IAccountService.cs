@@ -13,6 +13,11 @@ namespace SpiderHood.Services
         // después de crear el UserModel -- ese usuario queda como Owner.
         Task<Account> CreateAccountAsync(Guid ownerIdUser, string? razonSocial, string? rucDni, string? telefono);
 
+        // Pantalla de mantenimiento del Account (Docs/Pendientes-Negocio-Consolidado.md
+        // #30, punto a) -- hasta ahora RazonSocial/RucDni/Telefono sólo se cargaban una
+        // vez al registrarse, sin forma de corregirlos después.
+        Task<Account> UpdateAccountAsync(Guid idAccount, string? razonSocial, string? rucDni, string? telefono);
+
         Task<List<AccountUserView>> GetCollaboratorsAsync(Guid idAccount);
 
         Task<List<AccountInvitation>> GetPendingInvitationsAsync(Guid idAccount);
@@ -64,6 +69,19 @@ namespace SpiderHood.Services
             };
             await Ec.AddNewRecordAsync(account);
             await Ec.AddAccountUserAsync(account.IdAccount, ownerIdUser, "Owner");
+            return account;
+        }
+
+        public async Task<Account> UpdateAccountAsync(Guid idAccount, string? razonSocial, string? rucDni, string? telefono)
+        {
+            var account = new Account
+            {
+                IdAccount = idAccount,
+                RazonSocial = razonSocial,
+                RucDni = rucDni,
+                Telefono = telefono,
+            };
+            await Ec.UpdateRecordAsync(account);
             return account;
         }
 

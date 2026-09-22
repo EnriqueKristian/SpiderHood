@@ -63,6 +63,66 @@
 @if (_account != null)
 {
     <section style="max-width: 700px;">
+        <h6 class="mt-4 mb-2">Datos de Facturación</h6>
+        <div class="card">
+            <div class="card-body">
+                @if (_accountSaveError != null)
+                {
+                    <div class="alert alert-danger py-2">@_accountSaveError</div>
+                }
+                @if (_editingAccountInfo)
+                {
+                    <div class="mb-2">
+                        <label class="form-label small text-muted mb-1">Razón Social / Nombre</label>
+                        <input class="form-control" @bind="_accountForm.RazonSocial" disabled="@_savingAccount" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small text-muted mb-1">RUC / DNI</label>
+                        <input class="form-control" @bind="_accountForm.RucDni" disabled="@_savingAccount" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted mb-1">Teléfono</label>
+                        <input class="form-control" @bind="_accountForm.Telefono" disabled="@_savingAccount" />
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary btn-sm" disabled="@_savingAccount" @onclick="SaveAccountInfoAsync">
+                            @(_savingAccount ? "Guardando..." : "Guardar")
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" disabled="@_savingAccount" @onclick="CancelEditAccountInfo">
+                            Cancelar
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush mb-2">
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                            <span class="text-muted">Razón Social / Nombre</span>
+                            <span class="fw-bold">@(_account.RazonSocial ?? "-")</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                            <span class="text-muted">RUC / DNI</span>
+                            <span>@(_account.RucDni ?? "-")</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                            <span class="text-muted">Teléfono</span>
+                            <span>@(_account.Telefono ?? "-")</span>
+                        </li>
+                    </ul>
+                    @if (_canEditAccount)
+                    {
+                        <button class="btn btn-outline-primary btn-sm" @onclick="StartEditAccountInfo">
+                            <i class="bi bi-pencil me-1"></i>Editar
+                        </button>
+                    }
+                    else
+                    {
+                        <small class="text-muted">Sólo el Administrador de la cuenta puede editar estos datos.</small>
+                    }
+                }
+            </div>
+        </div>
+
         <h6 class="mt-4 mb-2">Colaboradores</h6>
         <div class="card">
             <div class="card-body">
@@ -160,6 +220,17 @@
     private string? _inviteLink;
     private bool _inviting;
 
+    // Por defecto sólo el rol Administrador puede editar los datos de
+    // facturación (Docs/Pendientes-Negocio-Consolidado.md #30, punto b) --
+    // permisos más granulares (Junta con sólo lectura, etc.) quedan para
+    // cuando se elabore el modelo de permisos lectura/escritura/exportación
+    // por módulo; hoy el sistema de permisos no distingue esos 3 niveles.
+    private bool _canEditAccount;
+    private bool _editingAccountInfo;
+    private bool _savingAccount;
+    private string? _accountSaveError;
+    private Models.Account _accountForm = new();
+
     protected override async Task OnInitializedAsync()
     {
         var currentUser = await AuthService.GetCurrentUserAsync();
@@ -169,6 +240,7 @@
         _userEmail = currentUser.Email;
         _administeredBuildingsCount = currentUser.Buildings
             .Count(b => b.Role == "Administrador" && b.IsApproved);
+        _canEditAccount = currentUser.Role is "Administrador" or "SysAdmin";
 
         // No deja caerse toda la página de Settings si los scripts de Subscription
         // (Database/Scripts/2026-09-04_44_*.sql a _46_*.sql) todavía no corrieron
@@ -207,6 +279,47 @@
         catch (Exception)
         {
             _account = null;
+        }
+    }
+
+    private void StartEditAccountInfo()
+    {
+        if (!_canEditAccount || _account == null) return;
+        _accountSaveError = null;
+        _accountForm = new Models.Account
+        {
+            IdAccount = _account.IdAccount,
+            RazonSocial = _account.RazonSocial,
+            RucDni = _account.RucDni,
+            Telefono = _account.Telefono,
+        };
+        _editingAccountInfo = true;
+    }
+
+    private void CancelEditAccountInfo()
+    {
+        _editingAccountInfo = false;
+        _accountSaveError = null;
+    }
+
+    private async Task SaveAccountInfoAsync()
+    {
+        if (!_canEditAccount || _account == null) return;
+        _accountSaveError = null;
+        _savingAccount = true;
+        try
+        {
+            _account = await AccountService.UpdateAccountAsync(
+                _account.IdAccount, _accountForm.RazonSocial, _accountForm.RucDni, _accountForm.Telefono);
+            _editingAccountInfo = false;
+        }
+        catch (Exception ex)
+        {
+            _accountSaveError = $"No se pudo guardar: {ex.Message}";
+        }
+        finally
+        {
+            _savingAccount = false;
         }
     }
 

@@ -1865,9 +1865,10 @@ después de compilar/reiniciar, no en cada F5 normal.
 ### 30. Pantalla de mantenimiento de Account (Cuenta de Facturación) + Logos para recibos/PDFs
 *(Nuevo 2026-09-22, pedido del usuario -- la parte de Building/Unit/Owner
 del punto "Relacionado" de abajo quedó **IMPLEMENTADA** el mismo día,
-`dotnet build`/`dotnet test` en 0 errores y 169/169 tests, ver detalle al
-final de esta sección. Los puntos a-e sobre Account en sí -- pantalla,
-permisos, Natural/Empresa, logos -- siguen pendientes.)*
+`dotnet build`/`dotnet test` en 0 errores y 169/169 tests. Punto (a) -- la
+pantalla básica -- también **IMPLEMENTADO** el mismo día, ver detalle al
+final de esta sección. Quedan (b) permisos granulares, (c) Natural/Empresa
+y (d)/(e) logos.)*
 
 **Problema:** `Account` (Docs/Design-Account-Facturacion.md) existe como
 entidad de facturación (`RazonSocial`, `RucDni`, `Telefono`) desde el
@@ -1881,7 +1882,18 @@ en `EmployeePages/*` y el listado de colaboradores).
 
 **Pedido del usuario (a diseñar/implementar):**
 
-a. **Pantalla de mantenimiento del Account.**
+a. **Pantalla de mantenimiento del Account.** **RESUELTO (2026-09-22).**
+   Sección "Datos de Facturación" nueva en `Settings.razor`, arriba de
+   "Colaboradores" -- editar/ver RazonSocial, RucDni y Teléfono, mismo
+   patrón lápiz->modo edición que ya usa el resto de la app. Se agregó
+   `UPD_Account` (sólo existía `INS_Account`, nunca se pudo editar después
+   del alta -- `Database/Scripts/2026-09-22_135_*.sql`) +
+   `IAccountService.UpdateAccountAsync` + `BDLayout.UpdateRecordAsync(Account)`.
+   Editar queda gateado a `currentUser.Role is "Administrador" or
+   "SysAdmin"` (ver punto b -- es un check de rol simple, no el modelo de
+   permisos granular todavía). Verificado end-to-end contra la BD real
+   (INSERT/UPDATE/SELECT por SP) y `dotnet build`/`dotnet test` en 0
+   errores, 169/169.
 
 b. **Permisos de edición:** por defecto sólo Administrador podría editar --
    pero se pide dejar la opción de que otro rol tenga algún permiso sobre
@@ -2052,7 +2064,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 | 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
-| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Diseño + código -- Building/Unit/Owner (34 campos `[NotMapped]`) **resuelto** (2026-09-22), sólo Account (a-e) queda pendiente |
+| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Building/Unit/Owner (34 campos) y (a) pantalla básica **resueltos** (2026-09-22) -- quedan (b) permisos granulares, (c) Natural/Empresa, (d)/(e) logos |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

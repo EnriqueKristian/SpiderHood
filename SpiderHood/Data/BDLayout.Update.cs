@@ -262,6 +262,23 @@ namespace SpiderHood.Data
             }, "UpdateBudgetHeader", cancellationToken);
         }
 
+        public async Task<Models.Account> UpdateRecordAsync(Models.Account account, CancellationToken cancellationToken = default)
+        {
+            ValidateEntity(account, nameof(account));
+
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Account,
+                    cancellationToken,
+                    account.IdAccount,
+                    (object?)account.RazonSocial,
+                    (object?)account.RucDni,
+                    (object?)account.Telefono);
+                return account;
+            }, "UpdateAccount", cancellationToken);
+        }
+
         public async Task<Models.Owner> UpdateRecordAsync(Models.Owner owner, CancellationToken cancellationToken = default)
         {
             ValidateEntity(owner, nameof(owner));

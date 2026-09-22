@@ -248,6 +248,7 @@ namespace SpiderHood.Data
 
             // Account Procedures (Docs/Design-Account-Facturacion.md)
             public const string INS_Account = "INS_Account";
+            public const string UPD_Account = "UPD_Account";
             public const string INS_AccountUser = "INS_AccountUser";
             public const string GET_AccountByUser = "GET_AccountByUser";
             public const string GET_AccountUsersByAccount = "GET_AccountUsersByAccount";

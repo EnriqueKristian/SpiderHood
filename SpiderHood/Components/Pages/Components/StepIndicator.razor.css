@@ -1,0 +1,79 @@
+.step-indicator {
+    display: flex;
+    align-items: center;
+    background: var(--sh-surface);
+    border: 1px solid var(--sh-border);
+    border-radius: var(--sh-radius-lg);
+    padding: 18px 28px;
+    flex-wrap: wrap;
+    row-gap: 12px;
+}
+
+.step-indicator-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.step-circle {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.step-circle-done {
+    background-color: var(--sh-success);
+    color: #fff;
+}
+
+.step-circle-active {
+    background-color: var(--sh-brand-gold);
+    color: var(--sh-brand-navy);
+}
+
+.step-circle-upcoming {
+    background-color: var(--sh-surface-muted);
+    color: var(--sh-text-muted);
+}
+
+.step-label {
+    font-size: 13.5px;
+    white-space: nowrap;
+}
+
+.step-label-done {
+    color: var(--sh-success);
+    font-weight: 600;
+}
+
+.step-label-active {
+    color: var(--sh-text-heading);
+    font-weight: 700;
+}
+
+.step-label-upcoming {
+    color: var(--sh-text-muted);
+    font-weight: 500;
+}
+
+.step-line {
+    flex: 1;
+    height: 2px;
+    margin: 0 14px;
+    min-width: 24px;
+}
+
+.step-line-done {
+    background-color: var(--sh-success);
+}
+
+.step-line-upcoming {
+    background-color: var(--sh-border);
+}

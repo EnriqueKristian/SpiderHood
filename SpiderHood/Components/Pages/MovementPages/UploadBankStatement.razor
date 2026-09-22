@@ -9,6 +9,7 @@
 @inject AuthService AuthService
 @inject IPermissionService PermissionService
 @using Microsoft.AspNetCore.Components.Forms
+@using SpiderHood.Components.Pages.Components
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Cargar Estado de Cuenta</PageTitle>
@@ -31,39 +32,15 @@
         </div>
     </div>
 
-            <!-- Card principal -->
-            <div class="card shadow-sm border-0">
-                <div class="card-body p-4">
-                    @* Tipo de cambio del lote -- sólo cuando la cuenta elegida es de otra
-                       moneda que el edificio (ver Docs/Pendientes-Negocio-Consolidado.md #5).
-                       Un solo valor para TODO el archivo cargado, no por fila. Vive FUERA del
-                       bloque isLoaded de abajo a propósito: antes, si guardabas sin completar
-                       este campo, SaveData rechazaba con un mensaje pidiendo completarlo, pero
-                       el campo mismo ya estaba oculto (isLoaded pasa a false apenas se procesa
-                       un archivo, ocultando junto con él TODA la sección de arriba) -- no había
-                       forma de corregirlo sin adivinar que había que tocar "Limpiar datos"
-                       primero. Al vivir afuera, sigue visible/editable en todo momento mientras
-                       haya una cuenta de otra moneda elegida. *@
-                    @if (RequiereTipoCambio)
-                    {
-                        <div class="mb-4">
-                            <label class="form-label">Tipo de cambio aplicado (@CuentaSeleccionadaMoneda &rarr; @(ParameterService.CurrentBuilding?.Configuration.Currency)) *</label>
-                            <input type="number" step="0.000001" min="0.000001" class="form-control" style="max-width: 260px;"
-                                   @bind="exchangeRate" @bind:event="oninput" />
-                            <small class="text-muted">
-                                El tipo de cambio real que aplicó el banco a este estado de cuenta -- se usa para convertir
-                                todas las filas de este archivo a @(ParameterService.CurrentBuilding?.Configuration.Currency)
-                                en Conciliación y Reportes. @if (ultimoTipoCambioUsado.HasValue)
-                                {
-                                    <a href="javascript:void(0)" @onclick="() => exchangeRate = ultimoTipoCambioUsado">Usar el último aplicado (@ultimoTipoCambioUsado?.ToString("N6"))</a>
-                                }
-                            </small>
-                        </div>
-                    }
+            <!-- Indicador de pasos (Docs/Plan-Estandarizacion-UI.md #3) -->
+            <StepIndicator Steps="@_pasos" CurrentStep="@_currentStep" />
 
-                    @if (isLoaded)
+            <!-- Card principal -->
+            <div class="card shadow-sm border-0 mt-3">
+                <div class="card-body p-4">
+                    @if (_currentStep == 1)
                     {
-                        <!-- Selección de cuenta bancaria -->
+                        <!-- PASO 1: Cuenta Bancaria -->
                         <div class="mb-4">
                             <label class="form-label">Cuenta Bancaria *</label>
                             <select class="form-select" @bind="selectedBankAccountId" @bind:after="OnCuentaBancariaChanged">
@@ -83,15 +60,45 @@
                             }
                             else if (selectedBankAccountId == Guid.Empty)
                             {
-                                <small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Selecciona una cuenta bancaria para habilitar la carga del archivo.</small>
+                                <small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Selecciona una cuenta bancaria para continuar.</small>
                             }
                         </div>
 
-                        <!-- Sección de carga de archivo -->
-                        <div class="mb-5">
-                            <div class="file-upload-area border-2 border-dashed rounded-3 p-5 text-center mb-4 @(selectedBankAccountId == Guid.Empty ? "disabled" : "")"
-                                 onclick="@(selectedBankAccountId == Guid.Empty ? null : "document.getElementById('fileInput').click()")"
-                                 style="@(selectedBankAccountId == Guid.Empty ? "cursor: not-allowed; border-color: #dee2e6; background-color: #f1f1f1; opacity: 0.6;" : "cursor: pointer; border-color: #dee2e6; background-color: #f8f9fa;")">
+                        @* Tipo de cambio del lote -- sólo cuando la cuenta elegida es de otra
+                           moneda que el edificio (ver Docs/Pendientes-Negocio-Consolidado.md #5).
+                           Un solo valor para TODO el archivo cargado, no por fila. Ahora vive DESPUÉS
+                           del selector de cuenta (del que depende) en vez de antes -- antes aparecía
+                           arriba de todo, sin ningún contexto todavía, confundiendo el orden real de
+                           los datos que pide (Docs/Plan-Estandarizacion-UI.md #3.1). *@
+                        @if (RequiereTipoCambio)
+                        {
+                            <div class="mb-4">
+                                <label class="form-label">Tipo de cambio aplicado (@CuentaSeleccionadaMoneda &rarr; @(ParameterService.CurrentBuilding?.Configuration.Currency)) *</label>
+                                <input type="number" step="0.000001" min="0.000001" class="form-control" style="max-width: 260px;"
+                                       @bind="exchangeRate" @bind:event="oninput" />
+                                <small class="text-muted">
+                                    El tipo de cambio real que aplicó el banco a este estado de cuenta -- se usa para convertir
+                                    todas las filas de este archivo a @(ParameterService.CurrentBuilding?.Configuration.Currency)
+                                    en Conciliación y Reportes. @if (ultimoTipoCambioUsado.HasValue)
+                                    {
+                                        <a href="javascript:void(0)" @onclick="() => exchangeRate = ultimoTipoCambioUsado">Usar el último aplicado (@ultimoTipoCambioUsado?.ToString("N6"))</a>
+                                    }
+                                </small>
+                            </div>
+                        }
+
+                        <div class="d-flex justify-content-end">
+                            <button class="btn btn-primary" @onclick="() => _currentStep = 2" disabled="@(!PuedeAvanzarDePaso1)">
+                                Siguiente<i class="bi bi-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    }
+                    else if (_currentStep == 2)
+                    {
+                        <!-- PASO 2: Subir Archivo -->
+                        <div class="mb-4">
+                            <div class="file-upload-area border-2 border-dashed rounded-3 p-5 text-center mb-4"
+                                 onclick="document.getElementById('fileInput').click()">
                                 <div class="mb-3">
                                     <i class="bi bi-file-earmark-excel display-1 text-primary"></i>
                                 </div>
@@ -101,26 +108,12 @@
                                 <InputFile class="d-none"
                                            @ref="fileInput"
                                            id="fileInput"
-                                           disabled="@(selectedBankAccountId == Guid.Empty)"
                                            OnChange="HandleFileSelected"
                                            accept=".xlsx,.xls,.csv" />
 
-                                <button class="btn btn-lg btn-primary px-4" disabled="@(selectedBankAccountId == Guid.Empty)">
+                                <button class="btn btn-lg btn-primary px-4">
                                     <i class="bi bi-folder2-open me-2"></i>Seleccionar Archivo
                                 </button>
-
-                                @if (!string.IsNullOrEmpty(fileName))
-                                {
-                                    <div class="mt-3 alert alert-success alert-dismissible fade show d-flex align-items-center" role="alert">
-                                        <i class="bi bi-check-circle-fill me-2"></i>
-                                        <div>
-                                            <strong>Archivo seleccionado:</strong> @fileName
-                                            <br>
-                                            <small class="text-muted">Tamaño: @fileSize.ToString("N0") bytes</small>
-                                        </div>
-                                        <button type="button" class="btn-close" @onclick="ClearFile"></button>
-                                    </div>
-                                }
                             </div>
 
                             <!-- Información de ayuda -->
@@ -136,10 +129,16 @@
                                             <li><strong>ITF:</strong> Impuesto a las Transacciones Financieras</li>
                                             <li><strong>Monto:</strong> Importe de la transacción</li>
                                         </ol>
-                                        <p class="mb-0 mt-2"><small class="text-muted">La moneda ya no se tipea por fila -- es la de la Cuenta Bancaria seleccionada arriba.</small></p>
+                                        <p class="mb-0 mt-2"><small class="text-muted">La moneda ya no se tipea por fila -- es la de la Cuenta Bancaria elegida en el paso anterior (@CuentaSeleccionadaMoneda).</small></p>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="d-flex justify-content-start">
+                            <button class="btn btn-outline-secondary" @onclick="() => _currentStep = 1">
+                                <i class="bi bi-arrow-left me-2"></i>Anterior
+                            </button>
                         </div>
                     }
                     <!-- Spinner de carga -->
@@ -167,9 +166,84 @@
 
 
                     <!-- Tabla de resultados con paginación -->
-                    @if (datos != null && datos.Any())
+                    @if (_currentStep == 3 && datos != null && datos.Any())
                     {
-                        <div class="mt-5">
+                        <div class="mt-4">
+                            <!-- PASO 3: resumen colapsado de los 2 pasos anteriores, con acceso directo
+                                 para corregir cualquiera de los dos sin recorrer todo el wizard de nuevo
+                                 (Docs/Plan-Estandarizacion-UI.md #3.1). -->
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center justify-content-between border rounded-3 p-3">
+                                        <div>
+                                            <i class="bi bi-bank me-2 text-muted"></i>
+                                            <strong>Cuenta:</strong> @(cuentasBancarias.FirstOrDefault(c => c.IdBankAccount == selectedBankAccountId) is { } cta ? $"{cta.BankName} ({cta.AccountNumber}) -- {cta.Currency}" : "--")
+                                        </div>
+                                        <a href="javascript:void(0)" @onclick="() => _currentStep = 1">Cambiar</a>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center justify-content-between border rounded-3 p-3">
+                                        <div>
+                                            <i class="bi bi-file-earmark-excel me-2 text-muted"></i>
+                                            <strong>Archivo:</strong> @fileName &middot; @datos.Count() filas
+                                        </div>
+                                        <a href="javascript:void(0)" @onclick="VolverAPaso2">Cambiar</a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Resumen de validación -- antes iba después de la tabla; se mueve
+                                 arriba para que el vistazo rápido (cuántos válidos/duplicados/errores)
+                                 no dependa de bajar a leer fila por fila primero. -->
+                            <div class="row mb-4">
+                                <div class="col-md-4">
+                                    <div class="card border-success border-start border-4">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center">
+                                                <div class="flex-shrink-0">
+                                                    <i class="bi bi-check-circle-fill text-success fs-2"></i>
+                                                </div>
+                                                <div class="flex-grow-1 ms-3">
+                                                    <h5 class="card-title text-success mb-1">Válidos</h5>
+                                                    <p class="card-text fs-4 fw-bold mb-0">@datos.Count(d => d.Validation == "Ok")</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-warning border-start border-4">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center">
+                                                <div class="flex-shrink-0">
+                                                    <i class="bi bi-exclamation-triangle-fill text-warning fs-2"></i>
+                                                </div>
+                                                <div class="flex-grow-1 ms-3">
+                                                    <h5 class="card-title text-warning mb-1">Duplicados</h5>
+                                                    <p class="card-text fs-4 fw-bold mb-0">@datos.Count(d => d.Validation == "Duplicado")</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-danger border-start border-4">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center">
+                                                <div class="flex-shrink-0">
+                                                    <i class="bi bi-x-circle-fill text-danger fs-2"></i>
+                                                </div>
+                                                <div class="flex-grow-1 ms-3">
+                                                    <h5 class="card-title text-danger mb-1">Errores</h5>
+                                                    <p class="card-text fs-4 fw-bold mb-0">@datos.Count(d => d.Validation != "Ok" && d.Validation != "Duplicado")</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Encabezado de tabla con estadísticas -->
                             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
                                 <div>
@@ -375,58 +449,9 @@
                                 </div>
                             }
 
-                            <!-- Resumen de validación -->
-                            <div class="row mt-4">
-                                <div class="col-md-4">
-                                    <div class="card border-success border-start border-4">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center">
-                                                <div class="flex-shrink-0">
-                                                    <i class="bi bi-check-circle-fill text-success fs-2"></i>
-                                                </div>
-                                                <div class="flex-grow-1 ms-3">
-                                                    <h5 class="card-title text-success mb-1">Válidos</h5>
-                                                    <p class="card-text fs-4 fw-bold mb-0">@datos.Count(d => d.Validation == "Ok")</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card border-warning border-start border-4">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center">
-                                                <div class="flex-shrink-0">
-                                                    <i class="bi bi-exclamation-triangle-fill text-warning fs-2"></i>
-                                                </div>
-                                                <div class="flex-grow-1 ms-3">
-                                                    <h5 class="card-title text-warning mb-1">Duplicados</h5>
-                                                    <p class="card-text fs-4 fw-bold mb-0">@datos.Count(d => d.Validation == "Duplicado")</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="card border-danger border-start border-4">
-                                        <div class="card-body">
-                                            <div class="d-flex align-items-center">
-                                                <div class="flex-shrink-0">
-                                                    <i class="bi bi-x-circle-fill text-danger fs-2"></i>
-                                                </div>
-                                                <div class="flex-grow-1 ms-3">
-                                                    <h5 class="card-title text-danger mb-1">Errores</h5>
-                                                    <p class="card-text fs-4 fw-bold mb-0">@datos.Count(d => d.Validation != "Ok" && d.Validation != "Duplicado")</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
                             <!-- Botones de acción -->
                             <div class="d-flex justify-content-between mt-5 pt-3 border-top">
-                                <button class="btn btn-outline-secondary" @onclick="ClearData" disabled="@guardadoExitoso">
+                                <button class="btn btn-outline-secondary" @onclick="VolverAPaso2" disabled="@guardadoExitoso">
                                     <i class="bi bi-trash me-2"></i>Limpiar datos
                                 </button>
 
@@ -548,11 +573,27 @@
 
     private void VolverAConciliacion() => Navigation.NavigateTo(ReturnTo!);
 
+    // Indicador de pasos (Docs/Plan-Estandarizacion-UI.md #3.1) -- 1-based,
+    // igual que StepIndicator.CurrentStep.
+    private readonly List<string> _pasos = new() { "Cuenta Bancaria", "Subir Archivo", "Revisar y Confirmar" };
+    private int _currentStep = 1;
+
+    private bool PuedeAvanzarDePaso1 =>
+        selectedBankAccountId != Guid.Empty
+        && (!RequiereTipoCambio || (exchangeRate.HasValue && exchangeRate.Value > 0));
+
+    // Vuelve al Paso 2 (Subir Archivo) descartando la vista previa actual -- usado
+    // tanto por "Limpiar datos" (Paso 3) como por el link "Cambiar" del archivo.
+    private void VolverAPaso2()
+    {
+        ClearFile();
+        _currentStep = 2;
+    }
+
     private InputFile? fileInput;
     private string fileName = string.Empty;
     private long fileSize = 0;
     private bool isLoading = false;
-    private bool isLoaded = true;
     private bool guardadoExitoso = false;
     private string mensaje = string.Empty;
     private IQueryable<Models.TransactionBankDetail> datos = Enumerable.Empty<Models.TransactionBankDetail>().AsQueryable();
@@ -577,15 +618,6 @@
         datos = new List<TransactionBankDetail>().AsQueryable();
         pagination.Initialize(new List<TransactionBankDetail>());
         mensaje = string.Empty;
-        isLoaded = true;
-    }
-
-    private void ClearData()
-    {
-        datos = new List<TransactionBankDetail>().AsQueryable();
-        mensaje = string.Empty;
-        isLoaded = true;
-        pagination.Initialize(new List<TransactionBankDetail>());
     }
 
     private async Task DownloadReport()
@@ -676,6 +708,16 @@
             return;
         }
 
+        // Bug real encontrado probando el Paso 3 del wizard nuevo (Docs/Plan-
+        // Estandarizacion-UI.md #3.1): fileName/fileSize nunca se asignaban acá --
+        // el recuadro "Archivo seleccionado: @fileName" de la versión anterior
+        // jamás llegaba a mostrarse (su @if dependía de que fileName no esté
+        // vacío, así que se auto-ocultaba en silencio). El resumen colapsado del
+        // Paso 3 no tiene ese @if -- sin esto, mostraba "Archivo: · 3 filas" sin
+        // nombre.
+        fileName = file.Name;
+        fileSize = file.Size;
+
         isLoading = true; // Mostrar spinner
         StateHasChanged(); // Actualizar U
 
@@ -760,7 +802,7 @@
 
 
         isLoading = false; // Ocultar spinner
-        isLoaded = false; //Ocultar Seleccion de Archivo
+        _currentStep = 3; // Avanza solo al Paso 3 (Revisar y Confirmar) al terminar de procesar
         StateHasChanged();
 
         pagination.Initialize(datos.ToList());

@@ -14,89 +14,80 @@
 @inject IWorkflowAuditService WorkflowAuditService
 
 <div class="lectura-bloque-container">
-    <div class="card mb-4">
-        <div class="card-body">
-            <!-- Selector de período -->
-            <div class="row align-items-center">
-                <!-- Período -->
-                <div class="col-md-4">
-                    <div class="card">
-                        <div style="padding-left:20px; padding-right:20px;">
-                            <div class="form-group">
-                                <label class="form-label"><strong>Período:</strong></label>
-                                <select @bind="_ultimoPeriodo" class="form-select" @bind:event="onchange" @bind:after="() => CargarPeriodo(_ultimoPeriodo)" disabled="@_ServiceReadingState.OpenFromModal">
-                                    @foreach (var item in _periods.OrderBy(c => c.StartDate))
-                                    {
-                                        <option value="@item.StartDate">@item.StartDate.ToString("MMM-yy")</option>
-                                    }
-                                </select>
-                            </div>
-                        </div>
+    <!-- Indicador de pasos (Docs/Plan-Estandarizacion-UI.md #3.2) -- pasivo, refleja
+         el estado real en vez de forzar un Siguiente/Anterior nuevo: el Período
+         prácticamente siempre está resuelto (el combo ya trae uno seleccionado), lo
+         que de verdad varía es si ya hay lecturas cargadas para revisar o no. Forzar
+         una navegación de wizard rígida acá arriesgaba romper el flujo real (el
+         período se auto-carga solo al cambiar el combo, la tabla de abajo no es sólo
+         una vista previa -- también es donde se corrigen lecturas fila por fila). -->
+    <StepIndicator Steps="@_pasosLecturaAgua" CurrentStep="@PasoActualLecturaAgua" />
 
-                        <!-- Cargo Fijo -->
-                        <div style="padding-left:20px; padding-right:20px;">
-                            <div class="form-group">
-                                <label class="form-label"><strong>Cargo Fijo:</strong></label>
-                                <div class="input-group">
-                                    <span class="input-group-text">@(ParameterService.CurrentBuilding?.Configuration.Currency.ToCurrencySymbol() ?? "S/")</span>
-                                    <InputNumber @bind-Value="_ServiceReadingState.CargoFijo" class="form-control" />
-                                </div>
-                            </div>
+    <div class="card mb-4 mt-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <!-- Período y Cargo Fijo -->
+                <div class="col-md-4">
+                    <div class="form-group mb-3">
+                        <label class="form-label"><strong>Período:</strong></label>
+                        <select @bind="_ultimoPeriodo" class="form-select" @bind:event="onchange" @bind:after="() => CargarPeriodo(_ultimoPeriodo)" disabled="@_ServiceReadingState.OpenFromModal">
+                            @foreach (var item in _periods.OrderBy(c => c.StartDate))
+                            {
+                                <option value="@item.StartDate">@item.StartDate.ToString("MMM-yy")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label"><strong>Cargo Fijo:</strong></label>
+                        <div class="input-group">
+                            <span class="input-group-text">@(ParameterService.CurrentBuilding?.Configuration.Currency.ToCurrencySymbol() ?? "S/")</span>
+                            <InputNumber @bind-Value="_ServiceReadingState.CargoFijo" class="form-control" />
                         </div>
                     </div>
                 </div>
 
                 @if (_ServiceReadingState.CurrentReading.Status < 2 && _canManageWaterReadings)
                 {
-                    <!-- Importar Excel -->
+                    <!-- Importar Excel -- mismo lenguaje visual que Cargar Estado de Cuenta
+                         (Docs/Plan-Estandarizacion-UI.md #3.1), aunque el arrastrar-y-soltar
+                         real no está cableado todavía: sigue siendo clic -> selector de
+                         archivos vía AbrirSelectorArchivo, sólo se ve consistente con el
+                         resto del plan. -->
                     <div class="col-md-5">
-                        <div class="card" disabled="@(!_ServiceReadingState.OpenFromModal)">
-                            <div class="card-body">
+                        <div class="file-upload-area border-2 border-dashed rounded-3 p-4 text-center h-100 d-flex flex-column justify-content-center"
+                             style="@(_ServiceReadingState.OpenFromModal ? "opacity:0.6;" : "cursor:pointer;")"
+                             onclick="@(_ServiceReadingState.OpenFromModal ? null : "document.getElementById('fileInput').click()")">
+                            <InputFile id="fileInput"
+                                       OnChange="CargarArchivoExcel"
+                                       accept=".xlsx,.xls,.csv"
+                                       style="display:none;"
+                                       disabled="@_ServiceReadingState.OpenFromModal" />
 
-                                <div class="mb-3">
-                                    <!-- InputFile oculto -->
-                                    <InputFile id="fileInput"
-                                               OnChange="CargarArchivoExcel"
-                                               accept=".xlsx,.xls,.csv"
-                                               style="display:none;" />
-
-                                    <!-- Botón para abrir el selector de archivos -->
-                                    <div class="text-center">
-                                        <button class="btn btn-primary btn-lg" @onclick="AbrirSelectorArchivo">
-                                            <i class="bi bi-cloud-upload mr-2"></i>
-                                            Importar Lecturas de Agua
-                                        </button>
-
-                                        <div class="summary">
-                                            <div><i class="bi bi-info-circle"></i> Formatos aceptados: .xlsx, .xls</div>
-                                            <div>
-                                                <i class="bi bi-download"></i>
-                                                <a href="javascript:void(0)" @onclick="ExportarPlantillaVacia">
-                                                    Descargar plantilla
-                                                </a>
-
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                            
-                                @if (!string.IsNullOrEmpty(_archivoNombre))
-                                {
-                                    <div class="alert alert-success">
-                                        <i class="bi bi-check-circle mr-2"></i>
-                                        @_archivoNombre (@_lecturasCargadas.Count registros)
-                                    </div>
-                                }
+                            <i class="bi bi-cloud-upload display-6 text-primary mb-2"></i>
+                            <button class="btn btn-primary" @onclick="AbrirSelectorArchivo" disabled="@_ServiceReadingState.OpenFromModal">
+                                Importar Lecturas de Agua
+                            </button>
+                            <div class="text-muted small mt-2">
+                                <i class="bi bi-info-circle me-1"></i>Formatos aceptados: .xlsx, .xls
+                                &middot;
+                                <a href="javascript:void(0)" @onclick="ExportarPlantillaVacia">Descargar plantilla</a>
                             </div>
+
+                            @if (!string.IsNullOrEmpty(_archivoNombre))
+                            {
+                                <div class="alert alert-success mt-3 mb-0 py-2">
+                                    <i class="bi bi-check-circle me-2"></i>@_archivoNombre (@_lecturasCargadas.Count registros)
+                                </div>
+                            }
                         </div>
                     </div>
                 }
-                <!-- Lecturas Procesadas -->
+                <!-- Lecturas Procesadas -- ahora una tarjeta de estadística real, mismo
+                     estilo que el Dashboard, en vez de un número suelto. -->
                 <div class="col-md-3">
-                    <div class="card">
-                        <div class="display-6 text-primary" style="padding-left:20px; padding-right:20px;">@_ServiceReadingState.CurrentReadingDetail.Count</div>
-                        <div class="text-muted" style="padding-left:20px; padding-right:20px;">Lecturas procesadas</div>
+                    <div class="stat-card h-100 p-3 d-flex flex-column justify-content-center">
+                        <div class="text-muted small mb-1">Lecturas procesadas</div>
+                        <div class="display-6 text-primary mb-0">@_ServiceReadingState.CurrentReadingDetail.Count</div>
                     </div>
                 </div>
             </div>
@@ -484,6 +475,14 @@
 
     private List<Period> _periods = new();
     private Period _currentPeriod = new();
+
+    // Indicador de pasos (Docs/Plan-Estandarizacion-UI.md #3.2) -- pasivo, calculado
+    // del estado real en vez de un contador de wizard propio: el Período casi siempre
+    // ya está resuelto (el combo trae uno por defecto), así que el paso 1 se muestra
+    // "hecho" desde el arranque; lo que de verdad distingue el avance es si ya hay
+    // lecturas cargadas para revisar.
+    private readonly List<string> _pasosLecturaAgua = new() { "Período", "Subir Lecturas", "Revisar y Confirmar" };
+    private int PasoActualLecturaAgua => _ServiceReadingState.CurrentReadingDetail.Any() ? 3 : 2;
     private ConfirmationUtil util = new ConfirmationUtil();
 
     private ServiceReadingState _ServiceReadingState = new();

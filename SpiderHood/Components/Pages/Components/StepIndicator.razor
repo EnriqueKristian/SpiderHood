@@ -1,0 +1,38 @@
+@* Indicador de pasos compartido (Docs/Plan-Estandarizacion-UI.md #3) -- pensado
+   para procesos de varios pasos reales (elegir contexto -> cargar datos ->
+   revisar y confirmar) que hoy son una sola página larga sin ninguna señal de
+   en qué paso está el usuario. Primer uso: Carga de Estado de Cuenta y Carga
+   de Agua; pensado para reusarse en cualquier otro flujo similar (Presupuesto
+   incluido, más adelante). *@
+<div class="step-indicator">
+    @for (var i = 1; i <= Steps.Count; i++)
+    {
+        var index = i;
+        var estado = index < CurrentStep ? "done" : index == CurrentStep ? "active" : "upcoming";
+        <div class="step-indicator-item">
+            <div class="step-circle step-circle-@estado">
+                @if (estado == "done")
+                {
+                    <i class="bi bi-check-lg"></i>
+                }
+                else
+                {
+                    @index
+                }
+            </div>
+            <div class="step-label step-label-@estado">@Steps[index - 1]</div>
+        </div>
+        @if (index < Steps.Count)
+        {
+            <div class="step-line step-line-@(index < CurrentStep ? "done" : "upcoming")"></div>
+        }
+    }
+</div>
+
+@code {
+    // Los textos de cada paso, en orden -- ej. new[] { "Cuenta Bancaria", "Subir Archivo", "Revisar y Confirmar" }.
+    [Parameter, EditorRequired] public IReadOnlyList<string> Steps { get; set; } = Array.Empty<string>();
+
+    // 1-based -- el paso 1 es el primero.
+    [Parameter] public int CurrentStep { get; set; } = 1;
+}

@@ -14,7 +14,6 @@
 @inject IExtraChargeService ExtraChargeService
 @inject AuthService AuthService
 @inject IReceiptStorageService ReceiptStorageService
-@inject IAccountService AccountService
 
 <PageTitle>Listado de Cuotas</PageTitle>
 
@@ -641,11 +640,10 @@
             // subestimar el desglose Fijo/Agua de cuotas que agrupan más de 1 unidad.
             var owners = await BuildingService.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 
-            // Docs/Pendientes-Negocio-Consolidado.md #30, punto d -- logo de la
-            // empresa administradora para la cabecera del recibo.
-            var accountLogoBytes = ParameterService.CurrentBuilding.IdAccount is Guid idAccountLogo
-                ? (await AccountService.GetLogoAsync(idAccountLogo))?.Content
-                : null;
+            // Docs/Pendientes-Negocio-Consolidado.md #30, puntos d/e -- logo del
+            // encabezado (Edificio o, de respaldo, Account) + nombre de la
+            // administradora para la franja "Administrado por...".
+            var (logoBytes, _, administradoraName) = await BuildingService.GetReceiptBrandingAsync(ParameterService.CurrentBuilding);
 
             var exportService = new InstallmentExportService(
                 new List<Installment> { item },
@@ -657,7 +655,8 @@
                 owners,
                 cargosAdicionales,
                 deudasAnteriores,
-                accountLogoBytes);
+                logoBytes,
+                administradoraName);
 
             // Docs/Pendientes-Negocio-Consolidado.md #18b -- si ya se generó antes,
             // sirve el mismo PDF guardado (no lo recalcula con la configuración

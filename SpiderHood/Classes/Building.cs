@@ -61,6 +61,14 @@ namespace SpiderHood.Models
         public bool HasPorter { get; set; }
         public bool HasCameras { get; set; }
 
+        // --- Logo/foto del Edificio (Database/Scripts/2026-09-22_139_Building_Logo.sql,
+        // Docs/Pendientes-Negocio-Consolidado.md #30, punto e) -- protagonista del
+        // encabezado del recibo (mismo lugar que las fotos de edificio en las
+        // plantillas Excel viejas); si falta, BuildingService.GetReceiptBrandingAsync
+        // usa el logo de la Account (empresa administradora) como respaldo.
+        public string? LogoPath { get; set; }
+        public string? LogoContentType { get; set; }
+
         [NotMapped]
         public BuildingConfiguration Configuration { get; set; } = new();
         public Building Clone()
@@ -99,6 +107,8 @@ namespace SpiderHood.Models
                 Has247Security = this.Has247Security,
                 HasPorter = this.HasPorter,
                 HasCameras = this.HasCameras,
+                LogoPath = this.LogoPath,
+                LogoContentType = this.LogoContentType,
                 Configuration = this.Configuration.Clone()
             };
         }

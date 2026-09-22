@@ -103,6 +103,7 @@ namespace SpiderHood.Data
             public const string UPD_UserExternalLogin = "UPD_UserExternalLogin";
             public const string UPD_UserBuildingUnit = "UPD_UserBuildingUnit";
             public const string UPD_Building = "UPD_Building";
+            public const string UPD_Building_Logo = "UPD_Building_Logo";
             public const string UPD_BudgetDetail = "UPD_BudgetDetail";
             public const string UPD_ServiceReading = "UPD_ServiceReading";
             public const string UPD_Contact = "UPD_Contact";

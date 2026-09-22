@@ -59,6 +59,25 @@ namespace SpiderHood.Services
         Task<bool> EliminarDepartamentoAsync(int id);
         Task<Dictionary<int, decimal>> CalcularPorcentajesAreaAsync();
         Task<decimal> ObtenerAreaTotalAsync();
+
+        // Logo/foto del Edificio (Docs/Pendientes-Negocio-Consolidado.md #30,
+        // punto e) -- reusa IFileStorageService, mismo mecanismo que
+        // IAccountService.UploadLogoAsync.
+        Task UploadLogoAsync(Guid idBuilding, string fileName, string contentType, byte[] content);
+
+        // Para el preview en BuildingConfig/BuildingPage -- toma el Building ya
+        // cargado en memoria (no vuelve a consultar la BD) y sólo lee el archivo
+        // de storage si tiene LogoPath. Null si no tiene logo propio o si ya no
+        // está en storage.
+        Task<byte[]?> GetLogoBytesAsync(Models.Building building);
+
+        // Logo + nombre de administradora para el encabezado del recibo
+        // (InstallmentExportService.ComposeHeader) -- aplica el fallback acordado
+        // con el usuario: si el Edificio no tiene logo propio, usa el de su
+        // Account (empresa administradora); AdministradoraName viaja aparte,
+        // independiente de cuál logo haya ganado (la franja "Administrado por..."
+        // se muestra igual aunque el logo mostrado arriba sea el del edificio).
+        Task<(byte[]? LogoBytes, string? LogoContentType, string? AdministradoraName)> GetReceiptBrandingAsync(Models.Building building);
     }
 
     public class BuildingService : IBuildingService
@@ -69,14 +88,72 @@ namespace SpiderHood.Services
         private readonly ISubscriptionService _subscriptionService;
         private readonly IAccountService _accountService;
         private readonly IWorkflowAuditService _workflowAuditService;
+        private readonly IFileStorageService _fileStorage;
 
-        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, ISubscriptionService subscriptionService, IAccountService accountService, IWorkflowAuditService workflowAuditService)
+        // Mismos formatos/tamaño que IAccountService -- sólo raster, se embebe
+        // en el PDF vía QuestPDF's Image(byte[]), que no decodifica SVG.
+        private static readonly HashSet<string> AllowedLogoExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg", ".jpeg", ".png", ".webp"
+        };
+        private const int MaxLogoSizeBytes = 2 * 1024 * 1024;
+
+        public BuildingService(IDbContextFactory<SpiderHoodContext> contextFactory, AuthService authService, ISubscriptionService subscriptionService, IAccountService accountService, IWorkflowAuditService workflowAuditService, IFileStorageService fileStorage)
         {
             ec = new BDLayout(contextFactory);
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _subscriptionService = subscriptionService ?? throw new ArgumentNullException(nameof(subscriptionService));
             _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
             _workflowAuditService = workflowAuditService ?? throw new ArgumentNullException(nameof(workflowAuditService));
+            _fileStorage = fileStorage ?? throw new ArgumentNullException(nameof(fileStorage));
+        }
+
+        public async Task UploadLogoAsync(Guid idBuilding, string fileName, string contentType, byte[] content)
+        {
+            var extension = Path.GetExtension(fileName);
+            if (string.IsNullOrEmpty(extension) || !AllowedLogoExtensions.Contains(extension))
+            {
+                throw new ArgumentException(
+                    $"Tipo de archivo no permitido ({(string.IsNullOrEmpty(extension) ? "sin extensión" : extension)}). " +
+                    $"Formatos aceptados: {string.Join(", ", AllowedLogoExtensions.Order())}.");
+            }
+
+            if (content.Length == 0)
+                throw new ArgumentException("El archivo está vacío.");
+
+            if (content.Length > MaxLogoSizeBytes)
+            {
+                throw new ArgumentException(
+                    $"El archivo pesa {content.Length / 1024} KB -- el máximo permitido es {MaxLogoSizeBytes / 1024} KB.");
+            }
+
+            var relativePath = await _fileStorage.SaveAsync(
+                ["buildings", idBuilding.ToString("N"), "logo"],
+                $"logo{extension}",
+                content);
+
+            await ec.UpdateBuildingLogoAsync(idBuilding, relativePath, contentType);
+        }
+
+        public async Task<byte[]?> GetLogoBytesAsync(Models.Building building)
+        {
+            if (string.IsNullOrEmpty(building.LogoPath))
+                return null;
+
+            return await _fileStorage.ReadAsync(building.LogoPath);
+        }
+
+        public async Task<(byte[]? LogoBytes, string? LogoContentType, string? AdministradoraName)> GetReceiptBrandingAsync(Models.Building building)
+        {
+            var buildingLogoBytes = await GetLogoBytesAsync(building);
+
+            var (razonSocial, accountLogoBytes, accountLogoContentType) = building.IdAccount is Guid idAccount
+                ? await _accountService.GetBrandingAsync(idAccount)
+                : (null, null, null);
+
+            return buildingLogoBytes != null
+                ? (buildingLogoBytes, building.LogoContentType, razonSocial)
+                : (accountLogoBytes, accountLogoContentType, razonSocial);
         }
 
         private async Task<string> GetPerformedByAsync()

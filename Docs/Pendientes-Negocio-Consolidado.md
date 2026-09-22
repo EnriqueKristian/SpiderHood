@@ -1863,13 +1863,10 @@ después de compilar/reiniciar, no en cada F5 normal.
 ---
 
 ### 30. Pantalla de mantenimiento de Account (Cuenta de Facturación) + Logos para recibos/PDFs
-*(Nuevo 2026-09-22, pedido del usuario -- la parte de Building/Unit/Owner
-del punto "Relacionado" de abajo quedó **IMPLEMENTADA** el mismo día,
-`dotnet build`/`dotnet test` en 0 errores y 169/169 tests. Puntos (a)
-pantalla básica, (b) permisos, (c) Natural/Empresa y (d) logo de Account
-también **IMPLEMENTADOS** el mismo día, ver detalle en cada punto. Sólo
-queda (e) logo de Edificio, bloqueado a propósito hasta la conversación de
-diseño que pidió el usuario.)*
+*(Nuevo 2026-09-22, pedido del usuario -- **COMPLETO, los 5 puntos (a-e)
+IMPLEMENTADOS el mismo día**, además de la parte de Building/Unit/Owner
+del punto "Relacionado" de abajo. `dotnet build`/`dotnet test` en 0
+errores, 172/172 tests. Ver detalle en cada punto.)*
 
 **Problema:** `Account` (Docs/Design-Account-Facturacion.md) existe como
 entidad de facturación (`RazonSocial`, `RucDni`, `Telefono`) desde el
@@ -1964,9 +1961,37 @@ d. **Logo de la empresa administradora.** **RESUELTO (2026-09-22).**
    (169 + 2 nuevos), y `UPD_Account_Logo`/`GET_AccountById` contra la BD
    real.
 
-e. **Logo/imagen a nivel Edificio** (distinto del de Account, va en el
-   recibo): el usuario aclaró **"cuando llegues a este punto vemos el
-   diseño"** -- no arrancar a construir sin esa conversación primero.
+e. **Logo/imagen a nivel Edificio.** **RESUELTO (2026-09-22).** Diseño
+   conversado con el usuario mediante un mockup visual de 3 opciones (ver
+   sesión) -- se eligió la **Opción A**: el logo del Edificio es el
+   protagonista del encabezado del recibo (mismo lugar que las fotos de
+   edificio en las plantillas Excel viejas que el usuario mostró de
+   ejemplo); si el Edificio no tiene logo propio, se usa el de la Account
+   (empresa administradora) como respaldo. Además, a pedido del usuario, se
+   agregó una franja "Administrado por [RazonSocial]" debajo del
+   encabezado (independiente de cuál logo ganó arriba) con un mensaje
+   sutil "SpiderHoodApp" al final -- de paso se encontró y corrigió un
+   typo real en el pie del recibo ("Generado por SpideHoodApp" →
+   "SpiderHoodApp", `ComposeFooter`, ya existía desde antes de esta
+   sesión).
+
+   Implementado: `Building.LogoPath`/`LogoContentType`
+   (`Database/Scripts/2026-09-22_139_Building_Logo.sql`, mismo mecanismo
+   que el logo de Account -- `IFileStorageService`, sólo raster). El
+   fallback vive en `BuildingService.GetReceiptBrandingAsync(building)`
+   (nuevo, usa `IAccountService.GetBrandingAsync` para el nombre + logo de
+   respaldo de la Account) -- devuelve el logo a mostrar (Edificio o
+   Account) más el nombre de la administradora en una sola llamada, así
+   los 4 lugares que arman `InstallmentExportService`
+   (`InstallmentTable`/`InstallmentList`/`BudgetGenerator`/`MyReceipts`)
+   no duplican la lógica de decisión. `ComposeHeader` ahora dibuja la
+   franja "Administrado por..." + "SpiderHoodApp" cuando hay nombre de
+   administradora (independiente del logo). Subida/preview del logo en
+   `BuildingPage.razor` (Tab 1, sólo al editar un edificio ya guardado,
+   gateado a `_canEditBuilding`), mismo patrón que el logo de Account en
+   `Settings.razor`. 3 tests nuevos (con logo, con franja de
+   administradora, sin ninguno de los dos) + verificado end-to-end contra
+   la BD real. `dotnet build`/`dotnet test` en 0 errores, 172/172.
 
 **Relacionado -- revisar antes de construir nada de lo anterior:** el
 usuario pidió revisar cambios que ya hizo en Edificio/Unidades/Propietarios
@@ -2104,7 +2129,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 | 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
-| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Building/Unit/Owner (34 campos), (a) pantalla básica, (b) permisos, (c) Natural/Empresa y (d) logo Account **resueltos** (2026-09-22) -- sólo queda (e) logo Edificio, bloqueado por diseño |
+| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | **Resuelto por completo** (2026-09-22) -- Building/Unit/Owner (34 campos) + (a)-(e), incluyendo logo del Edificio con fallback al de Account y franja "Administrado por..." con mención SpiderHoodApp |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

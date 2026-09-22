@@ -698,6 +698,23 @@ namespace SpiderHood.Data
             }, "UpdateBuilding", cancellationToken);
         }
 
+        // Aparte de UpdateRecordAsync(Building) a propósito -- mismo criterio que
+        // UpdateAccountLogoAsync: subir un logo es una acción distinta de guardar
+        // los datos generales del edificio.
+        public async Task UpdateBuildingLogoAsync(Guid idBuilding, string? logoPath, string? logoContentType, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Building_Logo,
+                    cancellationToken,
+                    idBuilding,
+                    (object?)logoPath,
+                    (object?)logoContentType);
+                return true;
+            }, "UpdateBuildingLogo", cancellationToken);
+        }
+
         public async Task<BudgetDetail> UpdateRecordAsync(BudgetDetail budgetDetail, CancellationToken cancellationToken = default)
         {
             ValidateEntity(budgetDetail, nameof(budgetDetail));

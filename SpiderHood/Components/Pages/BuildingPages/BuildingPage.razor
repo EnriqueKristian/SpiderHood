@@ -289,6 +289,37 @@
                         </div>
                     </div>
 
+                    @if (_isEditingBuilding)
+                    {
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <label class="form-label fw-semibold">
+                                    <i class="bi bi-image me-1 text-primary"></i>Logo / Foto del Edificio
+                                </label>
+                                <div class="d-flex align-items-center gap-3 mb-2">
+                                    @if (_buildingLogoDataUri != null)
+                                    {
+                                        <img src="@_buildingLogoDataUri" alt="Logo del edificio" style="max-height:70px;max-width:180px;object-fit:contain;" class="border rounded p-1" />
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">Sin logo cargado -- se usa el de la Cuenta de Facturación en el recibo, si tiene uno.</span>
+                                    }
+                                </div>
+                                @if (_buildingLogoError != null)
+                                {
+                                    <div class="alert alert-danger py-2">@_buildingLogoError</div>
+                                }
+                                @if (_canEditBuilding)
+                                {
+                                    <InputFile OnChange="SubirLogoEdificioAsync" accept="image/png,image/jpeg,image/webp"
+                                               class="form-control" disabled="@_subiendoLogoEdificio" />
+                                    <div class="form-text">JPG, PNG o WEBP -- máximo 2 MB. Se usa en el encabezado del recibo de mantenimiento.</div>
+                                }
+                            </div>
+                        </div>
+                    }
+
                     <div class="col-md-6">
                         <div class="form-group">
                             <label class="form-label fw-semibold">

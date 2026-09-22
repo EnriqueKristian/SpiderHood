@@ -17,7 +17,6 @@
 @inject SpiderHood.Services.IPermissionService PermissionService
 @inject SpiderHood.Services.IWorkflowAuditService WorkflowAuditService
 @inject SpiderHood.Services.IReceiptStorageService ReceiptStorageService
-@inject SpiderHood.Services.IAccountService AccountService
 
 <div class="expense-calculation">
     <!-- Header -->
@@ -1798,11 +1797,10 @@
                     var deudasAnteriores = await InstallmentService.GetPendingInstallmentsAsync(
                         ParameterService.CurrentBuilding!.IdBuilding);
 
-                    // Docs/Pendientes-Negocio-Consolidado.md #30, punto d -- logo de la
-                    // empresa administradora para la cabecera del recibo.
-                    var accountLogoBytes = ParameterService.CurrentBuilding!.IdAccount is Guid idAccountLogo
-                        ? (await AccountService.GetLogoAsync(idAccountLogo))?.Content
-                        : null;
+                    // Docs/Pendientes-Negocio-Consolidado.md #30, puntos d/e -- logo del
+                    // encabezado (Edificio o, de respaldo, Account) + nombre de la
+                    // administradora para la franja "Administrado por...".
+                    var (logoBytes, _, administradoraName) = await BuildingService.GetReceiptBrandingAsync(ParameterService.CurrentBuilding!);
 
                     // Genera el recibo (PDF) de cada unidad y los descarga en un solo ZIP.
                     var exportService = new InstallmentExportService(
@@ -1815,7 +1813,8 @@
                         _BudgetState.Owners,
                         cargosAdicionales,
                         deudasAnteriores,
-                        accountLogoBytes);
+                        logoBytes,
+                        administradoraName);
 
                     // Docs/Pendientes-Negocio-Consolidado.md #18b -- publicar el
                     // presupuesto es el momento natural para que cada recibo quede

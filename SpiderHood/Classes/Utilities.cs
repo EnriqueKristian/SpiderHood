@@ -664,11 +664,15 @@ namespace SpiderHood.Models
         private readonly List<Installment> _deudasAnteriores;
         private readonly int _totalApartments;
         private readonly Dictionary<Guid, int> _unitCountByGroup;
-        // Logo de la empresa administradora (Docs/Pendientes-Negocio-Consolidado.md
-        // #30, punto d) -- opcional a propósito: un Building sin IdAccount, o una
-        // Account sin logo cargado, siguen generando el recibo igual que antes,
-        // simplemente sin logo en la cabecera.
-        private readonly byte[]? _accountLogoBytes;
+        // Logo del encabezado (Docs/Pendientes-Negocio-Consolidado.md #30, puntos
+        // d/e) -- el del Edificio si tiene uno propio, si no el de la Account
+        // (empresa administradora) como respaldo; la elección la hace
+        // BuildingService.GetReceiptBrandingAsync, ACA sólo se dibuja lo que
+        // llegue. Ambos opcionales a propósito: sin ninguno de los dos, el
+        // recibo se genera igual, simplemente sin logo ni franja de
+        // administradora en la cabecera.
+        private readonly byte[]? _logoBytes;
+        private readonly string? _administradoraName;
 
         public InstallmentExportService(
             List<Installment> installments,
@@ -680,7 +684,8 @@ namespace SpiderHood.Models
             List<OwnerUnitView> owners,
             List<Installment>? cargosAdicionales = null,
             List<Installment>? deudasAnteriores = null,
-            byte[]? accountLogoBytes = null)
+            byte[]? logoBytes = null,
+            string? administradoraName = null)
         {
             _installments = installments;
             _budget = budget;
@@ -690,7 +695,8 @@ namespace SpiderHood.Models
             _categories = categories;
             _cargosAdicionales = cargosAdicionales ?? new();
             _deudasAnteriores = deudasAnteriores ?? new();
-            _accountLogoBytes = accountLogoBytes;
+            _logoBytes = logoBytes;
+            _administradoraName = administradoraName;
 
             var unidadesFacturables = owners
                 .Where(o => o.Role == 1 && (o.TypeUnit == 1 || o.TypeUnit == 4))
@@ -848,34 +854,61 @@ namespace SpiderHood.Models
             var mesAno = _installment.Period.ToString("MMMM yyyy", CultureInfo.CurrentCulture);
             mesAno = char.ToUpper(mesAno[0]) + mesAno.Substring(1);
 
-            // Fondo gris claro unificado para toda la cabecera
-            container.Background(Colors.Grey.Lighten4).Padding(8).Row(row =>
+            container.Column(headerColumn =>
             {
-                if (_accountLogoBytes != null)
+                // Fondo gris claro unificado para toda la cabecera
+                headerColumn.Item().Background(Colors.Grey.Lighten4).Padding(8).Row(row =>
                 {
-                    row.ConstantItem(50).AlignMiddle().MaxHeight(40).Image(_accountLogoBytes).FitArea();
-                }
-
-                row.RelativeItem().Column(col =>
-                {
-                    col.Item().AlignCenter().Text(_building.Name.ToUpper()).FontSize(13).Bold().FontColor(Colors.Black);
-
-                    if (!string.IsNullOrWhiteSpace(_building.Location))
+                    if (_logoBytes != null)
                     {
-                        col.Item().AlignCenter().Text(_building.Location)
-                            .FontSize(8).FontColor(Colors.Grey.Darken1);
+                        row.ConstantItem(50).AlignMiddle().MaxHeight(40).Image(_logoBytes).FitArea();
                     }
 
-                    col.Item().AlignCenter().Text($"Recibo de Mantenimiento - {mesAno}")
-                        .FontSize(10).Bold().FontColor(Colors.Blue.Darken2);
+                    row.RelativeItem().Column(col =>
+                    {
+                        col.Item().AlignCenter().Text(_building.Name.ToUpper()).FontSize(13).Bold().FontColor(Colors.Black);
+
+                        if (!string.IsNullOrWhiteSpace(_building.Location))
+                        {
+                            col.Item().AlignCenter().Text(_building.Location)
+                                .FontSize(8).FontColor(Colors.Grey.Darken1);
+                        }
+
+                        col.Item().AlignCenter().Text($"Recibo de Mantenimiento - {mesAno}")
+                            .FontSize(10).Bold().FontColor(Colors.Blue.Darken2);
+                    });
+
+                    // Caja de fecha con fondo azul oscuro y texto blanco (más profesional)
+                    row.ConstantItem(90).Background(Colors.Blue.Darken2).Padding(6).Column(col =>
+                    {
+                        col.Item().AlignCenter().Text("FECHA").FontSize(7).Bold().FontColor(Colors.White);
+                        col.Item().AlignCenter().Text(periodo).FontSize(11).Bold().FontColor(Colors.White);
+                    });
                 });
 
-                // Caja de fecha con fondo azul oscuro y texto blanco (más profesional)
-                row.ConstantItem(90).Background(Colors.Blue.Darken2).Padding(6).Column(col =>
+                // Franja "Administrado por..." (Docs/Pendientes-Negocio-Consolidado.md
+                // #30, Opción A del mockup acordado con el usuario) -- independiente de
+                // cuál logo ganó arriba (Edificio o Account de respaldo): mientras haya
+                // una Account con RazonSocial, se identifica quién administra. Si el
+                // Building no tiene Account (o la Account no tiene RazonSocial), no hay
+                // nada que decir acá y la franja no se dibuja -- mismo criterio
+                // fail-open que el resto del recibo.
+                if (!string.IsNullOrWhiteSpace(_administradoraName))
                 {
-                    col.Item().AlignCenter().Text("FECHA").FontSize(7).Bold().FontColor(Colors.White);
-                    col.Item().AlignCenter().Text(periodo).FontSize(11).Bold().FontColor(Colors.White);
-                });
+                    headerColumn.Item().Background(Colors.Grey.Lighten5)
+                        .BorderTop(0.5f).BorderColor(Colors.Grey.Lighten2)
+                        .Padding(4).Row(row =>
+                    {
+                        row.RelativeItem().Text($"Administrado por {_administradoraName}")
+                            .FontSize(7).FontColor(Colors.Grey.Darken1);
+
+                        // Propaganda sutil, pedida por el usuario -- no invasiva (gris,
+                        // chica, itálica) pero presente en el mismo lugar donde ya se
+                        // identifica a la administradora.
+                        row.ConstantItem(70).AlignRight().Text("SpiderHoodApp")
+                            .FontSize(6).Italic().FontColor(Colors.Grey.Medium);
+                    });
+                }
             });
         }
 
@@ -1051,7 +1084,7 @@ namespace SpiderHood.Models
 
                 column.Item().AlignCenter().Text(text =>
                 {
-                    text.Span("Generado por SpideHoodApp el: ").FontSize(7);
+                    text.Span("Generado por SpiderHoodApp el: ").FontSize(7);
                     text.Span($"{DateTime.Now:dd/MM/yyyy HH:mm}").Bold().FontSize(7);
                 });
             });

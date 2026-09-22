@@ -32,6 +32,12 @@ namespace SpiderHood.Services
         // (mismo criterio fail-open que IFileStorageService.ReadAsync).
         Task<(byte[] Content, string ContentType)?> GetLogoAsync(Guid idAccount);
 
+        // Para BuildingService.GetReceiptBrandingAsync -- RazonSocial (para la
+        // franja "Administrado por..." del recibo) + logo (para cuando el Building
+        // no tiene uno propio) en una sola consulta. Todo null si la Account no
+        // existe o no tiene esos datos -- nunca tira excepción por esto.
+        Task<(string? RazonSocial, byte[]? LogoBytes, string? LogoContentType)> GetBrandingAsync(Guid idAccount);
+
         Task<List<AccountUserView>> GetCollaboratorsAsync(Guid idAccount);
 
         Task<List<AccountInvitation>> GetPendingInvitationsAsync(Guid idAccount);
@@ -164,6 +170,16 @@ namespace SpiderHood.Services
                 return null;
 
             return (bytes, account.LogoContentType ?? "application/octet-stream");
+        }
+
+        public async Task<(string? RazonSocial, byte[]? LogoBytes, string? LogoContentType)> GetBrandingAsync(Guid idAccount)
+        {
+            var account = await Ec.GetAccountByIdAsync(idAccount);
+            if (account == null)
+                return (null, null, null);
+
+            var logoBytes = account.LogoPath == null ? null : await _fileStorage.ReadAsync(account.LogoPath);
+            return (account.RazonSocial, logoBytes, account.LogoContentType);
         }
 
         public async Task<List<AccountUserView>> GetCollaboratorsAsync(Guid idAccount)

@@ -266,11 +266,12 @@ public class InstallmentExportServiceTests
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
 
     [Fact]
-    public void GenerateReceipt_WithAccountLogo_EmbedsItWithoutThrowing()
+    public void GenerateReceipt_WithLogo_EmbedsItWithoutThrowing()
     {
-        // Docs/Pendientes-Negocio-Consolidado.md #30, punto d -- el logo se pasa
-        // como bytes crudos a QuestPDF's Image() en ComposeHeader; esto confirma
-        // que un logo real (aunque sea de 1x1) no rompe la generación del PDF.
+        // Docs/Pendientes-Negocio-Consolidado.md #30, puntos d/e -- el logo (del
+        // Edificio o, de respaldo, de la Account) se pasa como bytes crudos a
+        // QuestPDF's Image() en ComposeHeader; esto confirma que un logo real
+        // (aunque sea de 1x1) no rompe la generación del PDF.
         var owner = MakeUnit(Guid.NewGuid(), Guid.NewGuid());
         var building = new Building { Name = "Edificio QA", Configuration = new BuildingConfiguration() };
         var service = new InstallmentExportService(
@@ -281,7 +282,34 @@ public class InstallmentExportServiceTests
             building: building,
             categories: [],
             owners: [owner],
-            accountLogoBytes: TinyPngBytes);
+            logoBytes: TinyPngBytes);
+
+        var installment = new Installment { IdGroupUnit = owner.IdGroupUnit, UnitName = "101", OwnerName = "Juan Perez", Period = DateTime.Today };
+
+        var pdfBytes = service.GenerateReceipt(installment);
+
+        Assert.NotEmpty(pdfBytes);
+    }
+
+    [Fact]
+    public void GenerateReceipt_WithAdministradoraName_EmbedsFooterStripWithoutThrowing()
+    {
+        // Franja "Administrado por..." (Opción A del mockup acordado con el
+        // usuario) -- se dibuja independiente de cuál logo ganó arriba, mientras
+        // haya un nombre de Account. Confirma que el logo del Edificio + la
+        // franja + el mensaje "SpiderHoodApp" conviven sin romper el PDF.
+        var owner = MakeUnit(Guid.NewGuid(), Guid.NewGuid());
+        var building = new Building { Name = "Edificio QA", Configuration = new BuildingConfiguration() };
+        var service = new InstallmentExportService(
+            installments: [],
+            budget: new BudgetHeader(),
+            waterReadings: [],
+            exonerations: [],
+            building: building,
+            categories: [],
+            owners: [owner],
+            logoBytes: TinyPngBytes,
+            administradoraName: "Inmobiliaria ACME S.A.C.");
 
         var installment = new Installment { IdGroupUnit = owner.IdGroupUnit, UnitName = "101", OwnerName = "Juan Perez", Period = DateTime.Today };
 

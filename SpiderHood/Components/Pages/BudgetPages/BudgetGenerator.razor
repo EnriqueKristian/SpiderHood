@@ -648,6 +648,17 @@
 
         _BudgetState = await presupuestoService.InitializeBudgetStateAsync(presupuestoService._SelectedBudget!);
         _BudgetState.TotalArea = ParameterService.CurrentBuilding.TotalArea;
+
+        // ParameterService.CurrentBuilding.Configuration se hidrata UNA SOLA VEZ al
+        // iniciar el circuito (ver comentario en IAuthService.RefreshCurrentUserBuildingsAsync)
+        // y de ahí en más solo se refresca en memoria si se visita Configuración del
+        // Edificio -- así que un cambio reciente de WaterReadingDefault (o cualquier otro
+        // campo) podía no reflejarse acá, afectando el cálculo real que SaveCalculation
+        // termina persistiendo como Installment.Amount al publicar. Se refresca acá,
+        // antes de que _BudgetState tome esta referencia, igual que ya hace
+        // InstallmentList.razor.VerDetalle para el recálculo en pantalla.
+        ParameterService.CurrentBuilding.Configuration =
+            await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
         _BudgetState.Configuration = ParameterService.CurrentBuilding.Configuration;
 
 

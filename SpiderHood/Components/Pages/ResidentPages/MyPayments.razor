@@ -9,6 +9,7 @@
 @inject Services.IBudgetService BudgetService
 @inject Services.IServiceReadingService ServiceReadingService
 @inject Services.IBankAccountService BankAccountService
+@inject Services.IBuildingService BuildingService
 @inject ParameterService ParameterService
 
 <PageTitle>Mis Pagos - SpiderHood</PageTitle>
@@ -461,7 +462,14 @@
         if (cuota == null || ParameterService.CurrentBuilding == null) return;
 
         var budget = await BudgetService.GetBudgetByIdAsync(cuota.IdBudgetHeader);
-        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(cuota.Period, ParameterService.CurrentBuilding!.IdBuilding);
+
+        // Ver el mismo comentario y fix en InstallmentList.razor.VerDetalle: refresca
+        // Configuration (WaterReadingDefault, etc.) antes de mostrar el modal, en vez de
+        // confiar en la copia hidratada una sola vez al iniciar el circuito.
+        ParameterService.CurrentBuilding!.Configuration =
+            await BuildingService.GetConfigurationAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(cuota.Period, ParameterService.CurrentBuilding.IdBuilding);
         // Ver el mismo comentario y fix en MyReceipts.razor.VerDetalle.
         var exonerations = await BudgetService.GetExonerationsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 

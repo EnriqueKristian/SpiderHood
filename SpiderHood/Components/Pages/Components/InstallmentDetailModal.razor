@@ -86,10 +86,6 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @{
-                                    decimal _TotalAmount = 0;
-                                }
-
                                 @foreach (var budgetSection in GetSections())
                                 {
                                     var sectionItems = _budget.Details
@@ -114,7 +110,6 @@
                                         @foreach (var item in sectionItems)
                                         {
                                             var itemAmount = CalculateQuote(item);
-                                            _TotalAmount += itemAmount;
 
                                             <tr class="item-row">
                                                 <td class="text-center">
@@ -148,8 +143,6 @@
 
                                                 if (waterReading != null)
                                                 {
-                                                    _TotalAmount += waterReading.CalculatedAmount;
-
                                                     <tr class="water-reading-row bg-info-subtle">
                                                         <td></td>
                                                         <td colspan="2">
@@ -166,7 +159,7 @@
                                                                     </div>
                                                                     <div class="col-4">
                                                                         <small class="text-muted">Consumo</small>
-                                                                        <p class="fw-bold mb-0">@waterReading.Consumption m³</p>
+                                                                        <p class="fw-bold mb-0">@waterReading.Consumption.ToString("N2") m³</p>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -190,13 +183,18 @@
                                 }
                             </tbody>
                             <tfoot class="table-light">
+                                @* Se muestra _installment.Amount (lo realmente cobrado, mismo valor
+                                   que "Total Cuota" arriba), no la suma de las líneas de este desglose:
+                                   en periodos migrados el desglose recalculado puede no coincidir
+                                   centavo a centavo con lo que se facturó en el sistema de origen. Con
+                                   presupuestos generados por SpiderHood ambos valores coinciden. *@
                                 <tr>
                                     <td colspan="3" class="text-end fw-bold py-3">
                                         <i class="bi bi-calculator me-2"></i>TOTAL CUOTA ORDINARIA:
                                     </td>
                                     <td class="text-end py-3">
                                         <span class="total-amount fs-5 fw-bold text-primary">
-                                            @Moneda(_TotalAmount)
+                                            @Moneda(_installment!.Amount)
                                         </span>
                                     </td>
                                     <td colspan="2"></td>

@@ -993,7 +993,6 @@ namespace SpiderHood.Models
                     foreach (var item in sectionItems)
                     {
                         var amount = CalculateItemAmount(item);
-                        totalCuota += amount;
                         sectionPresup += item.MonthlyAmount;
                         sectionCuota += amount;
 
@@ -1012,7 +1011,6 @@ namespace SpiderHood.Models
 
                             if (waterReading != null)
                             {
-                                totalCuota += waterReading.CalculatedAmount;
                                 sectionCuota += waterReading.CalculatedAmount;
 
                                 if (showDetail)
@@ -1026,13 +1024,17 @@ namespace SpiderHood.Models
                     AddSectionSubtotal(table, sectionPresup, sectionCuota);
                 }
 
-                // TOTAL CUOTA ORDINARIA, en una barra de color como en la referencia.
+                // TOTAL CUOTA ORDINARIA, en una barra de color como en la referencia. Se
+                // imprime _installment.Amount (lo realmente cobrado), no totalCuota (la
+                // suma del desglose recalculado): en periodos migrados el desglose puede
+                // no coincidir centavo a centavo con lo facturado en el sistema de origen.
+                // Con presupuestos generados por SpiderHood ambos valores coinciden.
                 var periodo = _installment.Period.ToString("MMM-yy", CultureInfo.InvariantCulture).ToUpper();
                 table.Cell().ColumnSpan(4).PaddingTop(10);
                 table.Cell().ColumnSpan(3).Background(Colors.Blue.Darken2).Padding(6)
                     .Text($"TOTAL CUOTA ORDINARIA {periodo}").Bold().FontColor(Colors.White);
                 table.Cell().Background(Colors.Blue.Darken2).Padding(6).AlignRight()
-                    .Text($"S/ {totalCuota:N2}").Bold().FontSize(12).FontColor(Colors.White);
+                    .Text($"S/ {_installment.Amount:N2}").Bold().FontSize(12).FontColor(Colors.White);
 
                 // Cuotas Extraordinarias/Multas/Mora de esta misma unidad, listadas aparte
                 // del desglose de arriba (igual que en "Ver Detalle" en pantalla) y sumadas
@@ -1055,7 +1057,7 @@ namespace SpiderHood.Models
                     table.Cell().ColumnSpan(3).Background(Colors.Grey.Darken2).Padding(6)
                         .Text("TOTAL GENERAL (Ordinaria + Adicionales)").Bold().FontColor(Colors.White);
                     table.Cell().Background(Colors.Grey.Darken2).Padding(6).AlignRight()
-                        .Text($"S/ {(totalCuota + totalAdicionales):N2}").Bold().FontSize(12).FontColor(Colors.White);
+                        .Text($"S/ {(_installment.Amount + totalAdicionales):N2}").Bold().FontSize(12).FontColor(Colors.White);
                 }
 
                 // "DEUDAS ANTERIORES": cuotas de esta misma unidad, de periodos previos,
@@ -1088,7 +1090,7 @@ namespace SpiderHood.Models
                     table.Cell().Background(Colors.Red.Darken2).Padding(6).AlignRight()
                         .Text($"S/ {deudaAnteriorTotal:N2}").Bold().FontSize(12).FontColor(Colors.White);
 
-                    var granTotal = totalCuota + cargosUnidad.Sum(c => c.Amount) + deudaAnteriorTotal;
+                    var granTotal = _installment.Amount + cargosUnidad.Sum(c => c.Amount) + deudaAnteriorTotal;
                     table.Cell().ColumnSpan(4).PaddingTop(6);
                     table.Cell().ColumnSpan(3).Background(Colors.Black).Padding(6)
                         .Text("DEUDA TOTAL").Bold().FontColor(Colors.White);

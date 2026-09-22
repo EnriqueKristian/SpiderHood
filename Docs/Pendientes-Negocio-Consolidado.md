@@ -1862,6 +1862,113 @@ después de compilar/reiniciar, no en cada F5 normal.
 
 ---
 
+### 30. Pantalla de mantenimiento de Account (Cuenta de Facturación) + Logos para recibos/PDFs
+*(Nuevo 2026-09-22, pedido del usuario)*
+
+**Problema:** `Account` (Docs/Design-Account-Facturacion.md) existe como
+entidad de facturación (`RazonSocial`, `RucDni`, `Telefono`) desde el
+2026-09-04, pero no tiene pantalla propia de mantenimiento -- hoy sólo se
+completa una vez al registrarse (`/register-admin`) y se lee en
+`Settings.razor` para la lista de Colaboradores. Verificado en código:
+`Classes/Account.cs` sólo tiene esos 4 campos + `CreatedAt`, y no hay
+ninguna página que permita editarlos después de creada la cuenta (buscando
+"Account" en `Components/Pages` sólo aparecen consumidores de sólo lectura
+en `EmployeePages/*` y el listado de colaboradores).
+
+**Pedido del usuario (a diseñar/implementar):**
+
+a. **Pantalla de mantenimiento del Account.**
+
+b. **Permisos de edición:** por defecto sólo Administrador podría editar --
+   pero se pide dejar la opción de que otro rol tenga algún permiso sobre
+   esta pantalla. Esto es más que asignar el `PermissionKey` existente: hoy
+   `PermissionDefinition` (`Classes/Permissions/PermissionDefinition.cs`) es
+   un permiso plano (una clave = una acción), sin distinguir
+   lectura/escritura/exportación como ejes separados de un mismo módulo --
+   para poder ofrecer, por ejemplo, "Junta puede LEER el Account pero no
+   editarlo" desde `/Settings/Roles`, hay que elaborar antes ese modelo de
+   permisos (3 acciones por módulo en vez de 1). Evaluar si conviene
+   generalizarlo (afectaría más pantallas, no sólo Account) o resolverlo
+   puntual sólo acá primero.
+
+c. **Persona Natural vs Empresa:** hoy `Account` no distingue el caso --
+   sólo tiene `RazonSocial`/`RucDni` genéricos. Si es una empresa
+   administradora, definir con el usuario qué datos adicionales
+   corresponden (representante legal, dirección fiscal, etc. -- mismo
+   patrón que ya existe para Owner con `BusinessName`/`LegalRepresentative`/
+   `RucType` cuando es Persona Jurídica, `Classes/Owner.cs`, agregado
+   2026-09-05) y si aplica un enum tipo `AccountType`
+   (Natural/Empresa), similar a `OwnerType`.
+
+d. **Logo de la empresa administradora** (nivel Account): imagen a usar en
+   la emisión de recibos/PDFs/reportes exportados. Reusar
+   `IFileStorageService` (mismo mecanismo ya construido para fotos de
+   Incidencias y Recibos PDF, punto 18) en vez de un storage aparte. Falta:
+   columna para la ruta/URL del logo en `Account`, endpoint de carga, y que
+   el exportador de PDF/reporte que corresponda (`InstallmentExportService`
+   u otro) lo incluya en el layout.
+
+e. **Logo/imagen a nivel Edificio** (distinto del de Account, va en el
+   recibo): el usuario aclaró **"cuando llegues a este punto vemos el
+   diseño"** -- no arrancar a construir sin esa conversación primero.
+
+**Relacionado -- revisar antes de construir nada de lo anterior:** el
+usuario pidió revisar cambios que ya hizo en Edificio/Unidades/Propietarios
+para terminar de implementarlos, evaluando primero qué campos van o no --
+y varios de esos campos nuevos son en realidad de la empresa administradora
+(Account), no del edificio, así que hay que resolverlo junto con (c)/(d) de
+arriba. Relevamiento hecho en el código (2026-09-22):
+
+- `Classes/Building.cs`: 15 campos nuevos agregados como `[NotMapped]` (NO
+  persisten -- se pierden al recargar), sin columna en `dbo.Building` ni en
+  `INS_Building`/`UPD_Building`: `ConstructionYear`, `Phone`, `Email`,
+  `Elevators`, `AdminName`, `AdminPhone`, `EmergencyPhone`, `OfficeHours`, y
+  8 flags de amenities (`HasPool`, `HasGym`, `HasBBQ`, `HasEventRoom`,
+  `HasPetArea`, `HasGreenAreas`, `Has247Security`, `HasPorter`,
+  `HasCameras`).
+  - **Ojo:** `Phone`/`Email`/`AdminName`/`AdminPhone` se solapan con
+    `BuildingConfiguration.AdminContact` (`Contact` con
+    Name/Phone/Email/OfficePhone/MobilePhone, ya existente) -- decidir si
+    esto reemplaza a `AdminContact` o es información distinta antes de
+    tener dos lugares para el mismo teléfono/email.
+  - `AdminName`/`AdminPhone`/`EmergencyPhone`/`OfficeHours` suenan a datos
+    de la empresa administradora (Account), no del edificio -- un mismo
+    Account administra varios edificios, no tiene sentido repetirlos por
+    edificio. Candidatos a mover a Account en vez de quedar en Building.
+  - Amenities y `ConstructionYear`/`Elevators` sí son atributos reales del
+    edificio -- candidatos a persistir en `dbo.Building` (o una tabla
+    `BuildingAmenities` aparte si la lista crece más).
+- `Classes/Unit.cs` (`RealEstateUnit`/`UnitView`): 10-11 campos
+  `[NotMapped]` bajo el comentario "NUEVAS PROPIEDADES AGREGADAS PARA EL
+  REDISEÑO": `EstimatedValue`, `LastRenovationDate`, `ConstructedArea`,
+  `HasBalcony`, `HasParking`, `HasStorage`, `HasElevatorAccess`,
+  `IsFurnished`, `HasAirConditioning`, `Restrictions`, más
+  `Status`/`Orientation`/`PlateNumber`/`HasElectricCharging`/`HasWater`/
+  `HasSecurity` específicos por tipo de unidad.
+  - Se solapan con columnas que YA existen y SÍ persisten desde
+    `2026-09-04_49_Unit_ExtraFields.sql`: `IsCovered`/`VehicleType`
+    (estacionamiento) vs. el nuevo `PlateNumber`/`HasElectricCharging`;
+    `HasVentilation`/`HasElectricity` (depósito) vs. el nuevo
+    `HasWater`/`HasSecurity`. Revisar si es información nueva o duplica lo
+    que ya se guarda con otro nombre antes de sumar columnas.
+  - `ConstructedArea` vs. la ya existente `BuiltArea` -- mismo caso,
+    aclarar si es lo mismo con otro nombre o algo distinto.
+- `Classes/Owner.cs`: sólo 3 campos nuevos `[NotMapped]` (`UnitNumber`,
+  `Occupation`, `Employer`) -- menor, mismo tratamiento: decidir si se
+  persisten.
+  - Además, `IsRealEstateCompanyOwner` ya es columna real en
+    `dbo.ApartmentOwner` (confirmado contra la BD restaurada) pero no está
+    mapeada en `Classes/Owner.cs` -- revisar si algún flujo la necesita.
+
+**Antes de tocar código:** decidir con el usuario, campo por campo, (1) si
+se persiste o se descarta, (2) si corresponde a Building o a Account, y (3)
+si duplica algo que ya existe con otro nombre -- recién ahí escribir el
+script de columnas nuevas + actualizar los SPs de alta/edición (mismo
+patrón fail-open que `2026-09-04_49_Unit_ExtraFields.sql`/
+`2026-09-05_52_Owner_ExtraFields.sql`: todo nullable).
+
+---
+
 ## Resumen rápido
 
 | # | Tema | Prioridad | Tipo |
@@ -1896,6 +2003,7 @@ después de compilar/reiniciar, no en cada F5 normal.
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 | 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
+| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs -- también revisar qué campos nuevos de Building/Unit/Owner persistir y cuáles son en realidad de Account | Media | Diseño + código (16+ campos `[NotMapped]` a decidir uno por uno) |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

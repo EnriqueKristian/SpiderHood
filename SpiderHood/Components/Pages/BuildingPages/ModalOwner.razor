@@ -415,40 +415,43 @@
                         }
                     </div>
                     
-                    <div class="modal-footer">
-                        @if (OpenMode != Models.OpenType.ReadOnly && activeTab > 1)
-                        {
-                            <button type="button" class="btn btn-outline-secondary" @onclick="() => activeTab--">
-                                <i class="bi bi-arrow-left me-1"></i>Anterior
-                            </button>
-                        }
-                        
-                        @if (OpenMode != Models.OpenType.ReadOnly && activeTab < 4)
-                        {
-                            <button type="button" class="btn btn-primary" @onclick="() => activeTab++">
-                                Siguiente<i class="bi bi-arrow-right ms-1"></i>
-                            </button>
-                        }
-                        
-                        @if (OpenMode == Models.OpenType.ReadOnly)
-                        {
-                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
-                                <i class="bi bi-x-lg me-1"></i>Cerrar
-                            </button>
-                        }
-                        else
-                        {
-                            <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
-                                <i class="bi bi-x-lg me-1"></i>Cancelar
-                            </button>
-                            
-                            @if (activeTab == 4)
+                    <div class="modal-footer d-flex justify-content-between">
+                        <div>
+                            @if (OpenMode != Models.OpenType.ReadOnly && activeTab > 1)
                             {
-                                <button type="submit" form="create" class="btn btn-primary">
-                                    <i class="bi bi-check-lg me-1"></i>@((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
+                                <button type="button" class="btn btn-outline-secondary" @onclick="() => activeTab--">
+                                    <i class="bi bi-arrow-left me-1"></i>Anterior
                                 </button>
                             }
-                        }
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            @if (OpenMode == Models.OpenType.ReadOnly)
+                            {
+                                <button type="button" class="btn btn-secondary" @onclick="CerrarModal">
+                                    <i class="bi bi-x-lg me-1"></i>Cerrar
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-outline-secondary" @onclick="CerrarModal">
+                                    <i class="bi bi-x-lg me-1"></i>Cancelar
+                                </button>
+
+                                @if (activeTab < 4)
+                                {
+                                    <button type="button" class="btn btn-primary" @onclick="() => activeTab++">
+                                        Siguiente<i class="bi bi-arrow-right ms-1"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="submit" form="create" class="btn btn-primary">
+                                        <i class="bi bi-check-lg me-1"></i>@((OpenMode == Models.OpenType.Create) ? "Guardar" : "Actualizar")
+                                    </button>
+                                }
+                            }
+                        </div>
                     </div>
                 </EditForm>
             </div>

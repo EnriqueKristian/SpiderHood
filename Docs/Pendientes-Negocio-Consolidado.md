@@ -401,6 +401,57 @@ La pantalla de administración de Permisos ya está implementada, pero no
 hay forma de llegar ahí desde el menú -- hay que crear el ítem desde
 `/Settings/MenuItems` (tarea de configuración, no de código).
 
+### 31. Modales de Edificio/Unidad/Propietario: scroll forzado para guardar + botones desalineados
+*(Nuevo 2026-09-22, reportado por el usuario -- **RESUELTO** el mismo día)*
+
+El usuario reportó dos síntomas al usar los modales de Nuevo/Editar
+Edificio, Unidad y Propietario: (1) tenía que desplazarse hasta el final
+de la página para llegar al botón Guardar, y (2) el diseño de los botones
+del pie no se veía bien alineado. Verificado en el código -- 2 causas
+reales, distintas por pantalla:
+
+- **Scroll forzado (Edificio y Unidad, NO Propietario):**
+  `BuildingPage.razor` (`<Modal>` de BlazorBootstrap) y `ModalUnit.razor`
+  (modal armado a mano) no tenían activado el scroll interno del cuerpo
+  del modal -- sin eso, el modal crece con el contenido de cada tab (ahora
+  más largo todavía por el logo agregado en Edificio y la sección
+  "Información Adicional" agregada en Unidad, ver #30) y el botón Guardar
+  del pie queda empujado fuera de la pantalla; hay que scrollear la
+  PÁGINA completa, no el modal, para alcanzarlo. `ModalOwner.razor` ya
+  tenía `modal-dialog-scrollable` desde antes (por eso Propietario no
+  tenía este síntoma) -- se agregó `IsScrollable="true"` al `<Modal>` de
+  Edificio y la clase `modal-dialog-scrollable` al de Unidad, mismo
+  criterio que ya usaba Propietario: ahora sólo el cuerpo del modal
+  scrollea, el pie con los botones queda siempre visible.
+- **Botones desalineados (los 3 modales, causas distintas):**
+  - `BuildingPage.razor` usaba `justify-content-between` con 3 botones en
+    el mismo nivel (Anterior, Siguiente/Crear, Cancelar) -- con ese
+    layout, Flexbox deja "Crear" en el medio de la fila en vez de al lado
+    de "Cancelar", que quedaba en un extremo separado de la acción
+    principal.
+  - `ModalUnit.razor`/`ModalOwner.razor` usaban `.modal-footer` sin
+    ningún `justify-content` propio -- el default de Bootstrap
+    (`flex-end`) amontona TODOS los botones a la derecha sin separación,
+    así que "Anterior" (navegación) quedaba pegado a "Cancelar"/"Guardar"
+    (acciones) sin ninguna distinción visual entre los dos grupos.
+  - Se unificaron los 3 footers al mismo patrón: "Anterior" solo a la
+    izquierda (cuando aplica), "Cancelar" + "Siguiente"/"Guardar" juntos a
+    la derecha -- mismo agrupamiento en las 3 pantallas.
+  - De paso, en `BuildingPage.razor` se encontró y corrigió un bug real
+    en el botón de submit: `form="_editingBuilding.GetType().Name"` era
+    un STRING LITERAL (le faltaba `@` para evaluarse como código C#), y
+    apuntaba a un `id` que el `<EditForm>` ni siquiera tenía -- como el
+    botón vive en un `FooterTemplate` aparte del `<EditForm>` (a
+    diferencia de Unidad/Propietario, donde el formulario envuelve tanto
+    el cuerpo como el pie), sin un `form=` que matchee de verdad el botón
+    queda sin ningún formulario al que enviar. Se le puso `id`
+    explícito al `EditForm` (`editBuildingForm`) y se corrigió el
+    `form=` del botón para que apunte ahí.
+
+Verificado `dotnet build`/`dotnet test` en 0 errores, 172/172 (sin tests
+nuevos -- es un cambio de layout/markup, no de lógica de negocio
+testeable por unit test).
+
 ---
 
 ## Prioridad Baja -- deuda técnica menor, casos puntuales o decisiones ya tomadas de dejar afuera
@@ -2142,6 +2193,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 | 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
 | 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | **Resuelto por completo** (2026-09-22) -- Building/Unit/Owner (34 campos) + (a)-(e), incluyendo logo del Edificio con fallback al de Account y franja "Administrado por..." con mención SpiderHoodApp |
+| 31 | Modales de Edificio/Unidad/Propietario: scroll forzado para guardar + botones desalineados | Media | **Resuelto** (2026-09-22) -- scroll interno del modal activado en Edificio/Unidad, botones reagrupados en los 3, y un `form=` roto en Edificio corregido |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

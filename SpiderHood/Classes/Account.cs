@@ -1,5 +1,13 @@
 namespace SpiderHood.Models
 {
+    // Natural (una persona administra a título propio) vs Empresa (una
+    // inmobiliaria/administradora formal) -- mismo concepto y mismos valores que
+    // OwnerType (Unit.cs), pero es un enum propio: Account y Owner son entidades
+    // distintas y no hay ninguna razón de negocio para que compartan literalmente
+    // el mismo tipo (uno es quién paga la Subscription, el otro quién es dueño de
+    // una unidad) más allá de la coincidencia de nombres de los 2 valores.
+    public enum AccountType { Natural = 1, Empresa = 2 }
+
     // Cuenta de facturación (Docs/Design-Account-Facturacion.md) -- a quién se le
     // cobra la Subscription y de qué "pool" de edificios sale el MaxBuildings del
     // plan. NO reemplaza a UserBuildingAssociation (acceso real persona-edificio);
@@ -7,10 +15,28 @@ namespace SpiderHood.Models
     public class Account
     {
         public Guid IdAccount { get; set; }
+        // Nombre completo (Natural) o razón social de la empresa (Empresa) --
+        // un solo campo para los dos casos, mismo criterio que ya usa
+        // ModalOwner.razor para Persona Natural/Jurídica (reutiliza Names en vez
+        // de duplicar en dos propiedades distintas).
         public string? RazonSocial { get; set; }
         public string? RucDni { get; set; }
         public string? Telefono { get; set; }
         public DateTime CreatedAt { get; set; }
+
+        // --- Campos agregados en
+        // Database/Scripts/2026-09-22_136_Account_NaturalEmpresa.sql
+        // (Docs/Pendientes-Negocio-Consolidado.md #30, punto c).
+        public AccountType AccountType { get; set; } = AccountType.Natural;
+
+        // Sólo tiene sentido cuando AccountType == Empresa -- nullable a
+        // propósito, no se valida server-side si falta (fail-open, mismo
+        // criterio que el resto de los campos "sólo Persona Jurídica" de Owner).
+        public string? LegalRepresentative { get; set; }
+
+        // Dirección fiscal para facturación -- aplica a los dos tipos (una
+        // persona Natural con RUC también factura desde una dirección).
+        public string? FiscalAddress { get; set; }
     }
 
     // Fila de GET_AccountUsersByAccount -- denormalizada (trae nombre/email del

@@ -1303,7 +1303,10 @@ namespace SpiderHood.Data
                     account.IdAccount,
                     (object?)account.RazonSocial,
                     (object?)account.RucDni,
-                    (object?)account.Telefono);
+                    (object?)account.Telefono,
+                    (int)account.AccountType,
+                    (object?)account.LegalRepresentative,
+                    (object?)account.FiscalAddress);
                 return account;
             }, "AddAccount", cancellationToken);
         }

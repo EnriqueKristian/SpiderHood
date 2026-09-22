@@ -72,17 +72,49 @@
                 }
                 @if (_editingAccountInfo)
                 {
+                    <div class="mb-3">
+                        <label class="form-label small text-muted mb-1 d-block">Tipo de Cuenta</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" id="accountTypeNatural" name="accountType"
+                                       checked="@(_accountForm.AccountType == Models.AccountType.Natural)"
+                                       disabled="@_savingAccount"
+                                       @onchange="@(() => _accountForm.AccountType = Models.AccountType.Natural)" />
+                                <label for="accountTypeNatural" class="form-check-label">Natural</label>
+                            </div>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" id="accountTypeEmpresa" name="accountType"
+                                       checked="@(_accountForm.AccountType == Models.AccountType.Empresa)"
+                                       disabled="@_savingAccount"
+                                       @onchange="@(() => _accountForm.AccountType = Models.AccountType.Empresa)" />
+                                <label for="accountTypeEmpresa" class="form-check-label">Empresa</label>
+                            </div>
+                        </div>
+                    </div>
                     <div class="mb-2">
-                        <label class="form-label small text-muted mb-1">Razón Social / Nombre</label>
+                        <label class="form-label small text-muted mb-1">
+                            @(_accountForm.AccountType == Models.AccountType.Empresa ? "Razón Social" : "Nombre Completo")
+                        </label>
                         <input class="form-control" @bind="_accountForm.RazonSocial" disabled="@_savingAccount" />
                     </div>
                     <div class="mb-2">
                         <label class="form-label small text-muted mb-1">RUC / DNI</label>
                         <input class="form-control" @bind="_accountForm.RucDni" disabled="@_savingAccount" />
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label small text-muted mb-1">Teléfono</label>
                         <input class="form-control" @bind="_accountForm.Telefono" disabled="@_savingAccount" />
+                    </div>
+                    @if (_accountForm.AccountType == Models.AccountType.Empresa)
+                    {
+                        <div class="mb-2">
+                            <label class="form-label small text-muted mb-1">Representante Legal</label>
+                            <input class="form-control" @bind="_accountForm.LegalRepresentative" disabled="@_savingAccount" />
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label small text-muted mb-1">Dirección Fiscal</label>
+                        <input class="form-control" @bind="_accountForm.FiscalAddress" disabled="@_savingAccount" />
                     </div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-primary btn-sm" disabled="@_savingAccount" @onclick="SaveAccountInfoAsync">
@@ -97,7 +129,13 @@
                 {
                     <ul class="list-group list-group-flush mb-2">
                         <li class="list-group-item d-flex justify-content-between lh-sm">
-                            <span class="text-muted">Razón Social / Nombre</span>
+                            <span class="text-muted">Tipo de Cuenta</span>
+                            <span class="badge @(_account.AccountType == Models.AccountType.Empresa ? "bg-info" : "bg-secondary")">
+                                @(_account.AccountType == Models.AccountType.Empresa ? "Empresa" : "Natural")
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                            <span class="text-muted">@(_account.AccountType == Models.AccountType.Empresa ? "Razón Social" : "Nombre Completo")</span>
                             <span class="fw-bold">@(_account.RazonSocial ?? "-")</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between lh-sm">
@@ -107,6 +145,17 @@
                         <li class="list-group-item d-flex justify-content-between lh-sm">
                             <span class="text-muted">Teléfono</span>
                             <span>@(_account.Telefono ?? "-")</span>
+                        </li>
+                        @if (_account.AccountType == Models.AccountType.Empresa)
+                        {
+                            <li class="list-group-item d-flex justify-content-between lh-sm">
+                                <span class="text-muted">Representante Legal</span>
+                                <span>@(_account.LegalRepresentative ?? "-")</span>
+                            </li>
+                        }
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                            <span class="text-muted">Dirección Fiscal</span>
+                            <span>@(_account.FiscalAddress ?? "-")</span>
                         </li>
                     </ul>
                     @if (_canEditAccount)
@@ -292,6 +341,9 @@
             RazonSocial = _account.RazonSocial,
             RucDni = _account.RucDni,
             Telefono = _account.Telefono,
+            AccountType = _account.AccountType,
+            LegalRepresentative = _account.LegalRepresentative,
+            FiscalAddress = _account.FiscalAddress,
         };
         _editingAccountInfo = true;
     }
@@ -310,7 +362,8 @@
         try
         {
             _account = await AccountService.UpdateAccountAsync(
-                _account.IdAccount, _accountForm.RazonSocial, _accountForm.RucDni, _accountForm.Telefono);
+                _account.IdAccount, _accountForm.RazonSocial, _accountForm.RucDni, _accountForm.Telefono,
+                _accountForm.AccountType, _accountForm.LegalRepresentative, _accountForm.FiscalAddress);
             _editingAccountInfo = false;
         }
         catch (Exception ex)

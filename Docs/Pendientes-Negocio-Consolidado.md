@@ -1865,10 +1865,10 @@ después de compilar/reiniciar, no en cada F5 normal.
 ### 30. Pantalla de mantenimiento de Account (Cuenta de Facturación) + Logos para recibos/PDFs
 *(Nuevo 2026-09-22, pedido del usuario -- la parte de Building/Unit/Owner
 del punto "Relacionado" de abajo quedó **IMPLEMENTADA** el mismo día,
-`dotnet build`/`dotnet test` en 0 errores y 169/169 tests. Punto (a) -- la
-pantalla básica -- también **IMPLEMENTADO** el mismo día, ver detalle al
-final de esta sección. Quedan (b) permisos granulares, (c) Natural/Empresa
-y (d)/(e) logos.)*
+`dotnet build`/`dotnet test` en 0 errores y 169/169 tests. Puntos (a)
+pantalla básica y (c) Natural/Empresa también **IMPLEMENTADOS** el mismo
+día, ver detalle en cada punto. Quedan (b) permisos granulares y (d)/(e)
+logos.)*
 
 **Problema:** `Account` (Docs/Design-Account-Facturacion.md) existe como
 entidad de facturación (`RazonSocial`, `RucDni`, `Telefono`) desde el
@@ -1907,14 +1907,27 @@ b. **Permisos de edición:** por defecto sólo Administrador podría editar --
    generalizarlo (afectaría más pantallas, no sólo Account) o resolverlo
    puntual sólo acá primero.
 
-c. **Persona Natural vs Empresa:** hoy `Account` no distingue el caso --
-   sólo tiene `RazonSocial`/`RucDni` genéricos. Si es una empresa
-   administradora, definir con el usuario qué datos adicionales
-   corresponden (representante legal, dirección fiscal, etc. -- mismo
-   patrón que ya existe para Owner con `BusinessName`/`LegalRepresentative`/
-   `RucType` cuando es Persona Jurídica, `Classes/Owner.cs`, agregado
-   2026-09-05) y si aplica un enum tipo `AccountType`
-   (Natural/Empresa), similar a `OwnerType`.
+c. **Persona Natural vs Empresa.** **RESUELTO (2026-09-22).** Se agregó
+   `Models.AccountType` (`Natural = 1, Empresa = 2` -- enum propio, no
+   reusa `OwnerType` aunque comparta los mismos 2 valores: son entidades
+   de negocio distintas) + `Account.LegalRepresentative` y
+   `Account.FiscalAddress` (`Database/Scripts/2026-09-22_136_*.sql`,
+   `AccountType` NOT NULL DEFAULT 1 -- toda cuenta existente queda Natural
+   hasta que se corrija --, los otros 2 nullable/fail-open). `RazonSocial`
+   se sigue reutilizando para los dos casos (nombre completo o razón
+   social), mismo criterio que ya usa `ModalOwner.razor` para Persona
+   Natural/Jurídica -- no se duplicó en 2 campos. La pantalla "Datos de
+   Facturación" (punto a) ahora tiene el radio Natural/Empresa: el label de
+   "Razón Social"/"Nombre Completo" cambia según el tipo, y
+   "Representante Legal" sólo se muestra (y sólo se guarda) cuando es
+   Empresa -- se limpia solo si se cambia de vuelta a Natural, para no
+   dejar un dato fantasma. `IAccountService.UpdateAccountAsync` ahora
+   toma los 3 campos nuevos; `CreateAccountAsync` (usado en
+   `/register-admin`) sigue igual -- toda cuenta nace Natural, se corrige
+   a Empresa desde Settings si corresponde (cambiar el registro para
+   elegir el tipo desde el alta queda fuera de este alcance). Verificado
+   end-to-end contra la BD real y `dotnet build`/`dotnet test` en 0
+   errores, 169/169.
 
 d. **Logo de la empresa administradora** (nivel Account): imagen a usar en
    la emisión de recibos/PDFs/reportes exportados. Reusar
@@ -2064,7 +2077,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 | 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
-| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Building/Unit/Owner (34 campos) y (a) pantalla básica **resueltos** (2026-09-22) -- quedan (b) permisos granulares, (c) Natural/Empresa, (d)/(e) logos |
+| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Building/Unit/Owner (34 campos), (a) pantalla básica y (c) Natural/Empresa **resueltos** (2026-09-22) -- quedan (b) permisos granulares, (d)/(e) logos |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

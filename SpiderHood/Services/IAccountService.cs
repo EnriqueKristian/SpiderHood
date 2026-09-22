@@ -14,9 +14,13 @@ namespace SpiderHood.Services
         Task<Account> CreateAccountAsync(Guid ownerIdUser, string? razonSocial, string? rucDni, string? telefono);
 
         // Pantalla de mantenimiento del Account (Docs/Pendientes-Negocio-Consolidado.md
-        // #30, punto a) -- hasta ahora RazonSocial/RucDni/Telefono sólo se cargaban una
-        // vez al registrarse, sin forma de corregirlos después.
-        Task<Account> UpdateAccountAsync(Guid idAccount, string? razonSocial, string? rucDni, string? telefono);
+        // #30, puntos a y c) -- hasta ahora RazonSocial/RucDni/Telefono sólo se
+        // cargaban una vez al registrarse, sin forma de corregirlos después, y no
+        // existía la distinción Natural/Empresa. accountType nace en Natural en
+        // CreateAccountAsync (registro) -- se corrige a Empresa, si corresponde,
+        // desde acá.
+        Task<Account> UpdateAccountAsync(Guid idAccount, string? razonSocial, string? rucDni, string? telefono,
+            AccountType accountType, string? legalRepresentative, string? fiscalAddress);
 
         Task<List<AccountUserView>> GetCollaboratorsAsync(Guid idAccount);
 
@@ -72,7 +76,8 @@ namespace SpiderHood.Services
             return account;
         }
 
-        public async Task<Account> UpdateAccountAsync(Guid idAccount, string? razonSocial, string? rucDni, string? telefono)
+        public async Task<Account> UpdateAccountAsync(Guid idAccount, string? razonSocial, string? rucDni, string? telefono,
+            AccountType accountType, string? legalRepresentative, string? fiscalAddress)
         {
             var account = new Account
             {
@@ -80,6 +85,12 @@ namespace SpiderHood.Services
                 RazonSocial = razonSocial,
                 RucDni = rucDni,
                 Telefono = telefono,
+                AccountType = accountType,
+                // Sólo tiene sentido para Empresa -- se limpia si se cambia a
+                // Natural, para no dejar un representante legal "fantasma" colgado
+                // de una cuenta que ya no es empresa.
+                LegalRepresentative = accountType == AccountType.Empresa ? legalRepresentative : null,
+                FiscalAddress = fiscalAddress,
             };
             await Ec.UpdateRecordAsync(account);
             return account;

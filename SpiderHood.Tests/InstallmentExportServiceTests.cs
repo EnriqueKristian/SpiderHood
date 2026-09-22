@@ -157,4 +157,103 @@ public class InstallmentExportServiceTests
 
         Assert.Equal(0m, amount);
     }
+
+    [Fact]
+    public void CalculateItemAmount_MultipleGroupsExoneratedFromSameCategory_AllPayZero()
+    {
+        // Antes se comparaba contra exonerations.Where(...).Select(...).FirstOrDefault(),
+        // así que con MÁS DE UN grupo exonerado de la misma categoría solo el primero de
+        // la lista se libraba de verdad -- el segundo caía al cálculo normal y salía
+        // cobrado. Mismo fix ya aplicado en BudgetState.cs CalculateQuota().
+        var groupA = Guid.NewGuid();
+        var groupB = Guid.NewGuid();
+        var category = Guid.NewGuid();
+        var owners = new List<OwnerUnitView> { MakeUnit(groupA, Guid.NewGuid()), MakeUnit(groupB, Guid.NewGuid()) };
+
+        var building = new Building { Configuration = new BuildingConfiguration() };
+        var exonerations = new List<Exoneration>
+        {
+            new() { IdGroupUnit = groupA, IdCategory = category },
+            new() { IdGroupUnit = groupB, IdCategory = category },
+        };
+
+        var service = new InstallmentExportService(
+            installments: [],
+            budget: new BudgetHeader(),
+            waterReadings: [],
+            exonerations: exonerations,
+            building: building,
+            categories: [],
+            owners: owners);
+
+        var item = new BudgetDetail { Type = 1, MonthlyAmount = 500m, IdCategory = category };
+
+        Assert.Equal(0m, InvokeCalculateItemAmount(service, new Installment { IdGroupUnit = groupA }, item));
+        Assert.Equal(0m, InvokeCalculateItemAmount(service, new Installment { IdGroupUnit = groupB }, item));
+    }
+
+    [Fact]
+    public void CalculateItemAmount_ForWaterCategory_ExoneratedGroupPaysZero_AndOthersAbsorbTheDifference()
+    {
+        // El agua áreas comunes hoy no aplicaba exoneraciones a su divisor -- a pedido
+        // explícito del negocio, ahora respeta exoneraciones igual que Fija.
+        var groupA = Guid.NewGuid(); // exonerado
+        var groupB = Guid.NewGuid();
+        var waterCategory = Guid.NewGuid();
+        var owners = new List<OwnerUnitView> { MakeUnit(groupA, Guid.NewGuid()), MakeUnit(groupB, Guid.NewGuid()) };
+
+        var building = new Building { Configuration = new BuildingConfiguration { WaterReadingDefault = waterCategory } };
+        var waterReadings = new List<ServiceReadingDetail> { new() { CalculatedAmount = 0m } };
+        var exonerations = new List<Exoneration> { new() { IdGroupUnit = groupA, IdCategory = waterCategory } };
+
+        var service = new InstallmentExportService(
+            installments: [],
+            budget: new BudgetHeader(),
+            waterReadings: waterReadings,
+            exonerations: exonerations,
+            building: building,
+            categories: [],
+            owners: owners);
+
+        var item = new BudgetDetail { MonthlyAmount = 100m, IdCategory = waterCategory };
+
+        Assert.Equal(0m, InvokeCalculateItemAmount(service, new Installment { IdGroupUnit = groupA }, item));
+        // Denominador ahora resta el exonerado (2-1=1): groupB absorbe el 100%, no el 50%.
+        Assert.Equal(100m, InvokeCalculateItemAmount(service, new Installment { IdGroupUnit = groupB }, item));
+    }
+
+    [Fact]
+    public void CalculateItemAmount_UsesFrozenNroApartments_InsteadOfCurrentBuildingComposition()
+    {
+        // BudgetDetail.NroApartments congela el divisor al momento de publicar (ver
+        // BudgetCalculator.CalculateQuota). Si luego el edificio cambia (acá: se agrega
+        // una unidad más, pasando de 2 a 3), el desglose de un presupuesto ya publicado
+        // no debe cambiar -- debe seguir usando el valor congelado, no GetTotalUnits().
+        var groupA = Guid.NewGuid();
+        var owners = new List<OwnerUnitView>
+        {
+            MakeUnit(groupA, Guid.NewGuid()),
+            MakeUnit(Guid.NewGuid(), Guid.NewGuid()),
+            MakeUnit(Guid.NewGuid(), Guid.NewGuid()), // unidad agregada DESPUÉS de publicar
+        };
+
+        var building = new Building { Configuration = new BuildingConfiguration() };
+        var service = new InstallmentExportService(
+            installments: [],
+            budget: new BudgetHeader(),
+            waterReadings: [],
+            exonerations: [],
+            building: building,
+            categories: [],
+            owners: owners);
+
+        var installment = new Installment { IdGroupUnit = groupA };
+        // NroApartments=2: el divisor real al publicar, antes de la 3ra unidad.
+        var item = new BudgetDetail { Type = 1, MonthlyAmount = 100m, IdCategory = Guid.NewGuid(), NroApartments = 2 };
+
+        var amount = InvokeCalculateItemAmount(service, installment, item);
+
+        // 100 / 2 (congelado) = 50, no 100 / 3 (composición actual) = 33.33.
+        Assert.Equal(50m, amount);
+    }
 }

@@ -157,6 +157,77 @@ public class BudgetCalculatorTests
     }
 
     [Fact]
+    public void CalculateQuota_WaterExoneratedGroupPaysOnlyIndividualConsumption()
+    {
+        // El agua áreas comunes antes ignoraba exoneraciones por completo -- a pedido
+        // explícito del negocio, ahora las respeta igual que Fija.
+        var groupA = Guid.NewGuid(); // exonerado del área común de agua
+        var groupB = Guid.NewGuid();
+        var waterCategory = Guid.NewGuid();
+
+        var state = new BudgetState
+        {
+            TotalArea = 200m,
+            Owners = [MakeOwnerUnit(groupA, 100m, "101", "Owner A"), MakeOwnerUnit(groupB, 100m, "102", "Owner B")],
+            WaterReadings =
+            [
+                new ServiceReadingDetail { IdGroupUnit = groupA, CalculatedAmount = 30m },
+                new ServiceReadingDetail { IdGroupUnit = groupB, CalculatedAmount = 20m },
+            ],
+            Configuration = new BuildingConfiguration { WaterReadingDefault = waterCategory },
+            Exonerations = [new Exoneration { IdGroupUnit = groupA, IdCategory = waterCategory }]
+        };
+        state.Budget.Details.Add(new BudgetDetail { IsHeader = false, Type = 2, MonthlyAmount = 100m, IdCategory = waterCategory });
+
+        var total = new BudgetCalculator(state).CalculateQuota(totalApartments: 2);
+
+        var byGroup = state.Installments.ToDictionary(i => i.IdGroupUnit, i => i.Amount);
+        // groupA exonerado: paga solo su consumo individual medido (30), nada del
+        // área común compartida.
+        Assert.Equal(30m, byGroup[groupA]);
+        // Denominador resta el exonerado (2-1=1): groupB absorbe TODA la diferencia
+        // común (100-50=50), no solo la mitad que le tocaría sin exoneración.
+        Assert.Equal(20m + 50m, byGroup[groupB]);
+        Assert.Equal(100m, total);
+    }
+
+    [Fact]
+    public void CalculateQuota_FreezesNroApartmentsOnFijaAndWaterOnly()
+    {
+        var groupA = Guid.NewGuid(); // exonerado de la categoría Fija
+        var groupB = Guid.NewGuid();
+        var catFixed = Guid.NewGuid();
+        var catProp = Guid.NewGuid();
+        var waterCategory = Guid.NewGuid();
+
+        var state = new BudgetState
+        {
+            TotalArea = 200m,
+            Owners = [MakeOwnerUnit(groupA, 100m, "101", "Owner A"), MakeOwnerUnit(groupB, 100m, "102", "Owner B")],
+            WaterReadings =
+            [
+                new ServiceReadingDetail { IdGroupUnit = groupA, CalculatedAmount = 10m },
+                new ServiceReadingDetail { IdGroupUnit = groupB, CalculatedAmount = 10m },
+            ],
+            Configuration = new BuildingConfiguration { WaterReadingDefault = waterCategory },
+            Exonerations = [new Exoneration { IdGroupUnit = groupA, IdCategory = catFixed }]
+        };
+        var fijaItem = new BudgetDetail { IsHeader = false, Type = 1, MonthlyAmount = 100m, IdCategory = catFixed };
+        var propItem = new BudgetDetail { IsHeader = false, Type = 2, MonthlyAmount = 1000m, IdCategory = catProp };
+        var waterItem = new BudgetDetail { IsHeader = false, Type = 2, MonthlyAmount = 100m, IdCategory = waterCategory };
+        state.Budget.Details.AddRange([fijaItem, propItem, waterItem]);
+
+        new BudgetCalculator(state).CalculateQuota(totalApartments: 2);
+
+        // Fija: 2 unidades - 1 exonerada = 1.
+        Assert.Equal(1, fijaItem.NroApartments);
+        // Agua: sin exoneraciones en esta categoría, las 2 unidades completas.
+        Assert.Equal(2, waterItem.NroApartments);
+        // %-based (por área) no usa "número de unidades" -- se deja sin tocar.
+        Assert.Null(propItem.NroApartments);
+    }
+
+    [Fact]
     public void CalculateQuota_WithZeroApartments_ThrowsDivideByZero()
     {
         var group = Guid.NewGuid();

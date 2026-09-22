@@ -1225,29 +1225,38 @@ namespace SpiderHood.Models
         private decimal CalculateItemAmount(BudgetDetail item)
         {
             var pesoFija = GetUnitCount(_installment.IdGroupUnit);
+            bool esCategoriaAgua = item.IdCategory == _building.Configuration.WaterReadingDefault && _waterReadings.Any();
 
-            if (item.IdCategory == _building.Configuration.WaterReadingDefault && _waterReadings.Any())
-            {
-                var totalWaterConsumption = _waterReadings.Sum(w => w.CalculatedAmount);
-                var inverseNroGroupUnit = GetTotalUnits() > 0 ? 1m / GetTotalUnits() : 0;
-                // Math.Max(0, ...) en vez de Math.Abs -- ver el mismo fix y comentario en
-                // BudgetState.cs CalculateQuota().
-                return Math.Round(Math.Max(0, item.MonthlyAmount - totalWaterConsumption) * inverseNroGroupUnit * pesoFija, 2);
-            }
+            // Any() sobre TODAS las exoneraciones de la categoría, no solo la primera que
+            // aparezca -- antes comparaba contra ...FirstOrDefault(), así que con más de
+            // un grupo exonerado de la misma categoría solo el primero se libraba de
+            // verdad (mismo fix ya aplicado en BudgetState.cs CalculateQuota()). Ahora
+            // aplica igual para Agua (antes Agua ignoraba las exoneraciones por completo).
+            bool exonerado = _exonerations.Any(c => c.IdCategory == item.IdCategory && c.IdGroupUnit == _installment.IdGroupUnit);
 
-            var idGroupUnitExonerado = _exonerations
-                .Where(c => c.IdCategory == item.IdCategory)
-                .Select(c => c.IdGroupUnit)
-                .FirstOrDefault();
-
-            if (_installment.IdGroupUnit == idGroupUnitExonerado)
+            if (exonerado)
             {
                 return 0;
             }
 
+            // Cuántas unidades dividen esta categoría, ya sin las exoneradas. Para un
+            // presupuesto ya publicado se usa el valor CONGELADO en BudgetDetail.
+            // NroApartments (ver BudgetCalculator.CalculateQuota) en vez de recalcularlo
+            // con la composición ACTUAL del edificio. Null solo en presupuestos guardados
+            // antes de este campo, donde se recalcula en vivo como antes.
             var nroExcepciones = _exonerations.Count(c => c.IdCategory == item.IdCategory);
+            var unidadesQueDividen = item.NroApartments ?? (GetTotalUnits() - nroExcepciones);
+
+            if (esCategoriaAgua)
+            {
+                var totalWaterConsumption = _waterReadings.Sum(w => w.CalculatedAmount);
+                // Math.Max(0, ...) en vez de Math.Abs -- ver el mismo fix y comentario en
+                // BudgetState.cs CalculateQuota().
+                return Math.Round(Math.Max(0, item.MonthlyAmount - totalWaterConsumption) / unidadesQueDividen * pesoFija, 2);
+            }
+
             var total = item.Type == 1
-                ? item.MonthlyAmount / (GetTotalUnits() - nroExcepciones) * pesoFija
+                ? item.MonthlyAmount / unidadesQueDividen * pesoFija
                 : item.MonthlyAmount * (_installment.Percent / 100);
 
             return Math.Round(total, 2);

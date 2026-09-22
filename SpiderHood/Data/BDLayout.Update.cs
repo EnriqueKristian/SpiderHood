@@ -643,7 +643,8 @@ namespace SpiderHood.Data
                     budgetDetail.AnnualAmount,
                     budgetDetail.Frequency,
                     budgetDetail.Type,
-                    budgetDetail.IsHeader);
+                    budgetDetail.IsHeader,
+                    (object?)budgetDetail.NroApartments ?? DBNull.Value);
                 return budgetDetail;
             }, "UpdateBudgetDetail", cancellationToken);
         }

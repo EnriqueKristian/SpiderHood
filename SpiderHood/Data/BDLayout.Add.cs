@@ -803,7 +803,8 @@ namespace SpiderHood.Data
                     budgetDetail.Frequency,
                     budgetDetail.Type,
                     budgetDetail.IsHeader,
-                    budgetDetail.IdBudgetHeader);
+                    budgetDetail.IdBudgetHeader,
+                    (object?)budgetDetail.NroApartments ?? DBNull.Value);
                 return budgetDetail;
             }, "AddBudgetDetail", cancellationToken);
         }

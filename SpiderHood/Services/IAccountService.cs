@@ -22,6 +22,16 @@ namespace SpiderHood.Services
         Task<Account> UpdateAccountAsync(Guid idAccount, string? razonSocial, string? rucDni, string? telefono,
             AccountType accountType, string? legalRepresentative, string? fiscalAddress);
 
+        // Logo de la empresa administradora (Docs/Pendientes-Negocio-Consolidado.md
+        // #30, punto d) -- reusa IFileStorageService, mismo mecanismo que fotos de
+        // Incidencias/Recibos PDF. Reemplaza el logo anterior si ya había uno
+        // (no se acumulan versiones -- sólo hay un logo vigente por Account).
+        Task UploadLogoAsync(Guid idAccount, string fileName, string contentType, byte[] content);
+
+        // Null si el Account no tiene logo cargado o si ya no está en storage
+        // (mismo criterio fail-open que IFileStorageService.ReadAsync).
+        Task<(byte[] Content, string ContentType)?> GetLogoAsync(Guid idAccount);
+
         Task<List<AccountUserView>> GetCollaboratorsAsync(Guid idAccount);
 
         Task<List<AccountInvitation>> GetPendingInvitationsAsync(Guid idAccount);
@@ -45,14 +55,30 @@ namespace SpiderHood.Services
 
     public class AccountService : IAccountService
     {
+        // Whitelist deliberada, mismo criterio que IIncidentService -- sólo
+        // raster (no SVG): el logo se embebe en el PDF del recibo vía
+        // QuestPDF's Image(byte[]) (InstallmentExportService.ComposeHeader), que
+        // no decodifica SVG -- aceptar SVG acá rompería silenciosamente el PDF
+        // apenas alguien subiera uno.
+        private static readonly HashSet<string> AllowedLogoExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".jpg", ".jpeg", ".png", ".webp"
+        };
+        // 2 MB alcanza de sobra para un logo (no es una foto) -- lo mantiene
+        // liviano para no inflar cada PDF de recibo que lo incluya.
+        private const int MaxLogoSizeBytes = 2 * 1024 * 1024;
+
         private BDLayout Ec { get; }
         private readonly IEmailService _emailService;
+        private readonly IFileStorageService _fileStorage;
         private readonly string _baseUrl;
 
-        public AccountService(IDbContextFactory<SpiderHoodContext> contextFactory, IEmailService emailService, IConfiguration configuration)
+        public AccountService(IDbContextFactory<SpiderHoodContext> contextFactory, IEmailService emailService,
+            IFileStorageService fileStorage, IConfiguration configuration)
         {
             Ec = new BDLayout(contextFactory);
             _emailService = emailService;
+            _fileStorage = fileStorage;
             _baseUrl = (configuration["BaseUrl"] ?? "https://localhost:7175").TrimEnd('/');
         }
 
@@ -94,6 +120,50 @@ namespace SpiderHood.Services
             };
             await Ec.UpdateRecordAsync(account);
             return account;
+        }
+
+        public async Task UploadLogoAsync(Guid idAccount, string fileName, string contentType, byte[] content)
+        {
+            var extension = Path.GetExtension(fileName);
+            if (string.IsNullOrEmpty(extension) || !AllowedLogoExtensions.Contains(extension))
+            {
+                throw new ArgumentException(
+                    $"Tipo de archivo no permitido ({(string.IsNullOrEmpty(extension) ? "sin extensión" : extension)}). " +
+                    $"Formatos aceptados: {string.Join(", ", AllowedLogoExtensions.Order())}.");
+            }
+
+            if (content.Length == 0)
+                throw new ArgumentException("El archivo está vacío.");
+
+            if (content.Length > MaxLogoSizeBytes)
+            {
+                throw new ArgumentException(
+                    $"El archivo pesa {content.Length / 1024} KB -- el máximo permitido es {MaxLogoSizeBytes / 1024} KB.");
+            }
+
+            // Nombre fijo ("logo" + extensión) en vez del nombre original -- sólo
+            // hay un logo vigente por Account, así que subir uno nuevo debe
+            // reemplazar el archivo anterior, no acumular versiones sueltas en
+            // storage con nombres random.
+            var relativePath = await _fileStorage.SaveAsync(
+                ["accounts", idAccount.ToString("N"), "logo"],
+                $"logo{extension}",
+                content);
+
+            await Ec.UpdateAccountLogoAsync(idAccount, relativePath, contentType);
+        }
+
+        public async Task<(byte[] Content, string ContentType)?> GetLogoAsync(Guid idAccount)
+        {
+            var account = await Ec.GetAccountByIdAsync(idAccount);
+            if (account?.LogoPath == null)
+                return null;
+
+            var bytes = await _fileStorage.ReadAsync(account.LogoPath);
+            if (bytes == null)
+                return null;
+
+            return (bytes, account.LogoContentType ?? "application/octet-stream");
         }
 
         public async Task<List<AccountUserView>> GetCollaboratorsAsync(Guid idAccount)

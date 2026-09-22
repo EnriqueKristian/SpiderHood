@@ -259,4 +259,58 @@ public class InstallmentExportServiceTests
         // 100 / 2 (congelado) = 50, no 100 / 3 (composición actual) = 33.33.
         Assert.Equal(50m, amount);
     }
+
+    // 1x1 PNG transparente -- el contenido no importa, sólo que sea un raster
+    // válido que QuestPDF (SkiaSharp por debajo) pueda decodificar.
+    private static readonly byte[] TinyPngBytes = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+
+    [Fact]
+    public void GenerateReceipt_WithAccountLogo_EmbedsItWithoutThrowing()
+    {
+        // Docs/Pendientes-Negocio-Consolidado.md #30, punto d -- el logo se pasa
+        // como bytes crudos a QuestPDF's Image() en ComposeHeader; esto confirma
+        // que un logo real (aunque sea de 1x1) no rompe la generación del PDF.
+        var owner = MakeUnit(Guid.NewGuid(), Guid.NewGuid());
+        var building = new Building { Name = "Edificio QA", Configuration = new BuildingConfiguration() };
+        var service = new InstallmentExportService(
+            installments: [],
+            budget: new BudgetHeader(),
+            waterReadings: [],
+            exonerations: [],
+            building: building,
+            categories: [],
+            owners: [owner],
+            accountLogoBytes: TinyPngBytes);
+
+        var installment = new Installment { IdGroupUnit = owner.IdGroupUnit, UnitName = "101", OwnerName = "Juan Perez", Period = DateTime.Today };
+
+        var pdfBytes = service.GenerateReceipt(installment);
+
+        Assert.NotEmpty(pdfBytes);
+    }
+
+    [Fact]
+    public void GenerateReceipt_WithoutAccountLogo_StillWorks()
+    {
+        // El logo es opcional -- un Building sin Account, o una Account sin logo
+        // cargado, no deben romper ni cambiar el recibo (además de que ya lo
+        // cubrían implícitamente el resto de los tests de esta clase).
+        var owner = MakeUnit(Guid.NewGuid(), Guid.NewGuid());
+        var building = new Building { Name = "Edificio QA", Configuration = new BuildingConfiguration() };
+        var service = new InstallmentExportService(
+            installments: [],
+            budget: new BudgetHeader(),
+            waterReadings: [],
+            exonerations: [],
+            building: building,
+            categories: [],
+            owners: [owner]);
+
+        var installment = new Installment { IdGroupUnit = owner.IdGroupUnit, UnitName = "101", OwnerName = "Juan Perez", Period = DateTime.Today };
+
+        var pdfBytes = service.GenerateReceipt(installment);
+
+        Assert.NotEmpty(pdfBytes);
+    }
 }

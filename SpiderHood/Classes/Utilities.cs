@@ -664,6 +664,11 @@ namespace SpiderHood.Models
         private readonly List<Installment> _deudasAnteriores;
         private readonly int _totalApartments;
         private readonly Dictionary<Guid, int> _unitCountByGroup;
+        // Logo de la empresa administradora (Docs/Pendientes-Negocio-Consolidado.md
+        // #30, punto d) -- opcional a propósito: un Building sin IdAccount, o una
+        // Account sin logo cargado, siguen generando el recibo igual que antes,
+        // simplemente sin logo en la cabecera.
+        private readonly byte[]? _accountLogoBytes;
 
         public InstallmentExportService(
             List<Installment> installments,
@@ -674,7 +679,8 @@ namespace SpiderHood.Models
             List<Category> categories,
             List<OwnerUnitView> owners,
             List<Installment>? cargosAdicionales = null,
-            List<Installment>? deudasAnteriores = null)
+            List<Installment>? deudasAnteriores = null,
+            byte[]? accountLogoBytes = null)
         {
             _installments = installments;
             _budget = budget;
@@ -684,6 +690,7 @@ namespace SpiderHood.Models
             _categories = categories;
             _cargosAdicionales = cargosAdicionales ?? new();
             _deudasAnteriores = deudasAnteriores ?? new();
+            _accountLogoBytes = accountLogoBytes;
 
             var unidadesFacturables = owners
                 .Where(o => o.Role == 1 && (o.TypeUnit == 1 || o.TypeUnit == 4))
@@ -844,6 +851,11 @@ namespace SpiderHood.Models
             // Fondo gris claro unificado para toda la cabecera
             container.Background(Colors.Grey.Lighten4).Padding(8).Row(row =>
             {
+                if (_accountLogoBytes != null)
+                {
+                    row.ConstantItem(50).AlignMiddle().MaxHeight(40).Image(_accountLogoBytes).FitArea();
+                }
+
                 row.RelativeItem().Column(col =>
                 {
                     col.Item().AlignCenter().Text(_building.Name.ToUpper()).FontSize(13).Bold().FontColor(Colors.Black);

@@ -37,6 +37,14 @@ namespace SpiderHood.Models
         // Dirección fiscal para facturación -- aplica a los dos tipos (una
         // persona Natural con RUC también factura desde una dirección).
         public string? FiscalAddress { get; set; }
+
+        // --- Logo de la empresa administradora (Database/Scripts/
+        // 2026-09-22_138_Account_Logo.sql, Docs/Pendientes-Negocio-Consolidado.md
+        // #30, punto d) -- usado en la emisión de recibos (InstallmentExportService)
+        // y disponible para otros PDFs/reportes. LogoPath es la ruta RELATIVA que
+        // devuelve IFileStorageService.SaveAsync, nunca una URL pública.
+        public string? LogoPath { get; set; }
+        public string? LogoContentType { get; set; }
     }
 
     // Fila de GET_AccountUsersByAccount -- denormalizada (trae nombre/email del

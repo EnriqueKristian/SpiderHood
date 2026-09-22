@@ -676,6 +676,20 @@ namespace SpiderHood.Data
             }, "GetAccountByUser", cancellationToken);
         }
 
+        // A diferencia de GetAccountByUserAsync (que resuelve la Account de una
+        // PERSONA), esto resuelve por Building.IdAccount directo -- lo necesita
+        // InstallmentExportService para el logo del recibo sin depender de qué
+        // usuario está exportando.
+        public async Task<Models.Account?> GetAccountByIdAsync(Guid idAccount, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                var accounts = await ExecuteQueryListAsync<Models.Account>(
+                    StoredProcedures.GET_AccountById, idAccount);
+                return accounts.FirstOrDefault();
+            }, "GetAccountById", cancellationToken);
+        }
+
         public async Task<List<Models.AccountUserView>> GetAccountUsersByAccountAsync(Guid idAccount, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

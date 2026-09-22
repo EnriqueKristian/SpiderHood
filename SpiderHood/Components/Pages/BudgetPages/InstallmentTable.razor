@@ -10,6 +10,7 @@
 @inject Services.IExtraChargeService ExtraChargeService
 @inject Services.AuthService AuthService
 @inject Services.IReceiptStorageService ReceiptStorageService
+@inject Services.IAccountService AccountService
 
 <div class="row">
     <div class="col-12">
@@ -501,6 +502,14 @@
                 ? await BuildingService.GetOwnersByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding)
                 : new List<OwnerUnitView>();
 
+            // Docs/Pendientes-Negocio-Consolidado.md #30, punto d -- logo de la
+            // empresa administradora para la cabecera del recibo. null si el
+            // edificio no tiene Account asociada o la Account no tiene logo
+            // cargado -- el recibo se genera igual, sin logo.
+            var accountLogoBytes = ParameterService.CurrentBuilding?.IdAccount is Guid idAccountLogo
+                ? (await AccountService.GetLogoAsync(idAccountLogo))?.Content
+                : null;
+
             // Inicializar servicio de exportación
             _exportService = new InstallmentExportService(
             Installments!,
@@ -511,7 +520,8 @@
             categorias,
             owners,
             cargosAdicionales,
-            deudasAnteriores
+            deudasAnteriores,
+            accountLogoBytes
         );
 
 

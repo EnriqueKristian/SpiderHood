@@ -282,6 +282,24 @@ namespace SpiderHood.Data
             }, "UpdateAccount", cancellationToken);
         }
 
+        // Aparte de UpdateRecordAsync(Account) a propósito -- subir un logo es una
+        // acción distinta de guardar los datos de facturación, no queremos que un
+        // guardado de RazonSocial/RucDni tenga que conocer (o pisar con NULL) el
+        // logo actual.
+        public async Task UpdateAccountLogoAsync(Guid idAccount, string? logoPath, string? logoContentType, CancellationToken cancellationToken = default)
+        {
+            await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_Account_Logo,
+                    cancellationToken,
+                    idAccount,
+                    (object?)logoPath,
+                    (object?)logoContentType);
+                return true;
+            }, "UpdateAccountLogo", cancellationToken);
+        }
+
         public async Task<Models.Owner> UpdateRecordAsync(Models.Owner owner, CancellationToken cancellationToken = default)
         {
             ValidateEntity(owner, nameof(owner));

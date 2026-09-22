@@ -1866,9 +1866,10 @@ después de compilar/reiniciar, no en cada F5 normal.
 *(Nuevo 2026-09-22, pedido del usuario -- la parte de Building/Unit/Owner
 del punto "Relacionado" de abajo quedó **IMPLEMENTADA** el mismo día,
 `dotnet build`/`dotnet test` en 0 errores y 169/169 tests. Puntos (a)
-pantalla básica, (b) permisos y (c) Natural/Empresa también
-**IMPLEMENTADOS** el mismo día, ver detalle en cada punto. Quedan (d)/(e)
-logos.)*
+pantalla básica, (b) permisos, (c) Natural/Empresa y (d) logo de Account
+también **IMPLEMENTADOS** el mismo día, ver detalle en cada punto. Sólo
+queda (e) logo de Edificio, bloqueado a propósito hasta la conversación de
+diseño que pidió el usuario.)*
 
 **Problema:** `Account` (Docs/Design-Account-Facturacion.md) existe como
 entidad de facturación (`RazonSocial`, `RucDni`, `Telefono`) desde el
@@ -1942,13 +1943,26 @@ c. **Persona Natural vs Empresa.** **RESUELTO (2026-09-22).** Se agregó
    end-to-end contra la BD real y `dotnet build`/`dotnet test` en 0
    errores, 169/169.
 
-d. **Logo de la empresa administradora** (nivel Account): imagen a usar en
-   la emisión de recibos/PDFs/reportes exportados. Reusar
-   `IFileStorageService` (mismo mecanismo ya construido para fotos de
-   Incidencias y Recibos PDF, punto 18) en vez de un storage aparte. Falta:
-   columna para la ruta/URL del logo en `Account`, endpoint de carga, y que
-   el exportador de PDF/reporte que corresponda (`InstallmentExportService`
-   u otro) lo incluya en el layout.
+d. **Logo de la empresa administradora.** **RESUELTO (2026-09-22).**
+   `Account.LogoPath`/`LogoContentType` (`Database/Scripts/
+   2026-09-22_138_Account_Logo.sql`) + `IAccountService.UploadLogoAsync`/
+   `GetLogoAsync`, reusando `IFileStorageService` (mismo mecanismo de
+   Incidencias/Recibos PDF, punto 18) -- sin storage aparte. Sólo raster
+   (JPG/PNG/WEBP, máx. 2 MB) -- SVG excluido a propósito: el logo se
+   embebe en el PDF vía QuestPDF's `Image(byte[])`
+   (`InstallmentExportService.ComposeHeader`), que no decodifica SVG;
+   aceptarlo hubiera roto el PDF en silencio apenas alguien subiera uno.
+   Sección "Logo de la Empresa" nueva en `Settings.razor` (preview + subir,
+   gateada a `_canEditAccount`, mismo `edit_account` del punto b). Los 4
+   call sites que arman `InstallmentExportService` (`InstallmentTable`,
+   `InstallmentList`, `BudgetGenerator`, `MyReceipts`) ahora resuelven el
+   logo desde `Building.IdAccount` y se lo pasan -- `null` si el edificio
+   no tiene Account o la Account no tiene logo, el recibo se genera igual
+   sin logo (fail-open). 2 tests nuevos confirman que un logo real se
+   embebe sin romper el PDF y que sin logo sigue funcionando igual que
+   antes. Verificado `dotnet build`/`dotnet test` en 0 errores, 171/171
+   (169 + 2 nuevos), y `UPD_Account_Logo`/`GET_AccountById` contra la BD
+   real.
 
 e. **Logo/imagen a nivel Edificio** (distinto del de Account, va en el
    recibo): el usuario aclaró **"cuando llegues a este punto vemos el
@@ -2090,7 +2104,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 27 | `GET_ExpensesByBuilding` sin `RequiresExpenseCreation` -- /expense rota | Alta | **Resuelto** (2026-09-16), script entregado al usuario para correr en BD real |
 | 28 | Recibo/Detalle de Cuota subestima el monto en cuotas de >1 unidad (Inmobiliaria, etc.) | Alta | **Resuelto** (2026-09-16) |
 | 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
-| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Building/Unit/Owner (34 campos), (a) pantalla básica, (b) permisos y (c) Natural/Empresa **resueltos** (2026-09-22) -- quedan (d)/(e) logos |
+| 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | Building/Unit/Owner (34 campos), (a) pantalla básica, (b) permisos, (c) Natural/Empresa y (d) logo Account **resueltos** (2026-09-22) -- sólo queda (e) logo Edificio, bloqueado por diseño |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

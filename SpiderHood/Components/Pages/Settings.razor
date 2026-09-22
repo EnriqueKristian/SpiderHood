@@ -173,6 +173,35 @@
             </div>
         </div>
 
+        <h6 class="mt-4 mb-2">Logo de la Empresa</h6>
+        <div class="card">
+            <div class="card-body">
+                <p class="text-muted small mb-2">
+                    Se usa en la emisión de recibos, PDFs y reportes exportados.
+                </p>
+                @if (_logoError != null)
+                {
+                    <div class="alert alert-danger py-2">@_logoError</div>
+                }
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    @if (_logoDataUri != null)
+                    {
+                        <img src="@_logoDataUri" alt="Logo" style="max-height:80px;max-width:200px;object-fit:contain;" class="border rounded p-1" />
+                    }
+                    else
+                    {
+                        <span class="text-muted">Sin logo cargado.</span>
+                    }
+                </div>
+                @if (_canEditAccount)
+                {
+                    <InputFile OnChange="SubirLogoAsync" accept="image/png,image/jpeg,image/webp"
+                               class="form-control" disabled="@_subiendoLogo" />
+                    <small class="text-muted">JPG, PNG o WEBP -- máximo 2 MB.</small>
+                }
+            </div>
+        </div>
+
         <h6 class="mt-4 mb-2">Colaboradores</h6>
         <div class="card">
             <div class="card-body">
@@ -283,6 +312,10 @@
     private string? _accountSaveError;
     private Models.Account _accountForm = new();
 
+    private string? _logoDataUri;
+    private bool _subiendoLogo;
+    private string? _logoError;
+
     protected override async Task OnInitializedAsync()
     {
         var currentUser = await AuthService.GetCurrentUserAsync();
@@ -327,6 +360,7 @@
             {
                 _collaborators = await AccountService.GetCollaboratorsAsync(_account.IdAccount);
                 _pendingInvitations = await AccountService.GetPendingInvitationsAsync(_account.IdAccount);
+                await CargarLogoAsync();
             }
         }
         catch (Exception)
@@ -377,6 +411,48 @@
         finally
         {
             _savingAccount = false;
+        }
+    }
+
+    private async Task CargarLogoAsync()
+    {
+        if (_account == null) return;
+        var logo = await AccountService.GetLogoAsync(_account.IdAccount);
+        _logoDataUri = logo == null ? null : $"data:{logo.Value.ContentType};base64,{Convert.ToBase64String(logo.Value.Content)}";
+    }
+
+    private async Task SubirLogoAsync(InputFileChangeEventArgs e)
+    {
+        if (!_canEditAccount || _account == null) return;
+        _logoError = null;
+        var file = e.File;
+        if (file is null) return;
+
+        _subiendoLogo = true;
+        try
+        {
+            // Techo de transporte por encima del límite real de negocio (2 MB,
+            // validado adentro de AccountService.UploadLogoAsync) -- mismo criterio
+            // que IncidentDetail.razor.SubirAdjunto, sin esto OpenReadStream usa un
+            // default de 512 KB y cualquier logo real fallaría antes de validarse.
+            using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            await AccountService.UploadLogoAsync(_account.IdAccount, file.Name, file.ContentType, memoryStream.ToArray());
+            await CargarLogoAsync();
+        }
+        catch (ArgumentException ex)
+        {
+            _logoError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _logoError = $"No se pudo subir el logo: {ex.Message}";
+        }
+        finally
+        {
+            _subiendoLogo = false;
         }
     }
 

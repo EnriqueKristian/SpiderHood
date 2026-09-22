@@ -113,9 +113,18 @@
                             <input class="form-control" @bind="_accountForm.LegalRepresentative" disabled="@_savingAccount" />
                         </div>
                     }
-                    <div class="mb-3">
+                    <div class="mb-2">
                         <label class="form-label small text-muted mb-1">Dirección Fiscal</label>
                         <input class="form-control" @bind="_accountForm.FiscalAddress" disabled="@_savingAccount" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted mb-1">Horario de Atención</label>
+                        <input class="form-control" @bind="_accountForm.OfficeHours" disabled="@_savingAccount"
+                               placeholder="Ej: Lunes a Viernes 8:00 - 17:00" />
+                        <div class="form-text">
+                            Se usa como valor por defecto en los edificios que no carguen su propio
+                            horario de atención.
+                        </div>
                     </div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-primary btn-sm" disabled="@_savingAccount" @onclick="SaveAccountInfoAsync">
@@ -157,6 +166,10 @@
                         <li class="list-group-item d-flex justify-content-between lh-sm">
                             <span class="text-muted">Dirección Fiscal</span>
                             <span>@(_account.FiscalAddress ?? "-")</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                            <span class="text-muted">Horario de Atención</span>
+                            <span>@(_account.OfficeHours ?? "-")</span>
                         </li>
                     </ul>
                     @if (_canEditAccount)
@@ -382,6 +395,7 @@
             AccountType = _account.AccountType,
             LegalRepresentative = _account.LegalRepresentative,
             FiscalAddress = _account.FiscalAddress,
+            OfficeHours = _account.OfficeHours,
         };
         _editingAccountInfo = true;
     }
@@ -401,7 +415,8 @@
         {
             _account = await AccountService.UpdateAccountAsync(
                 _account.IdAccount, _accountForm.RazonSocial, _accountForm.RucDni, _accountForm.Telefono,
-                _accountForm.AccountType, _accountForm.LegalRepresentative, _accountForm.FiscalAddress);
+                _accountForm.AccountType, _accountForm.LegalRepresentative, _accountForm.FiscalAddress,
+                _accountForm.OfficeHours);
             _editingAccountInfo = false;
         }
         catch (Exception ex)

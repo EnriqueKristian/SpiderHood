@@ -38,6 +38,12 @@ namespace SpiderHood.Models
         // persona Natural con RUC también factura desde una dirección).
         public string? FiscalAddress { get; set; }
 
+        // --- Horario de Atención (Database/Scripts/2026-09-22_141_Account_OfficeHours.sql,
+        // Docs/Pendientes-Negocio-Consolidado.md #33) -- usado como fallback del
+        // Building.OfficeHours de un edificio que no carga el suyo propio (ver
+        // IBuildingService.GetEffectiveContactAsync), mismo patrón que el logo.
+        public string? OfficeHours { get; set; }
+
         // --- Logo de la empresa administradora (Database/Scripts/
         // 2026-09-22_138_Account_Logo.sql, Docs/Pendientes-Negocio-Consolidado.md
         // #30, punto d) -- usado en la emisión de recibos (InstallmentExportService)

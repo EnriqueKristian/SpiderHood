@@ -78,6 +78,15 @@ namespace SpiderHood.Services
         // independiente de cuál logo haya ganado (la franja "Administrado por..."
         // se muestra igual aunque el logo mostrado arriba sea el del edificio).
         Task<(byte[]? LogoBytes, string? LogoContentType, string? AdministradoraName)> GetReceiptBrandingAsync(Models.Building building);
+
+        // AdminName/AdminPhone/OfficeHours "efectivos" para mostrar/usar de un Edificio
+        // (Docs/Pendientes-Negocio-Consolidado.md #33) -- mismo criterio de fallback que
+        // el logo: si el Edificio no cargó su propio dato, se usa el de su Account
+        // (administradora), para no obligar a re-tipear el mismo dato una vez por
+        // edificio. Sigue permitiendo un encargado/teléfono/horario distinto por
+        // edificio para quien lo necesite -- sólo aplica cuando el campo del Edificio
+        // está vacío.
+        Task<(string? AdminName, string? AdminPhone, string? OfficeHours)> GetEffectiveContactAsync(Models.Building building);
     }
 
     public class BuildingService : IBuildingService
@@ -154,6 +163,19 @@ namespace SpiderHood.Services
             return buildingLogoBytes != null
                 ? (buildingLogoBytes, building.LogoContentType, razonSocial)
                 : (accountLogoBytes, accountLogoContentType, razonSocial);
+        }
+
+        public async Task<(string? AdminName, string? AdminPhone, string? OfficeHours)> GetEffectiveContactAsync(Models.Building building)
+        {
+            var (razonSocial, telefono, officeHours) = building.IdAccount is Guid idAccount
+                ? await _accountService.GetContactInfoAsync(idAccount)
+                : (null, null, null);
+
+            return (
+                string.IsNullOrWhiteSpace(building.AdminName) ? razonSocial : building.AdminName,
+                string.IsNullOrWhiteSpace(building.AdminPhone) ? telefono : building.AdminPhone,
+                string.IsNullOrWhiteSpace(building.OfficeHours) ? officeHours : building.OfficeHours
+            );
         }
 
         private async Task<string> GetPerformedByAsync()

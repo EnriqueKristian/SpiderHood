@@ -691,9 +691,13 @@
                             <label class="form-label fw-semibold">
                                 <i class="bi bi-person me-1 text-primary"></i>Administrador Principal
                             </label>
-                            <InputText @bind-Value="_editingBuilding.AdminName" 
-                                       class="form-control" 
-                                       placeholder="Nombre completo" />
+                            <InputText @bind-Value="_editingBuilding.AdminName"
+                                       class="form-control"
+                                       placeholder="@(_effectiveContact.AdminName ?? "Nombre completo")" />
+                            @if (!string.IsNullOrWhiteSpace(_effectiveContact.AdminName) && string.IsNullOrWhiteSpace(_editingBuilding.AdminName))
+                            {
+                                <div class="form-text">Vacío = se usa el de tu Cuenta: @_effectiveContact.AdminName</div>
+                            }
                         </div>
                     </div>
 
@@ -702,9 +706,13 @@
                             <label class="form-label fw-semibold">
                                 <i class="bi bi-telephone me-1 text-primary"></i>Teléfono Administrador
                             </label>
-                            <InputText @bind-Value="_editingBuilding.AdminPhone" 
-                                       class="form-control" 
-                                       placeholder="Ej: +506 8765-4321" />
+                            <InputText @bind-Value="_editingBuilding.AdminPhone"
+                                       class="form-control"
+                                       placeholder="@(_effectiveContact.AdminPhone ?? "Ej: +506 8765-4321")" />
+                            @if (!string.IsNullOrWhiteSpace(_effectiveContact.AdminPhone) && string.IsNullOrWhiteSpace(_editingBuilding.AdminPhone))
+                            {
+                                <div class="form-text">Vacío = se usa el de tu Cuenta: @_effectiveContact.AdminPhone</div>
+                            }
                         </div>
                     </div>
 
@@ -713,10 +721,10 @@
                             <label class="form-label fw-semibold">
                                 <i class="bi bi-phone me-1 text-primary"></i>Teléfono Emergencias
                             </label>
-                            <InputText @bind-Value="_editingBuilding.EmergencyPhone" 
-                                       class="form-control" 
+                            <InputText @bind-Value="_editingBuilding.EmergencyPhone"
+                                       class="form-control"
                                        placeholder="Ej: +506 2234-5678" />
-                            <div class="form-text">Teléfono de emergencias 24 horas</div>
+                            <div class="form-text">Teléfono de emergencias 24 horas -- propio de este edificio, no se completa con el de la Cuenta</div>
                         </div>
                     </div>
 
@@ -725,9 +733,13 @@
                             <label class="form-label fw-semibold">
                                 <i class="bi bi-clock me-1 text-primary"></i>Horario de Atención
                             </label>
-                            <InputText @bind-Value="_editingBuilding.OfficeHours" 
-                                       class="form-control" 
-                                       placeholder="Ej: Lunes a Viernes 8:00 - 17:00" />
+                            <InputText @bind-Value="_editingBuilding.OfficeHours"
+                                       class="form-control"
+                                       placeholder="@(_effectiveContact.OfficeHours ?? "Ej: Lunes a Viernes 8:00 - 17:00")" />
+                            @if (!string.IsNullOrWhiteSpace(_effectiveContact.OfficeHours) && string.IsNullOrWhiteSpace(_editingBuilding.OfficeHours))
+                            {
+                                <div class="form-text">Vacío = se usa el de tu Cuenta: @_effectiveContact.OfficeHours</div>
+                            }
                         </div>
                     </div>
                 </div>

@@ -36,6 +36,12 @@ namespace SpiderHood.Components.Pages.BuildingPages
         private bool _subiendoLogoEdificio;
         private string? _buildingLogoError;
 
+        // "Efectivo" = lo que se usaría si el campo del Edificio queda vacío (fallback
+        // a la Account, Docs/Pendientes-Negocio-Consolidado.md #33) -- sólo para mostrar
+        // como placeholder en el Tab "Contacto", nunca se guarda solo -- el usuario sigue
+        // pudiendo cargar su propio dato por edificio si lo necesita.
+        private (string? AdminName, string? AdminPhone, string? OfficeHours) _effectiveContact;
+
         protected override async Task OnInitializedAsync()
         {
             // Suscribirse una sola vez -- OnInitializedAsync corre una sola vez por
@@ -202,6 +208,7 @@ namespace SpiderHood.Components.Pages.BuildingPages
             if (!_canEditBuilding) return;
             _editingBuilding = building.Clone();
             await CargarLogoEdificioAsync();
+            _effectiveContact = await BuildingService.GetEffectiveContactAsync(_editingBuilding);
 
             // Edificios creados antes del fix del <select> "Tipo" (ver commit del bug de
             // Type) quedaron con Type=0, que no matchea ningún Parameter.Value real (1/2/3
@@ -266,6 +273,11 @@ namespace SpiderHood.Components.Pages.BuildingPages
             _editingBuilding.Configuration.IdBuilding = newBuildingId;
             _isEditingBuilding = false;
             _buildingLogoDataUri = null;
+            // Un edificio recién creado todavía no tiene IdAccount asignado -- sin dato
+            // de Account contra el cual resolver el fallback, así que no hay nada que
+            // mostrar como placeholder todavía (se calcula recién al editarlo, ver
+            // EditBuilding).
+            _effectiveContact = default;
             await _buildingModal.ShowAsync();
         }
 

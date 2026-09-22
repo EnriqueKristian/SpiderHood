@@ -1306,7 +1306,8 @@ namespace SpiderHood.Data
                     (object?)account.Telefono,
                     (int)account.AccountType,
                     (object?)account.LegalRepresentative,
-                    (object?)account.FiscalAddress);
+                    (object?)account.FiscalAddress,
+                    (object?)account.OfficeHours);
                 return account;
             }, "AddAccount", cancellationToken);
         }

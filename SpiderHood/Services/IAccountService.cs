@@ -20,7 +20,7 @@ namespace SpiderHood.Services
         // CreateAccountAsync (registro) -- se corrige a Empresa, si corresponde,
         // desde acá.
         Task<Account> UpdateAccountAsync(Guid idAccount, string? razonSocial, string? rucDni, string? telefono,
-            AccountType accountType, string? legalRepresentative, string? fiscalAddress);
+            AccountType accountType, string? legalRepresentative, string? fiscalAddress, string? officeHours);
 
         // Logo de la empresa administradora (Docs/Pendientes-Negocio-Consolidado.md
         // #30, punto d) -- reusa IFileStorageService, mismo mecanismo que fotos de
@@ -37,6 +37,11 @@ namespace SpiderHood.Services
         // no tiene uno propio) en una sola consulta. Todo null si la Account no
         // existe o no tiene esos datos -- nunca tira excepción por esto.
         Task<(string? RazonSocial, byte[]? LogoBytes, string? LogoContentType)> GetBrandingAsync(Guid idAccount);
+
+        // Para IBuildingService.GetEffectiveContactAsync (Docs/Pendientes-Negocio-Consolidado.md
+        // #33) -- datos de contacto de la administradora para usar como fallback cuando un
+        // Edificio no carga los suyos propios. Todo null si la Account no existe.
+        Task<(string? RazonSocial, string? Telefono, string? OfficeHours)> GetContactInfoAsync(Guid idAccount);
 
         Task<List<AccountUserView>> GetCollaboratorsAsync(Guid idAccount);
 
@@ -109,7 +114,7 @@ namespace SpiderHood.Services
         }
 
         public async Task<Account> UpdateAccountAsync(Guid idAccount, string? razonSocial, string? rucDni, string? telefono,
-            AccountType accountType, string? legalRepresentative, string? fiscalAddress)
+            AccountType accountType, string? legalRepresentative, string? fiscalAddress, string? officeHours)
         {
             var account = new Account
             {
@@ -123,9 +128,16 @@ namespace SpiderHood.Services
                 // de una cuenta que ya no es empresa.
                 LegalRepresentative = accountType == AccountType.Empresa ? legalRepresentative : null,
                 FiscalAddress = fiscalAddress,
+                OfficeHours = officeHours,
             };
             await Ec.UpdateRecordAsync(account);
             return account;
+        }
+
+        public async Task<(string? RazonSocial, string? Telefono, string? OfficeHours)> GetContactInfoAsync(Guid idAccount)
+        {
+            var account = await Ec.GetAccountByIdAsync(idAccount);
+            return (account?.RazonSocial, account?.Telefono, account?.OfficeHours);
         }
 
         public async Task UploadLogoAsync(Guid idAccount, string fileName, string contentType, byte[] content)

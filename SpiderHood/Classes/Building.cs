@@ -32,6 +32,25 @@ namespace SpiderHood.Models
         // -- de acá sale el conteo de MaxBuildings del plan. Nullable a propósito:
         // edificios creados antes de este feature quedan en NULL (fail-open).
         public Guid? IdAccount { get; set; }
+
+        [NotMapped] public int? ConstructionYear { get; set; }
+        [NotMapped] public string Phone { get; set; }
+        [NotMapped] public string Email { get; set; }
+        [NotMapped] public int Elevators { get; set; }
+        [NotMapped] public string AdminName { get; set; }
+        [NotMapped] public string AdminPhone { get; set; }
+        [NotMapped] public string EmergencyPhone { get; set; }
+        [NotMapped] public string OfficeHours { get; set; }
+        [NotMapped] public bool HasPool { get; set; }
+        [NotMapped] public bool HasGym { get; set; }
+        [NotMapped] public bool HasBBQ { get; set; }
+        [NotMapped] public bool HasEventRoom { get; set; }
+        [NotMapped] public bool HasPetArea { get; set; }
+        [NotMapped] public bool HasGreenAreas { get; set; }
+        [NotMapped] public bool Has247Security { get; set; }
+        [NotMapped] public bool HasPorter { get; set; }
+        [NotMapped] public bool HasCameras { get; set; }
+
         [NotMapped]
         public BuildingConfiguration Configuration { get; set; } = new();
         public Building Clone()

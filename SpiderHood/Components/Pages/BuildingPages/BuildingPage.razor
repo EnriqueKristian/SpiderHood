@@ -152,7 +152,6 @@
                                             <h6 class="mb-1">@building.Name</h6>
                                             <p class="text-muted small mb-1">@building.Location</p>
                                             <div class="d-flex gap-2">
-                                                <!--    PARAMETRO_PADRE     -->
                                                 <span class="badge bg-info">@ParameterService.GetChildParameterDescription(34,building.Type)</span>
                                                 <span class="status-badge @(building.IsActive ? "status-active" : "status-inactive")">
                                                     @(building.IsActive ? "Activo" : "Inactivo")
@@ -200,8 +199,6 @@
                                             </button>
                                             @if (currentUser.Role == "SysAdmin")
                                             {
-                                                <!-- Docs/Pendientes-Negocio-Migracion.md #6.3 -- sólo SysAdmin, sólo
-                                                     para edificios de PRUEBA vacíos (falla si tiene datos asociados). -->
                                                 <button class="btn btn-sm btn-outline-danger"
                                                         title="Eliminar (sólo edificios de prueba vacíos)"
                                                         @onclick="() => ShowDeleteBuildingModal(building)"
@@ -238,134 +235,510 @@
                 }
             </div>
         </div>
-
     </div>
 </div>
 
-<!-- Modal para crear/editar edificio -->
-<Modal @ref="_buildingModal" Title="@(_isEditingBuilding ? "Editar Edificio" : "Nuevo Edificio")" Size="ModalSize.Large">
+<!-- Modal MEJORADO para crear/editar edificio -->
+<Modal @ref="_buildingModal" Title="@(_isEditingBuilding ? "Editar Edificio" : "Nuevo Edificio")" Size="ModalSize.ExtraLarge">
     <BodyTemplate>
         <EditForm Model="_editingBuilding" OnValidSubmit="SaveBuilding">
             <DataAnnotationsValidator />
-            <ValidationSummary />
             
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Nombre del Edificio *</label>
-                        <InputText @bind-Value="_editingBuilding.Name" class="form-control" />
-                        <ValidationMessage For="@(() => _editingBuilding.Name)" />
+            <!-- Tabs de navegación -->
+            <div class="mb-4">
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link @(activeTab == 1 ? "active" : "")" 
+                                @onclick="() => activeTab = 1" 
+                                type="button" role="tab">
+                            <i class="bi bi-building me-2"></i>Información Básica
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link @(activeTab == 2 ? "active" : "")" 
+                                @onclick="() => activeTab = 2" 
+                                type="button" role="tab">
+                            <i class="bi bi-grid-3x3-gap me-2"></i>Estructura
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link @(activeTab == 3 ? "active" : "")" 
+                                @onclick="() => activeTab = 3" 
+                                type="button" role="tab">
+                            <i class="bi bi-stars me-2"></i>Servicios
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link @(activeTab == 4 ? "active" : "")" 
+                                @onclick="() => activeTab = 4" 
+                                type="button" role="tab">
+                            <i class="bi bi-people me-2"></i>Contacto
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- TAB 1: Información Básica -->
+            @if (activeTab == 1)
+            {
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-info d-flex align-items-center" role="alert">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            <div>Complete la información básica del edificio. Los campos marcados con * son obligatorios.</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Ubicación *</label>
-                        <InputText @bind-Value="_editingBuilding.Location" class="form-control" />
-                        <ValidationMessage For="@(() => _editingBuilding.Location)" />
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-building me-1 text-primary"></i>Nombre del Edificio *
+                            </label>
+                            <InputText @bind-Value="_editingBuilding.Name" 
+                                       class="form-control" 
+                                       placeholder="Ej: Los Geranios de SJ" />
+                            <ValidationMessage For="@(() => _editingBuilding.Name)" 
+                                              class="text-danger small" />
+                            <div class="form-text">Nombre comercial o razón social del edificio</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Tipo *</label>
-                        @* Building.Type es int (Parameter.Value del grupo Sistema "Tipo Edificio",
-                           IdParent=34, ver Docs/Design-Defaults-Sistema-Mixto.md §5.4). Antes el
-                           select tenía las 3 opciones hardcodeadas con el NOMBRE como value
-                           ("Familiar"/"Comercial"/"Mixto"), que nunca podía parsear a un int: la
-                           selección nunca se guardaba de verdad, Type quedaba siempre en 0 sin
-                           importar qué se eligiera (por eso el badge de Tipo mostraba "No se
-                           encontró coincidencia" en cualquier edificio nuevo). Ahora sale de
-                           ParameterService.ListParameters, con el Value real como option value. *@
-                         <select @bind-value="_editingBuilding.Type" @bind-value:event="onchange" class="form-select">
-                            @foreach (var tipo in ParameterService.ListParameters.Where(p => p.IdParent == 34).OrderBy(p => p.Value))
-                            {
-                                <option value="@tipo.Value">@tipo.ShortDescription</option>
-                            }
-                        </select>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-geo-alt me-1 text-primary"></i>Ubicación *
+                            </label>
+                            <InputText @bind-Value="_editingBuilding.Location" 
+                                       class="form-control" 
+                                       placeholder="Ej: AV. del Este 2345" />
+                            <ValidationMessage For="@(() => _editingBuilding.Location)" 
+                                              class="text-danger small" />
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Número de Pisos *</label>
-                        <InputNumber @bind-Value="_editingBuilding.Floors" class="form-control" min="1" />
-                        <ValidationMessage For="@(() => _editingBuilding.Floors)" />
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-building-check me-1 text-primary"></i>Tipo *
+                            </label>
+                            <select @bind-value="_editingBuilding.Type" 
+                                    @bind-value:event="onchange" 
+                                    class="form-select">
+                                @foreach (var tipo in ParameterService.ListParameters
+                                    .Where(p => p.IdParent == 34)
+                                    .OrderBy(p => p.ShortDescription))
+                                {
+                                    <option value="@tipo.Value">@tipo.ShortDescription</option>
+                                }
+                            </select>
+                            <ValidationMessage For="@(() => _editingBuilding.Type)" 
+                                              class="text-danger small" />
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Sótanos</label>
-                        <InputNumber @bind-Value="_editingBuilding.Basements" class="form-control" min="0" />
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-calendar me-1 text-primary"></i>Año de Construcción
+                            </label>
+                            <InputNumber @bind-Value="_editingBuilding.ConstructionYear" 
+                                        class="form-control" 
+                                        min="1900" 
+                                        max="@DateTime.Now.Year"
+                                        placeholder="Ej: 2015" />
+                            <div class="form-text">Año en que se construyó el edificio</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Departamentos *</label>
-                        <InputNumber @bind-Value="_editingBuilding.Apartments" class="form-control" min="0" />
-                        <ValidationMessage For="@(() => _editingBuilding.Apartments)" />
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-rulers me-1 text-primary"></i>Área Total (m²) *
+                            </label>
+                            <InputNumber @bind-Value="_editingBuilding.TotalArea" 
+                                        class="form-control" 
+                                        step="0.01" 
+                                        min="0" 
+                                        placeholder="Ej: 2861.90" />
+                            <ValidationMessage For="@(() => _editingBuilding.TotalArea)" 
+                                              class="text-danger small" />
+                            <div class="form-text">Suma del área de todas las unidades + áreas comunes</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Estacionamientos</label>
-                        <InputNumber @bind-Value="_editingBuilding.Parkings" class="form-control" min="0" />
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-telephone me-1 text-primary"></i>Teléfono del Edificio
+                            </label>
+                            <InputText @bind-Value="_editingBuilding.Phone" 
+                                       class="form-control" 
+                                       placeholder="Ej: +506 2234-5678" />
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Depósitos</label>
-                        <InputNumber @bind-Value="_editingBuilding.Deposits" class="form-control" min="0" />
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-envelope me-1 text-primary"></i>Email Institucional
+                            </label>
+                            <InputText @bind-Value="_editingBuilding.Email" 
+                                       class="form-control" 
+                                       placeholder="admin@edificio.com" />
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Otros</label>
-                        <InputNumber @bind-Value="_editingBuilding.Others" class="form-control" min="0" />
+
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            <div class="form-check form-switch">
+                                <InputCheckbox @bind-Value="_editingBuilding.IsActive" 
+                                              class="form-check-input" 
+                                              id="isActive" />
+                                <label class="form-check-label" for="isActive">
+                                    <i class="bi bi-toggle-on me-1"></i>Edificio Activo
+                                </label>
+                            </div>
+                            <div class="form-text">Los edificios inactivos no aparecen en la app móvil</div>
+                        </div>
                     </div>
+
+                    @if (currentUser.Role == "SysAdmin")
+                    {
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <div class="form-check form-switch">
+                                    <InputCheckbox @bind-Value="_editingBuilding.IsTemplate" 
+                                                  class="form-check-input" 
+                                                  id="isTemplate" />
+                                    <label class="form-check-label" for="isTemplate">
+                                        <i class="bi bi-stars me-1 text-warning"></i>Edificio Template
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    Sus valores de configuración se usan como default al crear edificios nuevos. 
+                                    Sólo visible para SysAdmin.
+                                </div>
+                            </div>
+                        </div>
+                    }
                 </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Área Total (m²) *</label>
-                        <InputNumber @bind-Value="_editingBuilding.TotalArea" class="form-control" step="0.01" min="0" />
-                        <ValidationMessage For="@(() => _editingBuilding.TotalArea)" />
+            }
+
+            <!-- TAB 2: Estructura -->
+            @if (activeTab == 2)
+            {
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-info d-flex align-items-center" role="alert">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            <div>Defina la estructura física del edificio</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label class="form-label">Estado</label>
-                        <div class="form-check">
-                            <InputCheckbox @bind-Value="_editingBuilding.IsActive" class="form-check-input" />
-                            <label class="form-check-label">Activo</label>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-building me-1 text-primary"></i>Número de Pisos *
+                            </label>
+                            <InputNumber @bind-Value="_editingBuilding.Floors" 
+                                        class="form-control" 
+                                        min="1" 
+                                        max="100"
+                                        placeholder="Ej: 11" />
+                            <ValidationMessage For="@(() => _editingBuilding.Floors)" 
+                                              class="text-danger small" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-door-closed me-1 text-primary"></i>Departamentos *
+                            </label>
+                            <InputNumber @bind-Value="_editingBuilding.Apartments" 
+                                        class="form-control" 
+                                        min="0"
+                                        placeholder="Ej: 30" />
+                            <ValidationMessage For="@(() => _editingBuilding.Apartments)" 
+                                              class="text-danger small" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-arrow-down-square me-1 text-primary"></i>Sótanos
+                            </label>
+                            <InputNumber @bind-Value="_editingBuilding.Basements" 
+                                        class="form-control" 
+                                        min="0"
+                                        placeholder="Ej: 2" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-car-front me-1 text-primary"></i>Estacionamientos
+                            </label>
+                            <InputNumber @bind-Value="_editingBuilding.Parkings" 
+                                        class="form-control" 
+                                        min="0"
+                                        placeholder="Ej: 21" />
+                            <div class="form-text">Total de espacios de estacionamiento</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-box me-1 text-primary"></i>Depósitos
+                            </label>
+                            <InputNumber @bind-Value="_editingBuilding.Deposits" 
+                                        class="form-control" 
+                                        min="0"
+                                        placeholder="Ej: 10" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-grid me-1 text-primary"></i>Otros Espacios
+                            </label>
+                            <InputNumber @bind-Value="_editingBuilding.Others" 
+                                        class="form-control" 
+                                        min="0"
+                                        placeholder="Ej: 2" />
+                            <div class="form-text">Bodegas, cuartos técnicos, etc.</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-elevator me-1 text-primary"></i>Número de Ascensores
+                            </label>
+                            <InputNumber @bind-Value="_editingBuilding.Elevators" 
+                                        class="form-control" 
+                                        min="0"
+                                        max="20"
+                                        placeholder="Ej: 2" />
                         </div>
                     </div>
                 </div>
-                @if (currentUser.Role == "SysAdmin")
-                {
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label class="form-label">
-                                Edificio Template
-                                <i class="bi bi-info-circle text-muted" title="Sus valores de Configuración se usan como default al crear un edificio nuevo. Sólo lo ve/edita SysAdmin."></i>
-                            </label>
-                            <div class="form-check">
-                                <InputCheckbox @bind-Value="_editingBuilding.IsTemplate" class="form-check-input" />
-                                <label class="form-check-label">Es edificio template</label>
+            }
+
+            <!-- TAB 3: Servicios y Amenidades -->
+            @if (activeTab == 3)
+            {
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-info d-flex align-items-center" role="alert">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            <div>Seleccione los servicios y amenidades disponibles</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-12">
+                        <h6 class="mb-3"><i class="bi bi-water me-2"></i>Áreas Recreativas</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="_editingBuilding.HasPool" 
+                                                  class="form-check-input" 
+                                                  id="hasPool" />
+                                    <label class="form-check-label" for="hasPool">
+                                        <i class="bi bi-water me-1"></i>Piscina
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="_editingBuilding.HasGym" 
+                                                  class="form-check-input" 
+                                                  id="hasGym" />
+                                    <label class="form-check-label" for="hasGym">
+                                        <i class="bi bi-dumbbell me-1"></i>Gimnasio
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="_editingBuilding.HasBBQ" 
+                                                  class="form-check-input" 
+                                                  id="hasBBQ" />
+                                    <label class="form-check-label" for="hasBBQ">
+                                        <i class="bi bi-fire me-1"></i>Zona BBQ
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="_editingBuilding.HasEventRoom" 
+                                                  class="form-check-input" 
+                                                  id="hasEventRoom" />
+                                    <label class="form-check-label" for="hasEventRoom">
+                                        <i class="bi bi-calendar-event me-1"></i>Salón de Eventos
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="_editingBuilding.HasPetArea" 
+                                                  class="form-check-input" 
+                                                  id="hasPetArea" />
+                                    <label class="form-check-label" for="hasPetArea">
+                                        <i class="bi bi-paw me-1"></i>Zona de Mascotas
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="_editingBuilding.HasGreenAreas" 
+                                                  class="form-check-input" 
+                                                  id="hasGreenAreas" />
+                                    <label class="form-check-label" for="hasGreenAreas">
+                                        <i class="bi bi-tree me-1"></i>Zonas Verdes
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
-                }
-            </div>
+
+                    <div class="col-md-12 mt-4">
+                        <h6 class="mb-3"><i class="bi bi-shield-check me-2"></i>Seguridad</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="_editingBuilding.Has247Security" 
+                                                  class="form-check-input" 
+                                                  id="has247Security" />
+                                    <label class="form-check-label" for="has247Security">
+                                        <i class="bi bi-shield-check me-1"></i>Seguridad 24/7
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="_editingBuilding.HasPorter" 
+                                                  class="form-check-input" 
+                                                  id="hasPorter" />
+                                    <label class="form-check-label" for="hasPorter">
+                                        <i class="bi bi-person-badge me-1"></i>Portería
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <InputCheckbox @bind-Value="_editingBuilding.HasCameras" 
+                                                  class="form-check-input" 
+                                                  id="hasCameras" />
+                                    <label class="form-check-label" for="hasCameras">
+                                        <i class="bi bi-camera-video me-1"></i>Cámaras de Seguridad
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- TAB 4: Contacto -->
+            @if (activeTab == 4)
+            {
+                <div class="row g-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-info d-flex align-items-center" role="alert">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            <div>Información de contacto del edificio</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-person me-1 text-primary"></i>Administrador Principal
+                            </label>
+                            <InputText @bind-Value="_editingBuilding.AdminName" 
+                                       class="form-control" 
+                                       placeholder="Nombre completo" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-telephone me-1 text-primary"></i>Teléfono Administrador
+                            </label>
+                            <InputText @bind-Value="_editingBuilding.AdminPhone" 
+                                       class="form-control" 
+                                       placeholder="Ej: +506 8765-4321" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-phone me-1 text-primary"></i>Teléfono Emergencias
+                            </label>
+                            <InputText @bind-Value="_editingBuilding.EmergencyPhone" 
+                                       class="form-control" 
+                                       placeholder="Ej: +506 2234-5678" />
+                            <div class="form-text">Teléfono de emergencias 24 horas</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-clock me-1 text-primary"></i>Horario de Atención
+                            </label>
+                            <InputText @bind-Value="_editingBuilding.OfficeHours" 
+                                       class="form-control" 
+                                       placeholder="Ej: Lunes a Viernes 8:00 - 17:00" />
+                        </div>
+                    </div>
+                </div>
+            }
         </EditForm>
     </BodyTemplate>
     <FooterTemplate>
-        <button class="btn btn-primary" @onclick="SaveBuilding">
-            <i class="bi bi-check me-1"></i>@(_isEditingBuilding ? "Actualizar" : "Crear")
-        </button>
-        <button class="btn btn-secondary" @onclick="() => _buildingModal.HideAsync()">
-            <i class="bi bi-x me-1"></i>Cancelar
-        </button>
+        <div class="d-flex justify-content-between">
+            <button type="button" 
+                    class="btn btn-outline-secondary" 
+                    @onclick="PreviousTab"
+                    disabled="@(activeTab == 1)">
+                <i class="bi bi-arrow-left me-1"></i>Anterior
+            </button>
+            
+            @if (activeTab < 4)
+            {
+                <button type="button" 
+                        class="btn btn-primary" 
+                        @onclick="NextTab">
+                    Siguiente<i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            }
+            else
+            {
+                <button type="submit" 
+                        class="btn btn-success"
+                        form="_editingBuilding.GetType().Name">
+                    <i class="bi bi-check-circle me-1"></i>@(_isEditingBuilding ? "Actualizar" : "Crear")
+                </button>
+            }
+            
+            <button type="button" 
+                    class="btn btn-secondary" 
+                    @onclick="() => _buildingModal.HideAsync()">
+                <i class="bi bi-x-circle me-1"></i>Cancelar
+            </button>
+        </div>
     </FooterTemplate>
 </Modal>
 
-<!-- Eliminar edificio (sólo SysAdmin) -- Docs/Pendientes-Negocio-Migracion.md #6.3 -->
+<!-- Eliminar edificio (sólo SysAdmin) -->
 <Modal @ref="_deleteBuildingModal"
        Title="Eliminar Edificio"
        UseStaticBackdrop="true"

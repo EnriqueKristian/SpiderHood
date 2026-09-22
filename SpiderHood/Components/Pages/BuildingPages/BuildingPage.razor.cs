@@ -329,5 +329,17 @@ namespace SpiderHood.Components.Pages.BuildingPages
                 Console.WriteLine($"Error al guardar edificio: {ex.Message}");
             }
         }
+
+        private int activeTab = 1;
+
+        private void NextTab()
+        {
+            if (activeTab < 4) activeTab++;
+        }
+
+        private void PreviousTab()
+        {
+            if (activeTab > 1) activeTab--;
+        }
     }
 }

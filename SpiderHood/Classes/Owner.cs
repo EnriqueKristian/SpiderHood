@@ -77,6 +77,16 @@ namespace SpiderHood.Models
         // persistía ni se recargaba), ver Docs/Pendientes-Negocio-Consolidado.md #30.
         [NotMapped] public string? UnitNumber { get; set; }
 
+        // Deliberadamente [NotMapped], mismo criterio que UnitNumber -- "Titular" o
+        // "Adicional", calculado por Owners.razor.EditOwner/AddResident a partir del
+        // TypeOwner real (OwnerGroupOwner.TypeOwner / OwnerUnitView.Role), NO del
+        // dropdown "Relación con la Unidad" de ModalOwner.razor (que hasta ahora
+        // ofrecía "Propietario"/"Co-Propietario" como si fuera lo mismo, con riesgo
+        // real de contradecir este dato -- ver Docs/Pendientes-Negocio-Consolidado.md
+        // #35). Null cuando el propietario todavía no tiene grupo (alta nueva,
+        // independiente).
+        [NotMapped] public string? GroupRoleLabel { get; set; }
+
         public string FullName => $"{Names} {Surname ?? ""}";
     }
 

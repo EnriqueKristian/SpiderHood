@@ -604,6 +604,11 @@
         public Guid IdBuilding { get; set; }
         public Guid IdGroupUnit { get; set; }
         public int IdTypeIdNumber { get; set; }
+        // OwnerUnitView.Role real (1=Titular, 2=Adicional -- ver
+        // Owners.razor.SaveGroupUnit/AddItem, que son los únicos lugares que lo
+        // asignan) -- usado por EditOwner/AddResident para armar
+        // Models.Owner.GroupRoleLabel, no hardcodeado.
+        public int Role { get; set; }
         [NotMapped]
         public string FullName => FirstName + " " +LastName;
     }
@@ -724,7 +729,8 @@
                     IsActive = ownerUnit.IsActive,
                     IdBuilding = ownerUnit.IdBuilding,
                     IdGroupUnit = ownerUnit.IdGroupUnit,
-                    IdTypeIdNumber = ownerUnit.IdTypeIdNumber
+                    IdTypeIdNumber = ownerUnit.IdTypeIdNumber,
+                    Role = ownerUnit.Role
                 });
             }
         }
@@ -1045,7 +1051,7 @@
             IdGroupOwner = owner.IdGroupUnit,
             GroupName = "DPTO " + owner.GroupNumber,
             AreaTotal = owner.TotalArea,
-            TypeOwner = 1,
+            TypeOwner = titular.Role,
             IdNumber = titular.IdentityDocument,
             Names = titular.FirstName,
             Surname = titular.LastName,
@@ -1058,7 +1064,11 @@
             // unidades reales del grupo para que ModalOwner.razor deje de mostrar
             // un campo de texto libre que nunca se guardaba (ver
             // Docs/Pendientes-Negocio-Consolidado.md #30).
-            UnitNumber = string.Join(", ", owner.Units.Select(u => u.UnitNumber))
+            UnitNumber = string.Join(", ", owner.Units.Select(u => u.UnitNumber)),
+            // Ídem -- Titular/Adicional real (Docs/Pendientes-Negocio-Consolidado.md
+            // #35), no el dropdown "Relación con la Unidad" que hasta ahora podía
+            // contradecir este dato.
+            GroupRoleLabel = titular.Role == 1 ? "Titular" : "Adicional"
         };
         OpenMode = Models.OpenType.Update;
         MostrarModal = true;
@@ -1073,7 +1083,11 @@
             IdBuilding = currentUser?.CurrentBuildingId ?? Guid.Empty,
             // Ídem EditOwner: sólo informativo, el residente nuevo se agrega al
             // mismo grupo/unidades que ya tiene "owner".
-            UnitNumber = string.Join(", ", owner.Units.Select(u => u.UnitNumber))
+            UnitNumber = string.Join(", ", owner.Units.Select(u => u.UnitNumber)),
+            // Este flujo (AddItem, más abajo) siempre agrega al nuevo residente con
+            // TypeOwner=2/Adicional -- resultado determinístico, se puede mostrar de
+            // una sin esperar a guardar.
+            GroupRoleLabel = "Adicional"
         };
         OpenMode = Models.OpenType.Create;
         MostrarModal = true;

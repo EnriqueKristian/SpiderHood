@@ -299,16 +299,24 @@
                                         <InputSelect id="relationshiptype" @bind-Value="ViewOwner.RelationshipType" class="form-select"
                                                      disabled="@(OpenMode == Models.OpenType.ReadOnly)">
                                             <option value="">-- Seleccione --</option>
-                                            <option value="Propietario">Propietario</option>
-                                            <option value="Co-Propietario">Co-Propietario</option>
+                                            @if (ViewOwner.RelationshipType is "Propietario" or "Co-Propietario")
+                                            {
+                                                <!-- Dato ya guardado antes de sacar estas 2 opciones del catálogo
+                                                     (Docs/Pendientes-Negocio-Consolidado.md #35) -- se sigue mostrando
+                                                     tal cual para no perderlo, pero ya no se puede elegir de nuevo. -->
+                                                <option value="@ViewOwner.RelationshipType">@ViewOwner.RelationshipType (dato anterior)</option>
+                                            }
                                             <option value="Inquilino">Inquilino</option>
                                             <option value="Usufructuario">Usufructuario</option>
                                             <option value="Familiar">Familiar</option>
                                         </InputSelect>
-                                        <small class="text-muted">Tipo de vínculo con la unidad</small>
+                                        <small class="text-muted">
+                                            Vínculo personal con la unidad (el rol de Titular/Adicional dentro
+                                            del grupo se calcula solo, ver a la derecha).
+                                        </small>
                                     </div>
                                 </div>
-                                
+
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label for="unitnumber" class="form-label fw-semibold">
@@ -320,6 +328,21 @@
                                         <small class="text-muted">
                                             Sólo informativo -- se calcula de la asignación real. Para
                                             cambiarla, usar "Asignar Unidades" desde el listado.
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="grouprole" class="form-label fw-semibold">
+                                            <i class="bi bi-people me-1 text-primary"></i>Rol en el Grupo
+                                        </label>
+                                        <InputText id="grouprole" @bind-Value="ViewOwner.GroupRoleLabel" class="form-control"
+                                                   placeholder="(sin grupo asignado)"
+                                                   readonly disabled="true" />
+                                        <small class="text-muted">
+                                            Titular o Adicional -- sólo informativo, se calcula de la
+                                            asignación real (no del vínculo de la izquierda).
                                         </small>
                                     </div>
                                 </div>

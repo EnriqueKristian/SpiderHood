@@ -492,6 +492,44 @@ período.
 
 ---
 
+### 35. "Relación con la Unidad" (ModalOwner) podía contradecir el Titular/Adicional real de la asignación
+**Estado: RESUELTO (2026-09-22).**
+
+El usuario notó, viendo la pestaña "Unidad" de Actualizar Propietario, que
+el dropdown "Relación con la Unidad" (`Owner.RelationshipType`) podía estar
+duplicando algo que ya se resuelve en la pantalla de asignación
+(`ModalOwnerUnit.razor`, la que se abre justo después de guardar un
+propietario nuevo). Verificado contra el código real:
+
+- `ModalOwnerUnit.razor` no tiene ningún campo de "relación" -- sólo deja
+  elegir a qué unidad/grupo se vincula. Pero el sistema sí calcula solo, en
+  ese momento, un dato estructural real: elegir una **unidad libre** deja
+  `TypeOwner = 1` ("Titular", `Owners.razor.SaveGroupUnit`); elegir un
+  **grupo ya existente** deja `TypeOwner = 2` ("Adicional"/"Residente",
+  mismo método y `Owners.razor.AddItem`). Este valor es el que usa
+  `AssignUnits.razor` para saber quién es el titular de cada grupo.
+- El dropdown `RelationshipType` (Propietario/Co-Propietario/Inquilino/
+  Usufructuario/Familiar) no era literalmente el mismo campo pedido dos
+  veces, pero **2 de sus 5 opciones describían exactamente la misma
+  distinción** que el sistema ya calculaba solo -- sin nada que garantizara
+  que coincidieran. Alguien podía quedar "Titular" en la asignación real y
+  "Co-Propietario" en este dropdown, sin ningún aviso de la contradicción.
+  Las otras 3 opciones (Inquilino/Usufructuario/Familiar) sí son
+  información real y propia del propietario, no duplican nada.
+
+**Resuelto:** se sacaron "Propietario"/"Co-Propietario" del catálogo del
+dropdown (ese dato ya lo determina la asignación real, no debe tipearse
+aparte) -- los valores ya guardados con esas dos opciones se siguen
+mostrando tal cual (marcados "dato anterior"), no se pierden, sólo dejan de
+ofrecerse para una elección nueva. Se agregó un campo nuevo de sólo lectura
+"Rol en el Grupo" (`Owner.GroupRoleLabel`, `[NotMapped]`, mismo criterio
+que `UnitNumber`) que muestra el Titular/Adicional real, calculado de
+`OwnerUnitView.Role` (`Owners.razor.EditOwner`/`AddResident`) -- mismo
+patrón ya usado para "Número de Unidad" (informativo, con nota apuntando a
+"Asignar Unidades" como la fuente real).
+
+---
+
 ## Prioridad Media -- funcionalidad de negocio real, pero no sangra dinero hoy
 
 ### 6. Bug compartido en modales de confirmación (`ConfirmationUtil.ExecuteWithConfirmation`)
@@ -2422,6 +2460,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 32 | Carreras confirmadas: doble reserva de Área Común (TOCTOU) y "lost update" en Edificio/Unidad/Propietario; carga HTTP general sin problemas | Alta | **Confirmado con pruebas (2026-09-22)**, sin arreglar -- decisión pendiente del usuario sobre si corregir ahora |
 | 33 | Posible duplicación de contacto entre Edificio y Account (Administrador Principal/Teléfono/Horario) | Media | **Resuelto** (2026-09-22) -- fallback a Account implementado, mismo patrón que el logo |
 | 34 | Constitución de la Junta Directiva (Presidente/Secretario/Tesorero) -- prerrequisito real de las Actas de #21 | Media-Alta | **Implementado** (2026-09-22) -- BuildingBoard/BuildingBoardMember + Tab 5 en Edificio; verificación legal exacta del art. sigue pendiente (bloqueada por política de red del entorno), validación implementada como advertencia blanda mientras tanto |
+| 35 | "Relación con la Unidad" (ModalOwner) podía contradecir el Titular/Adicional real de la asignación | Media | **Resuelto** (2026-09-22) -- Propietario/Co-Propietario sacados del catálogo, dato real mostrado aparte como "Rol en el Grupo" |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

@@ -1572,7 +1572,12 @@ cambiar.
 
 ### 22. Piloto para Móvil
 **Estado: Fase 1 (PWA/TWA, Opción A) implementada 2026-09-16 -- manifest,
-iconos, service worker, menú de Junta y auditoría responsive, todo hecho.**
+iconos, service worker, menú de Junta y auditoría responsive, todo hecho.
+Plan detallado de la Fase 4 (migración a Opción B, MAUI Blazor Hybrid)
+armado el 2026-09-22, ver `Docs/Plan-MAUI-Hybrid.md` -- fases, proyectos
+nuevos (API + RCL compartida + app MAUI), estimación de esfuerzo y qué se
+puede construir en este entorno de desarrollo vs. qué necesita una Mac
+(iOS). Sin empezar todavía la implementación.**
 
 Ese documento (`Docs/Design-Piloto-Mobile-Android.md`) ya cubre arquitectura
 (Opción A PWA/TWA ahora → Opción B MAUI Blazor Hybrid después) y qué

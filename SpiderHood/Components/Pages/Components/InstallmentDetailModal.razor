@@ -382,7 +382,6 @@
     private decimal _distr;
     private int _waterReadingsCount;
     private int _totalApartments;
-    private decimal _totalWaterConsumption => _waterReadings?.Sum(w => w.CalculatedAmount) ?? 0;
 
     // Unidades que componen el grupo (DPTO + cochera + depósito, etc.) — el Área Total de
     // arriba es la suma de todas, así que se listan para que sea informativo de dónde sale.
@@ -507,13 +506,10 @@
             return 0;
         }
 
-        bool esCategoriaAgua = item.IdCategory == ParameterService.CurrentBuilding!.Configuration.WaterReadingDefault && _waterReadingsCount > 0;
-
         // Any() sobre TODAS las exoneraciones de la categoría, no solo la primera que
         // aparezca -- antes comparaba contra ...FirstOrDefault(), así que con más de
         // un grupo exonerado de la misma categoría solo el primero se libraba de
-        // verdad (mismo fix ya aplicado en BudgetState.cs CalculateQuota()). Ahora
-        // aplica igual para Agua (antes Agua ignoraba las exoneraciones por completo).
+        // verdad (mismo fix ya aplicado en BudgetState.cs CalculateQuota()).
         bool exonerado = _exonerations.Any(c => c.IdCategory == item.IdCategory && c.IdGroupUnit == _installment.IdGroupUnit);
 
         if (exonerado)
@@ -531,13 +527,11 @@
         var nroExcepciones = _exonerations.Count(c => c.IdCategory == item.IdCategory);
         var unidadesQueDividen = item.NroApartments ?? (_totalApartments - nroExcepciones);
 
-        if (esCategoriaAgua)
-        {
-            // Math.Max(0, ...) en vez de Math.Abs -- ver el mismo fix y comentario en
-            // BudgetState.cs CalculateQuota().
-            return Math.Round(Math.Max(0, item.MonthlyAmount - _totalWaterConsumption) / unidadesQueDividen * _pesoFija, 2);
-        }
-
+        // Agua Áreas Comunes es una línea Fija más -- se reparte flat entre las
+        // unidades, SIN restarle el consumo medido individual (ese es un cargo
+        // aparte, ya sumado por separado más abajo en el desglose -- ver el
+        // renglón "Consumo de Agua"). Ver el mismo cambio y comentario en
+        // BudgetState.cs CalculateQuota().
         var total = item.Type == 1
             ? item.MonthlyAmount / unidadesQueDividen * _pesoFija
             : item.MonthlyAmount * _distr;

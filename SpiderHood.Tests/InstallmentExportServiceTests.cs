@@ -92,8 +92,10 @@ public class InstallmentExportServiceTests
     }
 
     [Fact]
-    public void CalculateItemAmount_ForWaterCategory_WeighsTheSharedDifferenceByUnitCount()
+    public void CalculateItemAmount_ForWaterCategory_IsFlatAndIgnoresMeteredConsumption()
     {
+        // Agua Áreas Comunes es una categoría Fija (Type==1) más -- se reparte flat
+        // entre unidades, sin restarle el consumo medido (eso es un cargo aparte).
         var groupB = Guid.NewGuid();
         var waterCategory = Guid.NewGuid();
 
@@ -107,7 +109,8 @@ public class InstallmentExportServiceTests
         // totalApartments = 4, pesoFija(groupB) = 3.
 
         var building = new Building { Configuration = new BuildingConfiguration { WaterReadingDefault = waterCategory } };
-        var waterReadings = new List<ServiceReadingDetail> { new() { CalculatedAmount = 100m } };
+        // Consumo medido alto a propósito -- no debe afectar el monto.
+        var waterReadings = new List<ServiceReadingDetail> { new() { CalculatedAmount = 1000m } };
 
         var service = new InstallmentExportService(
             installments: [],
@@ -119,12 +122,12 @@ public class InstallmentExportServiceTests
             owners: owners);
 
         var installmentGroupB = new Installment { IdGroupUnit = groupB };
-        var item = new BudgetDetail { MonthlyAmount = 400m, IdCategory = waterCategory };
+        var item = new BudgetDetail { Type = 1, MonthlyAmount = 400m, IdCategory = waterCategory };
 
         var amount = InvokeCalculateItemAmount(service, installmentGroupB, item);
 
-        // |400 - 100| / 4 apartamentos * 3 unidades del grupo = 225.
-        Assert.Equal(225m, amount);
+        // 400 / 4 apartamentos * 3 unidades del grupo = 300, sin restar el consumo.
+        Assert.Equal(300m, amount);
     }
 
     [Fact]
@@ -215,7 +218,7 @@ public class InstallmentExportServiceTests
             categories: [],
             owners: owners);
 
-        var item = new BudgetDetail { MonthlyAmount = 100m, IdCategory = waterCategory };
+        var item = new BudgetDetail { Type = 1, MonthlyAmount = 100m, IdCategory = waterCategory };
 
         Assert.Equal(0m, InvokeCalculateItemAmount(service, new Installment { IdGroupUnit = groupA }, item));
         // Denominador ahora resta el exonerado (2-1=1): groupB absorbe el 100%, no el 50%.

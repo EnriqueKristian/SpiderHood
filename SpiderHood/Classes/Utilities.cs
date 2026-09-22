@@ -1225,13 +1225,11 @@ namespace SpiderHood.Models
         private decimal CalculateItemAmount(BudgetDetail item)
         {
             var pesoFija = GetUnitCount(_installment.IdGroupUnit);
-            bool esCategoriaAgua = item.IdCategory == _building.Configuration.WaterReadingDefault && _waterReadings.Any();
 
             // Any() sobre TODAS las exoneraciones de la categoría, no solo la primera que
             // aparezca -- antes comparaba contra ...FirstOrDefault(), así que con más de
             // un grupo exonerado de la misma categoría solo el primero se libraba de
-            // verdad (mismo fix ya aplicado en BudgetState.cs CalculateQuota()). Ahora
-            // aplica igual para Agua (antes Agua ignoraba las exoneraciones por completo).
+            // verdad (mismo fix ya aplicado en BudgetState.cs CalculateQuota()).
             bool exonerado = _exonerations.Any(c => c.IdCategory == item.IdCategory && c.IdGroupUnit == _installment.IdGroupUnit);
 
             if (exonerado)
@@ -1247,14 +1245,10 @@ namespace SpiderHood.Models
             var nroExcepciones = _exonerations.Count(c => c.IdCategory == item.IdCategory);
             var unidadesQueDividen = item.NroApartments ?? (GetTotalUnits() - nroExcepciones);
 
-            if (esCategoriaAgua)
-            {
-                var totalWaterConsumption = _waterReadings.Sum(w => w.CalculatedAmount);
-                // Math.Max(0, ...) en vez de Math.Abs -- ver el mismo fix y comentario en
-                // BudgetState.cs CalculateQuota().
-                return Math.Round(Math.Max(0, item.MonthlyAmount - totalWaterConsumption) / unidadesQueDividen * pesoFija, 2);
-            }
-
+            // Agua Áreas Comunes es una línea Fija más -- se reparte flat entre las
+            // unidades, SIN restarle el consumo medido individual (ese es un cargo
+            // aparte, ya sumado por separado en el PDF -- ver el renglón "Consumo de
+            // Agua"). Ver el mismo cambio y comentario en BudgetState.cs CalculateQuota().
             var total = item.Type == 1
                 ? item.MonthlyAmount / unidadesQueDividen * pesoFija
                 : item.MonthlyAmount * (_installment.Percent / 100);

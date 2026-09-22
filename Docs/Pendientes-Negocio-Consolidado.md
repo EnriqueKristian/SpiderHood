@@ -276,6 +276,71 @@ construir ambas pantallas cuando se priorice.
 
 ---
 
+### 32. Condiciones de carrera confirmadas: doble reserva de área común y "lost update" en Edificio/Unidad/Propietario
+**Estado: CONFIRMADO con pruebas reproducibles (2026-09-22). Sin arreglar
+todavía -- el pedido del usuario fue "probar" concurrencia, no arreglarla;
+queda pendiente decidir si se corrige ahora.**
+
+El usuario pidió probar stress y concurrencia en 3 frentes: (1) ediciones
+simultáneas en Edificio/Unidad/Propietario, (2) carga general de la app, y
+(3) un flujo de negocio con dinero/datos en juego. Se armaron pruebas de
+integración dedicadas (reutilizan `DatabaseFixture`, corren contra una copia
+restaurada real de la BD, y se autolimpian) para medir cada uno:
+
+- **Doble reserva del mismo Área Común/horario (TOCTOU real)** --
+  `SpiderHood.Tests/Integration/ReservationConcurrencyTests.cs`.
+  `IReservationService.SolicitarAsync` lee los conflictos de horario y,
+  si no hay ninguno, recién ahí inserta -- sin transacción ni lock
+  (`SELECT ... WITH (UPDLOCK, HOLDLOCK)` o similar) y sin ningún índice
+  único que lo impida a nivel de BD. Con 20 solicitudes concurrentes para
+  la misma Área Común y el mismo horario, **las 20 pasaron el chequeo y
+  las 20 insertaron** -- doble reserva real, no teórica. Quien reserve
+  primero paga garantía/alquiler de un espacio que otro también cree tener
+  reservado.
+- **"Lost update" en Edificio (y por el mismo patrón, Unidad y Propietario)**
+  -- `SpiderHood.Tests/Integration/BuildingConcurrencyTests.cs`. `UPD_Building`
+  reescribe la fila COMPLETA con lo que tenga en memoria quien guarda, sin
+  columna de versión/timestamp ni chequeo de "¿alguien más lo tocó
+  mientras tanto?". `BuildingPage.razor` carga el Building entero al abrir
+  el modal y `UpdateBuildingAsync` manda todos los campos de vuelta, no
+  sólo los del tab editado. Prueba: dos "usuarios" abren el mismo Edificio,
+  Usuario A edita el Nombre (Tab 1) y guarda, Usuario B edita Elevadores
+  (Tab 2, campo distinto) y guarda después con su copia vieja en memoria
+  -- **el cambio de Nombre de Usuario A se pierde en silencio**, sin error
+  ni aviso a nadie. `UPD_Unit`/`UPD_Owner` comparten la misma arquitectura
+  de "reescribir la fila completa sin chequeo de versión", así que aplica
+  el mismo riesgo ahí (no se armó una prueba separada por cada uno porque
+  el mecanismo es idéntico).
+- **Carga general de la app (HTTP)** -- smoke test básico con `curl`
+  concurrente (no requiere sesión autenticada): 30 requests concurrentes a
+  la home, 20 a páginas con acceso a BD, 20 al negociado de SignalR --
+  **0 errores, 100% de respuestas exitosas** en todos los casos, con la
+  app corriendo localmente bajo carga moderada. No se pudo probar carga
+  con circuitos Blazor autenticados reales (login + SignalR persistente)
+  sin credenciales de prueba dedicadas -- si se quiere medir eso
+  específicamente, hace falta un script tipo k6/Playwright con usuarios de
+  prueba.
+
+De paso se encontró un bug menor secundario, no arreglado: `GET_ReservationsConflicto`
+hace `LEFT JOIN Users` por `CreatedBy` para armar `CreatedByName` (`string`
+no-nullable en el modelo C#) -- si `CreatedBy` no matchea ningún usuario
+real, ese JOIN da NULL y revienta con `SqlNullValueException` al leer la
+fila. Mismo patrón que otros bugs de "NULL en JOIN rompe un campo no-nullable"
+ya documentados en este backlog. No afecta el uso normal (todo `CreatedBy`
+real viene de un usuario real), sólo se notó al armar la prueba con un Guid
+aleatorio.
+
+**Las dos pruebas de concurrencia (`ReservationConcurrencyTests` y
+`BuildingConcurrencyTests`) quedan en rojo a propósito** -- documentan el
+bug reproducido, no un fallo de infraestructura. Si se decide corregir:
+Reservas necesitaría envolver "leer conflictos + insertar" en una
+transacción serializable (o `UPDLOCK, HOLDLOCK`) o un índice/constraint que
+impida el solapamiento a nivel de BD; Edificio/Unidad/Propietario
+necesitarían un token de concurrencia optimista (columna `RowVersion` o
+comparar `ModifiedOn` antes de pisar la fila) en `UPD_Building`/`UPD_Unit`/`UPD_Owner`.
+
+---
+
 ## Prioridad Media -- funcionalidad de negocio real, pero no sangra dinero hoy
 
 ### 6. Bug compartido en modales de confirmación (`ConfirmationUtil.ExecuteWithConfirmation`)
@@ -2194,6 +2259,7 @@ real (INSERT/UPDATE/SELECT por SP, valores confirmados ida y vuelta) y
 | 29 | MenuItems con Url rota o equivocada (6 de 8 encontrados) | Media | **Resuelto** (2026-09-16), 2 quedan pendientes de construir la página (decisión del usuario) |
 | 30 | Pantalla de mantenimiento de Account + permisos granulares + Natural/Empresa + logos en recibos/PDFs | Media | **Resuelto por completo** (2026-09-22) -- Building/Unit/Owner (34 campos) + (a)-(e), incluyendo logo del Edificio con fallback al de Account y franja "Administrado por..." con mención SpiderHoodApp |
 | 31 | Modales de Edificio/Unidad/Propietario: scroll forzado para guardar + botones desalineados | Media | **Resuelto** (2026-09-22) -- scroll interno del modal activado en Edificio/Unidad, botones reagrupados en los 3, y un `form=` roto en Edificio corregido |
+| 32 | Carreras confirmadas: doble reserva de Área Común (TOCTOU) y "lost update" en Edificio/Unidad/Propietario; carga HTTP general sin problemas | Alta | **Confirmado con pruebas (2026-09-22)**, sin arreglar -- decisión pendiente del usuario sobre si corregir ahora |
 
 `*` Prioridad pensada en función del piloto (ver "Plan de lanzamiento" abajo),
 no del mismo criterio de "dinero en riesgo hoy" que los puntos 1-16.

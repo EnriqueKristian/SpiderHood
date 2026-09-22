@@ -107,6 +107,7 @@ namespace SpiderHood.Models
         // NOTA: ConstructedArea (que estaba acá) se descartó -- duplicaba a BuiltArea,
         // que ya persiste desde 2026-09-04_49_Unit_ExtraFields.sql y es la que usa
         // ModalUnit.razor; ConstructedArea nunca se conectó a ningún formulario.
+        [Precision(18, 2)]
         public decimal? EstimatedValue { get; set; }
         public DateTime? LastRenovationDate { get; set; }
         public bool? HasBalcony { get; set; }

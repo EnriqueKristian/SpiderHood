@@ -381,7 +381,6 @@
 
     private decimal _distr;
     private int _waterReadingsCount;
-    private decimal _inverseNroGroupUnit;
     private int _totalApartments;
     private decimal _totalWaterConsumption => _waterReadings?.Sum(w => w.CalculatedAmount) ?? 0;
 
@@ -417,7 +416,6 @@
 
         _unidadesGrupo = new();
         _pesoFija = 1;
-        _inverseNroGroupUnit = 0;
         _cargosAdicionales = new();
         _deudasAnteriores = new();
         if (ParameterService.CurrentBuilding != null)
@@ -453,7 +451,6 @@
                 .Select(u => u.IdUnit)
                 .Distinct()
                 .Count();
-            _inverseNroGroupUnit = _totalApartments > 0 ? 1m / _totalApartments : 0;
 
             if (installment.Type == InstallmentType.Ordinaria)
             {
@@ -510,26 +507,39 @@
             return 0;
         }
 
-        if (item.IdCategory == ParameterService.CurrentBuilding!.Configuration.WaterReadingDefault && _waterReadingsCount > 0)
-        {
-            // Math.Max(0, ...) en vez de Math.Abs -- ver el mismo fix y comentario en
-            // BudgetState.cs CalculateQuota().
-            return Math.Round(Math.Max(0, item.MonthlyAmount - _totalWaterConsumption) * _inverseNroGroupUnit * _pesoFija, 2);
-        }
+        bool esCategoriaAgua = item.IdCategory == ParameterService.CurrentBuilding!.Configuration.WaterReadingDefault && _waterReadingsCount > 0;
 
-        var idGroupUnitExonerado = _exonerations
-            .Where(c => c.IdCategory == item.IdCategory)
-            .Select(c => c.IdGroupUnit)
-            .FirstOrDefault();
+        // Any() sobre TODAS las exoneraciones de la categoría, no solo la primera que
+        // aparezca -- antes comparaba contra ...FirstOrDefault(), así que con más de
+        // un grupo exonerado de la misma categoría solo el primero se libraba de
+        // verdad (mismo fix ya aplicado en BudgetState.cs CalculateQuota()). Ahora
+        // aplica igual para Agua (antes Agua ignoraba las exoneraciones por completo).
+        bool exonerado = _exonerations.Any(c => c.IdCategory == item.IdCategory && c.IdGroupUnit == _installment.IdGroupUnit);
 
-        if (_installment.IdGroupUnit == idGroupUnitExonerado)
+        if (exonerado)
         {
             return 0;
         }
 
+        // Cuántas unidades dividen esta categoría, ya sin las exoneradas. Para un
+        // presupuesto ya publicado se usa el valor CONGELADO en BudgetDetail.
+        // NroApartments (ver BudgetCalculator.CalculateQuota) en vez de recalcularlo
+        // con la composición ACTUAL del edificio -- así el desglose no cambia si
+        // después se agregan/quitan unidades o exoneraciones. Null solo en
+        // presupuestos guardados antes de este campo, donde se recalcula en vivo
+        // como antes.
         var nroExcepciones = _exonerations.Count(c => c.IdCategory == item.IdCategory);
+        var unidadesQueDividen = item.NroApartments ?? (_totalApartments - nroExcepciones);
+
+        if (esCategoriaAgua)
+        {
+            // Math.Max(0, ...) en vez de Math.Abs -- ver el mismo fix y comentario en
+            // BudgetState.cs CalculateQuota().
+            return Math.Round(Math.Max(0, item.MonthlyAmount - _totalWaterConsumption) / unidadesQueDividen * _pesoFija, 2);
+        }
+
         var total = item.Type == 1
-            ? item.MonthlyAmount / (_totalApartments - nroExcepciones) * _pesoFija
+            ? item.MonthlyAmount / unidadesQueDividen * _pesoFija
             : item.MonthlyAmount * _distr;
 
         return Math.Round(total, 2);

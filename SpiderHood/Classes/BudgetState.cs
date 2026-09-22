@@ -187,8 +187,36 @@ namespace SpiderHood.Models
                 // 2. PROCESAR DETALLES DEL PRESUPUESTO
                 foreach (var item in _state.Budget.Details)
                 {
-                    // 2.1. CASO ESPECIAL: AGUA
-                    if (item.IdCategory == _state.Configuration.WaterReadingDefault && _state.WaterReadings!.Count > 0 )
+                    bool esCategoriaAgua = item.IdCategory == _state.Configuration.WaterReadingDefault && _state.WaterReadings!.Count > 0;
+
+                    //Obtener cuantos grupos tienen exoneracion en esta categoria -- ahora
+                    //aplica también a Agua (antes Agua ignoraba las exoneraciones por
+                    //completo y siempre dividía entre el total de unidades sin restar
+                    //excepciones).
+                    var _nroException = exceptions.Count(c => c.IdCategory == item.IdCategory);
+
+                    //Verificar que el grupo tenga esta exoneración -- Any() sobre TODAS las
+                    //exoneraciones de la categoría, no sólo la primera que aparezca (antes
+                    //comparaba contra exceptions...FirstOrDefault(), así que con más de un
+                    //grupo exonerado de la misma categoría sólo el primero se libraba de
+                    //verdad).
+                    bool exonerado = exceptions.Any(c => c.IdCategory == item.IdCategory && c.IdGroupUnit == primero.IdGroupUnit);
+
+                    // Docs/Pendientes-Negocio-Consolidado.md #28 -- congela acá cuántas
+                    // unidades realmente dividieron esta categoría (después de
+                    // exoneraciones), para que Ver Detalle/el PDF de un presupuesto YA
+                    // PUBLICADO lean este valor en vez de recalcular con la composición
+                    // ACTUAL del edificio (que puede haber cambiado desde entonces). Solo
+                    // aplica a categorías con divisor por unidad (Agua y Fija) -- las
+                    // %-based (Type != 1) no usan "número de unidades".
+                    if (esCategoriaAgua || item.Type == 1)
+                        item.NroApartments = totalApartments - _nroException;
+
+                    if (exonerado)
+                    {
+                        _total += 0;
+                    }
+                    else if (esCategoriaAgua)
                     {
                         // Distribuir el consumo general menos lo ya asignado individualmente,
                         // pesado por cuántas unidades Depto/Oficina tiene este grupo (mismo
@@ -197,31 +225,13 @@ namespace SpiderHood.Models
                         // no queda "común" por repartir -- Abs convertía ese excedente en un
                         // cobro ADICIONAL positivo, cobrando dos veces el mismo excedente
                         // (ver CalculateQuota_WhenMeteredConsumptionExceedsBudget_* test).
-                        _total += Math.Max(0, item.MonthlyAmount - _totalWaterConsumption) / totalApartments * pesoFija;
+                        _total += Math.Max(0, item.MonthlyAmount - _totalWaterConsumption) / (totalApartments - _nroException) * pesoFija;
                     }
                     else
                     {
-                        // 2.2. OTRAS CATEGORÍAS
-                        //Obtener cuantos grupos tienen exoneracion en esta categoria
-                        var _nroException = exceptions.Count(c => c.IdCategory == item.IdCategory);
-
-                        //Verificar que el grupo tenga esta exoneración -- Any() sobre TODAS las
-                        //exoneraciones de la categoría, no sólo la primera que aparezca (antes
-                        //comparaba contra exceptions...FirstOrDefault(), así que con más de un
-                        //grupo exonerado de la misma categoría sólo el primero se libraba de
-                        //verdad).
-                        bool exonerado = exceptions.Any(c => c.IdCategory == item.IdCategory && c.IdGroupUnit == primero.IdGroupUnit);
-
-                        if (exonerado)
-                        {
-                            _total += 0;
-                        }
-                        else
-                        {
-                            // Distribuir según tipo -- Fija pesada por cantidad real de
-                            // Depto/Oficina del grupo, no 1 fijo por grupo.
-                            _total += item.Type == 1 ? item.MonthlyAmount / (totalApartments - _nroException) * pesoFija : item.MonthlyAmount * _distr;
-                        }
+                        // Distribuir según tipo -- Fija pesada por cantidad real de
+                        // Depto/Oficina del grupo, no 1 fijo por grupo.
+                        _total += item.Type == 1 ? item.MonthlyAmount / (totalApartments - _nroException) * pesoFija : item.MonthlyAmount * _distr;
                     }
                     _total = Math.Round(_total,2);
                 }

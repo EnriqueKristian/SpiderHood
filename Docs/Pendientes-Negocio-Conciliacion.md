@@ -616,3 +616,122 @@ no un pago parcial cualquiera.
 
 No se tocó código para este punto -- sólo queda anotado para revisar
 diseño en sesión, como pidió el usuario.
+
+---
+
+## 13. Varias cuotas + varios pagos del mismo propietario no se concilian bien en memoria
+
+**Estado: pendiente -- diagnóstico completo, sin decisión de diseño
+todavía ("voy a probar y confirmo qué opción").**
+
+Caso real planteado por el usuario: un propietario debe 3 cuotas (S/ 280,
+S/ 300 y S/ 320) y hace 2 pagos (S/ 500 y S/ 800). Al conciliar:
+
+1. Propone el Pago 1 (S/ 500) contra la Cuota 1 (S/ 280) + Cuota 2
+   (S/ 300) -- cubre la Cuota 1 entera y deja S/ 220 aplicados a la
+   Cuota 2 (quedaría con S/ 80 de saldo, un cobro parcial).
+2. Sin haber confirmado todavía ese Pago 1 ("Enviar a Conciliar"),
+   intenta proponer el Pago 2 (S/ 800) para cubrir el resto de la
+   Cuota 2 (S/ 80) + la Cuota 3 (S/ 320) -- pero la Cuota 2 **ya no
+   aparece en la lista de pendientes**, no se puede seleccionar.
+3. Sólo vuelve a aparecer (con su saldo real de S/ 80) después de tocar
+   "Enviar a Conciliar" sobre el Pago 1 -- recién ahí se puede proponer
+   el Pago 2 completo.
+
+**Causa exacta** (Fase B: propuesta en memoria → confirmar, mismo
+contrato que los puntos 1/6/11 de este documento): `AplicarPagoACuotas`
+(`ReconciliationWorkspace.razor`) saca la Cuota 2 de
+`cuotaspendientes` (`RemoveAll(...)`) apenas se arma la propuesta,
+tratándola como "ya resuelta" sin importar si el pago la cubrió entera
+o sólo en parte. El cálculo real de cobro parcial
+(`montoAplicado = Math.Min(cuota.Debt, saldoRestante)`, que de verdad
+descuenta `cuota.Debt` y marca `Status = Parcial` si no se cubrió del
+todo) vive en `ApplyPaymentAsync` (`IInstallmentService.cs:359`), y esa
+lógica **sólo corre al confirmar** ("Enviar a Conciliar"), no al
+proponer. Entre proponer y confirmar, la Cuota 2 queda en un limbo:
+desaparecida de la lista, pero con su `Debt` todavía sin descontar de
+verdad en memoria -- por eso una segunda propuesta, en esa misma
+sesión, antes de confirmar la primera, no puede ver el saldo real
+pendiente.
+
+**Dos opciones evaluadas, ninguna implementada:**
+
+**A) Replicar el cálculo de cobro parcial en memoria, al proponer (no
+sólo al confirmar).** Cuando se arma una propuesta, aplicar de una el
+mismo `Math.Min(cuota.Debt, saldoRestante)` sobre una copia en memoria
+de `cuota.Debt`, para que una segunda propuesta en la misma sesión vea
+el saldo real restante sin tener que confirmar la primera antes.
+Requiere cuidado extra: si el usuario saca esa propuesta antes de
+confirmarla (¿ya existe una función "quitar propuesta" para Gastos,
+`QuitarPropuesta`? -- revisar si Ingresos tiene el mismo mecanismo), hay
+que poder restaurar el `Debt` original, no dejarlo descontado a medias
+sin una propuesta real detrás.
+
+**B) Botón "Confirmar y seguir conciliando".** En vez de intentar que
+la lógica de varios pagos funcione en memoria contra propuestas sin
+confirmar, agregar una vía más rápida para confirmar una propuesta al
+toque (graba en BD YA, no espera al lote completo de "Enviar a
+Conciliar") y refresca la lista de pendientes desde BD de inmediato --
+así el Pago 2 ve el saldo real de la Cuota 2 apenas se confirma el Pago
+1, sin cambiar el motor de cálculo. Cambia el flujo de trabajo (pasa de
+"revisar todo y confirmar en lote" a poder confirmar de a uno), a
+diferencia de la Opción A que no toca el flujo, sólo el cálculo interno.
+
+No se tocó código -- queda para decidir con el usuario cuál de las dos
+prefiere (o ninguna, si prueba el flujo real y el caso resulta menos
+frecuente de lo pensado).
+
+---
+
+## 14. Depósito que mezcla la cuota de un propietario con un monto ajeno
+
+**Estado: pendiente -- el mecanismo base ya existe, falta resolver el
+etiquetado del excedente.**
+
+Caso real planteado por el usuario: una transferencia que en teoría es
+el saldo inicial de un fondo, pero el propietario (ex-directivo) hace
+el depósito sumándole el pago de su propia cuota en el mismo movimiento
+-- el admin sólo debería poder asociar el monto de la cuota (o cuotas)
+de ese propietario, dejando el resto del depósito sin asignar a nada.
+
+**El mecanismo para aislar el monto de la cuota YA funciona:**
+`ReconcilePaymentModal.razor` permite marcar sólo un subconjunto de las
+cuotas candidatas de un pago (`seleccionadas`, un `HashSet<Installment>`
+con checkboxes independientes) -- no exige que la selección cubra el
+`SaldoPago` completo, y hasta muestra "Restante" (`montoRestante`) como
+información, sin bloquear la confirmación si queda saldo sin usar. En
+los hechos, el usuario YA puede hacer exactamente lo que pide: tildar
+sólo la(s) cuota(s) de ese propietario y confirmar, dejando el resto
+del depósito de lado.
+
+**El hueco real es semántico, no funcional:** ese resto sin asignar
+(`pago.Balance` después de aplicar sólo la parte de la cuota) queda
+marcado con el mismo `ReconciliationType.Parcial` que se usa para "esta
+cuota quedó parcialmente COBRADA" (underpayment, ver punto 13) --
+mezclando dos situaciones opuestas bajo una sola etiqueta:
+
+- **Parcial por cobro insuficiente**: el depósito no alcanzó para cubrir
+  toda la deuda -- falta plata, hay que seguir cobrando.
+- **Parcial por excedente sin asignar** (este caso): el depósito trae
+  MÁS plata de la que corresponde a la cuota conciliada -- sobra plata,
+  hay que decidir qué hacer con ella (¿otro ingreso? ¿a favor del
+  propietario para el próximo período? ¿el aporte real de otra
+  persona/concepto, como en este caso?).
+
+Un reporte o un admin viendo `Parcial` en la lista de pagos no puede
+distinguir, sin abrir el detalle, cuál de las dos situaciones es -- y
+la respuesta correcta ("hay que cobrar más" vs. "hay que decidir qué
+hacer con el sobrante") es completamente distinta.
+
+**Falta decidir:** si el saldo sin asignar necesita su propio estado
+(ej. `ExcedenteSinAsignar`, separado de `Parcial`), o si alcanza con
+mostrarlo distinto sólo en la UI (mismo `ReconciliationType.Parcial`
+por dentro, pero un badge/color distinto cuando el saldo restante es a
+favor del pago y no de la cuota) -- y qué pasa después con ese
+excedente: ¿queda simplemente "sin conciliar" esperando que alguien lo
+revise más adelante (comportamiento de hoy), o necesita algún flujo
+propio (ej. un tipo de movimiento nuevo, junto al punto 2 de este
+documento sobre garantías de reserva, que es otro caso de "plata que
+entra y no es una cuota")?
+
+No se tocó código -- queda anotado para revisar diseño en sesión.

@@ -261,6 +261,19 @@
         {
             await LoadUserDataAsync();
             await LoadMenuAsync();
+
+            // La navegación mejorada de Blazor (enhanced navigation) vuelve a pedir el HTML
+            // estático de MainLayout/NavMenu en cada cambio de página -- .sidebar/.brand-text
+            // vuelven a su versión "expandida" de siempre en ese HTML fresco, porque ninguno
+            // de los dos es interactivo (ver SincronizarLayoutEstaticoAsync más arriba). Este
+            // componente SÍ sobrevive la navegación (circuito persistente), así que
+            // SidebarState.Collapsed no cambia de valor -- CollapsedChanged nunca se dispara
+            // solo, y sin este llamado acá el ícono/ancho quedaban expandidos aunque el propio
+            // LeftMenu siguiera renderizando en modo colapsado (justo lo que reportó el
+            // usuario: menú ancho, pero con sólo íconos adentro). Se sincroniza en CADA
+            // navegación, no sólo cuando el valor cambia.
+            await SincronizarLayoutEstaticoAsync();
+
             StateHasChanged();
         });
     }
@@ -564,23 +577,44 @@
 <script>
     // MainLayout (.sidebar) y NavMenu (el texto del logo) no son componentes interactivos
     // -- no pueden reaccionar en Blazor cuando este componente (que sí lo es) cambia
-    // SidebarStateService. Esta función la llama LeftMenu por JS interop (ver
-    // SincronizarLayoutEstaticoAsync en el bloque de código) cada vez que cambia el estado
-    // colapsado/expandido, para mantener sincronizados esos dos elementos que viven
-    // fuera de su propio árbol interactivo. window.spiderHoodSidebar en vez de una
-    // función suelta para no ensuciar el scope global con más de un nombre.
+    // SidebarStateService. window.spiderHoodSidebar aplica el estado directo sobre el DOM
+    // en vez de una función suelta, para no ensuciar el scope global con más de un nombre.
+    //
+    // Guardamos el valor (_collapsed) porque no alcanza con reaplicarlo sólo cuando
+    // LeftMenu llama a setCollapsed (al cargar la preferencia o al tocar el toggle):
+    // la navegación mejorada de Blazor (enhanced navigation) vuelve a pedir el HTML
+    // estático de MainLayout/NavMenu en cada cambio de página y lo parchea en el DOM --
+    // ese HTML siempre viene "expandido" (ninguno de los dos es interactivo, no saben
+    // nada de este estado). Confirmado en vivo que ese parche puede llegar DESPUÉS de
+    // que LeftMenu ya había re-sincronizado tras el cambio de ruta (es un parche 100%
+    // del lado del cliente, sin relación de orden garantizada con el evento
+    // NavigationManager.LocationChanged del circuito, que es del lado del servidor) --
+    // así que en vez de perseguir ese momento, un MutationObserver re-aplica el último
+    // estado conocido cada vez que algo cambia el DOM, sin importar cuándo ni por qué.
     window.spiderHoodSidebar = {
+        _collapsed: false,
         setCollapsed: function (collapsed) {
+            this._collapsed = collapsed;
+            this._apply();
+        },
+        _apply: function () {
             var sidebar = document.querySelector('.sidebar');
-            if (sidebar) sidebar.classList.toggle('sidebar-collapsed', collapsed);
+            if (sidebar) sidebar.classList.toggle('sidebar-collapsed', this._collapsed);
 
             // classList en vez de solo el atributo `hidden`: NavMenu.razor.css ya define
             // `.brand-text { display: flex; ... }`, que por especificidad le gana al
             // `display: none` implícito de [hidden] -- un estilo inline sí gana siempre.
             var brandText = document.querySelector('.brand-text');
-            if (brandText) brandText.style.display = collapsed ? 'none' : '';
+            if (brandText) brandText.style.display = this._collapsed ? 'none' : '';
         }
     };
+
+    // Sólo childList/subtree (NO attributes): _apply() de arriba cambia clases/estilos
+    // inline, que son mutaciones de atributo -- si también las observáramos, cada
+    // aplicación dispararía otra vuelta del observer sobre sí misma sin necesidad.
+    new MutationObserver(function () {
+        window.spiderHoodSidebar._apply();
+    }).observe(document.body, { childList: true, subtree: true });
 
     // Para manejar el ícono del toggle (chevron) al abrir/cerrar
     document.addEventListener('DOMContentLoaded', function() {

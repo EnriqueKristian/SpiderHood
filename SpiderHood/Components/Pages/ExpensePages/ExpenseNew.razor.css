@@ -20,15 +20,15 @@
     }
 
 .bg-gradient-primary {
-    background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%) !important;
+    background: linear-gradient(135deg, var(--sh-primary) 0%, #0b5ed7 100%) !important;
 }
 
 .bg-gradient-success {
-    background: linear-gradient(135deg, #198754 0%, #146c43 100%) !important;
+    background: linear-gradient(135deg, var(--sh-success) 0%, #146c43 100%) !important;
 }
 
 .bg-gradient-info {
-    background: linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%) !important;
+    background: linear-gradient(135deg, var(--sh-info) 0%, #0aa2c0 100%) !important;
 }
 
 /* Estilos para tabla jerárquica */
@@ -42,12 +42,12 @@
     }
 
 .expense-detail {
-    background-color: #fcfcfc;
+    background-color: var(--sh-surface-muted);
     border-left: 2px solid var(--sh-border);
 }
 
     .expense-detail:hover {
-        background-color: #f5f5f5 !important;
+        background-color: var(--sh-border) !important;
     }
 
 /* Badges personalizados */

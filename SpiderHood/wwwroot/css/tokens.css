@@ -81,6 +81,15 @@
     --sh-orange-dark: #d9480f;
     --sh-teal: #20c997;
     --sh-teal-dark: #099268;
+    /* Escala de "mapa de calor" (de menor a mayor gravedad) -- usada hoy en el
+       reporte de Morosidad para resaltar filas por monto de deuda relativo.
+       Vive como tokens (no hex sueltos en el .css de cada reporte) para poder
+       reusarse en otros reportes futuros con el mismo criterio visual. */
+    --sh-heat-1: #fff9db;
+    --sh-heat-2: #ffe8a3;
+    --sh-heat-3: #ffc266;
+    --sh-heat-4: #ff9466;
+    --sh-heat-5: #ff6b6b;
 }
 
 /*
@@ -111,4 +120,13 @@
     --sh-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --sh-shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.4);
     --sh-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.5);
+    /* Heat-map: los mismos 5 pasos de arriba pero oscurecidos -- el texto de la
+       fila usa --sh-text (claro en este tema), así que el fondo tiene que
+       oscurecerse en vez de sólo cambiar de tono, o el texto quedaría
+       ilegible sobre un pastel pensado para modo claro. */
+    --sh-heat-1: #4a3f1f;
+    --sh-heat-2: #5c451c;
+    --sh-heat-3: #6b3f21;
+    --sh-heat-4: #7a3826;
+    --sh-heat-5: #7a2c2c;
 }

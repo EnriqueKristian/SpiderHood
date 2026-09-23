@@ -1,10 +1,13 @@
 /* Heat-map de deuda, de amarillo claro (heat-1) a rojo (heat-5) -- mismo criterio
-   visual que el Excel de referencia del usuario para el reporte de Morosidad. */
-.heat-1 { background-color: #fff9db; }
-.heat-2 { background-color: #ffe8a3; }
-.heat-3 { background-color: #ffc266; }
-.heat-4 { background-color: #ff9466; }
-.heat-5 { background-color: #ff6b6b; }
+   visual que el Excel de referencia del usuario para el reporte de Morosidad.
+   Colores en tokens.css (--sh-heat-1..5) para reusarse en otros reportes y
+   tener su propia variante oscura (el pastel de modo claro es ilegible con el
+   texto claro de modo oscuro si sólo se cambiara el tema). */
+.heat-1 { background-color: var(--sh-heat-1); }
+.heat-2 { background-color: var(--sh-heat-2); }
+.heat-3 { background-color: var(--sh-heat-3); }
+.heat-4 { background-color: var(--sh-heat-4); }
+.heat-5 { background-color: var(--sh-heat-5); }
 
 /* Espacio entre la última columna (Cuotas) y el scroll vertical -- sin esto el
    texto queda pegado contra la barra de scroll de .table-responsive. */

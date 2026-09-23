@@ -239,3 +239,40 @@ Agua'... aunque tiene X m³ de consumo") para que no pase desapercibido.
 entorno): cargar un archivo con la columna nueva completa y confirmar que
 "Mi Consumo de Agua"/el reporte de Consumo de Agua muestran el monto real
 en vez de "No calculado".
+
+---
+
+## 6. La línea "Agua Áreas Comunes" del Presupuesto no mostraba de dónde debía salir su monto
+
+**Estado: resuelto (2026-09-23).**
+
+El usuario explicó el criterio real: el monto de esa línea (categoría
+`Configuration.WaterReadingDefault`, un ítem Fijo más dentro de
+`BudgetGenerator.razor`) es **la diferencia entre el recibo real de la
+empresa de agua y lo que ya se le cobra a cada unidad por su propio
+consumo medido** -- esa diferencia (a discreción del Administrador) es lo
+que corresponde cargar ahí. Antes el campo era un número suelto, sin
+ninguna pista de cuál era esa diferencia -- el Administrador tenía que
+calcularla aparte (Excel, fuera de la app).
+
+**Cambio:** `BudgetGenerator.razor` ahora muestra, debajo del campo Costo
+Mensual de esa línea específica, un hint con los dos lados del cálculo y
+la diferencia resultante, más un link "Usar" que la copia al campo (el
+Administrador puede editarla después, sigue siendo su decisión):
+
+- **Recibo:** suma de los Gastos de esa categoría con fecha dentro del mes
+  del presupuesto (`ExpenseService.GetExpensesByBuildingAsync` -- ya
+  incluye tanto un Gasto creado a mano como uno que sólo apareció en el
+  Estado de Cuenta y todavía no tiene un Gasto real creado, mismo
+  criterio que usa `ExpensePage.razor`). Si no hay ningún registro para
+  el período, se muestra "Recibo de agua del período aún no registrado
+  en Gastos" en vez de una diferencia inventada.
+- **Contómetros:** suma de `CalculatedAmount` de `_BudgetState.WaterReadings`
+  (el monto ya calculado por consumo individual de cada unidad para ese
+  período, con Cargo Fijo incluido -- confirmado con el usuario que es
+  este lado del cálculo, no el Subtotal sin Cargo Fijo).
+
+No se agregó ningún campo nuevo de "Total del Recibo" -- el usuario fue
+explícito en que ese monto debe vivir como un Gasto real (Contabilidad)
+conciliado con el Estado de Cuenta, no como un campo aparte dentro de
+Presupuesto.

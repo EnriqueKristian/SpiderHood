@@ -189,6 +189,24 @@
                                                                    @bind:event="onchange"
                                                                    @bind:after="() => CalculateTotals()" />
                                                         </div>
+                                                        @if (EsCategoriaAgua(item))
+                                                        {
+                                                            <div class="form-text" style="font-size:0.72rem; line-height:1.3;">
+                                                                @if (DiferenciaAguaAreasComunes is decimal diferencia)
+                                                                {
+                                                                    <span>Recibo @Moneda(TotalReciboAgua) − Contómetros @Moneda(TotalCalculadoContometros) = <strong>@Moneda(diferencia)</strong></span>
+                                                                    @if (CanEdit)
+                                                                    {
+                                                                        <text> · </text>
+                                                                        <a href="javascript:void(0)" @onclick="() => UsarDiferenciaAguaAreasComunes(item)">Usar</a>
+                                                                    }
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span>Recibo de agua del período aún no registrado en Gastos.</span>
+                                                                }
+                                                            </div>
+                                                        }
                                                     </td>
                                                     <td>
                                                         <div class="currency-input">
@@ -539,6 +557,16 @@
     private List<Category> filteredCategories = new();
     private List<Category> _Categories = new();
 
+    // Gastos del edificio -- usado sólo para el hint de "Agua Áreas Comunes" (ver
+    // EsCategoriaAgua/TotalReciboAgua más abajo): el Administrador pidió ver, junto al
+    // Costo Mensual de esa línea, la diferencia entre el recibo real de agua (un Gasto
+    // de la categoría Configuration.WaterReadingDefault, que puede venir ya creado a
+    // mano o recién aparecer sin crear todavía si sólo salió en el Estado de Cuenta --
+    // GetExpensesByBuildingAsync ya devuelve ambos casos) y lo que se calculó por
+    // contómetro en _BudgetState.WaterReadings -- esa diferencia es, a discreción del
+    // Administrador, lo que corresponde cargar como Áreas Comunes.
+    private List<ViewExpense> _gastosEdificio = new();
+
     private List<Period> _periods = new();
     private Period _currentPeriod = new();
     private DateTime _selectedPeriod;
@@ -702,6 +730,43 @@
         filteredParameters = @ParameterService.ListParameters.ToList();
         //Cargar Meses por Culura
         _availableMonths = await ParameterService.GetMonthList("es-PE");
+        //Cargar Gastos (hint de Agua Áreas Comunes -- ver EsCategoriaAgua)
+        _gastosEdificio = await ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+    }
+
+    // ¿Esta línea del presupuesto es "Agua Áreas Comunes" -- la categoría configurada
+    // en Configuration.WaterReadingDefault (BuildingConfig.razor)?
+    private bool EsCategoriaAgua(BudgetDetail item) =>
+        ParameterService.CurrentBuilding?.Configuration.WaterReadingDefault is Guid idCategoriaAgua
+        && item.IdCategory == idCategoriaAgua;
+
+    // Recibo real de agua del período -- suma de los Gastos (creados o todavía sólo
+    // presentes en el Estado de Cuenta sin Gasto creado, ver comentario de
+    // _gastosEdificio) de la categoría de agua, con fecha dentro del mes del
+    // presupuesto. 0 si todavía no hay ningún registro para este período.
+    private decimal TotalReciboAgua =>
+        ParameterService.CurrentBuilding?.Configuration.WaterReadingDefault is not Guid idCategoriaAgua
+            ? 0
+            : _gastosEdificio
+                .Where(g => g.IdCategory == idCategoriaAgua
+                    && g.ExpenseDate.Year == _BudgetState.Budget.BudgetDate.Year
+                    && g.ExpenseDate.Month == _BudgetState.Budget.BudgetDate.Month)
+                .Sum(g => g.Amount);
+
+    // Lo que ya se calculó por contómetro para todas las unidades en este período
+    // (CalculatedAmount, con Cargo Fijo incluido -- mismo total que se le está
+    // cobrando a cada dpto por su consumo individual).
+    private decimal TotalCalculadoContometros => _BudgetState.WaterReadings.Sum(w => w.CalculatedAmount);
+
+    // Null = recibo del período aún no registrado (no hay de qué restar todavía).
+    private decimal? DiferenciaAguaAreasComunes =>
+        TotalReciboAgua <= 0 ? null : TotalReciboAgua - TotalCalculadoContometros;
+
+    private void UsarDiferenciaAguaAreasComunes(BudgetDetail item)
+    {
+        if (!DiferenciaAguaAreasComunes.HasValue) return;
+        item.MonthlyAmount = DiferenciaAguaAreasComunes.Value;
+        _ = CalculateTotals();
     }
 
     /*  SECCION CALCULOS   */

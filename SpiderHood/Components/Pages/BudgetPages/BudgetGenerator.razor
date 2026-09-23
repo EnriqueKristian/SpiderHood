@@ -370,7 +370,6 @@
                                   class5="@class5"
                                   OnCopyToClipboard="CopyToClipboard"
                                   OnClearAllData="ClearAllData"
-                                  SectionTotals="GetSectionTotals()"
                                   OnShoworNot="ShoworNot" />
 
     </div>
@@ -909,27 +908,6 @@
             Monthly: sectionItems.Sum(x => x.MonthlyAmount),
             Annual: sectionItems.Sum(x => x.AnnualAmount)
         );
-    }
-
-    private List<SectionTotal> GetSectionTotals()
-    {
-        var sections = new List<SectionTotal>();
-
-        foreach (var section in GetSections())
-        {
-            var total = GetSectionTotal(section.Id);
-            if (total.Monthly > 0 || total.Annual > 0)
-            {
-                sections.Add(new SectionTotal
-                {
-                    Id = section.Id,
-                    Name = GetSectionName(section.Id),
-                    Monthly = total.Monthly,
-                    Annual = total.Annual
-                });
-            }
-        }
-        return sections;
     }
 
     private async Task AddExpenseItemToSection(int sectionId)

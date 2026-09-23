@@ -550,3 +550,69 @@ hubiera propuesto solo cualquier coincidencia exacta encontrada).
 interesa ahora el proceso, luego revisamos un mejor diseño visual"): el
 checkbox se agregó funcional, sin pulir -- ubicación/estilo pueden
 cambiar en una pasada de diseño posterior.
+
+---
+
+## 12. Condonación de deuda (ej. "si paga 1800 de los 2000 que debe, se le condona el resto")
+
+**Estado: pendiente, sólo el caso anotado -- "revisamos en sesión", no
+implementar a ciegas.**
+
+Caso real planteado por el usuario: un propietario debe S/ 2,000 (una o
+varias cuotas acumuladas). En una reunión de junta se acuerda que, si paga
+rápido S/ 1,800, se le condona (perdona) el resto -- una quita negociada,
+no un pago parcial cualquiera.
+
+**Hoy no existe ningún mecanismo para esto.** Revisado el modelo:
+
+- `Installment.Debt` (`Classes/Budget/Installment.cs`) sólo baja por
+  `ApplyPaymentAsync` (`IInstallmentService.cs:359`), y sólo cuando hay un
+  pago real conciliado de por medio (`montoAplicado = Math.Min(cuota.Debt,
+  saldoRestante)`). No hay ninguna vía para reducir `Debt` sin que un monto
+  equivalente haya entrado de verdad al banco.
+- `Installment.Status` (`ReconciliationType`: `NoConciliada` / `Conciliada`
+  / `Parcial` / `Pendiente`) no tiene ningún valor tipo "Condonada" -- si se
+  fuerza `Debt = 0` a mano hoy, la cuota queda indistinguible de una
+  realmente cobrada (ni el propietario ni un futuro admin podrían saber,
+  mirando el estado de cuenta o un reporte, que esos S/ 200 nunca se
+  cobraron).
+- **Ojo con el nombre:** ya existe una clase `InstallmentExoneration`
+  (`Classes/BudgetState.cs:302`), pero es un concepto DISTINTO -- excluye a
+  una unidad de una CATEGORÍA entera al generar el presupuesto (ej. un
+  departamento en primer piso exonerado del gasto de ascensor), a futuro,
+  antes de que exista deuda. No sirve para perdonar un saldo YA acumulado
+  de una cuota puntual -- si se construye esto, conviene un nombre distinto
+  ("Condonación"/"Quita") para no pisar ni confundirse con lo que ya existe.
+
+**Preguntas de diseño, ninguna resuelta todavía:**
+
+1. **¿Cómo queda registrado en los reportes?** Si el presupuesto proyectó
+   cobrar esos S/ 2,000 (`Ejecución Preps.`, `Morosidad`, `Ingresos y
+   Egresos` en el Dashboard), condonar en silencio hace que la plata
+   "desaparezca" sin dejar rastro de que fue una decisión, no una cobranza
+   fallida. Probablemente necesite su propio estado/registro (una especie
+   de ajuste, visible como tal) en vez de sólo poner `Debt = 0`.
+2. **¿Quién aprueba y con qué respaldo?** El caso nace de un acuerdo de
+   junta -- ya existe el módulo de Gobernanza (`Classes/Governance/Meeting.cs`,
+   `MeetingMinutes`, `AgendaItem`); tiene sentido que una condonación quede
+   vinculada a un Acta/reunión concreta para trazabilidad, no como una
+   acción suelta de un admin sin respaldo.
+3. **Es condicional, no inmediata.** "Si paga rápido 1800, se condona el
+   resto" -- el perdón depende de que el pago efectivamente llegue (y a
+   tiempo). No es "condonar ahora"; es más bien "dejar programada una
+   condonación que se dispara sola cuando se concilie el pago acordado, o
+   nunca si no llega". Eso pega directo con Fase B de conciliación (la
+   misma propuesta-en-memoria → confirmar de los puntos 1/11 de este
+   documento) -- probablemente la condonación del saldo debería resolverse
+   en el mismo momento en que se confirma ese pago puntual, no antes.
+4. **¿A nivel de una cuota o del saldo total del propietario/unidad?** La
+   deuda de S/ 2,000 puede estar repartida en varias cuotas (ordinarias,
+   extraordinarias, multas/mora todas mezcladas -- ver también el punto ya
+   anotado sobre varias cuotas + varios pagos del mismo propietario). Hace
+   falta decidir si se condona cuota por cuota o como un ajuste al total.
+5. **Reversibilidad/auditoría** si el acuerdo se cae o fue un error --
+   mismo criterio que ya se usó para "Ignorar" (punto 1: motivo + tipo +
+   `WorkflowAuditEntry`).
+
+No se tocó código para este punto -- sólo queda anotado para revisar
+diseño en sesión, como pidió el usuario.

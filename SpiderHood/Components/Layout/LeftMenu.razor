@@ -609,9 +609,19 @@
     // recortaría (overflow-y:auto fuerza el overflow-x calculado a auto también,
     // aunque no se lo pida). fixed no depende de eso, pero tampoco se puede anclar
     // solo con CSS a "el ítem sobre el que estoy" -- de ahí el cálculo de posición acá.
+    // Ver más abajo (click) -- Blazor puede volver a renderizar este mismo nodo
+    // (LocationChanged tras navegar) con el mouse real todavía parado en el mismo
+    // punto de la pantalla, y el browser dispara un mouseover "fantasma" apenas el
+    // elemento reaparece bajo el cursor sin que el mouse se haya movido -- confirmado
+    // en vivo: sin esta ventana, el flyout se cerraba al click pero volvía a abrirse
+    // solo un instante después. lastFlyoutCloseAt ignora esos mouseover cercanos a un
+    // cierre por click.
+    var lastFlyoutCloseAt = 0;
+
     document.addEventListener('mouseover', function (e) {
         var trigger = e.target.closest('.nav-item-flyout-trigger');
         if (!trigger) return;
+        if (Date.now() - lastFlyoutCloseAt < 400) return;
         var flyout = trigger.querySelector('.flyout-submenu');
         if (!flyout) return;
         var rect = trigger.getBoundingClientRect();
@@ -628,5 +638,20 @@
         if (trigger.contains(e.relatedTarget)) return;
         var flyout = trigger.querySelector('.flyout-submenu');
         if (flyout) flyout.classList.remove('flyout-open');
+    });
+
+    // Clic en un hijo del flyout (navega a otra pantalla): cerrarlo YA, no esperar a
+    // un mouseout que nunca llega -- el mouse real no se mueve al hacer clic, así que
+    // sin esto el panel se quedaba "pegado" abierto y encima flotando sobre el
+    // contenido de la pantalla nueva (LeftMenu no se recrea al navegar dentro de la
+    // app, así que el mismo nodo del flyout persiste con su clase flyout-open puesta
+    // de antes). Se cierra por JS al toque, sin esperar el viaje de ida y vuelta al
+    // servidor de la navegación misma.
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.flyout-submenu')) return;
+        lastFlyoutCloseAt = Date.now();
+        document.querySelectorAll('.flyout-submenu.flyout-open').forEach(function (flyout) {
+            flyout.classList.remove('flyout-open');
+        });
     });
 </script>

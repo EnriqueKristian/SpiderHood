@@ -276,3 +276,37 @@ No se agregó ningún campo nuevo de "Total del Recibo" -- el usuario fue
 explícito en que ese monto debe vivir como un Gasto real (Contabilidad)
 conciliado con el Estado de Cuenta, no como un campo aparte dentro de
 Presupuesto.
+
+---
+
+## 7. El recibo PDF sacaba "Regularización de Agua" de Deudas Anteriores a su propia línea, por texto
+
+**Estado: resuelto (2026-09-23).**
+
+El usuario revisó un recibo real y encontró en "DEUDAS ANTERIORES" una
+línea "Lectura de Agua - Regularización" que no debía existir -- la
+sección sólo debería mostrar Cuotas Ordinarias pendientes y Cuotas
+Extraordinarias/Multas y Mora pendientes. Esa deuda puntual (una
+Regularización de Agua que en su momento se cargó como Cuota
+Extraordinaria porque no había otra forma de hacerlo) ya está bien
+categorizada en el sistema (`InstallmentType.Extraordinaria`) -- el
+problema era el código del recibo, no el dato.
+
+`InstallmentExportService` (`Classes/Utilities.cs`) tenía un método
+`EsRegularizacionAgua(Installment i) => i.Concept.Contains("agua", ...)`
+que interceptaba por texto cualquier deuda anterior cuyo `Concept`
+contuviera la palabra "agua" y la sacaba de la suma de "Cuotas
+Extraordinarias, Multas y Mora" para mostrarla en su propia fila --
+probablemente un parche de cuando esa regularización todavía no tenía un
+`InstallmentType` real. Con el dato ya bien tipeado, ese parche por texto
+quedó obsoleto y sólo generaba una tercera línea confusa (y de paso,
+cualquier otra deuda futura con la palabra "agua" en su concepto -- sin
+ser una regularización real -- caería en el mismo bucket por accidente).
+
+**Cambio:** se sacó el método y su uso -- la sección "DEUDAS ANTERIORES"
+vuelve a sumar por `InstallmentType` únicamente (`Ordinaria` vs. el
+resto), mismo criterio que ya usa la sección de cargos del período actual
+(arriba, "CUOTAS EXTRAORDINARIAS, MULTAS Y MORA") -- ahora ambas
+secciones son consistentes entre sí. Ninguna deuda real desaparece: la
+Regularización de Agua sigue sumando al total, sólo que dentro del
+bucket de Extraordinarias en vez de tener su propia fila.

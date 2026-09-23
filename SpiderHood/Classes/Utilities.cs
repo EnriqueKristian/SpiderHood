@@ -1030,13 +1030,11 @@ namespace SpiderHood.Models
                 var deudasUnidad = _deudasAnteriores.Where(d => d.IdGroupUnit == _installment.IdGroupUnit && d.IdInstallment != _installment.IdInstallment && d.Period < _installment.Period).ToList();
                 if (deudasUnidad.Any())
                 {
-                    var deudaAgua = deudasUnidad.Where(EsRegularizacionAgua).Sum(d => d.Debt);
                     var deudaOrdinarias = deudasUnidad.Where(d => d.Type == InstallmentType.Ordinaria).Sum(d => d.Debt);
-                    var deudaExtraordinarias = deudasUnidad.Where(d => d.Type != InstallmentType.Ordinaria && !EsRegularizacionAgua(d)).Sum(d => d.Debt);
-                    var deudaAnteriorTotal = deudaAgua + deudaOrdinarias + deudaExtraordinarias;
+                    var deudaExtraordinarias = deudasUnidad.Where(d => d.Type != InstallmentType.Ordinaria).Sum(d => d.Debt);
+                    var deudaAnteriorTotal = deudaOrdinarias + deudaExtraordinarias;
 
                     AddSectionHeader(table, "DEUDAS ANTERIORES");
-                    AddTableRow(table, "Lectura de Agua - Regularización", 0, deudaAgua, 0);
                     AddTableRow(table, "Cuotas Ordinarias", 0, deudaOrdinarias, 0);
                     AddTableRow(table, "Cuotas Extraordinarias, Multas y Mora", 0, deudaExtraordinarias, 0);
 
@@ -1055,8 +1053,6 @@ namespace SpiderHood.Models
                 }
             });
         }
-
-        private static bool EsRegularizacionAgua(Installment i) => i.Concept.Contains("agua", StringComparison.OrdinalIgnoreCase);
 
         private void ComposeFooter(IContainer container)
         {

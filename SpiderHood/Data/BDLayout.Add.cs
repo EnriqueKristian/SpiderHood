@@ -69,7 +69,8 @@ namespace SpiderHood.Data
                     item.DisplayOrder!,
                     item.IsVisible!,
                     item.BadgeText!,
-                    item.BadgeColor!);
+                    item.BadgeColor!,
+                    item.GroupName!);
                 return item;
             }, "AddMenuItem", cancellationToken);
         }

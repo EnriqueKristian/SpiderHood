@@ -13,5 +13,9 @@ namespace SpiderHood.Models
         public List<MenuItem> Children { get; set; } = new();
         public bool IsVisible { get; set; } = true;
         public string? Target { get; set; } // Para menús colapsables
+
+        // Sólo viene en items raíz -- agrupa el menú lateral en secciones
+        // (GENERAL/COMUNIDAD/ADMINISTRACIÓN, ver LeftMenu.razor).
+        public string? GroupName { get; set; }
     }
 }

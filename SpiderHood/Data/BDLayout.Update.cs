@@ -182,7 +182,8 @@ namespace SpiderHood.Data
                     item.IsVisible!,
                     item.BadgeText!,
                     item.BadgeColor!,
-                    item.UpdatedAt!);
+                    item.UpdatedAt!,
+                    item.GroupName!);
                 return item;
             }, "UpdateMenuItem", cancellationToken);
         }

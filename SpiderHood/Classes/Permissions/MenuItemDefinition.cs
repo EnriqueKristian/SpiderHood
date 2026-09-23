@@ -21,6 +21,11 @@ namespace SpiderHood.Models
         public string? BadgeText { get; set; }
 
         public string? BadgeColor { get; set; } = "danger";
+
+        // Sólo aplica a items raíz (IdParent NULL) -- agrupa el menú lateral en
+        // secciones (GENERAL/COMUNIDAD/ADMINISTRACIÓN); los hijos de un submenú no
+        // necesitan uno propio, quedan agrupados bajo su padre como siempre.
+        public string? GroupName { get; set; }
         [NotMapped]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         [NotMapped]

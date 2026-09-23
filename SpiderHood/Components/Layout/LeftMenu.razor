@@ -26,8 +26,16 @@
                 </div>
             </a>
 
-            @foreach (var menuItem in _filteredMenu)
+            @{ var _menu = MenuAgrupado; }
+            @for (var _i = 0; _i < _menu.Count; _i++)
             {
+                var menuItem = _menu[_i];
+
+                @if (!string.IsNullOrEmpty(menuItem.GroupName) && menuItem.GroupName != (_i == 0 ? null : _menu[_i - 1].GroupName))
+                {
+                    <div class="nav-section-header">@menuItem.GroupName.ToUpperInvariant()</div>
+                }
+
                 @if (menuItem.Children.Any())
                 {
                     <!-- Menú con submenús -->
@@ -96,6 +104,29 @@
     private Models.UserSession? _currentUser;
     private List<Models.MenuItem> _filteredMenu = new();
     private bool _isDevelopment;
+
+    // GroupName (GET_FullMenu) agrupa, pero NO reordena -- un item de un grupo
+    // puede quedar intercalado entre items de otro si su DisplayOrder cae en el
+    // medio (ej. "Reportes" en General, sembrado con un DisplayOrder mayor al de
+    // los items de Comunidad). Sin esto, esa mezcla partía el grupo en dos
+    // encabezados "GENERAL" separados en vez de uno solo. Se reordena acá, en el
+    // layout, en vez de tocar los DisplayOrder reales en BD (que siguen sirviendo
+    // para el orden relativo DENTRO de cada grupo, ya vienen ordenados así desde
+    // GET_FullMenu -- OrderBy es estable, así que ThenBy por posición original
+    // preserva ese orden).
+    private static readonly string[] _ordenGrupos = { "General", "Comunidad", "Administración" };
+
+    private List<Models.MenuItem> MenuAgrupado =>
+        _filteredMenu
+            .Select((item, index) => (item, index))
+            .OrderBy(x =>
+            {
+                var pos = Array.IndexOf(_ordenGrupos, x.item.GroupName);
+                return pos < 0 ? int.MaxValue : pos; // sin grupo/grupo desconocido -> al final
+            })
+            .ThenBy(x => x.index)
+            .Select(x => x.item)
+            .ToList();
 
     [Inject] private IWebHostEnvironment Environment { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;

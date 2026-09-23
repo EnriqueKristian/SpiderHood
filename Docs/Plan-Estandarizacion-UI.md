@@ -329,3 +329,61 @@ puntual que sea más urgente por uso real de los residentes/administradores
 ahora mismo? ¿Se puede ver primero un mockup del indicador de pasos
 (punto 3) antes de aplicarlo a las 2 pantallas, mismo criterio que el
 canvas de Login/Dashboard?
+
+---
+
+## 5. Menú lateral agrupado y top bar simplificado
+
+**RESUELTO (2026-09-23).** Parte de la dirección visual aprobada en el
+canvas "SpiderHood Look and Feel" (Dashboard-Light) desde el principio de
+la sesión, pero que nunca se había implementado -- el trabajo se fue
+directo a Tema/Modales/Pantallas por el orden de prioridades del usuario
+y este pendiente quedó en el tintero hasta que el usuario lo notó
+revisando el resultado de Presupuesto.
+
+### Top bar
+Se sacó el breadcrumb (ícono casa + título de página, calculado por
+`GetPageLabel()` contra un diccionario de ~50 rutas) -- la navegación a
+Dashboard ya está en el menú lateral. Arriba sólo queda el selector de
+Edificio (ahora a la izquierda) y la cuenta (rol + usuario, a la
+derecha). `HeaderMainLayout.razor`.
+
+### Menú lateral agrupado (GENERAL / COMUNIDAD / ADMINISTRACIÓN)
+El menú no tenía ningún concepto de "grupo" -- ni en la tabla
+`MenuItems`, ni en el modelo, ni en los stored procedures -- así que se
+eligió (a pedido explícito del usuario, entre esa opción y un mapeo
+cosmético sólo en el layout) agregar un campo real:
+
+- `Database/Scripts/2026-09-23_143_MenuItems_AgregarGrupo.sql`: columna
+  `GroupName NVARCHAR(50)` en `MenuItems`, backfill de los items raíz
+  conocidos por `ItemKey` (con fallback por Título para "Reservas y
+  Mantenimientos", que tiene el ItemKey vacío), y `ALTER PROCEDURE` de
+  `GET_FullMenu`, `GET_MenuItem`, `INS_MenuItem`, `UPD_MenuItem` para que
+  lean/escriban la columna nueva. **El usuario tiene que correr este
+  script en su base real** -- el backfill por `ItemKey`/Título es
+  best-effort, cualquier item que no matchee queda sin grupo (no rompe
+  nada, sólo no muestra encabezado de sección) hasta asignárselo a mano.
+- Agrupación aplicada: **General** (Dashboard, Adm. Edificio,
+  Presupuesto, Conciliación, Reportes), **Comunidad** (Portal del
+  Residente, Junta de Propietarios, Incidencias y Comun., Reservas y
+  Mantenimientos), **Administración** (Personal, Configuración) -- las 3
+  primeras validadas explícitamente con el usuario; "Junta de
+  Propietarios" en Comunidad es una extensión razonable no confirmada
+  palabra por palabra (no aparecía en el mockup original).
+- `LeftMenu.razor`: reusa la clase CSS `.nav-section-header` que ya
+  existía en `LeftMenu.razor.css` (definida, pero nunca usada -- parece
+  un intento anterior de esto mismo que quedó a medias). Los items se
+  reordenan por grupo ANTES de renderizar (`MenuAgrupado`, General →
+  Comunidad → Administración → sin grupo) en vez de confiar en que el
+  `DisplayOrder` de la base ya venga contiguo por grupo -- un ítem como
+  "Reportes" con un `DisplayOrder` que cae en medio de otro grupo
+  partía la sección en dos encabezados repetidos antes de este ajuste.
+- `/Settings/MenuItems/Edit`: nuevo campo "Grupo" (General/Comunidad/
+  Administración/sin grupo), visible sólo para items raíz -- probado en
+  vivo un round-trip completo (cambiar grupo, guardar, verificar en BD,
+  revertir).
+- Sólo aplica a items raíz -- los hijos de un submenú siguen agrupados
+  bajo su padre como siempre, no tienen grupo propio.
+
+Verificado con Playwright (aplicado el script a la base local de
+desarrollo) en Dashboard: claro, oscuro y mobile (menú hamburguesa).

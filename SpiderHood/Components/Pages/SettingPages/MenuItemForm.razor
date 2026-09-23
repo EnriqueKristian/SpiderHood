@@ -87,6 +87,20 @@ else
                                 <small class="text-muted">Dejar vacío para items de nivel superior</small>
                             </div>
 
+                            @if (_item.IdParent == null || _item.IdParent == Guid.Empty)
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label">Grupo</label>
+                                    <InputSelect class="form-control" @bind-Value="_item.GroupName">
+                                        <option value="">(sin grupo -- no muestra encabezado de sección)</option>
+                                        <option value="General">General</option>
+                                        <option value="Comunidad">Comunidad</option>
+                                        <option value="Administración">Administración</option>
+                                    </InputSelect>
+                                    <small class="text-muted">Sección del menú lateral donde aparece este item. Sólo aplica a items de nivel superior.</small>
+                                </div>
+                            }
+
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">

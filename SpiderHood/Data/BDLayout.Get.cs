@@ -477,6 +477,7 @@ namespace SpiderHood.Data
                             Url = reader["Url"]?.ToString(),
                             Target = reader["Target"]?.ToString(),
                             Order = reader.GetInt32(reader.GetOrdinal("DisplayOrder")),
+                            GroupName = reader["GroupName"] == DBNull.Value ? null : reader["GroupName"].ToString(),
                             RequiredPermissions = new List<string>(),
                             Children = new List<MenuItem>()
                         };
@@ -759,7 +760,8 @@ namespace SpiderHood.Data
                             Url = row["Url"]?.ToString() ?? "",
                             Target = row["Target"]?.ToString() ?? "",
                             ParentKey = row["ParentKey"]?.ToString() ?? "",
-                            DisplayOrder = row["DisplayOrder"] is int d ? d : Convert.ToInt32(row["DisplayOrder"])
+                            DisplayOrder = row["DisplayOrder"] is int d ? d : Convert.ToInt32(row["DisplayOrder"]),
+                            GroupName = row["GroupName"] == DBNull.Value ? null : row["GroupName"]?.ToString()
                         });
                 }
 

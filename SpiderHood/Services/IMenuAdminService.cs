@@ -194,6 +194,7 @@ namespace SpiderHood.Services
             existing.IsVisible = item.IsVisible;
             existing.BadgeText = item.BadgeText;
             existing.BadgeColor = item.BadgeColor;
+            existing.GroupName = item.GroupName;
             existing.UpdatedAt = DateTime.UtcNow;
 
             // Actualizar Target si es necesario -- ver IsRootMenuItem.
@@ -528,6 +529,7 @@ namespace SpiderHood.Services
                 IsVisible = item.IsVisible,
                 BadgeText = item.BadgeText,
                 BadgeColor = item.BadgeColor,
+                GroupName = item.GroupName,
                 CreatedAt = item.CreatedAt,
                 UpdatedAt = item.UpdatedAt,
                 RolePermissions = roles.Select(role => new RolePermissionCheck

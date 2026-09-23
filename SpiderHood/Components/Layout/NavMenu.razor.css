@@ -38,6 +38,24 @@
     letter-spacing: -0.3px;
 }
 
+/* Sidebar colapsado: .sidebar-collapsed lo agrega/saca spiderHoodSidebar.setCollapsed
+   (JS, ver LeftMenu.razor) directo sobre el ancestro -- selector válido igual acá
+   aunque .sidebar viva en OTRO componente (MainLayout): Blazor sólo exige el atributo
+   de scope en el selector final (.container-fluid/.navbar-brand, que sí son de este
+   archivo), no en el ancestro. Sin esto, el ícono no se centraba al ocultarse el
+   texto -- .navbar-brand trae un margin-right:1rem de Bootstrap (pensado para separar
+   el texto del resto de la navbar) que en 72px de ancho sobraba de sobra, empujando el
+   ícono hacia la izquierda y recortándolo contra el borde. */
+.sidebar-collapsed .top-row .container-fluid {
+    justify-content: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.sidebar-collapsed .navbar-brand {
+    margin-right: 0;
+}
+
 .brand-icon {
     flex: 0 0 auto;
     width: 42px;

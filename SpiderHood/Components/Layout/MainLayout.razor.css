@@ -58,7 +58,15 @@ main {
         position: sticky;
         top: 0;
         z-index: 100;
+        transition: width 0.2s ease;
     }
+
+        /* Sidebar colapsado a solo íconos -- el ancho es lo único que este componente
+           necesita tocar; NavMenu/LeftMenu (dueños del contenido de adentro) leen el
+           mismo SidebarStateService y deciden ellos qué texto ocultar. */
+        .sidebar.sidebar-collapsed {
+            width: 72px;
+        }
 
     /* z-index alto a propósito: varias pantallas (InstallmentList, Movement/Index,
        ExpensePage) tienen su propio bloque "position: sticky" para pegar sus

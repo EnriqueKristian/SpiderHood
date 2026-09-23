@@ -9,11 +9,14 @@
 @inject Services.IReservationService ReservationService
 @inject Services.AuthService AuthService
 @inject Services.CustomAuthenticationStateProvider AuthStateProvider
+@inject Services.IPreferenceService PreferenceService
+@inject Services.SidebarStateService SidebarState
+@inject IJSRuntime JS
 
 @if (ShowMenu)
 {
     <div class="nav-scrollable bg-dark collapse" id="nav-collapse">
-        <nav class="nav flex-column nav-pills">
+        <nav class="nav flex-column nav-pills @(SidebarState.Collapsed ? "nav-pills-collapsed" : "")">
 
             @* Tarjeta de usuario -- sacada a pedido del usuario (2026-09-23): ya está
                cubierta por el menú de cuenta del top bar (avatar + nombre + rol, arriba
@@ -35,25 +38,39 @@
             @for (var _i = 0; _i < _menu.Count; _i++)
             {
                 var menuItem = _menu[_i];
+                var esNuevoGrupo = !string.IsNullOrEmpty(menuItem.GroupName) && menuItem.GroupName != (_i == 0 ? null : _menu[_i - 1].GroupName);
 
-                @if (!string.IsNullOrEmpty(menuItem.GroupName) && menuItem.GroupName != (_i == 0 ? null : _menu[_i - 1].GroupName))
+                @if (esNuevoGrupo)
                 {
-                    <div class="nav-section-header">@menuItem.GroupName.ToUpperInvariant()</div>
+                    @if (SidebarState.Collapsed)
+                    {
+                        @if (_i != 0)
+                        {
+                            <hr class="nav-section-divider" />
+                        }
+                    }
+                    else
+                    {
+                        <div class="nav-section-header">@menuItem.GroupName.ToUpperInvariant()</div>
+                    }
                 }
 
                 @if (menuItem.Children.Any())
                 {
-                    <!-- Menú con submenús -->
-                    <div class="nav-item px-1">
-                        <a class="nav-link collapsed" data-bs-toggle="collapse" href="#@menuItem.Target" role="button" aria-expanded="false">
-                            <i class="@menuItem.Icon me-2"></i>@menuItem.Title
-                            <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
-                        </a>
-                        <div class="collapse" id="@menuItem.Target" data-bs-parent="#nav-collapse">
-                            <div class="submenu-wrapper">
+                    @if (SidebarState.Collapsed)
+                    {
+                        <!-- Menú con submenús, colapsado: flyout al pasar el mouse/foco en vez del
+                             acordeón -- no hay espacio para mostrar los hijos en línea con el
+                             sidebar reducido a solo íconos. -->
+                        <div class="nav-item px-1 nav-item-flyout-trigger">
+                            <div class="nav-link" tabindex="0" title="@menuItem.Title">
+                                <i class="@menuItem.Icon"></i>
+                            </div>
+                            <div class="flyout-submenu">
+                                <div class="flyout-submenu-header">@menuItem.Title</div>
                                 @foreach (var child in menuItem.Children)
                                 {
-                                    <NavLink class="nav-link ps-3" href="@child.Url" Match="NavLinkMatch.All">
+                                    <NavLink class="nav-link" href="@child.Url" Match="NavLinkMatch.All">
                                         <i class="@child.Icon me-2"></i>@child.Title
                                         @if (ShouldShowBadge(child))
                                         {
@@ -63,22 +80,51 @@
                                 }
                             </div>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        <!-- Menú con submenús -->
+                        <div class="nav-item px-1">
+                            <a class="nav-link collapsed" data-bs-toggle="collapse" href="#@menuItem.Target" role="button" aria-expanded="false">
+                                <i class="@menuItem.Icon me-2"></i>@menuItem.Title
+                                <i class="bi bi-chevron-down ms-auto toggle-icon"></i>
+                            </a>
+                            <div class="collapse" id="@menuItem.Target" data-bs-parent="#nav-collapse">
+                                <div class="submenu-wrapper">
+                                    @foreach (var child in menuItem.Children)
+                                    {
+                                        <NavLink class="nav-link ps-3" href="@child.Url" Match="NavLinkMatch.All">
+                                            <i class="@child.Icon me-2"></i>@child.Title
+                                            @if (ShouldShowBadge(child))
+                                            {
+                                                <span class="badge bg-danger ms-2">@GetBadgeCount(child)</span>
+                                            }
+                                        </NavLink>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
                 }
                 else
                 {
                     <!-- Menú simple -->
                     <div class="nav-item px-1 mt-2">
-                        <NavLink class="nav-link d-flex align-items-center" href="@menuItem.Url" Match="NavLinkMatch.All">
-                            <i class="@menuItem.Icon me-2"></i>@menuItem.Title
+                        <NavLink class="nav-link d-flex align-items-center" href="@menuItem.Url" Match="NavLinkMatch.All" title="@menuItem.Title">
+                            <i class="@menuItem.Icon me-2"></i>
+                            @if (!SidebarState.Collapsed)
+                            {
+                                @menuItem.Title
+                            }
                         </NavLink>
                     </div>
                 }
 
             }
 
-            <!-- Selector de rol (solo para desarrollo/demo) -->
-            @if (_isDevelopment)
+            <!-- Selector de rol (solo para desarrollo/demo) -- oculto en modo colapsado, no
+                 entra en un sidebar de solo íconos. -->
+            @if (_isDevelopment && !SidebarState.Collapsed)
             {
                 <div class="role-selector mt-3 px-1">
                     <div class="role-selector-header">
@@ -98,6 +144,22 @@
                 </div>
             }
 
+            <!-- Colapsar/expandir sidebar -- <button>, no <a href="#">: un <a> real dispara
+                 la navegación mejorada de Blazor (enhanced navigation) apenas el click llega
+                 al browser, y @onclick:preventDefault en Blazor Server no llega a tiempo para
+                 frenarlo (es un viaje de ida y vuelta por SignalR, no un preventDefault()
+                 síncrono) -- con <a> el toggle terminaba navegando a otra pantalla en vez de
+                 solo cambiar el estado. -->
+            <div class="nav-item px-1 mt-2 sidebar-toggle-item">
+                <button type="button" class="nav-link d-flex align-items-center w-100 border-0 bg-transparent text-start" @onclick="ToggleSidebarAsync"
+                   title="@(SidebarState.Collapsed ? "Expandir menú" : "Colapsar menú")">
+                    <i class="bi @(SidebarState.Collapsed ? "bi-chevron-double-right" : "bi-chevron-double-left") me-2"></i>
+                    @if (!SidebarState.Collapsed)
+                    {
+                        <span>Colapsar menú</span>
+                    }
+                </button>
+            </div>
 
             <br />
         </nav>
@@ -161,6 +223,36 @@
         // router termina de procesar el cambio de URL (a esa altura ya es "/dashboard"),
         // se vuelve a evaluar con la ruta correcta.
         Navigation.LocationChanged += OnLocationChanged;
+
+        SidebarState.CollapsedChanged += OnSidebarCollapsedChanged;
+    }
+
+    // MainLayout (.sidebar) y NavMenu (el texto del logo) NO son interactivos -- el modo
+    // interactivo de este componente no "sube" hacia sus ancestros en el árbol de layout,
+    // así que ninguno de los dos puede reaccionar en Blazor a este evento (confirmado en
+    // vivo: su propio handler nunca llegaba a dispararse). En vez de eso, esas dos clases
+    // se sincronizan acá mismo por JS de forma directa sobre el DOM -- ver
+    // spiderHoodSidebar.setCollapsed en el <script> de abajo.
+    private void OnSidebarCollapsedChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            await SincronizarLayoutEstaticoAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task SincronizarLayoutEstaticoAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("spiderHoodSidebar.setCollapsed", SidebarState.Collapsed);
+        }
+        catch (JSException)
+        {
+            // Circuito todavía no listo (prerender) -- LoadUserDataAsync/OnAfterRenderAsync
+            // vuelven a intentar más adelante, ya con el circuito conectado.
+        }
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -207,6 +299,32 @@
     {
         AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChangedAsync;
         Navigation.LocationChanged -= OnLocationChanged;
+        SidebarState.CollapsedChanged -= OnSidebarCollapsedChanged;
+    }
+
+    // Se carga una sola vez por circuito, la primera vez que hay un usuario -- después
+    // el estado vive en SidebarState (en memoria) y se persiste solo al tocar el botón
+    // (ToggleSidebarAsync), no hace falta releer la preferencia en cada LoadUserDataAsync.
+    private bool _sidebarPrefCargada;
+
+    private async Task CargarPreferenciaSidebarAsync()
+    {
+        if (_sidebarPrefCargada || _currentUser == null) return;
+        _sidebarPrefCargada = true;
+
+        var prefs = await PreferenceService.GetPreferencesAsync(_currentUser.IdUser);
+        SidebarState.SetCollapsed(prefs.SidebarCollapsed);
+    }
+
+    private async Task ToggleSidebarAsync()
+    {
+        var nuevoValor = !SidebarState.Collapsed;
+        SidebarState.SetCollapsed(nuevoValor);
+
+        if (_currentUser != null)
+        {
+            await PreferenceService.UpdateSidebarCollapsedAsync(_currentUser.IdUser, nuevoValor);
+        }
     }
 
     private async Task LoadUserDataAsync()
@@ -239,6 +357,7 @@
         if (_currentUser != null)
         {
             Console.WriteLine($"✅ Cargar Menu Usuario: {_currentUser.Email} - Rol: {_currentUser.Role}");
+            await CargarPreferenciaSidebarAsync();
         }
 
         if (!ShowMenu)
@@ -443,6 +562,26 @@
     }
 }
 <script>
+    // MainLayout (.sidebar) y NavMenu (el texto del logo) no son componentes interactivos
+    // -- no pueden reaccionar en Blazor cuando este componente (que sí lo es) cambia
+    // SidebarStateService. Esta función la llama LeftMenu por JS interop (ver
+    // SincronizarLayoutEstaticoAsync en el bloque de código) cada vez que cambia el estado
+    // colapsado/expandido, para mantener sincronizados esos dos elementos que viven
+    // fuera de su propio árbol interactivo. window.spiderHoodSidebar en vez de una
+    // función suelta para no ensuciar el scope global con más de un nombre.
+    window.spiderHoodSidebar = {
+        setCollapsed: function (collapsed) {
+            var sidebar = document.querySelector('.sidebar');
+            if (sidebar) sidebar.classList.toggle('sidebar-collapsed', collapsed);
+
+            // classList en vez de solo el atributo `hidden`: NavMenu.razor.css ya define
+            // `.brand-text { display: flex; ... }`, que por especificidad le gana al
+            // `display: none` implícito de [hidden] -- un estilo inline sí gana siempre.
+            var brandText = document.querySelector('.brand-text');
+            if (brandText) brandText.style.display = collapsed ? 'none' : '';
+        }
+    };
+
     // Para manejar el ícono del toggle (chevron) al abrir/cerrar
     document.addEventListener('DOMContentLoaded', function() {
         var toggles = document.querySelectorAll('[data-bs-toggle="collapse"]');
@@ -455,5 +594,39 @@
                 }
             });
         });
+    });
+
+    // Flyout de submenú cuando el sidebar está colapsado a solo íconos. Con
+    // delegación en `document` (no querySelectorAll + addEventListener directo como
+    // arriba) a propósito: los ítems con submenú se renderizan/destruyen según carga
+    // el menú por rol (LoadMenuAsync, async) y según se colapsa/expande el sidebar, en
+    // cualquier momento después de este primer render -- un listener delegado en
+    // `document` sigue funcionando sin importar cuándo Blazor agregue o saque esos
+    // nodos del DOM, sin tener que volver a "cablear" nada.
+    //
+    // position:fixed (ver CSS .flyout-submenu) para no quedar recortado por el
+    // overflow-y:auto de .nav-scrollable -- un position:absolute ahí adentro se
+    // recortaría (overflow-y:auto fuerza el overflow-x calculado a auto también,
+    // aunque no se lo pida). fixed no depende de eso, pero tampoco se puede anclar
+    // solo con CSS a "el ítem sobre el que estoy" -- de ahí el cálculo de posición acá.
+    document.addEventListener('mouseover', function (e) {
+        var trigger = e.target.closest('.nav-item-flyout-trigger');
+        if (!trigger) return;
+        var flyout = trigger.querySelector('.flyout-submenu');
+        if (!flyout) return;
+        var rect = trigger.getBoundingClientRect();
+        flyout.style.top = rect.top + 'px';
+        flyout.style.left = rect.right + 'px';
+        flyout.classList.add('flyout-open');
+    });
+
+    document.addEventListener('mouseout', function (e) {
+        var trigger = e.target.closest('.nav-item-flyout-trigger');
+        if (!trigger) return;
+        // relatedTarget es adonde entró el mouse -- si sigue dentro del propio
+        // trigger (que incluye el flyout, es su hijo en el DOM) no hay que cerrar.
+        if (trigger.contains(e.relatedTarget)) return;
+        var flyout = trigger.querySelector('.flyout-submenu');
+        if (flyout) flyout.classList.remove('flyout-open');
     });
 </script>

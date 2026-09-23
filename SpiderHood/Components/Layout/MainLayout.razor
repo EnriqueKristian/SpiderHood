@@ -2,6 +2,13 @@
 @inherits LayoutComponentBase
 @inject Services.AuthService AuthService
 
+@* MainLayout NO es interactivo (sin @rendermode) -- el modo interactivo de LeftMenu
+   más abajo en el árbol no "sube" hacia sus ancestros (el render mode cascadea hacia
+   ABAJO, a los hijos, no hacia arriba al layout que lo contiene). Por eso .sidebar no
+   puede reaccionar en Blazor a SidebarStateService -- LeftMenu sincroniza esta clase
+   directamente por JS (ver spiderHoodSidebar.setCollapsed en su <script>) apenas
+   conecta su propio circuito, en vez de que este componente escuche el evento (nunca
+   le llegaría: confirmado en vivo -- ver commit de este cambio). *@
 <div class="page">
     <div class="sidebar">
         <NavMenu />
@@ -40,5 +47,4 @@
     {
         currentUser = await AuthService.GetCurrentUserAsync();
     }
-
 }

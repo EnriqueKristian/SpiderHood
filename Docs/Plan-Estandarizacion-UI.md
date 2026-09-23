@@ -432,3 +432,105 @@ Verificado con Playwright: build limpio, 172/172 tests, login real con
 hash de contraseña temporal (revertido al terminar) y capturas del
 Dashboard con el sidebar ya sin tarjeta de usuario y con el ítem activo
 en dorado.
+
+### Sidebar colapsable a solo íconos -- RESUELTO (2026-09-23)
+El botón "Colapsar menú" existía sólo como diseño suelto en dos mockups
+del canvas (`Dashboard-Light.dc.html`/`Dashboard-DarkExec.dc.html`, este
+último literalmente titulado "... + menú colapsable"), sin ningún script
+detrás ni en el mockup ni en la app real -- a pedido del usuario
+("no sé cuánto te costaría implementarlo") se armó de verdad, eligiendo
+la versión completa (flyout de submenú al pasar el mouse) sobre una más
+simple que sólo re-expande el sidebar al tocar un ítem con hijos.
+
+**Estado + persistencia:**
+- `Services/SidebarStateService.cs` (nuevo, sin interfaz -- mismo patrón
+  que `CustomAuthenticationStateProvider`): estado en memoria
+  (`Collapsed`) + evento `CollapsedChanged`, Scoped por circuito
+  (`Program.cs`).
+- `IPreferenceService`/`Preferences.SidebarCollapsed` (nuevo campo, mismo
+  mecanismo 100% localStorage que `Theme`/`Language` -- no hay tabla en
+  BD, es config de navegador/dispositivo).
+- `LeftMenu.razor` carga la preferencia una vez por circuito
+  (`CargarPreferenciaSidebarAsync`, la primera vez que hay usuario) y la
+  guarda en cada toggle (`ToggleSidebarAsync`).
+
+**Hallazgo real durante la implementación, no un detalle menor:**
+`MainLayout.razor` (dueño de `.sidebar`, el ancho real) y `NavMenu.razor`
+(dueño del texto del logo) NO tienen `@rendermode` propio -- son
+estáticos. El render mode de un componente (acá, `LeftMenu`, el único
+con `@rendermode InteractiveServer` en esta cadena) cascadea hacia
+ABAJO, a sus hijos -- nunca hacia arriba, a sus ancestros de layout. Mi
+primer intento (un segundo suscriptor a `SidebarStateService.CollapsedChanged`
+en cada uno de esos dos componentes) compiló y corrió sin error, pero
+**su handler nunca se disparaba** -- confirmado en vivo agregando un
+`Console.WriteLine` a cada lado: el de `LeftMenu` sí se imprimía en cada
+toggle, el de `MainLayout` jamás. Sin esto, el ancho de `.sidebar` se
+quedaba fijo en 250px pese a que el propio `LeftMenu` sí se veía
+correctamente colapsado (íconos centrados, flyouts funcionando) --
+un desalineado visual real, no cosmético.
+
+**Solución:** en vez de depender de que esos dos componentes reaccionen
+en Blazor, `LeftMenu` sincroniza el DOM de los dos directamente por JS
+interop (`window.spiderHoodSidebar.setCollapsed`, en su propio
+`<script>`) cada vez que cambia el estado -- `classList.toggle` sobre
+`.sidebar` y `style.display` sobre `.brand-text` (con estilo inline a
+propósito: `NavMenu.razor.css` ya define `display:flex` en esa clase,
+que por especificidad le gana al `display:none` implícito del atributo
+`hidden`). Costo aceptado y no resuelto a propósito: en la primera
+carga de una sesión con la preferencia en "colapsado", hay un salto
+breve (sidebar ancho → se achica) mientras el circuito de `LeftMenu`
+conecta y lee la preferencia -- evitarlo del todo requeriría leer la
+preferencia sincrónicamente antes del primer pintado (como ya hace
+`theme.js` con el tema claro/oscuro), pero esa preferencia está guardada
+por `IdUser` (no se conoce todavía en ese punto tan temprano) --
+se dejó fuera de alcance por ahora.
+
+**Otro bug real encontrado en el camino:** el botón de toggle se probó
+primero como `<a href="#" @onclick="..." @onclick:preventDefault>`.
+Terminaba navegando a otra pantalla en vez de sólo cambiar el estado --
+`@onclick:preventDefault` en Blazor Server es un viaje de ida y vuelta
+por SignalR, no un `preventDefault()` síncrono, así que no llega a
+tiempo para frenar la navegación mejorada (enhanced navigation) que
+Blazor engancha sobre CUALQUIER `<a>` apenas el click toca el browser.
+Cambiado a `<button type="button">` (estilado igual, sin el `href`) --
+sin este problema, porque un botón no tiene navegación por defecto que
+frenar.
+
+**Qué hace, en concreto (`LeftMenu.razor`):**
+- Ítems sin hijos: sólo ícono + `title` (tooltip nativo del browser) en
+  vez de ícono + texto.
+- Encabezados de grupo (General/Comunidad/Administración): un `<hr>`
+  angosto en vez del texto (no entra en 72px).
+- Ítems CON hijos (ej. "Adm. Edificio"): el acordeón de siempre se
+  reemplaza por un panel flotante (`position: fixed`, calculado por JS
+  en `mouseover` -- `position: absolute` se recortaba igual por el
+  `overflow-y: auto` de `.nav-scrollable`, que fuerza el overflow-x
+  calculado a `auto` también aunque no se le pida) que aparece al pasar
+  el mouse o el foco (`:focus-within` como respaldo por teclado).
+- Selector de rol (sólo desarrollo) se oculta en modo colapsado -- no
+  entra un bloque de texto largo en 72px.
+- El toggle mismo se oculta en mobile (`max-width: 640.98px`) -- ahí el
+  sidebar ya se muestra/oculta ENTERO con el botón hamburguesa existente,
+  un concepto distinto que no se toca.
+
+**No verificado visualmente en este entorno:** Bootstrap Icons se carga
+por CDN (`cdn.jsdelivr.net`) en `App.razor`, bloqueado en el sandbox de
+este entorno de pruebas (confirmado con `curl`, 403 del proxy de
+egress) -- los mismos íconos que sí se ven bien en el modo expandido
+(el texto al lado disimula el hueco) se ven completamente vacíos en el
+modo colapsado (ahí el ícono es el único contenido de la fila). Esto es
+100% un límite de ESTE sandbox, no algo que cambié -- confirmado
+comparando `::before` computado del ícono (`content: none`, la regla de
+Bootstrap Icons ni siquiera está cargada) contra el resto de la app, que
+tiene el mismo problema silencioso en modo expandido. En un entorno con
+salida a internet normal esto no debería pasar. Si en producción los
+íconos tampoco aparecen en modo colapsado, es este mismo problema (CDN
+bloqueado o caído), no el código de esta funcionalidad.
+
+Verificado con Playwright en lo que sí se pudo aislar del bloqueo de
+CDN: build limpio, 172/172 tests, colapsar/expandir (ida y vuelta),
+persistencia real tras F5 (recarga completa, no sólo navegación
+interna), flyout de "Adm. Edificio" con posición correcta y su hijo
+activo en dorado (confirma que el fix de `::deep` de la sección anterior
+también alcanza el flyout), y el toggle oculto en viewport mobile
+(390px).

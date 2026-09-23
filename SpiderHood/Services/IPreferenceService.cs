@@ -9,6 +9,7 @@ namespace SpiderHood.Services
         Task<AuthResult> SavePreferencesAsync(Preferences preferences);
         Task<bool> UpdateThemeAsync(Guid userId, string theme);
         Task<bool> UpdateLanguageAsync(Guid userId, string language);
+        Task<bool> UpdateSidebarCollapsedAsync(Guid userId, bool collapsed);
     }
 
     public class Preferences
@@ -16,6 +17,7 @@ namespace SpiderHood.Services
         public Guid UserId { get; set; }
         public string Theme { get; set; } = "light";
         public string Language { get; set; } = "es";
+        public bool SidebarCollapsed { get; set; } = false;
         public bool EmailNotifications { get; set; } = true;
         public bool MonthlySummary { get; set; } = true;
         public bool PaymentReminders { get; set; } = true;
@@ -83,6 +85,14 @@ namespace SpiderHood.Services
         {
             var prefs = await GetPreferencesAsync(userId);
             prefs.Language = language;
+            var result = await SavePreferencesAsync(prefs);
+            return result.Success;
+        }
+
+        public async Task<bool> UpdateSidebarCollapsedAsync(Guid userId, bool collapsed)
+        {
+            var prefs = await GetPreferencesAsync(userId);
+            prefs.SidebarCollapsed = collapsed;
             var result = await SavePreferencesAsync(prefs);
             return result.Success;
         }

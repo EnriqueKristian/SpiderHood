@@ -1,7 +1,13 @@
-﻿<div class="top-row navbar navbar-dark">
+<div class="top-row navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold d-flex align-items-center" href="">
             <img src="icons/icon-192.png" width="45" height="45" alt="SpiderHood Logo" />
+            <!-- NavMenu no es interactivo (sin rendermode propio): el toggle colapsar/expandir
+                 vive en LeftMenu (más abajo), y ese modo interactivo no sube hacia sus
+                 ancestros -- por eso este texto no se puede ocultar reaccionando en
+                 Blazor a SidebarStateService. Se oculta directamente por JS
+                 (spiderHoodSidebar.setCollapsed, ver el <script> de LeftMenu.razor) apenas
+                 conecta el circuito de LeftMenu, igual que .sidebar en MainLayout. -->
             <span class="brand-text">
                 <span class="brand-name">SpiderHood</span>
                 <span class="brand-subtitle">PANEL <span class="brand-dot">&middot;</span> V1.0</span>

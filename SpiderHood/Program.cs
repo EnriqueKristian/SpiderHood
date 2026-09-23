@@ -240,6 +240,7 @@ builder.Services.AddScoped<AuthenticationStateProvider>(sp =>
 
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<SidebarStateService>();
 
 // "Seguro por defecto": ninguna página de Components/Pages tenía [Authorize] (se
 // confirmó revisando el proyecto entero) -- AuthorizeRouteView sólo redirige a

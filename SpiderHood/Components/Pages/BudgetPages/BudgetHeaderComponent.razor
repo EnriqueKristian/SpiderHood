@@ -1,5 +1,18 @@
 ﻿﻿@using SpiderHood.Models
 @inject SpiderHood.Services.ParameterService ParameterService
+@inject NavigationManager Navigation
+
+@* "Volver" -- esta pantalla (BudgetGenerator, /budgetgenerator) no tenía ningún
+   breadcrumb ni botón para salir, sólo el menú lateral (reportado por el usuario
+   comparándola con Cargar Estado de Cuenta, que sí tenía un link de breadcrumb
+   aunque poco visible). Mismo estilo que "Volver" en BankStatementDetail.razor
+   (btn-outline-secondary + bi-arrow-left) para no inventar un lenguaje nuevo. *@
+<div class="mb-2">
+    <button class="btn btn-outline-secondary" @onclick="Volver">
+        <i class="bi bi-arrow-left me-2"></i>Volver
+    </button>
+</div>
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h1 class="mb-1"><i class="bi @IconoPagina"></i>@TituloPagina</h1>
@@ -154,6 +167,11 @@
 </div>
 
 @code {
+    private void Volver()
+    {
+        Navigation.NavigateTo("/budgetlist");
+    }
+
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
     [Parameter]

@@ -60,16 +60,21 @@
 
 .brand-name {
     font-size: 1.15rem;
-    font-weight: 700;
+    font-weight: 800;
+    letter-spacing: -0.01em;
 }
 
 .brand-subtitle {
     font-size: 0.65rem;
     font-weight: 600;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--sh-brand-gold);
+    color: #8b98ab;
     margin-top: 2px;
     white-space: normal;
+}
+
+.brand-dot {
+    color: var(--sh-brand-gold);
 }
 

@@ -26,18 +26,27 @@
 }
 
 .nav-section-header {
-    padding: 1rem 1rem 0.25rem 1rem;
-    margin-top: 0.5rem;
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 1px;
-    color: #94a3b8;
+    padding: 0.9rem 1rem 0.4rem;
+    margin-top: 0.3rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #5b6b80;
     text-transform: uppercase;
-    border-bottom: 1px solid #334155;
 }
 
-.nav-pills .nav-link {
-    color: #e2e8f0;
+/* ::deep en .nav-link/:hover/.active -- <NavLink> (Dashboard, Presupuesto, los hijos
+   de un submenú, etc.) es un componente de framework: el <a> que renderiza es propio,
+   no markup escrito en este archivo, así que Blazor NO le agrega el atributo de scope
+   de este componente. Sin ::deep estas 3 reglas compilan pidiendo ese atributo
+   justo en ".nav-link" y nunca matchean esos <a> -- quedaban invisibles y el link
+   activo cae al azul default de Bootstrap (".nav-link.active"). Los ítems con
+   submenú SÍ son un <a> escrito acá directo (no <NavLink>), por eso a esos siempre
+   les funcionó. Los selectores de abajo (i / .toggle-icon), en cambio, apuntan a
+   contenido que SÍ es ChildContent escrito en este archivo, así que sí llevan el
+   scope y no necesitan ::deep. */
+.nav-pills ::deep .nav-link {
+    color: #aab4c4;
     border-radius: 8px;
     padding: 0.6rem 1rem;
     margin: 0.1rem 0.5rem;
@@ -58,12 +67,12 @@
         margin-left: auto;
     }
 
-    .nav-pills .nav-link:hover {
+    .nav-pills ::deep .nav-link:hover {
         background-color: #1e293b;
         color: white;
     }
 
-    .nav-pills .nav-link.active {
+    .nav-pills ::deep .nav-link.active {
         background: linear-gradient(90deg, var(--sh-brand-gold-dark), var(--sh-brand-gold)) !important;
         color: var(--sh-brand-navy-dark) !important;
         font-weight: 600;
@@ -114,7 +123,9 @@
     font-weight: 500;
 }
 
-/* Tarjeta de usuario */
+/* Tarjeta de usuario -- markup comentado en LeftMenu.razor (ver nota ahí), estas
+   reglas quedan comentadas junto con él por si se restaura. */
+/*
 .user-info-card {
     display: flex;
     align-items: center;
@@ -171,6 +182,7 @@
     font-weight: 600;
     letter-spacing: 0.2px;
 }
+*/
 
 /* Sistema de color por rol, compartido por el chip de usuario y el selector */
 .role-admin {

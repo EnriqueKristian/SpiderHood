@@ -15,7 +15,11 @@
     <div class="nav-scrollable bg-dark collapse" id="nav-collapse">
         <nav class="nav flex-column nav-pills">
 
-            <!-- Información del usuario -->
+            @* Tarjeta de usuario -- sacada a pedido del usuario (2026-09-23): ya está
+               cubierta por el menú de cuenta del top bar (avatar + nombre + rol, arriba
+               a la derecha en toda la app), así que acá era información repetida. Se
+               deja comentada (no borrada) por si más adelante se decide traerla de
+               vuelta, o mostrar el rol de forma sutil en ese menú del top bar.
             <a href="/Profile" class="user-info-card text-decoration-none">
                 <div class="user-avatar">@GetInitials()</div>
                 <div class="user-details">
@@ -25,6 +29,7 @@
                     </span>
                 </div>
             </a>
+            *@
 
             @{ var _menu = MenuAgrupado; }
             @for (var _i = 0; _i < _menu.Count; _i++)

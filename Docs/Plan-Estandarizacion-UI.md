@@ -387,3 +387,48 @@ cosmético sólo en el layout) agregar un campo real:
 
 Verificado con Playwright (aplicado el script a la base local de
 desarrollo) en Dashboard: claro, oscuro y mobile (menú hamburguesa).
+
+### Refinamiento visual del sidebar (Opción A) -- RESUELTO (2026-09-23)
+Segunda vuelta de diseño, a partir de feedback sobre contraste: se
+prepararon dos direcciones en el canvas (`Sidebar-A-Refinado.dc.html` /
+`Sidebar-B-ContrasteAlto.dc.html`), el usuario eligió la **A** y pidió
+además sacar la tarjeta de usuario del sidebar (queda cubierta por el
+menú de cuenta del top bar). Aplicado a la app real:
+
+- **Tarjeta de usuario**: comentada (no borrada) en `LeftMenu.razor` y su
+  CSS en `LeftMenu.razor.css`, por si más adelante se decide traerla de
+  vuelta o mostrar el rol de forma sutil en el menú de cuenta del top bar
+  (mencionado por el usuario, no implementado todavía).
+- **Logo** (`NavMenu.razor`/`.css`): "SpiderHood" pasa a peso 800, y el
+  subtítulo "Panel· v1.0" se reescribe como "PANEL · V1.0" con el punto
+  medio en dorado y el resto en gris apagado (antes todo el subtítulo
+  era dorado parejo) -- más jerarquía, más contraste con el título.
+- **Encabezados de grupo**: `.nav-section-header` pierde el borde inferior
+  y baja de peso/tamaño (más aire, menos "línea dura" entre grupos).
+- **Bug real encontrado y corregido**: las reglas de `.nav-link` en
+  `LeftMenu.razor.css` (color base, `:hover`, `.active` con el gradiente
+  dorado) nunca aplicaban a los ítems de menú sin submenú -- esos usan
+  `<NavLink>` (componente de framework), que renderiza su propio `<a>`
+  SIN el atributo de scope de CSS isolation de este componente, así que
+  selectores como `.nav-pills .nav-link.active` compilaban pidiendo ese
+  atributo justo en el elemento que nunca lo tiene. En la práctica: el
+  ítem activo del menú (ej. "Dashboard") se veía con el azul default de
+  Bootstrap, no el dorado ya codeado -- esto es, con certeza, el "pill
+  celeste/violeta" que se veía en los screenshots que motivaron todo este
+  rediseño, no una decisión de diseño. Arreglado agregando el combinador
+  `::deep` a esas 3 reglas (`.nav-pills ::deep .nav-link`, `:hover`,
+  `.active`) para que alcancen el `<a>` de `<NavLink>` sin pedirle el
+  atributo de scope. Verificado en vivo: el ítem activo ahora se ve con
+  el gradiente dorado como estaba previsto.
+- **Nota aparte (no arreglada, fuera de alcance de hoy)**: al navegar a
+  un hijo de submenú (ej. "Edificio" bajo "Adm. Edificio") el `<NavLink>`
+  no le agrega la clase `active` pese a que la URL coincide exactamente
+  -- parece un problema de matching de rutas independiente del CSS, no
+  investigado a fondo. Si se corrige más adelante, el estilo dorado ya
+  va a aplicar solo (la regla `.active` ya alcanza cualquier `<NavLink>`
+  después del fix de arriba).
+
+Verificado con Playwright: build limpio, 172/172 tests, login real con
+hash de contraseña temporal (revertido al terminar) y capturas del
+Dashboard con el sidebar ya sin tarjeta de usuario y con el ítem activo
+en dorado.

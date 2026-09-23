@@ -87,7 +87,10 @@
                             </div>
                         }
 
-                        <div class="d-flex justify-content-end">
+                        <div class="d-flex justify-content-between">
+                            <button class="btn btn-outline-secondary" @onclick="VolverALista">
+                                Cancelar
+                            </button>
                             <button class="btn btn-primary" @onclick="() => _currentStep = 2" disabled="@(!PuedeAvanzarDePaso1)">
                                 Siguiente<i class="bi bi-arrow-right ms-2"></i>
                             </button>

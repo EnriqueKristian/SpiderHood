@@ -843,6 +843,19 @@
                             <button class="btn btn-outline-primary" @onclick="BuscarCoincidenciasAutomaticas">
                                 <i class="bi bi-search me-2"></i>Buscar Coincidencias Automáticas
                             </button>
+                            <div class="form-check ps-4">
+                                <input class="form-check-input" type="checkbox" id="autoConciliarExactas"
+                                       @bind="_autoConciliarCoincidenciasExactas" />
+                                <label class="form-check-label small" for="autoConciliarExactas">
+                                    Conciliar automáticamente las coincidencias exactas
+                                </label>
+                                <div class="form-text small">
+                                    Desactivado: "Buscar Coincidencias" sólo sugiere -- vos elegís cuál
+                                    confirmar. Activado: además propone solo (sin tocarla) toda coincidencia
+                                    de monto exacto, que igual queda pendiente de tu "Enviar a Conciliar"/
+                                    "Finalizar Conciliación".
+                                </div>
+                            </div>
                             <button class="btn btn-outline-warning" @onclick="MostrarReporteDiferencias">
                                 <i class="bi bi-bar-chart me-2"></i>Ver Reporte de Diferencias
                             </button>
@@ -1377,6 +1390,17 @@
     private int totalCoincidenciasI = 0;
     private ReconciliationSession? ultimaConciliacion = null;
 
+    // Empieza SIEMPRE desactivado (a pedido del usuario, 2026-09-23) -- se resetea en
+    // cada carga de la pantalla, no se persiste. Antes "Buscar Coincidencias
+    // Automáticas" confirmaba solo cualquier coincidencia de monto EXACTO (ver
+    // FindMatches) como PendingProposal, mezclada sin distinción visual fuerte entre
+    // las que sí se revisaron a mano -- el usuario terminó mandando a conciliar
+    // transacciones que ni se dio cuenta que habían caído ahí. Con esto en false, el
+    // botón sigue mostrando las sugerencias (PossibleExpenseMatches/
+    // PossibleInstallmentMatches, ver más abajo) para elegir a mano, pero ya no las
+    // propone solo.
+    private bool _autoConciliarCoincidenciasExactas = false;
+
     // Claves ya existentes en BD (ver mapeo de permisos), sin necesidad de script nuevo.
     private bool _canReconcileExpenses;
     private bool _canReconcileInstallments;
@@ -1599,10 +1623,11 @@
 
             transaccion.PossibleExpenseMatches = posiblesMatches;
 
-            // Si hay coincidencia exacta, conciliar automáticamente
-            //Colocar logica cuando haay mas de 2
+            // Si hay coincidencia exacta, proponerla sola -- SÓLO si el usuario activó el
+            // checkbox (ver _autoConciliarCoincidenciasExactas). Si no, queda nada más como
+            // sugerencia en PossibleExpenseMatches, para elegir a mano.
             var matchExacto = posiblesMatches.FirstOrDefault(g => g.Amount == montoTransaccion);
-            if (matchExacto != null)
+            if (_autoConciliarCoincidenciasExactas && matchExacto != null)
             {
                 await ConciliarConGasto(transaccion, matchExacto, automatico: true);
             }
@@ -1623,10 +1648,10 @@
 
             transaccion.PossibleInstallmentMatches = posiblesMatches;
 
-            // Si hay coincidencia exacta, conciliar automáticamente
-            //Colocar logica cuando haay mas de 2
+            // Mismo criterio que el bloque de Gastos de arriba -- sólo propone sola si el
+            // usuario activó el checkbox.
             var matchExacto = posiblesMatches.FirstOrDefault(g => g.Amount == montoTransaccion);
-            if (matchExacto != null)
+            if (_autoConciliarCoincidenciasExactas && matchExacto != null)
             {
                 await ReconcileWithInstallment(transaccion, matchExacto, automatico: true);
             }

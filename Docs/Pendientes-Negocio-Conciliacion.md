@@ -503,3 +503,50 @@ mientras el matching se haga manual (que sigue funcionando bien); si en el
 futuro hay uso real de cuentas en moneda extranjera con volumen, hay que
 rehacer ese motor para comparar `AmountInReportingCurrency` contra
 `Installment.Amount`, incluyendo la columna Pendiente.
+
+---
+
+## 11. "Buscar Coincidencias Automáticas" proponía solo (sin que el usuario elija) cualquier coincidencia de monto exacto
+
+**Estado: resuelto (2026-09-23).**
+
+El usuario reportó un caso real: usó "Buscar Coincidencias Automáticas",
+algunas transacciones cayeron en una coincidencia de monto exacto sin que
+él se diera cuenta, y al tocar "Finalizar Conciliación" esas también se
+confirmaron -- generándole un problema porque esa transacción en
+particular no era la que correspondía. El concepto de "Auto" (proponer
+solo cuando hay una coincidencia exacta, dejando el resto como sugerencia
+para elegir a mano) le sirve, pero pidió que arranque DESACTIVADO y sea
+un proceso que se active a propósito.
+
+`FindMatches()` (`ReconciliationWorkspace.razor`) buscaba, para cada
+transacción sin conciliar, hasta 3 gastos/cuotas con un monto similar
+(±10%) -- eso queda igual, sigue poblando `PossibleExpenseMatches`/
+`PossibleInstallmentMatches` para elegir a mano (ya existía esa UI, sección
+"posibles matches" de la tabla). El problema era el paso siguiente: si
+alguno de esos candidatos tenía el monto EXACTO, se llamaba de una a
+`ConciliarConGasto(..., automatico: true)`/`ReconcileWithInstallment(...,
+automatico: true)` sin que el usuario tocara nada -- eso deja la
+transacción en `PendingProposal = true` (pestaña "Auto"), lista para
+entrar al lote de "Enviar a Conciliar"/"Finalizar Conciliación" junto con
+las que sí se revisaron a mano.
+
+**Cambio:** se agregó un checkbox "Conciliar automáticamente las
+coincidencias exactas" junto al botón, que arranca SIEMPRE desactivado
+(se resetea cada vez que se entra a la pantalla, no se persiste). Con el
+checkbox desactivado (el default), "Buscar Coincidencias Automáticas"
+sigue mostrando las sugerencias de siempre, pero ya no las propone
+solo -- el usuario elige cuál confirmar, una por una, como cualquier
+match manual. El bloque `if (matchExacto != null) { ...automatico: true }`
+de las dos ramas (Gastos e Ingresos) queda gateado por ese checkbox. No
+se tocó el resto del flujo -- el checkbox activado sigue funcionando
+exactamente igual que antes.
+
+Verificado con Playwright: checkbox arranca desmarcado, y con esa
+configuración una búsqueda real dejó la pestaña "Auto" en 0 (antes
+hubiera propuesto solo cualquier coincidencia exacta encontrada).
+
+**Diseño visual pendiente** (a pedido explícito del usuario -- "me
+interesa ahora el proceso, luego revisamos un mejor diseño visual"): el
+checkbox se agregó funcional, sin pulir -- ubicación/estilo pueden
+cambiar en una pasada de diseño posterior.

@@ -58,6 +58,21 @@ querer, ya tenían el orden bien.
    footer** en los formularios largos (no todos necesitan tabs -- sólo los
    que hoy scrollean mal). Evaluar cuáles de los ~20 archivos realmente
    tienen ese problema antes de tocarlos todos.
+   **RESUELTO (2026-09-23).** Auditados los ~20 archivos (agente de
+   exploración, tabla completa con conteo de campos y estado de cada uno).
+   La mayoría ya scrollea bien o tiene su propio scroll interno en la
+   lista larga (`ReconcilePaymentModal.razor`, `ModalOwnerUnit.razor`) --
+   se dejaron igual. Se agregó `modal-dialog-scrollable` sólo donde hacía
+   falta: `EmployeeList.razor` (10 campos), `EmployeeDetail.razor`
+   ("Registrar horas", salvaguarda barata), `Meetings.razor` (agenda sin
+   límite de items), `CalendarPage.razor` ("Programar/Editar Item", hasta
+   11 campos condicionales), `ModalCategory.razor` (grillas de
+   icono/color altas), `ServiceReadingModal.razor` (modal-xl que delega en
+   `BlockWaterReading`), `PeriodForm.razor` (justo en el umbral). Además,
+   `ReconciliationWorkspace.razor` ("Conciliar Transacción") no tenía
+   `modal-footer` -- sólo la X del header -- se le agregó uno con
+   Cancelar. No se convirtió ningún formulario a tabs -- ninguno lo
+   necesitaba tanto como para justificar ese cambio más grande.
 3. **Fase 3 -- Grupo E:** normalizar `BudgetDetailModal.razor` al patrón
    Bootstrap/BlazorBootstrap real, corregir `Confirmemail.razor`.
 4. **Grupo D:** no requiere cambios de este estándar.
@@ -124,10 +139,27 @@ atención individual.
    cualquier tema.
 2. **Fase 2:** `ExpenseNew.razor.css` y los otros CSS de página con
    estilos propios (gradientes/sombras hardcodeadas) -- uno por uno.
+   **RESUELTO (2026-09-23)** para `ExpenseNew.razor.css` -- el único bug
+   real de contraste era `.expense-detail` (fondo casi blanco fijo
+   #fcfcfc/#f5f5f5, texto claro de modo oscuro ilegible encima),
+   corregido con `--sh-surface-muted`/`--sh-border` (mismo criterio que
+   `.category-header` en el mismo archivo). Los gradientes de las 3
+   tarjetas de resumen (`bg-gradient-primary/success/info`) usaban los
+   mismos valores hex de Bootstrap por defecto -- no era un bug visual
+   (mismo valor final), sólo duplicación; se apuntaron a
+   `var(--sh-primary/success/info)`.
 3. **Fase 3:** mapas de calor de Reportes (`DelinquencyReport`,
    `WaterConsumptionReport`, etc.) -- definir una escala de color
    theme-aware (probablemente tokens nuevos `--sh-heat-1`...`--sh-heat-5`
    con su variante dark).
+   **RESUELTO (2026-09-23)** para `DelinquencyReport.razor.css` (único
+   heat-map real en la app hoy -- `WaterConsumptionReport.razor` sólo
+   tiene un color de línea de gráfico, no un fondo con texto encima, no
+   hacía falta tocarlo). Los 5 pasteles fijos (`.heat-1`...`.heat-5`) se
+   movieron a tokens `--sh-heat-1`...`--sh-heat-5` en `tokens.css`, con
+   variante oscurecida bajo `[data-bs-theme="dark"]` (mismo problema que
+   Expense: pastel claro + texto claro de modo oscuro = ilegible).
+   Verificado con Playwright en ambos temas.
 4. **Paleta de categorías** (`ModalCategory.razor`): queda igual a
    propósito -- es una selección de color intencional del usuario, no un
    bug de tema.

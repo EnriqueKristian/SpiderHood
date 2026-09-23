@@ -208,13 +208,80 @@ de prueba con lecturas cargadas en este edificio demo, pero la lógica de
 qué se muestra no se tocó, sólo el layout alrededor).
 
 ### 3.3 Presupuesto (`BudgetGenerator.razor`)
-**2035 líneas -- el más grande de los tres, con diferencia.** No alcanza
-el análisis de esta pasada para proponer el rediseño completo con la
-misma precisión que a los otros dos; antes de tocarlo hace falta una
-pasada dedicada sólo a mapear sus secciones reales (hoy es una serie de
-tarjetas apiladas sin ninguna división en pasos). Recomiendo tratarlo
-como una fase aparte, después de validar el patrón de pasos en las otras
-dos pantallas (más chicas, más rápidas de probar).
+**Mapeo dedicado hecho (2026-09-23, lectura completa de las 2036 líneas +
+`BudgetHeaderComponent`, `InformationPanelComponent`, `InstallmentTable`,
+`ServiceReadingModal`). Propuesta más abajo -- PENDIENTE DE VALIDAR, no
+implementada todavía.**
+
+**Lo que hay hoy (resumen del mapeo):**
+- La pantalla tiene dos modos: si el presupuesto es Extraordinario/Cargos
+  (sin `BudgetDetail`, los montos se generan directo a `Installment`)
+  muestra sólo una tarjeta chica de sólo lectura -- el flujo grande de
+  abajo no aplica. El flujo real a rediseñar es el Ordinario (mensual).
+- En el modo Ordinario **no hay una secuencia de pasos "llenar → revisar"
+  como en las otras dos pantallas** -- hay una **máquina de estados de
+  aprobación** (`Created → Check → Approved → Active → Closed`, con
+  `Rejected` como bucle de vuelta a editable) que ya gatea qué botones
+  aparecen (Enviar a Aprobación / Aprobar-Rechazar / Publicar / Cerrar),
+  pero sin ninguna señal visual de en qué parte de esa cadena está el
+  presupuesto -- sólo un badge de texto.
+- La tabla de gastos (secciones + items) es una **grilla editable en
+  vivo**: cada cambio recalcula el total del item, de la sección, el
+  gran total, las tarjetas KPI del header y el panel lateral, todo al
+  mismo tiempo. Entrada y resultado conviven siempre en la misma
+  pantalla -- no hay un "paso de captura" separado de un "paso de
+  revisión" (mismo hallazgo de riesgo que en Carga de Agua, pero aquí es
+  el corazón de toda la pantalla, no un caso aislado).
+- "Cal. Agua" (el modal que embebe la ya rediseñada `BlockWaterReading`)
+  es una acción flotante disponible en casi cualquier momento del flujo
+  Ordinario, no un paso fijo -- su falta sólo se bloquea recién al
+  intentar Enviar a Aprobación/Publicar (toast reactivo, no una señal
+  visible de antemano).
+- Validación de completitud (secciones/items/montos/lectura de agua) ya
+  existe (`ValidarPresupuestoParaAprobacion`), pero es invisible hasta
+  que el usuario ya intentó avanzar y choca con el bloqueo.
+
+**Por qué NO aplica el mismo `StepIndicator` de wizard que las otras dos:**
+esta pantalla no tiene "paso 1, paso 2, paso 3" -- tiene un **estado de
+aprobación** (que dura días/semanas, con roles distintos actuando en cada
+uno) y una **grilla siempre-editable** debajo. Forzar un wizard con
+Siguiente/Anterior sobre la grilla rompería el flujo real (el
+administrador entra y sale de las secciones muchas veces mientras mira
+los totales, exactamente el riesgo que ya se evitó en Carga de Agua).
+
+**Propuesta (para validar antes de tocar código):**
+1. **Barra de estado del flujo de aprobación**, arriba de la tabla de
+   gastos (mismo lenguaje visual que `StepIndicator` -- círculos +
+   conectores -- pero representando `Created → Check → Approved →
+   Active/Closed`, con `Rejected` marcado como una alerta que vuelve a
+   `Created`, no un 6to círculo en la línea). Reemplaza/complementa el
+   badge de texto actual del header; usa las mismas clases
+   `--sh-success`/`--sh-brand-gold`/`--sh-text-muted` ya definidas en
+   `StepIndicator.razor.css`.
+2. **Checklist de completitud visible ANTES de "Enviar a Aprobación"**
+   (no sólo al chocar con el toast): un pequeño panel con 2-3 líneas tipo
+   "✓ 3 secciones cargadas", "✓ 12 items", "✗ Lectura de agua pendiente"
+   -- construido sobre la misma lógica que ya usa
+   `ValidarPresupuestoParaAprobacion()`, sólo que evaluada y mostrada de
+   forma proactiva en vez de reactiva.
+3. **La tabla de gastos se queda como está** -- grilla editable en vivo,
+   sin pasos forzados. Ningún cambio estructural ahí; sólo limpieza
+   visual menor si hace falta para que combine con el resto (tokens de
+   color, no lógica).
+4. **"Cal. Agua" se queda como acción flotante del header** -- no se
+   fuerza a paso fijo -- pero su estado (pendiente/lista) se refleja en
+   el checklist del punto 2, así el admin ve la falta antes de intentar
+   avanzar, no después.
+5. El branch Extraordinario/Cargos (tarjeta chica de sólo lectura) queda
+   igual -- no necesita nada de esto.
+
+**Nota aparte, no bloqueante:** el mapeo encontró código muerto/duplicado
+(`AddNewSectionFromModal1` sin usar, un bloque de "Fórmula de Cálculo"
+comentado, varios métodos stub como `GenerateReport`/`CopyToClipboard`/
+`NotifyOwners` que no hacen nada real) -- no forma parte de este plan de
+UI, pero vale la pena registrarlo para una futura limpieza técnica
+(agregado a `Docs/Pendientes-Negocio-Consolidado.md` si el usuario lo
+confirma).
 
 ---
 
@@ -226,9 +293,13 @@ dos pantallas (más chicas, más rápidas de probar).
    los 272 hits de una sola vez.
 3. Rediseño de Carga de Agua y Carga de Estado de Cuenta con el nuevo
    indicador de pasos (más chicas, validan el patrón antes de escalarlo).
-4. Modales Fase 2-3, Tema Fase 2-3 (uno por uno, más lento).
-5. Presupuesto -- mapeo dedicado + rediseño, al final, con el patrón de
-   pasos ya probado en 1 y 2.
+4. Modales Fase 2-3, Tema Fase 2-3 -- Fase 2 de ambos **RESUELTA
+   (2026-09-23)**. Queda Modales Fase 3 (Grupo E: `BudgetDetailModal.razor`,
+   `Confirmemail.razor`).
+5. Presupuesto -- mapeo dedicado **HECHO (2026-09-23)**, propuesta en §3.3
+   pendiente de validar antes de implementar (no es un wizard como las
+   otras dos -- es una barra de estado de aprobación + checklist de
+   completitud, la tabla de gastos se queda igual).
 
 **Antes de arrancar, confirmar:** ¿este orden sirve, o hay alguna pantalla
 puntual que sea más urgente por uso real de los residentes/administradores

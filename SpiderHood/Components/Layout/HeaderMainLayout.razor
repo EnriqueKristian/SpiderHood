@@ -16,24 +16,13 @@
 }
 
 <div class="header-container">
+    <!-- El breadcrumb (ícono casa + título de página, vía GetPageLabel) se sacó --
+         el usuario pidió que arriba sólo quede el Edificio en vista (validado en el
+         canvas de diseño, Dashboard-Light): la navegación a Dashboard ya está en el
+         menú lateral, así que el ícono de casa era redundante con eso. El selector de
+         edificio pasa a ocupar ese lado izquierdo -- lo único que queda del lado
+         derecho es la cuenta (selector de rol + usuario). -->
     <div class="header-left">
-        <!-- Antes había un breadcrumb (ícono casa + nombre) y, al lado, un título --
-             ambos salían del mismo switch de 8 rutas hardcodeadas contra ~50 rutas
-             reales de la app, así que en la práctica case-sensitive-mismatcheaban casi
-             siempre y terminaban mostrando el mismo texto sin traducir duplicado (ver
-             GetPageLabel). Se unifica en un solo elemento: un link a Dashboard + el
-             nombre real de la página actual. Nada de breadcrumb con jerarquía todavía
-             -- ese espacio es candidato a compartirse con el buscador del header más
-             adelante, así que no vale la pena construir algo más elaborado hoy. -->
-        <a href="/" class="page-home-link" title="Ir al Dashboard">
-            <i class="bi bi-house"></i>
-        </a>
-        <h5 class="page-title">
-            @GetPageLabel()
-        </h5>
-    </div>
-
-    <div class="header-right">
         <!-- Selector de edificio -->
         <div class="building-selector @(Buildings.Count == 0 ? "disabled" : "")"
              data-bs-toggle="dropdown"
@@ -95,7 +84,9 @@
                 </li>
             }
         </ul>
+    </div>
 
+    <div class="header-right">
         <!-- Selector de rol: sólo aparece cuando el usuario tiene más de un rol
              aprobado sobre el edificio ACTUAL (p.ej. Administrador y Junta a la vez) --
              para todo el resto (el caso normal, un solo rol por edificio) queda oculto
@@ -695,123 +686,6 @@
         // (_currentUser.Roles), no el que está usando ahora — confuso cuando un usuario
         // tiene 2-3 roles sobre el mismo edificio. El rol activo es _currentUser.Role.
         return string.IsNullOrWhiteSpace(_currentUser?.Role) ? "Usuario" : _currentUser.Role;
-    }
-
-    // Nombre en español de cada ruta real de la app (ver `grep -rn '@page "' Components/Pages/`
-    // -- son ~50, no las 8 que cubría el switch anterior). Clave = el path sin barra
-    // inicial/final, en minúsculas (el Dictionary compara OrdinalIgnoreCase, así que no
-    // hace falta lowercasear a mano en GetPageLabel). Sólo los prefijos ESTÁTICOS
-    // llevan entrada acá -- los segmentos dinámicos (guid/int) los pela GetPageLabel
-    // probando el path completo y sacando el último segmento hasta encontrar match, así
-    // que "incidents/{un guid}" cae solo en la entrada "incidents" salvo que haya una
-    // más específica (como "settings/roles/edit").
-    private static readonly Dictionary<string, string> RouteLabels = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [""] = "Dashboard",
-        ["dashboard"] = "Dashboard",
-        ["buildings"] = "Edificios",
-        ["building-request"] = "Solicitud de Edificio",
-        ["select-building"] = "Selección de Edificio",
-        ["assignunits"] = "Asignar Unidades",
-        ["owners"] = "Propietarios",
-        ["owners/details"] = "Detalle de Propietario",
-        ["unitgroups"] = "Grupos de Unidades",
-        ["invitation"] = "Invitación",
-        ["budgetlist"] = "Presupuestos",
-        ["budgetgenerator"] = "Generar Presupuesto",
-        ["cuotas"] = "Cuotas",
-        ["monthlyinstallmenthistory"] = "Histórico de Cuotas",
-        ["extraordinaryinstallment"] = "Cuota Extraordinaria",
-        ["finesandlatefees"] = "Multas y Mora",
-        ["monthlyinstallmentdetail"] = "Detalle de Cuota",
-        ["monthlyinstallmentgeneration"] = "Generación de Cuotas",
-        ["reconcileinstallments"] = "Conciliar Cuotas",
-        ["reconcileexpenses"] = "Conciliación Bancaria",
-        ["reconcile/payments"] = "Conciliación de Pagos",
-        ["reconcile/expenses"] = "Conciliación de Gastos",
-        ["movement"] = "Movimientos",
-        ["movement/upload"] = "Cargar Estado de Cuenta",
-        ["movement/detail"] = "Detalle de Movimiento",
-        ["incidents"] = "Incidencias",
-        ["category"] = "Categorías",
-        ["expense"] = "Gastos",
-        ["expensenew"] = "Nuevo Gasto",
-        ["waterreadings"] = "Lecturas de Agua",
-        ["watercalculation"] = "Cálculo de Agua",
-        ["configwater"] = "Configuración de Agua",
-        ["parameter"] = "Parámetros",
-        ["parameter-promotion"] = "Promoción de Parámetros",
-        ["periods"] = "Períodos",
-        ["calendar"] = "Calendario",
-        ["profile"] = "Mi Perfil",
-        ["users"] = "Usuarios",
-        ["view-as"] = "Ver Como",
-        ["view-budget"] = "Ver Presupuesto",
-        ["myreceipts"] = "Mis Recibos",
-        ["workflow"] = "Flujo de Trabajo",
-        ["settings"] = "Configuración",
-        ["settings/systemlogs"] = "Registro del Sistema",
-        ["settings/menuitems"] = "Ítems de Menú",
-        ["settings/menuitems/create"] = "Nuevo Ítem de Menú",
-        ["settings/menuitems/edit"] = "Editar Ítem de Menú",
-        ["settings/roles"] = "Roles",
-        ["settings/roles/create"] = "Nuevo Rol",
-        ["settings/roles/edit"] = "Editar Rol",
-        ["settings/roles/permissions"] = "Permisos del Rol",
-        ["settings/userroles"] = "Roles de Usuario",
-        ["register"] = "Registro",
-        ["register-admin"] = "Registro de Administrador",
-        ["login"] = "Iniciar Sesión",
-        ["logout"] = "Cerrar Sesión",
-        ["confirmemail"] = "Confirmar Correo",
-        ["error"] = "Error",
-        ["not-found"] = "No Encontrado",
-    };
-
-    private static bool IsDynamicSegment(string segment) => Guid.TryParse(segment, out _) || int.TryParse(segment, out _);
-
-    // "Menu Items" a partir de "MenuItems" (separa PascalCase) o "Select Building" a
-    // partir de "select-building" -- fallback para una ruta que no está en el
-    // diccionario, en vez del ToTitleCase crudo de antes (que sobre una ruta real como
-    // "movement/upload" no separaba nada y quedaba ilegible).
-    private static string Humanize(string segment)
-    {
-        var spaced = System.Text.RegularExpressions.Regex.Replace(segment, "(?<!^)([A-Z])", " $1")
-            .Replace('-', ' ').Replace('_', ' ');
-        return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(spaced.ToLowerInvariant());
-    }
-
-    private string GetPageLabel()
-    {
-        var uri = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Split('?', '#')[0].Trim('/');
-
-        if (uri.Length == 0)
-            return "Dashboard";
-
-        var segments = uri.Split('/');
-
-        // IncidentList (lista) e IncidentDetail (un incidente puntual) son páginas
-        // distintas de verdad -- a diferencia del resto de las rutas con id, donde la
-        // "versión con id" es la MISMA página razor filtrada (ver comentario sobre
-        // PeriodPage/ReconciliationLegacyPage/MonthlyInstallmentHistory más abajo).
-        if (segments.Length == 2 && segments[0].Equals("incidents", StringComparison.OrdinalIgnoreCase) && IsDynamicSegment(segments[1]))
-            return "Detalle de Incidencia";
-
-        // Probar el path completo y después ir sacando el último segmento -- así una ruta
-        // con id al final (p.ej. "monthlyinstallmenthistory/{guid}", "periods/{guid}",
-        // "reconcileexpenses/{guid}") cae en la entrada de su prefijo estático
-        // ("Histórico de Cuotas", "Períodos", "Conciliación Bancaria") salvo que exista
-        // una entrada más específica para ese prefijo completo (como
-        // "settings/roles/edit").
-        for (var len = segments.Length; len >= 1; len--)
-        {
-            var candidate = string.Join('/', segments.Take(len));
-            if (RouteLabels.TryGetValue(candidate, out var label))
-                return label;
-        }
-
-        var fallbackSegment = segments.Reverse().FirstOrDefault(s => !IsDynamicSegment(s)) ?? segments[0];
-        return Humanize(fallbackSegment);
     }
 
     public async Task RefreshBuildingsAsync()

@@ -15,39 +15,11 @@
     min-height: 3.5rem;
 }
 
-/* Left Section */
+/* Left Section -- sólo el selector de edificio (ver comentario en el .razor) */
 .header-left {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    flex: 1;
 }
-
-    .page-home-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        border-radius: 6px;
-        background: var(--sh-primary-light);
-        color: var(--sh-primary);
-        text-decoration: none;
-        transition: all 0.2s;
-        flex-shrink: 0;
-    }
-
-        .page-home-link:hover {
-            background: var(--sh-primary);
-            color: white;
-        }
-
-    .header-left .page-title {
-        margin: 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--sh-text);
-    }
 
 /* Right Section */
 .header-right {

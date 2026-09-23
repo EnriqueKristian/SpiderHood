@@ -155,9 +155,9 @@
                     <!-- Mensajes de estado -->
                     @if (!string.IsNullOrEmpty(mensaje))
                     {
-                        <div class="alert @(mensaje.Contains("éxito") ? "alert-success" : mensaje.Contains("Error") ? "alert-danger" : "alert-warning") alert-dismissible fade show">
+                        <div class="alert @(mensaje.Contains("éxito") ? "alert-success" : mensaje.Contains("error", StringComparison.OrdinalIgnoreCase) ? "alert-danger" : "alert-warning") alert-dismissible fade show">
                             <div class="d-flex align-items-center">
-                                <i class="bi @(mensaje.Contains("éxito") ? "bi-check-circle-fill" : mensaje.Contains("Error") ? "bi-exclamation-triangle-fill" : "bi-info-circle-fill") me-2"></i>
+                                <i class="bi @(mensaje.Contains("éxito") ? "bi-check-circle-fill" : mensaje.Contains("error", StringComparison.OrdinalIgnoreCase) ? "bi-exclamation-triangle-fill" : "bi-info-circle-fill") me-2"></i>
                                 <div>@mensaje</div>
                             </div>
                             <button type="button" class="btn-close" @onclick="() => mensaje = string.Empty"></button>
@@ -321,9 +321,7 @@
                                         {
                                             @foreach (var item in pagination.CurrentPageData)
                                             {
-                                                <tr class="@(item.Validation == "Duplicado" ? "table-warning" : item.Validation != "Ok" ? "table-danger" : "")"
-                                                    @onclick="() => SelectRow(item)"
-                                                    style="cursor: pointer;">
+                                                <tr class="@(item.Validation == "Duplicado" ? "table-warning" : item.Validation != "Ok" ? "table-danger" : "")">
                                                     <td class="ps-3">@item.StatementDate.ToString("dd/MM/yyyy")</td>
                                                     <td>
                                                         <div class="text-truncate" style="max-width: 300px;"
@@ -1030,13 +1028,6 @@
     private void SortByColumn(string column)
     {
         pagination.SortByColumn(column);
-    }
-
-    private void SelectRow(TransactionBankDetail item)
-    {
-        // Método para seleccionar una fila (puedes expandirla o mostrar detalles)
-        // Por ahora solo muestra un mensaje
-        mensaje = $"Seleccionado: {item.Description} - {item.Amount.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency)}";
     }
 
 }

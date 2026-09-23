@@ -63,7 +63,11 @@
     }
     else
     {
-    <div class="row">
+    @if (_BudgetState.Budget.IdBudgetHeader != Guid.Empty)
+    {
+        <ApprovalStatusBar Status="_Status" />
+    }
+    <div class="row mt-3">
         <!-- Expenses Table -->
         <div class="@(showorNot ? "col-md-8" : "col-md-11") transition-all">
             <div class="card card-hover">
@@ -88,7 +92,9 @@
                             }
                             @if ((_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected) && _canSubmitBudget)
                             {
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="EnviarAAprobacion">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="EnviarAAprobacion"
+                                        disabled="@(!ListoParaEnviarAprobacion)"
+                                        title="@(ListoParaEnviarAprobacion ? "" : "Completá la lista de abajo antes de enviar a aprobación")">
                                     <i class="bi bi-list-check"></i>&nbsp;Enviar a Aprobación
                                 </button>
                             }
@@ -116,6 +122,23 @@
                         </div>
                     }
                 </div>
+                @if ((_Status == BudgetStatus.Created || _Status == BudgetStatus.Rejected) && CanEdit && _BudgetState.Budget.IdBudgetHeader != Guid.Empty)
+                {
+                    <!-- Checklist de completitud (Docs/Plan-Estandarizacion-UI.md #3.3) -- mismos
+                         chequeos que ValidarPresupuestoParaAprobacion(), mostrados de forma
+                         proactiva en vez de recién al chocar con el toast de bloqueo al hacer
+                         click en "Enviar a Aprobación". -->
+                    <div class="px-3 py-2 border-bottom d-flex flex-wrap gap-3 align-items-center budget-readiness-bar">
+                        <span class="text-muted small fw-semibold">Antes de enviar a aprobación:</span>
+                        @foreach (var check in ObtenerChecklistAprobacion())
+                        {
+                            <span class="d-flex align-items-center gap-1 small @(check.Ok ? "text-success" : "text-danger")">
+                                <i class="bi @(check.Ok ? "bi-check-circle-fill" : "bi-x-circle-fill")"></i>
+                                @check.Label
+                            </span>
+                        }
+                    </div>
+                }
                 <div class="card-body">
                     @if (_BudgetState.Budget.Details.Any())
                     {
@@ -1586,6 +1609,81 @@
         _ = CalculateTotals();
     }
 
+    // Evalúa si la lectura de agua del período está completa, SIN efectos secundarios
+    // (nada de toasts) -- extraído de ValidarPresupuestoParaAprobacion para que tanto esa
+    // validación como el checklist proactivo de abajo (ObtenerChecklistAprobacion) usen
+    // exactamente el mismo criterio, en vez de mantener la misma lógica duplicada en dos
+    // lugares que con el tiempo terminan diciendo cosas distintas.
+    private (bool valido, string mensaje) EvaluarLecturaAguaPresupuesto()
+    {
+        // El cálculo de agua es parte intrínseca de todo presupuesto Ordinario (ver el
+        // botón "Cal. Agua" en BudgetHeaderComponent: "no aplica a una Cuota Extraordinaria
+        // ni a los Cargos de Multas/Mora, que no dependen de ninguna lectura de consumo") --
+        // así que se exige lectura de agua para cualquier Ordinario (BudgetType vacío), sin
+        // importar si el edificio ya tiene una categoría específica marcada como agua.
+        var esOrdinario = string.IsNullOrEmpty(_BudgetState.Budget.BudgetType);
+        if (!esOrdinario) return (true, string.Empty);
+
+        if (_BudgetState.WaterReadings == null || !_BudgetState.WaterReadings.Any())
+            return (false, "No hay lecturas de agua cargadas para el mes actual.");
+
+        var readingsWithErrors = _BudgetState.WaterReadings
+            .Where(r => r.Consumption <= 0)
+            .Select(r => $"Unidad {r.GroupNumber}: Consumo inválido")
+            .ToList();
+
+        var allUnits = Installments?.Select(i => i.IdGroupUnit).Distinct().ToList() ?? new List<Guid>();
+        var unitsWithReading = _BudgetState.WaterReadings.Select(r => r.IdGroupUnit).Distinct().ToList();
+        var missingUnits = allUnits.Except(unitsWithReading).ToList();
+
+        if (missingUnits.Any())
+        {
+            var unitNames = Installments?
+                .Where(i => missingUnits.Contains(i.IdGroupUnit))
+                .Select(i => i.UnitName)
+                .ToList() ?? new List<string>();
+
+            return (false, $"Faltan lecturas para: {string.Join(", ", unitNames)}");
+        }
+
+        if (readingsWithErrors.Any())
+            return (false, $"Errores en lecturas: {string.Join("; ", readingsWithErrors)}");
+
+        return (true, string.Empty);
+    }
+
+    // Checklist mostrado de forma proactiva (Docs/Plan-Estandarizacion-UI.md #3.3) junto
+    // al botón "Enviar a Aprobación", en vez de que el Administrador recién se entere de
+    // lo que falta al chocar con el toast de bloqueo después de hacer click. Cubre los
+    // mismos chequeos "duros" de ValidarPresupuestoParaAprobacion (secciones, items,
+    // monto total, lectura de agua) -- las advertencias "blandas" (sección sin items o en
+    // cero dentro de un presupuesto que igual tiene contenido) siguen resolviéndose sólo
+    // al hacer click, vía ConfirmarYProceder, para no duplicar ese flujo acá.
+    private List<(string Label, bool Ok)> ObtenerChecklistAprobacion()
+    {
+        var detalles = _BudgetState.Budget?.Details ?? new();
+        var secciones = detalles.Where(x => x.IsHeader).Select(x => x.IdSection).Distinct().Count();
+        var items = detalles.Count(x => !x.IsHeader);
+        var totalMonto = detalles.Where(x => !x.IsHeader).Sum(x => x.MonthlyAmount);
+
+        var checklist = new List<(string, bool)>
+        {
+            (secciones > 0 ? $"{secciones} sección(es) cargada(s)" : "Sin secciones cargadas", secciones > 0),
+            (items > 0 ? $"{items} item(s) con monto" : "Sin items cargados", items > 0),
+            (totalMonto > 0 ? $"Monto total {Moneda(totalMonto)}" : "El monto total debe ser mayor a cero", totalMonto > 0),
+        };
+
+        if (string.IsNullOrEmpty(_BudgetState.Budget?.BudgetType))
+        {
+            var (waterOk, waterMsg) = EvaluarLecturaAguaPresupuesto();
+            checklist.Add((waterOk ? "Lectura de agua completa" : $"Lectura de agua pendiente: {waterMsg}", waterOk));
+        }
+
+        return checklist;
+    }
+
+    private bool ListoParaEnviarAprobacion => ObtenerChecklistAprobacion().All(c => c.Ok);
+
     // Valida el CONTENIDO del presupuesto (secciones con items, montos, lectura de agua
     // completa). blocked=true corta el flujo de una vez (ya se mostró el toast de error);
     // blocked=false con warnings.Any() son problemas "blandos" que el Administrador puede
@@ -1638,83 +1736,9 @@
             }
         }
 
-        // 4. Validar lectura de agua
-        // El cálculo de agua es parte intrínseca de todo presupuesto Ordinario (ver el
-        // botón "Cal. Agua" en BudgetHeaderComponent: "no aplica a una Cuota Extraordinaria
-        // ni a los Cargos de Multas/Mora, que no dependen de ninguna lectura de consumo") --
-        // así que se exige lectura de agua para cualquier Ordinario (BudgetType vacío), sin
-        // importar si el edificio ya tiene una categoría específica marcada como agua.
-        // Antes se buscaba una sección cuya categoría coincidiera con
-        // Configuration.WaterReadingDefault -- eso dejaba pasar sin validar a cualquier
-        // presupuesto Ordinario de un edificio sin ese campo configurado (o, antes de eso,
-        // usaba un Guid hardcodeado que no coincidía con ninguna categoría real -- ver
-        // historial), permitiendo enviar a aprobación y hasta publicar sin lectura de agua
-        // cargada.
-        var esOrdinario = string.IsNullOrEmpty(_BudgetState.Budget.BudgetType);
-        var hasWaterSection = esOrdinario;
-
-        bool waterReadingValid = false;
-        string waterReadingMessage = string.Empty;
-
-        if (hasWaterSection)
-        {
-            // Validar que existan lecturas de agua
-            if (_BudgetState.WaterReadings == null || !_BudgetState.WaterReadings.Any())
-            {
-                waterReadingValid = false;
-                waterReadingMessage = "No hay lecturas de agua cargadas para el mes actual.";
-            }
-            else
-            {
-                // Validar que todas las unidades tengan lectura
-                var unitsWithoutReading = new List<string>();
-                var readingsWithErrors = new List<string>();
-
-                foreach (var reading in _BudgetState.WaterReadings)
-                {
-                    // Validar lecturas válidas
-                    /*if (reading.CurrentReading <= reading.PreviousReading)
-                    {
-                        readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Lectura actual debe ser mayor a la anterior");
-                        }*/
-
-                    if (reading.Consumption <= 0)
-                    {
-                        readingsWithErrors.Add($"Unidad {reading.GroupNumber}: Consumo inválido");
-                    }
-                }
-
-                // Verificar unidades sin lectura
-                var allUnits = Installments?.Select(i => i.IdGroupUnit).Distinct().ToList() ?? new List<Guid>();
-                var unitsWithReading = _BudgetState.WaterReadings.Select(r => r.IdGroupUnit).Distinct().ToList();
-                var missingUnits = allUnits.Except(unitsWithReading).ToList();
-
-                if (missingUnits.Any())
-                {
-                    var unitNames = Installments?
-                        .Where(i => missingUnits.Contains(i.IdGroupUnit))
-                        .Select(i => i.UnitName)
-                        .ToList() ?? new List<string>();
-
-                    waterReadingMessage = $"Faltan lecturas para: {string.Join(", ", unitNames)}";
-                    waterReadingValid = false;
-                }
-                else if (readingsWithErrors.Any())
-                {
-                    waterReadingMessage = $"Errores en lecturas: {string.Join("; ", readingsWithErrors)}";
-                    waterReadingValid = false;
-                }
-                else
-                {
-                    waterReadingValid = true;
-                }
-            }
-        }
-        else
-        {
-            // No hay sección de agua, no es necesario validar lecturas
-            waterReadingValid = true;
-        }
+        // 4. Validar lectura de agua (EvaluarLecturaAguaPresupuesto -- mismo criterio que
+        // usa el checklist proactivo de arriba, ver ObtenerChecklistAprobacion).
+        var (waterReadingValid, waterReadingMessage) = EvaluarLecturaAguaPresupuesto();
 
         // Decisión de negocio (2026-09-11, reportado por el usuario probando
         // BudgetGenerator): la lectura de agua incompleta pasa de ser una

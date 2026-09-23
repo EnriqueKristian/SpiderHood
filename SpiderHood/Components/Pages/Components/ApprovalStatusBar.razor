@@ -1,0 +1,72 @@
+@using SpiderHood.Models
+@* Barra de estado del flujo de aprobación de Presupuesto (Docs/Plan-Estandarizacion-UI.md
+   #3.3, validado con canvas antes de implementar). A diferencia de StepIndicator (un
+   wizard de captura con Siguiente/Anterior), esto no es una secuencia que el usuario
+   completa en una sesión -- es el estado real de un proceso de aprobación que puede
+   durar días/semanas, con roles distintos actuando en cada paso (Administrador crea,
+   Junta aprueba/rechaza, Administrador publica). Sólo se usa en el presupuesto
+   Ordinario -- el branch Extraordinario/Cargos sigue con su badge de texto de siempre. *@
+<div class="approval-status-bar">
+    @for (var i = 1; i <= _pasos.Length; i++)
+    {
+        var index = i;
+        var estado = EstadoDelPaso(index);
+        <div class="approval-step-item">
+            <div class="approval-circle approval-circle-@estado">
+                @if (estado == "done")
+                {
+                    <i class="bi bi-check-lg"></i>
+                }
+                else
+                {
+                    @index
+                }
+            </div>
+            <div class="approval-label approval-label-@estado">@_pasos[index - 1]</div>
+        </div>
+        @if (index < _pasos.Length)
+        {
+            <div class="approval-line approval-line-@(index < PasoActual ? "done" : "upcoming")"></div>
+        }
+    }
+
+    @if (Status == BudgetStatus.Rejected)
+    {
+        <div class="approval-pill approval-pill-danger">
+            <i class="bi bi-exclamation-circle"></i>
+            Rechazado — vuelve a Creado
+        </div>
+    }
+    else if (Status == BudgetStatus.Closed)
+    {
+        <div class="approval-pill approval-pill-neutral">Cerrado</div>
+    }
+    else if (Status == BudgetStatus.Active)
+    {
+        <div class="approval-pill approval-pill-success">Cuotas generadas</div>
+    }
+</div>
+
+@code {
+    [Parameter] public BudgetStatus Status { get; set; }
+
+    private static readonly string[] _pasos = { "Creado", "En Revisión", "Aprobado", "Publicado" };
+
+    // Rejected se muestra como "vuelve a Creado" (paso 1) + la píldora de alerta,
+    // en vez de un 5to círculo -- es un bucle sobre el mismo flujo, no un estado más.
+    private int PasoActual => Status switch
+    {
+        BudgetStatus.Created or BudgetStatus.Rejected => 1,
+        BudgetStatus.Check => 2,
+        BudgetStatus.Approved => 3,
+        BudgetStatus.Active or BudgetStatus.Closed => 4,
+        _ => 1
+    };
+
+    private string EstadoDelPaso(int index)
+    {
+        // Closed: los 4 pasos ya se completaron -- no queda ninguno "activo".
+        if (Status == BudgetStatus.Closed) return "done";
+        return index < PasoActual ? "done" : index == PasoActual ? "active" : "upcoming";
+    }
+}

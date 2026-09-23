@@ -208,10 +208,10 @@ de prueba con lecturas cargadas en este edificio demo, pero la lógica de
 qué se muestra no se tocó, sólo el layout alrededor).
 
 ### 3.3 Presupuesto (`BudgetGenerator.razor`)
-**Mapeo dedicado hecho (2026-09-23, lectura completa de las 2036 líneas +
-`BudgetHeaderComponent`, `InformationPanelComponent`, `InstallmentTable`,
-`ServiceReadingModal`). Propuesta más abajo -- PENDIENTE DE VALIDAR, no
-implementada todavía.**
+**RESUELTO (2026-09-23).** Mapeo dedicado (lectura completa de las 2036
+líneas + `BudgetHeaderComponent`, `InformationPanelComponent`,
+`InstallmentTable`, `ServiceReadingModal`), propuesta validada con canvas
+(preview de los estados Creado y Publicado) y luego implementada.
 
 **Lo que hay hoy (resumen del mapeo):**
 - La pantalla tiene dos modos: si el presupuesto es Extraordinario/Cargos
@@ -282,6 +282,29 @@ comentado, varios métodos stub como `GenerateReport`/`CopyToClipboard`/
 UI, pero vale la pena registrarlo para una futura limpieza técnica
 (agregado a `Docs/Pendientes-Negocio-Consolidado.md` si el usuario lo
 confirma).
+
+**Lo implementado (validado con canvas antes de tocar código):**
+- Nuevo componente compartido `ApprovalStatusBar`
+  (`Components/Pages/Components/`) -- mismo lenguaje visual que
+  `StepIndicator` (círculos + conectores, mismos tokens) pero para el
+  ESTADO real de aprobación (`Created→Check→Approved→Active/Closed`, con
+  `Rejected` como píldora de alerta que vuelve a Creado) en vez de un
+  wizard de captura. Se muestra sólo en el branch Ordinario -- el branch
+  Extraordinario/Cargos queda igual, con su badge de texto de siempre.
+- Checklist de completitud ("Antes de enviar a aprobación") visible de
+  forma proactiva -- sólo mientras el presupuesto es editable
+  (Creado/Rechazado) -- con los mismos 4 chequeos "duros" que ya usaba
+  `ValidarPresupuestoParaAprobacion` (secciones, items, monto total,
+  lectura de agua), extraídos a `EvaluarLecturaAguaPresupuesto()` +
+  `ObtenerChecklistAprobacion()` para que ambos lugares (el checklist y
+  la validación real al hacer click) usen exactamente el mismo criterio.
+  El botón "Enviar a Aprobación" ahora se deshabilita hasta completar la
+  lista, en vez de sólo avisar con un toast después del click.
+- La tabla de gastos y la Vista de Cuotas (`InstallmentTable`) **no se
+  tocaron** -- verificado en vivo (Playwright, presupuesto real
+  "Junio 2026" ya Publicado) que siguen en el mismo lugar, con la misma
+  condición de antes, coexistiendo con la barra de estado nueva sin
+  ningún cambio visual ni de comportamiento.
 
 ---
 

@@ -573,6 +573,7 @@ namespace SpiderHood.Utilities
         {
             ReconciliationType.Conciliada => "pagado",
             ReconciliationType.Parcial => "parcial",
+            ReconciliationType.Condonada => "condonada",
             _ => x.DueDate.Date < DateTime.Today ? "vencida" : "pendiente de pago"
         };
 
@@ -580,6 +581,7 @@ namespace SpiderHood.Utilities
         {
             ReconciliationType.Conciliada => 0,
             ReconciliationType.Parcial => 1,
+            ReconciliationType.Condonada => 4,
             _ => x.DueDate.Date < DateTime.Today ? 3 : 2
         };
     }

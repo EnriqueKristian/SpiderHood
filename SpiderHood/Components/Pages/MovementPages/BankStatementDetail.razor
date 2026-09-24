@@ -10,6 +10,8 @@
 @inject IExpenseService ExpenseService
 @inject IWorkflowAuditService WorkflowAuditService
 @inject SpiderHood.Services.AuthService AuthService
+@inject IPermissionService PermissionService
+@using SpiderHood.Components.Pages.Components
 
 <PageTitle>Detalle de Estado de Cuenta</PageTitle>
 
@@ -86,6 +88,50 @@
                     }
                     else
                     {
+                        @if (_puedeRevertirMasivo && UnidadesConciliadasEnArchivo.Any())
+                        {
+                            @* Deshacer Conciliación en Masa -- permiso nuevo y separado del que ya
+                               gatea el "Corregir" de a una fila (Database/Scripts/2026-09-24_144_
+                               CondonarDeuda_Feature.sql). Solo afecta Ingresos (cuotas) -- los Gastos
+                               conciliados de este mismo archivo se deshacen aparte, a mano, fila por
+                               fila, como ya se podía hacer antes. *@
+                            <div class="card border-danger-subtle mb-4">
+                                <div class="card-body py-2">
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => _mostrarPanelMasivo = !_mostrarPanelMasivo">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i>Deshacer Conciliación en Masa
+                                        </button>
+                                        @if (_mostrarPanelMasivo)
+                                        {
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="SeleccionarTodasLasUnidadesMasivo">
+                                                    Seleccionar todo el archivo
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" disabled="@(!_unidadesSeleccionadasMasivo.Any())"
+                                                        @onclick="AbrirRevertirMasivo">
+                                                    Deshacer @_unidadesSeleccionadasMasivo.Count unidad(es) seleccionada(s)
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                    @if (_mostrarPanelMasivo)
+                                    {
+                                        <div class="d-flex flex-wrap gap-2 mt-2">
+                                            @foreach (var unidad in UnidadesConciliadasEnArchivo)
+                                            {
+                                                <div class="form-check form-check-inline border rounded px-2 py-1">
+                                                    <input class="form-check-input" type="checkbox" id="@($"unidad-masivo-{unidad}")"
+                                                           checked="@_unidadesSeleccionadasMasivo.Contains(unidad)"
+                                                           @onchange="(e) => ToggleUnidadMasivo(unidad, (bool)e.Value!)" />
+                                                    <label class="form-check-label" for="@($"unidad-masivo-{unidad}")">DPTO @unidad</label>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
                         <!-- Filtros -->
                         <div class="row g-3 mb-4">
                             <div class="col-md-3">
@@ -387,6 +433,10 @@
     </div>
 }
 
+<RejectionModal @ref="_revertirMasivoModal" Title="Deshacer Conciliación en Masa" Message="@_mensajeRevertirMasivo" OnClose="OnRevertirMasivoClose"
+                ButtonText="Deshacer Conciliación" FieldLabel="Motivo"
+                FieldPlaceholder="Explicá por qué se deshace esta conciliación -- quedará guardado en el historial." />
+
 @code {
     [Parameter] public Guid IdStatementHeader { get; set; }
 
@@ -406,6 +456,16 @@
     // confirmada queda restringido a Administrador (pedido explícito del usuario), sin
     // depender del sistema de permisos por BD.
     private bool _puedeCorregir => _currentUser.Role == "Administrador";
+
+    // Deshacer Conciliación en Masa -- permiso nuevo y separado (Database/Scripts/
+    // 2026-09-24_144_CondonarDeuda_Feature.sql), sin asignar a ningún rol por defecto.
+    // Solo Ingresos (cuotas): un Gasto conciliado de este archivo no se toca acá, se
+    // deshace aparte con el botón de a una fila que ya existía.
+    private bool _puedeRevertirMasivo;
+    private bool _mostrarPanelMasivo;
+    private HashSet<string> _unidadesSeleccionadasMasivo = new(StringComparer.OrdinalIgnoreCase);
+    private RejectionModal _revertirMasivoModal = null!;
+    private string _mensajeRevertirMasivo = string.Empty;
 
     // Filtros
     private string filtroEstado = "";
@@ -465,6 +525,7 @@
         if (ParameterService.CurrentBuilding != null)
         {
             _currentUser = await AuthService.GetCurrentUserAsync() ?? new UserSession();
+            _puedeRevertirMasivo = await PermissionService.HasPermissionAsync(_currentUser, "revertir_conciliacion_masivo");
             cuentasBancarias = await BankAccountService.GetBankAccountsAsync(ParameterService.CurrentBuilding.IdBuilding);
 
             // IDOR: GetStatementDetailsAsync(IdStatementHeader) trae el detalle de CUALQUIER
@@ -507,6 +568,90 @@
 
     private ViewExpense? GastoDe(Guid idStatementDetail) =>
         gastosDelEdificio.FirstOrDefault(g => g.ReconciledTransactionId == idStatementDetail);
+
+    // Unidades con al menos una transacción Conciliada de este archivo con cuota(s)
+    // asociada(s) -- lo que se puede elegir para "Deshacer Conciliación en Masa". Un pago
+    // solo puede extenderse a cuotas de la MISMA unidad (ver ApplyPaymentAsync), así que
+    // cada transacción aporta como mucho una unidad acá.
+    private List<string> UnidadesConciliadasEnArchivo =>
+        detallesCompletos
+            .Where(d => d.ReconciliationStatus == ReconciliationType.Conciliada)
+            .SelectMany(d => PagosDe(d.IdStatementDetail))
+            .Select(p => p.UnitName)
+            .Distinct()
+            .OrderBy(u => u)
+            .ToList();
+
+    private void ToggleUnidadMasivo(string unidad, bool marcada)
+    {
+        if (marcada) _unidadesSeleccionadasMasivo.Add(unidad);
+        else _unidadesSeleccionadasMasivo.Remove(unidad);
+    }
+
+    private void SeleccionarTodasLasUnidadesMasivo()
+    {
+        _unidadesSeleccionadasMasivo = new HashSet<string>(UnidadesConciliadasEnArchivo, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void AbrirRevertirMasivo()
+    {
+        var todoElArchivo = _unidadesSeleccionadasMasivo.Count == UnidadesConciliadasEnArchivo.Count;
+        _mensajeRevertirMasivo = todoElArchivo
+            ? $"Vas a deshacer la conciliación de TODO el archivo '{header?.FileName}' -- las {_unidadesSeleccionadasMasivo.Count} unidad(es) con pagos conciliados quedarán sin conciliar, sin borrar los montos, solo liberando las cuotas."
+            : $"Vas a deshacer la conciliación de las {_unidadesSeleccionadasMasivo.Count} unidad(es) elegidas en este archivo -- sus cuotas quedarán sin conciliar, sin borrar los montos.";
+        _revertirMasivoModal.Show();
+    }
+
+    // Mismo criterio que RevertirConciliacion (fila por fila) pero aplicado a todas las
+    // transacciones Conciliadas de las unidades elegidas en este archivo -- un solo motivo
+    // para todo el lote, un WorkflowAuditEntry por transacción (misma granularidad que ya
+    // usa el resto de la auditoría de conciliación).
+    private async Task OnRevertirMasivoClose(string? motivo)
+    {
+        if (motivo == null || ParameterService.CurrentBuilding == null || !_unidadesSeleccionadasMasivo.Any()) return;
+
+        var transaccionesARevertir = detallesCompletos
+            .Where(d => d.ReconciliationStatus == ReconciliationType.Conciliada)
+            .Where(d => PagosDe(d.IdStatementDetail).Any(p => _unidadesSeleccionadasMasivo.Contains(p.UnitName)))
+            .ToList();
+
+        if (!transaccionesARevertir.Any())
+        {
+            mensajeError = "No se encontraron transacciones conciliadas para las unidades seleccionadas.";
+            return;
+        }
+
+        var performedBy = string.IsNullOrWhiteSpace(_currentUser.FullName) ? _currentUser.Email : _currentUser.FullName;
+
+        foreach (var item in transaccionesARevertir)
+        {
+            var pagos = PagosDe(item.IdStatementDetail);
+            var pago = new TransactionBankDetail
+            {
+                IdStatementDetail = item.IdStatementDetail,
+                Description = item.Description,
+                Currency = item.Currency,
+                ReconciliationStatus = ReconciliationType.NoConciliada
+            };
+            await InstallmentService.RevertPaymentAsync(pago, pagos, BankAccountService);
+
+            var detalleAnterior = $"{pagos.Count} cuota(s): Unidad " + string.Join(", ", pagos.Select(p => p.UnitName).Distinct());
+            await WorkflowAuditService.LogAsync("Reconciliation", item.IdStatementDetail, WorkflowAction.Corrected,
+                performedBy, ParameterService.CurrentBuilding.IdBuilding,
+                $"Deshecho en masa (archivo '{header?.FileName}') -- {detalleAnterior}. Motivo: {motivo}");
+
+            pagosCuotas.RemoveAll(p => p.IdTransaction == item.IdStatementDetail);
+            item.ReconciliationStatus = ReconciliationType.NoConciliada;
+            item.ReconciliationDate = null;
+        }
+
+        var revertidas = transaccionesARevertir.Count;
+        _unidadesSeleccionadasMasivo.Clear();
+        _mostrarPanelMasivo = false;
+        AplicarFiltros();
+        mensajeExito = $"Se deshizo la conciliación de {revertidas} transacción(es).";
+        StateHasChanged();
+    }
 
     private string ResumenAplicacion(AccountStatementDetailView item)
     {

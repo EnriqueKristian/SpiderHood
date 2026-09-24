@@ -14,6 +14,8 @@
 @inject IExtraChargeService ExtraChargeService
 @inject AuthService AuthService
 @inject IReceiptStorageService ReceiptStorageService
+@inject IPermissionService PermissionService
+@inject IWorkflowAuditService WorkflowAuditService
 
 <PageTitle>Listado de Cuotas</PageTitle>
 
@@ -79,7 +81,7 @@
                                     </div>
                                     <div class="stat-content">
                                         <h6>Deuda Total</h6>
-                                        <p class="stat-value">@Moneda(allInstallments.Sum(i => i.Debt))</p>
+                                        <p class="stat-value">@Moneda(allInstallments.Where(i => i.Status != ReconciliationType.Condonada).Sum(i => i.Debt))</p>
                                     </div>
                                 </div>
                             </div>
@@ -103,6 +105,7 @@
                                     <option value="pendiente" selected="@(filtroEstado == "pendiente")">Pendientes</option>
                                     <option value="parcial" selected="@(filtroEstado == "parcial")">Parciales</option>
                                     <option value="pagada" selected="@(filtroEstado == "pagada")">Pagadas</option>
+                                    <option value="condonada" selected="@(filtroEstado == "condonada")">Condonadas</option>
                                 </select>
 
                                 <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroTipoChanged">
@@ -200,15 +203,30 @@
                                                 <td class="text-end">@Moneda(item.Amount)</td>
                                                 <td class="text-end">@Moneda(item.AmountPaid)</td>
                                                 <td class="text-end">
-                                                    <span class="@GetDeudaClass(item)">@Moneda(item.Debt)</span>
+                                                    @if (item.Status == ReconciliationType.Condonada)
+                                                    {
+                                                        <span class="text-muted">@Moneda(0)</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="@GetDeudaClass(item)">@Moneda(item.Debt)</span>
+                                                    }
                                                 </td>
                                                 <td class="text-center">
                                                     <span class="@EstadoBadgeClass(item)">@EstadoBadgeText(item)</span>
                                                 </td>
                                                 <td class="text-center">
-                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(item)">
-                                                        <i class="bi bi-eye me-1"></i>Ver Detalle
-                                                    </button>
+                                                    <div class="btn-group">
+                                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(item)">
+                                                            <i class="bi bi-eye me-1"></i>Ver Detalle
+                                                        </button>
+                                                        @if (_canCondonarDeuda && item.Debt > 0 && item.Status != ReconciliationType.Condonada)
+                                                        {
+                                                            <button class="btn btn-sm btn-outline-danger" title="Condonar Deuda" @onclick="() => CondonarDeuda(item)">
+                                                                <i class="bi bi-slash-circle"></i>
+                                                            </button>
+                                                        }
+                                                    </div>
                                                 </td>
                                             </tr>
                                         }
@@ -218,7 +236,7 @@
                                             <td colspan="5" class="text-end fw-bold">Totales de la página:</td>
                                             <td class="text-end fw-bold">@Moneda(pagination.CurrentPageData.Sum(i => i.Amount))</td>
                                             <td class="text-end fw-bold">@Moneda(pagination.CurrentPageData.Sum(i => i.AmountPaid))</td>
-                                            <td class="text-end fw-bold text-primary">@Moneda(pagination.CurrentPageData.Sum(i => i.Debt))</td>
+                                            <td class="text-end fw-bold text-primary">@Moneda(pagination.CurrentPageData.Where(i => i.Status != ReconciliationType.Condonada).Sum(i => i.Debt))</td>
                                             <td colspan="2"></td>
                                         </tr>
                                     </tfoot>
@@ -338,6 +356,10 @@
     </ExtraContent>
 </InstallmentDetailModal>
 
+<RejectionModal @ref="_condonarModal" Title="Condonar Deuda" Message="@_mensajeCondonar" OnClose="OnCondonarClose"
+                ButtonText="Condonar" FieldLabel="Motivo de la condonación"
+                FieldPlaceholder="Explicá por qué se condona esta deuda -- quedará guardado en el historial." />
+
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
@@ -353,6 +375,13 @@
     private Installment? selectedInstallment;
     private bool cargandoTransacciones;
     private List<PagoAsociado> transaccionesAsociadas = new();
+
+    // "Condonar Deuda" -- permiso nuevo y separado de reconciliar (Database/Scripts/
+    // 2026-09-24_144_CondonarDeuda_Feature.sql), sin asignar a ningún rol por defecto.
+    private bool _canCondonarDeuda;
+    private RejectionModal _condonarModal = null!;
+    private string _mensajeCondonar = string.Empty;
+    private Installment? _cuotaACondonar;
 
     // Presupuesto/lecturas/excepciones de la cuota actualmente abierta en el modal de
     // detalle — cargados on-demand en VerDetalle (acá no hay un único presupuesto
@@ -430,6 +459,9 @@
         pagination.Initialize(allInstallments.OrderByDescending(i => i.Period).ThenBy(i => i.UnitName).ToList());
         AplicarFiltros();
 
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        _canCondonarDeuda = currentUser != null && await PermissionService.HasPermissionAsync(currentUser, "condonar_deuda");
+
         cargando = false;
     }
 
@@ -497,6 +529,7 @@
                 "pendiente" => item.Status == ReconciliationType.NoConciliada,
                 "parcial" => item.Status == ReconciliationType.Parcial,
                 "pagada" => item.Status == ReconciliationType.Conciliada,
+                "condonada" => item.Status == ReconciliationType.Condonada,
                 _ => true
             }
             && filtroTipo switch
@@ -529,6 +562,7 @@
     {
         ReconciliationType.Conciliada => "badge bg-success",
         ReconciliationType.Parcial => "badge bg-info text-dark",
+        ReconciliationType.Condonada => "badge bg-secondary",
         _ => "badge bg-warning"
     };
 
@@ -536,8 +570,37 @@
     {
         ReconciliationType.Conciliada => "Pagada",
         ReconciliationType.Parcial => "Parcial",
+        ReconciliationType.Condonada => "Condonada",
         _ => "Pendiente"
     };
+
+    // Botón "Condonar Deuda" -- solo abre el modal pidiendo motivo; la condonación real
+    // ocurre en OnCondonarClose recién si se confirma con un motivo no vacío.
+    private void CondonarDeuda(Installment item)
+    {
+        _cuotaACondonar = item;
+        _mensajeCondonar = $"Vas a condonar (perdonar) la deuda de {Moneda(item.Debt)} de la unidad {item.UnitName}, " +
+            $"periodo {item.Period:MMM-yy}. La cuota quedará marcada como Condonada, sin registrar ningún pago real. Esta acción no se puede deshacer desde la pantalla.";
+        _condonarModal.Show();
+    }
+
+    private async Task OnCondonarClose(string? motivo)
+    {
+        if (motivo == null || _cuotaACondonar == null || ParameterService.CurrentBuilding == null) return;
+
+        var item = _cuotaACondonar;
+        _cuotaACondonar = null;
+
+        await InstallmentService.CondonarDeudaAsync(item.IdInstallment);
+
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        var performedBy = string.IsNullOrWhiteSpace(currentUser?.FullName) ? currentUser?.Email ?? "Sistema" : currentUser.FullName;
+        await WorkflowAuditService.LogAsync("Installment", item.IdInstallment, WorkflowAction.Waived,
+            performedBy, ParameterService.CurrentBuilding.IdBuilding,
+            $"Se condonó la deuda de {Moneda(item.Debt)} de la unidad {item.UnitName}, periodo {item.Period:MMM-yy}. Motivo: {motivo}");
+
+        await CargarCuotasAsync();
+    }
 
     private async Task VerDetalle(Installment item)
     {

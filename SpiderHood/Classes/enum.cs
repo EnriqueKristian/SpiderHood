@@ -9,7 +9,11 @@
         NoConciliada = 0,
         Conciliada = 1,
         Parcial = 2,
-        Pendiente = 3
+        Pendiente = 3,
+        // Solo aplica a Installment.Status (una cuota perdonada/condonada, sin pago real
+        // asociado) -- AccountStatementDetail.ReconciliationStatus nunca usa este valor,
+        // ver IInstallmentService.CondonarDeudaAsync.
+        Condonada = 4
     }
 
     public enum TransactionOrigin

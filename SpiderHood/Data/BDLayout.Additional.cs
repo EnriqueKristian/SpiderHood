@@ -104,6 +104,21 @@ namespace SpiderHood.Data
             }, "ConciliarInstallment", cancellationToken);
         }
 
+        // Condona una cuota: solo cambia Installment.Status, sin ninguna transacción
+        // bancaria de por medio (a diferencia de ConciliarInstallmentAsync, que siempre
+        // exige una) -- ver IInstallmentService.CondonarDeudaAsync.
+        public async Task<bool> CondonarInstallmentAsync(Guid idInstallment, CancellationToken cancellationToken = default)
+        {
+            return await ExecuteWithErrorHandlingAsync(async () =>
+            {
+                await ExecuteStoredProcedureAsync(
+                    StoredProcedures.UPD_InstallmentCondonar,
+                    cancellationToken,
+                    idInstallment);
+                return true;
+            }, "CondonarInstallment", cancellationToken);
+        }
+
         public async Task<bool> AcceptInvitationAsync(UserBuildingAssociation invitation, CancellationToken cancellationToken = default)
         {
             return await ExecuteWithErrorHandlingAsync(async () =>

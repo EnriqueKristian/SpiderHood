@@ -83,7 +83,7 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h6 class="text-muted text-uppercase small mb-1">Monto Deuda</h6>
-                                <h2 class="mb-0">@Moneda(_misCuotas.Sum(c => c.Debt))</h2>
+                                <h2 class="mb-0">@Moneda(_misCuotas.Where(c => c.Status != ReconciliationType.Condonada).Sum(c => c.Debt))</h2>
                             </div>
                             <div style="color: #ef4444;">
                                 <i class="bi bi-exclamation-circle" style="font-size: 1.2rem;"></i>
@@ -114,7 +114,7 @@
                             <div>
                                 <h6 class="text-muted text-uppercase small mb-1">Próximo Vencimiento</h6>
                                 @{
-                                    var proximo = _misCuotas.Where(c => c.Debt > 0).OrderBy(c => c.DueDate).FirstOrDefault();
+                                    var proximo = _misCuotas.Where(c => c.Debt > 0 && c.Status != ReconciliationType.Condonada).OrderBy(c => c.DueDate).FirstOrDefault();
                                 }
                                 @if (proximo == null)
                                 {
@@ -152,6 +152,7 @@
                     <option value="vencida" selected="@(_filtroEstado == "vencida")">Vencida</option>
                     <option value="parcial" selected="@(_filtroEstado == "parcial")">Parcial</option>
                     <option value="pagado" selected="@(_filtroEstado == "pagado")">Pagado</option>
+                    <option value="condonada" selected="@(_filtroEstado == "condonada")">Condonada</option>
                 </select>
             </div>
 
@@ -228,7 +229,14 @@
                                 <td class="text-end d-none d-md-table-cell">@Moneda(item.Amount)</td>
                                 <td class="text-end d-none d-md-table-cell">@Moneda(item.AmountPaid)</td>
                                 <td class="text-end">
-                                    <span class="@GetDeudaClass(item)">@Moneda(item.Debt)</span>
+                                    @if (item.Status == ReconciliationType.Condonada)
+                                    {
+                                        <span class="text-muted">@Moneda(0)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="@GetDeudaClass(item)">@Moneda(item.Debt)</span>
+                                    }
                                 </td>
                                 <td>
                                     <span class="badge @EstadoBadgeClass(item)">@EstadoBadgeText(item)</span>
@@ -426,6 +434,7 @@
                 "vencida" => item.Status == ReconciliationType.NoConciliada && item.DueDate.Date < DateTime.Today,
                 "parcial" => item.Status == ReconciliationType.Parcial,
                 "pagado" => item.Status == ReconciliationType.Conciliada,
+                "condonada" => item.Status == ReconciliationType.Condonada,
                 _ => true
             });
     }
@@ -436,6 +445,7 @@
     {
         ReconciliationType.Conciliada => "bg-success",
         ReconciliationType.Parcial => "bg-info text-dark",
+        ReconciliationType.Condonada => "bg-secondary",
         _ => item.DueDate.Date < DateTime.Today ? "bg-danger" : "bg-warning text-dark"
     };
 
@@ -443,6 +453,7 @@
     {
         ReconciliationType.Conciliada => "Pagado",
         ReconciliationType.Parcial => "Parcial",
+        ReconciliationType.Condonada => "Condonada",
         _ => item.DueDate.Date < DateTime.Today ? "Vencida" : "Pendiente de Pago"
     };
 

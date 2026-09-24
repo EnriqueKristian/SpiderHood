@@ -30,6 +30,12 @@ namespace SpiderHood.Services
         // Deshace ApplyPaymentAsync: borra los InstallmentPaid ligados a este pago y devuelve
         // tanto el pago como las cuotas afectadas a NoConciliada.
         Task RevertPaymentAsync(TransactionBankDetail pago, List<InstallmentPaid> pagosDeEstaTransaccion, Services.IBankAccountService BankService);
+
+        // Marca una cuota pendiente como Condonada (perdonada) -- sin crear ningún
+        // InstallmentPaid ni tocar ninguna transacción bancaria. El motivo/quién/cuándo
+        // quedan en WorkflowAuditService (WorkflowAction.Waived), no en la cuota misma,
+        // mismo patrón que ya usa la reversión de conciliación.
+        Task CondonarDeudaAsync(Guid idInstallment);
     }
 
     public class InstallmentService : IInstallmentService
@@ -438,6 +444,11 @@ namespace SpiderHood.Services
                 var cuotaLiberada = new Installment { IdInstallment = idInstallment, Status = ReconciliationType.NoConciliada };
                 await BankService.InstallmentConciliationAsync(pago, cuotaLiberada);
             }
+        }
+
+        public async Task CondonarDeudaAsync(Guid idInstallment)
+        {
+            await ec.CondonarInstallmentAsync(idInstallment);
         }
     }
 }

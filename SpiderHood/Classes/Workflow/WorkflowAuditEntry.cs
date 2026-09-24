@@ -46,6 +46,8 @@ namespace SpiderHood.Models
         // antes no dejaba ningún registro de quién cargó o modificó las lecturas de un
         // período, a diferencia del resto de los guardados de la app. Mismo motivo que
         // arriba, se guarda como string.
-        WaterReadingSaved
+        WaterReadingSaved,
+        // Agregado para "Condonar Deuda" (InstallmentList.razor) -- mismo motivo que arriba.
+        Waived
     }
 }

@@ -128,6 +128,9 @@ namespace SpiderHood.Data
             public const string UPD_Category = "UPD_Category";
             public const string UPD_Owner = "UPD_Owner";
             public const string UPD_InstallmentState = "UPD_InstallmentState";
+            // Condona una cuota (Status = Condonada) sin transacción bancaria asociada --
+            // a diferencia de UPD_InstallmentState, no toca AccountStatementDetail.
+            public const string UPD_InstallmentCondonar = "UPD_InstallmentCondonar";
             public const string UPD_Role = "UPD_Role";
             public const string UPD_USER = "UPD_USER";
             // Solo para migración de datos históricos (IMigrationImportService) -- no lo

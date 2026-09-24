@@ -260,6 +260,21 @@
                otros periodos, ver ShowAsync. *@
             @if (_deudasAnteriores.Any() && _installment != null && _installment.Type == InstallmentType.Ordinaria)
             {
+                @* Pedido explícito del usuario -- el desglose de abajo ya reflejaba el saldo a
+                   favor correctamente en el total (un Debt negativo resta), pero quedaba
+                   enterrado en una fila más de la tabla ("Cuotas Ordinarias: S/ -X.XX") sin
+                   ningún aviso aparte, y eso confundió al inicio. Esta línea es sólo un aviso
+                   adicional, arriba del desglose -- no cambia el cálculo de DEUDA TOTAL. *@
+                @if (DeudaAnteriorTotal < 0)
+                {
+                    <div class="alert alert-success d-flex align-items-center mx-4 mb-3">
+                        <i class="bi bi-piggy-bank-fill fs-4 me-3"></i>
+                        <div>
+                            <strong>Esta unidad tiene un saldo a favor de @Moneda(Math.Abs(DeudaAnteriorTotal)).</strong>
+                            Ya está descontado de la Deuda Total de abajo.
+                        </div>
+                    </div>
+                }
                 <div class="table-container px-4 pb-4">
                     <h6 class="mb-2 text-danger"><i class="bi bi-exclamation-circle me-1"></i>Deudas Anteriores</h6>
                     <div class="table-responsive">
@@ -373,7 +388,7 @@
 
     private bool EsRegularizacionAgua(Installment i) => i.Concept.Contains("agua", StringComparison.OrdinalIgnoreCase);
     private decimal DeudaLecturaAguaAnterior => _deudasAnteriores.Where(EsRegularizacionAgua).Sum(i => i.Debt);
-    private decimal DeudaOrdinariasAnteriores => _deudasAnteriores.Where(i => i.Type == InstallmentType.Ordinaria).Sum(i => i.Debt);
+    private decimal DeudaOrdinariasAnteriores => _deudasAnteriores.Where(i => i.Type == InstallmentType.Ordinaria && !EsRegularizacionAgua(i)).Sum(i => i.Debt);
     private decimal DeudaExtraordinariasAnteriores => _deudasAnteriores.Where(i => i.Type != InstallmentType.Ordinaria && !EsRegularizacionAgua(i)).Sum(i => i.Debt);
     private decimal DeudaAnteriorTotal => DeudaLecturaAguaAnterior + DeudaOrdinariasAnteriores + DeudaExtraordinariasAnteriores;
 

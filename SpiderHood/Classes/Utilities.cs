@@ -1030,13 +1030,29 @@ namespace SpiderHood.Models
                 var deudasUnidad = _deudasAnteriores.Where(d => d.IdGroupUnit == _installment.IdGroupUnit && d.IdInstallment != _installment.IdInstallment && d.Period < _installment.Period).ToList();
                 if (deudasUnidad.Any())
                 {
-                    var deudaOrdinarias = deudasUnidad.Where(d => d.Type == InstallmentType.Ordinaria).Sum(d => d.Debt);
-                    var deudaExtraordinarias = deudasUnidad.Where(d => d.Type != InstallmentType.Ordinaria).Sum(d => d.Debt);
-                    var deudaAnteriorTotal = deudaOrdinarias + deudaExtraordinarias;
+                    // Mismo desglose (y mismo fix de doble conteo del agua) que
+                    // InstallmentDetailModal.razor -- el recibo se había quedado con solo 2 de
+                    // las 3 filas que ya mostraba el detalle web (faltaba Lectura de Agua).
+                    var deudaAgua = deudasUnidad.Where(EsRegularizacionAgua).Sum(d => d.Debt);
+                    var deudaOrdinarias = deudasUnidad.Where(d => d.Type == InstallmentType.Ordinaria && !EsRegularizacionAgua(d)).Sum(d => d.Debt);
+                    var deudaExtraordinarias = deudasUnidad.Where(d => d.Type != InstallmentType.Ordinaria && !EsRegularizacionAgua(d)).Sum(d => d.Debt);
+                    var deudaAnteriorTotal = deudaAgua + deudaOrdinarias + deudaExtraordinarias;
+
+                    // Pedido explícito del usuario -- Debt negativo (saldo a favor) ya restaba
+                    // correctamente de DEUDA TOTAL, pero quedaba enterrado en una fila más de la
+                    // tabla, sin aviso aparte, y eso confundió al inicio. Mismo texto que el modal.
+                    if (deudaAnteriorTotal < 0)
+                    {
+                        table.Cell().ColumnSpan(4).PaddingTop(8);
+                        table.Cell().ColumnSpan(4).Background(Colors.Green.Lighten4).Padding(6)
+                            .Text($"Esta unidad tiene un saldo a favor de S/ {Math.Abs(deudaAnteriorTotal):N2}, ya descontado de la Deuda Total.")
+                            .Bold().FontSize(8).FontColor(Colors.Green.Darken3);
+                    }
 
                     AddSectionHeader(table, "DEUDAS ANTERIORES");
-                    AddTableRow(table, "Cuotas Ordinarias", 0, deudaOrdinarias, 0);
-                    AddTableRow(table, "Cuotas Extraordinarias, Multas y Mora", 0, deudaExtraordinarias, 0);
+                    AddDeudaAnteriorRow(table, "Lectura de Agua - Regularización", deudaAgua);
+                    AddDeudaAnteriorRow(table, "Cuotas Ordinarias", deudaOrdinarias);
+                    AddDeudaAnteriorRow(table, "Cuotas Extraordinarias, Multas y Mora", deudaExtraordinarias);
 
                     table.Cell().ColumnSpan(4).PaddingTop(6);
                     table.Cell().ColumnSpan(3).Background(Colors.Red.Darken2).Padding(5)
@@ -1141,6 +1157,25 @@ namespace SpiderHood.Models
             table.Cell().PaddingVertical(2).AlignRight().Text(presupuesto > 0 ? $"S/ {presupuesto:N2}" : "-").FontSize(8);
             table.Cell().PaddingVertical(2).AlignRight().Text(cuota > 0 ? $"S/ {cuota:N2}" : "-").FontSize(8);
             table.Cell().PaddingVertical(2).AlignRight().Text(GetDistributionType(tipo)).FontSize(7).FontColor(Colors.Grey.Darken1);
+        }
+
+        // Mismo criterio que InstallmentDetailModal.razor.EsRegularizacionAgua.
+        private bool EsRegularizacionAgua(Installment i) => i.Concept.Contains("agua", StringComparison.OrdinalIgnoreCase);
+
+        // A diferencia de AddTableRow (que oculta cualquier valor <= 0 detrás de un "-" --
+        // correcto para ítems de presupuesto normales, donde "-" significa "no aplica"),
+        // acá el signo importa: un monto negativo es un saldo a favor real (Debt = Amount -
+        // AmountPaid, negativo cuando se pagó de más) y tiene que verse tal cual -- un "-"
+        // ahí se leería como "no debe nada", ocultando justo el saldo a favor que se le
+        // quiere avisar al propietario.
+        private void AddDeudaAnteriorRow(TableDescriptor table, string description, decimal monto)
+        {
+            table.Cell().PaddingVertical(2).Text(description).FontSize(8);
+            table.Cell().PaddingVertical(2).Text("");
+            table.Cell().PaddingVertical(2).AlignRight()
+                .Text($"S/ {monto:N2}").FontSize(8)
+                .FontColor(monto < 0 ? Colors.Green.Darken2 : Colors.Black);
+            table.Cell().PaddingVertical(2).Text("");
         }
 
         private decimal CalculateItemAmount(BudgetDetail item)

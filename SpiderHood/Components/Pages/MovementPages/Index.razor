@@ -7,6 +7,7 @@
 @inject ParameterService ParameterService
 @inject IBankAccountService BankAccountService
 @inject IInstallmentService InstallmentService
+@inject IExpenseService ExpenseService
 
 <PageTitle>Estados de Cuenta</PageTitle>
 
@@ -100,15 +101,30 @@
                                         </div>
 
                                         <div class="d-flex gap-2">
-                                            <div class="input-group" style="width: 300px;">
+                                            <div class="input-group" style="width: 260px;">
                                                 <span class="input-group-text">
                                                     <i class="bi bi-search"></i>
                                                 </span>
                                                 <input type="text"
                                                        class="form-control"
-                                                       placeholder="Buscar descripción, monto o unidad/DPTO..."
+                                                       placeholder="Buscar descripción o monto..."
                                                        value="@searchTermDetalle"
                                                        @oninput="OnSearchDetalleInput" />
+                                            </div>
+
+                                            @* Filtro separado de la búsqueda de texto -- antes "101" en el buscador único
+                                               traía también montos como "S/101.50" y unidades como "1013" (Contains sobre
+                                               un solo campo, ver comentario en AplicarFiltrosDetalle). Acá compara EXACTO
+                                               contra el UnitName de pagosCuotas, sin ese arrastre. *@
+                                            <div class="input-group" style="width: 180px;">
+                                                <span class="input-group-text">
+                                                    <i class="bi bi-house-door"></i>
+                                                </span>
+                                                <input type="text"
+                                                       class="form-control"
+                                                       placeholder="Unidad/DPTO exacto"
+                                                       value="@filtroUnidadDetalle"
+                                                       @oninput="OnUnidadDetalleInput" />
                                             </div>
 
                                             <button class="btn btn-outline-secondary" @onclick="LimpiarFiltrosDetalle">
@@ -317,11 +333,12 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th class="ps-3">Fecha</th>
-                                            <th>Archivo</th>
+                                            <th>Cuenta</th>
                                             <th>Descripción</th>
                                             <th>Moneda</th>
                                             <th>Monto</th>
                                             <th>Estado</th>
+                                            <th>DPTO / Gasto</th>
                                             <th class="text-end">Saldo sin aplicar</th>
                                             <th class="text-center">Acciones</th>
                                         </tr>
@@ -331,7 +348,7 @@
                                         {
                                             <tr>
                                                 <td class="ps-3">@item.StatementDate.ToString("dd/MM/yyyy")</td>
-                                                <td>@GetArchivo(item.IdStatementHeader)</td>
+                                                <td title="@GetArchivo(item.IdStatementHeader)">@GetNumeroCuenta(item.IdStatementHeader)</td>
                                                 <td>@item.Description</td>
                                                 <td>
                                                     <span class="badge @(item.Currency == "USD" ? "bg-info" : "bg-success")">@item.Currency</span>
@@ -354,6 +371,7 @@
                                                         <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Pendiente</span>
                                                     }
                                                 </td>
+                                                <td>@GetUnidadOGasto(item)</td>
                                                 <td class="text-end">
                                                     @{ var saldoSinAplicar = GetSaldoSinAplicar(item); }
                                                     @if (saldoSinAplicar.HasValue)
@@ -551,11 +569,16 @@
     private bool cargandoDetalle = true;
     private bool detalleCargado = false;
     private string searchTermDetalle = string.Empty;
+    private string filtroUnidadDetalle = string.Empty;
     private string filtroTipoDetalle = "todos";
     private bool soloNoConciliadosDetalle = false;
 
     // Para el modal "Cuotas asociadas al pago" (ver comentario junto al modal).
     private List<InstallmentPaid> pagosCuotas = new();
+    // Para resolver la columna "DPTO / Gasto" en Egresos conciliados -- ReconciledTransactionId
+    // es el campo que UPD_ExpenseReconcilied realmente actualiza (Expense.IdMovDetail es el que
+    // lee GET_ExpensesByBuilding pero no el que se usa al conciliar, ver comentario en la tabla).
+    private List<ViewExpense> gastosConciliados = new();
     private bool mostrarModalDetallePago = false;
     private AccountStatementDetailView? pagoSeleccionado = null;
 
@@ -647,6 +670,7 @@
         Guid? filtroCuenta = selectedBankAccountId == Guid.Empty ? null : selectedBankAccountId;
         var detalles = await BankAccountService.GetStatementDetailsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding, filtroCuenta);
         pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
+        gastosConciliados = await ExpenseService.GetExpensesByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         paginationDetalle.Initialize(detalles.OrderByDescending(d => d.StatementDate).ToList());
         AplicarFiltrosDetalle();
@@ -676,28 +700,34 @@
         AplicarFiltrosDetalle();
     }
 
+    private void OnUnidadDetalleInput(ChangeEventArgs e)
+    {
+        filtroUnidadDetalle = e.Value?.ToString() ?? string.Empty;
+        AplicarFiltrosDetalle();
+    }
+
     private void FiltrarTipoDetalle(string tipo)
     {
         filtroTipoDetalle = tipo;
         AplicarFiltrosDetalle();
     }
 
-    // El buscador de "Detalle" original solo comparaba contra Description/Amount
-    // (AccountStatementDetailViewPagination.ApplySearch) -- esa vista deliberadamente no
-    // trae la unidad conciliada (ver comentario en Movement.cs). pagosCuotas (ya cargado
-    // para el modal "Cuotas asociadas al pago") sí tiene, por transacción, a qué UnitName
-    // se aplicó -- se arma acá un filtro combinado en vez de usar paginationDetalle.Search
-    // por separado, porque Search() y ApplyCustomFilter() se combinan con AND, no OR, y
-    // "buscar por unidad" tiene que ser una alternativa a "buscar por descripción/monto",
-    // no un filtro adicional sobre ella.
+    // El filtro de Unidad/DPTO es EXACTO (no Contains) a propósito -- pagosCuotas (ya
+    // cargado para el modal "Cuotas asociadas al pago") trae, por transacción, a qué
+    // UnitName se aplicó. Mezclarlo con el buscador de texto libre (como antes) hacía que
+    // "101" trajera también montos como "S/101.50" y unidades como "1013"/"2101" -- acá
+    // van separados: el buscador de texto sigue comparando solo contra Description/Amount,
+    // y este filtro solo contra el UnitName exacto.
     private void AplicarFiltrosDetalle()
     {
         var term = searchTermDetalle?.Trim() ?? string.Empty;
+        var unidad = filtroUnidadDetalle?.Trim() ?? string.Empty;
+
         HashSet<Guid>? transaccionesPorUnidad = null;
-        if (!string.IsNullOrWhiteSpace(term))
+        if (!string.IsNullOrWhiteSpace(unidad))
         {
             transaccionesPorUnidad = pagosCuotas
-                .Where(p => p.UnitName.Contains(term, StringComparison.OrdinalIgnoreCase))
+                .Where(p => string.Equals(p.UnitName.Trim(), unidad, StringComparison.OrdinalIgnoreCase))
                 .Select(p => p.IdTransaction)
                 .ToHashSet();
         }
@@ -712,13 +742,14 @@
             && (!soloNoConciliadosDetalle || item.ReconciliationStatus != ReconciliationType.Conciliada)
             && (string.IsNullOrWhiteSpace(term)
                 || (!string.IsNullOrEmpty(item.Description) && item.Description.Contains(term, StringComparison.OrdinalIgnoreCase))
-                || item.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture).Contains(term, StringComparison.OrdinalIgnoreCase)
-                || (transaccionesPorUnidad != null && transaccionesPorUnidad.Contains(item.IdStatementDetail))));
+                || item.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture).Contains(term, StringComparison.OrdinalIgnoreCase))
+            && (transaccionesPorUnidad == null || transaccionesPorUnidad.Contains(item.IdStatementDetail)));
     }
 
     private void LimpiarFiltrosDetalle()
     {
         searchTermDetalle = string.Empty;
+        filtroUnidadDetalle = string.Empty;
         filtroTipoDetalle = "todos";
         soloNoConciliadosDetalle = false;
         paginationDetalle.ClearFilters();
@@ -745,6 +776,42 @@
     {
         var header = pagination.AllData.FirstOrDefault(h => h.IdStatementHeader == idStatementHeader);
         return header?.FileName ?? "—";
+    }
+
+    // Reemplaza la columna "Archivo" -- con "Todos" seleccionado en Cuenta Bancaria, el
+    // nombre de archivo no distingue de qué cuenta vino cada fila; el nro de cuenta sí.
+    // El archivo original queda como tooltip (title) de la celda, no se pierde del todo.
+    private string GetNumeroCuenta(Guid idStatementHeader)
+    {
+        var header = pagination.AllData.FirstOrDefault(h => h.IdStatementHeader == idStatementHeader);
+        if (header == null) return "—";
+
+        var cuenta = cuentasBancarias.FirstOrDefault(c => c.IdBankAccount == header.IdBankAccount);
+        return cuenta != null ? $"{cuenta.BankName} - {cuenta.AccountNumber}" : "—";
+    }
+
+    // Columna "DPTO / Gasto": a qué unidad se aplicó (Ingreso) o qué categoría de gasto
+    // corresponde (Egreso), cuando la transacción ya está Conciliada o Parcial. Un pago
+    // solo puede extenderse a cuotas del mismo IdGroupUnit (ver ApplyPaymentAsync), así
+    // que un Ingreso conciliado nunca debería traer más de una unidad -- Distinct() es
+    // solo una salvaguarda de lectura, no una decisión de negocio.
+    private string GetUnidadOGasto(AccountStatementDetailView item)
+    {
+        if (item.ReconciliationStatus != ReconciliationType.Conciliada && item.ReconciliationStatus != ReconciliationType.Parcial)
+            return "—";
+
+        if (item.Amount >= 0)
+        {
+            var unidades = pagosCuotas
+                .Where(p => p.IdTransaction == item.IdStatementDetail)
+                .Select(p => p.UnitName)
+                .Distinct()
+                .ToList();
+            return unidades.Any() ? string.Join(", ", unidades) : "—";
+        }
+
+        var gasto = gastosConciliados.FirstOrDefault(g => g.ReconciledTransactionId == item.IdStatementDetail);
+        return gasto?.Category ?? "—";
     }
 
     private void JumpToPage()

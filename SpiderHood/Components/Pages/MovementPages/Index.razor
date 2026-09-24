@@ -106,7 +106,7 @@
                                                 </span>
                                                 <input type="text"
                                                        class="form-control"
-                                                       placeholder="Buscar descripción o monto..."
+                                                       placeholder="Buscar descripción, monto o unidad/DPTO..."
                                                        value="@searchTermDetalle"
                                                        @oninput="OnSearchDetalleInput" />
                                             </div>
@@ -322,6 +322,7 @@
                                             <th>Moneda</th>
                                             <th>Monto</th>
                                             <th>Estado</th>
+                                            <th class="text-end">Saldo sin aplicar</th>
                                             <th class="text-center">Acciones</th>
                                         </tr>
                                     </thead>
@@ -351,6 +352,19 @@
                                                     else
                                                     {
                                                         <span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Pendiente</span>
+                                                    }
+                                                </td>
+                                                <td class="text-end">
+                                                    @{ var saldoSinAplicar = GetSaldoSinAplicar(item); }
+                                                    @if (saldoSinAplicar.HasValue)
+                                                    {
+                                                        <span class="badge bg-warning text-dark" title="Monto conciliado que no se aplicó a ninguna cuota -- disponible para aplicar a una deuda pendiente de la misma unidad.">
+                                                            @saldoSinAplicar.Value.ToString("C", System.Globalization.CultureInfo.CreateSpecificCulture(item.Currency == "USD" ? "en-US" : "es-PE"))
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">—</span>
                                                     }
                                                 </td>
                                                 <td class="text-center">
@@ -635,10 +649,7 @@
         pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
 
         paginationDetalle.Initialize(detalles.OrderByDescending(d => d.StatementDate).ToList());
-        if (!string.IsNullOrWhiteSpace(searchTermDetalle))
-        {
-            paginationDetalle.Search(searchTermDetalle);
-        }
+        AplicarFiltrosDetalle();
 
         cargandoDetalle = false;
         detalleCargado = true;
@@ -662,7 +673,7 @@
     private void OnSearchDetalleInput(ChangeEventArgs e)
     {
         searchTermDetalle = e.Value?.ToString() ?? string.Empty;
-        paginationDetalle.Search(searchTermDetalle);
+        AplicarFiltrosDetalle();
     }
 
     private void FiltrarTipoDetalle(string tipo)
@@ -671,16 +682,38 @@
         AplicarFiltrosDetalle();
     }
 
+    // El buscador de "Detalle" original solo comparaba contra Description/Amount
+    // (AccountStatementDetailViewPagination.ApplySearch) -- esa vista deliberadamente no
+    // trae la unidad conciliada (ver comentario en Movement.cs). pagosCuotas (ya cargado
+    // para el modal "Cuotas asociadas al pago") sí tiene, por transacción, a qué UnitName
+    // se aplicó -- se arma acá un filtro combinado en vez de usar paginationDetalle.Search
+    // por separado, porque Search() y ApplyCustomFilter() se combinan con AND, no OR, y
+    // "buscar por unidad" tiene que ser una alternativa a "buscar por descripción/monto",
+    // no un filtro adicional sobre ella.
     private void AplicarFiltrosDetalle()
     {
+        var term = searchTermDetalle?.Trim() ?? string.Empty;
+        HashSet<Guid>? transaccionesPorUnidad = null;
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            transaccionesPorUnidad = pagosCuotas
+                .Where(p => p.UnitName.Contains(term, StringComparison.OrdinalIgnoreCase))
+                .Select(p => p.IdTransaction)
+                .ToHashSet();
+        }
+
         paginationDetalle.ApplyCustomFilter(item =>
-            filtroTipoDetalle switch
+            (filtroTipoDetalle switch
             {
                 "ingresos" => item.Amount >= 0,
                 "egresos" => item.Amount < 0,
                 _ => true
-            }
-            && (!soloNoConciliadosDetalle || item.ReconciliationStatus != ReconciliationType.Conciliada));
+            })
+            && (!soloNoConciliadosDetalle || item.ReconciliationStatus != ReconciliationType.Conciliada)
+            && (string.IsNullOrWhiteSpace(term)
+                || (!string.IsNullOrEmpty(item.Description) && item.Description.Contains(term, StringComparison.OrdinalIgnoreCase))
+                || item.Amount.ToString(System.Globalization.CultureInfo.InvariantCulture).Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (transaccionesPorUnidad != null && transaccionesPorUnidad.Contains(item.IdStatementDetail))));
     }
 
     private void LimpiarFiltrosDetalle()
@@ -689,6 +722,23 @@
         filtroTipoDetalle = "todos";
         soloNoConciliadosDetalle = false;
         paginationDetalle.ClearFilters();
+    }
+
+    // Igual que "Saldo sin aplicar" del modal "Cuotas asociadas al pago" (línea ~464),
+    // pero resuelto por fila para poder verlo sin abrir cada transacción una por una --
+    // pedido real: encontrar, para una unidad, si algún pago conciliado le quedó con
+    // saldo a favor sin aplicar a ninguna deuda. Solo aplica a Ingresos conciliados o
+    // parciales (Gastos y pendientes no tienen pagosCuotas asociados). Tolerancia de
+    // medio centavo por acumulación de redondeo entre AmountInReportingCurrency y la
+    // suma de InstallmentPaid.Amount.
+    private decimal? GetSaldoSinAplicar(AccountStatementDetailView item)
+    {
+        if (item.Amount < 0) return null;
+        if (item.ReconciliationStatus != ReconciliationType.Conciliada && item.ReconciliationStatus != ReconciliationType.Parcial) return null;
+
+        var aplicado = pagosCuotas.Where(p => p.IdTransaction == item.IdStatementDetail).Sum(p => p.Amount);
+        var saldo = item.Amount - aplicado;
+        return saldo > 0.005m ? saldo : null;
     }
 
     private string GetArchivo(Guid idStatementHeader)

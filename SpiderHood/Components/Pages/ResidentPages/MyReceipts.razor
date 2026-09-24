@@ -7,6 +7,7 @@
 @using SpiderHood.Components.Pages.Components
 @inject Services.AuthService AuthService
 @inject Services.IInstallmentService InstallmentService
+@inject Services.IBankAccountService BankAccountService
 @inject Services.IBudgetService BudgetService
 @inject Services.IServiceReadingService ServiceReadingService
 @inject Services.IBuildingService BuildingService
@@ -47,6 +48,18 @@
     }
     else
     {
+        @if (_saldoAFavor > 0.005m)
+        {
+            <div class="alert alert-success d-flex align-items-center" role="alert">
+                <i class="bi bi-piggy-bank-fill fs-4 me-3"></i>
+                <div>
+                    <strong>Tienes un saldo a favor de @Moneda(_saldoAFavor).</strong>
+                    Es un monto de un pago anterior que quedó sin aplicar a ninguna cuota. Coordina con la administración
+                    para aplicarlo a tu próxima cuota pendiente.
+                </div>
+            </div>
+        }
+
         <!-- Resumen -->
         <div class="row g-3 mb-4">
             <div class="col-6 col-md-3">
@@ -272,6 +285,7 @@
     private Guid? _unitId;
     private List<Installment> _misCuotas = new();
     private ReceiptPagination _pagination = new();
+    private decimal _saldoAFavor;
 
     private string _searchTerm = string.Empty;
     private string _filtroEstado = "todos";
@@ -332,12 +346,50 @@
                 var todas = await InstallmentService.GetInstallmentsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
                 _misCuotas = todas.Where(i => i.IdGroupUnit == _unitId).ToList();
                 _pagination.Initialize(_misCuotas);
+                await CalcularSaldoAFavorAsync();
             }
         }
         finally
         {
             _loading = false;
         }
+    }
+
+    // Mismo cálculo que "Saldo sin aplicar" en Estados de Cuenta > Detalle (pantalla
+    // admin, Index.razor) pero acotado a los pagos de ESTA unidad: de las transacciones
+    // que alguna vez se aplicaron a una cuota de _misCuotas, ¿cuánto de su monto no se
+    // usó en ninguna cuota? No cubre el caso (en investigación aparte, ver
+    // Docs/Pendientes-Negocio-Conciliacion.md) de un pago que quedó con saldo asociado a
+    // un IdGroupUnit histórico distinto al actual de la unidad -- ese saldo no aparece
+    // acá porque GetInstallmentsPaidAsync lo asocia por Installment.IdGroupUnit, no por
+    // esta unidad "actual".
+    private async Task CalcularSaldoAFavorAsync()
+    {
+        if (ParameterService.CurrentBuilding == null || !_misCuotas.Any())
+        {
+            _saldoAFavor = 0;
+            return;
+        }
+
+        var idsInstallment = _misCuotas.Select(c => c.IdInstallment).ToHashSet();
+        var pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
+        var idsTransaccion = pagosCuotas
+            .Where(p => idsInstallment.Contains(p.IdInstallment))
+            .Select(p => p.IdTransaction)
+            .Distinct()
+            .ToHashSet();
+
+        if (!idsTransaccion.Any())
+        {
+            _saldoAFavor = 0;
+            return;
+        }
+
+        var transacciones = await BankAccountService.GetStatementDetailsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding, null);
+
+        _saldoAFavor = transacciones
+            .Where(t => idsTransaccion.Contains(t.IdStatementDetail))
+            .Sum(t => t.Amount - pagosCuotas.Where(p => p.IdTransaction == t.IdStatementDetail).Sum(p => p.Amount));
     }
 
     public void Dispose() => _pagination.OnPaginationChanged -= StateHasChanged;

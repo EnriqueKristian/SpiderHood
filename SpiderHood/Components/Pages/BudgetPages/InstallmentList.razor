@@ -35,6 +35,14 @@
                     <p class="text-muted mb-0">Cuotas de todos los periodos</p>
                 </div>
             </div>
+            @if (_canAgregarCuotaManual)
+            {
+                <div class="page-header-actions">
+                    <button class="btn btn-outline-primary" @onclick="AbrirModalCuotaManual">
+                        <i class="bi bi-plus-circle me-1"></i>Agregar Cuota Manual
+                    </button>
+                </div>
+            }
         </div>
 
         @if (!cargando)
@@ -360,6 +368,74 @@
                 ButtonText="Condonar" FieldLabel="Motivo de la condonación"
                 FieldPlaceholder="Explicá por qué se condona esta deuda -- quedará guardado en el historial." />
 
+@if (_mostrarModalCuotaManual)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Agregar Cuota Manual</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalCuotaManual"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">
+                        Crea una cuota Ordinaria contra el presupuesto ya publicado de un periodo pasado --
+                        para regularizar meses donde faltó cargar la cuota de una unidad. Por ahora solo
+                        aplica al grupo <strong>Inmobiliaria</strong> (unidades sin vender).
+                    </p>
+
+                    @if (_grupoInmobiliaria == null)
+                    {
+                        <div class="alert alert-warning">
+                            Todavía no existe el grupo "Inmobiliaria" para este edificio. Andá a
+                            <strong>Presupuesto</strong> y usá "Actualizar unidades sin vender" (revisá antes que
+                            Configuración &gt; Edificios &gt; Inmobiliaria tenga los datos cargados).
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Periodo (presupuesto ya publicado)</label>
+                            <select class="form-select" @bind="_cuotaManualIdBudgetHeader">
+                                <option value="">-- Elegir periodo --</option>
+                                @foreach (var budget in _budgetsOrdinarios)
+                                {
+                                    <option value="@budget.IdBudgetHeader">@budget.BudgetDate.ToString("MMM-yy")</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Monto</label>
+                            <input type="number" step="0.01" class="form-control" @bind="_cuotaManualMonto" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Fecha de vencimiento</label>
+                            <input type="date" class="form-control" @bind="_cuotaManualVencimiento" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Motivo (queda en el historial)</label>
+                            <textarea class="form-control" rows="2" @bind="_cuotaManualMotivo"
+                                      placeholder="Ej: Regularización histórica -- cuota de Ene-2026 nunca cargada."></textarea>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_cuotaManualError))
+                    {
+                        <div class="alert alert-danger">@_cuotaManualError</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CerrarModalCuotaManual">Cancelar</button>
+                    @if (_grupoInmobiliaria != null)
+                    {
+                        <button class="btn btn-primary" @onclick="GuardarCuotaManual">Agregar Cuota</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
 
@@ -382,6 +458,21 @@
     private RejectionModal _condonarModal = null!;
     private string _mensajeCondonar = string.Empty;
     private Installment? _cuotaACondonar;
+
+    // "Agregar Cuota Manual" -- permiso nuevo y separado de Condonar (Database/Scripts/
+    // 2026-09-24_145_CuotaManualInmobiliaria_Feature.sql), sin asignar a ningún rol por
+    // defecto. Cubre el caso de cuotas históricas de la Inmobiliaria (unidades sin vender)
+    // que nunca se cargaron para un periodo ya cerrado -- ver AddInstallmentAsync, que
+    // hasta ahora solo usaba el importador de migración.
+    private bool _canAgregarCuotaManual;
+    private bool _mostrarModalCuotaManual;
+    private OwnerUnitView? _grupoInmobiliaria;
+    private List<BudgetHeader> _budgetsOrdinarios = new();
+    private string _cuotaManualIdBudgetHeader = string.Empty;
+    private decimal _cuotaManualMonto;
+    private DateTime _cuotaManualVencimiento = DateTime.Today;
+    private string _cuotaManualMotivo = string.Empty;
+    private string _cuotaManualError = string.Empty;
 
     // Presupuesto/lecturas/excepciones de la cuota actualmente abierta en el modal de
     // detalle — cargados on-demand en VerDetalle (acá no hay un único presupuesto
@@ -461,6 +552,7 @@
 
         var currentUser = await AuthService.GetCurrentUserAsync();
         _canCondonarDeuda = currentUser != null && await PermissionService.HasPermissionAsync(currentUser, "condonar_deuda");
+        _canAgregarCuotaManual = currentUser != null && await PermissionService.HasPermissionAsync(currentUser, "agregar_cuota_manual");
 
         cargando = false;
     }
@@ -599,6 +691,90 @@
             performedBy, ParameterService.CurrentBuilding.IdBuilding,
             $"Se condonó la deuda de {Moneda(item.Debt)} de la unidad {item.UnitName}, periodo {item.Period:MMM-yy}. Motivo: {motivo}");
 
+        await CargarCuotasAsync();
+    }
+
+    private async Task AbrirModalCuotaManual()
+    {
+        if (ParameterService.CurrentBuilding == null) return;
+
+        var idBuilding = ParameterService.CurrentBuilding.IdBuilding;
+        var owners = await BuildingService.GetOwnersByBuildingAsync(idBuilding);
+        _grupoInmobiliaria = owners.FirstOrDefault(o => o.IsRealEstateCompanyOwner);
+
+        // Solo presupuestos Ordinarios (BudgetType vacío) -- mismo criterio que
+        // ExtraChargeService.GetActiveBudgetAsync -- Extraordinarios/Cargos no aplican acá.
+        var presupuestos = await BudgetService.GetBudgetsAsync(idBuilding);
+        _budgetsOrdinarios = presupuestos
+            .Where(b => string.IsNullOrEmpty(b.BudgetType))
+            .OrderByDescending(b => b.BudgetDate)
+            .ToList();
+
+        _cuotaManualIdBudgetHeader = string.Empty;
+        _cuotaManualMonto = 0;
+        _cuotaManualVencimiento = DateTime.Today;
+        _cuotaManualMotivo = string.Empty;
+        _cuotaManualError = string.Empty;
+        _mostrarModalCuotaManual = true;
+    }
+
+    private void CerrarModalCuotaManual()
+    {
+        _mostrarModalCuotaManual = false;
+    }
+
+    private async Task GuardarCuotaManual()
+    {
+        if (_grupoInmobiliaria == null || ParameterService.CurrentBuilding == null) return;
+
+        if (!Guid.TryParse(_cuotaManualIdBudgetHeader, out var idBudgetHeader))
+        {
+            _cuotaManualError = "Elegí el periodo al que corresponde esta cuota.";
+            return;
+        }
+
+        if (_cuotaManualMonto <= 0)
+        {
+            _cuotaManualError = "El monto debe ser mayor a cero.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_cuotaManualMotivo))
+        {
+            _cuotaManualError = "Indicá un motivo -- queda guardado en el historial.";
+            return;
+        }
+
+        var budget = _budgetsOrdinarios.First(b => b.IdBudgetHeader == idBudgetHeader);
+        var currentUser = await AuthService.GetCurrentUserAsync();
+        var performedBy = string.IsNullOrWhiteSpace(currentUser?.FullName) ? currentUser?.Email ?? "Sistema" : currentUser.FullName;
+
+        var cuota = new Installment
+        {
+            IdInstallment = Guid.NewGuid(),
+            IdBudgetHeader = idBudgetHeader,
+            Number = _grupoInmobiliaria.GroupNumber,
+            UnitName = "Inmobiliaria",
+            OwnerName = _grupoInmobiliaria.FirstName,
+            CreationDate = DateTime.Now,
+            Amount = Math.Round(_cuotaManualMonto, 2),
+            Percent = 0,
+            TotalArea = _grupoInmobiliaria.TotalArea,
+            Period = budget.BudgetDate,
+            CreatedBy = performedBy,
+            Status = ReconciliationType.NoConciliada,
+            IdGroupUnit = _grupoInmobiliaria.IdGroupUnit,
+            DueDate = _cuotaManualVencimiento,
+            Type = InstallmentType.Ordinaria
+        };
+
+        await InstallmentService.AddInstallmentAsync(cuota);
+
+        await WorkflowAuditService.LogAsync("Installment", cuota.IdInstallment, WorkflowAction.ManualCharge,
+            performedBy, ParameterService.CurrentBuilding.IdBuilding,
+            $"Cuota manual de {Moneda(cuota.Amount)} para Inmobiliaria, periodo {budget.BudgetDate:MMM-yy}. Motivo: {_cuotaManualMotivo}");
+
+        _mostrarModalCuotaManual = false;
         await CargarCuotasAsync();
     }
 

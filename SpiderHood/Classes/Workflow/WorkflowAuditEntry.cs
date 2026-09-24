@@ -48,6 +48,8 @@ namespace SpiderHood.Models
         // arriba, se guarda como string.
         WaterReadingSaved,
         // Agregado para "Condonar Deuda" (InstallmentList.razor) -- mismo motivo que arriba.
-        Waived
+        Waived,
+        // Agregado para "Agregar Cuota Manual" (InstallmentList.razor) -- mismo motivo que arriba.
+        ManualCharge
     }
 }

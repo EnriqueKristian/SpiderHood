@@ -1083,13 +1083,12 @@ namespace SpiderHood.Models
                 var deudasUnidad = _deudasAnteriores.Where(d => d.IdGroupUnit == _installment.IdGroupUnit && d.IdInstallment != _installment.IdInstallment && d.Period < _installment.Period).ToList();
                 if (deudasUnidad.Any())
                 {
-                    // Mismo desglose (y mismo fix de doble conteo del agua) que
-                    // InstallmentDetailModal.razor -- el recibo se había quedado con solo 2 de
-                    // las 3 filas que ya mostraba el detalle web (faltaba Lectura de Agua).
-                    var deudaAgua = deudasUnidad.Where(EsRegularizacionAgua).Sum(d => d.Debt);
-                    var deudaOrdinarias = deudasUnidad.Where(d => d.Type == InstallmentType.Ordinaria && !EsRegularizacionAgua(d)).Sum(d => d.Debt);
-                    var deudaExtraordinarias = deudasUnidad.Where(d => d.Type != InstallmentType.Ordinaria && !EsRegularizacionAgua(d)).Sum(d => d.Debt);
-                    var deudaAnteriorTotal = deudaAgua + deudaOrdinarias + deudaExtraordinarias;
+                    // Pedido explícito del usuario -- una regularización de agua es una Cuota
+                    // Extraordinaria más, no una categoría aparte (ver mismo cambio en
+                    // InstallmentDetailModal.razor).
+                    var deudaOrdinarias = deudasUnidad.Where(d => d.Type == InstallmentType.Ordinaria).Sum(d => d.Debt);
+                    var deudaExtraordinarias = deudasUnidad.Where(d => d.Type != InstallmentType.Ordinaria).Sum(d => d.Debt);
+                    var deudaAnteriorTotal = deudaOrdinarias + deudaExtraordinarias;
 
                     // Pedido explícito del usuario -- Debt negativo (saldo a favor) ya restaba
                     // correctamente de DEUDA TOTAL, pero quedaba enterrado en una fila más de la
@@ -1103,7 +1102,6 @@ namespace SpiderHood.Models
                     }
 
                     AddSectionHeader(table, "DEUDAS ANTERIORES");
-                    AddDeudaAnteriorRow(table, "Lectura de Agua - Regularización", deudaAgua);
                     AddDeudaAnteriorRow(table, "Cuotas Ordinarias", deudaOrdinarias);
                     AddDeudaAnteriorRow(table, "Cuotas Extraordinarias, Multas y Mora", deudaExtraordinarias);
 
@@ -1211,9 +1209,6 @@ namespace SpiderHood.Models
             table.Cell().PaddingVertical(2).AlignRight().Text(cuota > 0 ? $"S/ {cuota:N2}" : "-").FontSize(8);
             table.Cell().PaddingVertical(2).AlignRight().Text(GetDistributionType(tipo)).FontSize(7).FontColor(Colors.Grey.Darken1);
         }
-
-        // Mismo criterio que InstallmentDetailModal.razor.EsRegularizacionAgua.
-        private bool EsRegularizacionAgua(Installment i) => i.Concept.Contains("agua", StringComparison.OrdinalIgnoreCase);
 
         // A diferencia de AddTableRow (que oculta cualquier valor <= 0 detrás de un "-" --
         // correcto para ítems de presupuesto normales, donde "-" significa "no aplica"),

@@ -303,10 +303,6 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td>Lectura de Agua - Regularización</td>
-                                    <td class="text-end">@Moneda(DeudaLecturaAguaAnterior)</td>
-                                </tr>
-                                <tr>
                                     <td>Cuotas Ordinarias</td>
                                     <td class="text-end">@Moneda(DeudaOrdinariasAnteriores)</td>
                                 </tr>
@@ -405,11 +401,13 @@
     // _deudasAnteriores (ese sí resta de DEUDA TOTAL). Este monto es puramente informativo.
     private decimal _saldoAFavorNoAplicado;
 
-    private bool EsRegularizacionAgua(Installment i) => i.Concept.Contains("agua", StringComparison.OrdinalIgnoreCase);
-    private decimal DeudaLecturaAguaAnterior => _deudasAnteriores.Where(EsRegularizacionAgua).Sum(i => i.Debt);
-    private decimal DeudaOrdinariasAnteriores => _deudasAnteriores.Where(i => i.Type == InstallmentType.Ordinaria && !EsRegularizacionAgua(i)).Sum(i => i.Debt);
-    private decimal DeudaExtraordinariasAnteriores => _deudasAnteriores.Where(i => i.Type != InstallmentType.Ordinaria && !EsRegularizacionAgua(i)).Sum(i => i.Debt);
-    private decimal DeudaAnteriorTotal => DeudaLecturaAguaAnterior + DeudaOrdinariasAnteriores + DeudaExtraordinariasAnteriores;
+    // Pedido explícito del usuario -- una regularización de agua es una Cuota
+    // Extraordinaria más (Installment.Type == Extraordinaria), no una categoría aparte;
+    // antes se sacaba a su propia fila "Lectura de Agua - Regularización" buscando "agua"
+    // en el Concept, pero eso la duplicaba fuera de donde ya le correspondía contarse.
+    private decimal DeudaOrdinariasAnteriores => _deudasAnteriores.Where(i => i.Type == InstallmentType.Ordinaria).Sum(i => i.Debt);
+    private decimal DeudaExtraordinariasAnteriores => _deudasAnteriores.Where(i => i.Type != InstallmentType.Ordinaria).Sum(i => i.Debt);
+    private decimal DeudaAnteriorTotal => DeudaOrdinariasAnteriores + DeudaExtraordinariasAnteriores;
 
     private decimal _distr;
     private int _waterReadingsCount;

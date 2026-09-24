@@ -148,6 +148,7 @@
 
                 <select class="form-select form-select-sm" style="width: auto;" @onchange="OnFiltroEstadoChanged">
                     <option value="todos" selected="@(_filtroEstado == "todos")">Todos los estados</option>
+                    <option value="no_pagadas" selected="@(_filtroEstado == "no_pagadas")">No Pagadas (pendientes + vencidas + parciales)</option>
                     <option value="pendiente" selected="@(_filtroEstado == "pendiente")">Pendiente de Pago</option>
                     <option value="vencida" selected="@(_filtroEstado == "vencida")">Vencida</option>
                     <option value="parcial" selected="@(_filtroEstado == "parcial")">Parcial</option>
@@ -430,6 +431,7 @@
             (_filtroPeriodo == null || item.Period.Date == _filtroPeriodo.Value.Date)
             && _filtroEstado switch
             {
+                "no_pagadas" => item.Status == ReconciliationType.NoConciliada || item.Status == ReconciliationType.Parcial,
                 "pendiente" => item.Status == ReconciliationType.NoConciliada && item.DueDate.Date >= DateTime.Today,
                 "vencida" => item.Status == ReconciliationType.NoConciliada && item.DueDate.Date < DateTime.Today,
                 "parcial" => item.Status == ReconciliationType.Parcial,

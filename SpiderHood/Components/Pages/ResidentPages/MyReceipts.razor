@@ -234,17 +234,21 @@
                                     <span class="badge @EstadoBadgeClass(item)">@EstadoBadgeText(item)</span>
                                 </td>
                                 <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-primary" disabled="@(_generandoPdf == item.IdInstallment)" @onclick="() => VerDetalle(item)">
-                                        @if (_generandoPdf == item.IdInstallment)
-                                        {
-                                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                                        }
-                                        else
-                                        {
-                                            <i class="bi bi-file-earmark-pdf me-1"></i>
-                                        }
-                                        Ver Detalle
-                                    </button>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(item)">
+                                            <i class="bi bi-eye me-1"></i>Ver Detalle
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" disabled="@(_generandoPdf == item.IdInstallment)" @onclick="() => DescargarPdf(item)">
+                                            @if (_generandoPdf == item.IdInstallment)
+                                            {
+                                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-file-earmark-pdf"></i>
+                                            }
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -259,6 +263,10 @@
         }
     }
 </div>
+
+@* OnImprimir wired al mismo botón "PDF" de la fila -- sin esto, el botón "Imprimir" del
+   modal no hace nada (silencioso, ver InstallmentDetailModal.HandleImprimirClick). *@
+<InstallmentDetailModal @ref="_detalleModal" OnImprimir="DescargarPdf" />
 
 @code {
     private string Moneda(decimal valor) => valor.FormatoMoneda(ParameterService.CurrentBuilding?.Configuration.Currency);
@@ -339,6 +347,13 @@
         {
             if (_unitId != null && ParameterService.CurrentBuilding != null)
             {
+                // Mismo fix que InstallmentList.razor.CargarCuotasAsync -- GetDistributionType
+                // (columna Tipo de InstallmentDetailModal, ahora usado también acá para "Ver
+                // Detalle") lee de ParameterService.ListParameters, que arranca vacía hasta que
+                // alguna página llame a LoadParametersAsync. Sin esto, el modal mostraba "No se
+                // encontró coincidencia" en vez de "Fija"/"%".
+                await ParameterService.LoadParametersAsync(ParameterService.CurrentBuilding.IdBuilding);
+
                 // GetInstallmentsByBuildingAsync (no GetPendingInstallmentsAsync): esta página
                 // necesita poder filtrar por "Pagado" -- GetPendingInstallmentsAsync excluye las
                 // cuotas Conciliada a nivel de SQL (Status <> 1), así que ese filtro nunca
@@ -365,31 +380,16 @@
     // esta unidad "actual".
     private async Task CalcularSaldoAFavorAsync()
     {
-        if (ParameterService.CurrentBuilding == null || !_misCuotas.Any())
+        if (ParameterService.CurrentBuilding == null || !_misCuotas.Any() || _unitId == null)
         {
             _saldoAFavor = 0;
             return;
         }
 
-        var idsInstallment = _misCuotas.Select(c => c.IdInstallment).ToHashSet();
         var pagosCuotas = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
-        var idsTransaccion = pagosCuotas
-            .Where(p => idsInstallment.Contains(p.IdInstallment))
-            .Select(p => p.IdTransaction)
-            .Distinct()
-            .ToHashSet();
-
-        if (!idsTransaccion.Any())
-        {
-            _saldoAFavor = 0;
-            return;
-        }
-
         var transacciones = await BankAccountService.GetStatementDetailsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding, null);
 
-        _saldoAFavor = transacciones
-            .Where(t => idsTransaccion.Contains(t.IdStatementDetail))
-            .Sum(t => t.Amount - pagosCuotas.Where(p => p.IdTransaction == t.IdStatementDetail).Sum(p => p.Amount));
+        _saldoAFavor = SaldoAFavorCalculator.CalcularNoAplicado(_unitId.Value, _misCuotas, pagosCuotas, transacciones);
     }
 
     public void Dispose() => _pagination.OnPaginationChanged -= StateHasChanged;
@@ -446,12 +446,29 @@
         _ => item.DueDate.Date < DateTime.Today ? "Vencida" : "Pendiente de Pago"
     };
 
-    // "Ver Detalle" -- antes abría un modal con el desglose de la cuota y recién desde
-    // ahí, con un segundo click en "Imprimir", se generaba/descargaba el PDF. Ahora
-    // genera (o reusa, ver GetOrGenerateReceiptAsync) el mismo recibo PDF que ya usa
-    // /cuotas directamente y lo abre para VERLO (no fuerza la descarga) -- el propietario
-    // quiere ver el recibo real, no un resumen aparte.
+    // "Ver Detalle" (página/modal) y "PDF" (recibo impreso) son dos botones separados a
+    // propósito -- una versión anterior los había fusionado en uno solo que abría
+    // directamente el PDF, pero eso ocultaba justo el aviso de saldo a favor NO aplicado
+    // (ver _saldoAFavor/CalcularSaldoAFavorAsync) detrás de un PDF que además tarda más en
+    // generarse. "Ver Detalle" reusa el mismo InstallmentDetailModal que ya usa el admin en
+    // /cuotas (InstallmentList.razor) -- mismo desglose, mismo aviso.
+    private InstallmentDetailModal _detalleModal = null!;
+
     private async Task VerDetalle(Installment item)
+    {
+        if (ParameterService.CurrentBuilding == null) return;
+
+        var budget = await BudgetService.GetBudgetByIdAsync(item.IdBudgetHeader);
+        var waterReadings = await ServiceReadingService.GetServiceReadingDetailbyPeriodAsync(item.Period, ParameterService.CurrentBuilding.IdBuilding);
+        var exonerations = await BudgetService.GetExonerationsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding);
+
+        await _detalleModal.ShowAsync(item, budget, waterReadings, exonerations);
+    }
+
+    // Genera (o reusa, ver GetOrGenerateReceiptAsync) el mismo recibo PDF que ya usa
+    // /cuotas y lo abre para VERLO (no fuerza la descarga) -- el propietario quiere ver el
+    // recibo real, no solo un resumen en pantalla.
+    private async Task DescargarPdf(Installment item)
     {
         if (ParameterService.CurrentBuilding == null || _generandoPdf != null) return;
 
@@ -503,7 +520,8 @@
                 cargosAdicionales,
                 deudasAnteriores,
                 logoBytes,
-                administradoraName);
+                administradoraName,
+                _saldoAFavor);
 
             // Docs/Pendientes-Negocio-Consolidado.md #18b -- si ya se generó antes,
             // sirve el mismo PDF guardado (no lo recalcula con la configuración

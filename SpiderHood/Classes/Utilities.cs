@@ -651,6 +651,39 @@ namespace SpiderHood.Models
         }
     }
 
+    // Cálculo de "saldo a favor no aplicado": dinero de un pago (transacción bancaria) ya
+    // conciliado a esta unidad que quedó sin usar en ninguna cuota -- distinto de un
+    // Installment.Debt negativo (que sí se refleja en DEUDA TOTAL, ver "Deudas Anteriores"
+    // en InstallmentExportService/InstallmentDetailModal). Este vive puramente en la
+    // transacción bancaria, sin ningún Installment/InstallmentPaid que lo referencie -- por
+    // eso ni el detalle ni el recibo lo mostraban, aunque MyReceipts.razor ya lo calculaba
+    // para el aviso de la pantalla principal (Docs/... hallazgo de 2026-09-24). Un solo
+    // cálculo para admin (InstallmentList.razor) y residente (MyReceipts.razor,
+    // MyPayments.razor) en vez de triplicarlo.
+    public static class SaldoAFavorCalculator
+    {
+        public static decimal CalcularNoAplicado(
+            Guid idGroupUnit,
+            List<Installment> todasLasCuotas,
+            List<InstallmentPaid> pagosCuotas,
+            List<AccountStatementDetailView> transacciones)
+        {
+            var idsInstallment = todasLasCuotas.Where(c => c.IdGroupUnit == idGroupUnit).Select(c => c.IdInstallment).ToHashSet();
+            if (!idsInstallment.Any()) return 0;
+
+            var idsTransaccion = pagosCuotas
+                .Where(p => idsInstallment.Contains(p.IdInstallment))
+                .Select(p => p.IdTransaction)
+                .Distinct()
+                .ToHashSet();
+            if (!idsTransaccion.Any()) return 0;
+
+            return transacciones
+                .Where(t => idsTransaccion.Contains(t.IdStatementDetail))
+                .Sum(t => t.Amount - pagosCuotas.Where(p => p.IdTransaction == t.IdStatementDetail).Sum(p => p.Amount));
+        }
+    }
+
     // InstallmentExportService.cs
     public class InstallmentExportService
     {
@@ -673,6 +706,13 @@ namespace SpiderHood.Models
         // administradora en la cabecera.
         private readonly byte[]? _logoBytes;
         private readonly string? _administradoraName;
+        // Dinero de un pago ya conciliado a esta unidad que quedó sin aplicar a ninguna
+        // cuota -- vive puramente en la transacción bancaria (ver
+        // SaldoAFavorCalculator), sin ningún Installment/InstallmentPaid que lo referencie.
+        // Distinto de un Installment.Debt negativo en _deudasAnteriores (que sí se resta de
+        // DEUDA TOTAL): este monto NO está incluido en ningún total del recibo, es solo
+        // informativo -- ver el aviso aparte en ComposeTable.
+        private readonly decimal _saldoAFavorNoAplicado;
 
         public InstallmentExportService(
             List<Installment> installments,
@@ -685,7 +725,8 @@ namespace SpiderHood.Models
             List<Installment>? cargosAdicionales = null,
             List<Installment>? deudasAnteriores = null,
             byte[]? logoBytes = null,
-            string? administradoraName = null)
+            string? administradoraName = null,
+            decimal saldoAFavorNoAplicado = 0)
         {
             _installments = installments;
             _budget = budget;
@@ -697,6 +738,7 @@ namespace SpiderHood.Models
             _deudasAnteriores = deudasAnteriores ?? new();
             _logoBytes = logoBytes;
             _administradoraName = administradoraName;
+            _saldoAFavorNoAplicado = saldoAFavorNoAplicado;
 
             var unidadesFacturables = owners
                 .Where(o => o.Role == 1 && (o.TypeUnit == 1 || o.TypeUnit == 4))
@@ -1008,6 +1050,17 @@ namespace SpiderHood.Models
                     .Text($"TOTAL CUOTA ORDINARIA {periodo}").Bold().FontColor(Colors.White).FontSize(9);
                 table.Cell().Background(Colors.Blue.Darken2).Padding(5).AlignRight()
                     .Text($"S/ {_installment.Amount:N2}").Bold().FontSize(11).FontColor(Colors.White);
+
+                // Aviso aparte del de "Deudas Anteriores" de abajo -- ESTE monto no está
+                // incluido en ningún total de este recibo (a diferencia del Debt negativo de
+                // deudaAnteriorTotal, que sí se resta de DEUDA TOTAL). Puramente informativo.
+                if (_saldoAFavorNoAplicado > 0.005m)
+                {
+                    table.Cell().ColumnSpan(4).PaddingTop(8);
+                    table.Cell().ColumnSpan(4).Background(Colors.Green.Lighten4).Padding(6)
+                        .Text($"Además, tiene un saldo a favor de S/ {_saldoAFavorNoAplicado:N2} de un pago anterior que aún no se aplicó a ninguna cuota (no incluido en la Deuda Total de este recibo).")
+                        .Bold().FontSize(8).FontColor(Colors.Green.Darken3);
+                }
 
                 var cargosUnidad = _cargosAdicionales.Where(c => c.IdGroupUnit == _installment.IdGroupUnit).ToList();
                 if (cargosUnidad.Any())

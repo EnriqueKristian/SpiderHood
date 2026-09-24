@@ -6,6 +6,7 @@
 @inject SpiderHood.Services.IBuildingService BuildingService
 @inject SpiderHood.Services.IExtraChargeService ExtraChargeService
 @inject SpiderHood.Services.IInstallmentService InstallmentService
+@inject SpiderHood.Services.IBankAccountService BankAccountService
 
 <Modal @ref="_modal" Title="@TituloModal" Size="ModalSize.ExtraLarge">
     <BodyTemplate>
@@ -253,6 +254,21 @@
                 </div>
             }
 
+            @* Independiente de "Deudas Anteriores" de abajo -- ese sólo cubre Installment.Debt
+               (cuotas no Conciliadas); esto es dinero de un pago YA conciliado que quedó sin
+               aplicar a ninguna cuota (ni siquiera una ya pagada). Puramente informativo, no
+               está incluido en ningún total mostrado -- ver SaldoAFavorCalculator. *@
+            @if (_saldoAFavorNoAplicado > 0.005m && _installment != null && _installment.Type == InstallmentType.Ordinaria)
+            {
+                <div class="alert alert-success d-flex align-items-center mx-4 mb-3">
+                    <i class="bi bi-piggy-bank-fill fs-4 me-3"></i>
+                    <div>
+                        <strong>Además, tiene un saldo a favor de @Moneda(_saldoAFavorNoAplicado)</strong>
+                        de un pago anterior que aún no se aplicó a ninguna cuota (no incluido en los totales de arriba).
+                    </div>
+                </div>
+            }
+
             @* Deudas Anteriores: cuotas Ordinarias/Extraordinarias-Multa-Mora de PERIODOS
                PREVIOS que siguen sin conciliarse para esta misma unidad -- igual que el
                recibo en Excel que reemplaza este módulo. No confundir con el bloque de
@@ -385,6 +401,9 @@
     // conciliarse para el mismo IdGroupUnit -- ver ShowAsync y la sección "Deudas
     // Anteriores" del recibo en Excel que este módulo reemplaza.
     private List<Installment> _deudasAnteriores = new();
+    // Ver SaldoAFavorCalculator -- distinto de un Installment.Debt negativo dentro de
+    // _deudasAnteriores (ese sí resta de DEUDA TOTAL). Este monto es puramente informativo.
+    private decimal _saldoAFavorNoAplicado;
 
     private bool EsRegularizacionAgua(Installment i) => i.Concept.Contains("agua", StringComparison.OrdinalIgnoreCase);
     private decimal DeudaLecturaAguaAnterior => _deudasAnteriores.Where(EsRegularizacionAgua).Sum(i => i.Debt);
@@ -430,6 +449,7 @@
         _pesoFija = 1;
         _cargosAdicionales = new();
         _deudasAnteriores = new();
+        _saldoAFavorNoAplicado = 0;
         if (ParameterService.CurrentBuilding != null)
         {
             // Misma fuente que Owners.razor (Residentes): una fila por unidad del grupo,
@@ -478,6 +498,18 @@
                         && i.IdInstallment != installment.IdInstallment
                         && i.Period < installment.Period)
                     .ToList();
+
+                // Saldo a favor NO aplicado -- ver SaldoAFavorCalculator. A diferencia de
+                // _deudasAnteriores (GetPendingInstallmentsAsync, que excluye Status ==
+                // Conciliada), acá hace falta TODAS las cuotas de la unidad -- la transacción
+                // pudo haberse aplicado a una cuota que ya está totalmente pagada.
+                var todasLasCuotasUnidad = (await InstallmentService.GetInstallmentsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding))
+                    .Where(i => i.IdGroupUnit == installment.IdGroupUnit)
+                    .ToList();
+                var pagosCuotasUnidad = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
+                var transaccionesEdificio = await BankAccountService.GetStatementDetailsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding, null);
+                _saldoAFavorNoAplicado = SaldoAFavorCalculator.CalcularNoAplicado(
+                    installment.IdGroupUnit, todasLasCuotasUnidad, pagosCuotasUnidad, transaccionesEdificio);
             }
         }
 

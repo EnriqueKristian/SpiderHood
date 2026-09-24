@@ -645,6 +645,17 @@
             // administradora para la franja "Administrado por...".
             var (logoBytes, _, administradoraName) = await BuildingService.GetReceiptBrandingAsync(ParameterService.CurrentBuilding);
 
+            // Mismo aviso que ya muestra "Ver Detalle" en pantalla -- ver SaldoAFavorCalculator.
+            var saldoAFavorNoAplicado = 0m;
+            if (item.Type == InstallmentType.Ordinaria)
+            {
+                var todasLasCuotasUnidad = allInstallments.Where(i => i.IdGroupUnit == item.IdGroupUnit).ToList();
+                var pagosCuotasUnidad = await InstallmentService.GetInstallmentsPaidAsync(ParameterService.CurrentBuilding.IdBuilding);
+                var transaccionesEdificio = await BankAccountService.GetStatementDetailsByBuildingAsync(ParameterService.CurrentBuilding.IdBuilding, null);
+                saldoAFavorNoAplicado = SaldoAFavorCalculator.CalcularNoAplicado(
+                    item.IdGroupUnit, todasLasCuotasUnidad, pagosCuotasUnidad, transaccionesEdificio);
+            }
+
             var exportService = new InstallmentExportService(
                 new List<Installment> { item },
                 budgetActual,
@@ -656,7 +667,8 @@
                 cargosAdicionales,
                 deudasAnteriores,
                 logoBytes,
-                administradoraName);
+                administradoraName,
+                saldoAFavorNoAplicado);
 
             // Docs/Pendientes-Negocio-Consolidado.md #18b -- si ya se generó antes,
             // sirve el mismo PDF guardado (no lo recalcula con la configuración

@@ -679,8 +679,18 @@ namespace SpiderHood.Models
             if (!idsTransaccion.Any()) return 0;
 
             return transacciones
-                .Where(t => idsTransaccion.Contains(t.IdStatementDetail))
-                .Sum(t => t.Amount - pagosCuotas.Where(p => p.IdTransaction == t.IdStatementDetail).Sum(p => p.Amount));
+                    .Where(t => idsTransaccion.Contains(t.IdStatementDetail))
+                    .Sum(t =>
+                    {
+                        // Solo sumar los pagos de ESTA unidad (idsInstallment), no de todas
+                        decimal pagadoEnEstaUnidad = pagosCuotas
+                            .Where(p => p.IdTransaction == t.IdStatementDetail && idsInstallment.Contains(p.IdInstallment))
+                            .Sum(p => p.Amount);
+
+                        var diferencia = t.Amount - pagadoEnEstaUnidad;
+                        // Solo contar como saldo a favor si es positivo
+                        return diferencia > 0 ? diferencia : 0;
+                    });
         }
     }
 
